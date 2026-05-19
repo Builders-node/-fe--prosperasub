@@ -1,0 +1,567 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  :root {
+    --brand-accent-hex: #F8A31A;
+    --brand-accent: 37 94% 54%;
+    --brand-accent-hover: 37 94% 47%;
+    --brand-accent-active: 37 94% 40%;
+    --brand-accent-soft: 37 94% 54% / 0.16;
+    --brand-on-accent: 0 0% 0%;
+
+    /* Typography */
+    --font-family-display: 'Inter', sans-serif;
+    --font-family-body: 'Inter', sans-serif;
+
+    --font-size-2xs: 0.625rem;
+    --font-size-xs: 0.6875rem;
+    --font-size-sm: 0.8125rem;
+    --font-size-md: 0.9375rem;
+    --font-size-lg: 1rem;
+    --font-size-xl: 1.125rem;
+    --font-size-2xl: 1.3125rem;
+    --font-size-3xl: 1.625rem;
+    --font-size-4xl: 2rem;
+    --font-size-5xl: 2.375rem;
+    --font-size-6xl: 3rem;
+
+    --line-height-tight: 1.1;
+    --line-height-heading: 1.14;
+    --line-height-title: 1.2;
+    --line-height-body: 1.48;
+    --line-height-control: 1.2;
+
+    --letter-spacing-tight: 0;
+    --letter-spacing-normal: 0;
+    --letter-spacing-wide: 0.08em;
+
+    --font-weight-regular: 400;
+    --font-weight-medium: 500;
+    --font-weight-bold: 650;
+    --font-weight-extrabold: 750;
+    --font-weight-black: 800;
+
+    --type-page-title-size: var(--font-size-5xl);
+    --type-page-title-line-height: var(--line-height-tight);
+    --type-page-title-weight: var(--font-weight-black);
+
+    --type-section-title-size: var(--font-size-4xl);
+    --type-section-title-line-height: var(--line-height-heading);
+    --type-section-title-weight: var(--font-weight-black);
+
+    --type-panel-title-size: var(--font-size-2xl);
+    --type-panel-title-line-height: var(--line-height-title);
+    --type-panel-title-weight: var(--font-weight-extrabold);
+
+    --type-card-title-size: var(--font-size-xl);
+    --type-card-title-line-height: var(--line-height-title);
+    --type-card-title-weight: var(--font-weight-extrabold);
+
+    --type-body-size: var(--font-size-md);
+    --type-body-line-height: var(--line-height-body);
+    --type-body-weight: var(--font-weight-medium);
+
+    --type-body-large-size: var(--font-size-lg);
+    --type-body-large-line-height: var(--line-height-body);
+    --type-body-large-weight: var(--font-weight-medium);
+
+    --type-control-size: var(--font-size-sm);
+    --type-control-line-height: var(--line-height-control);
+    --type-control-weight: var(--font-weight-bold);
+
+    --type-label-size: var(--font-size-sm);
+    --type-label-line-height: var(--line-height-control);
+    --type-label-weight: var(--font-weight-bold);
+
+    --type-caption-size: var(--font-size-xs);
+    --type-caption-line-height: 1rem;
+    --type-caption-weight: var(--font-weight-bold);
+
+    --background: 0 0% 96%;
+    --foreground: 0 0% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 12%;
+
+    --primary: var(--brand-accent);
+    --primary-foreground: var(--brand-on-accent);
+
+    --secondary: 0 0% 100%;
+    --secondary-foreground: 0 0% 14%;
+
+    --muted: 0 0% 93%;
+    --muted-foreground: 0 0% 48%;
+
+    --accent: var(--brand-accent);
+    --accent-foreground: var(--brand-on-accent);
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 0 0% 88%;
+    --input: 0 0% 100%;
+    --ring: var(--brand-accent);
+
+    --radius: 1rem;
+
+    /*
+      Design spacing/radius scale:
+      xs/sm for compact controls, md for primary controls/dropdowns,
+      lg for cards/modals/menus, xl for large page sections, full for pills/avatars.
+    */
+    --radius-xs: 0.375rem;
+    --radius-sm: 0.625rem;
+    --radius-md: 1rem;
+    --radius-lg: 1.5rem;
+    --radius-xl: 2rem;
+    --radius-full: 9999px;
+
+    --space-1: 0.25rem;
+    --space-2: 0.5rem;
+    --space-3: 0.75rem;
+    --space-4: 1rem;
+    --space-5: 1.25rem;
+    --space-6: 1.5rem;
+    --space-8: 2rem;
+    --space-10: 2.5rem;
+    --space-12: 3rem;
+    --space-16: 4rem;
+    --space-20: 5rem;
+    --space-24: 6rem;
+
+    --component-padding-sm: var(--space-3);
+    --component-padding-md: var(--space-4);
+    --component-padding-lg: var(--space-6);
+    --section-gap-sm: var(--space-8);
+    --section-gap-md: var(--space-12);
+    --section-gap-lg: var(--space-16);
+
+    /* App specific colors */
+    --success: var(--brand-accent);
+    --warning: 38 92% 50%;
+    --info: 217 91% 60%;
+    --lightning: 45 100% 51%;
+
+    /* Dark surface for drawers/modals */
+    --surface-dark: 0 0% 100%;
+    --surface-dark-foreground: 0 0% 12%;
+
+    --app-chrome: 0 0% 100%;
+    --app-control: 0 0% 94%;
+    --app-control-muted: 0 0% 91%;
+    --app-rail: 0 0% 100%;
+    --app-rail-active: var(--brand-accent);
+    --app-rail-active-foreground: var(--brand-on-accent);
+    --app-divider: 0 0% 88%;
+    --app-logo-bg: 0 0% 7%;
+    --app-logo-foreground: 0 0% 100%;
+
+    /* Category chips */
+    --chip-bg: 0 0% 100%;
+    --chip-active: var(--brand-accent);
+
+    /* Shadows */
+    --shadow-sm: none;
+    --shadow-md: none;
+    --shadow-lg: none;
+    --shadow-xl: none;
+
+    --sidebar-background: 0 0% 96%;
+    --sidebar-foreground: 0 0% 12%;
+    --sidebar-primary: var(--brand-accent);
+    --sidebar-primary-foreground: var(--brand-on-accent);
+    --sidebar-accent: 0 0% 93%;
+    --sidebar-accent-foreground: 0 0% 12%;
+    --sidebar-border: 0 0% 88%;
+    --sidebar-ring: var(--brand-accent);
+  }
+
+  .dark {
+    --background: 0 0% 8%;
+    --foreground: 0 0% 88%;
+
+    --card: 0 0% 10%;
+    --card-foreground: 0 0% 88%;
+
+    --popover: 0 0% 14%;
+    --popover-foreground: 0 0% 92%;
+
+    --primary: var(--brand-accent);
+    --primary-foreground: var(--brand-on-accent);
+
+    --secondary: 0 0% 18%;
+    --secondary-foreground: 0 0% 88%;
+
+    --muted: 0 0% 18%;
+    --muted-foreground: 0 0% 72%;
+
+    --accent: var(--brand-accent);
+    --accent-foreground: var(--brand-on-accent);
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 0 0% 24%;
+    --input: 0 0% 10%;
+    --ring: var(--brand-accent);
+
+    --chip-bg: 0 0% 18%;
+    --chip-active: var(--brand-accent);
+
+    --surface-dark: 0 0% 14%;
+    --surface-dark-foreground: 0 0% 100%;
+
+    --app-chrome: 0 0% 18%;
+    --app-control: 0 0% 8%;
+    --app-control-muted: 0 0% 26%;
+    --app-rail: 0 0% 18%;
+    --app-rail-active: 0 0% 100%;
+    --app-rail-active-foreground: 0 0% 7%;
+    --app-divider: 0 0% 26%;
+    --app-logo-bg: 0 0% 100%;
+    --app-logo-foreground: 0 0% 7%;
+
+    --sidebar-background: 0 0% 12%;
+    --sidebar-foreground: 0 0% 88%;
+    --sidebar-primary: var(--brand-accent);
+    --sidebar-primary-foreground: var(--brand-on-accent);
+    --sidebar-accent: 0 0% 18%;
+    --sidebar-accent-foreground: 0 0% 88%;
+    --sidebar-border: 0 0% 24%;
+    --sidebar-ring: var(--brand-accent);
+
+    --shadow-sm: 0 1px 2px 0 hsl(0 0% 0% / 0.35);
+    --shadow-md: 0 10px 28px -18px hsl(0 0% 0% / 0.9);
+    --shadow-lg: 0 20px 44px -24px hsl(0 0% 0% / 0.95);
+    --shadow-xl: 0 28px 70px -32px hsl(0 0% 0% / 1);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-family-body);
+    font-size: var(--type-body-size);
+    font-weight: var(--type-body-weight);
+    line-height: var(--type-body-line-height);
+    letter-spacing: var(--letter-spacing-normal);
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-family-display);
+    letter-spacing: var(--letter-spacing-tight);
+  }
+
+  h1 {
+    font-size: var(--type-page-title-size);
+    font-weight: var(--type-page-title-weight);
+    line-height: var(--type-page-title-line-height);
+  }
+
+  h2 {
+    font-size: var(--type-section-title-size);
+    font-weight: var(--type-section-title-weight);
+    line-height: var(--type-section-title-line-height);
+  }
+
+  h3 {
+    font-size: var(--type-panel-title-size);
+    font-weight: var(--type-panel-title-weight);
+    line-height: var(--type-panel-title-line-height);
+  }
+
+  h4, h5, h6 {
+    font-size: var(--type-card-title-size);
+    font-weight: var(--type-card-title-weight);
+    line-height: var(--type-card-title-line-height);
+  }
+
+  html:not(.dark) *,
+  html:not(.dark) *::before,
+  html:not(.dark) *::after {
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+}
+
+@layer components {
+  .type-page-title {
+    font-family: var(--font-family-display);
+    font-size: var(--type-page-title-size);
+    font-weight: var(--type-page-title-weight);
+    line-height: var(--type-page-title-line-height);
+    letter-spacing: var(--letter-spacing-tight);
+  }
+
+  .type-section-title {
+    font-family: var(--font-family-display);
+    font-size: var(--type-section-title-size);
+    font-weight: var(--type-section-title-weight);
+    line-height: var(--type-section-title-line-height);
+    letter-spacing: var(--letter-spacing-tight);
+  }
+
+  .type-panel-title {
+    font-family: var(--font-family-display);
+    font-size: var(--type-panel-title-size);
+    font-weight: var(--type-panel-title-weight);
+    line-height: var(--type-panel-title-line-height);
+    letter-spacing: var(--letter-spacing-tight);
+  }
+
+  .type-card-title {
+    font-family: var(--font-family-display);
+    font-size: var(--type-card-title-size);
+    font-weight: var(--type-card-title-weight);
+    line-height: var(--type-card-title-line-height);
+    letter-spacing: var(--letter-spacing-tight);
+  }
+
+  .type-body {
+    font-family: var(--font-family-body);
+    font-size: var(--type-body-size);
+    font-weight: var(--type-body-weight);
+    line-height: var(--type-body-line-height);
+  }
+
+  .type-body-large {
+    font-family: var(--font-family-body);
+    font-size: var(--type-body-large-size);
+    font-weight: var(--type-body-large-weight);
+    line-height: var(--type-body-large-line-height);
+  }
+
+  .type-control {
+    font-family: var(--font-family-body);
+    font-size: var(--type-control-size);
+    font-weight: var(--type-control-weight);
+    line-height: var(--type-control-line-height);
+  }
+
+  .type-label {
+    font-family: var(--font-family-body);
+    font-size: var(--type-label-size);
+    font-weight: var(--type-label-weight);
+    line-height: var(--type-label-line-height);
+  }
+
+  .type-caption {
+    font-family: var(--font-family-body);
+    font-size: var(--type-caption-size);
+    font-weight: var(--type-caption-weight);
+    line-height: var(--type-caption-line-height);
+  }
+
+  /* Food Delivery Card Styles */
+  .food-card {
+    @apply bg-transparent overflow-visible transition-all duration-300;
+  }
+
+  .food-card-image {
+    @apply aspect-[4/3] object-cover w-full;
+  }
+
+  /* Status Badges */
+  .status-badge {
+    @apply inline-flex items-center gap-space-2 rounded-radius-full px-space-3 py-space-1 text-caption;
+  }
+
+  .status-badge.pending {
+    @apply bg-warning/10 text-warning;
+  }
+
+  .status-badge.active {
+    @apply bg-primary/10 text-primary;
+  }
+
+  .status-badge.completed {
+    @apply bg-muted text-muted-foreground;
+  }
+
+  /* Order Timeline */
+  .order-timeline {
+    @apply relative space-y-space-4 pl-space-6;
+  }
+
+  .order-timeline::before {
+    @apply absolute left-2 top-2 bottom-2 w-0.5 bg-border content-[''];
+  }
+
+  .timeline-step {
+    @apply relative flex items-start gap-space-4;
+  }
+
+  .timeline-dot {
+    @apply absolute -left-4 top-space-1 h-4 w-4 rounded-radius-full border-2 bg-background;
+  }
+
+  .timeline-dot.active {
+    @apply bg-primary border-primary;
+  }
+
+  .timeline-dot.completed {
+    @apply bg-primary border-primary;
+  }
+
+  /* Quick Action Buttons */
+  .quick-action {
+    @apply flex cursor-pointer flex-col items-center gap-space-2 rounded-radius-lg border border-border/50 bg-card p-space-4 transition-colors hover:bg-muted;
+  }
+
+  .quick-action-icon {
+    @apply flex h-12 w-12 items-center justify-center rounded-radius-md bg-primary/10 text-primary;
+  }
+
+  /* Restaurant Card */
+  .restaurant-card {
+    @apply bg-transparent overflow-visible transition-all duration-300;
+  }
+
+  /* Price Display */
+  .price-tag {
+    @apply inline-flex items-center gap-space-1 text-control text-primary;
+  }
+
+  /* Mobile Bottom Nav - Floating pill style */
+  .bottom-nav {
+    @apply fixed bottom-space-4 left-space-4 right-space-4 z-50 rounded-radius-xl bg-[hsl(var(--app-rail))] shadow-xl md:hidden;
+    box-shadow: 0 8px 32px -4px hsl(0 0% 0% / 0.45), 0 4px 16px -4px hsl(0 0% 0% / 0.32);
+  }
+
+  .bottom-nav-item {
+    @apply flex flex-col items-center gap-space-1 px-space-3 py-space-3 text-caption text-muted-foreground transition-colors;
+  }
+
+  .bottom-nav-item.active {
+    @apply text-primary;
+  }
+
+  /* Glass Effect */
+  .glass {
+    @apply bg-card/80 backdrop-blur-lg border border-border/50;
+  }
+
+  /* Time Badge on cards */
+  .time-badge {
+    @apply inline-flex items-center gap-space-1 rounded-radius-full bg-[hsl(105_80%_14%)] px-space-3 py-space-1 text-caption text-primary;
+  }
+
+  /* Mobile Header */
+  .mobile-header {
+    @apply sticky top-0 z-40 border-b border-border/50 bg-background/95 px-space-4 py-space-3 backdrop-blur-md;
+  }
+
+  .market-card-image {
+    @apply aspect-[2/1] w-full rounded-radius-lg object-cover transition-transform duration-300;
+  }
+
+  .market-card:hover .market-card-image {
+    @apply scale-[1.015];
+  }
+
+  .market-meta {
+    @apply mt-space-3 px-space-2;
+  }
+
+  .market-title-row {
+    @apply flex items-start justify-between gap-space-3;
+  }
+
+  .market-title {
+    @apply text-card-title text-foreground line-clamp-1;
+  }
+
+  .market-rating {
+    @apply flex shrink-0 items-center gap-space-1 text-control text-foreground/90;
+  }
+
+  .market-subline {
+    @apply mt-space-1 flex items-center gap-space-2 text-control text-muted-foreground;
+  }
+
+  .market-green-chip {
+    @apply mt-space-3 inline-flex rounded-radius-full bg-primary/15 px-space-3 py-space-1 text-caption text-primary;
+  }
+
+  .promo-slider-arrow {
+    @apply top-[34%] z-10 h-14 w-14 -translate-y-1/2 border-0 bg-[hsl(var(--app-control-muted))] text-foreground shadow-none hover:bg-[hsl(var(--app-control-muted))]/90 disabled:hidden;
+  }
+
+  .market-shell {
+    @apply min-h-screen bg-background pb-space-20 md:pb-0;
+  }
+
+  .market-content {
+    @apply mx-auto max-w-[1720px] px-space-4 md:px-space-8 xl:px-space-12;
+  }
+
+  .market-category-rail {
+    @apply rounded-radius-xl bg-[hsl(var(--app-rail))] p-space-2;
+  }
+}
+
+@layer utilities {
+  .text-gradient-primary {
+    background: linear-gradient(135deg, hsl(var(--brand-accent)) 0%, hsl(var(--brand-accent-hover)) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .bg-gradient-primary {
+    background: linear-gradient(135deg, hsl(var(--brand-accent)) 0%, hsl(var(--brand-accent-hover)) 100%);
+  }
+
+  /* Safe area for mobile */
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+
+  .safe-top {
+    padding-top: env(safe-area-inset-top, 0);
+  }
+
+  /* Scroll snap for horizontal lists */
+  .scroll-snap-x {
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .scroll-snap-item {
+    scroll-snap-align: start;
+  }
+
+  /* Hide scrollbar but keep functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Skeleton loading animation */
+  .skeleton {
+    @apply animate-pulse bg-muted rounded;
+  }
+
+  /* Dark surface utility */
+  .surface-dark {
+    @apply bg-[hsl(var(--surface-dark))] text-[hsl(var(--surface-dark-foreground))];
+  }
+}
