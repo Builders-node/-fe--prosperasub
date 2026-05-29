@@ -183,15 +183,19 @@ function CleaningBookingRow({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 const MySubscriptions = () => {
-  const { userData, isAuthenticated, lightningPubkey, isLoading: authLoading } = useAuth();
+  const { userData, isAuthenticated, lightningPubkey, isLoading: authLoading, isSuperAdmin, isRestaurantAdmin } = useAuth();
   const { openAuthModal } = useAuthModal();
   const queryClient = useQueryClient();
   const navigate    = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Derive active tab from URL param, default to "meal"
+  const isAdmin = isSuperAdmin || isRestaurantAdmin;
+
+  // Non-admins always see cleaning tab; admins can switch
   const rawTab   = searchParams.get("tab");
-  const activeTab: Tab = rawTab === "cleaning" ? "cleaning" : "meal";
+  const activeTab: Tab = isAdmin
+    ? (rawTab === "cleaning" ? "cleaning" : "meal")
+    : "cleaning";
 
   const setTab = (tab: Tab) => {
     setSearchParams(tab === "meal" ? {} : { tab });
@@ -387,15 +391,17 @@ const MySubscriptions = () => {
           />
         </div>
 
-        {/* ── Segmented control ── */}
-        <div className="sticky top-[60px] z-30 -mx-4 bg-background/95 px-4 pb-3 pt-1 backdrop-blur-md sm:-mx-6 sm:px-6">
-          <SegmentedControl
-            activeTab={activeTab}
-            onTabChange={setTab}
-            mealCount={mealCount}
-            cleaningCount={cleaningCount}
-          />
-        </div>
+        {/* ── Segmented control (admin only) ── */}
+        {isAdmin && (
+          <div className="sticky top-[60px] z-30 -mx-4 bg-background/95 px-4 pb-3 pt-1 backdrop-blur-md sm:-mx-6 sm:px-6">
+            <SegmentedControl
+              activeTab={activeTab}
+              onTabChange={setTab}
+              mealCount={mealCount}
+              cleaningCount={cleaningCount}
+            />
+          </div>
+        )}
 
         {/* ═══════════════════════════════════════
             MEAL PLAN TAB
