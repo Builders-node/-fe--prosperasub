@@ -22,15 +22,9 @@ export interface NavigationConfig {
  * Navigation items for regular users
  */
 const USER_NAV: NavItem[] = [
-  { 
-    icon: LayoutGrid, 
-    label: "Discover", 
-    path: "/",
-    activePatterns: ["/restaurants", "/plan/"]
-  },
-  { 
-    icon: SparklesIcon, 
-    label: "Cleaning", 
+  {
+    icon: SparklesIcon,
+    label: "Cleaning",
     path: "/cleaning",
     activePatterns: ["/cleaning/"]
   },
