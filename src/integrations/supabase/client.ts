@@ -815,7 +815,7 @@ class OwnedQueryBuilder {
           const renewedPaidUntil = addMonths(existingPaidUntil!, billingPeriodMonths);
           const previousMonths = Number(paidExisting.billing_period_months) || 1;
           const previousTotal = Number(paidExisting.total_price_cents) || monthlyPriceCents * previousMonths;
-          const renewed = normalizeCleaningSubscription({
+          const renewedNormalized = normalizeCleaningSubscription({
             ...paidExisting,
             updated_at: now,
             end_date: formatDate(renewedPaidUntil),
@@ -833,6 +833,7 @@ class OwnedQueryBuilder {
             payment_reference: input.payment_reference,
             is_active: true,
           });
+          const { cleaning_packages: _cp2, users: _u2, ...renewed } = renewedNormalized;
           const { data, error } = await db
             .from("cleaning_subscriptions")
             .update(renewed)
@@ -848,7 +849,7 @@ class OwnedQueryBuilder {
           input.end_date ||
           formatDate(addMonths(today, billingPeriodMonths));
 
-        const newSub = normalizeCleaningSubscription({
+        const normalized = normalizeCleaningSubscription({
           ...input,
           created_at: now,
           updated_at: now,
@@ -868,6 +869,8 @@ class OwnedQueryBuilder {
             input.is_active ??
             (input.payment_status === "paid" && input.subscription_status === "active"),
         });
+
+        const { cleaning_packages: _cp, users: _u, ...newSub } = normalized;
 
         const { data, error } = await db
           .from("cleaning_subscriptions")
