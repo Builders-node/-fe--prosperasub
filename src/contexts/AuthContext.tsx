@@ -12,10 +12,25 @@ type Session = {
   access_token?: string;
   refresh_token?: string;
   expires_at?: number;
+  roles?: AppRole[];
   user: User;
 };
 
 export type AppRole = 'super_admin' | 'restaurant_admin' | 'driver' | 'user';
+
+const VALID_ROLES: AppRole[] = ['super_admin', 'restaurant_admin', 'driver', 'user'];
+
+const normalizeRoles = (roles: unknown): AppRole[] => {
+  if (!Array.isArray(roles)) return [];
+
+  return Array.from(
+    new Set(
+      roles.filter((role): role is AppRole =>
+        VALID_ROLES.includes(role as AppRole)
+      )
+    )
+  );
+};
 
 interface UserData {
   id: string;
@@ -71,12 +86,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
    * Unified function to fetch user data from public.users table
    * This is the SINGLE source of truth for user data regardless of auth type
    */
-  const fetchUserDataFromPublicUsers = async (userId?: string, pubkey?: string): Promise<void> => {
+  const fetchUserDataFromPublicUsers = async (
+    userId?: string,
+    pubkey?: string,
+    fallbackRoles: AppRole[] = []
+  ): Promise<void> => {
     try {
       setIsUserDataReady(false);
       
       let userRow: UserData | null = null;
-      let userRoles: AppRole[] = [];
+      let userRoles: AppRole[] = fallbackRoles;
 
       if (userId) {
         // Supabase Auth user - fetch directly by ID from public.users
@@ -124,8 +143,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             .select('role')
             .eq('user_id', userRow.id);
 
-          if (rolesData) {
-            userRoles = rolesData.map(r => r.role as AppRole);
+          if (rolesData?.length) {
+            userRoles = normalizeRoles(rolesData.map(r => r.role));
           }
         }
       } else if (pubkey) {
@@ -161,8 +180,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             .select('role')
             .eq('user_id', publicUser.id);
 
-          if (rolesData) {
-            userRoles = rolesData.map(r => r.role as AppRole);
+          if (rolesData?.length) {
+            userRoles = normalizeRoles(rolesData.map(r => r.role));
           }
         } else {
           reportAuthError('[Auth] No user found for lightning user');
@@ -175,67 +194,94 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
     } catch (error) {
       reportAuthError('[Auth] Error in fetchUserDataFromPublicUsers:', error);
+      if (fallbackRoles.length > 0) {
+        setRoles(fallbackRoles);
+      }
       setIsUserDataReady(true); // Mark as ready even on error to prevent infinite loading
     }
   };
 
   useEffect(() => {
-    // Check for stored lightning pubkey first
-    const storedPubkey = localStorage.getItem('lightning_pubkey');
+    let isMounted = true;
 
-    if (storedPubkey) {
-      setLightningPubkey(storedPubkey);
-    }
-
-    // Set up Supabase auth listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
+        if (!isMounted) return;
+
+        // Do NOT reset isLoading/isUserDataReady here. The login() and restoreSession()
+        // functions manage loading state directly. Resetting here causes a spinner flash
+        // on protected pages after login because this fires via setTimeout after navigate().
+        const sessionRoles = normalizeRoles((session as Session | null)?.roles);
+
         setSession(session);
         setUser(session?.user ?? null);
 
         if (session?.user) {
-          // Supabase auth user - fetch from public.users
-          // Use setTimeout to prevent potential race conditions with triggers
-          setTimeout(() => {
-            fetchUserDataFromPublicUsers(session.user.id);
-          }, 0);
+          await fetchUserDataFromPublicUsers(session.user.id, undefined, sessionRoles);
         } else {
-          // No Supabase session - check for Lightning auth
           const currentPubkey = localStorage.getItem('lightning_pubkey');
           if (currentPubkey) {
             setLightningPubkey(currentPubkey);
-            setTimeout(() => {
-              fetchUserDataFromPublicUsers(undefined, currentPubkey);
-            }, 0);
+            await fetchUserDataFromPublicUsers(undefined, currentPubkey);
           } else {
-            // No auth at all
+            setLightningPubkey(null);
             setUserData(null);
             setRoles([]);
             setIsUserDataReady(true);
           }
         }
-
-        setIsLoading(false);
       }
     );
 
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    const restoreSession = async () => {
+      setIsLoading(true);
+      setIsUserDataReady(false);
+
+      const storedPubkey = localStorage.getItem('lightning_pubkey');
+      if (storedPubkey) {
+        setLightningPubkey(storedPubkey);
+      }
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!isMounted) return;
+
+      const sessionRoles = normalizeRoles((session as Session | null)?.roles);
+
       setSession(session);
       setUser(session?.user ?? null);
       
       if (session?.user) {
-        fetchUserDataFromPublicUsers(session.user.id);
+        await fetchUserDataFromPublicUsers(session.user.id, undefined, sessionRoles);
       } else if (storedPubkey) {
-        fetchUserDataFromPublicUsers(undefined, storedPubkey);
+        await fetchUserDataFromPublicUsers(undefined, storedPubkey);
       } else {
+        setLightningPubkey(null);
+        setUserData(null);
+        setRoles([]);
         setIsUserDataReady(true);
       }
       
-      setIsLoading(false);
+      if (isMounted) {
+        setIsLoading(false);
+      }
+    };
+
+    restoreSession().catch((error) => {
+      reportAuthError('[Auth] Error restoring session:', error);
+      if (isMounted) {
+        setSession(null);
+        setUser(null);
+        setUserData(null);
+        setRoles([]);
+        setIsUserDataReady(true);
+        setIsLoading(false);
+      }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const login = async (email: string, password: string) => {
@@ -244,7 +290,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       password,
     });
 
-    const sessionRoles = ((data as any)?.session?.roles || []) as AppRole[];
+    const sessionRoles = normalizeRoles((data as any)?.session?.roles || (data as any)?.roles);
     if (!error && data?.session) {
       setSession(data.session);
       setUser(data.session.user ?? data.user ?? null);
@@ -252,7 +298,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setRoles(sessionRoles);
       }
       if (data.session.user?.id || data.user?.id) {
-        await fetchUserDataFromPublicUsers(data.session.user?.id ?? data.user.id);
+        await fetchUserDataFromPublicUsers(data.session.user?.id ?? data.user.id, undefined, sessionRoles);
       }
     }
 
@@ -297,7 +343,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const loginWithGoogle = async () => {
-    const redirectUrl = `${window.location.origin}/`;
+    const redirectUrl = `${window.location.origin}/auth`;
     
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -326,12 +372,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setSession(null);
     setUserData(null);
     setRoles([]);
-    setIsUserDataReady(false);
+    setIsUserDataReady(true);
+    setIsLoading(false);
   };
 
   const refreshUserData = async () => {
     if (user?.id) {
-      await fetchUserDataFromPublicUsers(user.id);
+      await fetchUserDataFromPublicUsers(user.id, undefined, roles);
     } else if (lightningPubkey) {
       await fetchUserDataFromPublicUsers(undefined, lightningPubkey);
     } else {

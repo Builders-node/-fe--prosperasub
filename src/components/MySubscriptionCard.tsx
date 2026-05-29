@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar, ChevronRight, Utensils, Clock } from "lucide-react";
 import { format, parseISO, isAfter, isBefore, startOfDay } from "date-fns";
+import { nowHN } from "@/lib/timezone";
 
 interface MySubscriptionCardProps {
   subscription: {
@@ -26,7 +27,7 @@ interface MySubscriptionCardProps {
 export function MySubscriptionCard({ subscription, nextMeal }: MySubscriptionCardProps) {
   const restaurant = subscription.restaurants;
   const plan = subscription.subscription_plans;
-  const today = startOfDay(new Date());
+  const today = startOfDay(nowHN());
   const endDate = parseISO(subscription.end_date);
   const isExpired = isBefore(endDate, today);
   const isUpcoming = isAfter(parseISO(subscription.start_date), today);

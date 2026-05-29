@@ -1,22 +1,72 @@
-// Compatibility adapter while the frontend is migrated off Supabase.
-// Existing screens keep their query shape, but data now comes from the owned API.
+// Supabase-backed data adapter
+// Auth: NestJS backend (JWT sessions kept in localStorage)
+// Business data: Supabase PostgREST — cleaning, favorites, profiles
+// Restaurants / Plans / Users: NestJS API endpoints (unchanged)
 
-const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8082";
+import { createClient } from "@supabase/supabase-js";
+
+// ============================================================
+// CONFIG
+// ============================================================
+
+const resolveApiUrl = () => {
+  const configuredUrl = import.meta.env.VITE_API_URL?.trim();
+  const fallbackUrl = "http://127.0.0.1:8082";
+
+  if (configuredUrl && !configuredUrl.includes("127.0.0.1") && !configuredUrl.includes("localhost")) {
+    return configuredUrl;
+  }
+
+  if (typeof window !== "undefined") {
+    const isLocalHost = ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
+    if (!isLocalHost) {
+      return "https://api.prosperasub.com";
+    }
+  }
+
+  return configuredUrl || fallbackUrl;
+};
+
+const API_URL = resolveApiUrl();
+
+const SUPABASE_URL =
+  (import.meta.env.VITE_SUPABASE_URL as string) ||
+  "https://igbytraidldkhhamsfdo.supabase.co";
+
+const SUPABASE_ANON_KEY =
+  (import.meta.env.VITE_SUPABASE_ANON_KEY as string) ||
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlnYnl0cmFpZGxka2hoYW1zZmRvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5OTQxMzEsImV4cCI6MjA5NTU3MDEzMX0.VbaT7LMvtwswdfyDZI1rWkZtKSC0ICBDHeVbO4hLJeI";
+
+// Session keys (these stay in localStorage — they're auth tokens, not business data)
 const SESSION_KEY = "prospera_owned_session";
-const FAVORITES_KEY = "prospera_owned_favorites";
-const CLEANING_SUBSCRIPTIONS_KEY = "prospera_owned_cleaning_subscriptions";
-const CLEANING_SLOTS_KEY = "prospera_owned_cleaning_slots";
-const CLEANING_BOOKINGS_KEY = "prospera_owned_cleaning_bookings";
-const CLEANING_CLIENTS_KEY = "prospera_owned_cleaning_clients";
-const CLEANING_CUSTOM_PLANS_KEY = "prospera_owned_cleaning_custom_plans";
-const CLEANING_RECURRING_SCHEDULES_KEY = "prospera_owned_cleaning_recurring_schedules";
-const CLEANING_CHECKLIST_TEMPLATES_KEY = "prospera_owned_cleaning_checklist_templates";
-const CLEANING_COMPLETION_REPORTS_KEY = "prospera_owned_cleaning_completion_reports";
+const GOOGLE_OAUTH_STATE_KEY = "prospera_google_oauth_state";
+
+// Restaurant override/delete keys (local admin edits layered on top of API data)
+const RESTAURANT_OVERRIDES_KEY = "prospera_owned_restaurant_overrides";
+const RESTAURANT_DELETED_IDS_KEY = "prospera_owned_restaurant_deleted_ids";
+
+// Supabase client for direct DB access (uses anon key + permissive RLS policies)
+const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ============================================================
+// TYPES
+// ============================================================
 
 type Filter = { field: string; op: "eq" | "neq" | "lte" | "gte" | "gt" | "in"; value: any };
 type AuthStateChangeCallback = (event: "SIGNED_IN" | "SIGNED_OUT", session: any) => void;
+type StoredSession = {
+  access_token?: string;
+  refresh_token?: string;
+  expires_at?: number;
+  user?: any;
+  roles?: string[];
+};
 
 const authStateListeners = new Set<AuthStateChangeCallback>();
+
+// ============================================================
+// DATA SHAPE HELPERS
+// ============================================================
 
 const toSnakeRestaurant = (restaurant: any) => ({
   id: restaurant.id,
@@ -31,6 +81,20 @@ const toSnakeRestaurant = (restaurant: any) => ({
     menu_category: String(plan.menuCategory ?? plan.menu_category ?? "standard").toLowerCase(),
   })),
 });
+
+const normalizeRestaurantInput = (restaurant: any) => {
+  const now = new Date().toISOString();
+  return {
+    id: restaurant.id,
+    name: restaurant.name,
+    description: restaurant.description ?? "",
+    address: restaurant.address ?? "Prospera Village",
+    logoUrl: restaurant.logoUrl ?? restaurant.logo_url ?? null,
+    isActive: restaurant.isActive ?? restaurant.is_active ?? true,
+    createdAt: restaurant.createdAt ?? restaurant.created_at ?? now,
+    updatedAt: now,
+  };
+};
 
 const toSnakePlan = (plan: any) => ({
   id: plan.id,
@@ -74,16 +138,106 @@ const toSnakeUser = (user: any) => ({
   last_login_at: user.lastLoginAt ?? user.last_login_at ?? null,
 });
 
-async function api(path: string, init?: RequestInit) {
+// ============================================================
+// SESSION MANAGEMENT
+// ============================================================
+
+const readStoredSession = (): StoredSession | null => {
+  const raw = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY);
+  if (!raw) return null;
+
+  try {
+    const session = JSON.parse(raw) as StoredSession;
+    if (sessionStorage.getItem(SESSION_KEY)) {
+      sessionStorage.removeItem(SESSION_KEY);
+      localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    }
+    return session;
+  } catch {
+    clearStoredSession();
+    return null;
+  }
+};
+
+const clearStoredSession = () => {
+  localStorage.removeItem(SESSION_KEY);
+  sessionStorage.removeItem(SESSION_KEY);
+};
+
+const isSessionExpiring = (session: StoredSession | null) => {
+  if (!session?.access_token || !session.expires_at) return true;
+  return session.expires_at <= Math.floor(Date.now() / 1000) + 60;
+};
+
+const isAuthEndpoint = (path: string) =>
+  path.startsWith("/auth/login") ||
+  path.startsWith("/auth/signup") ||
+  path.startsWith("/auth/refresh") ||
+  path.startsWith("/auth/password-reset") ||
+  path.startsWith("/auth/google");
+
+async function refreshStoredSession() {
+  const current = readStoredSession();
+  if (!current?.refresh_token) {
+    clearStoredSession();
+    return null;
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refresh_token: current.refresh_token }),
+    });
+  } catch {
+    return current;
+  }
+
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok || !data?.session) {
+    clearStoredSession();
+    notifyAuthStateChange("SIGNED_OUT", null);
+    return null;
+  }
+
+  const session = {
+    ...data.session,
+    user: data.user,
+    roles: data.roles || [],
+  };
+  storeSession(session);
+  notifyAuthStateChange("SIGNED_IN", session);
+  return session;
+}
+
+async function getValidStoredSession() {
+  const session = readStoredSession();
+  if (!session) return null;
+  if (!isSessionExpiring(session)) return session;
+  return refreshStoredSession();
+}
+
+async function api(path: string, init?: RequestInit, retryOnUnauthorized = true) {
+  const session = isAuthEndpoint(path) ? null : await getValidStoredSession();
   const response = await fetch(`${API_URL}${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
+      ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
       ...(init?.headers || {}),
     },
   });
 
   const data = await response.json().catch(() => null);
+
+  if (response.status === 401 && retryOnUnauthorized && !isAuthEndpoint(path)) {
+    const refreshedSession = await refreshStoredSession();
+    if (refreshedSession?.access_token) {
+      return api(path, init, false);
+    }
+  }
 
   if (!response.ok) {
     return { data: null, error: new Error(data?.message || "API request failed") };
@@ -93,23 +247,12 @@ async function api(path: string, init?: RequestInit) {
 }
 
 function getStoredSession() {
-  const raw = sessionStorage.getItem(SESSION_KEY) || localStorage.getItem(SESSION_KEY);
-  if (!raw) return null;
-
-  try {
-    const session = JSON.parse(raw);
-    localStorage.removeItem(SESSION_KEY);
-    return session;
-  } catch {
-    sessionStorage.removeItem(SESSION_KEY);
-    localStorage.removeItem(SESSION_KEY);
-    return null;
-  }
+  return readStoredSession();
 }
 
 function storeSession(payload: any) {
-  localStorage.removeItem(SESSION_KEY);
-  sessionStorage.setItem(SESSION_KEY, JSON.stringify(payload));
+  sessionStorage.removeItem(SESSION_KEY);
+  localStorage.setItem(SESSION_KEY, JSON.stringify(payload));
 }
 
 function ownedUserFromSession() {
@@ -122,17 +265,46 @@ function notifyAuthStateChange(event: "SIGNED_IN" | "SIGNED_OUT", session: any) 
   });
 }
 
-function getFavorites() {
-  try {
-    return JSON.parse(localStorage.getItem(FAVORITES_KEY) || "[]");
-  } catch {
-    return [];
-  }
+// ============================================================
+// RESTAURANT LOCAL OVERRIDES (kept in localStorage intentionally)
+// ============================================================
+
+function getStoredRows(key: string) {
+  try { return JSON.parse(localStorage.getItem(key) || "[]"); } catch { return []; }
+}
+function saveStoredRows(key: string, rows: any[]) {
+  localStorage.setItem(key, JSON.stringify(rows));
+}
+function getDeletedRestaurantIds(): Set<string> {
+  return new Set(getStoredRows(RESTAURANT_DELETED_IDS_KEY).map((row: any) => String(row.id ?? row)));
+}
+function saveDeletedRestaurantIds(ids: Set<string>) {
+  saveStoredRows(RESTAURANT_DELETED_IDS_KEY, [...ids]);
+}
+function getRestaurantOverrides() {
+  return getStoredRows(RESTAURANT_OVERRIDES_KEY);
+}
+function saveRestaurantOverrides(rows: any[]) {
+  saveStoredRows(RESTAURANT_OVERRIDES_KEY, rows);
 }
 
-function saveFavorites(favorites: any[]) {
-  localStorage.setItem(FAVORITES_KEY, JSON.stringify(favorites));
+// ============================================================
+// CURRENT USER DETAILS
+// ============================================================
+
+function getOwnedUserDetails() {
+  const user = ownedUserFromSession();
+  return {
+    id: user?.id ?? "owned-user-frorex",
+    email: user?.email ?? "user@example.com",
+    name: user?.name ?? user?.displayName ?? user?.display_name ?? "Frorex Studio",
+    display_name: user?.displayName ?? user?.display_name ?? user?.name ?? "Frorex Studio",
+  };
 }
+
+// ============================================================
+// DATE / TIME UTILITIES
+// ============================================================
 
 const addDays = (date: Date, days: number) => {
   const next = new Date(date);
@@ -147,15 +319,39 @@ const formatDate = (date: Date) => {
   return `${year}-${month}-${day}`;
 };
 
-function getOwnedUserDetails() {
-  const user = ownedUserFromSession();
-  return {
-    id: user?.id ?? "owned-user-frorex",
-    email: user?.email ?? "user@example.com",
-    name: user?.name ?? user?.displayName ?? user?.display_name ?? "Frorex Studio",
-    display_name: user?.displayName ?? user?.display_name ?? user?.name ?? "Frorex Studio",
-  };
-}
+const addMonths = (date: Date, months: number) => {
+  const next = new Date(date);
+  next.setMonth(next.getMonth() + months);
+  return next;
+};
+
+const toDateOnly = (value?: string | null) => {
+  if (!value) return null;
+  const date = new Date(`${value}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const normalizeTime = (time?: string | null) => {
+  if (!time) return "";
+  return time.length === 5 ? `${time}:00` : time;
+};
+
+const normalizeWeekdays = (days: any[] = []) =>
+  days
+    .map((day) => {
+      if (typeof day === "number") return day;
+      const upper = String(day).trim().toUpperCase();
+      return ["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"].indexOf(upper);
+    })
+    .filter((day) => day >= 0 && day <= 6);
+
+const eachRecurringWeekday = (startDate: Date, endDate: Date, dayOfWeek: number) => {
+  const dates: string[] = [];
+  for (let date = new Date(startDate); date <= endDate; date = addDays(date, 1)) {
+    if (date.getDay() === dayOfWeek) dates.push(formatDate(date));
+  }
+  return dates;
+};
 
 const compareFilterValues = (left: any, right: any) => {
   const leftNumber = Number(left);
@@ -163,52 +359,97 @@ const compareFilterValues = (left: any, right: any) => {
   if (!Number.isNaN(leftNumber) && !Number.isNaN(rightNumber)) {
     return leftNumber - rightNumber;
   }
-
   return String(left).localeCompare(String(right));
 };
 
-function getSeedCleaningSubscription() {
-  const startDate = new Date();
+// ============================================================
+// CLEANING PACKAGE HELPERS (hardcoded; populated from NestJS API)
+// ============================================================
+
+const cleaningPackageForId = (packageId: string) => {
+  if (packageId === "cleaning-2-bedroom") {
+    return { name: "2 Bedroom", cleanings_per_month: 4, price_per_cleaning_cents: 2475 };
+  }
+  return { name: "1 Bedroom & Studio", cleanings_per_month: 4, price_per_cleaning_cents: 1975 };
+};
+
+const normalizeBillingMonths = (value: unknown) => {
+  const months = Number(value);
+  return months === 2 || months === 3 ? months : 1;
+};
+
+function normalizeCleaningSubscription(subscription: any) {
+  const packageDetails = cleaningPackageForId(subscription.package_id);
+  const billingPeriodMonths = normalizeBillingMonths(subscription.billing_period_months);
+  const monthlyPriceCents =
+    Number(subscription.monthly_price_cents) ||
+    packageDetails.price_per_cleaning_cents * packageDetails.cleanings_per_month;
+  const totalPriceCents =
+    Number(subscription.total_price_cents) || monthlyPriceCents * billingPeriodMonths;
+  const startDate =
+    subscription.service_start_date || subscription.start_date || formatDate(new Date());
+  const endDate =
+    subscription.paid_until ||
+    subscription.service_end_date ||
+    subscription.end_date ||
+    formatDate(addMonths(toDateOnly(startDate) ?? new Date(), billingPeriodMonths));
+  const paidUntil = toDateOnly(endDate);
+  const today = toDateOnly(formatDate(new Date()));
+  const isExpired =
+    subscription.payment_status === "paid" && paidUntil && today && paidUntil < today;
+
   return {
-    id: "owned-cleaning-subscription-frorex-1-bedroom-studio",
-    user_id: "owned-user-frorex",
-    package_id: "cleaning-1-bedroom-studio",
-    start_date: formatDate(startDate),
-    end_date: formatDate(addDays(startDate, 30)),
-    cleanings_remaining: 4,
-    payment_status: "paid",
-    payment_method: "admin",
-    payment_reference: "admin-created",
-    is_active: true,
-    created_at: startDate.toISOString(),
-    updated_at: startDate.toISOString(),
+    ...subscription,
+    start_date: subscription.start_date || startDate,
+    end_date: subscription.end_date || endDate,
+    service_start_date: startDate,
+    service_end_date: subscription.service_end_date || endDate,
+    paid_until: endDate,
+    billing_period_months: billingPeriodMonths,
+    monthly_price_cents: monthlyPriceCents,
+    total_price_cents: totalPriceCents,
+    recurring_day_of_week: subscription.recurring_day_of_week ?? null,
+    recurring_time: subscription.recurring_time ?? null,
+    subscription_status: isExpired
+      ? "expired"
+      : subscription.subscription_status ||
+        (subscription.is_active ? "active" : "pending"),
+    is_active: isExpired ? false : subscription.is_active,
     cleaning_packages: {
-      name: "1 Bedroom & Studio",
-      cleanings_per_month: 4,
+      ...packageDetails,
+      ...subscription.cleaning_packages,
     },
   };
 }
 
-function getCleaningSubscriptions() {
-  let subscriptions: any[] = [];
-  try {
-    subscriptions = JSON.parse(localStorage.getItem(CLEANING_SUBSCRIPTIONS_KEY) || "[]");
-  } catch {
-    subscriptions = [];
-  }
+const normalizeClientLookup = (value?: string | null) => String(value || "").trim().toLowerCase();
+const normalizeClientPhone  = (value?: string | null) => String(value || "").replace(/\D/g, "");
 
-  const hasFrorexSeed = subscriptions.some((subscription) => subscription.id === "owned-cleaning-subscription-frorex-1-bedroom-studio");
-  if (!hasFrorexSeed) {
-    subscriptions = [getSeedCleaningSubscription(), ...subscriptions];
-    localStorage.setItem(CLEANING_SUBSCRIPTIONS_KEY, JSON.stringify(subscriptions));
-  }
+function findDuplicateCleaningClient(clients: any[], payload: any) {
+  const email   = normalizeClientLookup(payload.email);
+  const phone   = normalizeClientPhone(payload.phone);
+  const company = normalizeClientLookup(payload.company_name);
+  const location = normalizeClientLookup(payload.location);
 
-  return subscriptions;
+  if (!email && !phone && !company) return null;
+
+  return clients.find((client) => {
+    const clientEmail   = normalizeClientLookup(client.email);
+    const clientPhone   = normalizeClientPhone(client.phone);
+    const clientCompany = normalizeClientLookup(client.company_name);
+    const clientLocation = normalizeClientLookup(client.location);
+
+    return (
+      (email && clientEmail && email === clientEmail) ||
+      (phone && clientPhone && phone === clientPhone) ||
+      (company && location && clientCompany === company && clientLocation === location)
+    );
+  });
 }
 
-function saveCleaningSubscriptions(subscriptions: any[]) {
-  localStorage.setItem(CLEANING_SUBSCRIPTIONS_KEY, JSON.stringify(subscriptions));
-}
+// ============================================================
+// SLOT SEEDING
+// ============================================================
 
 function getSeedCleaningSlots() {
   const times = [
@@ -221,7 +462,7 @@ function getSeedCleaningSlots() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  for (let offset = 0; offset < 35; offset += 1) {
+  for (let offset = 0; offset < 110; offset += 1) {
     const date = addDays(today, offset);
     if (date.getDay() === 0) continue;
 
@@ -235,163 +476,63 @@ function getSeedCleaningSlots() {
         max_bookings: 1,
         current_bookings: 0,
         is_active: true,
-        created_at: today.toISOString(),
       });
     }
   }
-
   return slots;
 }
 
-function getCleaningSlots() {
-  let slots: any[] = [];
+let _slotSeedAttempted = false;
+async function ensureSlotsSeeded() {
+  if (_slotSeedAttempted) return;
+  _slotSeedAttempted = true;
+
+  const today = formatDate(new Date());
+  const SEED_LS_KEY = "prospera_slots_seeded";
+  if (localStorage.getItem(SEED_LS_KEY) === today) return;
+
   try {
-    slots = JSON.parse(localStorage.getItem(CLEANING_SLOTS_KEY) || "[]");
-  } catch {
-    slots = [];
-  }
+    const { data } = await db
+      .from("cleaning_available_slots")
+      .select("id")
+      .eq("date", today)
+      .limit(1);
 
-  const seededSlots = getSeedCleaningSlots();
-  const slotsById = new Map(slots.map((slot) => [slot.id, slot]));
-  let changed = false;
-
-  for (const seedSlot of seededSlots) {
-    if (!slotsById.has(seedSlot.id)) {
-      slotsById.set(seedSlot.id, seedSlot);
-      changed = true;
+    if (data && data.length > 0) {
+      localStorage.setItem(SEED_LS_KEY, today);
+      return;
     }
-  }
 
-  const nextSlots = [...slotsById.values()].map((slot) => {
-    if (slot.max_bookings === 1) return slot;
-    changed = true;
-    return { ...slot, max_bookings: 1 };
-  });
-  if (changed || slots.length === 0) {
-    saveCleaningSlots(nextSlots);
-  }
-
-  return nextSlots;
-}
-
-function saveCleaningSlots(slots: any[]) {
-  localStorage.setItem(CLEANING_SLOTS_KEY, JSON.stringify(slots));
-}
-
-function getCleaningBookings() {
-  try {
-    return JSON.parse(localStorage.getItem(CLEANING_BOOKINGS_KEY) || "[]");
+    const seedSlots = getSeedCleaningSlots();
+    await db.from("cleaning_available_slots").upsert(seedSlots, {
+      onConflict: "id",
+      ignoreDuplicates: true,
+    });
+    localStorage.setItem(SEED_LS_KEY, today);
   } catch {
-    return [];
+    // Seeding failure is non-fatal — the app still works, users just won't see slots
+    _slotSeedAttempted = false;
   }
 }
 
-function saveCleaningBookings(bookings: any[]) {
-  localStorage.setItem(CLEANING_BOOKINGS_KEY, JSON.stringify(bookings));
-}
+async function ensureCleaningSlot(
+  date: string,
+  startTime: string,
+  endTime: string,
+): Promise<any> {
+  const normalizedStart = normalizeTime(startTime);
+  const normalizedEnd   = normalizeTime(endTime);
 
-function getStoredRows(key: string) {
-  try {
-    return JSON.parse(localStorage.getItem(key) || "[]");
-  } catch {
-    return [];
-  }
-}
+  const { data: existing } = await db
+    .from("cleaning_available_slots")
+    .select("*")
+    .eq("date", date)
+    .eq("start_time", normalizedStart)
+    .eq("end_time", normalizedEnd)
+    .maybeSingle();
 
-function saveStoredRows(key: string, rows: any[]) {
-  localStorage.setItem(key, JSON.stringify(rows));
-}
+  if (existing) return existing;
 
-function getCleaningClients() {
-  return getStoredRows(CLEANING_CLIENTS_KEY);
-}
-
-function saveCleaningClients(rows: any[]) {
-  saveStoredRows(CLEANING_CLIENTS_KEY, rows);
-}
-
-function getCleaningCustomPlans() {
-  return getStoredRows(CLEANING_CUSTOM_PLANS_KEY);
-}
-
-function saveCleaningCustomPlans(rows: any[]) {
-  saveStoredRows(CLEANING_CUSTOM_PLANS_KEY, rows);
-}
-
-function getCleaningRecurringSchedules() {
-  return getStoredRows(CLEANING_RECURRING_SCHEDULES_KEY);
-}
-
-function saveCleaningRecurringSchedules(rows: any[]) {
-  saveStoredRows(CLEANING_RECURRING_SCHEDULES_KEY, rows);
-}
-
-function getCleaningChecklistTemplates() {
-  return getStoredRows(CLEANING_CHECKLIST_TEMPLATES_KEY);
-}
-
-function saveCleaningChecklistTemplates(rows: any[]) {
-  saveStoredRows(CLEANING_CHECKLIST_TEMPLATES_KEY, rows);
-}
-
-function getCleaningCompletionReports() {
-  return getStoredRows(CLEANING_COMPLETION_REPORTS_KEY);
-}
-
-function saveCleaningCompletionReports(rows: any[]) {
-  saveStoredRows(CLEANING_COMPLETION_REPORTS_KEY, rows);
-}
-
-function withCleaningRelations(booking: any) {
-  const slot = getCleaningSlots().find((candidate) => candidate.id === booking.slot_id);
-  const client = booking.client_id
-    ? getCleaningClients().find((candidate) => candidate.id === booking.client_id)
-    : null;
-  const customPlan = booking.custom_plan_id
-    ? getCleaningCustomPlans().find((candidate) => candidate.id === booking.custom_plan_id)
-    : null;
-  const report = getCleaningCompletionReports().find((candidate) => candidate.booking_id === booking.id);
-  return {
-    ...booking,
-    cleaning_available_slots: slot
-      ? {
-          id: slot.id,
-          date: slot.date,
-          start_time: slot.start_time,
-          end_time: slot.end_time,
-        }
-      : null,
-    users: getOwnedUserDetails(),
-    cleaning_clients: client ?? null,
-    cleaning_custom_plans: customPlan ?? null,
-    cleaning_completion_reports: report ?? null,
-  };
-}
-
-const normalizeWeekdays = (days: any[] = []) =>
-  days
-    .map((day) => {
-      if (typeof day === "number") return day;
-      const upper = String(day).trim().toUpperCase();
-      return ["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"].indexOf(upper);
-    })
-    .filter((day) => day >= 0 && day <= 6);
-
-const addMonths = (date: Date, months: number) => {
-  const next = new Date(date);
-  next.setMonth(next.getMonth() + months);
-  return next;
-};
-
-function ensureCleaningSlot(slots: any[], date: string, startTime: string, endTime: string) {
-  const normalizedStart = startTime.length === 5 ? `${startTime}:00` : startTime;
-  const normalizedEnd = endTime.length === 5 ? `${endTime}:00` : endTime;
-  const existing = slots.find(
-    (slot) => slot.date === date && slot.start_time === normalizedStart && slot.end_time === normalizedEnd
-  );
-  if (existing) return { slot: existing, slots };
-
-  const now = new Date().toISOString();
   const slot = {
     id: `owned-cleaning-slot-${date}-${normalizedStart.slice(0, 5).replace(":", "")}`,
     date,
@@ -400,11 +541,39 @@ function ensureCleaningSlot(slots: any[], date: string, startTime: string, endTi
     max_bookings: 1,
     current_bookings: 0,
     is_active: true,
-    created_at: now,
-    updated_at: now,
   };
-  return { slot, slots: [...slots, slot] };
+
+  const { data } = await db
+    .from("cleaning_available_slots")
+    .insert(slot)
+    .select()
+    .single();
+
+  return data ?? slot;
 }
+
+// ============================================================
+// SUPABASE FILTER HELPERS
+// ============================================================
+
+function applyDbFilters(query: any, filters: Filter[]) {
+  let q = query;
+  for (const filter of filters) {
+    switch (filter.op) {
+      case "eq":  q = q.eq(filter.field, filter.value); break;
+      case "neq": q = q.neq(filter.field, filter.value); break;
+      case "lte": q = q.lte(filter.field, filter.value); break;
+      case "gte": q = q.gte(filter.field, filter.value); break;
+      case "gt":  q = q.gt(filter.field, filter.value); break;
+      case "in":  q = q.in(filter.field, filter.value); break;
+    }
+  }
+  return q;
+}
+
+// ============================================================
+// QUERY BUILDER
+// ============================================================
 
 class OwnedQueryBuilder {
   private filters: Filter[] = [];
@@ -424,27 +593,22 @@ class OwnedQueryBuilder {
     this.filters.push({ field, op: "eq", value });
     return this;
   }
-
   lte(field: string, value: any) {
     this.filters.push({ field, op: "lte", value });
     return this;
   }
-
   gte(field: string, value: any) {
     this.filters.push({ field, op: "gte", value });
     return this;
   }
-
   gt(field: string, value: any) {
     this.filters.push({ field, op: "gt", value });
     return this;
   }
-
   neq(field: string, value: any) {
     this.filters.push({ field, op: "neq", value });
     return this;
   }
-
   in(field: string, value: any[]) {
     this.filters.push({ field, op: "in", value });
     return this;
@@ -470,28 +634,28 @@ class OwnedQueryBuilder {
     return this.execute();
   }
 
-  insert(values: any) {
-    return Promise.resolve(this.mutate("insert", values));
+  insert(values: any): Promise<{ data: any; error: any }> {
+    return this.mutate("insert", values);
   }
 
-  upsert(values: any) {
-    return Promise.resolve(this.mutate("upsert", values));
+  upsert(values: any): Promise<{ data: any; error: any }> {
+    return this.mutate("upsert", values);
   }
 
   update(values: any) {
     return {
-      eq: (field: string, value: any) => {
+      eq: (field: string, value: any): Promise<{ data: any; error: any }> => {
         this.filters.push({ field, op: "eq", value });
-        return Promise.resolve(this.mutate("update", values));
+        return this.mutate("update", values);
       },
     };
   }
 
   delete() {
     return {
-      eq: (field: string, value: any) => {
+      eq: (field: string, value: any): Promise<{ data: any; error: any }> => {
         this.filters.push({ field, op: "eq", value });
-        return Promise.resolve(this.mutate("delete", null));
+        return this.mutate("delete", null);
       },
     };
   }
@@ -500,179 +664,383 @@ class OwnedQueryBuilder {
     return this.execute().then(resolve, reject);
   }
 
-  private mutate(action: string, values: any) {
-    if (this.table === "favorites") {
-      const favorites = getFavorites();
+  // --------------------------------------------------------
+  // MUTATE  (all tables → Supabase or NestJS API)
+  // --------------------------------------------------------
+  private async mutate(
+    action: string,
+    values: any,
+  ): Promise<{ data: any; error: any }> {
+    const now = new Date().toISOString();
 
-      if (action === "delete") {
-        const id = this.filters.find((filter) => filter.field === "id")?.value;
-        saveFavorites(favorites.filter((favorite: any) => favorite.id !== id));
-        return { data: null, error: null };
-      }
-
-      if (action === "insert") {
-        const input = Array.isArray(values) ? values[0] : values;
-        const existing = favorites.find((favorite: any) =>
-          favorite.user_id === input.user_id &&
-          ((input.restaurant_id && favorite.restaurant_id === input.restaurant_id) ||
-            (input.plan_id && favorite.plan_id === input.plan_id))
-        );
-
-        if (existing) {
-          return { data: existing, error: null };
-        }
-
-        const next = {
-          id: `favorite-${Date.now()}`,
-          ...input,
-        };
-        saveFavorites([...favorites, next]);
-        return { data: next, error: null };
-      }
-    }
-
-    if (this.table === "cleaning_subscriptions") {
-      const subscriptions = getCleaningSubscriptions();
-
-      if (action === "insert") {
-        const input = Array.isArray(values) ? values[0] : values;
-        const now = new Date().toISOString();
-        const next = {
-          id: `owned-cleaning-subscription-${Date.now()}`,
-          created_at: now,
-          updated_at: now,
-          ...input,
-          cleaning_packages: input.package_id === "cleaning-1-bedroom-studio"
-            ? { name: "1 Bedroom & Studio", cleanings_per_month: 4 }
-            : { name: "2 Bedroom", cleanings_per_month: 4 },
-        };
-        saveCleaningSubscriptions([next, ...subscriptions]);
-        return { data: next, error: null };
-      }
-
-      if (action === "update") {
-        const id = this.filters.find((filter) => filter.field === "id")?.value;
-        const nextSubscriptions = subscriptions.map((subscription) =>
-          subscription.id === id
-            ? { ...subscription, ...values, updated_at: new Date().toISOString() }
-            : subscription
-        );
-        saveCleaningSubscriptions(nextSubscriptions);
-        return {
-          data: nextSubscriptions.find((subscription) => subscription.id === id) ?? null,
-          error: null,
-        };
-      }
-    }
-
-    if (
-      [
-        "cleaning_clients",
-        "cleaning_custom_plans",
-        "cleaning_recurring_schedules",
-        "cleaning_checklist_templates",
-        "cleaning_completion_reports",
-      ].includes(this.table)
-    ) {
-      const keyByTable: Record<string, string> = {
-        cleaning_clients: CLEANING_CLIENTS_KEY,
-        cleaning_custom_plans: CLEANING_CUSTOM_PLANS_KEY,
-        cleaning_recurring_schedules: CLEANING_RECURRING_SCHEDULES_KEY,
-        cleaning_checklist_templates: CLEANING_CHECKLIST_TEMPLATES_KEY,
-        cleaning_completion_reports: CLEANING_COMPLETION_REPORTS_KEY,
-      };
-      const key = keyByTable[this.table];
-      const rows = getStoredRows(key);
+    // ── RESTAURANTS (overlay NestJS API with local overrides) ──
+    if (this.table === "restaurants") {
+      const id = this.filters.find((f) => f.field === "id")?.value;
+      const overrides = getRestaurantOverrides();
+      const deletedIds = getDeletedRestaurantIds();
 
       if (action === "insert" || action === "upsert") {
         const inputRows = Array.isArray(values) ? values : [values];
-        const now = new Date().toISOString();
-        const nextRows = inputRows.map((input) => ({
-          id: input.id ?? `${this.table.slice(0, -1)}-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        const nextRows = inputRows.map((input) =>
+          normalizeRestaurantInput({
+            id: input.id ?? `owned-restaurant-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+            ...input,
+          }),
+        );
+        const nextById = new Map(overrides.map((r: any) => [r.id, r]));
+        nextRows.forEach((r) => {
+          deletedIds.delete(String(r.id));
+          nextById.set(r.id, r);
+        });
+        saveDeletedRestaurantIds(deletedIds);
+        saveRestaurantOverrides([...nextById.values()]);
+        return {
+          data: Array.isArray(values) ? nextRows.map(toSnakeRestaurant) : toSnakeRestaurant(nextRows[0]),
+          error: null,
+        };
+      }
+
+      if (action === "update") {
+        const existing = overrides.find((r: any) => r.id === id) ?? { id };
+        const next = normalizeRestaurantInput({ ...existing, ...values });
+        saveRestaurantOverrides([next, ...overrides.filter((r: any) => r.id !== id)]);
+        return { data: toSnakeRestaurant(next), error: null };
+      }
+
+      if (action === "delete") {
+        if (id) {
+          deletedIds.add(String(id));
+          saveDeletedRestaurantIds(deletedIds);
+          saveRestaurantOverrides(overrides.filter((r: any) => r.id !== id));
+        }
+        return { data: null, error: null };
+      }
+    }
+
+    // ── FAVORITES ──
+    if (this.table === "favorites") {
+      if (action === "delete") {
+        const id = this.filters.find((f) => f.field === "id")?.value;
+        const { error } = await db.from("favorites").delete().eq("id", id);
+        return { data: null, error: error ?? null };
+      }
+
+      if (action === "insert") {
+        const input = Array.isArray(values) ? values[0] : values;
+        // Check for existing (upsert-style)
+        const { data: existing } = await db
+          .from("favorites")
+          .select("*")
+          .eq("user_id", input.user_id)
+          .eq(
+            input.restaurant_id ? "restaurant_id" : "plan_id",
+            input.restaurant_id ?? input.plan_id,
+          )
+          .maybeSingle();
+        if (existing) return { data: existing, error: null };
+
+        const { data, error } = await db.from("favorites").insert(input).select().single();
+        return { data: data ?? null, error: error ?? null };
+      }
+    }
+
+    // ── USER_PROFILES ──
+    if (this.table === "user_profiles") {
+      const user = ownedUserFromSession();
+      if (!user) return { data: null, error: new Error("Not authenticated") };
+
+      if (action === "insert" || action === "upsert") {
+        const input = Array.isArray(values) ? values[0] : values;
+        const userId = input.user_id ?? user.id;
+        const row = {
+          user_id: userId,
+          phone_number: input.phone_number ?? null,
+          telegram_username: input.telegram_username ?? null,
+          default_delivery_address: input.default_delivery_address ?? null,
+          nwc_connection: input.nwc_connection ?? null,
+        };
+        const { data, error } = await db
+          .from("user_profiles")
+          .upsert(row, { onConflict: "user_id" })
+          .select()
+          .single();
+        return { data: data ?? null, error: error ?? null };
+      }
+
+      if (action === "update") {
+        const userId = this.filters.find((f) => f.field === "user_id")?.value ?? user.id;
+        const { data, error } = await db
+          .from("user_profiles")
+          .upsert({ ...values, user_id: userId }, { onConflict: "user_id" })
+          .select()
+          .single();
+        return { data: data ?? null, error: error ?? null };
+      }
+    }
+
+    // ── CLEANING_SUBSCRIPTIONS ──
+    if (this.table === "cleaning_subscriptions") {
+      if (action === "insert") {
+        const input = Array.isArray(values) ? values[0] : values;
+        const packageDetails = cleaningPackageForId(input.package_id);
+        const billingPeriodMonths = normalizeBillingMonths(input.billing_period_months);
+        const monthlyPriceCents =
+          packageDetails.price_per_cleaning_cents * packageDetails.cleanings_per_month;
+        const totalPriceCents = monthlyPriceCents * billingPeriodMonths;
+        const today = toDateOnly(formatDate(new Date())) ?? new Date();
+
+        // Check for existing paid subscription to renew
+        const { data: existingSubs } = await db
+          .from("cleaning_subscriptions")
+          .select("*")
+          .eq("user_id", input.user_id)
+          .eq("package_id", input.package_id)
+          .eq("payment_status", "paid");
+
+        const paidExisting = (existingSubs || [])
+          .sort((a: any, b: any) => {
+            const aPaid = toDateOnly(a.paid_until || a.end_date)?.getTime() ?? 0;
+            const bPaid = toDateOnly(b.paid_until || b.end_date)?.getTime() ?? 0;
+            return bPaid - aPaid;
+          })[0];
+
+        const existingPaidUntil = paidExisting
+          ? toDateOnly(paidExisting.paid_until || paidExisting.end_date)
+          : null;
+
+        const shouldRenew =
+          input.payment_status === "paid" &&
+          paidExisting &&
+          paidExisting.subscription_status === "active" &&
+          paidExisting.recurring_day_of_week != null &&
+          paidExisting.recurring_time &&
+          existingPaidUntil &&
+          existingPaidUntil >= today;
+
+        if (shouldRenew) {
+          const renewedPaidUntil = addMonths(existingPaidUntil!, billingPeriodMonths);
+          const previousMonths = Number(paidExisting.billing_period_months) || 1;
+          const previousTotal = Number(paidExisting.total_price_cents) || monthlyPriceCents * previousMonths;
+          const renewed = normalizeCleaningSubscription({
+            ...paidExisting,
+            updated_at: now,
+            end_date: formatDate(renewedPaidUntil),
+            service_end_date: formatDate(renewedPaidUntil),
+            paid_until: formatDate(renewedPaidUntil),
+            billing_period_months: previousMonths + billingPeriodMonths,
+            monthly_price_cents: monthlyPriceCents,
+            total_price_cents: previousTotal + totalPriceCents,
+            cleanings_remaining:
+              Number(paidExisting.cleanings_remaining || 0) +
+              packageDetails.cleanings_per_month * billingPeriodMonths,
+            payment_status: "paid",
+            subscription_status: "active",
+            payment_method: input.payment_method,
+            payment_reference: input.payment_reference,
+            is_active: true,
+          });
+          const { data, error } = await db
+            .from("cleaning_subscriptions")
+            .update(renewed)
+            .eq("id", paidExisting.id)
+            .select()
+            .single();
+          return { data: data ?? null, error: error ?? null };
+        }
+
+        const serviceStart = input.service_start_date || input.start_date || formatDate(today);
+        const serviceEnd =
+          input.service_end_date ||
+          input.end_date ||
+          formatDate(addMonths(today, billingPeriodMonths));
+
+        const newSub = normalizeCleaningSubscription({
+          ...input,
+          created_at: now,
+          updated_at: now,
+          billing_period_months: billingPeriodMonths,
+          monthly_price_cents: monthlyPriceCents,
+          total_price_cents: totalPriceCents,
+          service_start_date: serviceStart,
+          service_end_date: serviceEnd,
+          paid_until: input.paid_until || serviceEnd,
+          cleanings_remaining:
+            Number(input.cleanings_remaining) ||
+            packageDetails.cleanings_per_month * billingPeriodMonths,
+          subscription_status:
+            input.subscription_status ||
+            (input.payment_status === "paid" ? "active" : "pending"),
+          is_active:
+            input.is_active ??
+            (input.payment_status === "paid" && input.subscription_status === "active"),
+        });
+
+        const { data, error } = await db
+          .from("cleaning_subscriptions")
+          .insert(newSub)
+          .select()
+          .single();
+        return {
+          data: data ? normalizeCleaningSubscription(data) : null,
+          error: error ?? null,
+        };
+      }
+
+      if (action === "update") {
+        const id = this.filters.find((f) => f.field === "id")?.value;
+        const { data, error } = await db
+          .from("cleaning_subscriptions")
+          .update({ ...values, updated_at: now })
+          .eq("id", id)
+          .select()
+          .single();
+        return { data: data ?? null, error: error ?? null };
+      }
+    }
+
+    // ── GENERIC CLEANING + SUPPORT TABLES ──
+    const genericSupportTables = [
+      "cleaning_clients",
+      "cleaning_custom_plans",
+      "cleaning_recurring_schedules",
+      "cleaning_checklist_templates",
+      "cleaning_completion_reports",
+    ];
+
+    if (genericSupportTables.includes(this.table)) {
+      if (action === "insert" || action === "upsert") {
+        const inputRows = Array.isArray(values) ? values : [values];
+        const rows = inputRows.map((input) => ({
           created_at: now,
           updated_at: now,
           ...input,
         }));
-        saveStoredRows(key, [...nextRows, ...rows]);
-        return { data: Array.isArray(values) ? nextRows : nextRows[0], error: null };
+
+        if (action === "upsert") {
+          const { data, error } = await db
+            .from(this.table)
+            .upsert(rows)
+            .select();
+          return {
+            data: Array.isArray(values) ? (data ?? []) : (data?.[0] ?? null),
+            error: error ?? null,
+          };
+        }
+
+        const { data, error } = await db
+          .from(this.table)
+          .insert(rows)
+          .select();
+        return {
+          data: Array.isArray(values) ? (data ?? []) : (data?.[0] ?? null),
+          error: error ?? null,
+        };
       }
 
       if (action === "update") {
-        const id = this.filters.find((filter) => filter.field === "id")?.value;
-        const nextRows = rows.map((row) =>
-          row.id === id ? { ...row, ...values, updated_at: new Date().toISOString() } : row
-        );
-        saveStoredRows(key, nextRows);
-        return { data: nextRows.find((row) => row.id === id) ?? null, error: null };
+        const id = this.filters.find((f) => f.field === "id")?.value;
+
+        // Cascade delete slot current_bookings when deleting a client
+        if (this.table === "cleaning_clients" && action === "update") {
+          // just update
+        }
+
+        const { data, error } = await db
+          .from(this.table)
+          .update({ ...values, updated_at: now })
+          .eq("id", id)
+          .select()
+          .single();
+        return { data: data ?? null, error: error ?? null };
       }
 
       if (action === "delete") {
-        const id = this.filters.find((filter) => filter.field === "id")?.value;
-        if (this.table === "cleaning_clients") {
-          const clientBookings = getCleaningBookings().filter((booking) => booking.client_id === id);
-          if (clientBookings.length) {
-            const bookedSlotIds = new Set(
-              clientBookings
-                .filter((booking) => booking.status === "booked")
-                .map((booking) => booking.slot_id)
-            );
-            saveCleaningSlots(getCleaningSlots().map((slot) =>
-              bookedSlotIds.has(slot.id)
-                ? { ...slot, current_bookings: Math.max(0, Number(slot.current_bookings ?? 0) - 1) }
-                : slot
-            ));
-          }
+        const id = this.filters.find((f) => f.field === "id")?.value;
 
-          const planIds = new Set(getCleaningCustomPlans().filter((plan) => plan.client_id === id).map((plan) => plan.id));
-          saveCleaningCustomPlans(getCleaningCustomPlans().filter((plan) => plan.client_id !== id));
-          saveCleaningRecurringSchedules(getCleaningRecurringSchedules().filter((schedule) => schedule.client_id !== id));
-          saveCleaningChecklistTemplates(getCleaningChecklistTemplates().filter((template) => template.client_id !== id));
-          saveCleaningCompletionReports(getCleaningCompletionReports().filter((report) => report.client_id !== id && !planIds.has(report.custom_plan_id)));
-          saveCleaningBookings(getCleaningBookings().filter((booking) => booking.client_id !== id));
+        if (this.table === "cleaning_clients" && id) {
+          // Decrement slot counts for active bookings belonging to this client
+          const { data: clientBookings } = await db
+            .from("cleaning_bookings")
+            .select("id, slot_id, status")
+            .eq("client_id", id);
+
+          for (const booking of clientBookings || []) {
+            if (booking.status === "booked" && booking.slot_id) {
+              await db.rpc("decrement_slot_bookings", { p_slot_id: booking.slot_id }).catch(() => {
+                // Fallback: manual decrement
+                db.from("cleaning_available_slots")
+                  .select("current_bookings")
+                  .eq("id", booking.slot_id)
+                  .single()
+                  .then(({ data: slot }) => {
+                    if (slot) {
+                      db.from("cleaning_available_slots")
+                        .update({ current_bookings: Math.max(0, slot.current_bookings - 1) })
+                        .eq("id", booking.slot_id);
+                    }
+                  });
+              });
+            }
+          }
         }
-        saveStoredRows(key, rows.filter((row) => row.id !== id));
-        return { data: null, error: null };
+
+        const { error } = await db.from(this.table).delete().eq("id", id);
+        return { data: null, error: error ?? null };
       }
     }
 
+    // ── CLEANING_BOOKINGS ──
     if (this.table === "cleaning_bookings") {
-      const bookings = getCleaningBookings();
-
       if (action === "insert") {
         const input = Array.isArray(values) ? values[0] : values;
-        const now = new Date().toISOString();
-        const next = {
-          id: `owned-cleaning-booking-${Date.now()}`,
+        const row = {
+          google_calendar_event_id: null,
+          google_calendar_event_link: null,
+          google_calendar_synced_at: null,
+          google_calendar_sync_status: "pending",
+          google_calendar_sync_error: null,
           created_at: now,
           updated_at: now,
           ...input,
         };
-        saveCleaningBookings([next, ...bookings]);
-        return { data: next, error: null };
+        const { data, error } = await db
+          .from("cleaning_bookings")
+          .insert(row)
+          .select()
+          .single();
+        return { data: data ?? null, error: error ?? null };
       }
 
       if (action === "update") {
-        const id = this.filters.find((filter) => filter.field === "id")?.value;
-        const nextBookings = bookings.map((booking) =>
-          booking.id === id ? { ...booking, ...values, updated_at: new Date().toISOString() } : booking
-        );
-        saveCleaningBookings(nextBookings);
-        return { data: nextBookings.find((booking) => booking.id === id) ?? null, error: null };
+        const id = this.filters.find((f) => f.field === "id")?.value;
+        const { data, error } = await db
+          .from("cleaning_bookings")
+          .update({ ...values, updated_at: now })
+          .eq("id", id)
+          .select()
+          .single();
+        return { data: data ?? null, error: error ?? null };
       }
     }
 
+    // Fallback
     return { data: values ?? null, error: null };
   }
 
-  private async execute() {
+  // --------------------------------------------------------
+  // EXECUTE  (SELECT queries)
+  // --------------------------------------------------------
+  private async execute(): Promise<{ data: any; error: any; count?: number }> {
     const { data, error, count } = await this.loadTable();
     if (error) return { data: null, error, count };
 
-    let rows = Array.isArray(data) ? data : data ? [data] : [];
-    rows = this.applyFilters(rows);
+    let rows: any[] = Array.isArray(data) ? data : data ? [data] : [];
 
+    // Client-side ordering for non-DB-backed tables
     if (this.orderField) {
-      rows = [...rows].sort((a, b) => String(a[this.orderField!]).localeCompare(String(b[this.orderField!])));
+      rows = [...rows].sort((a, b) =>
+        String(a[this.orderField!]).localeCompare(String(b[this.orderField!])),
+      );
     }
 
     if (this.take !== null) {
@@ -690,151 +1058,235 @@ class OwnedQueryBuilder {
     return { data: rows, error: null, count: count ?? rows.length };
   }
 
-  private applyFilters(rows: any[]) {
-    return rows.filter((row) =>
-      this.filters.every((filter) => {
-        const value = row[filter.field];
-        if (filter.op === "eq") return value === filter.value;
-        if (filter.op === "neq") return value !== filter.value;
-        if (filter.op === "lte") return compareFilterValues(value, filter.value) <= 0;
-        if (filter.op === "gte") return compareFilterValues(value, filter.value) >= 0;
-        if (filter.op === "gt") return compareFilterValues(value, filter.value) > 0;
-        if (filter.op === "in") return filter.value.includes(value);
-        return true;
-      })
-    );
-  }
-
-  private async loadTable() {
+  private async loadTable(): Promise<{ data: any; error: any; count?: number }> {
+    // ── RESTAURANTS (from NestJS API + local overrides) ──
     if (this.table === "restaurants") {
-      const [restaurantsResult, plansResult] = await Promise.all([api("/restaurants"), api("/plans")]);
+      const [restaurantsResult, plansResult] = await Promise.all([
+        api("/restaurants"),
+        api("/plans"),
+      ]);
 
-      if (restaurantsResult.error) {
-        return { ...restaurantsResult, data: [] };
-      }
+      if (restaurantsResult.error) return { ...restaurantsResult, data: [] };
 
+      const deletedRestaurantIds = getDeletedRestaurantIds();
+      const restaurantOverrides = new Map(
+        getRestaurantOverrides().map((r: any) => [r.id, r]),
+      );
       const plansByRestaurant = new Map<string, any[]>();
       for (const plan of plansResult.data || []) {
         const restaurantId = plan.restaurantId ?? plan.restaurant_id;
-        plansByRestaurant.set(restaurantId, [...(plansByRestaurant.get(restaurantId) || []), plan]);
+        if (deletedRestaurantIds.has(String(restaurantId))) continue;
+        plansByRestaurant.set(restaurantId, [
+          ...(plansByRestaurant.get(restaurantId) || []),
+          plan,
+        ]);
       }
+
+      const apiRestaurants = (restaurantsResult.data || [])
+        .filter((r: any) => !deletedRestaurantIds.has(String(r.id)))
+        .map((r: any) => ({ ...r, ...(restaurantOverrides.get(r.id) || {}) }));
+
+      const apiRestaurantIds = new Set(apiRestaurants.map((r: any) => r.id));
+      const localOnlyRestaurants = [...restaurantOverrides.values()].filter(
+        (r: any) =>
+          !apiRestaurantIds.has(r.id) && !deletedRestaurantIds.has(String(r.id)),
+      );
 
       return {
         ...restaurantsResult,
-        data: (restaurantsResult.data || []).map((restaurant: any) =>
+        data: [...localOnlyRestaurants, ...apiRestaurants].map((r: any) =>
           toSnakeRestaurant({
-            ...restaurant,
-            subscriptionPlans: plansByRestaurant.get(restaurant.id) || [],
-          })
+            ...r,
+            subscriptionPlans: plansByRestaurant.get(r.id) || [],
+          }),
         ),
       };
     }
 
+    // ── SUBSCRIPTION_PLANS (from NestJS API) ──
     if (this.table === "subscription_plans") {
       const result = await api("/plans");
-      return { ...result, data: (result.data || []).map(toSnakePlan) };
+      const deletedIds = getDeletedRestaurantIds();
+      return {
+        ...result,
+        data: (result.data || [])
+          .filter((p: any) => !deletedIds.has(String(p.restaurantId ?? p.restaurant_id)))
+          .map(toSnakePlan),
+      };
     }
 
+    // ── CLEANING_PACKAGES (from NestJS API) ──
     if (this.table === "cleaning_packages") {
       const result = await api("/cleaning/packages");
       return { ...result, data: (result.data || []).map(toSnakeCleaningPackage) };
     }
 
+    // ── CLEANING_AVAILABLE_SLOTS ──
+    if (this.table === "cleaning_available_slots") {
+      await ensureSlotsSeeded();
+      let q = db.from("cleaning_available_slots").select("*");
+      q = applyDbFilters(q, this.filters);
+      if (this.orderField) q = q.order(this.orderField);
+      else q = q.order("date").order("start_time");
+      const { data, error } = await q;
+      return { data: data ?? [], error: error ?? null };
+    }
+
+    // ── CLEANING_SUBSCRIPTIONS ──
     if (this.table === "cleaning_subscriptions") {
+      let q = db.from("cleaning_subscriptions").select("*");
+      q = applyDbFilters(q, this.filters);
+      q = q.order("created_at", { ascending: false });
+      const { data, error } = await q;
+      if (error) return { data: [], error };
       const user = getOwnedUserDetails();
       return {
-        data: getCleaningSubscriptions().map((subscription) => ({
-          ...subscription,
+        data: (data || []).map((s: any) => ({
+          ...normalizeCleaningSubscription(s),
           users: user,
         })),
         error: null,
-        count: getCleaningSubscriptions().length,
       };
     }
 
-    if (this.table === "cleaning_available_slots") {
-      const slots = getCleaningSlots();
-      return { data: slots, error: null, count: slots.length };
-    }
-
+    // ── CLEANING_BOOKINGS (with embedded relations) ──
     if (this.table === "cleaning_bookings") {
-      const bookings = getCleaningBookings().map(withCleaningRelations);
-      return { data: bookings, error: null, count: bookings.length };
+      let q = db.from("cleaning_bookings").select(`
+        *,
+        cleaning_available_slots (id, date, start_time, end_time),
+        cleaning_clients (*),
+        cleaning_custom_plans (*),
+        cleaning_completion_reports (*)
+      `);
+      q = applyDbFilters(q, this.filters);
+      q = q.order("created_at", { ascending: false });
+      const { data, error } = await q;
+      if (error) return { data: [], error };
+      const user = getOwnedUserDetails();
+      return {
+        data: (data || []).map((b: any) => ({ ...b, users: user })),
+        error: null,
+      };
     }
 
+    // ── CLEANING_CLIENTS ──
     if (this.table === "cleaning_clients") {
-      const clients = getCleaningClients();
-      return { data: clients, error: null, count: clients.length };
+      let q = db.from("cleaning_clients").select("*");
+      q = applyDbFilters(q, this.filters);
+      q = q.order("created_at", { ascending: false });
+      const { data, error } = await q;
+      return { data: data ?? [], error: error ?? null };
     }
 
+    // ── CLEANING_CUSTOM_PLANS ──
     if (this.table === "cleaning_custom_plans") {
-      const plans = getCleaningCustomPlans().map((plan: any) => ({
-        ...plan,
-        cleaning_clients: getCleaningClients().find((client: any) => client.id === plan.client_id) ?? null,
-      }));
-      return { data: plans, error: null, count: plans.length };
+      let q = db.from("cleaning_custom_plans").select(`*, cleaning_clients (*)`);
+      q = applyDbFilters(q, this.filters);
+      q = q.order("created_at", { ascending: false });
+      const { data, error } = await q;
+      return { data: data ?? [], error: error ?? null };
     }
 
+    // ── CLEANING_RECURRING_SCHEDULES ──
     if (this.table === "cleaning_recurring_schedules") {
-      const schedules = getCleaningRecurringSchedules().map((schedule: any) => ({
-        ...schedule,
-        cleaning_clients: getCleaningClients().find((client: any) => client.id === schedule.client_id) ?? null,
-        cleaning_custom_plans: getCleaningCustomPlans().find((plan: any) => plan.id === schedule.custom_plan_id) ?? null,
-      }));
-      return { data: schedules, error: null, count: schedules.length };
+      let q = db
+        .from("cleaning_recurring_schedules")
+        .select(`*, cleaning_clients (*), cleaning_custom_plans (*)`);
+      q = applyDbFilters(q, this.filters);
+      q = q.order("created_at", { ascending: false });
+      const { data, error } = await q;
+      return { data: data ?? [], error: error ?? null };
     }
 
+    // ── CLEANING_CHECKLIST_TEMPLATES ──
     if (this.table === "cleaning_checklist_templates") {
-      const templates = getCleaningChecklistTemplates();
-      return { data: templates, error: null, count: templates.length };
+      let q = db.from("cleaning_checklist_templates").select("*");
+      q = applyDbFilters(q, this.filters);
+      const { data, error } = await q;
+      return { data: data ?? [], error: error ?? null };
     }
 
+    // ── CLEANING_COMPLETION_REPORTS ──
     if (this.table === "cleaning_completion_reports") {
-      const reports = getCleaningCompletionReports().map((report: any) => ({
-        ...report,
-        cleaning_bookings: withCleaningRelations(
-          getCleaningBookings().find((booking: any) => booking.id === report.booking_id) ?? {}
-        ),
-      }));
-      return { data: reports, error: null, count: reports.length };
+      let q = db.from("cleaning_completion_reports").select(`
+        *,
+        cleaning_bookings (
+          *,
+          cleaning_available_slots (id, date, start_time, end_time),
+          cleaning_clients (*)
+        )
+      `);
+      q = applyDbFilters(q, this.filters);
+      q = q.order("completed_at", { ascending: false });
+      const { data, error } = await q;
+      return { data: data ?? [], error: error ?? null };
     }
 
+    // ── USERS (from NestJS API or session) ──
     if (this.table === "users") {
       const result = await api("/admin/users");
       if (!result.error) {
         return { ...result, data: (result.data || []).map(toSnakeUser), count: result.data?.length ?? 0 };
       }
-
       const user = ownedUserFromSession() || (await api("/auth/me")).data?.user;
       return { data: user ? [toSnakeUser(user)] : [], error: null, count: user ? 1 : 0 };
     }
 
+    // ── USER_ROLES (from session) ──
     if (this.table === "user_roles") {
-      const roles = getStoredSession()?.roles || ["super_admin", "user"];
-      const userId = ownedUserFromSession()?.id ?? "owned-user-frorex";
+      const session = getStoredSession();
+      const roles = session?.roles ?? [];
+      const userId = session?.user?.id ?? ownedUserFromSession()?.id ?? "";
+      if (!userId) return { data: [], error: null, count: 0 };
       return {
         data: roles.map((role: string) => ({ user_id: userId, role })),
         error: null,
-        count: roles.length
+        count: roles.length,
       };
     }
 
+    // ── FAVORITES ──
     if (this.table === "favorites") {
-      return { data: getFavorites(), error: null, count: getFavorites().length };
+      let q = db.from("favorites").select("*");
+      q = applyDbFilters(q, this.filters);
+      q = q.order("created_at", { ascending: false });
+      const { data, error } = await q;
+      return { data: data ?? [], error: error ?? null };
     }
 
+    // ── GLOBAL_SETTINGS ──
     if (this.table === "global_settings") {
-      return { data: [{ id: "owned-global-settings", cutoff_hour: 18 }], error: null, count: 1 };
+      const { data, error } = await db.from("global_settings").select("*");
+      if (error || !data?.length) {
+        return { data: [{ id: "default", key: "cutoff_hour", value: 18, cutoff_hour: 18 }], error: null };
+      }
+      // Shape: [{ key, value }, ...] → also expose as flat { cutoff_hour: 18 }
+      const settings = data.reduce(
+        (acc: any, row: any) => ({ ...acc, [row.key]: row.value }),
+        { id: "global" },
+      );
+      return { data: [settings], error: null };
     }
 
+    // ── USER_PROFILES ──
     if (this.table === "user_profiles") {
       const user = ownedUserFromSession();
+      if (!user) return { data: [], error: null };
+      let q = db.from("user_profiles").select("*").eq("user_id", user.id);
+      q = applyDbFilters(q, this.filters);
+      const { data, error } = await q;
+      if (error) return { data: [], error };
+      if (data && data.length > 0) return { data, error: null };
+      // Return empty profile shape when not yet created
       return {
-        data: user
-          ? [{ id: "owned-profile", user_id: user.id, default_delivery_address: { address: "Prospera Village" } }]
-          : [],
+        data: [{
+          id: `owned-profile-${user.id}`,
+          user_id: user.id,
+          phone_number: null,
+          telegram_username: null,
+          default_delivery_address: null,
+        }],
         error: null,
-        count: user ? 1 : 0,
       };
     }
 
@@ -842,43 +1294,37 @@ class OwnedQueryBuilder {
   }
 }
 
+// ============================================================
+// SUPABASE EXPORT OBJECT
+// ============================================================
+
 export const supabase = {
+  // ── AUTH (NestJS backend) ──────────────────────────────────
   auth: {
     onAuthStateChange(callback: AuthStateChangeCallback) {
       authStateListeners.add(callback);
-      setTimeout(() => {
-        const session = getStoredSession();
-        callback(session ? "SIGNED_IN" : "SIGNED_OUT", session);
-      }, 0);
       return {
         data: {
           subscription: {
-            unsubscribe: () => {
-              authStateListeners.delete(callback);
-            },
+            unsubscribe: () => { authStateListeners.delete(callback); },
           },
         },
       };
     },
     async getSession() {
-      return { data: { session: getStoredSession() }, error: null };
+      return { data: { session: await getValidStoredSession() }, error: null };
     },
     async getUser() {
-      return { data: { user: ownedUserFromSession() }, error: null };
+      const session = await getValidStoredSession();
+      return { data: { user: session?.user ?? null }, error: null };
     },
     async signInWithPassword({ email, password }: { email: string; password: string }) {
       const result = await api("/auth/login", {
         method: "POST",
         body: JSON.stringify({ email, password }),
       });
-
       if (result.error) return { data: null, error: result.error };
-
-      const session = {
-        ...result.data.session,
-        user: result.data.user,
-        roles: result.data.roles,
-      };
+      const session = { ...result.data.session, user: result.data.user, roles: result.data.roles };
       storeSession(session);
       notifyAuthStateChange("SIGNED_IN", session);
       return { data: { session, user: result.data.user }, error: null };
@@ -901,8 +1347,62 @@ export const supabase = {
       }
       return { data: { user: result.data.user, session: result.data.session }, error: null };
     },
-    async signInWithOAuth() {
-      return { error: new Error("Google login is not connected to the owned API yet.") };
+    async signInWithOAuth({ provider, options }: { provider: string; options?: { redirectTo?: string } }) {
+      if (provider !== "google") {
+        return { data: null, error: new Error("Only Google OAuth is supported") };
+      }
+      const redirectUrl = options?.redirectTo || `${window.location.origin}/auth`;
+      const state =
+        globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      localStorage.setItem(GOOGLE_OAUTH_STATE_KEY, state);
+
+      const result = await api("/auth/google/start", {
+        method: "POST",
+        body: JSON.stringify({ redirectUrl, state }),
+      });
+      if (result.error) {
+        localStorage.removeItem(GOOGLE_OAUTH_STATE_KEY);
+        return { data: null, error: result.error };
+      }
+      window.location.assign(result.data.url);
+      return { data: { provider, url: result.data.url }, error: null };
+    },
+    async completeOAuthSignIn({
+      provider,
+      code,
+      state,
+      redirectTo,
+    }: {
+      provider: string;
+      code: string;
+      state: string | null;
+      redirectTo?: string;
+    }) {
+      if (provider !== "google") {
+        return { data: null, error: new Error("Only Google OAuth is supported") };
+      }
+      const expectedState = localStorage.getItem(GOOGLE_OAUTH_STATE_KEY);
+      localStorage.removeItem(GOOGLE_OAUTH_STATE_KEY);
+      if (!state || !expectedState || state !== expectedState) {
+        return { data: null, error: new Error("Google login state could not be verified") };
+      }
+      const result = await api("/auth/google/callback", {
+        method: "POST",
+        body: JSON.stringify({
+          provider,
+          code,
+          redirectUrl: redirectTo || `${window.location.origin}/auth`,
+        }),
+      });
+      if (result.error) return { data: null, error: result.error };
+      const session = {
+        ...result.data.session,
+        user: result.data.user,
+        roles: result.data.roles || [],
+      };
+      storeSession(session);
+      notifyAuthStateChange("SIGNED_IN", session);
+      return { data: { session, user: result.data.user, roles: result.data.roles || [] }, error: null };
     },
     async requestPasswordReset(email: string, redirectUrl?: string) {
       return api("/auth/password-reset/request", {
@@ -916,306 +1416,628 @@ export const supabase = {
         body: JSON.stringify({ token, password }),
       });
     },
-    async updateUser() {
+    async updateUser(update?: { data?: { name?: string } }) {
+      const session = readStoredSession();
+      if (session && update?.data?.name) {
+        const name = update.data.name;
+        const updatedSession = {
+          ...session,
+          user: {
+            ...(session.user ?? {}),
+            name,
+            display_name: name,
+            user_metadata: { ...(session.user as any)?.user_metadata, name },
+          },
+        };
+        storeSession(updatedSession);
+        notifyAuthStateChange("SIGNED_IN", updatedSession);
+      }
       return { data: { user: ownedUserFromSession() }, error: null };
     },
     async signOut() {
-      sessionStorage.removeItem(SESSION_KEY);
-      localStorage.removeItem(SESSION_KEY);
+      clearStoredSession();
       notifyAuthStateChange("SIGNED_OUT", null);
       return { error: null };
     },
   },
+
+  // ── FROM (query builder) ──────────────────────────────────
   from(table: string) {
     return new OwnedQueryBuilder(table);
   },
+
+  // ── RPC (business logic) ──────────────────────────────────
   rpc(name: string, params?: any) {
+    if (name === "set_lightning_session") {
+      return Promise.resolve({ data: null, error: null });
+    }
+
     if (name === "get_user_profile") {
       const user = ownedUserFromSession();
       return Promise.resolve({ data: user ? [{ ...user }] : [], error: null });
     }
 
     if (name === "create_subscription_by_pubkey") {
+      const roles = getStoredSession()?.roles || [];
+      if (!roles.includes("super_admin")) {
+        return Promise.resolve({
+          data: null,
+          error: new Error("Food subscriptions are only available to super admins"),
+        });
+      }
       return Promise.resolve({
         data: [{ id: `owned-subscription-${Date.now()}`, ...(params || {}) }],
         error: null,
       });
     }
 
-    if (name === "book_cleaning_slot") {
-      const subscriptionId = params?.p_subscription_id;
-      const slotId = params?.p_slot_id;
-      const notes = params?.p_notes ?? null;
+    if (name === "schedule_cleaning_subscription") {
+      return (async () => {
+        const subscriptionId = params?.p_subscription_id;
+        const dayOfWeek = Number(params?.p_day_of_week);
+        const startTime = normalizeTime(params?.p_start_time);
+        const notes = typeof params?.p_notes === "string" ? params.p_notes.trim() : "";
 
-      const subscriptions = getCleaningSubscriptions();
-      const slots = getCleaningSlots();
-      const bookings = getCleaningBookings();
-      const subscription = subscriptions.find((candidate) => candidate.id === subscriptionId);
-      const slot = slots.find((candidate) => candidate.id === slotId);
+        if (!subscriptionId || Number.isNaN(dayOfWeek) || dayOfWeek < 1 || dayOfWeek > 6 || !startTime) {
+          return { data: null, error: new Error("Choose a weekday and time slot") };
+        }
+        if (!notes) {
+          return { data: null, error: new Error("Apartment / access notes are required") };
+        }
 
-      if (!subscription || !subscription.is_active || subscription.cleanings_remaining <= 0) {
-        return Promise.resolve({ data: null, error: new Error("No active cleaning subscription available") });
-      }
+        const { data: subData, error: subError } = await db
+          .from("cleaning_subscriptions")
+          .select("*")
+          .eq("id", subscriptionId)
+          .single();
 
-      if (!slot || !slot.is_active) {
-        return Promise.resolve({ data: null, error: new Error("This cleaning slot is no longer available") });
-      }
+        if (subError || !subData) {
+          return { data: null, error: new Error("Subscription not found") };
+        }
+        if (subData.payment_status !== "paid") {
+          return { data: null, error: new Error("Payment must be completed before scheduling") };
+        }
+        if (!["pending_schedule", "active"].includes(subData.subscription_status)) {
+          return { data: null, error: new Error("This cleaning subscription cannot be scheduled") };
+        }
 
-      if (slot.current_bookings >= slot.max_bookings) {
-        return Promise.resolve({ data: null, error: new Error("This cleaning slot is full") });
-      }
+        const periodStart = toDateOnly(subData.service_start_date || subData.start_date || formatDate(new Date()));
+        const periodEnd   = toDateOnly(subData.paid_until || subData.service_end_date || subData.end_date);
+        if (!periodStart || !periodEnd || periodEnd < periodStart) {
+          return { data: null, error: new Error("Cleaning service period is invalid") };
+        }
 
-      const slotDate = new Date(`${slot.date}T00:00:00`);
-      if (slotDate.getDay() === 0) {
-        return Promise.resolve({ data: null, error: new Error("Cleaning is available Monday through Saturday") });
-      }
+        const today = toDateOnly(formatDate(new Date()));
+        const recurringDates = eachRecurringWeekday(periodStart, periodEnd, dayOfWeek).filter((dateKey) => {
+          const date = toDateOnly(dateKey);
+          return date && today && date >= today;
+        });
 
-      const dayBookingCount = bookings.filter((booking) => {
-        const bookingSlot = slots.find((candidate) => candidate.id === booking.slot_id);
-        return booking.status === "booked" && bookingSlot?.date === slot.date;
-      }).length;
+        if (recurringDates.length === 0) {
+          return { data: null, error: new Error("No future cleanings match this schedule") };
+        }
 
-      if (dayBookingCount >= 3) {
-        return Promise.resolve({ data: null, error: new Error("This day is fully booked") });
-      }
+        await ensureSlotsSeeded();
 
-      const weekStart = new Date(slotDate);
-      const day = weekStart.getDay();
-      const diffToMonday = day === 0 ? -6 : 1 - day;
-      weekStart.setDate(weekStart.getDate() + diffToMonday);
-      const weekEnd = addDays(weekStart, 6);
-      const hasWeeklyBooking = bookings.some((booking) => {
-        if (booking.status !== "booked" || booking.cleaning_subscription_id !== subscriptionId) return false;
-        const bookingSlot = slots.find((candidate) => candidate.id === booking.slot_id);
-        if (!bookingSlot) return false;
-        const bookingDate = new Date(`${bookingSlot.date}T00:00:00`);
-        return bookingDate >= weekStart && bookingDate <= weekEnd;
-      });
+        // Load all slots for the relevant date range
+        const { data: allSlots } = await db
+          .from("cleaning_available_slots")
+          .select("*")
+          .gte("date", formatDate(periodStart))
+          .lte("date", formatDate(periodEnd));
+        const slots: any[] = allSlots || [];
 
-      if (hasWeeklyBooking) {
-        return Promise.resolve({ data: null, error: new Error("You already have a cleaning booked for this week") });
-      }
+        // Load existing future bookings for this subscription
+        const { data: existingBookings } = await db
+          .from("cleaning_bookings")
+          .select("id, slot_id, status")
+          .or(`cleaning_subscription_id.eq.${subscriptionId},subscription_id.eq.${subscriptionId}`)
+          .eq("status", "booked");
 
-      const now = new Date().toISOString();
-      const booking = {
-        id: `owned-cleaning-booking-${Date.now()}`,
-        cleaning_subscription_id: subscriptionId,
-        slot_id: slotId,
-        user_id: subscription.user_id ?? getOwnedUserDetails().id,
-        status: "booked",
-        notes,
-        created_at: now,
-        updated_at: now,
-      };
+        const oldFutureBookings = (existingBookings || []).filter((b: any) => {
+          const slot = slots.find((s: any) => s.id === b.slot_id);
+          if (!slot) return false;
+          const slotDate = toDateOnly(slot.date);
+          return slotDate && today && slotDate >= today;
+        });
 
-      saveCleaningBookings([booking, ...bookings]);
-      saveCleaningSlots(slots.map((candidate) =>
-        candidate.id === slotId
-          ? { ...candidate, current_bookings: candidate.current_bookings + 1 }
-          : candidate
-      ));
-      saveCleaningSubscriptions(subscriptions.map((candidate) =>
-        candidate.id === subscriptionId
-          ? {
-              ...candidate,
-              cleanings_remaining: Math.max(0, candidate.cleanings_remaining - 1),
-              updated_at: now,
+        // Check availability
+        const oldFutureSlotIds = new Set(oldFutureBookings.map((b: any) => b.slot_id));
+        const unavailableDate = recurringDates.find((dateKey) => {
+          const slot = slots.find(
+            (s: any) => s.date === dateKey && normalizeTime(s.start_time) === startTime,
+          );
+          if (!slot || !slot.is_active) return true;
+          if (oldFutureSlotIds.has(slot.id)) return false;
+          return slot.current_bookings >= slot.max_bookings;
+        });
+
+        if (unavailableDate) {
+          return {
+            data: null,
+            error: new Error(`The selected time is not available for every week. First conflict: ${unavailableDate}`),
+          };
+        }
+
+        const now = new Date().toISOString();
+
+        // Remove old future bookings
+        if (oldFutureBookings.length > 0) {
+          const oldIds = oldFutureBookings.map((b: any) => b.id);
+          await db.from("cleaning_bookings").delete().in("id", oldIds);
+          // Decrement slots
+          for (const b of oldFutureBookings) {
+            const slot = slots.find((s: any) => s.id === b.slot_id);
+            if (slot) {
+              await db
+                .from("cleaning_available_slots")
+                .update({ current_bookings: Math.max(0, (slot.current_bookings || 0) - 1), updated_at: now })
+                .eq("id", slot.id);
             }
-          : candidate
-      ));
+          }
+        }
 
-      return Promise.resolve({ data: [{ id: booking.id }], error: null });
+        // Create new recurring bookings
+        const generatedBookings = recurringDates.map((dateKey, index) => {
+          const slot = slots.find(
+            (s: any) => s.date === dateKey && normalizeTime(s.start_time) === startTime,
+          );
+          return {
+            cleaning_subscription_id: subscriptionId,
+            subscription_id: subscriptionId,
+            slot_id: slot?.id,
+            user_id: subData.user_id ?? getOwnedUserDetails().id,
+            status: "booked",
+            source: "user_recurring_schedule",
+            notes,
+            google_calendar_event_id: null,
+            google_calendar_event_link: null,
+            google_calendar_synced_at: null,
+            google_calendar_sync_status: "pending",
+            google_calendar_sync_error: null,
+          };
+        });
+
+        if (generatedBookings.length > 0) {
+          await db.from("cleaning_bookings").insert(generatedBookings);
+          // Increment slot counts
+          const slotIncrements = new Map<string, number>();
+          for (const b of generatedBookings) {
+            if (b.slot_id) slotIncrements.set(b.slot_id, (slotIncrements.get(b.slot_id) || 0) + 1);
+          }
+          for (const [slotId, inc] of slotIncrements) {
+            const slot = slots.find((s: any) => s.id === slotId);
+            if (slot) {
+              await db
+                .from("cleaning_available_slots")
+                .update({ current_bookings: (slot.current_bookings || 0) + inc, updated_at: now })
+                .eq("id", slotId);
+            }
+          }
+        }
+
+        // Update subscription
+        const packageDetails = cleaningPackageForId(subData.package_id);
+        const purchasedCleanings =
+          packageDetails.cleanings_per_month * normalizeBillingMonths(subData.billing_period_months);
+        await db
+          .from("cleaning_subscriptions")
+          .update({
+            recurring_day_of_week: dayOfWeek,
+            recurring_time: startTime,
+            cleanings_remaining: Math.max(0, purchasedCleanings - generatedBookings.length),
+            subscription_status: "active",
+            is_active: true,
+            updated_at: now,
+          })
+          .eq("id", subscriptionId);
+
+        return {
+          data: {
+            subscription_id: subscriptionId,
+            bookings_created: generatedBookings.length,
+            recurring_day_of_week: dayOfWeek,
+            recurring_time: startTime,
+          },
+          error: null,
+        };
+      })();
+    }
+
+    if (name === "book_cleaning_slot") {
+      return (async () => {
+        const subscriptionId = params?.p_subscription_id;
+        const slotId = params?.p_slot_id;
+        const notes = params?.p_notes ?? null;
+
+        const [{ data: subData }, { data: slotData }] = await Promise.all([
+          db.from("cleaning_subscriptions").select("*").eq("id", subscriptionId).single(),
+          db.from("cleaning_available_slots").select("*").eq("id", slotId).single(),
+        ]);
+
+        if (!subData || !subData.is_active || subData.cleanings_remaining <= 0) {
+          return { data: null, error: new Error("No active cleaning subscription available") };
+        }
+        if (!slotData || !slotData.is_active) {
+          return { data: null, error: new Error("This cleaning slot is no longer available") };
+        }
+        if (slotData.current_bookings >= slotData.max_bookings) {
+          return { data: null, error: new Error("This cleaning slot is full") };
+        }
+
+        const slotDate = new Date(`${slotData.date}T00:00:00`);
+        if (slotDate.getDay() === 0) {
+          return { data: null, error: new Error("Cleaning is available Monday through Saturday") };
+        }
+
+        // Check daily booking limit (max 3 per day across all users)
+        const { data: dayBookings } = await db
+          .from("cleaning_bookings")
+          .select("id, slot_id")
+          .eq("status", "booked");
+        const today_slot_date = slotData.date;
+        const { data: allSlotsForDay } = await db
+          .from("cleaning_available_slots")
+          .select("id")
+          .eq("date", today_slot_date);
+        const slotIdsForDay = new Set((allSlotsForDay || []).map((s: any) => s.id));
+        const dayBookingCount = (dayBookings || []).filter((b: any) => slotIdsForDay.has(b.slot_id)).length;
+        if (dayBookingCount >= 3) {
+          return { data: null, error: new Error("This day is fully booked") };
+        }
+
+        // Check weekly booking for this subscription
+        const slotDateObj = new Date(`${slotData.date}T00:00:00`);
+        const day = slotDateObj.getDay();
+        const diffToMonday = day === 0 ? -6 : 1 - day;
+        const weekStart = new Date(slotDateObj);
+        weekStart.setDate(weekStart.getDate() + diffToMonday);
+        const weekEnd = addDays(weekStart, 6);
+
+        const { data: weekSlots } = await db
+          .from("cleaning_available_slots")
+          .select("id, date")
+          .gte("date", formatDate(weekStart))
+          .lte("date", formatDate(weekEnd));
+        const weekSlotIds = new Set((weekSlots || []).map((s: any) => s.id));
+
+        const { data: weekBookings } = await db
+          .from("cleaning_bookings")
+          .select("slot_id")
+          .eq("status", "booked")
+          .eq("cleaning_subscription_id", subscriptionId);
+
+        const hasWeeklyBooking = (weekBookings || []).some((b: any) => weekSlotIds.has(b.slot_id));
+        if (hasWeeklyBooking) {
+          return { data: null, error: new Error("You already have a cleaning booked for this week") };
+        }
+
+        const now = new Date().toISOString();
+        const { data: booking, error: bookingError } = await db
+          .from("cleaning_bookings")
+          .insert({
+            cleaning_subscription_id: subscriptionId,
+            subscription_id: subscriptionId,
+            slot_id: slotId,
+            user_id: subData.user_id ?? getOwnedUserDetails().id,
+            status: "booked",
+            notes,
+            google_calendar_sync_status: "pending",
+          })
+          .select()
+          .single();
+
+        if (bookingError) return { data: null, error: bookingError };
+
+        await Promise.all([
+          db
+            .from("cleaning_available_slots")
+            .update({ current_bookings: (slotData.current_bookings || 0) + 1, updated_at: now })
+            .eq("id", slotId),
+          db
+            .from("cleaning_subscriptions")
+            .update({
+              cleanings_remaining: Math.max(0, (subData.cleanings_remaining || 0) - 1),
+              updated_at: now,
+            })
+            .eq("id", subscriptionId),
+        ]);
+
+        return { data: [{ id: booking.id }], error: null };
+      })();
     }
 
     if (name === "create_custom_cleaning_plan") {
-      const payload = params || {};
-      const now = new Date().toISOString();
-      const clientId = `cleaning-client-${Date.now()}`;
-      const planId = `cleaning-custom-plan-${Date.now()}`;
-      const scheduleId = `cleaning-recurring-schedule-${Date.now()}`;
+      return (async () => {
+        const payload = params || {};
+        const now = new Date().toISOString();
 
-      const client = {
-        id: clientId,
-        company_name: payload.company_name,
-        contact_person: payload.contact_person ?? null,
-        email: payload.email ?? null,
-        phone: payload.phone ?? null,
-        location: payload.location,
-        service_type: payload.service_type ?? null,
-        notes: payload.notes ?? null,
-        internal_admin_notes: payload.internal_admin_notes ?? null,
-        start_date: payload.start_date,
-        status: payload.status ?? "active",
-        client_type: "custom_cleaning_client",
-        visibility: "admin_only",
-        is_private: true,
-        created_at: now,
-        updated_at: now,
-      };
+        // Load existing clients
+        const { data: existingClients } = await db.from("cleaning_clients").select("*");
+        const clients: any[] = existingClients || [];
 
-      const plan = {
-        id: planId,
-        client_id: clientId,
-        plan_name: payload.plan_name,
-        custom_price_cents: Number(payload.custom_price_cents ?? 0),
-        billing_type: payload.billing_type ?? "custom",
-        monthly_invoice: Boolean(payload.monthly_invoice),
-        payment_timing: payload.payment_timing ?? "custom_terms",
-        custom_terms: payload.custom_terms ?? null,
-        service_frequency: payload.service_frequency ?? null,
-        days_of_week: payload.days_of_week ?? [],
-        deep_cleaning_add_on: Boolean(payload.deep_cleaning_add_on),
-        estimated_monthly_total_cents: Number(payload.estimated_monthly_total_cents ?? 0),
-        custom_checklist: payload.custom_checklist ?? [],
-        status: payload.status ?? "active",
-        is_private: true,
-        visibility: "admin_only",
-        client_type: "custom_cleaning_client",
-        created_at: now,
-        updated_at: now,
-      };
+        const requestedClient = payload.existing_client_id
+          ? clients.find((c: any) => c.id === payload.existing_client_id)
+          : null;
+        const duplicateClient = requestedClient ? null : findDuplicateCleaningClient(clients, payload);
+        const reusedClient = requestedClient || duplicateClient || null;
 
-      const schedule = {
-        id: scheduleId,
-        client_id: clientId,
-        custom_plan_id: planId,
-        start_date: payload.start_date,
-        end_date: payload.end_date || null,
-        days_of_week: payload.days_of_week ?? [],
-        preferred_start_time: payload.preferred_start_time,
-        preferred_end_time: payload.preferred_end_time,
-        assigned_cleaner: payload.assigned_cleaner ?? null,
-        location: payload.location,
-        service_duration_minutes: Number(payload.service_duration_minutes ?? 120),
-        repeat_frequency: payload.repeat_frequency ?? "weekly",
-        status: "active",
-        paused_at: null,
-        created_at: now,
-        updated_at: now,
-      };
+        const clientId = reusedClient?.id ?? `cleaning-client-${Date.now()}`;
+        const planId     = `cleaning-custom-plan-${Date.now()}`;
+        const scheduleId = `cleaning-recurring-schedule-${Date.now()}`;
 
-      const templates = [
-        {
-          id: `cleaning-checklist-template-daily-${Date.now()}`,
-          client_id: clientId,
-          custom_plan_id: planId,
-          template_type: "daily_upkeep",
-          name: "Daily upkeep checklist",
-          items: payload.daily_checklist ?? [],
-          is_active: true,
-          created_at: now,
-          updated_at: now,
-        },
-        {
-          id: `cleaning-checklist-template-deep-${Date.now()}`,
-          client_id: clientId,
-          custom_plan_id: planId,
-          template_type: "deep_cleaning",
-          name: "Deep cleaning checklist",
-          items: payload.deep_cleaning_checklist ?? [],
-          is_active: true,
-          created_at: now,
-          updated_at: now,
-        },
-      ];
-
-      let slots = getCleaningSlots();
-      const bookings = getCleaningBookings();
-      const weekdays = normalizeWeekdays(payload.days_of_week ?? []);
-      const startDate = new Date(`${payload.start_date}T00:00:00`);
-      const hardEndDate = payload.end_date
-        ? new Date(`${payload.end_date}T00:00:00`)
-        : addMonths(startDate, 2);
-      const generatedBookings: any[] = [];
-      const conflicts: string[] = [];
-
-      for (let date = new Date(startDate); date <= hardEndDate; date = addDays(date, 1)) {
-        if (!weekdays.includes(date.getDay())) continue;
-        const dateKey = formatDate(date);
-        const result = ensureCleaningSlot(slots, dateKey, payload.preferred_start_time, payload.preferred_end_time);
-        slots = result.slots;
-
-        const existingBooking = [...bookings, ...generatedBookings].find(
-          (booking) => booking.slot_id === result.slot.id && booking.status === "booked"
-        );
-        if (existingBooking || result.slot.current_bookings >= result.slot.max_bookings) {
-          conflicts.push(dateKey);
-          continue;
+        let client = reusedClient;
+        if (!reusedClient) {
+          const clientRow = {
+            id: clientId,
+            company_name: payload.company_name,
+            contact_person: payload.contact_person ?? null,
+            email: payload.email ?? null,
+            phone: payload.phone ?? null,
+            location: payload.location,
+            service_type: payload.service_type ?? null,
+            notes: payload.notes ?? null,
+            internal_admin_notes: payload.internal_admin_notes ?? null,
+            start_date: payload.start_date,
+            status: payload.status ?? "active",
+            client_type: "custom_cleaning_client",
+            visibility: "admin_only",
+            is_private: true,
+          };
+          const { data: insertedClient } = await db
+            .from("cleaning_clients")
+            .insert(clientRow)
+            .select()
+            .single();
+          client = insertedClient ?? clientRow;
         }
 
-        generatedBookings.push({
-          id: `owned-custom-cleaning-booking-${dateKey}-${Date.now()}-${generatedBookings.length}`,
-          cleaning_subscription_id: null,
-          subscription_id: null,
-          slot_id: result.slot.id,
-          user_id: "admin-custom-cleaning",
+        const plan = {
+          id: planId,
           client_id: clientId,
-          custom_plan_id: planId,
-          recurring_schedule_id: scheduleId,
-          status: "booked",
-          notes: payload.notes ?? null,
-          location: payload.location,
-          assigned_cleaner: payload.assigned_cleaner ?? null,
-          service_duration_minutes: Number(payload.service_duration_minutes ?? 120),
-          checklist_template_id: templates[0].id,
+          plan_name: payload.plan_name,
+          custom_price_cents: Number(payload.custom_price_cents ?? 0),
+          billing_type: payload.billing_type ?? "custom",
+          monthly_invoice: Boolean(payload.monthly_invoice),
+          payment_timing: payload.payment_timing ?? "custom_terms",
+          custom_terms: payload.custom_terms ?? null,
+          service_frequency: payload.service_frequency ?? null,
+          days_of_week: payload.days_of_week ?? [],
+          deep_cleaning_add_on: Boolean(payload.deep_cleaning_add_on),
+          estimated_monthly_total_cents: Number(payload.estimated_monthly_total_cents ?? 0),
+          custom_checklist: payload.custom_checklist ?? [],
+          status: payload.status ?? "active",
           is_private: true,
           visibility: "admin_only",
           client_type: "custom_cleaning_client",
-          created_at: now,
-          updated_at: now,
-        });
-        result.slot.current_bookings += 1;
-      }
+        };
+        await db.from("cleaning_custom_plans").insert(plan);
 
-      saveCleaningClients([client, ...getCleaningClients()]);
-      saveCleaningCustomPlans([plan, ...getCleaningCustomPlans()]);
-      saveCleaningRecurringSchedules([schedule, ...getCleaningRecurringSchedules()]);
-      saveCleaningChecklistTemplates([...templates, ...getCleaningChecklistTemplates()]);
-      saveCleaningBookings([...generatedBookings, ...bookings]);
-      saveCleaningSlots(slots);
+        const schedule = {
+          id: scheduleId,
+          client_id: clientId,
+          custom_plan_id: planId,
+          start_date: payload.start_date,
+          end_date: payload.end_date || null,
+          days_of_week: payload.days_of_week ?? [],
+          preferred_start_time: payload.preferred_start_time,
+          preferred_end_time: payload.preferred_end_time,
+          assigned_cleaner: payload.assigned_cleaner ?? null,
+          location: payload.location,
+          service_duration_minutes: Number(payload.service_duration_minutes ?? 120),
+          repeat_frequency: payload.repeat_frequency ?? "weekly",
+          status: "active",
+        };
+        await db.from("cleaning_recurring_schedules").insert(schedule);
 
-      return Promise.resolve({
-        data: [{ client, plan, schedule, bookings_created: generatedBookings.length, conflicts }],
-        error: null,
-      });
+        const templates = [
+          {
+            id: `cleaning-checklist-template-daily-${Date.now()}`,
+            client_id: clientId,
+            custom_plan_id: planId,
+            template_type: "daily_upkeep",
+            name: "Daily upkeep checklist",
+            items: payload.daily_checklist ?? [],
+            is_active: true,
+          },
+          {
+            id: `cleaning-checklist-template-deep-${Date.now() + 1}`,
+            client_id: clientId,
+            custom_plan_id: planId,
+            template_type: "deep_cleaning",
+            name: "Deep cleaning checklist",
+            items: payload.deep_cleaning_checklist ?? [],
+            is_active: true,
+          },
+        ];
+        await db.from("cleaning_checklist_templates").insert(templates);
+
+        // Generate bookings for recurring dates
+        const weekdays = normalizeWeekdays(payload.days_of_week ?? []);
+        const startDate   = new Date(`${payload.start_date}T00:00:00`);
+        const hardEndDate = payload.end_date
+          ? new Date(`${payload.end_date}T00:00:00`)
+          : addMonths(startDate, 2);
+
+        const generatedBookings: any[] = [];
+        const conflicts: string[] = [];
+
+        // Fetch existing active bookings to check conflicts
+        const { data: existingActiveBookings } = await db
+          .from("cleaning_bookings")
+          .select("slot_id, status")
+          .eq("status", "booked");
+        const bookedSlotIds = new Set((existingActiveBookings || []).map((b: any) => b.slot_id));
+
+        for (let date = new Date(startDate); date <= hardEndDate; date = addDays(date, 1)) {
+          if (!weekdays.includes(date.getDay())) continue;
+          const dateKey = formatDate(date);
+          const slot = await ensureCleaningSlot(
+            dateKey,
+            payload.preferred_start_time,
+            payload.preferred_end_time,
+          );
+
+          const alreadyBooked =
+            bookedSlotIds.has(slot.id) ||
+            generatedBookings.some((b) => b.slot_id === slot.id) ||
+            slot.current_bookings >= slot.max_bookings;
+
+          if (alreadyBooked) {
+            conflicts.push(dateKey);
+            continue;
+          }
+
+          generatedBookings.push({
+            slot_id: slot.id,
+            user_id: "admin-custom-cleaning",
+            client_id: clientId,
+            custom_plan_id: planId,
+            recurring_schedule_id: scheduleId,
+            status: "booked",
+            notes: payload.notes ?? null,
+            location: payload.location,
+            assigned_cleaner: payload.assigned_cleaner ?? null,
+            service_duration_minutes: Number(payload.service_duration_minutes ?? 120),
+            checklist_template_id: templates[0].id,
+            is_private: true,
+            visibility: "admin_only",
+            client_type: "custom_cleaning_client",
+            google_calendar_sync_status: "pending",
+          });
+          bookedSlotIds.add(slot.id);
+
+          // Increment the slot counter
+          await db
+            .from("cleaning_available_slots")
+            .update({ current_bookings: (slot.current_bookings || 0) + 1, updated_at: now })
+            .eq("id", slot.id);
+        }
+
+        if (generatedBookings.length > 0) {
+          await db.from("cleaning_bookings").insert(generatedBookings);
+        }
+
+        return {
+          data: [{
+            client,
+            plan,
+            schedule,
+            bookings_created: generatedBookings.length,
+            conflicts,
+            reused_client: Boolean(reusedClient),
+          }],
+          error: null,
+        };
+      })();
+    }
+
+    if (name === "cancel_cleaning_booking") {
+      return (async () => {
+        const bookingId = params?.p_booking_id;
+        const { data: booking, error: findError } = await db
+          .from("cleaning_bookings")
+          .select("*")
+          .eq("id", bookingId)
+          .single();
+
+        if (findError || !booking) {
+          return { data: null, error: new Error("Booking not found") };
+        }
+        if (booking.status === "completed") {
+          return { data: null, error: new Error("Completed bookings cannot be cancelled") };
+        }
+
+        const now = new Date().toISOString();
+        await db
+          .from("cleaning_bookings")
+          .update({ status: "cancelled", updated_at: now })
+          .eq("id", bookingId);
+
+        if (booking.slot_id) {
+          const { data: slot } = await db
+            .from("cleaning_available_slots")
+            .select("current_bookings")
+            .eq("id", booking.slot_id)
+            .single();
+          if (slot) {
+            await db
+              .from("cleaning_available_slots")
+              .update({
+                current_bookings: Math.max(0, (slot.current_bookings || 0) - 1),
+                updated_at: now,
+              })
+              .eq("id", booking.slot_id);
+          }
+        }
+
+        const subId = booking.cleaning_subscription_id || booking.subscription_id;
+        if (subId) {
+          const { data: sub } = await db
+            .from("cleaning_subscriptions")
+            .select("cleanings_remaining")
+            .eq("id", subId)
+            .single();
+          if (sub) {
+            await db
+              .from("cleaning_subscriptions")
+              .update({
+                cleanings_remaining: (sub.cleanings_remaining || 0) + 1,
+                updated_at: now,
+              })
+              .eq("id", subId);
+          }
+        }
+
+        return { data: [{ id: bookingId }], error: null };
+      })();
     }
 
     if (name === "complete_cleaning_booking") {
-      const bookingId = params?.p_booking_id;
-      const bookings = getCleaningBookings();
-      const booking = bookings.find((candidate) => candidate.id === bookingId);
-      if (!booking) {
-        return Promise.resolve({ data: null, error: new Error("Cleaning booking not found") });
-      }
+      return (async () => {
+        const bookingId = params?.p_booking_id;
+        const { data: booking, error: findError } = await db
+          .from("cleaning_bookings")
+          .select("*")
+          .eq("id", bookingId)
+          .single();
 
-      const now = new Date().toISOString();
-      const report = {
-        id: `cleaning-completion-report-${Date.now()}`,
-        booking_id: bookingId,
-        custom_plan_id: booking.custom_plan_id ?? null,
-        client_id: booking.client_id ?? null,
-        checklist_completed: params?.p_checklist_completed ?? [],
-        notes: params?.p_notes ?? null,
-        photo_url: params?.p_photo_url ?? null,
-        issue_report: params?.p_issue_report ?? null,
-        completed_by: params?.p_completed_by ?? getOwnedUserDetails().display_name,
-        completed_at: now,
-        created_at: now,
-        updated_at: now,
-      };
+        if (findError || !booking) {
+          return { data: null, error: new Error("Cleaning booking not found") };
+        }
 
-      saveCleaningCompletionReports([report, ...getCleaningCompletionReports()]);
-      saveCleaningBookings(bookings.map((candidate) =>
-        candidate.id === bookingId
-          ? { ...candidate, status: "completed", updated_at: now }
-          : candidate
-      ));
+        const now = new Date().toISOString();
+        const report = {
+          booking_id: bookingId,
+          custom_plan_id: booking.custom_plan_id ?? null,
+          client_id: booking.client_id ?? null,
+          checklist_completed: params?.p_checklist_completed ?? [],
+          notes: params?.p_notes ?? null,
+          photo_url: params?.p_photo_url ?? null,
+          issue_report: params?.p_issue_report ?? null,
+          completed_by: params?.p_completed_by ?? getOwnedUserDetails().display_name,
+          completed_at: now,
+        };
 
-      return Promise.resolve({ data: [{ id: report.id }], error: null });
+        const { data: reportData } = await db
+          .from("cleaning_completion_reports")
+          .insert(report)
+          .select()
+          .single();
+
+        await db
+          .from("cleaning_bookings")
+          .update({ status: "completed", google_calendar_sync_status: "pending", updated_at: now })
+          .eq("id", bookingId);
+
+        return { data: [{ id: reportData?.id ?? bookingId }], error: null };
+      })();
     }
 
     return Promise.resolve({ data: [], error: null });
   },
+
+  // ── EDGE FUNCTIONS ────────────────────────────────────────
   functions: {
     async invoke(name: string, options?: { body?: any }) {
       if (name === "create-invoice") {
@@ -1224,21 +2046,78 @@ export const supabase = {
           body: JSON.stringify(options?.body || {}),
         });
       }
-
       if (name === "verify-payment") {
         return api("/payments/lightning/status", {
           method: "POST",
           body: JSON.stringify(options?.body || {}),
         });
       }
-
-      return { data: null, error: new Error(`Function ${name} is not implemented in the owned API adapter`) };
+      if (name === "send-payment-confirmation-email") {
+        return api("/mail/payment-confirmation", {
+          method: "POST",
+          body: JSON.stringify(options?.body || {}),
+        });
+      }
+      return { data: null, error: new Error(`Function ${name} is not implemented`) };
     },
   },
+
+  // ── ADMIN HELPERS ─────────────────────────────────────────
+  admin: {
+    syncAllCleaningBookingsCalendar() {
+      return api("/admin/cleaning/bookings/sync-calendar", { method: "POST" });
+    },
+    syncCleaningBookingCalendar(bookingId: string) {
+      return api(`/admin/cleaning/bookings/${bookingId}/sync-calendar`, { method: "POST" });
+    },
+    syncCleaningBookingDirect(
+      bookingId: string,
+      payload: {
+        date: string;
+        startTime: string;
+        endTime: string;
+        clientName?: string;
+        planName?: string;
+        location?: string;
+        status?: string;
+        notes?: string;
+        googleCalendarEventId?: string;
+      },
+    ) {
+      return api(`/admin/cleaning/bookings/${bookingId}/sync-direct`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+    },
+    updateCleaningBooking(bookingId: string, payload: Record<string, unknown>) {
+      // Write calendar sync fields directly to Supabase (bookings now live in DB)
+      return db
+        .from("cleaning_bookings")
+        .update({ ...payload, updated_at: new Date().toISOString() })
+        .eq("id", bookingId)
+        .select()
+        .single()
+        .then(({ data, error }) => ({
+          data: data ?? { id: bookingId, ...payload },
+          error: error ?? null,
+        }));
+    },
+    deleteCleaningBooking(bookingId: string) {
+      return api(`/admin/cleaning/bookings/${bookingId}`, { method: "DELETE" });
+    },
+    listPaymentNotifications() {
+      return api("/admin/payment-notifications");
+    },
+    resendPaymentNotification(id: string) {
+      return api(`/admin/payment-notifications/${id}/resend`, { method: "POST" });
+    },
+  },
+
+  // ── STORAGE (stub) ────────────────────────────────────────
   storage: {
     from() {
       return {
-        upload: async () => ({ data: null, error: new Error("Storage is not connected to the owned API yet.") }),
+        upload: async () => ({ data: null, error: new Error("Storage is not connected yet.") }),
         getPublicUrl: () => ({ data: { publicUrl: "" } }),
       };
     },

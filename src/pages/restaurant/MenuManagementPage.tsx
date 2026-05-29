@@ -16,6 +16,7 @@ import { Plus, Loader2, Trash2, Edit, Leaf, Wheat, Milk, Upload, X, AlertCircle,
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { format, startOfWeek, endOfWeek, addWeeks, addDays } from "date-fns";
+import { nowHN } from "@/lib/timezone";
 import { supabase } from "@/integrations/supabase/client";
 import { 
   getWeeklyMenus, 
@@ -80,8 +81,8 @@ const MenuManagementPage = () => {
     }
   }, [searchParams]);
 
-  const weekStart = startOfWeek(addWeeks(new Date(), selectedWeek), { weekStartsOn: 1 });
-  const weekEnd = endOfWeek(addWeeks(new Date(), selectedWeek), { weekStartsOn: 1 });
+  const weekStart = startOfWeek(addWeeks(nowHN(), selectedWeek), { weekStartsOn: 1 });
+  const weekEnd = endOfWeek(addWeeks(nowHN(), selectedWeek), { weekStartsOn: 1 });
 
   const { data: menus, isLoading: menusLoading } = useQuery({
     queryKey: ["weekly-menus", restaurantId, selectedWeek],
@@ -411,7 +412,7 @@ const MenuManagementPage = () => {
         </Card>
 
         {/* Week Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-7 gap-space-3">
+        <div className="grid grid-cols-2 gap-space-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 md:gap-space-3">
           {DAYS_OF_WEEK.map((day, dayIndex) => {
             const dayDate = addDays(weekStart, dayIndex);
             const dayItems = menuItems.filter((item: any) => item.day_of_week === day);
@@ -489,35 +490,33 @@ const MenuManagementPage = () => {
       subtitle={activeRestaurant?.name}
     >
       {/* Week Navigation */}
-      <div className="flex items-center justify-between mb-space-6">
-        <div className="flex items-center gap-space-2">
-          <Button
-            variant="secondary"
-            size="icon"
-            onClick={() => setSelectedWeek(w => w - 1)}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <div className="text-sm font-medium min-w-[180px] text-center">
-            {format(weekStart, "MMM d")} - {format(weekEnd, "MMM d, yyyy")}
-          </div>
-          <Button
-            variant="secondary"
-            size="icon"
-            onClick={() => setSelectedWeek(w => w + 1)}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-          {selectedWeek !== 0 && (
-            <Button
-              variant="tertiary"
-              size="sm"
-              onClick={() => setSelectedWeek(0)}
-            >
-              Today
-            </Button>
-          )}
+      <div className="mb-space-5 flex flex-wrap items-center gap-space-2 md:mb-space-6">
+        <Button
+          variant="secondary"
+          size="icon"
+          onClick={() => setSelectedWeek(w => w - 1)}
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <div className="text-sm font-medium min-w-[150px] text-center sm:min-w-[180px]">
+          {format(weekStart, "MMM d")} - {format(weekEnd, "MMM d, yyyy")}
         </div>
+        <Button
+          variant="secondary"
+          size="icon"
+          onClick={() => setSelectedWeek(w => w + 1)}
+        >
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+        {selectedWeek !== 0 && (
+          <Button
+            variant="tertiary"
+            size="sm"
+            onClick={() => setSelectedWeek(0)}
+          >
+            Today
+          </Button>
+        )}
       </div>
 
       {/* Category Tabs */}
@@ -593,7 +592,7 @@ const MenuManagementPage = () => {
 
       {/* Item Dialog */}
       <Dialog open={isItemDialogOpen} onOpenChange={setIsItemDialogOpen}>
-        <DialogContent>
+        <DialogContent className="w-full sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{editingItemId ? "Edit Menu Item" : "Add Menu Item"}</DialogTitle>
             <DialogDescription>
@@ -709,7 +708,7 @@ const MenuManagementPage = () => {
 
       {/* Link Plan Dialog */}
       <Dialog open={isLinkPlanDialogOpen} onOpenChange={setIsLinkPlanDialogOpen}>
-        <DialogContent>
+        <DialogContent className="w-full sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Link Subscription Plan</DialogTitle>
             <DialogDescription>

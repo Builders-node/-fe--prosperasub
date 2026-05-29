@@ -16,6 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { type MenuCategory } from "@/lib/supabaseHelpers";
 import { format, startOfWeek, endOfWeek } from "date-fns";
+import { nowHN } from "@/lib/timezone";
 import { Link } from "react-router-dom";
 import { formatUSD, dollarsToCents, centsToDollars } from "@/lib/pricing";
 
@@ -75,8 +76,8 @@ const PlansManagementPage = () => {
   });
 
   // Fetch weekly menus to check which categories have published menus
-  const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
-  const weekEnd = endOfWeek(new Date(), { weekStartsOn: 1 });
+  const weekStart = startOfWeek(nowHN(), { weekStartsOn: 1 });
+  const weekEnd = endOfWeek(nowHN(), { weekStartsOn: 1 });
   
   const { data: weeklyMenus } = useQuery({
     queryKey: ["weekly-menus-status", restaurantId],

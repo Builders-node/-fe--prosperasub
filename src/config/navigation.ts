@@ -83,28 +83,34 @@ const DRIVER_NAV: NavItem[] = [
  * Navigation items for super admins
  */
 const SUPER_ADMIN_NAV: NavItem[] = [
-  { 
-    icon: Shield, 
-    label: "Platform", 
+  {
+    icon: Shield,
+    label: "Platform",
     path: "/admin/dashboard",
     activePatterns: ["/admin/"]
   },
-  { 
-    icon: UtensilsCrossed, 
-    label: "Restaurant", 
+  {
+    icon: UtensilsCrossed,
+    label: "Restaurant",
     path: "/restaurant",
     activePatterns: ["/restaurant/"]
   },
-  { 
-    icon: LayoutGrid, 
-    label: "Discover", 
-    path: "/" 
+  {
+    icon: LayoutGrid,
+    label: "Discover",
+    path: "/"
   },
-  { 
-    icon: SparklesIcon, 
-    label: "Cleaning", 
+  {
+    icon: SparklesIcon,
+    label: "Cleaning",
     path: "/cleaning",
     activePatterns: ["/cleaning/"]
+  },
+  {
+    icon: CalendarDays,
+    label: "My Bookings",
+    path: "/my-subscriptions",
+    activePatterns: ["/subscription/"],
   },
 ];
 

@@ -9,13 +9,14 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { todayHN, nowHN } from "@/lib/timezone";
 
 type MealStatus = "pending" | "prepared" | "delivered" | "completed" | "no_show";
 
 const TodaysMealsPage = () => {
   const { restaurantId, activeRestaurant } = useRestaurant();
   const queryClient = useQueryClient();
-  const today = format(new Date(), "yyyy-MM-dd");
+  const today = todayHN();
 
   const { data: meals, isLoading } = useQuery({
     queryKey: ["todays-meals", restaurantId, today],
@@ -169,7 +170,7 @@ const TodaysMealsPage = () => {
   return (
     <RestaurantAdminLayout 
       title="Today's Meals"
-      subtitle={format(new Date(), "EEEE, MMMM d, yyyy")}
+      subtitle={format(nowHN(), "EEEE, MMMM d, yyyy")}
     >
       <div className="flex items-center justify-between mb-space-6">
         <p className="text-muted-foreground">

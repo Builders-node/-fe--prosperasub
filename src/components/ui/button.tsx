@@ -23,12 +23,17 @@ const buttonVariants = cva(
         outline: "border border-[hsl(var(--app-divider))] bg-[hsl(var(--app-control))] text-foreground hover:bg-[hsl(var(--app-control-muted))] active:bg-[hsl(var(--app-control-muted))]/80",
         ghost: "bg-transparent text-foreground hover:bg-[hsl(var(--app-control-muted))] active:bg-[hsl(var(--app-control-muted))]/80",
         success: "bg-primary !text-black hover:bg-[hsl(var(--brand-accent-hover))] active:bg-[hsl(var(--brand-accent-active))] [&_*]:!text-black",
+        /* Dark pill — used for primary CTAs in the mobile-first booking/confirmation style */
+        dark: "bg-foreground text-background hover:bg-foreground/90 active:bg-foreground/80",
       },
       size: {
         default: "h-11 gap-space-2 rounded-radius-md px-space-5 py-space-3",
         sm: "h-9 gap-space-2 rounded-radius-sm px-space-4",
         lg: "h-12 gap-space-2 rounded-radius-md px-space-8",
         xl: "h-14 gap-space-3 rounded-radius-lg px-space-10 text-body",
+        /* Pill — fully rounded, used in booking flows (matches medical-app CTA style) */
+        pill: "h-12 gap-space-2 rounded-full px-space-8",
+        pillSm: "h-9 gap-space-2 rounded-full px-space-5 text-xs",
         iconXs: "h-7 w-7 rounded-radius-sm p-0 [&_svg]:size-3.5",
         iconSm: "h-8 w-8 rounded-radius-sm p-0 [&_svg]:size-4",
         icon: "h-11 w-11 rounded-radius-full p-0 [&_svg]:size-5",

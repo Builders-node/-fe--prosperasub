@@ -1,15 +1,20 @@
 import { type ChangeEvent, useMemo, useState } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { format, addDays } from "date-fns";
+import { todayHN, nowHN, formatTimestampHN, HN_TZ } from "@/lib/timezone";
 import {
   Archive,
+  AlertTriangle,
   CalendarDays,
   CheckCircle2,
   Clock,
+  ExternalLink,
   ListChecks,
   MapPin,
   Pencil,
   Plus,
+  RotateCcw,
+  Search,
   SparklesIcon,
   Trash2,
   Users,
@@ -75,34 +80,44 @@ const deepChecklist = [
 ];
 
 const initialForm = {
-  company_name: "Infinita Cowork",
+  company_name: "",
   contact_person: "",
   email: "",
   phone: "",
-  location: "Duna Tower Level 1",
-  service_type: "Daily cowork cleaning",
+  location: "",
+  service_type: "",
   notes: "",
   internal_admin_notes: "",
-  start_date: format(new Date(), "yyyy-MM-dd"),
+  start_date: todayHN(),
   end_date: "",
   status: "active",
-  plan_name: "Infinita Cowork Daily Cleaning",
+  plan_name: "",
   custom_price: "10",
   billing_type: "daily",
   monthly_invoice: true,
   payment_timing: "after_service_completed",
   custom_terms: "Monthly invoice after services are completed",
-  service_frequency: "6 days per week",
+  service_frequency: "daily",
   days_of_week: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"],
-  deep_cleaning_add_on: true,
+  deep_cleaning_add_on: false,
   estimated_monthly_total: "240",
   preferred_start_time: "08:00",
   preferred_end_time: "10:00",
-  assigned_cleaner: "",
   service_duration_minutes: "120",
   repeat_frequency: "weekly",
-  daily_checklist: dailyChecklist.join("\n"),
-  deep_cleaning_checklist: deepChecklist.join("\n"),
+};
+
+const initialClientEditForm = {
+  id: "",
+  company_name: "",
+  contact_person: "",
+  email: "",
+  phone: "",
+  location: "",
+  service_type: "",
+  notes: "",
+  internal_admin_notes: "",
+  status: "active",
 };
 
 const toLines = (value: string) =>
@@ -113,6 +128,67 @@ const toLines = (value: string) =>
 
 const toCents = (value: string) => Math.round(Number(value || 0) * 100);
 const formatUSD = (cents?: number) => `$${((cents ?? 0) / 100).toFixed(2)}`;
+const normalizeSearch = (value?: string | null) => String(value || "").trim().toLowerCase();
+const normalizePhone = (value?: string | null) => String(value || "").replace(/\D/g, "");
+const formatDateLabel = (value?: string | null) => value ? format(new Date(`${value}T00:00:00`), "MMM d, yyyy") : "—";
+
+const getSubscriptionMonths = (subscription: any) => Number(subscription.billing_period_months) || 1;
+const getSubscriptionMonthlyPrice = (subscription: any) => {
+  if (Number(subscription.monthly_price_cents)) return Number(subscription.monthly_price_cents);
+  const cleanings = Number(subscription.cleaning_packages?.cleanings_per_month) || 4;
+  const pricePerCleaning = subscription.package_id === "cleaning-2-bedroom" ? 2475 : 1975;
+  return cleanings * pricePerCleaning;
+};
+const getSubscriptionTotalPrice = (subscription: any) =>
+  Number(subscription.total_price_cents) || getSubscriptionMonthlyPrice(subscription) * getSubscriptionMonths(subscription);
+const getSubscriptionStatus = (subscription: any) =>
+  subscription.subscription_status || (subscription.is_active ? "active" : "inactive");
+
+const serviceFrequencyOptions = [
+  { value: "daily", label: "Daily" },
+  { value: "weekly", label: "Weekly" },
+  { value: "monthly", label: "Monthly" },
+];
+
+const formatServiceFrequency = (value?: string | null) =>
+  serviceFrequencyOptions.find((option) => option.value === value)?.label || value || "Custom";
+
+const calendarSyncSkipMessage = (reason?: string) => {
+  switch (reason) {
+    case "missing_database_url":
+      return "Backend database is not configured, so saved bookings cannot sync.";
+    case "database_connect_skipped":
+      return "Backend database sync is disabled in this environment.";
+    case "database_unavailable":
+      return "Backend database is unreachable from production. Connect a hosted Postgres DATABASE_URL, then sync again.";
+    case "test_environment":
+      return "Calendar sync is skipped in the test environment.";
+    default:
+      return "Google Calendar is not configured.";
+  }
+};
+
+const findSimilarClient = (clients: any[] = [], formValue: typeof initialForm) => {
+  const email = normalizeSearch(formValue.email);
+  const phone = normalizePhone(formValue.phone);
+  const company = normalizeSearch(formValue.company_name);
+  const location = normalizeSearch(formValue.location);
+
+  if (!email && !phone && !company) return null;
+
+  return clients.find((client) => {
+    const clientEmail = normalizeSearch(client.email);
+    const clientPhone = normalizePhone(client.phone);
+    const clientCompany = normalizeSearch(client.company_name);
+    const clientLocation = normalizeSearch(client.location);
+
+    return (
+      (email && clientEmail && email === clientEmail) ||
+      (phone && clientPhone && phone === clientPhone) ||
+      (company && location && clientCompany === company && clientLocation === location)
+    );
+  });
+};
 
 const statusColor = (status: string) => {
   switch (status) {
@@ -131,6 +207,25 @@ const statusColor = (status: string) => {
   }
 };
 
+const calendarStatusColor = (status?: string | null) => {
+  switch (status) {
+    case "synced":
+      return "default";
+    case "failed":
+      return "destructive";
+    case "pending":
+      return "secondary";
+    default:
+      return "outline";
+  }
+};
+
+const calendarStatusLabel = (status?: string | null) => {
+  if (status === "synced") return "Synced";
+  if (status === "failed") return "Failed";
+  return "Pending";
+};
+
 const getUserName = (user: any) => {
   if (!user) return "Unknown";
   return user.display_name || user.name || user.email || "Unknown";
@@ -142,8 +237,14 @@ const CleaningManagement = () => {
   const queryClient = useQueryClient();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [createOpen, setCreateOpen] = useState(false);
+  const [createStep, setCreateStep] = useState<1 | 2 | 3 | 4>(1);
   const [form, setForm] = useState(initialForm);
   const [selectedClientId, setSelectedClientId] = useState<string>("");
+  const [clientMode, setClientMode] = useState<"existing" | "new">("new");
+  const [createClientId, setCreateClientId] = useState("");
+  const [clientSearch, setClientSearch] = useState("");
+  const [clientEditOpen, setClientEditOpen] = useState(false);
+  const [clientEditForm, setClientEditForm] = useState(initialClientEditForm);
   const [completionBookingId, setCompletionBookingId] = useState<string>("");
   const [completion, setCompletion] = useState({
     completed_by: "Admin",
@@ -265,13 +366,40 @@ const CleaningManagement = () => {
 
   const createCustomPlan = useMutation({
     mutationFn: async () => {
+      const validationError =
+        clientMode === "existing" && !createClientId
+          ? "Select an existing client before creating the plan"
+          : !form.company_name.trim()
+            ? "Client / company name is required"
+            : !form.location.trim()
+              ? "Location is required"
+              : !form.email.trim() && !form.phone.trim()
+                ? "Email or phone is required"
+                : !form.plan_name.trim()
+                  ? "Plan name is required"
+                  : Number(form.custom_price) <= 0
+                    ? "Custom price is required"
+                    : !form.start_date
+                      ? "Start date is required"
+                      : null;
+
+      if (validationError) throw new Error(validationError);
+
+      const duplicate = clientMode === "new" ? findSimilarClient(clients ?? [], form) : null;
+      if (duplicate) {
+        throw new Error(`Similar client already exists: ${duplicate.company_name}. Select Existing client to reuse it.`);
+      }
+
       const { data, error } = await supabase.rpc("create_custom_cleaning_plan", {
         ...form,
+        existing_client_id: clientMode === "existing" ? createClientId : null,
+        assigned_cleaner: null,
+        deep_cleaning_add_on: false,
         custom_price_cents: toCents(form.custom_price),
         estimated_monthly_total_cents: toCents(form.estimated_monthly_total),
-        daily_checklist: toLines(form.daily_checklist),
-        deep_cleaning_checklist: toLines(form.deep_cleaning_checklist),
-        custom_checklist: toLines(form.daily_checklist),
+        daily_checklist: dailyChecklist,
+        deep_cleaning_checklist: deepChecklist,
+        custom_checklist: dailyChecklist,
       });
       if (error) throw error;
       return data?.[0];
@@ -282,6 +410,10 @@ const CleaningManagement = () => {
         toast.warning(`${result.conflicts.length} dates were already occupied and skipped.`);
       }
       setCreateOpen(false);
+      setForm(initialForm);
+      setCreateClientId("");
+      setClientMode("new");
+      setClientSearch("");
       setSelectedClientId(result?.client?.id ?? "");
       invalidateCleaning();
     },
@@ -317,6 +449,39 @@ const CleaningManagement = () => {
     },
   });
 
+  const updateClientMutation = useMutation({
+    mutationFn: async () => {
+      if (!clientEditForm.company_name.trim()) throw new Error("Client / company name is required");
+      if (!clientEditForm.location.trim()) throw new Error("Location is required");
+      if (!clientEditForm.email.trim() && !clientEditForm.phone.trim()) throw new Error("Email or phone is required");
+
+      const { id, ...values } = clientEditForm;
+      const { data, error } = await supabase
+        .from("cleaning_clients")
+        .update({
+          ...values,
+          company_name: values.company_name.trim(),
+          contact_person: values.contact_person.trim(),
+          email: values.email.trim(),
+          phone: values.phone.trim(),
+          location: values.location.trim(),
+          service_type: values.service_type.trim(),
+          notes: values.notes,
+          internal_admin_notes: values.internal_admin_notes,
+        })
+        .eq("id", id);
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Custom client updated");
+      setClientEditOpen(false);
+      setClientEditForm(initialClientEditForm);
+      invalidateCleaning();
+    },
+    onError: (error: Error) => toast.error(error.message || "Could not update client"),
+  });
+
   const archiveClientMutation = useMutation({
     mutationFn: async (clientId: string) => {
       const { error } = await supabase
@@ -343,6 +508,23 @@ const CleaningManagement = () => {
     },
   });
 
+  const unarchiveClientMutation = useMutation({
+    mutationFn: async (clientId: string) => {
+      const { error } = await supabase
+        .from("cleaning_clients")
+        .update({ status: "active" })
+        .eq("id", clientId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Client unarchived");
+      setClientEditOpen(false);
+      setClientEditForm(initialClientEditForm);
+      invalidateCleaning();
+    },
+    onError: () => toast.error("Could not unarchive client"),
+  });
+
   const completeBookingMutation = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.rpc("complete_cleaning_booking", {
@@ -362,6 +544,138 @@ const CleaningManagement = () => {
       invalidateCleaning();
     },
     onError: (error: Error) => toast.error(error.message || "Could not complete booking"),
+  });
+
+  const syncCalendarMutation = useMutation({
+    mutationFn: async (bookingId: string) => {
+      // Find the booking in local data so we can pass it directly (no DB needed)
+      const booking = bookings?.find((b: any) => b.id === bookingId);
+      const slot = booking?.cleaning_available_slots;
+
+      if (booking && slot?.date && slot?.start_time && slot?.end_time) {
+        // Use direct sync — passes all booking details to avoid DB dependency
+        // Normalise to HH:mm (DB may store "08:00:00")
+        const { data, error } = await supabase.admin.syncCleaningBookingDirect(bookingId, {
+          date: slot.date,
+          startTime: String(slot.start_time).slice(0, 5),
+          endTime: String(slot.end_time).slice(0, 5),
+          clientName:
+            booking.cleaning_clients?.company_name ||
+            booking.users?.display_name ||
+            booking.users?.name ||
+            undefined,
+          planName: booking.cleaning_custom_plans?.plan_name || undefined,
+          location: booking.location || booking.cleaning_clients?.location || undefined,
+          status: booking.status || "booked",
+          notes: booking.notes || undefined,
+          googleCalendarEventId: booking.google_calendar_event_id || undefined,
+        });
+        if (error) throw error;
+
+        // Persist the returned event ID back to the DB so future syncs update instead of create
+        if (data?.ok && data?.googleCalendarEventId) {
+          const { error: updateError } = await supabase.admin.updateCleaningBooking(bookingId, {
+            google_calendar_event_id: data.googleCalendarEventId,
+            google_calendar_event_link: data.googleCalendarEventLink ?? null,
+            google_calendar_sync_status: "synced",
+          });
+          if (updateError) console.warn("Could not save calendar event ID to DB:", updateError);
+        }
+
+        return data;
+      }
+
+      // Fallback to server-side load (when DB is available)
+      const { data, error } = await supabase.admin.syncCleaningBookingCalendar(bookingId);
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (result) => {
+      if (result?.ok === false) {
+        toast.error(result.error || "Google Calendar sync failed");
+      } else if (result?.skipped) {
+        toast.warning(calendarSyncSkipMessage(result.skipReason));
+      } else {
+        toast.success("Booking synced to Google Calendar ✓");
+      }
+      invalidateCleaning();
+    },
+    onError: (error: Error) => toast.error(error.message || "Google Calendar sync failed"),
+  });
+
+  const syncAllCalendarMutation = useMutation({
+    mutationFn: async () => {
+      const activeBookings = (bookings ?? []).filter(
+        (b: any) => b.status === "booked" || b.status === "completed" || b.status === "cancelled"
+      );
+
+      if (activeBookings.length === 0) {
+        return { ok: true, total: 0, synced: 0, failed: 0, results: [] };
+      }
+
+      // Sync each booking directly (no DB required)
+      const results: Array<{ ok: boolean; bookingId: string; error?: string }> = [];
+      for (const booking of activeBookings) {
+        const slot = booking.cleaning_available_slots;
+        if (!slot?.date || !slot?.start_time || !slot?.end_time) {
+          results.push({ ok: false, bookingId: booking.id, error: "Missing slot data" });
+          continue;
+        }
+
+        const { data, error } = await supabase.admin.syncCleaningBookingDirect(booking.id, {
+          date: slot.date,
+          startTime: String(slot.start_time).slice(0, 5),
+          endTime: String(slot.end_time).slice(0, 5),
+          clientName:
+            booking.cleaning_clients?.company_name ||
+            booking.users?.display_name ||
+            booking.users?.name ||
+            undefined,
+          planName: booking.cleaning_custom_plans?.plan_name || undefined,
+          location: booking.location || booking.cleaning_clients?.location || undefined,
+          status: booking.status || "booked",
+          notes: booking.notes || undefined,
+          googleCalendarEventId: booking.google_calendar_event_id || undefined,
+        });
+
+        if (error) {
+          results.push({ ok: false, bookingId: booking.id, error: error.message });
+          continue;
+        }
+
+        // Save event ID back to localStorage
+        if (data?.ok && data?.googleCalendarEventId) {
+          await supabase.admin.updateCleaningBooking(booking.id, {
+            google_calendar_event_id: data.googleCalendarEventId,
+            google_calendar_event_link: data.googleCalendarEventLink ?? null,
+            google_calendar_sync_status: "synced",
+          });
+        }
+
+        results.push({ ok: data?.ok ?? false, bookingId: booking.id, ...(data?.ok ? {} : { error: data?.error }) });
+      }
+
+      const failed = results.filter((r) => !r.ok).length;
+      return { ok: failed === 0, total: results.length, synced: results.length - failed, failed, results };
+    },
+    onSuccess: (result) => {
+      if (result?.ok === false && result?.total === 0) {
+        toast.warning("No bookings to sync.");
+      } else if (result?.ok === false) {
+        const failed = result?.failed ?? 0;
+        toast.error(`Sync finished with ${failed} error${failed !== 1 ? "s" : ""}.`);
+      } else {
+        const total = result?.total ?? 0;
+        const synced = result?.synced ?? 0;
+        const failed = result?.failed ?? 0;
+        const message = failed
+          ? `Calendar sync finished: ${synced}/${total} synced, ${failed} failed.`
+          : `Calendar sync finished: ${synced}/${total} synced ✓`;
+        toast.success(message);
+      }
+      invalidateCleaning();
+    },
+    onError: (error: Error) => toast.error(error.message || "Google Calendar bulk sync failed"),
   });
 
   const selectedClient = clients?.find((client: any) => client.id === selectedClientId) ?? clients?.[0] ?? null;
@@ -403,8 +717,74 @@ const CleaningManagement = () => {
       .slice(0, 12);
   }, [form.days_of_week, form.start_date]);
 
+  const filteredClients = useMemo(() => {
+    const search = normalizeSearch(clientSearch);
+    const list = clients ?? [];
+    if (!search) return list.slice(0, 8);
+    return list
+      .filter((client: any) =>
+        [
+          client.company_name,
+          client.contact_person,
+          client.email,
+          client.phone,
+          client.location,
+          client.service_type,
+        ]
+          .map(normalizeSearch)
+          .some((value) => value.includes(search))
+      )
+      .slice(0, 8);
+  }, [clients, clientSearch]);
+
+  const similarClient = clientMode === "new" ? findSimilarClient(clients ?? [], form) : null;
+
   const setFormValue = (key: keyof typeof initialForm, value: any) => {
     setForm((current) => ({ ...current, [key]: value }));
+  };
+
+  const openCreatePlanModal = () => {
+    setForm(initialForm);
+    setCreateClientId("");
+    setClientMode("new");
+    setClientSearch("");
+    setCreateStep(1);
+    setCreateOpen(true);
+  };
+
+  const openClientEditModal = (client: any) => {
+    setSelectedClientId(client.id);
+    setClientEditForm({
+      ...initialClientEditForm,
+      id: client.id,
+      company_name: client.company_name || "",
+      contact_person: client.contact_person || "",
+      email: client.email || "",
+      phone: client.phone || "",
+      location: client.location || "",
+      service_type: client.service_type || "",
+      notes: client.notes || "",
+      internal_admin_notes: client.internal_admin_notes || "",
+      status: client.status || "active",
+    });
+    setClientEditOpen(true);
+  };
+
+  const selectExistingClientForPlan = (client: any) => {
+    setCreateClientId(client.id);
+    setClientSearch(client.company_name || "");
+    setForm((current) => ({
+      ...current,
+      company_name: client.company_name || "",
+      contact_person: client.contact_person || "",
+      email: client.email || "",
+      phone: client.phone || "",
+      location: client.location || "",
+      service_type: client.service_type || "",
+      notes: client.notes || "",
+      internal_admin_notes: client.internal_admin_notes || "",
+      plan_name: current.plan_name || `${client.company_name || "Client"} Cleaning Plan`,
+    }));
   };
 
   const toggleWeekday = (value: string) => {
@@ -437,8 +817,8 @@ const CleaningManagement = () => {
   };
 
   return (
-    <SuperAdminLayout title="Cleaning Service" subtitle="Manage cleaning subscriptions, private clients, bookings, and slots">
-      <div className="grid grid-cols-2 gap-space-4 md:grid-cols-5">
+    <SuperAdminLayout title="Cleaning Operations" subtitle="Bookings, available slots, active subscriptions, and recurring schedules">
+      <div className="grid grid-cols-2 gap-space-3 md:grid-cols-5 md:gap-space-4">
         <Card>
           <CardHeader className="pb-space-2">
             <CardTitle className="flex items-center gap-space-2 text-sm font-medium text-muted-foreground">
@@ -505,7 +885,7 @@ const CleaningManagement = () => {
                     Private admin-only cleaning clients. These records never feed the public pricing flow.
                   </p>
                 </div>
-                <Button onClick={() => setCreateOpen(true)}>
+                <Button onClick={openCreatePlanModal}>
                   <Plus className="h-4 w-4" />
                   Create Custom Plan
                 </Button>
@@ -536,7 +916,12 @@ const CleaningManagement = () => {
                             className={selectedClient?.id === client.id ? "bg-primary/10" : undefined}
                           >
                             <TableCell className="font-bold">
-                              <button className="text-left" onClick={() => setSelectedClientId(client.id)}>
+                              <button
+                                type="button"
+                                className="text-left"
+                                onClick={() => setSelectedClientId(client.id)}
+                                aria-label={`Open ${client.company_name} custom client details`}
+                              >
                                 {client.company_name}
                                 <span className="block text-sm font-medium text-muted-foreground">
                                   {client.service_type || "Custom cleaning"}
@@ -550,12 +935,18 @@ const CleaningManagement = () => {
                             </TableCell>
                             <TableCell>
                               <div className="flex gap-space-2">
-                                <Button variant="tertiary" size="iconSm" onClick={() => setSelectedClientId(client.id)} aria-label="View client">
+                                <Button variant="tertiary" size="iconSm" onClick={() => openClientEditModal(client)} aria-label="Edit client">
                                   <Pencil className="h-4 w-4" />
                                 </Button>
-                                <Button variant="tertiary" size="iconSm" onClick={() => archiveClientMutation.mutate(client.id)} aria-label="Archive client">
-                                  <Archive className="h-4 w-4" />
-                                </Button>
+                                {client.status === "archived" ? (
+                                  <Button variant="tertiary" size="iconSm" onClick={() => unarchiveClientMutation.mutate(client.id)} aria-label="Unarchive client">
+                                    <RotateCcw className="h-4 w-4" />
+                                  </Button>
+                                ) : (
+                                  <Button variant="tertiary" size="iconSm" onClick={() => archiveClientMutation.mutate(client.id)} aria-label="Archive client">
+                                    <Archive className="h-4 w-4" />
+                                  </Button>
+                                )}
                                 <Button variant="tertiary" size="iconSm" onClick={() => deleteClientMutation.mutate(client.id)} aria-label="Delete client">
                                   <Trash2 className="h-4 w-4 text-destructive" />
                                 </Button>
@@ -585,7 +976,12 @@ const CleaningManagement = () => {
                           <h3 className="text-panel-title">{selectedClient.company_name}</h3>
                           <p className="mt-space-1 text-body text-muted-foreground">{selectedClient.contact_person || "No contact person"}</p>
                         </div>
-                        <Badge variant={statusColor(selectedClient.status) as any}>{selectedClient.status}</Badge>
+                        <div className="flex items-center gap-space-2">
+                          <Badge variant={statusColor(selectedClient.status) as any}>{selectedClient.status}</Badge>
+                          <Button variant="tertiary" size="iconSm" onClick={() => openClientEditModal(selectedClient)} aria-label="Edit selected client">
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
                       <div className="mt-space-4 grid gap-space-3 text-body text-muted-foreground">
                         <p className="flex items-center gap-space-2"><MapPin className="h-4 w-4" />{selectedClient.location}</p>
@@ -612,7 +1008,7 @@ const CleaningManagement = () => {
                               <Badge variant="secondary">{plan.visibility}</Badge>
                             </div>
                             <p className="mt-space-3 text-body text-muted-foreground">
-                              {plan.service_frequency} · Estimated monthly {formatUSD(plan.estimated_monthly_total_cents)}
+                              {formatServiceFrequency(plan.service_frequency)} · Estimated monthly {formatUSD(plan.estimated_monthly_total_cents)}
                             </p>
                           </div>
                         ))}
@@ -784,8 +1180,23 @@ const CleaningManagement = () => {
 
         <TabsContent value="bookings">
           <Card>
-            <CardHeader>
-              <CardTitle>All Cleaning Bookings</CardTitle>
+            <CardHeader className="flex flex-col gap-space-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <CardTitle>All Cleaning Bookings</CardTitle>
+                <p className="mt-space-2 text-body text-muted-foreground">
+                  Push all backend-saved cleaning bookings into the shared admin Google Calendar.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                loading={syncAllCalendarMutation.isPending}
+                disabled={totalBookings === 0 || syncAllCalendarMutation.isPending}
+                onClick={() => syncAllCalendarMutation.mutate()}
+              >
+                <RotateCcw className="h-4 w-4" aria-hidden="true" />
+                Sync all booked to calendar
+              </Button>
             </CardHeader>
             <CardContent>
               {bookingsLoading ? (
@@ -793,42 +1204,138 @@ const CleaningManagement = () => {
               ) : !bookings?.length ? (
                 <p className="py-space-8 text-center text-muted-foreground">No bookings yet</p>
               ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Customer</TableHead>
-                        <TableHead>Type</TableHead>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Time</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Notes</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {bookings.map((booking: any) => (
-                        <TableRow key={booking.id}>
-                          <TableCell className="font-medium">
-                            {booking.cleaning_clients?.company_name || getUserName(booking.users)}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={booking.custom_plan_id ? "secondary" : "outline"}>
-                              {booking.custom_plan_id ? "Private custom" : "Public subscription"}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            {getBookingDate(booking) ? format(new Date(`${getBookingDate(booking)}T00:00:00`), "MMM d, yyyy") : "—"}
-                          </TableCell>
-                          <TableCell>
-                            {booking.cleaning_available_slots?.start_time?.slice(0, 5)} - {booking.cleaning_available_slots?.end_time?.slice(0, 5)}
-                          </TableCell>
-                          <TableCell><Badge variant={statusColor(booking.status) as any}>{booking.status}</Badge></TableCell>
-                          <TableCell className="max-w-[240px] truncate text-sm text-muted-foreground">{booking.notes || "—"}</TableCell>
+                <>
+                  {/* Mobile card view */}
+                  <div className="space-y-space-3 md:hidden">
+                    {bookings.map((booking: any) => (
+                      <div key={booking.id} className="rounded-radius-lg border border-border bg-card p-space-4 space-y-space-3">
+                        <div className="flex items-start justify-between gap-space-3">
+                          <div className="min-w-0">
+                            <p className="font-bold truncate">
+                              {booking.cleaning_clients?.company_name || getUserName(booking.users)}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {getBookingDate(booking) ? format(new Date(`${getBookingDate(booking)}T00:00:00`), "MMM d, yyyy") : "—"}
+                              {" · "}
+                              {booking.cleaning_available_slots?.start_time?.slice(0, 5)} - {booking.cleaning_available_slots?.end_time?.slice(0, 5)}
+                            </p>
+                          </div>
+                          <Badge variant={statusColor(booking.status) as any}>{booking.status}</Badge>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-space-2">
+                          <Badge variant={booking.custom_plan_id ? "secondary" : "outline"}>
+                            {booking.custom_plan_id ? "Private" : "Public"}
+                          </Badge>
+                          <Badge variant={calendarStatusColor(booking.google_calendar_sync_status) as any}>
+                            {calendarStatusLabel(booking.google_calendar_sync_status)}
+                          </Badge>
+                        </div>
+                        <div className="flex gap-space-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="secondary"
+                            className="flex-1"
+                            loading={syncCalendarMutation.isPending && syncCalendarMutation.variables === booking.id}
+                            onClick={() => syncCalendarMutation.mutate(booking.id)}
+                          >
+                            <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+                            Sync
+                          </Button>
+                          {booking.google_calendar_event_link ? (
+                            <Button type="button" size="sm" variant="tertiary" asChild aria-label="Open Calendar Event">
+                              <a href={booking.google_calendar_event_link} target="_blank" rel="noreferrer">
+                                <ExternalLink className="h-4 w-4" aria-hidden="true" />
+                                Open
+                              </a>
+                            </Button>
+                          ) : null}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Desktop table */}
+                  <div className="hidden overflow-x-auto md:block">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Customer</TableHead>
+                          <TableHead>Type</TableHead>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Time</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Google Calendar</TableHead>
+                          <TableHead>Notes</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+                      </TableHeader>
+                      <TableBody>
+                        {bookings.map((booking: any) => (
+                          <TableRow key={booking.id}>
+                            <TableCell className="font-medium">
+                              {booking.cleaning_clients?.company_name || getUserName(booking.users)}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={booking.custom_plan_id ? "secondary" : "outline"}>
+                                {booking.custom_plan_id ? "Private custom" : "Public subscription"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {getBookingDate(booking) ? format(new Date(`${getBookingDate(booking)}T00:00:00`), "MMM d, yyyy") : "—"}
+                            </TableCell>
+                            <TableCell>
+                              {booking.cleaning_available_slots?.start_time?.slice(0, 5)} - {booking.cleaning_available_slots?.end_time?.slice(0, 5)}
+                            </TableCell>
+                            <TableCell><Badge variant={statusColor(booking.status) as any}>{booking.status}</Badge></TableCell>
+                            <TableCell>
+                              <div className="flex min-w-[220px] flex-col gap-space-2">
+                                <div className="flex items-center gap-space-2">
+                                  <Badge variant={calendarStatusColor(booking.google_calendar_sync_status) as any}>
+                                    {calendarStatusLabel(booking.google_calendar_sync_status)}
+                                  </Badge>
+                                  {booking.google_calendar_synced_at ? (
+                                    <span className="text-xs text-muted-foreground">
+                                      {format(new Date(booking.google_calendar_synced_at), "MMM d, h:mm a")}
+                                    </span>
+                                  ) : null}
+                                </div>
+                                {booking.google_calendar_event_id ? (
+                                  <p className="max-w-[210px] truncate text-xs text-muted-foreground">
+                                    {booking.google_calendar_event_id}
+                                  </p>
+                                ) : null}
+                                {booking.google_calendar_sync_error ? (
+                                  <p className="max-w-[210px] truncate text-xs text-destructive">
+                                    {booking.google_calendar_sync_error}
+                                  </p>
+                                ) : null}
+                                <div className="flex items-center gap-space-2">
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="secondary"
+                                    loading={syncCalendarMutation.isPending && syncCalendarMutation.variables === booking.id}
+                                    onClick={() => syncCalendarMutation.mutate(booking.id)}
+                                  >
+                                    <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+                                    Sync
+                                  </Button>
+                                  {booking.google_calendar_event_link ? (
+                                    <Button type="button" size="iconSm" variant="tertiary" asChild aria-label="Open Calendar Event">
+                                      <a href={booking.google_calendar_event_link} target="_blank" rel="noreferrer">
+                                        <ExternalLink className="h-4 w-4" aria-hidden="true" />
+                                      </a>
+                                    </Button>
+                                  ) : null}
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="max-w-[240px] truncate text-sm text-muted-foreground">{booking.notes || "—"}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>
@@ -851,9 +1358,13 @@ const CleaningManagement = () => {
                       <TableRow>
                         <TableHead>Customer</TableHead>
                         <TableHead>Package</TableHead>
+                        <TableHead>Duration</TableHead>
+                        <TableHead>Monthly</TableHead>
+                        <TableHead>Total paid</TableHead>
+                        <TableHead>Paid until</TableHead>
                         <TableHead>Remaining</TableHead>
                         <TableHead>Payment</TableHead>
-                        <TableHead>Active</TableHead>
+                        <TableHead>Status</TableHead>
                         <TableHead>Actions</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -862,9 +1373,13 @@ const CleaningManagement = () => {
                         <TableRow key={sub.id}>
                           <TableCell className="font-medium">{getUserName(sub.users)}</TableCell>
                           <TableCell>{sub.cleaning_packages?.name || "—"}</TableCell>
+                          <TableCell>{getSubscriptionMonths(sub)} month{getSubscriptionMonths(sub) > 1 ? "s" : ""}</TableCell>
+                          <TableCell>{formatUSD(getSubscriptionMonthlyPrice(sub))}</TableCell>
+                          <TableCell>{formatUSD(getSubscriptionTotalPrice(sub))}</TableCell>
+                          <TableCell>{formatDateLabel(sub.paid_until || sub.end_date)}</TableCell>
                           <TableCell>{sub.cleanings_remaining}</TableCell>
                           <TableCell><Badge variant={statusColor(sub.payment_status) as any}>{sub.payment_status}</Badge></TableCell>
-                          <TableCell><Badge variant={sub.is_active ? "default" : "outline"}>{sub.is_active ? "Active" : "Inactive"}</Badge></TableCell>
+                          <TableCell><Badge variant={statusColor(getSubscriptionStatus(sub)) as any}>{getSubscriptionStatus(sub)}</Badge></TableCell>
                           <TableCell>
                             {sub.payment_status === "pending" ? (
                               <Button size="sm" onClick={() => approveMutation.mutate(sub.id)} loading={approveMutation.isPending}>
@@ -929,49 +1444,162 @@ const CleaningManagement = () => {
         </TabsContent>
       </Tabs>
 
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="max-h-[92vh] max-w-5xl overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Create Custom Cleaning Plan</DialogTitle>
-            <DialogDescription>
-              Creates an admin-only client, private plan, recurring schedule, checklist templates, and occupied cleaning slots.
-            </DialogDescription>
-          </DialogHeader>
+      <Dialog open={createOpen} onOpenChange={(open) => { setCreateOpen(open); if (!open) setCreateStep(1); }}>
+        <DialogContent className="flex max-h-[92vh] w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-xl md:max-w-2xl">
+          {/* ── Sticky header ── */}
+          <div className="shrink-0 border-b border-[hsl(var(--app-divider))] px-space-6 pb-space-4 pt-space-6">
+            <DialogHeader className="mb-space-5">
+              <DialogTitle className="text-xl font-extrabold">New Cleaning Plan</DialogTitle>
+              <DialogDescription className="text-caption">
+                {createStep === 1 && "Step 1 of 4 — Who is the client?"}
+                {createStep === 2 && "Step 2 of 4 — What service and pricing?"}
+                {createStep === 3 && "Step 3 of 4 — When does it happen?"}
+                {createStep === 4 && "Step 4 of 4 — Review and confirm"}
+              </DialogDescription>
+            </DialogHeader>
 
-          <div className="grid gap-space-6 lg:grid-cols-2">
-            <Card className="p-space-4">
-              <CardTitle className="mb-space-4">Client details</CardTitle>
-              <div className="grid gap-space-4">
-                <Input label="Client / company name" value={form.company_name} onChange={(event) => setFormValue("company_name", event.target.value)} required />
-                <Input label="Contact person" value={form.contact_person} onChange={(event) => setFormValue("contact_person", event.target.value)} />
-                <div className="grid gap-space-4 sm:grid-cols-2">
-                  <Input label="Email" type="email" value={form.email} onChange={(event) => setFormValue("email", event.target.value)} />
-                  <Input label="Phone / WhatsApp" value={form.phone} onChange={(event) => setFormValue("phone", event.target.value)} />
+            {/* Step indicator */}
+            <div className="flex items-center gap-space-2">
+              {([1, 2, 3, 4] as const).map((n, i) => (
+                <div key={n} className="flex flex-1 items-center gap-space-2">
+                  <button
+                    type="button"
+                    onClick={() => n < createStep && setCreateStep(n)}
+                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-black transition-colors ${
+                      createStep === n
+                        ? "bg-primary text-black"
+                        : createStep > n
+                          ? "cursor-pointer bg-primary/25 text-primary hover:bg-primary/40"
+                          : "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    {createStep > n ? <CheckCircle2 className="h-3.5 w-3.5" /> : n}
+                  </button>
+                  <span className={`hidden text-xs font-bold sm:block ${createStep === n ? "text-foreground" : "text-muted-foreground"}`}>
+                    {["Client", "Plan", "Schedule", "Review"][n - 1]}
+                  </span>
+                  {i < 3 && <div className="h-px flex-1 bg-border" />}
                 </div>
-                <Input label="Location" value={form.location} onChange={(event) => setFormValue("location", event.target.value)} required />
-                <Input label="Service type" value={form.service_type} onChange={(event) => setFormValue("service_type", event.target.value)} />
-                <div className="grid gap-space-4 sm:grid-cols-2">
-                  <Input label="Start date" type="date" value={form.start_date} onChange={(event) => setFormValue("start_date", event.target.value)} />
-                  <Input label="End date" type="date" value={form.end_date} onChange={(event) => setFormValue("end_date", event.target.value)} helperText="Leave empty for no end date" />
+              ))}
+            </div>
+          </div>
+
+          {/* ── Scrollable body ── */}
+          <div className="flex-1 overflow-y-auto px-space-6 py-space-5">
+
+            {/* ─── STEP 1: CLIENT ─── */}
+            {createStep === 1 && (
+              <div className="space-y-space-5">
+                {/* Source toggle */}
+                <div className="grid grid-cols-2 gap-space-3 rounded-radius-lg bg-muted p-space-1">
+                  <Button
+                    type="button"
+                    variant={clientMode === "new" ? "primary" : "ghost"}
+                    className="h-10 w-full"
+                    onClick={() => { setClientMode("new"); setCreateClientId(""); setClientSearch(""); }}
+                  >
+                    New client
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={clientMode === "existing" ? "primary" : "ghost"}
+                    className="h-10 w-full"
+                    onClick={() => setClientMode("existing")}
+                  >
+                    Existing client
+                  </Button>
                 </div>
-                <Textarea label="Client notes" value={form.notes} onChange={(event) => setFormValue("notes", event.target.value)} />
-                <Textarea label="Internal admin notes" value={form.internal_admin_notes} onChange={(event) => setFormValue("internal_admin_notes", event.target.value)} />
+
+                {clientMode === "existing" ? (
+                  <div className="space-y-space-3">
+                    <Input
+                      label="Search clients"
+                      placeholder="Company, contact, email, phone, or location…"
+                      value={clientSearch}
+                      onChange={(event) => setClientSearch(event.target.value)}
+                      leftIcon={<Search className="h-4 w-4" />}
+                    />
+                    <div className="max-h-56 overflow-auto rounded-radius-lg border border-border bg-background p-space-1">
+                      {filteredClients.length === 0 ? (
+                        <p className="p-space-4 text-center text-caption text-muted-foreground">No matching clients</p>
+                      ) : (
+                        <div className="space-y-space-1">
+                          {filteredClients.map((client: any) => {
+                            const active = createClientId === client.id;
+                            return (
+                              <button
+                                key={client.id}
+                                type="button"
+                                onClick={() => selectExistingClientForPlan(client)}
+                                className={`w-full rounded-radius-md px-space-3 py-space-2.5 text-left transition-colors ${
+                                  active ? "bg-primary text-black" : "hover:bg-muted"
+                                }`}
+                              >
+                                <span className="block text-sm font-bold">{client.company_name}</span>
+                                <span className={`mt-0.5 block text-caption ${active ? "text-black/70" : "text-muted-foreground"}`}>
+                                  {[client.location, client.email, client.phone].filter(Boolean).join(" · ") || "No details"}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                    {createClientId && (
+                      <div className="flex items-center gap-space-2 rounded-radius-md bg-primary/10 px-space-3 py-space-2 text-sm text-primary">
+                        <CheckCircle2 className="h-4 w-4 shrink-0" />
+                        <span className="font-semibold">
+                          {filteredClients.find((c: any) => c.id === createClientId)?.company_name ?? "Client selected"}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-space-4">
+                    {similarClient && (
+                      <div className="flex items-start gap-space-3 rounded-radius-lg bg-warning/10 p-space-4">
+                        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+                        <div className="text-sm">
+                          <p className="font-bold text-foreground">Similar client exists</p>
+                          <p className="mt-0.5 text-muted-foreground">
+                            <span className="font-semibold">{similarClient.company_name}</span> matches by email, phone, or company+location. Switch to "Existing client" to reuse it.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                    <div className="grid gap-space-4 sm:grid-cols-2">
+                      <div className="sm:col-span-2">
+                        <Input label="Company / client name" value={form.company_name} onChange={(event) => setFormValue("company_name", event.target.value)} required />
+                      </div>
+                      <Input label="Contact person" value={form.contact_person} onChange={(event) => setFormValue("contact_person", event.target.value)} />
+                      <Input label="Service type" value={form.service_type} onChange={(event) => setFormValue("service_type", event.target.value)} placeholder="e.g. Office, Cowork" />
+                      <Input label="Email" type="email" value={form.email} onChange={(event) => setFormValue("email", event.target.value)} />
+                      <Input label="Phone / WhatsApp" value={form.phone} onChange={(event) => setFormValue("phone", event.target.value)} />
+                      <div className="sm:col-span-2">
+                        <Input label="Location / address" value={form.location} onChange={(event) => setFormValue("location", event.target.value)} required />
+                      </div>
+                    </div>
+                    <Textarea label="Client notes" value={form.notes} onChange={(event) => setFormValue("notes", event.target.value)} placeholder="Access instructions, preferences, etc." rows={2} />
+                  </div>
+                )}
               </div>
-            </Card>
+            )}
 
-            <Card className="p-space-4">
-              <CardTitle className="mb-space-4">Plan and billing</CardTitle>
-              <div className="grid gap-space-4">
-                <Input label="Plan name" value={form.plan_name} onChange={(event) => setFormValue("plan_name", event.target.value)} required />
-                <div className="grid gap-space-4 sm:grid-cols-2">
-                  <Input label="Custom price" type="number" value={form.custom_price} onChange={(event) => setFormValue("custom_price", event.target.value)} leftIcon={<span>$</span>} />
-                  <Input label="Estimated monthly total" type="number" value={form.estimated_monthly_total} onChange={(event) => setFormValue("estimated_monthly_total", event.target.value)} leftIcon={<span>$</span>} />
+            {/* ─── STEP 2: PLAN & BILLING ─── */}
+            {createStep === 2 && (
+              <div className="space-y-space-5">
+                <Input label="Plan name" value={form.plan_name} onChange={(event) => setFormValue("plan_name", event.target.value)} required placeholder="e.g. Daily Cowork Cleaning" />
+
+                <div className="grid grid-cols-2 gap-space-4">
+                  <Input label="Price per session" type="number" value={form.custom_price} onChange={(event) => setFormValue("custom_price", event.target.value)} leftIcon={<span className="text-muted-foreground">$</span>} />
+                  <Input label="Est. monthly total" type="number" value={form.estimated_monthly_total} onChange={(event) => setFormValue("estimated_monthly_total", event.target.value)} leftIcon={<span className="text-muted-foreground">$</span>} />
                 </div>
-                <div className="grid gap-space-4 sm:grid-cols-2">
+
+                <div className="grid grid-cols-2 gap-space-4">
                   <div>
-                    <Label>Billing type</Label>
+                    <Label className="mb-space-2 block text-label">Billing cycle</Label>
                     <Select value={form.billing_type} onValueChange={(value) => setFormValue("billing_type", value)}>
-                      <SelectTrigger className="mt-space-2"><SelectValue /></SelectTrigger>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="daily">Daily</SelectItem>
                         <SelectItem value="weekly">Weekly</SelectItem>
@@ -981,99 +1609,304 @@ const CleaningManagement = () => {
                     </Select>
                   </div>
                   <div>
-                    <Label>Payment timing</Label>
+                    <Label className="mb-space-2 block text-label">Payment timing</Label>
                     <Select value={form.payment_timing} onValueChange={(value) => setFormValue("payment_timing", value)}>
-                      <SelectTrigger className="mt-space-2"><SelectValue /></SelectTrigger>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="prepaid">Prepaid</SelectItem>
-                        <SelectItem value="after_service_completed">After service completed</SelectItem>
+                        <SelectItem value="after_service_completed">After service</SelectItem>
                         <SelectItem value="custom_terms">Custom terms</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
-                <label className="flex items-center justify-between rounded-radius-md bg-secondary p-space-4">
-                  <span className="font-bold">Monthly invoice option</span>
+
+                <label className="flex cursor-pointer items-center justify-between rounded-radius-lg border border-border px-space-4 py-space-3 transition-colors hover:bg-muted">
+                  <div>
+                    <span className="block text-sm font-bold">Monthly invoice</span>
+                    <span className="text-caption text-muted-foreground">Send a single invoice at month end</span>
+                  </div>
                   <Switch checked={form.monthly_invoice} onCheckedChange={(checked) => setFormValue("monthly_invoice", checked)} />
                 </label>
-                <label className="flex items-center justify-between rounded-radius-md bg-secondary p-space-4">
-                  <span className="font-bold">Deep cleaning add-on</span>
-                  <Switch checked={form.deep_cleaning_add_on} onCheckedChange={(checked) => setFormValue("deep_cleaning_add_on", checked)} />
-                </label>
-                <Textarea label="Payment custom terms" value={form.custom_terms} onChange={(event) => setFormValue("custom_terms", event.target.value)} />
-              </div>
-            </Card>
 
-            <Card className="p-space-4">
-              <CardTitle className="mb-space-4">Recurring booking setup</CardTitle>
-              <div className="grid gap-space-4">
-                <Input label="Service frequency" value={form.service_frequency} onChange={(event) => setFormValue("service_frequency", event.target.value)} />
+                <Textarea label="Payment terms / notes" value={form.custom_terms} onChange={(event) => setFormValue("custom_terms", event.target.value)} rows={2} />
+              </div>
+            )}
+
+            {/* ─── STEP 3: SCHEDULE ─── */}
+            {createStep === 3 && (
+              <div className="space-y-space-5">
+                <div className="grid grid-cols-2 gap-space-4">
+                  <Input label="Service start date" type="date" value={form.start_date} onChange={(event) => setFormValue("start_date", event.target.value)} required />
+                  <Input label="End date" type="date" value={form.end_date} onChange={(event) => setFormValue("end_date", event.target.value)} helperText="Optional" />
+                </div>
+
                 <div>
-                  <Label>Days of week</Label>
-                  <div className="mt-space-3 grid grid-cols-2 gap-space-2 sm:grid-cols-3">
-                    {weekdayOptions.map((day) => (
-                      <label key={day.value} className="flex items-center gap-space-2 rounded-radius-md bg-secondary p-space-3">
-                        <Checkbox checked={form.days_of_week.includes(day.value)} onCheckedChange={() => toggleWeekday(day.value)} />
-                        <span className="text-control">{day.label}</span>
-                      </label>
-                    ))}
+                  <Label className="mb-space-3 block text-label">Days of week</Label>
+                  <div className="grid grid-cols-4 gap-space-2 sm:grid-cols-7">
+                    {weekdayOptions.map((day) => {
+                      const checked = form.days_of_week.includes(day.value);
+                      return (
+                        <button
+                          key={day.value}
+                          type="button"
+                          onClick={() => toggleWeekday(day.value)}
+                          className={`rounded-radius-md py-space-2 text-center text-xs font-bold transition-colors ${
+                            checked
+                              ? "bg-primary text-black"
+                              : "bg-muted text-muted-foreground hover:bg-[hsl(var(--app-control-muted))] hover:text-foreground"
+                          }`}
+                        >
+                          {day.short}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
-                <div className="grid gap-space-4 sm:grid-cols-2">
-                  <Input label="Preferred start" type="time" value={form.preferred_start_time} onChange={(event) => setFormValue("preferred_start_time", event.target.value)} />
-                  <Input label="Preferred end" type="time" value={form.preferred_end_time} onChange={(event) => setFormValue("preferred_end_time", event.target.value)} />
-                </div>
-                <div className="grid gap-space-4 sm:grid-cols-2">
-                  <Input label="Assigned cleaner" value={form.assigned_cleaner} onChange={(event) => setFormValue("assigned_cleaner", event.target.value)} />
-                  <Input label="Service duration minutes" type="number" value={form.service_duration_minutes} onChange={(event) => setFormValue("service_duration_minutes", event.target.value)} />
-                </div>
-                <div className="rounded-radius-lg bg-secondary p-space-4">
-                  <p className="text-card-title">Preview</p>
-                  <p className="mt-space-1 text-body text-muted-foreground">
-                    The first recurring run will create bookings for the current schedule horizon. No-end schedules continue as active admin records.
-                  </p>
-                  <div className="mt-space-3 flex flex-wrap gap-space-2">
-                    {previewDates.map((date) => (
-                      <Badge key={date.toISOString()} variant="secondary">
-                        {format(date, "MMM d")}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </Card>
 
-            <Card className="p-space-4">
-              <CardTitle className="mb-space-4">Checklist templates</CardTitle>
-              <div className="grid gap-space-4">
-                <Textarea
-                  label="Daily upkeep checklist"
-                  value={form.daily_checklist}
-                  onChange={(event) => setFormValue("daily_checklist", event.target.value)}
-                  helperText="One checklist item per line"
-                />
-                <Textarea
-                  label="Deep cleaning checklist"
-                  value={form.deep_cleaning_checklist}
-                  onChange={(event) => setFormValue("deep_cleaning_checklist", event.target.value)}
-                  helperText="One checklist item per line"
-                />
+                <div className="grid grid-cols-2 gap-space-4">
+                  <Input label="Start time" type="time" value={form.preferred_start_time} onChange={(event) => setFormValue("preferred_start_time", event.target.value)} />
+                  <Input label="End time" type="time" value={form.preferred_end_time} onChange={(event) => setFormValue("preferred_end_time", event.target.value)} />
+                </div>
+
+                <Input label="Session duration (minutes)" type="number" value={form.service_duration_minutes} onChange={(event) => setFormValue("service_duration_minutes", event.target.value)} />
+
+                {previewDates.length > 0 && (
+                  <div className="rounded-radius-lg border border-border bg-muted/50 p-space-4">
+                    <div className="mb-space-3 flex items-center justify-between">
+                      <span className="text-sm font-bold">Sessions preview</span>
+                      <Badge variant="secondary">{previewDates.length} sessions</Badge>
+                    </div>
+                    <div className="flex flex-wrap gap-space-2">
+                      {previewDates.slice(0, 16).map((date) => (
+                        <Badge key={date.toISOString()} variant="outline" className="text-caption">
+                          {format(date, "MMM d")}
+                        </Badge>
+                      ))}
+                      {previewDates.length > 16 && (
+                        <Badge variant="outline" className="text-caption text-muted-foreground">
+                          +{previewDates.length - 16} more
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <Textarea label="Internal admin notes" value={form.internal_admin_notes} onChange={(event) => setFormValue("internal_admin_notes", event.target.value)} placeholder="Scheduling context, access codes, special instructions…" rows={2} />
               </div>
-            </Card>
+            )}
+
+            {/* ─── STEP 4: REVIEW ─── */}
+            {createStep === 4 && (
+              <div className="space-y-space-4">
+                {/* Client card */}
+                <div className="rounded-radius-lg border border-border p-space-4">
+                  <p className="mb-space-3 text-xs font-black uppercase tracking-wider text-muted-foreground">Client</p>
+                  {clientMode === "existing" ? (
+                    <div>
+                      <p className="font-bold">{filteredClients.find((c: any) => c.id === createClientId)?.company_name ?? "—"}</p>
+                      <p className="text-caption text-muted-foreground">Existing client · {filteredClients.find((c: any) => c.id === createClientId)?.location ?? "—"}</p>
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="font-bold">{form.company_name || "—"}</p>
+                      <p className="text-caption text-muted-foreground">New client · {form.location || "—"}</p>
+                      {form.email && <p className="text-caption text-muted-foreground">{form.email}{form.phone ? ` · ${form.phone}` : ""}</p>}
+                    </div>
+                  )}
+                </div>
+
+                {/* Plan card */}
+                <div className="rounded-radius-lg border border-border p-space-4">
+                  <p className="mb-space-3 text-xs font-black uppercase tracking-wider text-muted-foreground">Plan & Billing</p>
+                  <p className="font-bold">{form.plan_name || "—"}</p>
+                  <p className="mt-space-1 text-caption text-muted-foreground">
+                    ${form.custom_price}/session · {form.billing_type} · {form.payment_timing.replace(/_/g, " ")}
+                  </p>
+                  <p className="text-caption text-muted-foreground">
+                    Est. ${form.estimated_monthly_total}/month{form.monthly_invoice ? " · Monthly invoice" : ""}
+                  </p>
+                </div>
+
+                {/* Schedule card */}
+                <div className="rounded-radius-lg border border-border p-space-4">
+                  <p className="mb-space-3 text-xs font-black uppercase tracking-wider text-muted-foreground">Schedule</p>
+                  <p className="font-bold">
+                    {form.days_of_week.map((d) => weekdayOptions.find((w) => w.value === d)?.short).join(", ")}
+                  </p>
+                  <p className="mt-space-1 text-caption text-muted-foreground">
+                    {form.preferred_start_time} – {form.preferred_end_time} · {form.service_duration_minutes} min
+                  </p>
+                  <p className="text-caption text-muted-foreground">
+                    From {form.start_date || "—"}{form.end_date ? ` to ${form.end_date}` : " (ongoing)"}
+                  </p>
+                  {previewDates.length > 0 && (
+                    <div className="mt-space-3 flex items-center gap-space-2">
+                      <CalendarDays className="h-3.5 w-3.5 text-primary" />
+                      <span className="text-caption font-semibold text-primary">{previewDates.length} sessions will be created</span>
+                    </div>
+                  )}
+                </div>
+
+                {similarClient && (
+                  <div className="flex items-start gap-space-3 rounded-radius-lg bg-warning/10 p-space-4">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+                    <p className="text-sm text-muted-foreground">
+                      A similar client (<span className="font-semibold">{similarClient.company_name}</span>) already exists. A new record will be created. Go back to Step 1 to use the existing client instead.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* ── Sticky footer ── */}
+          <div className="shrink-0 border-t border-[hsl(var(--app-divider))] px-space-6 py-space-4">
+            <div className="flex items-center justify-between gap-space-3">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => createStep === 1 ? setCreateOpen(false) : setCreateStep((s) => (s - 1) as 1 | 2 | 3 | 4)}
+              >
+                {createStep === 1 ? "Cancel" : "← Back"}
+              </Button>
+
+              {createStep < 4 ? (
+                <Button
+                  type="button"
+                  onClick={() => setCreateStep((s) => (s + 1) as 1 | 2 | 3 | 4)}
+                  disabled={
+                    (createStep === 1 && clientMode === "existing" && !createClientId) ||
+                    (createStep === 1 && clientMode === "new" && (!form.company_name || !form.location)) ||
+                    (createStep === 2 && !form.plan_name) ||
+                    (createStep === 3 && (!form.start_date || form.days_of_week.length === 0 || !form.preferred_start_time))
+                  }
+                >
+                  Continue →
+                </Button>
+              ) : (
+                <Button onClick={() => createCustomPlan.mutate()} loading={createCustomPlan.isPending}>
+                  <Plus className="h-4 w-4" />
+                  Create plan
+                </Button>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={clientEditOpen}
+        onOpenChange={(open) => {
+          setClientEditOpen(open);
+          if (!open) setClientEditForm(initialClientEditForm);
+        }}
+      >
+        <DialogContent className="max-h-[92vh] w-full overflow-y-auto sm:max-w-lg md:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit Custom Client</DialogTitle>
+            <DialogDescription>
+              Update private cleaning client details, change status, or reactivate an archived client.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-space-4">
+            <Input
+              label="Client / company name"
+              value={clientEditForm.company_name}
+              onChange={(event) => setClientEditForm((current) => ({ ...current, company_name: event.target.value }))}
+              required
+            />
+            <Input
+              label="Contact person"
+              value={clientEditForm.contact_person}
+              onChange={(event) => setClientEditForm((current) => ({ ...current, contact_person: event.target.value }))}
+            />
+            <div className="grid gap-space-4 sm:grid-cols-2">
+              <Input
+                label="Email"
+                type="email"
+                value={clientEditForm.email}
+                onChange={(event) => setClientEditForm((current) => ({ ...current, email: event.target.value }))}
+              />
+              <Input
+                label="Phone / WhatsApp"
+                value={clientEditForm.phone}
+                onChange={(event) => setClientEditForm((current) => ({ ...current, phone: event.target.value }))}
+              />
+            </div>
+            <Input
+              label="Location"
+              value={clientEditForm.location}
+              onChange={(event) => setClientEditForm((current) => ({ ...current, location: event.target.value }))}
+              required
+            />
+            <Input
+              label="Service type"
+              value={clientEditForm.service_type}
+              onChange={(event) => setClientEditForm((current) => ({ ...current, service_type: event.target.value }))}
+            />
+            <div>
+              <Label>Status</Label>
+              <Select
+                value={clientEditForm.status}
+                onValueChange={(value) => setClientEditForm((current) => ({ ...current, status: value }))}
+              >
+                <SelectTrigger className="mt-space-2">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="paused">Paused</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                  <SelectItem value="archived">Archived</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="mt-space-2 text-caption text-muted-foreground">
+                Set the status to Active to unarchive this custom client.
+              </p>
+            </div>
+            <Textarea
+              label="Client notes"
+              value={clientEditForm.notes}
+              onChange={(event) => setClientEditForm((current) => ({ ...current, notes: event.target.value }))}
+            />
+            <Textarea
+              label="Internal admin notes"
+              value={clientEditForm.internal_admin_notes}
+              onChange={(event) => setClientEditForm((current) => ({ ...current, internal_admin_notes: event.target.value }))}
+            />
           </div>
 
           <DialogFooter>
-            <Button variant="secondary" onClick={() => setCreateOpen(false)}>Cancel</Button>
-            <Button onClick={() => createCustomPlan.mutate()} loading={createCustomPlan.isPending}>
-              <Plus className="h-4 w-4" />
-              Create private plan
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setClientEditOpen(false);
+                setClientEditForm(initialClientEditForm);
+              }}
+            >
+              Cancel
+            </Button>
+            {clientEditForm.status === "archived" ? (
+              <Button
+                variant="secondary"
+                onClick={() => unarchiveClientMutation.mutate(clientEditForm.id)}
+                loading={unarchiveClientMutation.isPending}
+              >
+                <RotateCcw className="h-4 w-4" />
+                Unarchive
+              </Button>
+            ) : null}
+            <Button onClick={() => updateClientMutation.mutate()} loading={updateClientMutation.isPending}>
+              Save client
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={Boolean(completionBookingId)} onOpenChange={(open) => !open && setCompletionBookingId("")}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="w-full sm:max-w-lg md:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Complete Cleaning Session</DialogTitle>
             <DialogDescription>Add checklist status, notes, photo URL, and any issue report.</DialogDescription>

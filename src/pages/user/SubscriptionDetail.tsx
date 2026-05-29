@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { format, differenceInHours, parseISO, isBefore, startOfDay } from "date-fns";
+import { nowHN } from "@/lib/timezone";
 import { UserLayout } from "@/components/layout/UserLayout";
 import { DeliveryAddress, getAddressString, normalizeDeliveryAddress } from "@/types/delivery";
 
@@ -47,27 +48,22 @@ const SubscriptionDetail = () => {
   } = useQuery({
     queryKey: ["subscription", id, userData?.id, pubkey],
     queryFn: async () => {
-      console.log('[SubscriptionDetail] Fetching subscription via RPC:', id);
-      
       const { data, error } = await supabase.rpc("get_subscription_detail_by_pubkey", {
         p_pubkey: pubkey,
         p_subscription_id: id,
       });
       
       if (error) {
-        console.error('[SubscriptionDetail] RPC error:', error.message, error.code);
         throw error;
       }
       
       // RPC returns an array, get first item
       const sub = Array.isArray(data) ? data[0] : data;
       if (!sub) {
-        console.log('[SubscriptionDetail] No subscription found for this user');
         return null;
       }
       
       // Transform to expected shape
-      console.log('[SubscriptionDetail] Subscription loaded:', sub.id);
       return {
         ...sub,
         restaurants: {
@@ -181,7 +177,7 @@ const SubscriptionDetail = () => {
     const mealTime = mealTimeConfig[mealType].time;
     const mealDateTime = new Date(`${date}T${mealTime}`);
     const cutoffTime = new Date(mealDateTime.getTime() - cutoffHours * 60 * 60 * 1000);
-    return isBefore(cutoffTime, new Date());
+    return isBefore(cutoffTime, nowHN());
   };
 
   const getTimeUntilCutoff = (date: string, mealType: MealTypeSlot) => {
@@ -189,7 +185,7 @@ const SubscriptionDetail = () => {
     const mealTime = mealTimeConfig[mealType].time;
     const mealDateTime = new Date(`${date}T${mealTime}`);
     const cutoffTime = new Date(mealDateTime.getTime() - cutoffHours * 60 * 60 * 1000);
-    const hoursLeft = differenceInHours(cutoffTime, new Date());
+    const hoursLeft = differenceInHours(cutoffTime, nowHN());
 
     if (hoursLeft <= 0) return null;
     if (hoursLeft < 24) return `${hoursLeft}h left`;
@@ -306,13 +302,13 @@ const SubscriptionDetail = () => {
 
   return (
     <UserLayout title="Subscription Details" showBackButton backTo="/my-subscriptions">
-      <div className="mx-auto w-full max-w-7xl px-space-5 py-space-8 sm:px-space-8 lg:px-space-10 lg:py-space-12">
+      <div className="mx-auto w-full max-w-7xl px-space-4 py-space-6 sm:px-space-6 lg:px-space-10 lg:py-space-12">
         <header className="mb-space-6">
           <p className="text-caption uppercase tracking-[0.16em] text-primary">My Bookings</p>
           <h1 className="mt-space-2 type-page-title text-foreground">Meal subscription details</h1>
         </header>
 
-        <div className="grid gap-space-8 lg:grid-cols-3">
+        <div className="grid gap-space-5 md:gap-space-8 lg:grid-cols-3">
           <div className="lg:col-span-1">
             <Card>
               <CardHeader>
@@ -373,7 +369,7 @@ const SubscriptionDetail = () => {
             <div className="space-y-space-4">
               {sortedDates.map((dateStr) => {
                 const dayMeals = mealsByDate[dateStr];
-                const isPast = isBefore(parseISO(dateStr), startOfDay(new Date()));
+                const isPast = isBefore(parseISO(dateStr), startOfDay(nowHN()));
                 const profileAddr = normalizeDeliveryAddress(userProfile?.default_delivery_address);
 
                 return (
@@ -503,7 +499,7 @@ const SubscriptionDetail = () => {
                                           <Edit className="h-3 w-3" />
                                         </Button>
                                       </DialogTrigger>
-                                      <DialogContent>
+                                      <DialogContent className="w-full sm:max-w-lg">
                                         <DialogHeader>
                                           <DialogTitle>Edit Delivery Details</DialogTitle>
                                         </DialogHeader>

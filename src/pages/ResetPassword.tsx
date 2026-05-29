@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { toast } from "sonner";
 const ResetPassword = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { requestPasswordReset, confirmPasswordReset } = useAuth();
+  const { requestPasswordReset, confirmPasswordReset, isAuthenticated, isLoading: isAuthLoading, isUserDataReady } = useAuth();
 
   const token = searchParams.get("token") || "";
   const initialEmail = searchParams.get("email") || "";
@@ -19,7 +19,7 @@ const ResetPassword = () => {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [resetUrl, setResetUrl] = useState<string | null>(null);
+  const [isResetEmailSent, setIsResetEmailSent] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
 
   const title = useMemo(
@@ -27,12 +27,18 @@ const ResetPassword = () => {
     [isConfirmMode]
   );
 
+  useEffect(() => {
+    if (!isConfirmMode && !isAuthLoading && isUserDataReady && isAuthenticated) {
+      navigate("/", { replace: true });
+    }
+  }, [isAuthenticated, isAuthLoading, isConfirmMode, isUserDataReady, navigate]);
+
   const handleRequest = async (event: FormEvent) => {
     event.preventDefault();
     setIsLoading(true);
-    setResetUrl(null);
+    setIsResetEmailSent(false);
 
-    const { data, error } = await requestPasswordReset(email);
+    const { error } = await requestPasswordReset(email);
     setIsLoading(false);
 
     if (error) {
@@ -40,8 +46,8 @@ const ResetPassword = () => {
       return;
     }
 
-    setResetUrl(data?.resetUrl || null);
-    toast.success("Password reset instructions are ready.");
+    setIsResetEmailSent(true);
+    toast.success("Password reset email sent.");
   };
 
   const handleConfirm = async (event: FormEvent) => {
@@ -148,15 +154,10 @@ const ResetPassword = () => {
                 Create reset link
               </Button>
 
-              {resetUrl && (
-                <div className="rounded-radius-lg border border-primary/30 bg-primary/10 p-space-4 text-sm">
-                  <p className="font-semibold text-foreground">Reset link created</p>
-                  <p className="mt-space-1 text-muted-foreground">
-                    Email delivery is not connected yet, so use this local reset link.
-                  </p>
-                  <Button asChild variant="secondary" className="mt-space-4 w-full">
-                    <Link to={resetUrl.replace(window.location.origin, "")}>Open reset form</Link>
-                  </Button>
+              {isResetEmailSent && (
+                <div className="flex items-center gap-space-3 rounded-radius-lg bg-primary/10 p-space-4 text-sm font-semibold text-foreground">
+                  <CheckCircle2 className="h-5 w-5 text-primary" />
+                  Check your email for the password reset link.
                 </div>
               )}
             </form>

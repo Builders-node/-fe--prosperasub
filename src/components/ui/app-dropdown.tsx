@@ -1,6 +1,7 @@
 import * as React from "react";
 import { Link } from "react-router-dom";
-import { ChevronRight, type LucideIcon } from "lucide-react";
+import { ChevronRight, Moon, Sun, type LucideIcon } from "lucide-react";
+import { useTheme } from "next-themes";
 
 import {
   DropdownMenuContent,
@@ -131,9 +132,54 @@ function AppDropdownSeparator({ className }: { className?: string }) {
   return <DropdownMenuSeparator className={cn("mx-0 my-space-3 bg-border", className)} />;
 }
 
+/**
+ * Theme toggle row — keeps dropdown open on click so the user can
+ * immediately see the result and toggle back if needed.
+ */
+function AppDropdownThemeItem() {
+  const { resolvedTheme, setTheme } = useTheme();
+  const isDark = resolvedTheme !== "light";
+
+  return (
+    <DropdownMenuItem
+      onSelect={(e) => {
+        e.preventDefault(); // stay open
+        setTheme(isDark ? "light" : "dark");
+      }}
+      className="group flex min-h-12 w-full cursor-pointer items-center gap-space-4 rounded-radius-lg px-space-4 py-space-3 text-left outline-none transition-colors hover:bg-muted/70 focus:bg-muted/70 data-[highlighted]:bg-muted/70"
+    >
+      {isDark ? (
+        <Sun className="h-5 w-5 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground group-data-[highlighted]:text-foreground" />
+      ) : (
+        <Moon className="h-5 w-5 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground group-data-[highlighted]:text-foreground" />
+      )}
+
+      <span className="min-w-0 flex-1 block text-[0.95rem] font-bold leading-tight text-foreground">
+        {isDark ? "Light mode" : "Dark mode"}
+      </span>
+
+      {/* Toggle pill indicator */}
+      <span
+        className={cn(
+          "relative inline-flex h-[22px] w-[38px] shrink-0 items-center rounded-full border-2 border-transparent transition-colors",
+          isDark ? "bg-foreground" : "bg-input",
+        )}
+      >
+        <span
+          className={cn(
+            "pointer-events-none inline-block h-[14px] w-[14px] rounded-full bg-background shadow transition-transform",
+            isDark ? "translate-x-4" : "translate-x-0.5",
+          )}
+        />
+      </span>
+    </DropdownMenuItem>
+  );
+}
+
 export {
   AppDropdownContent,
   AppDropdownItem,
   AppDropdownProfile,
   AppDropdownSeparator,
+  AppDropdownThemeItem,
 };

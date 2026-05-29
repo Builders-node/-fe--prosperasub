@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { tabsListVariants, tabsTriggerVariants } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAuthModal } from "@/contexts/AuthModalContext";
 import { cn } from "@/lib/utils";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { LanguageMenu } from "@/components/LanguageMenu";
 import { useI18n } from "@/i18n";
 import { AccountMenu } from "@/components/AccountMenu";
@@ -38,6 +38,7 @@ export function DesktopHeader({
   rightContent,
 }: DesktopHeaderProps) {
   const { isAuthenticated } = useAuth();
+  const { openAuthModal } = useAuthModal();
   const { t } = useI18n();
   const location = useLocation();
   const navigate = useNavigate();
@@ -65,118 +66,108 @@ export function DesktopHeader({
   };
 
   return (
-    <header className="hidden md:block sticky top-0 z-40 border-b border-[hsl(var(--app-divider))] bg-[hsl(var(--app-chrome))]">
-      {/* Primary Nav Row: Logo + Navigation Links */}
-      <div>
-        <div className="mx-auto flex h-[76px] max-w-[1920px] items-center gap-space-4 px-space-8">
-          {/* Left: Logo */}
-          <Link to="/" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-radius-full bg-[hsl(var(--app-logo-bg))] text-[hsl(var(--app-logo-foreground))]">
-            <span className="font-display text-2xl font-black leading-none">@</span>
-          </Link>
+    <header className="hidden md:block sticky top-0 z-40 bg-background/97 backdrop-blur-md border-b border-border/30">
+      {/* ── Yandex Go desktop header: logo · tabs · search · account ── */}
+      <div className="mx-auto flex h-[68px] max-w-[1440px] items-center gap-4 px-8">
 
-          {!hideProductTabs && (
-            <div
+        {/* Logo wordmark */}
+        <Link
+          to="/"
+          className="shrink-0 text-[19px] font-black tracking-tight text-foreground hover:text-primary transition-colors"
+        >
+          ProsperaSub
+        </Link>
+
+        {/* Product switcher tabs */}
+        {!hideProductTabs && (
+          <div className="flex shrink-0 gap-1 rounded-full bg-muted p-1">
+            <Link
+              to="/"
               className={cn(
-                tabsListVariants({ variant: "pills", size: "lg" }),
-                "h-12 shrink-0 rounded-radius-lg bg-[hsl(var(--app-control))] p-space-1"
+                "flex items-center gap-1.5 rounded-full px-5 py-2 text-sm font-semibold transition-all",
+                !isCleaningActive
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
               )}
             >
-              <Link
-                to="/"
-                className={cn(
-                  tabsTriggerVariants({ variant: "pills", size: "lg" }),
-                  "h-10 rounded-radius-md px-space-6 font-sans text-[0.85rem] font-bold text-muted-foreground hover:text-foreground",
-                  !isCleaningActive && "bg-card text-foreground"
-                )}
-              >
-                {t("nav.food")}
-              </Link>
-              <Link
-                to="/cleaning"
-                className={cn(
-                  tabsTriggerVariants({ variant: "pills", size: "lg" }),
-                  "h-10 rounded-radius-md px-space-6 font-sans text-[0.85rem] font-bold text-muted-foreground hover:text-foreground",
-                  isCleaningActive && "bg-card text-foreground"
-                )}
-              >
-                {t("nav.cleaning")}
-              </Link>
-            </div>
-          )}
+              🍽 {t("nav.food")}
+            </Link>
+            <Link
+              to="/cleaning"
+              className={cn(
+                "flex items-center gap-1.5 rounded-full px-5 py-2 text-sm font-semibold transition-all",
+                isCleaningActive
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              ✨ {t("nav.cleaning")}
+            </Link>
+          </div>
+        )}
 
-          {hideSearch ? (
-            <div className="flex-1" />
-          ) : (
-            <form role="search" onSubmit={handleSearch} className="flex-1">
-              <Input
-                value={searchQuery}
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder={t("nav.search")}
-                inputSize="search"
-                leftIcon={<Search className="h-6 w-6 text-foreground" />}
-                aria-label={t("nav.search")}
-              />
-            </form>
-          )}
+        {/* Search */}
+        {hideSearch ? (
+          <div className="flex-1" />
+        ) : (
+          <form role="search" onSubmit={handleSearch} className="flex-1 max-w-xl">
+            <Input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder={t("nav.search")}
+              inputSize="search"
+              leftIcon={<Search className="h-5 w-5 text-muted-foreground" />}
+              aria-label={t("nav.search")}
+              className="rounded-full bg-muted/60 border-0 focus-visible:ring-1 focus-visible:ring-primary/50"
+            />
+          </form>
+        )}
 
-          {rightContent ? (
-            rightContent
-          ) : !hideNav ? (
-            <nav className="flex items-center overflow-hidden rounded-radius-lg bg-[hsl(var(--app-control))] text-control text-foreground">
-              <div className="flex h-[52px] max-w-[270px] items-center gap-space-2 border-r border-[hsl(var(--app-divider))] px-space-4">
-                <MapPin className="h-4 w-4 shrink-0" />
-                <span className="truncate">{t("nav.location")}</span>
-              </div>
-              <Link to="/restaurants" className="flex h-[52px] items-center gap-space-2 px-space-4">
-                <Clock className="h-4 w-4 shrink-0" />
-                <span>{t("nav.now")}</span>
-              </Link>
-            </nav>
-          ) : null}
+        {rightContent && <div className="flex-1" />}
 
-          {!rightContent && !hideNav && (
-            <>
-              <LanguageMenu />
-              <ThemeToggle />
-              {isAuthenticated ? (
+        {/* Right actions */}
+        <div className="flex items-center gap-3 ml-auto">
+          {!hideNav && <LanguageMenu />}
+          {rightContent ?? (
+            !hideNav && (
+              isAuthenticated ? (
                 <AccountMenu />
               ) : (
-                <Button asChild variant="nav" size="nav">
-                  <Link to="/auth">{t("nav.logIn")}</Link>
-                </Button>
-              )}
-            </>
+                <button
+                  type="button"
+                  onClick={() => openAuthModal("login")}
+                  className="h-9 rounded-full px-5 text-[13px] font-semibold transition-colors hover:opacity-80"
+                  style={{ background: "#202124", color: "#FFFFFF" }}
+                >
+                  {t("nav.logIn")}
+                </button>
+              )
+            )
           )}
         </div>
       </div>
 
-      {/* Secondary Nav Row: Back Button + Breadcrumb */}
+      {/* Secondary nav: back + breadcrumb */}
       {showSecondaryNav && (
-        <div className="border-t border-[hsl(var(--app-divider))] bg-background">
-          <div className="market-content flex h-14 items-center justify-between gap-space-6">
-            <div className="flex min-w-0 items-center gap-space-3 text-control text-muted-foreground">
-              {showBackButton && (
-                <Button 
-                  variant="tertiary" 
-                  size="sm"
-                  onClick={handleBack}
-                  className="-ml-3 rounded-radius-full px-space-3 text-muted-foreground hover:text-foreground"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  {t("common.back")}
-                </Button>
-              )}
-
-              {breadcrumb && (
-                <nav className="flex min-w-0 items-center gap-space-2" aria-label="Breadcrumb">
-                  <Link to="/" className="shrink-0 transition-colors hover:text-foreground">
-                    {t("common.home")}
-                  </Link>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/70" aria-hidden="true" />
-                  <span className="truncate text-foreground">{breadcrumb}</span>
-                </nav>
-              )}
-            </div>
+        <div className="border-t border-border/30 bg-muted/30">
+          <div className="mx-auto flex h-11 max-w-[1440px] items-center gap-3 px-8 text-sm text-muted-foreground">
+            {showBackButton && (
+              <button
+                type="button"
+                onClick={handleBack}
+                className="flex items-center gap-1.5 rounded-full px-3 py-1 font-medium transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                {t("common.back")}
+              </button>
+            )}
+            {breadcrumb && (
+              <nav className="flex min-w-0 items-center gap-2" aria-label="Breadcrumb">
+                <Link to="/" className="transition-colors hover:text-foreground">{t("common.home")}</Link>
+                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
+                <span className="truncate font-medium text-foreground">{breadcrumb}</span>
+              </nav>
+            )}
           </div>
         </div>
       )}

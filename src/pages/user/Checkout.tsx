@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { addWeeks, addDays, format } from "date-fns";
+import { nowHN } from "@/lib/timezone";
 import { QRCodeSVG } from "qrcode.react";
 import { UserLayout } from "@/components/layout/UserLayout";
 import { useBtcPrice } from "@/hooks/useBtcPrice";
@@ -66,7 +67,7 @@ const Checkout = () => {
   const totalUsdDollars = centsToDollars(totalUsdCents);
   // Dynamic sats conversion (for display before locking)
   const estimatedSats = convertToSats(totalUsdDollars);
-  const startDate = addDays(new Date(), 1);
+  const startDate = addDays(nowHN(), 1);
   const endDate = addWeeks(startDate, parseInt(weeks));
 
   useEffect(() => {
@@ -116,6 +117,25 @@ const Checkout = () => {
     },
   });
 
+  const getClientName = () => userData?.name || userData?.display_name || userData?.email || undefined;
+
+  const getMealPaymentMetadata = () => {
+    const parsedWeeks = parseInt(weeks, 10);
+
+    return {
+      context: "meal_subscription",
+      service_name: "Meal subscription",
+      client_name: getClientName(),
+      client_email: userData?.email,
+      client_phone: (userData as any)?.phone || (userData as any)?.phone_number || undefined,
+      plan_name: plan?.name,
+      duration: `${parsedWeeks} week${parsedWeeks === 1 ? "" : "s"}`,
+      booking_id: plan?.id,
+      admin_url: `${window.location.origin}/admin/subscriptions`,
+      selected_date_time: `${format(startDate, "MMM d, yyyy")} - ${format(endDate, "MMM d, yyyy")}`,
+    };
+  };
+
   const generateInvoice = async () => {
     if (!plan || !btcPrice) return;
     
@@ -134,6 +154,7 @@ const Checkout = () => {
         body: {
           amount_cents: totalUsdCents,
           amount_sats: satsAmount,
+          ...getMealPaymentMetadata(),
           description: `${plan.name} - ${weeks} week(s) - ${formatUSD(totalUsdCents)}`,
           external_id: `plan-${plan.id}-${Date.now()}`.replace(/[^a-zA-Z0-9_-]/g, "-").slice(0, 100),
         },
@@ -172,7 +193,10 @@ const Checkout = () => {
     pollingRef.current = setInterval(async () => {
       try {
         const { data, error } = await supabase.functions.invoke("verify-payment", {
-          body: { payment_hash: hash },
+          body: {
+            payment_hash: hash,
+            ...getMealPaymentMetadata(),
+          },
         });
 
         if (error) {

@@ -55,6 +55,7 @@ export type Database = {
           slot_id: string
           status: Database["public"]["Enums"]["cleaning_booking_status"]
           subscription_id: string
+          source: string | null
           updated_at: string
           user_id: string
         }
@@ -65,6 +66,7 @@ export type Database = {
           slot_id: string
           status?: Database["public"]["Enums"]["cleaning_booking_status"]
           subscription_id: string
+          source?: string | null
           updated_at?: string
           user_id: string
         }
@@ -75,6 +77,7 @@ export type Database = {
           slot_id?: string
           status?: Database["public"]["Enums"]["cleaning_booking_status"]
           subscription_id?: string
+          source?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -135,43 +138,73 @@ export type Database = {
       cleaning_subscriptions: {
         Row: {
           cleanings_remaining: number
+          billing_period_months: number | null
           created_at: string
           end_date: string
           id: string
           is_active: boolean
+          apartment_note: string | null
+          monthly_price_cents: number | null
           package_id: string
+          paid_until: string | null
           payment_method: Database["public"]["Enums"]["payment_method"]
           payment_reference: string | null
           payment_status: Database["public"]["Enums"]["payment_status"]
+          recurring_day_of_week: number | null
+          recurring_time: string | null
+          service_end_date: string | null
+          service_start_date: string | null
           start_date: string
+          subscription_status: string | null
+          total_price_cents: number | null
           updated_at: string
           user_id: string
         }
         Insert: {
           cleanings_remaining: number
+          billing_period_months?: number | null
           created_at?: string
           end_date: string
           id?: string
           is_active?: boolean
+          apartment_note?: string | null
+          monthly_price_cents?: number | null
           package_id: string
+          paid_until?: string | null
           payment_method?: Database["public"]["Enums"]["payment_method"]
           payment_reference?: string | null
           payment_status?: Database["public"]["Enums"]["payment_status"]
+          recurring_day_of_week?: number | null
+          recurring_time?: string | null
+          service_end_date?: string | null
+          service_start_date?: string | null
           start_date: string
+          subscription_status?: string | null
+          total_price_cents?: number | null
           updated_at?: string
           user_id: string
         }
         Update: {
           cleanings_remaining?: number
+          billing_period_months?: number | null
           created_at?: string
           end_date?: string
           id?: string
           is_active?: boolean
+          apartment_note?: string | null
+          monthly_price_cents?: number | null
           package_id?: string
+          paid_until?: string | null
           payment_method?: Database["public"]["Enums"]["payment_method"]
           payment_reference?: string | null
           payment_status?: Database["public"]["Enums"]["payment_status"]
+          recurring_day_of_week?: number | null
+          recurring_time?: string | null
+          service_end_date?: string | null
+          service_start_date?: string | null
           start_date?: string
+          subscription_status?: string | null
+          total_price_cents?: number | null
           updated_at?: string
           user_id?: string
         }
@@ -1035,6 +1068,15 @@ export type Database = {
       cancel_cleaning_booking: {
         Args: { p_booking_id: string }
         Returns: boolean
+      }
+      schedule_cleaning_subscription: {
+        Args: {
+          p_day_of_week: number
+          p_notes: string
+          p_start_time: string
+          p_subscription_id: string
+        }
+        Returns: Json
       }
       check_user_admin_status: { Args: { p_pubkey: string }; Returns: boolean }
       claim_order_for_delivery: {

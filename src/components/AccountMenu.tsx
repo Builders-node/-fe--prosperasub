@@ -29,6 +29,7 @@ import {
   AppDropdownItem,
   AppDropdownProfile,
   AppDropdownSeparator,
+  AppDropdownThemeItem,
 } from "@/components/ui/app-dropdown";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -205,6 +206,7 @@ export function AccountMenu() {
           <AppDropdownSeparator />
 
           <div className="space-y-space-1">
+            <AppDropdownThemeItem />
             <AppDropdownItem
               icon={LogOut}
               title={t("profile.logOut")}

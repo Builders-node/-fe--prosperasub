@@ -20,13 +20,14 @@ import { useRestaurant } from "@/contexts/RestaurantContext";
 import RestaurantAdminLayout from "@/components/restaurant/RestaurantAdminLayout";
 import OperationalSection from "@/components/restaurant/OperationalSection";
 import { format, startOfWeek, endOfWeek, startOfDay, endOfDay } from "date-fns";
+import { nowHN } from "@/lib/timezone";
 import { Link } from "react-router-dom";
 
 const RestaurantDashboardPage = () => {
   const { restaurantId, activeRestaurant } = useRestaurant();
 
-  // Date references
-  const today = new Date();
+  // Date references — all in Honduras timezone (America/Tegucigalpa)
+  const today = nowHN();
   const weekStart = startOfWeek(today, { weekStartsOn: 1 });
   const weekEnd = endOfWeek(today, { weekStartsOn: 1 });
   const todayStart = format(startOfDay(today), "yyyy-MM-dd");

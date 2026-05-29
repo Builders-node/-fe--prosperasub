@@ -2,18 +2,24 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Zap, Loader2, CheckCircle2, Copy, RefreshCw } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { addMonths, format } from "date-fns";
+import { nowHN } from "@/lib/timezone";
 import { QRCodeSVG } from "qrcode.react";
 import { UserLayout } from "@/components/layout/UserLayout";
 import { useBtcPrice } from "@/hooks/useBtcPrice";
 import { formatUSD, centsToDollars } from "@/lib/pricing";
+
+const CLEANING_DURATION_OPTIONS = [1, 2, 3] as const;
+type CleaningDurationMonths = (typeof CLEANING_DURATION_OPTIONS)[number];
 
 const CleaningCheckout = () => {
   const { packageId } = useParams();
@@ -28,6 +34,9 @@ const CleaningCheckout = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lockedSatsAmount, setLockedSatsAmount] = useState<number | null>(null);
+  const [apartmentNote, setApartmentNote] = useState("");
+  const [apartmentNoteError, setApartmentNoteError] = useState("");
+  const [billingPeriodMonths, setBillingPeriodMonths] = useState<CleaningDurationMonths>(1);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { btcPrice, isLoading: isPriceLoading, convertToSats, refreshPrice } = useBtcPrice();
@@ -45,11 +54,13 @@ const CleaningCheckout = () => {
     },
   });
 
-  const totalCents = pkg ? pkg.price_per_cleaning_cents * pkg.cleanings_per_month : 0;
+  const monthlyPriceCents = pkg ? pkg.price_per_cleaning_cents * pkg.cleanings_per_month : 0;
+  const totalCents = monthlyPriceCents * billingPeriodMonths;
   const totalUsdDollars = centsToDollars(totalCents);
   const estimatedSats = convertToSats(totalUsdDollars);
-  const startDate = new Date();
-  const endDate = addMonths(startDate, 1);
+  const startDate = nowHN();
+  const endDate = addMonths(startDate, billingPeriodMonths);
+  const cleaningsIncluded = pkg ? pkg.cleanings_per_month * billingPeriodMonths : 0;
 
   useEffect(() => {
     return () => {
@@ -63,6 +74,8 @@ const CleaningCheckout = () => {
 
       const userId = userData?.id;
       if (!userId) throw new Error("Not authenticated");
+      const cleanedApartmentNote = apartmentNote.trim();
+      if (!cleanedApartmentNote) throw new Error("Apartment number is required.");
 
       const { data, error } = await supabase
         .from("cleaning_subscriptions")
@@ -71,11 +84,19 @@ const CleaningCheckout = () => {
           package_id: pkg.id,
           start_date: format(startDate, "yyyy-MM-dd"),
           end_date: format(endDate, "yyyy-MM-dd"),
-          cleanings_remaining: pkg.cleanings_per_month,
+          service_start_date: format(startDate, "yyyy-MM-dd"),
+          service_end_date: format(endDate, "yyyy-MM-dd"),
+          paid_until: format(endDate, "yyyy-MM-dd"),
+          billing_period_months: billingPeriodMonths,
+          monthly_price_cents: monthlyPriceCents,
+          total_price_cents: totalCents,
+          cleanings_remaining: cleaningsIncluded,
           payment_status: options.status,
           payment_method: options.method,
           payment_reference: options.paymentRef,
-          is_active: options.status === "paid",
+          is_active: false,
+          subscription_status: options.status === "paid" ? "pending_schedule" : "pending_payment",
+          apartment_note: cleanedApartmentNote,
         })
         .select()
         .single();
@@ -83,21 +104,76 @@ const CleaningCheckout = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       if (paymentMethod === "lightning") {
-        toast.success("Payment confirmed! Subscription activated.");
+        void sendPaymentConfirmationEmail(data);
+        toast.success("Payment confirmed. Choose your weekly cleaning schedule.");
+        setTimeout(() => navigate(`/cleaning/book?subscriptionId=${data.id}`), 1000);
       } else {
         toast.success("Subscription created! Awaiting approval.");
+        setTimeout(() => navigate("/my-subscriptions?tab=cleaning"), 1500);
       }
-      setTimeout(() => navigate("/my-subscriptions?tab=cleaning"), 1500);
     },
     onError: (error: Error) => {
       toast.error(error.message);
     },
   });
 
+  const sendPaymentConfirmationEmail = async (subscription: any) => {
+    if (!pkg || !userData?.email) return;
+
+    const { error } = await supabase.functions.invoke("send-payment-confirmation-email", {
+      body: {
+        email: userData.email,
+        customerName: userData.name || userData.display_name,
+        planName: pkg.name,
+        monthlyPriceCents,
+        totalCents,
+        billingPeriodMonths,
+        serviceStartDate: subscription.service_start_date || format(startDate, "yyyy-MM-dd"),
+        serviceEndDate: subscription.service_end_date || format(endDate, "yyyy-MM-dd"),
+        paidUntil: subscription.paid_until || format(endDate, "yyyy-MM-dd"),
+        paymentReference: subscription.payment_reference,
+        apartmentNote: apartmentNote.trim(),
+      },
+    });
+
+    if (error) {
+      console.warn("Payment confirmation email was not sent", error);
+    }
+  };
+
+  const validateApartmentNote = () => {
+    if (!apartmentNote.trim()) {
+      setApartmentNoteError("Apartment number is required.");
+      toast.error("Add your apartment number before payment.");
+      return false;
+    }
+    setApartmentNoteError("");
+    return true;
+  };
+
+  const getClientName = () => userData?.name || userData?.display_name || userData?.email || undefined;
+
+  const getCleaningPaymentMetadata = () => ({
+    service_name: "Cleaning subscription",
+    client_name: getClientName(),
+    client_email: userData?.email,
+    client_phone: (userData as any)?.phone || (userData as any)?.phone_number || undefined,
+    plan_name: pkg?.name,
+    duration: `${billingPeriodMonths} month${billingPeriodMonths === 1 ? "" : "s"}`,
+    booking_id: packageId,
+    admin_url: `${window.location.origin}/admin/cleaning`,
+    selected_date_time: "Pending schedule",
+  });
+
   const generateInvoice = async () => {
     if (!pkg || !btcPrice) return;
+    if (!validateApartmentNote()) return;
+    if (!CLEANING_DURATION_OPTIONS.includes(billingPeriodMonths)) {
+      toast.error("Choose a cleaning duration of 1, 2, or 3 months.");
+      return;
+    }
     const satsAmount = convertToSats(totalUsdDollars);
     if (satsAmount <= 0) {
       toast.error("Unable to calculate payment amount.");
@@ -110,8 +186,12 @@ const CleaningCheckout = () => {
         body: {
           amount_cents: totalCents,
           amount_sats: satsAmount,
-          description: `Cleaning - ${pkg.name} - ${formatUSD(totalCents)}`,
-          external_id: `cleaning-${pkg.id}-${Date.now()}`.replace(/[^a-zA-Z0-9_-]/g, "-").slice(0, 100),
+          context: "cleaning_subscription",
+          package_id: pkg.id,
+          billing_period_months: billingPeriodMonths,
+          ...getCleaningPaymentMetadata(),
+          description: `Cleaning - ${pkg.name} - ${billingPeriodMonths} month${billingPeriodMonths > 1 ? "s" : ""} - ${formatUSD(totalCents)}`,
+          external_id: `cleaning-${pkg.id}-${billingPeriodMonths}m-${Date.now()}`.replace(/[^a-zA-Z0-9_-]/g, "-").slice(0, 100),
         },
       });
       if (error) throw error;
@@ -133,7 +213,10 @@ const CleaningCheckout = () => {
     pollingRef.current = setInterval(async () => {
       try {
         const { data, error } = await supabase.functions.invoke("verify-payment", {
-          body: { payment_hash: hash },
+          body: {
+            payment_hash: hash,
+            ...getCleaningPaymentMetadata(),
+          },
         });
         if (error) return;
         if (data.paid) {
@@ -178,7 +261,7 @@ const CleaningCheckout = () => {
         <Card className="p-space-12 text-center">
           <CheckCircle2 className="h-16 w-16 text-accent mx-auto mb-space-4" />
           <h2 className="font-display text-2xl font-bold mb-space-2">Payment Confirmed!</h2>
-          <p className="text-muted-foreground">Activating your cleaning subscription...</p>
+          <p className="text-muted-foreground">Next, choose your recurring weekly cleaning schedule.</p>
         </Card>
       </div>
     );
@@ -195,17 +278,49 @@ const CleaningCheckout = () => {
                 <p className="text-muted-foreground">Cleaning Subscription</p>
               </CardHeader>
               <CardContent className="space-y-space-4">
+                {!showPayment && (
+                  <div className="space-y-space-2">
+                    <Label htmlFor="cleaning-duration">Duration</Label>
+                    <Select
+                      value={String(billingPeriodMonths)}
+                      onValueChange={(value) => setBillingPeriodMonths(Number(value) as CleaningDurationMonths)}
+                    >
+                      <SelectTrigger id="cleaning-duration" aria-label="Cleaning purchase duration">
+                        <SelectValue placeholder="Choose duration" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CLEANING_DURATION_OPTIONS.map((months) => (
+                          <SelectItem key={months} value={String(months)}>
+                            {months} month{months > 1 ? "s" : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 <div className="pt-space-2 border-t">
                   <div className="flex justify-between text-sm mb-space-1">
-                    <span>Period</span>
+                    <span>Service period</span>
                     <span>{format(startDate, "MMM d")} — {format(endDate, "MMM d, yyyy")}</span>
+                  </div>
+                  <div className="flex justify-between text-sm mb-space-1">
+                    <span>Monthly price</span>
+                    <span>{formatUSD(monthlyPriceCents)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm mb-space-1">
+                    <span>Selected duration</span>
+                    <span>{billingPeriodMonths} month{billingPeriodMonths > 1 ? "s" : ""}</span>
+                  </div>
+                  <div className="flex justify-between text-sm mb-space-1">
+                    <span>Cleanings included</span>
+                    <span>{cleaningsIncluded}</span>
                   </div>
                   <div className="flex justify-between text-sm mb-space-1">
                     <span>Frequency</span>
                     <span>1 cleaning per week</span>
                   </div>
                   <div className="flex justify-between text-lg font-bold">
-                    <span>Total</span>
+                    <span>Total today</span>
                     <div className="text-right">
                       <div>{formatUSD(totalCents)}</div>
                       {paymentMethod === "lightning" && btcPrice && (
@@ -218,6 +333,34 @@ const CleaningCheckout = () => {
                 </div>
               </CardContent>
             </Card>
+
+            {!showPayment && (
+              <Card className="mb-space-6">
+                <CardHeader>
+                  <CardTitle>Apartment details</CardTitle>
+                  <p className="text-muted-foreground">Required so the cleaning team can find your unit.</p>
+                </CardHeader>
+                <CardContent>
+                  <Textarea
+                    id="cleaning-apartment-note"
+                    label="Apartment / unit number"
+                    value={apartmentNote}
+                    onChange={(event) => {
+                      setApartmentNote(event.target.value);
+                      if (apartmentNoteError && event.target.value.trim()) {
+                        setApartmentNoteError("");
+                      }
+                    }}
+                    placeholder="Example: Duna Tower, Apt 1204"
+                    helperText="Add tower, apartment number, or access notes."
+                    errorText={apartmentNoteError}
+                    required
+                    maxLength={180}
+                    showCount
+                  />
+                </CardContent>
+              </Card>
+            )}
 
             {/* Lightning Payment Flow */}
             {showPayment && invoice ? (
@@ -234,7 +377,9 @@ const CleaningCheckout = () => {
                   <div className="text-center p-space-3 bg-muted rounded-radius-md">
                     <p className="text-sm text-muted-foreground">Amount</p>
                     <p className="text-2xl font-bold text-bitcoin">{(lockedSatsAmount || 0).toLocaleString()} sats</p>
-                    <p className="text-sm text-muted-foreground">{formatUSD(totalCents)}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {formatUSD(totalCents)} total for {billingPeriodMonths} month{billingPeriodMonths > 1 ? "s" : ""}
+                    </p>
                   </div>
                   <div className="space-y-space-2">
                     <Label className="text-sm text-muted-foreground">Lightning Invoice</Label>

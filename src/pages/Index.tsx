@@ -1,357 +1,562 @@
 import { Link } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { 
-  Zap,
-  CalendarDays,
-  Search,
-} from "lucide-react";
+import { Zap, CalendarDays, Search, Utensils, Sparkles } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { HomeHeader } from "@/components/HomeHeader";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
-import { CategoryChips } from "@/components/CategoryChips";
 import { BottomNav } from "@/components/BottomNav";
-import { PromoSlider } from "@/components/PromoSlider";
 import { useFavorites } from "@/hooks/useFavorites";
 import { PlanFilters, PlanFiltersState, initialFilters } from "@/components/PlanFilters";
 import { useI18n } from "@/i18n";
 import { formatUSD } from "@/lib/pricing";
+import { cn } from "@/lib/utils";
 
-// Default food images for subscription plans without uploaded images.
 import foodImage1 from "@/assets/food-1.jpg";
 import foodImage2 from "@/assets/food-2.jpg";
 
-
 const defaultFoodImages = [foodImage1, foodImage2];
+
+// Gradient palette for restaurant cards without images
+const CARD_GRADIENTS = [
+  { from: "#FFD9A0", to: "#FFB347" },
+  { from: "#A8EDEA", to: "#6EC6EA" },
+  { from: "#C9F7D9", to: "#74D0A5" },
+  { from: "#FFC1CC", to: "#FF6B9D" },
+  { from: "#FFF3A3", to: "#FFD700" },
+  { from: "#DCC8FF", to: "#A78BFA" },
+];
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+/** Shared restaurant card — looks identical on mobile (2-col) and desktop (5-col) */
+function RestaurantCard({
+  id, name, logoUrl, planCount, index,
+}: {
+  id: string; name: string; logoUrl?: string | null; planCount: number; index: number;
+}) {
+  const gp = CARD_GRADIENTS[index % CARD_GRADIENTS.length];
+  return (
+    <Link
+      to={`/restaurants/${id}`}
+      className="group overflow-hidden rounded-[22px] bg-white transition-transform duration-150 hover:scale-[1.02]"
+      style={{ boxShadow: "0 2px 14px rgba(0,0,0,0.07)" }}
+    >
+      <div className="relative overflow-hidden" style={{ height: 130 }}>
+        {logoUrl ? (
+          <img src={logoUrl} alt={name} className="h-full w-full object-cover" />
+        ) : (
+          <div
+            className="flex h-full w-full items-center justify-center"
+            style={{ background: `linear-gradient(135deg, ${gp.from}, ${gp.to})` }}
+          >
+            <Utensils className="h-10 w-10 text-white/80" />
+          </div>
+        )}
+        <div
+          className="absolute right-2.5 top-2.5 flex h-7 w-7 items-center justify-center rounded-full text-sm"
+          style={{ background: "rgba(255,255,255,0.92)", boxShadow: "0 1px 4px rgba(0,0,0,0.12)" }}
+        >
+          ⭐
+        </div>
+      </div>
+      <div className="px-3 py-2.5">
+        <p className="truncate text-[13px] font-bold leading-tight" style={{ color: "#111111" }}>
+          {name}
+        </p>
+        <p className="mt-0.5 text-[11px]" style={{ color: "#8A8A8A" }}>
+          {planCount ? `${planCount} plan${planCount !== 1 ? "s" : ""}` : "Meal plans"}
+        </p>
+      </div>
+    </Link>
+  );
+}
+
+/** Shared plan card */
+function PlanCard({ id, name, imageUrl, restaurantName, pricePerWeekSats, index }: {
+  id: string; name: string; imageUrl: string; restaurantName?: string; pricePerWeekSats: number; index: number;
+}) {
+  const { t } = useI18n();
+  return (
+    <Link
+      to={`/plan/${id}`}
+      className="group overflow-hidden rounded-[22px] bg-white transition-transform duration-150 hover:scale-[1.02]"
+      style={{ boxShadow: "0 2px 14px rgba(0,0,0,0.07)" }}
+    >
+      <div className="overflow-hidden" style={{ height: 120 }}>
+        <img src={imageUrl} alt={name} className="h-full w-full object-cover" />
+      </div>
+      <div className="px-3 py-2.5">
+        <p className="truncate text-[13px] font-bold" style={{ color: "#111111" }}>{name}</p>
+        <p className="mt-0.5 text-[11px]" style={{ color: "#8A8A8A" }}>
+          {restaurantName ? `${restaurantName} · ` : ""}{formatUSD(pricePerWeekSats)}/{t("common.week")}
+        </p>
+      </div>
+    </Link>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 const Index = () => {
   const { isAuthenticated } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [planFilters, setPlanFilters] = useState<PlanFiltersState>(initialFilters);
-  const { toggleFavorite, isRestaurantFavorite, isPlanFavorite } = useFavorites();
   const { t } = useI18n();
 
-  // Fetch featured restaurants
   const { data: restaurants, isLoading: restaurantsLoading } = useQuery({
     queryKey: ["featured-restaurants"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("restaurants")
-        .select("*")
-        .eq("is_active", true)
-        .limit(6);
-      
+        .from("restaurants").select("*").eq("is_active", true).limit(8);
       if (error) throw error;
       return data;
     },
   });
 
-  // Fetch featured plans with filters
   const { data: plans, isLoading: plansLoading } = useQuery({
     queryKey: ["featured-plans", selectedCategory, planFilters],
     queryFn: async () => {
       let query = supabase
         .from("subscription_plans")
-        .select(`
-          *,
-          restaurants(name, logo_url)
-        `)
+        .select("*, restaurants(name, logo_url)")
         .eq("is_active", true);
-      
-      // Filter by category if not "all"
+
       if (selectedCategory !== "all") {
-        query = query.eq("menu_category", selectedCategory as "standard" | "vegetarian" | "vegan" | "keto" | "gluten_free" | "lactose_free");
+        query = query.eq("menu_category", selectedCategory as any);
       }
-      
-      // Apply additional filters
-      if (planFilters.supportsDelivery === true) {
-        query = query.eq("supports_delivery", true);
-      }
+      if (planFilters.supportsDelivery === true) query = query.eq("supports_delivery", true);
       if (planFilters.menuCategory && selectedCategory === "all") {
-        query = query.eq("menu_category", planFilters.menuCategory as "standard" | "vegetarian" | "vegan" | "keto" | "gluten_free" | "lactose_free");
+        query = query.eq("menu_category", planFilters.menuCategory as any);
       }
-      if (planFilters.maxPricePerWeek) {
-        query = query.lte("price_per_week_sats", planFilters.maxPricePerWeek);
-      }
-      
-      const { data, error } = await query.limit(12);
-      
+      if (planFilters.maxPricePerWeek) query = query.lte("price_per_week_sats", planFilters.maxPricePerWeek);
+
+      const { data, error } = await query.limit(10);
       if (error) throw error;
-      
-      // Client-side filter for meal_time if needed
+
       let filtered = data || [];
       if (planFilters.mealTime) {
         filtered = filtered.filter((plan: any) => {
-          const mealTimeStr = plan.meal_time || "13:00:00";
-          const hour = parseInt(mealTimeStr.split(":")[0]);
+          const hour = parseInt((plan.meal_time || "13:00:00").split(":")[0]);
           if (planFilters.mealTime === "breakfast") return hour >= 6 && hour < 11;
           if (planFilters.mealTime === "lunch") return hour >= 11 && hour < 16;
           if (planFilters.mealTime === "dinner") return hour >= 16 && hour < 22;
           return true;
         });
       }
-      
       return filtered;
     },
   });
 
-  return (
-    <div className="market-shell">
-      {/* Mobile Header */}
-      <HomeHeader />
+  const restaurantCount = restaurants?.length ?? 0;
 
-      {/* Desktop Header */}
+  const CATEGORIES = [
+    { label: "All",      emoji: "🛍",  href: "/restaurants" },
+    { label: "Food",     emoji: "🍽",  href: "/restaurants" },
+    { label: "Cleaning", emoji: "✨",  href: "/cleaning"    },
+    { label: "Weekly",   emoji: "📅",  href: "/restaurants" },
+    { label: "Favorites",emoji: "❤️",  href: "/favorites"  },
+    { label: "New",      emoji: "🎉",  href: "/restaurants" },
+    { label: "Bookings", emoji: "📋",  href: "/my-subscriptions" },
+    { label: "Pay",      emoji: "⚡",  href: "/auth"        },
+  ] as const;
+
+  const HOW_IT_WORKS = [
+    { emoji: "🔍", step: "01", title: t("home.stepBrowse"),    text: t("home.stepBrowseText") },
+    { emoji: "📅", step: "02", title: t("home.stepSubscribe"), text: t("home.stepSubscribeText") },
+    { emoji: "⚡", step: "03", title: t("home.stepPayEnjoy"),  text: t("home.stepPayEnjoyText") },
+  ];
+
+  return (
+    <div style={{ background: "#F6F7F8", minHeight: "100dvh" }}>
+      {/* Headers */}
+      <HomeHeader />
       <DesktopHeader />
 
-      {/* Category Chips + Filters */}
-      <div className="py-space-2 md:py-space-3">
-        <div className="market-content">
-          <CategoryChips 
-            selected={selectedCategory}
-            onSelect={(cat) => {
-              setSelectedCategory(cat);
-              // Clear menuCategory filter when using chips
-              if (cat !== "all") {
-                setPlanFilters(f => ({ ...f, menuCategory: null }));
-              }
-            }}
-            rightContent={
-              <PlanFilters 
-                filters={planFilters}
-                onFiltersChange={setPlanFilters}
-              />
-            }
-          />
+      {/* ═══════════════════════════════════════════════════════
+          SINGLE UNIFIED LAYOUT — responsive at every breakpoint
+          Mobile: 1-col stacked · Desktop: wider grid, split hero
+      ═══════════════════════════════════════════════════════ */}
+      <div className="mx-auto max-w-[1280px] px-4 pb-24 pt-4 md:px-8 md:pb-16 md:pt-8">
+        <div className="space-y-5 md:space-y-10">
+
+          {/* ── HERO ─────────────────────────────────────────── */}
+          <section>
+            <div
+              className="overflow-hidden rounded-[24px] bg-white md:rounded-[28px]"
+              style={{ boxShadow: "0 2px 20px rgba(0,0,0,0.07)" }}
+            >
+              {/*
+                Single grid: 1-col on mobile (art stacks on top, text below)
+                2-col on lg: text left, art right
+              */}
+              <div className="grid grid-cols-1 lg:grid-cols-2">
+
+                {/* Art — top on mobile (order-1 becomes order-first), right on desktop */}
+                <div
+                  className="order-1 flex items-center justify-center lg:order-2"
+                  style={{
+                    background: "linear-gradient(160deg, #F6F7F8 0%, #FFFFFF 100%)",
+                    minHeight: 180,
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: "clamp(90px, 15vw, 160px)",
+                      filter: "drop-shadow(0 12px 24px rgba(0,0,0,0.10))",
+                      lineHeight: 1,
+                    }}
+                  >
+                    🍱
+                  </span>
+                </div>
+
+                {/* Text + merchant card */}
+                <div className="order-2 flex flex-col justify-center px-5 pb-5 pt-4 lg:order-1 lg:px-10 lg:py-16">
+                  {/* Story indicators — always present in this section */}
+                  <div className="mb-4 flex gap-2 lg:mb-8">
+                    <div className="h-[3px] flex-[2] rounded-full" style={{ background: "#111111" }} />
+                    <div className="h-[3px] flex-1 rounded-full" style={{ background: "rgba(17,17,17,0.25)" }} />
+                    <div className="h-[3px] flex-1 rounded-full" style={{ background: "rgba(17,17,17,0.12)" }} />
+                  </div>
+
+                  <h1
+                    style={{
+                      fontSize: "clamp(20px, 4vw, 44px)",
+                      fontWeight: 800,
+                      lineHeight: 1.15,
+                      color: "#111111",
+                      letterSpacing: "-0.025em",
+                    }}
+                  >
+                    Fresh meals every day.<br />Subscribe &amp; save.
+                  </h1>
+                  <p className="mt-2 text-sm leading-relaxed lg:mt-3 lg:text-base" style={{ color: "#8A8A8A" }}>
+                    Choose from top restaurants, weekly meal plans, and professional cleaning services.
+                  </p>
+
+                  {/* Merchant card */}
+                  <div
+                    className="mt-4 flex items-center gap-3 rounded-[16px] bg-white p-3 lg:mt-8 lg:rounded-[20px] lg:p-4"
+                    style={{ boxShadow: "0 2px 16px rgba(0,0,0,0.09)" }}
+                  >
+                    <div
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-xl lg:h-14 lg:w-14 lg:text-2xl"
+                      style={{ background: "#FEF08A" }}
+                    >
+                      🍽
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[14px] font-bold lg:text-[16px]" style={{ color: "#111111" }}>
+                        {restaurants?.[0]?.name || "Browse restaurants"}
+                      </p>
+                      <p className="text-[12px] lg:text-[13px]" style={{ color: "#8A8A8A" }}>
+                        Meal subscriptions
+                      </p>
+                    </div>
+                    <Link
+                      to="/restaurants"
+                      className="shrink-0 inline-flex h-9 items-center rounded-[14px] px-4 text-[13px] font-bold text-white transition hover:opacity-90 active:scale-95 lg:h-11 lg:rounded-[16px] lg:px-6 lg:text-[14px]"
+                      style={{ background: "#202124" }}
+                    >
+                      Browse
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* ── CATEGORY SHORTCUTS ───────────────────────────── */}
+          <section>
+            <div className="flex gap-5 overflow-x-auto pb-1 scrollbar-hide md:gap-8">
+              {CATEGORIES.map((cat) => (
+                <Link
+                  key={cat.label}
+                  to={cat.href}
+                  className="flex shrink-0 flex-col items-center gap-2 transition-transform hover:scale-105"
+                >
+                  <div
+                    className="flex items-center justify-center rounded-full"
+                    style={{ width: 62, height: 62, background: "#EFEFEF", fontSize: 26, flexShrink: 0 }}
+                  >
+                    {cat.emoji}
+                  </div>
+                  <span className="text-[11px] font-medium lg:text-[13px]" style={{ color: "#111111" }}>
+                    {cat.label}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </section>
+
+          {/* ── POPULAR RESTAURANTS ──────────────────────────── */}
+          <section>
+            <div className="mb-4 flex items-center justify-between">
+              <h2
+                className="text-[18px] font-bold lg:text-[22px]"
+                style={{ color: "#111111", letterSpacing: "-0.02em" }}
+              >
+                Popular
+              </h2>
+              <Link
+                to="/restaurants"
+                className="inline-flex items-center gap-1 rounded-full px-4 py-1.5 text-[13px] font-semibold transition-colors"
+                style={{ background: "#EFEFEF", color: "#111111" }}
+              >
+                All {restaurantCount > 0 ? restaurantCount : ""}{" "}
+                <span style={{ color: "#8A8A8A" }}>›</span>
+              </Link>
+            </div>
+
+            {restaurantsLoading ? (
+              <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4 xl:grid-cols-5">
+                {[0, 1, 2, 3, 4].map((i) => (
+                  <div
+                    key={i}
+                    className="animate-pulse overflow-hidden rounded-[22px] bg-white"
+                    style={{ height: 185 }}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-3 xl:grid-cols-5">
+                {(restaurants || []).map((restaurant, index) => {
+                  const planCount =
+                    (restaurant as any).subscription_plans?.filter((p: any) => p.is_active)?.length ?? 0;
+                  return (
+                    <RestaurantCard
+                      key={restaurant.id}
+                      id={restaurant.id}
+                      name={restaurant.name}
+                      logoUrl={restaurant.logo_url}
+                      planCount={planCount}
+                      index={index}
+                    />
+                  );
+                })}
+
+                {/* Cleaning promo card — inline in the grid */}
+                <Link
+                  to="/cleaning"
+                  className="group overflow-hidden rounded-[22px] transition-transform duration-150 hover:scale-[1.02]"
+                  style={{
+                    background: "linear-gradient(135deg, #1a1a2e, #0f3460)",
+                    boxShadow: "0 2px 14px rgba(0,0,0,0.14)",
+                    minHeight: 185,
+                  }}
+                >
+                  <div className="relative flex h-full flex-col justify-between p-4">
+                    <div
+                      className="flex h-7 w-7 items-center justify-center rounded-full text-sm"
+                      style={{ background: "rgba(255,255,255,0.12)" }}
+                    >
+                      ✨
+                    </div>
+                    <div>
+                      <p
+                        className="text-[10px] font-bold uppercase tracking-widest"
+                        style={{ color: "rgba(255,255,255,0.35)" }}
+                      >
+                        Service
+                      </p>
+                      <p className="mt-1 text-[15px] font-black leading-tight text-white">
+                        Professional<br />Cleaning
+                      </p>
+                      <p className="mt-0.5 text-[11px]" style={{ color: "rgba(255,255,255,0.5)" }}>
+                        from $79/mo
+                      </p>
+                      <div
+                        className="mt-2.5 inline-flex h-7 items-center rounded-full px-3 text-[11px] font-bold text-white"
+                        style={{ background: "rgba(255,255,255,0.15)" }}
+                      >
+                        Book now
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              </div>
+            )}
+          </section>
+
+          {/* ── MEAL PLANS ───────────────────────────────────── */}
+          {plans && plans.length > 0 && (
+            <section>
+              <div className="mb-4 flex items-center justify-between">
+                <h2
+                  className="text-[18px] font-bold lg:text-[22px]"
+                  style={{ color: "#111111", letterSpacing: "-0.02em" }}
+                >
+                  {t("home.subscriptionMealPlan")}
+                </h2>
+                <Link
+                  to="/restaurants"
+                  className="inline-flex items-center gap-1 rounded-full px-4 py-1.5 text-[13px] font-semibold transition-colors"
+                  style={{ background: "#EFEFEF", color: "#111111" }}
+                >
+                  All plans <span style={{ color: "#8A8A8A" }}>›</span>
+                </Link>
+              </div>
+              <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-3 xl:grid-cols-5">
+                {plans.map((plan: any, index) => (
+                  <PlanCard
+                    key={plan.id}
+                    id={plan.id}
+                    name={plan.name}
+                    imageUrl={plan.restaurants?.logo_url || defaultFoodImages[index % defaultFoodImages.length]}
+                    restaurantName={plan.restaurants?.name}
+                    pricePerWeekSats={plan.price_per_week_sats}
+                    index={index}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* ── HOW IT WORKS ─────────────────────────────────── */}
+          <section>
+            <div
+              className="overflow-hidden rounded-[24px] bg-white p-6 md:rounded-[28px] md:p-10"
+              style={{ boxShadow: "0 2px 20px rgba(0,0,0,0.06)" }}
+            >
+              <div className="mb-6 flex flex-col gap-2 md:mb-8 md:flex-row md:items-end md:justify-between">
+                <div>
+                  <p
+                    className="text-[10px] font-bold uppercase tracking-widest lg:text-[11px]"
+                    style={{ color: "#F8A31A" }}
+                  >
+                    {t("home.howItWorks")}
+                  </p>
+                  <h2
+                    className="mt-1.5 text-[20px] font-black md:mt-2 md:text-[26px]"
+                    style={{ color: "#111111", letterSpacing: "-0.02em" }}
+                  >
+                    {t("home.subscribeInMinutes")}
+                  </h2>
+                </div>
+                <p className="text-[13px] leading-relaxed md:max-w-xs md:text-right" style={{ color: "#8A8A8A" }}>
+                  {t("home.howItWorksDescription")}
+                </p>
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                {HOW_IT_WORKS.map((item) => (
+                  <div
+                    key={item.step}
+                    className="rounded-[20px] px-5 py-5 md:px-7 md:py-6"
+                    style={{ background: "#F6F7F8" }}
+                  >
+                    <div className="mb-4 flex items-center justify-between md:mb-5">
+                      <div
+                        className="flex h-11 w-11 items-center justify-center rounded-2xl text-[20px] md:h-12 md:w-12 md:text-[22px]"
+                        style={{ background: "#EFEFEF" }}
+                      >
+                        {item.emoji}
+                      </div>
+                      <span
+                        className="text-[32px] font-black md:text-[38px]"
+                        style={{ color: "rgba(17,17,17,0.08)" }}
+                      >
+                        {item.step}
+                      </span>
+                    </div>
+                    <h3 className="text-[15px] font-bold md:text-[16px]" style={{ color: "#111111" }}>
+                      {item.title}
+                    </h3>
+                    <p className="mt-1.5 text-[12px] leading-relaxed md:mt-2 md:text-[13px]" style={{ color: "#8A8A8A" }}>
+                      {item.text}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+
+          {/* ── CLEANING SERVICE BANNER ───────────────────────── */}
+          <section>
+            <div
+              className="relative overflow-hidden rounded-[24px] p-6 text-white md:rounded-[28px] md:p-10"
+              style={{ background: "linear-gradient(135deg, #1a1a2e 0%, #0f3460 100%)" }}
+            >
+              {/* Decorative blobs */}
+              <div className="absolute -right-8 -top-8 h-40 w-40 rounded-full bg-white/5 md:-right-12 md:-top-12 md:h-56 md:w-56" />
+              <div className="absolute -bottom-6 right-24 h-32 w-32 rounded-full bg-white/5 md:-bottom-8 md:right-32 md:h-40 md:w-40" />
+
+              <div className="relative flex items-end justify-between gap-4">
+                <div className="flex-1">
+                  <p
+                    className="text-[10px] font-bold uppercase tracking-widest lg:text-[11px]"
+                    style={{ color: "rgba(255,255,255,0.35)" }}
+                  >
+                    Premium Service
+                  </p>
+                  <h2
+                    className="mt-2 text-[22px] font-black leading-tight md:text-[34px]"
+                    style={{ letterSpacing: "-0.02em" }}
+                  >
+                    Professional<br />Cleaning Service
+                  </h2>
+                  <p className="mt-1.5 text-[13px] md:mt-2 md:text-[15px]" style={{ color: "rgba(255,255,255,0.55)" }}>
+                    Weekly recurring sessions · from $79/mo
+                  </p>
+                  <div className="mt-5 flex flex-wrap gap-3 md:mt-7">
+                    <Link
+                      to="/cleaning"
+                      className="inline-flex h-10 items-center rounded-full bg-white px-6 text-[13px] font-bold text-slate-900 transition hover:bg-white/90 md:h-11 md:px-7 md:text-[14px]"
+                    >
+                      View plans
+                    </Link>
+                    {isAuthenticated && (
+                      <Link
+                        to="/cleaning/book"
+                        className="inline-flex h-10 items-center rounded-full px-6 text-[13px] font-semibold text-white transition hover:bg-white/10 md:h-11 md:px-7 md:text-[14px]"
+                        style={{ border: "1px solid rgba(255,255,255,0.2)" }}
+                      >
+                        Book session
+                      </Link>
+                    )}
+                  </div>
+                </div>
+                {/* Art — shown at all sizes but smaller on mobile */}
+                <div className="shrink-0">
+                  <span
+                    className="block"
+                    style={{ fontSize: "clamp(60px, 10vw, 110px)", lineHeight: 1 }}
+                  >
+                    🧺
+                  </span>
+                </div>
+              </div>
+            </div>
+          </section>
+
         </div>
       </div>
 
-      {/* Restaurant Partners */}
-      <PromoSlider
-        title={t("home.restaurants")}
-        items={(restaurants || []).map((restaurant) => ({
-          id: restaurant.id,
-          href: `/restaurants/${restaurant.id}`,
-          name: restaurant.name,
-          imageUrl: restaurant.logo_url,
-          imageVariant: "restaurantLogo",
-          meta: `20-30 min${restaurant.address ? ` · ${restaurant.address}` : ""}`,
-          chips: [t("common.freeDelivery")],
-          isFavorite: isRestaurantFavorite(restaurant.id),
-        }))}
-        isLoading={restaurantsLoading}
-        onFavoriteToggle={(restaurantId) => toggleFavorite({ restaurantId })}
-      />
-
-      {/* Subscription Meal Plans */}
-      <PromoSlider
-        title={t("home.subscriptionMealPlan")}
-        items={(plans || []).map((plan, index) => ({
-          id: plan.id,
-          href: `/plan/${plan.id}`,
-          name: plan.name,
-          imageUrl: plan.restaurants?.logo_url || defaultFoodImages[index % defaultFoodImages.length],
-          meta: `${plan.meal_time || "13:00:00"} · ${formatUSD(plan.price_per_week_sats)} / ${t("common.week")}`,
-          chips: [t("common.subscriptionPlan")],
-          isFavorite: isPlanFavorite(plan.id),
-        }))}
-        isLoading={plansLoading}
-        onFavoriteToggle={(planId) => toggleFavorite({ planId })}
-      />
-
-      {/* How It Works */}
-      <section className="py-space-10 md:py-space-16">
-        <div className="market-content">
-          <div className="rounded-radius-xl bg-[hsl(var(--app-rail))] p-space-6 md:p-space-8 xl:p-space-10">
-            <div className="mb-space-10 flex flex-col gap-space-3 md:mb-space-12 md:flex-row md:items-end md:justify-between">
-              <div>
-                <p className="mb-space-3 text-caption uppercase tracking-[0.14em] text-primary">{t("home.howItWorks")}</p>
-                <h2 className="text-section-title">{t("home.subscribeInMinutes")}</h2>
-              </div>
-              <p className="max-w-xl text-body text-muted-foreground md:text-right">
-                {t("home.howItWorksDescription")}
-              </p>
-            </div>
-
-            <div className="grid gap-space-4 md:grid-cols-3 xl:gap-space-6">
-              {[
-                {
-                  icon: Search,
-                  step: "01",
-                  title: t("home.stepBrowse"),
-                  text: t("home.stepBrowseText"),
-                },
-                {
-                  icon: CalendarDays,
-                  step: "02",
-                  title: t("home.stepSubscribe"),
-                  text: t("home.stepSubscribeText"),
-                },
-                {
-                  icon: Zap,
-                  step: "03",
-                  title: t("home.stepPayEnjoy"),
-                  text: t("home.stepPayEnjoyText"),
-                },
-              ].map((item) => {
-                const Icon = item.icon;
-                return (
-                  <div key={item.step} className="rounded-radius-lg bg-background p-space-6 md:p-space-8">
-                    <div className="mb-space-8 flex items-center justify-between">
-                      <div className="flex h-14 w-14 items-center justify-center rounded-radius-lg bg-primary text-primary-foreground">
-                        <Icon className="h-6 w-6" />
-                      </div>
-                      <span className="text-section-title text-muted-foreground/30">{item.step}</span>
-                    </div>
-                    <h3 className="text-panel-title">{item.title}</h3>
-                    <p className="mt-space-3 text-body text-muted-foreground">{item.text}</p>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="pb-0">
-        <div className="market-content">
-          <div className="relative isolate min-h-[260px] overflow-hidden rounded-radius-xl bg-[linear-gradient(115deg,#58c8ed_0%,#806ee8_42%,#e463a7_72%,#ff8a3d_100%)] p-space-6 text-white md:min-h-[300px] md:p-space-8 xl:p-space-10">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_10%,rgba(255,255,255,0.2),transparent_30%),radial-gradient(circle_at_82%_14%,rgba(255,255,255,0.18),transparent_24%)]" />
-            <div className="absolute -bottom-12 left-[24%] h-32 w-56 -rotate-[28deg] rounded-radius-lg bg-[#ff4d2e] opacity-95 md:h-40 md:w-72">
-              <span className="absolute left-space-8 top-space-8 rotate-[18deg] font-display text-3xl font-black uppercase text-white/75 md:text-5xl">
-                Save
-              </span>
-            </div>
-            <div className="absolute -bottom-10 left-[46%] h-36 w-64 rotate-[6deg] rounded-radius-lg bg-[#38c8f4] opacity-95 md:h-44 md:w-80">
-              <span className="absolute left-space-10 top-space-8 font-display text-3xl font-black uppercase text-white/75 md:text-5xl">
-                Deals
-              </span>
-            </div>
-            <div className="absolute -right-12 top-[22%] h-28 w-60 -rotate-[26deg] rounded-radius-md bg-[#ffe100] opacity-95 md:h-36 md:w-80">
-              <span className="absolute left-space-10 top-space-7 font-display text-3xl font-black uppercase text-black/35 md:text-5xl">
-                Offers
-              </span>
-            </div>
-            <div className="absolute bottom-[-34px] right-[2%] h-24 w-52 rotate-[18deg] rounded-radius-md bg-[#c600ff] opacity-90 md:h-32 md:w-72" />
-
-            {[
-              { label: "+20", className: "left-[41%] top-[46%]" },
-              { label: "+15", className: "right-[10%] top-[22%]" },
-              { label: "+7", className: "right-[12%] bottom-[12%]" },
-            ].map((badge) => (
-              <div
-                key={badge.label}
-                className={`absolute hidden rounded-radius-full bg-white px-space-4 py-space-2 font-display text-3xl font-black text-[#584bd7] shadow-sm md:block ${badge.className}`}
-              >
-                {badge.label}
-              </div>
-            ))}
-
-            <div className="relative z-10 flex min-h-[210px] flex-col justify-between gap-space-8 md:min-h-[240px]">
-              <div>
-                <p className="mb-space-3 text-caption uppercase tracking-[0.14em] text-white/80">{t("home.ready")}</p>
-                <h2 className="max-w-4xl font-display text-[clamp(2.4rem,6vw,5.2rem)] font-black leading-none text-white">
-                  {t("home.freshMeals")}
-                </h2>
-                <p className="mt-space-4 max-w-2xl text-body text-white/85">
-                  {t("home.ctaDescription")}
-                </p>
-              </div>
-
-              <div className="flex flex-col gap-space-3 sm:flex-row">
-                <Button asChild size="xl" variant="secondary" className="w-full bg-white text-black hover:bg-white/90 sm:w-auto">
-                  <Link to="/restaurants">
-                    {t("home.browseRestaurants")}
-                  </Link>
-                </Button>
-                {!isAuthenticated && (
-                  <Button asChild size="xl" variant="tertiary" className="w-full bg-black/25 text-white hover:bg-black/35 sm:w-auto">
-                    <Link to="/auth">
-                      {t("home.createAccount")}
-                    </Link>
-                  </Button>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Desktop Footer */}
-      <footer className="hidden border-t border-[hsl(var(--app-divider))] bg-[hsl(var(--app-chrome))] md:block">
-        <div className="market-content py-space-8">
-          <div className="flex items-center justify-between gap-space-8">
-            <Link to="/" className="font-display text-2xl font-black text-muted-foreground/70">
+      {/* ── Footer (desktop only — mobile has bottom nav instead) ── */}
+      <footer
+        className="hidden md:block"
+        style={{ borderTop: "1px solid #E8E8E8", background: "#FFFFFF" }}
+      >
+        <div className="mx-auto max-w-[1280px] px-8 py-8">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <Link to="/" className="text-[17px] font-black transition-colors" style={{ color: "#8A8A8A" }}>
               ProsperaSub
             </Link>
-
-            <div className="flex items-center gap-space-3">
-              {[
-                { eyebrow: t("footer.downloadOn"), label: "App Store" },
-                { eyebrow: t("footer.getItOn"), label: "Google Play" },
-                { eyebrow: t("footer.useWith"), label: "Lightning" },
-              ].map((badge) => (
-                <a
-                  key={badge.label}
-                  href="#"
-                  className="flex min-w-[132px] items-center gap-space-2 rounded-radius-sm bg-[#1f1f1f] px-space-3 py-space-2 text-white transition-colors hover:bg-black"
-                  aria-label={`${badge.eyebrow} ${badge.label}`}
-                >
-                  <span className="flex h-7 w-7 items-center justify-center rounded-radius-xs bg-white/10 font-display text-sm font-black">
-                    {badge.label.charAt(0)}
-                  </span>
-                  <span className="leading-tight">
-                    <span className="block text-[10px] font-semibold text-white/80">{badge.eyebrow}</span>
-                    <span className="block font-display text-sm font-black">{badge.label}</span>
-                  </span>
-                </a>
-              ))}
+            <div className="flex flex-wrap items-center gap-5 text-[13px]" style={{ color: "#8A8A8A" }}>
+              <a href="#" className="transition-colors hover:text-foreground">{t("footer.userAgreement")}</a>
+              <a href="#" className="transition-colors hover:text-foreground">{t("footer.privacy")}</a>
+              <a href="#" className="transition-colors hover:text-foreground">{t("footer.press")}</a>
+              <span className="flex items-center gap-1.5">
+                <Zap className="h-3.5 w-3.5" style={{ color: "#F8A31A" }} />
+                {t("home.poweredByLightning")}
+              </span>
             </div>
-          </div>
-
-          <div className="mt-space-8 border-t border-[hsl(var(--app-divider))] pt-space-8">
-            <nav className="grid gap-space-8 text-body text-muted-foreground sm:grid-cols-2 lg:grid-cols-4" aria-label="Footer">
-              {[
-                [t("footer.whatWeSell"), t("footer.howItWorks"), t("footer.partnerWork")],
-                [t("footer.landlords"), t("footer.suppliers"), t("footer.business")],
-                [t("footer.partners"), t("footer.faq"), t("footer.recipes")],
-                [t("footer.returns")],
-              ].map((column, index) => (
-                <div key={index} className="flex flex-col gap-space-3">
-                  {column.map((item) => (
-                    <a key={item} href="#" className="transition-colors hover:text-foreground">
-                      {item}
-                    </a>
-                  ))}
-                </div>
-              ))}
-            </nav>
-          </div>
-
-          <div className="mt-space-8 border-t border-[hsl(var(--app-divider))] pt-space-6">
-            <p className="max-w-5xl text-control leading-relaxed text-muted-foreground">
-              {t("footer.legalDescription")}
-            </p>
-          </div>
-
-          <div className="mt-space-8 flex items-center justify-between gap-space-6 text-control text-muted-foreground">
-            <p>{t("footer.copyright")}</p>
-            <div className="flex items-center gap-space-4">
-              <a href="#" className="hover:text-foreground">{t("footer.userAgreement")}</a>
-              <a href="#" className="hover:text-foreground">{t("footer.privacy")}</a>
-              <a href="#" className="hover:text-foreground">{t("footer.press")}</a>
-            </div>
-            <div className="flex items-center gap-space-2">
-              <Zap className="h-4 w-4 text-primary" />
-              <span>{t("home.poweredByLightning")}</span>
-            </div>
+            <p className="text-[13px]" style={{ color: "#8A8A8A" }}>{t("footer.copyright")}</p>
           </div>
         </div>
       </footer>
 
-      {/* Mobile Bottom Navigation */}
       <BottomNav />
     </div>
   );

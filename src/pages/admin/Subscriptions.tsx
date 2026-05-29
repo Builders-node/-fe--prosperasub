@@ -66,7 +66,7 @@ const AdminSubscriptions = () => {
   };
 
   return (
-    <SuperAdminLayout title="All Subscriptions" subtitle="Monitor platform-wide subscriptions">
+    <SuperAdminLayout title="Food Subscriptions" subtitle="All meal plan subscriptions across the platform">
       <Card>
         <CardHeader>
           <CardTitle>Subscriptions ({subscriptions?.length || 0})</CardTitle>

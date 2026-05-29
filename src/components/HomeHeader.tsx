@@ -1,14 +1,27 @@
-import { Link } from "react-router-dom";
-import { CalendarDays, MapPin, ChevronDown } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import {
+  ArrowLeft,
+  MapPin,
+} from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useDeliveryAddress } from "@/hooks/useDeliveryAddress";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { useI18n } from "@/i18n";
+import { AccountMenu } from "@/components/AccountMenu";
+import { Button } from "@/components/ui/button";
+import { useAuthModal } from "@/contexts/AuthModalContext";
 
-export function HomeHeader() {
+interface HomeHeaderProps {
+  title?: string;
+  showBackButton?: boolean;
+  onBack?: () => void;
+}
+
+export function HomeHeader({ title, showBackButton = false, onBack }: HomeHeaderProps) {
+  const navigate = useNavigate();
   const { isAuthenticated, userData } = useAuth();
+  const { openAuthModal } = useAuthModal();
   const { defaultAddress, hasDefaultAddress } = useDeliveryAddress();
   const { t } = useI18n();
 
@@ -29,34 +42,75 @@ export function HomeHeader() {
 
   const displayAddress = hasDefaultAddress ? defaultAddress?.address : t("nav.setDeliveryAddress");
 
+  const handleBack = () => {
+    if (onBack) { onBack(); return; }
+    navigate(-1);
+  };
+
   return (
-    <header className="sticky top-0 z-40 border-b border-[hsl(var(--app-divider))] bg-[hsl(var(--app-chrome))] px-space-4 py-space-3 md:hidden">
-      <div className="flex items-center gap-space-3">
-        <div className="flex-shrink-0 scale-75 origin-left">
-          <ThemeToggle />
+    <header className="sticky top-0 z-40 bg-background/97 backdrop-blur-md border-b border-border/40 md:hidden">
+      {/* Yandex Go style: left action | centered brand | right action */}
+      <div className="relative flex items-center px-4" style={{ height: "56px" }}>
+
+        {/* ── Left slot ── */}
+        <div className="w-10 shrink-0">
+          {showBackButton && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 rounded-full"
+              aria-label="Back"
+              onClick={handleBack}
+            >
+              <ArrowLeft className="h-5 w-5" aria-hidden="true" />
+            </Button>
+          )}
         </div>
 
-        <Link
-          to={isAuthenticated ? "/" : "/auth"}
-          className="flex min-w-0 flex-1 items-center justify-center gap-space-1 rounded-radius-full bg-[hsl(var(--app-control))] px-space-3 py-space-2 text-control text-foreground transition-colors hover:bg-[hsl(var(--app-control-muted))]"
-        >
-          <MapPin className="h-4 w-4 shrink-0 text-primary" />
-          <span className="truncate">{displayAddress}</span>
-          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
-        </Link>
-
-        {/* My Subscriptions (replaces Cart) */}
-        <Link to={isAuthenticated ? "/my-subscriptions" : "/auth"} className="relative flex-shrink-0">
-          <div className="w-10 h-10 rounded-radius-full bg-[hsl(var(--app-control))] flex items-center justify-center">
-            <CalendarDays className="w-5 h-5 text-foreground" />
-          </div>
-          {/* Badge - shows active subscription count */}
-          {(subscriptionCount ?? 0) > 0 && (
-            <span className="absolute -top-1 -right-1 w-5 h-5 rounded-radius-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-medium">
-              {subscriptionCount}
-            </span>
+        {/* ── Center: logo + address/title (absolutely centered) ── */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none">
+          <span className="text-[17px] font-black tracking-tight text-foreground leading-none">
+            ProsperaSub
+          </span>
+          {title ? (
+            <span className="mt-0.5 text-xs font-medium text-muted-foreground">{title}</span>
+          ) : (
+            <Link
+              to={isAuthenticated ? "/" : "#"}
+            onClick={!isAuthenticated ? (e) => { e.preventDefault(); openAuthModal("login"); } : undefined}
+              className="pointer-events-auto mt-0.5 flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <MapPin className="h-3 w-3 text-primary shrink-0" />
+              <span className="max-w-[160px] truncate">{displayAddress}</span>
+              <span className="text-primary">›</span>
+            </Link>
           )}
-        </Link>
+        </div>
+
+        {/* ── Right slot ── */}
+        <div className="ml-auto w-10 shrink-0 flex justify-end">
+          {isAuthenticated ? (
+            <div className="relative">
+              <AccountMenu />
+              {(subscriptionCount ?? 0) > 0 && (
+                <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-0.5 text-[9px] font-bold text-primary-foreground">
+                  {subscriptionCount}
+                </span>
+              )}
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => openAuthModal("login")}
+              className="h-8 rounded-full px-4 text-xs font-semibold transition-colors hover:opacity-80"
+              style={{ background: "#F3F4F6", color: "#111111" }}
+            >
+              Log in
+            </button>
+          )}
+        </div>
+
       </div>
     </header>
   );

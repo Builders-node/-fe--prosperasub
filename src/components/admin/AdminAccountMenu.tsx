@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { publicRoutes } from "@/config/adminRoutes";
 import {
   Dialog,
   DialogContent,
@@ -20,6 +21,7 @@ import {
   AppDropdownContent,
   AppDropdownItem,
   AppDropdownSeparator,
+  AppDropdownThemeItem,
 } from "@/components/ui/app-dropdown";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -124,7 +126,11 @@ export function AdminAccountMenu() {
 
   const handleLogout = async () => {
     await logout();
-    navigate("/");
+    navigate("/auth", { replace: true });
+  };
+
+  const handleViewAsUser = () => {
+    window.open(publicRoutes.userSite, "_blank", "noopener,noreferrer");
   };
 
   const displayName = name || userData?.name || userData?.display_name || t("profile.user");
@@ -153,18 +159,21 @@ export function AdminAccountMenu() {
             <AppDropdownItem
               icon={Eye}
               title={t("profile.viewAsUser")}
-              to="/"
+              onSelect={handleViewAsUser}
             />
           </div>
 
           <AppDropdownSeparator />
 
-          <AppDropdownItem
-            icon={LogOut}
-            title={t("profile.logOut")}
-            onSelect={() => void handleLogout()}
-            danger
-          />
+          <div className="space-y-space-1">
+            <AppDropdownThemeItem />
+            <AppDropdownItem
+              icon={LogOut}
+              title={t("profile.logOut")}
+              onSelect={() => void handleLogout()}
+              danger
+            />
+          </div>
         </AppDropdownContent>
       </DropdownMenu>
 

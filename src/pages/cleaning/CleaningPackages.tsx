@@ -65,50 +65,68 @@ const CleaningPackages = () => {
 
         <section className="pt-space-8 md:pt-space-12">
           {isLoading ? (
-            <div className="grid gap-space-5 md:grid-cols-2">
-              <div className="h-[300px] animate-pulse rounded-radius-xl bg-muted" />
-              <div className="h-[300px] animate-pulse rounded-radius-xl bg-muted" />
+            <div className="grid gap-space-4 md:grid-cols-2">
+              <div className="h-[340px] animate-pulse rounded-3xl bg-muted" />
+              <div className="h-[340px] animate-pulse rounded-3xl bg-muted" />
             </div>
           ) : packages && packages.length > 0 ? (
-            <div className="grid gap-space-5 md:grid-cols-2 xl:grid-cols-3">
-              {packages.map((pkg) => {
+            <div className="grid gap-space-4 md:grid-cols-2 xl:grid-cols-3">
+              {packages.map((pkg, idx) => {
                 const totalCents = pkg.price_per_cleaning_cents * pkg.cleanings_per_month;
+                const isFeatured = idx === 0;
                 return (
                   <article
                     key={pkg.id}
-                    className="flex min-h-[310px] flex-col rounded-radius-xl bg-card p-space-5 text-card-foreground md:p-space-6"
+                    className={`relative flex flex-col overflow-hidden rounded-3xl border p-6 md:p-7 ${
+                      isFeatured
+                        ? "border-foreground/15 bg-card"
+                        : "border-border bg-card"
+                    }`}
                   >
-                    <div className="flex items-start justify-between gap-space-4">
-                      <div>
-                        <h2 className="text-card-title">{pkg.name}</h2>
-                        <p className="mt-space-2 text-body text-muted-foreground">
-                          {t("cleaning.onePerWeek")}
-                        </p>
+                    {isFeatured && (
+                      <div className="absolute right-4 top-4">
+                        <span className="rounded-full bg-foreground px-3 py-1 text-xs font-bold text-background">
+                          Popular
+                        </span>
                       </div>
-                      <div className="text-right">
-                        <p className="font-display text-3xl font-black text-primary">
+                    )}
+
+                    {/* Price block */}
+                    <div className="mb-6">
+                      <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                        {pkg.name}
+                      </p>
+                      <div className="mt-3 flex items-baseline gap-1">
+                        <span className="tabular-nums text-4xl font-black tracking-tight text-foreground">
                           {formatUSD(totalCents)}
-                        </p>
-                        <p className="text-caption text-muted-foreground">/ {t("common.month")}</p>
+                        </span>
+                        <span className="text-sm font-medium text-muted-foreground">/ mo</span>
                       </div>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {formatUSD(pkg.price_per_cleaning_cents)} per cleaning · {pkg.cleanings_per_month}× per month
+                      </p>
                     </div>
 
-                    <div className="mt-space-6 flex-1 space-y-space-3">
+                    {/* Features */}
+                    <div className="flex-1 space-y-3">
                       {[
                         t("cleaning.professionalPerWeek"),
                         t("cleaning.pickSlot"),
                         t("cleaning.hours"),
                       ].map((feature) => (
-                        <div key={feature} className="flex items-start gap-space-3 text-body">
-                          <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
-                          <span>{feature}</span>
+                        <div key={feature} className="flex items-center gap-3">
+                          <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/15">
+                            <CheckCircle2 className="h-3.5 w-3.5 text-primary" />
+                          </div>
+                          <span className="text-sm text-foreground">{feature}</span>
                         </div>
                       ))}
                     </div>
 
-                    <Button
-                      size="lg"
-                      className="mt-space-6 w-full"
+                    {/* CTA */}
+                    <button
+                      type="button"
+                      className="mt-6 flex h-12 w-full items-center justify-center rounded-full bg-foreground text-sm font-bold text-background transition-all hover:bg-foreground/90 active:scale-[0.98]"
                       onClick={() => {
                         if (!isAuthenticated) {
                           navigate(`/auth?redirect=/cleaning/checkout/${pkg.id}`);
@@ -117,14 +135,14 @@ const CleaningPackages = () => {
                         }
                       }}
                     >
-                      {t("cleaning.choose")} {formatUSD(totalCents)}
-                    </Button>
+                      {t("cleaning.choose")} · {formatUSD(totalCents)}
+                    </button>
                   </article>
                 );
               })}
             </div>
           ) : (
-            <div className="rounded-radius-xl bg-card p-space-6 md:p-space-10">
+            <div className="rounded-3xl border border-border bg-card p-6 md:p-10">
               <EmptyState
                 title={t("cleaning.noPackagesTitle")}
                 description={t("cleaning.noPackagesDescription")}
@@ -135,7 +153,7 @@ const CleaningPackages = () => {
 
         {isAuthenticated && (
           <section className="pt-space-6 md:pt-space-8">
-            <Button asChild variant="secondary" size="lg" className="w-full md:w-auto">
+            <Button asChild variant="secondary" size="lg" className="w-full rounded-full md:w-auto">
               <Link to="/my-subscriptions?tab=cleaning">
                 {t("cleaning.viewBookings")}
               </Link>

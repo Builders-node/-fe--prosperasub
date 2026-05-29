@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Loader2, Edit, Store, Trash2, ExternalLink } from "lucide-react";
+import { Plus, Loader2, Edit, Store, Trash2 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -19,7 +18,6 @@ import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 
 const ManageRestaurants = () => {
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
   const { userData } = useAuth();
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -368,14 +366,6 @@ const ManageRestaurants = () => {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-space-1">
-                        <Button
-                          variant="tertiary"
-                          size="sm"
-                          onClick={() => navigate(`/restaurant/${restaurant.id}/dashboard`)}
-                          title="Enter as Restaurant Admin"
-                        >
-                          <ExternalLink className="h-4 w-4" />
-                        </Button>
                         <Dialog open={editingId === restaurant.id} onOpenChange={(open) => {
                           if (open) openEditDialog(restaurant);
                           else setEditingId(null);

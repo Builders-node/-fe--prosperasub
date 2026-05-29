@@ -5,8 +5,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { AuthModalProvider } from "@/contexts/AuthModalContext";
 import { LanguageProvider } from "@/i18n";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import { FirstVisitChoiceModal } from "@/components/FirstVisitChoiceModal";
+import { FoodAccessGate } from "@/components/FoodAccessGate";
 
 // Public pages
 import Index from "./pages/Index";
@@ -37,6 +40,7 @@ import ManageRestaurants from "./pages/admin/ManageRestaurants";
 import PlatformSettings from "./pages/admin/PlatformSettings";
 import CleaningManagement from "./pages/admin/CleaningManagement";
 import AdminPayments from "./pages/admin/Payments";
+import AdminClients from "./pages/admin/Clients";
 
 import NotFound from "./pages/NotFound";
 
@@ -48,20 +52,35 @@ const App = () => {
       <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
         <LanguageProvider>
           <AuthProvider>
+            <AuthModalProvider>
             <TooltipProvider>
               <Toaster />
               <Sonner />
               <BrowserRouter>
+                <FirstVisitChoiceModal />
                 <Routes>
               {/* Public Routes */}
-              <Route path="/" element={<Index />} />
-              <Route path="/restaurants" element={<Restaurants />} />
-              <Route path="/restaurants/:id" element={<RestaurantDetail />} />
-              <Route path="/plan/:planId" element={<PlanDetail />} />
+              <Route path="/" element={<FoodAccessGate><Index /></FoodAccessGate>} />
+              <Route path="/restaurants" element={<FoodAccessGate><Restaurants /></FoodAccessGate>} />
+              <Route path="/restaurants/:id" element={<FoodAccessGate><RestaurantDetail /></FoodAccessGate>} />
+              <Route path="/plan/:planId" element={<FoodAccessGate><PlanDetail /></FoodAccessGate>} />
               <Route path="/auth" element={<Auth />} />
+              <Route path="/login" element={<Auth />} />
+              <Route path="/register" element={<Auth />} />
+              <Route path="/forgot-password" element={<ResetPassword />} />
               <Route path="/reset-password" element={<ResetPassword />} />
 
               {/* User Routes */}
+              <Route path="/account" element={
+                <ProtectedRoute>
+                  <Navigate to="/my-subscriptions" replace />
+                </ProtectedRoute>
+              } />
+              <Route path="/dashboard" element={
+                <ProtectedRoute allowedRoles={['super_admin']}>
+                  <Navigate to="/admin/dashboard" replace />
+                </ProtectedRoute>
+              } />
               <Route path="/my-subscriptions" element={
                 <ProtectedRoute>
                   <MySubscriptions />
@@ -84,7 +103,9 @@ const App = () => {
               } />
               <Route path="/checkout/subscription/:planId" element={
                 <ProtectedRoute>
-                  <Checkout />
+                  <FoodAccessGate>
+                    <Checkout />
+                  </FoodAccessGate>
                 </ProtectedRoute>
               } />
 
@@ -108,39 +129,49 @@ const App = () => {
 
               {/* Restaurant Admin Routes - URL-driven with RestaurantContext */}
               <Route path="/restaurant/*" element={
-                <ProtectedRoute requiredRoles={['restaurant_admin', 'super_admin']}>
+                <ProtectedRoute allowedRoles={['restaurant_admin', 'super_admin']}>
                   <RestaurantAdminRoutes />
                 </ProtectedRoute>
               } />
 
               {/* Super Admin Routes */}
+              <Route path="/admin" element={
+                <ProtectedRoute allowedRoles={['super_admin']}>
+                  <Navigate to="/admin/dashboard" replace />
+                </ProtectedRoute>
+              } />
               <Route path="/admin/dashboard" element={
-                <ProtectedRoute requiredRoles={['super_admin']}>
+                <ProtectedRoute allowedRoles={['super_admin']}>
                   <AdminDashboard />
                 </ProtectedRoute>
               } />
               <Route path="/admin/subscriptions" element={
-                <ProtectedRoute requiredRoles={['super_admin']}>
+                <ProtectedRoute allowedRoles={['super_admin']}>
                   <AdminSubscriptions />
                 </ProtectedRoute>
               } />
               <Route path="/admin/payments" element={
-                <ProtectedRoute requiredRoles={['super_admin']}>
+                <ProtectedRoute allowedRoles={['super_admin']}>
                   <AdminPayments />
                 </ProtectedRoute>
               } />
+              <Route path="/admin/clients" element={
+                <ProtectedRoute allowedRoles={['super_admin']}>
+                  <AdminClients />
+                </ProtectedRoute>
+              } />
               <Route path="/admin/restaurants" element={
-                <ProtectedRoute requiredRoles={['super_admin']}>
+                <ProtectedRoute allowedRoles={['super_admin']}>
                   <ManageRestaurants />
                 </ProtectedRoute>
               } />
               <Route path="/admin/settings" element={
-                <ProtectedRoute requiredRoles={['super_admin']}>
+                <ProtectedRoute allowedRoles={['super_admin']}>
                   <PlatformSettings />
                 </ProtectedRoute>
               } />
               <Route path="/admin/cleaning" element={
-                <ProtectedRoute requiredRoles={['super_admin']}>
+                <ProtectedRoute allowedRoles={['super_admin']}>
                   <CleaningManagement />
                 </ProtectedRoute>
               } />
@@ -150,6 +181,7 @@ const App = () => {
                 </Routes>
               </BrowserRouter>
             </TooltipProvider>
+            </AuthModalProvider>
           </AuthProvider>
         </LanguageProvider>
       </ThemeProvider>

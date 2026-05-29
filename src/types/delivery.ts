@@ -47,9 +47,18 @@ export function normalizeDeliveryAddress(
     return null;
   }
   
-  // Raw string
+  // Raw string — may itself be a JSON-encoded object (double-encoded from the DB)
   if (typeof input === "string") {
-    return input ? { address: input } : null;
+    if (!input) return null;
+    try {
+      const parsed = JSON.parse(input);
+      if (parsed && typeof parsed === "object") {
+        return normalizeDeliveryAddress(parsed);
+      }
+    } catch {
+      // Not JSON — treat as a plain address string
+    }
+    return { address: input };
   }
   
   // Object shapes

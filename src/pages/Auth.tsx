@@ -1,11 +1,10 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Sparkles } from "lucide-react";
+import { ArrowLeft, Loader2, Sparkles } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import authBackground from "@/assets/auth-background.jpg";
 
@@ -46,11 +45,70 @@ const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
-  const [rememberMe, setRememberMe] = useState(false);
-  const { login, signUp, loginWithGoogle, isAuthenticated } = useAuth();
+  const { login, signUp, loginWithGoogle, isAuthenticated, isLoading: isAuthLoading, isUserDataReady, roles } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const redirectTo = getSafeRedirect(searchParams.get("redirect"));
+  const googleCode = searchParams.get("code");
+  const googleState = searchParams.get("state");
+  const googleError = searchParams.get("error");
+
+  const buildAuthPath = (path: "/auth" | "/register") => {
+    const params = new URLSearchParams();
+    const redirect = searchParams.get("redirect");
+    if (redirect) params.set("redirect", redirect);
+    const query = params.toString();
+    return `${path}${query ? `?${query}` : ""}`;
+  };
+
+  useEffect(() => {
+    setView(location.pathname === "/register" ? "signup" : "login");
+  }, [location.pathname]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const completeGoogleLogin = async () => {
+      if (!googleCode && !googleError) return;
+
+      setIsLoading(true);
+
+      if (googleError) {
+        toast.error("Google login was cancelled or failed.");
+        setIsLoading(false);
+        navigate("/auth", { replace: true });
+        return;
+      }
+
+      const { data, error } = await (supabase.auth as any).completeOAuthSignIn({
+        provider: "google",
+        code: googleCode,
+        state: googleState,
+        redirectTo: `${window.location.origin}/auth`,
+      });
+
+      if (!isMounted) return;
+
+      setIsLoading(false);
+
+      if (error) {
+        toast.error(error.message);
+        navigate("/auth", { replace: true });
+        return;
+      }
+
+      toast.success("Welcome back!");
+      // Don't navigate here — auth state isn't set yet (onAuthStateChange fires via setTimeout).
+      // The isAuthenticated useEffect below will redirect once state is updated.
+    };
+
+    completeGoogleLogin();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [googleCode, googleError, googleState, navigate, redirectTo]);
 
   const handleGoogleLogin = async () => {
     setIsLoading(true);
@@ -62,10 +120,11 @@ const Auth = () => {
   };
 
   useEffect(() => {
-    if (isAuthenticated) {
-      navigate(redirectTo, { replace: true });
+    if (!isAuthLoading && isUserDataReady && isAuthenticated) {
+      const target = redirectTo === "/" && roles.includes("super_admin") ? "/admin/dashboard" : redirectTo;
+      navigate(target, { replace: true });
     }
-  }, [isAuthenticated, navigate, redirectTo]);
+  }, [isAuthenticated, isAuthLoading, isUserDataReady, navigate, redirectTo, roles]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -93,8 +152,14 @@ const Auth = () => {
     }
   };
 
-  if (isAuthenticated) {
-    return null;
+  // Show spinner while auth state is loading, user is already authenticated,
+  // or a Google OAuth callback is being processed.
+  if (isAuthLoading || !isUserDataReady || isAuthenticated || googleCode) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
   }
 
   return (
@@ -111,6 +176,13 @@ const Auth = () => {
 
         {/* Form Container */}
         <div className="flex-1 flex flex-col justify-center max-w-md mx-auto w-full">
+          <Button asChild variant="tertiary" size="sm" className="mb-space-8 w-fit px-0 hover:bg-transparent">
+            <Link to="/" aria-label="Return to public website">
+              <ArrowLeft className="h-4 w-4" />
+              Return to website
+            </Link>
+          </Button>
+
           <div className="mb-space-8">
             <h1 className="type-section-title text-foreground">
               {view === "login" ? "Welcome Back" : "Create Account"}
@@ -158,17 +230,7 @@ const Auth = () => {
             />
 
             {view === "login" && (
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-space-2">
-                  <Checkbox
-                    id="remember"
-                    checked={rememberMe}
-                    onCheckedChange={(checked) => setRememberMe(checked as boolean)}
-                  />
-                  <Label htmlFor="remember" className="cursor-pointer text-label font-normal">
-                    Remember Me
-                  </Label>
-                </div>
+              <div className="flex justify-end">
                 <Button
                   type="button"
                   variant="link"
@@ -220,7 +282,7 @@ const Auth = () => {
                 <Button
                   type="button"
                   variant="link"
-                  onClick={() => setView("signup")}
+                  onClick={() => navigate(buildAuthPath("/register"))}
                 >
                   Register Now.
                 </Button>
@@ -231,7 +293,7 @@ const Auth = () => {
                 <Button
                   type="button"
                   variant="link"
-                  onClick={() => setView("login")}
+                  onClick={() => navigate(buildAuthPath("/auth"))}
                 >
                   Sign In.
                 </Button>
@@ -241,11 +303,8 @@ const Auth = () => {
         </div>
 
         {/* Footer */}
-        <div className="mt-auto flex items-center justify-between pt-space-8 text-control text-muted-foreground">
+        <div className="mt-auto pt-space-8 text-control text-muted-foreground">
           <p>© 2026 ProsperaSub.</p>
-          <Button type="button" variant="link" className="text-muted-foreground hover:text-foreground">
-            Privacy Policy
-          </Button>
         </div>
       </div>
 

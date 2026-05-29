@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+import tailwindcssAnimate from "tailwindcss-animate";
 
 export default {
   darkMode: ["class"],
@@ -82,11 +83,30 @@ export default {
         "4xl": "var(--radius-xl)",
       },
       fontFamily: {
-        display: ["var(--font-family-display)"],
-        body: ["var(--font-family-body)"],
+        /* Primary — use 'font-inter' or 'font-sans' anywhere */
+        inter:   ["var(--font-inter)", { fontFeatureSettings: "'cv02','cv03','cv04','tnum','lnum'" }],
+        sans:    ["var(--font-inter)", { fontFeatureSettings: "'cv02','cv03','cv04','tnum','lnum'" }],
+        /* Legacy aliases */
+        display: ["var(--font-inter)"],
+        body:    ["var(--font-inter)"],
+        /* Monospace for code / amounts */
+        mono:    ["var(--font-family-mono)", "ui-monospace", "monospace"],
       },
       fontSize: {
-        "2xs": ["var(--font-size-2xs)", { lineHeight: "0.875rem" }],
+        /* Primitives */
+        "2xs": ["var(--fs-2xs)", { lineHeight: "1rem" }],
+        "xs":  ["var(--fs-xs)",  { lineHeight: "1rem" }],
+        "sm":  ["var(--fs-sm)",  { lineHeight: "1.25rem" }],
+        "base":["var(--fs-md)",  { lineHeight: "1.5rem" }],
+        "lg":  ["var(--fs-lg)",  { lineHeight: "1.625rem" }],
+        "xl":  ["var(--fs-xl)",  { lineHeight: "1.75rem" }],
+        "2xl": ["var(--fs-2xl)", { lineHeight: "1.75rem" }],
+        "3xl": ["var(--fs-3xl)", { lineHeight: "1.875rem" }],
+        "4xl": ["var(--fs-4xl)", { lineHeight: "2.25rem" }],
+        "5xl": ["var(--fs-5xl)", { lineHeight: "1" }],
+        "6xl": ["var(--fs-6xl)", { lineHeight: "1" }],
+        /* Legacy alias */
+        "font-size-2xs": ["var(--fs-2xs)", { lineHeight: "0.875rem" }],
         caption: [
           "var(--type-caption-size)",
           {
@@ -233,5 +253,5 @@ export default {
       },
     },
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [tailwindcssAnimate],
 } satisfies Config;
