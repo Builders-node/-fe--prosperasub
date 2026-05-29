@@ -1,4 +1,4 @@
-import { LayoutGrid, CalendarDays, UtensilsCrossed, Shield, SparklesIcon } from "lucide-react";
+import { CalendarDays, UtensilsCrossed, Shield, SparklesIcon } from "lucide-react";
 import { AppRole } from "@/contexts/AuthContext";
 import { LucideIcon } from "lucide-react";
 
@@ -41,20 +41,15 @@ const USER_NAV: NavItem[] = [
  * Navigation items for restaurant admins
  */
 const RESTAURANT_ADMIN_NAV: NavItem[] = [
-  { 
-    icon: UtensilsCrossed, 
-    label: "Restaurant", 
+  {
+    icon: UtensilsCrossed,
+    label: "Restaurant",
     path: "/restaurant",
     activePatterns: ["/restaurant/"]
   },
-  { 
-    icon: LayoutGrid, 
-    label: "Discover", 
-    path: "/" 
-  },
-  { 
-    icon: SparklesIcon, 
-    label: "Cleaning", 
+  {
+    icon: SparklesIcon,
+    label: "Cleaning",
     path: "/cleaning",
     activePatterns: ["/cleaning/"]
   },
@@ -75,11 +70,6 @@ const SUPER_ADMIN_NAV: NavItem[] = [
     label: "Restaurant",
     path: "/restaurant",
     activePatterns: ["/restaurant/"]
-  },
-  {
-    icon: LayoutGrid,
-    label: "Discover",
-    path: "/"
   },
   {
     icon: SparklesIcon,

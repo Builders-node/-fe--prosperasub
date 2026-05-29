@@ -1,30 +1,16 @@
-import { FormEvent, useEffect, useState } from "react";
-import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, ChevronRight, Clock, MapPin, Search } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { tabsListVariants, tabsTriggerVariants } from "@/components/ui/tabs";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { ArrowLeft, ChevronRight } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
-import { cn } from "@/lib/utils";
 import { LanguageMenu } from "@/components/LanguageMenu";
 import { useI18n } from "@/i18n";
 import { AccountMenu } from "@/components/AccountMenu";
 
 interface DesktopHeaderProps {
-  /** Show back button in secondary nav */
   showBackButton?: boolean;
-  /** Custom back handler (defaults to navigate(-1)) */
   onBack?: () => void;
-  /** Breadcrumb/context text shown on the right of the secondary nav row */
   breadcrumb?: string;
-  /** Hide the navigation links (for public pages with custom nav) */
   hideNav?: boolean;
-  /** Hide marketplace Food/Cleaning switcher */
-  hideProductTabs?: boolean;
-  /** Hide marketplace search field */
-  hideSearch?: boolean;
-  /** Custom right-side content instead of nav */
   rightContent?: React.ReactNode;
 }
 
@@ -33,8 +19,6 @@ export function DesktopHeader({
   onBack,
   breadcrumb,
   hideNav = false,
-  hideProductTabs = false,
-  hideSearch = false,
   rightContent,
 }: DesktopHeaderProps) {
   const { isAuthenticated } = useAuth();
@@ -42,10 +26,7 @@ export function DesktopHeader({
   const { t } = useI18n();
   const location = useLocation();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const [searchQuery, setSearchQuery] = useState(searchParams.get("search") || "");
   const showSecondaryNav = showBackButton || breadcrumb;
-  const isCleaningActive = location.pathname.startsWith("/cleaning");
 
   const handleBack = () => {
     if (onBack) {
@@ -53,16 +34,6 @@ export function DesktopHeader({
     } else {
       window.history.back();
     }
-  };
-
-  useEffect(() => {
-    setSearchQuery(searchParams.get("search") || "");
-  }, [searchParams]);
-
-  const handleSearch = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const query = searchQuery.trim();
-    navigate(query ? `/restaurants?search=${encodeURIComponent(query)}` : "/restaurants");
   };
 
   return (
@@ -79,22 +50,7 @@ export function DesktopHeader({
         </Link>
 
 
-        {/* Search */}
-        {hideSearch ? (
-          <div className="flex-1" />
-        ) : (
-          <form role="search" onSubmit={handleSearch} className="flex-1 max-w-xl">
-            <Input
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder={t("nav.search")}
-              inputSize="search"
-              leftIcon={<Search className="h-5 w-5 text-muted-foreground" />}
-              aria-label={t("nav.search")}
-              className="rounded-full bg-muted/60 border-0 focus-visible:ring-1 focus-visible:ring-primary/50"
-            />
-          </form>
-        )}
+        <div className="flex-1" />
 
         {rightContent && <div className="flex-1" />}
 

@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Bookmark,
   List,
   Loader2,
   LogOut,
@@ -167,11 +166,6 @@ export function AccountMenu() {
               icon={List}
               title={t("profile.orders")}
               to="/my-subscriptions"
-            />
-            <AppDropdownItem
-              icon={Bookmark}
-              title={t("profile.savedPlaces")}
-              to="/favorites"
             />
             <AppDropdownItem
               icon={MapPin}
