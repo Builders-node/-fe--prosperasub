@@ -1,4 +1,4 @@
-import { CalendarDays, UtensilsCrossed, Shield, SparklesIcon } from "lucide-react";
+import { CalendarDays, SparklesIcon } from "lucide-react";
 import { AppRole } from "@/contexts/AuthContext";
 import { LucideIcon } from "lucide-react";
 
@@ -38,64 +38,14 @@ const USER_NAV: NavItem[] = [
 ];
 
 /**
- * Navigation items for restaurant admins
+ * All roles share the same bottom nav — admin areas are accessible via account menu.
  */
-const RESTAURANT_ADMIN_NAV: NavItem[] = [
-  {
-    icon: UtensilsCrossed,
-    label: "Restaurant",
-    path: "/restaurant",
-    activePatterns: ["/restaurant/"]
-  },
-  {
-    icon: SparklesIcon,
-    label: "Cleaning",
-    path: "/cleaning",
-    activePatterns: ["/cleaning/"]
-  },
-];
-
-/**
- * Navigation items for super admins
- */
-const SUPER_ADMIN_NAV: NavItem[] = [
-  {
-    icon: Shield,
-    label: "Platform",
-    path: "/admin/dashboard",
-    activePatterns: ["/admin/"]
-  },
-  {
-    icon: UtensilsCrossed,
-    label: "Restaurant",
-    path: "/restaurant",
-    activePatterns: ["/restaurant/"]
-  },
-  {
-    icon: SparklesIcon,
-    label: "Cleaning",
-    path: "/cleaning",
-    activePatterns: ["/cleaning/"]
-  },
-  {
-    icon: CalendarDays,
-    label: "My Bookings",
-    path: "/my-subscriptions",
-    activePatterns: ["/subscription/"],
-  },
-];
 
 /**
  * Get navigation items based on user roles.
  * Priority: super_admin > restaurant_admin > user
  */
-export function getNavigationForRoles(roles: AppRole[]): NavItem[] {
-  if (roles.includes("super_admin")) {
-    return SUPER_ADMIN_NAV;
-  }
-  if (roles.includes("restaurant_admin")) {
-    return RESTAURANT_ADMIN_NAV;
-  }
+export function getNavigationForRoles(_roles: AppRole[]): NavItem[] {
   return USER_NAV;
 }
 

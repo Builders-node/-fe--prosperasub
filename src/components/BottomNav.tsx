@@ -1,52 +1,20 @@
 import { Link, useLocation } from "react-router-dom";
-import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { getNavigationForRoles, isNavItemActive } from "@/config/navigation";
-import { useIsMobile } from "@/hooks/use-mobile";
-import { useUserMode } from "@/contexts/UserModeContext";
 
 export function BottomNav() {
   const location = useLocation();
   const { roles, isAuthenticated } = useAuth();
   const { openAuthModal } = useAuthModal();
-  const { isUserMode } = useUserMode();
-  const isMobile = useIsMobile();
 
-  // When super-admin is in "View as User" mode, force the regular user nav
-  const effectiveRoles = isUserMode ? (["user"] as any) : roles;
-
-  // Get navigation items based on user role
-  let navItems = getNavigationForRoles(effectiveRoles);
-  const isSuperAdminArea = !isUserMode && location.pathname.startsWith("/admin");
-  // "/restaurants" must NOT be treated as restaurant-admin area — use exact match or "/restaurant/" prefix
-  const isRestaurantAdminArea =
-    !isUserMode && (
-      location.pathname === "/restaurant" ||
-      location.pathname.startsWith("/restaurant/")
-    );
-
-  if (isSuperAdminArea) {
-    navItems = navItems.filter((item) => item.path.startsWith("/admin"));
-  } else if (isRestaurantAdminArea) {
-    navItems = navItems.filter((item) => item.path.startsWith("/restaurant"));
-  }
-
-  // On mobile, hide "Platform" and "Restaurant" entries — accessible via Profile page
-  if (isMobile && !isSuperAdminArea && !isRestaurantAdminArea) {
-    navItems = navItems.filter(
-      (item) => item.path !== "/admin/dashboard" && item.path !== "/restaurant"
-    );
-  }
+  const navItems = getNavigationForRoles(roles);
 
   const isPublicBottomNavRoute =
     location.pathname === "/" ||
     location.pathname === "/cleaning" ||
-    location.pathname === "/restaurants" ||
-    location.pathname.startsWith("/restaurants/") ||
-    location.pathname.startsWith("/plan/");
+    location.pathname.startsWith("/cleaning/");
 
-  // Don't render for unauthenticated users on protected pages
   if (!isAuthenticated && !isPublicBottomNavRoute) {
     return null;
   }
@@ -69,7 +37,6 @@ export function BottomNav() {
             </>
           );
 
-          // Protected nav items: open modal instead of navigating when not authenticated
           if (item.requiresAuth && !isAuthenticated) {
             return (
               <button
