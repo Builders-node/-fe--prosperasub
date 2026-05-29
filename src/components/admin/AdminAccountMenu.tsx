@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Eye, Loader2, LogOut, Send, UserRound } from "lucide-react";
+import { Eye, Loader2, LogOut, Send, UserRound, User } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -28,10 +28,12 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/i18n";
+import { useUserMode } from "@/contexts/UserModeContext";
 import { supabase } from "@/integrations/supabase/client";
 
 export function AdminAccountMenu() {
   const { userData, refreshUserData, logout } = useAuth();
+  const { enterUserMode } = useUserMode();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { t } = useI18n();
@@ -126,7 +128,7 @@ export function AdminAccountMenu() {
 
   const handleLogout = async () => {
     await logout();
-    navigate("/auth", { replace: true });
+    navigate("/", { replace: true });
   };
 
   const handleViewAsUser = () => {
@@ -157,8 +159,15 @@ export function AdminAccountMenu() {
               onSelect={() => setShowProfileDialog(true)}
             />
             <AppDropdownItem
+              icon={User}
+              title="View as User"
+              subtitle="Switch to standard user experience"
+              onSelect={enterUserMode}
+            />
+            <AppDropdownItem
               icon={Eye}
               title={t("profile.viewAsUser")}
+              subtitle="Open user site in new tab"
               onSelect={handleViewAsUser}
             />
           </div>

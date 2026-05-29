@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { SparklesIcon, CheckCircle2, CalendarDays, Clock } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAuthModal } from "@/contexts/AuthModalContext";
 import { formatUSD } from "@/lib/pricing";
 import { EmptyState } from "@/components/EmptyState";
 import { useI18n } from "@/i18n";
@@ -14,6 +15,7 @@ import { BottomNav } from "@/components/BottomNav";
 const CleaningPackages = () => {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
+  const { openAuthModal } = useAuthModal();
   const { t } = useI18n();
 
   const { data: packages, isLoading } = useQuery({
@@ -30,8 +32,8 @@ const CleaningPackages = () => {
   });
 
   return (
-    <div className="market-shell">
-      <HomeHeader />
+    <div className="min-h-screen bg-background pb-24 md:pb-0">
+      <HomeHeader title="Cleaning Plans" />
       <DesktopHeader />
 
       <main className="market-content py-space-6 md:py-space-12">
@@ -129,7 +131,7 @@ const CleaningPackages = () => {
                       className="mt-6 flex h-12 w-full items-center justify-center rounded-full bg-foreground text-sm font-bold text-background transition-all hover:bg-foreground/90 active:scale-[0.98]"
                       onClick={() => {
                         if (!isAuthenticated) {
-                          navigate(`/auth?redirect=/cleaning/checkout/${pkg.id}`);
+                          openAuthModal("login", `/cleaning/checkout/${pkg.id}`);
                         } else {
                           navigate(`/cleaning/checkout/${pkg.id}`);
                         }

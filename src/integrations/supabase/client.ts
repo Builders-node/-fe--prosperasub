@@ -41,9 +41,7 @@ const SUPABASE_ANON_KEY =
 const SESSION_KEY = "prospera_owned_session";
 const GOOGLE_OAUTH_STATE_KEY = "prospera_google_oauth_state";
 
-// Restaurant override/delete keys (local admin edits layered on top of API data)
-const RESTAURANT_OVERRIDES_KEY = "prospera_owned_restaurant_overrides";
-const RESTAURANT_DELETED_IDS_KEY = "prospera_owned_restaurant_deleted_ids";
+// (Restaurant overrides were stored here in localStorage — now in Supabase DB)
 
 // Supabase client for direct DB access (uses anon key + permissive RLS policies)
 const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -266,7 +264,7 @@ function notifyAuthStateChange(event: "SIGNED_IN" | "SIGNED_OUT", session: any) 
 }
 
 // ============================================================
-// RESTAURANT LOCAL OVERRIDES (kept in localStorage intentionally)
+// GENERIC LOCALSTORAGE HELPERS (for non-restaurant tables only)
 // ============================================================
 
 function getStoredRows(key: string) {
@@ -274,18 +272,6 @@ function getStoredRows(key: string) {
 }
 function saveStoredRows(key: string, rows: any[]) {
   localStorage.setItem(key, JSON.stringify(rows));
-}
-function getDeletedRestaurantIds(): Set<string> {
-  return new Set(getStoredRows(RESTAURANT_DELETED_IDS_KEY).map((row: any) => String(row.id ?? row)));
-}
-function saveDeletedRestaurantIds(ids: Set<string>) {
-  saveStoredRows(RESTAURANT_DELETED_IDS_KEY, [...ids]);
-}
-function getRestaurantOverrides() {
-  return getStoredRows(RESTAURANT_OVERRIDES_KEY);
-}
-function saveRestaurantOverrides(rows: any[]) {
-  saveStoredRows(RESTAURANT_OVERRIDES_KEY, rows);
 }
 
 // ============================================================
@@ -673,45 +659,53 @@ class OwnedQueryBuilder {
   ): Promise<{ data: any; error: any }> {
     const now = new Date().toISOString();
 
-    // ── RESTAURANTS (overlay NestJS API with local overrides) ──
+    // ── RESTAURANTS → Supabase (was localStorage overrides) ──
     if (this.table === "restaurants") {
       const id = this.filters.find((f) => f.field === "id")?.value;
-      const overrides = getRestaurantOverrides();
-      const deletedIds = getDeletedRestaurantIds();
 
       if (action === "insert" || action === "upsert") {
         const inputRows = Array.isArray(values) ? values : [values];
-        const nextRows = inputRows.map((input) =>
-          normalizeRestaurantInput({
-            id: input.id ?? `owned-restaurant-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-            ...input,
-          }),
-        );
-        const nextById = new Map(overrides.map((r: any) => [r.id, r]));
-        nextRows.forEach((r) => {
-          deletedIds.delete(String(r.id));
-          nextById.set(r.id, r);
-        });
-        saveDeletedRestaurantIds(deletedIds);
-        saveRestaurantOverrides([...nextById.values()]);
+        const rows = inputRows.map((input) => ({
+          id: input.id ?? `restaurant-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+          name: input.name ?? input.name,
+          description: input.description ?? "",
+          address: input.address ?? "Prospera Village",
+          logo_url: input.logoUrl ?? input.logo_url ?? null,
+          is_active: input.isActive ?? input.is_active ?? true,
+        }));
+        const { data, error } = await db
+          .from("restaurants")
+          .upsert(rows, { onConflict: "id" })
+          .select();
         return {
-          data: Array.isArray(values) ? nextRows.map(toSnakeRestaurant) : toSnakeRestaurant(nextRows[0]),
-          error: null,
+          data: Array.isArray(values) ? (data ?? []).map(toSnakeRestaurant) : toSnakeRestaurant((data ?? [])[0]),
+          error: error ?? null,
         };
       }
 
       if (action === "update") {
-        const existing = overrides.find((r: any) => r.id === id) ?? { id };
-        const next = normalizeRestaurantInput({ ...existing, ...values });
-        saveRestaurantOverrides([next, ...overrides.filter((r: any) => r.id !== id)]);
-        return { data: toSnakeRestaurant(next), error: null };
+        const payload: any = {};
+        if (values.name !== undefined)        payload.name        = values.name;
+        if (values.description !== undefined) payload.description = values.description;
+        if (values.address !== undefined)     payload.address     = values.address;
+        if (values.logo_url  !== undefined)   payload.logo_url    = values.logo_url;
+        if (values.logoUrl   !== undefined)   payload.logo_url    = values.logoUrl;
+        if (values.is_active !== undefined)   payload.is_active   = values.is_active;
+        if (values.isActive  !== undefined)   payload.is_active   = values.isActive;
+        payload.updated_at = now;
+        const { data, error } = await db
+          .from("restaurants")
+          .update(payload)
+          .eq("id", id)
+          .select()
+          .single();
+        return { data: data ? toSnakeRestaurant(data) : null, error: error ?? null };
       }
 
       if (action === "delete") {
         if (id) {
-          deletedIds.add(String(id));
-          saveDeletedRestaurantIds(deletedIds);
-          saveRestaurantOverrides(overrides.filter((r: any) => r.id !== id));
+          const { error } = await db.from("restaurants").delete().eq("id", id);
+          return { data: null, error: error ?? null };
         }
         return { data: null, error: null };
       }
@@ -1059,59 +1053,55 @@ class OwnedQueryBuilder {
   }
 
   private async loadTable(): Promise<{ data: any; error: any; count?: number }> {
-    // ── RESTAURANTS (from NestJS API + local overrides) ──
+    // ── RESTAURANTS → Supabase (source of truth) ──
     if (this.table === "restaurants") {
-      const [restaurantsResult, plansResult] = await Promise.all([
-        api("/restaurants"),
-        api("/plans"),
-      ]);
-
-      if (restaurantsResult.error) return { ...restaurantsResult, data: [] };
-
-      const deletedRestaurantIds = getDeletedRestaurantIds();
-      const restaurantOverrides = new Map(
-        getRestaurantOverrides().map((r: any) => [r.id, r]),
-      );
-      const plansByRestaurant = new Map<string, any[]>();
-      for (const plan of plansResult.data || []) {
-        const restaurantId = plan.restaurantId ?? plan.restaurant_id;
-        if (deletedRestaurantIds.has(String(restaurantId))) continue;
-        plansByRestaurant.set(restaurantId, [
-          ...(plansByRestaurant.get(restaurantId) || []),
-          plan,
-        ]);
-      }
-
-      const apiRestaurants = (restaurantsResult.data || [])
-        .filter((r: any) => !deletedRestaurantIds.has(String(r.id)))
-        .map((r: any) => ({ ...r, ...(restaurantOverrides.get(r.id) || {}) }));
-
-      const apiRestaurantIds = new Set(apiRestaurants.map((r: any) => r.id));
-      const localOnlyRestaurants = [...restaurantOverrides.values()].filter(
-        (r: any) =>
-          !apiRestaurantIds.has(r.id) && !deletedRestaurantIds.has(String(r.id)),
-      );
-
+      let q = db
+        .from("restaurants")
+        .select("*, subscription_plans(id, is_active, menu_category)")
+        .eq("is_active", true);
+      q = applyDbFilters(q, this.filters);
+      const { data, error } = await q.order("name");
+      if (error) return { data: [], error };
       return {
-        ...restaurantsResult,
-        data: [...localOnlyRestaurants, ...apiRestaurants].map((r: any) =>
-          toSnakeRestaurant({
-            ...r,
-            subscriptionPlans: plansByRestaurant.get(r.id) || [],
-          }),
-        ),
+        data: (data ?? []).map((r: any) => toSnakeRestaurant({
+          ...r,
+          subscriptionPlans: r.subscription_plans ?? [],
+        })),
+        error: null,
       };
     }
 
-    // ── SUBSCRIPTION_PLANS (from NestJS API) ──
+    // ── SUBSCRIPTION_PLANS → Supabase ──
     if (this.table === "subscription_plans") {
-      const result = await api("/plans");
-      const deletedIds = getDeletedRestaurantIds();
+      let q = db
+        .from("subscription_plans")
+        .select("*, restaurants(id, name, logo_url, address)")
+        .eq("is_active", true);
+      q = applyDbFilters(q, this.filters);
+      const { data, error } = await q.order("name");
+      if (error) return { data: [], error };
       return {
-        ...result,
-        data: (result.data || [])
-          .filter((p: any) => !deletedIds.has(String(p.restaurantId ?? p.restaurant_id)))
-          .map(toSnakePlan),
+        data: (data ?? []).map((plan: any) => ({
+          id: plan.id,
+          restaurant_id: plan.restaurant_id,
+          name: plan.name,
+          description: plan.description,
+          price_per_week_sats: plan.price_per_week_cents,
+          meal_time: plan.meal_time,
+          menu_category: (plan.menu_category ?? "standard").toLowerCase(),
+          supports_delivery: plan.supports_delivery,
+          max_duration_weeks: plan.max_duration_weeks ?? 1,
+          is_active: plan.is_active,
+          restaurants: plan.restaurants
+            ? {
+                id: plan.restaurants.id,
+                name: plan.restaurants.name,
+                logo_url: plan.restaurants.logo_url,
+                address: plan.restaurants.address ?? "Prospera Village",
+              }
+            : undefined,
+        })),
+        error: null,
       };
     }
 

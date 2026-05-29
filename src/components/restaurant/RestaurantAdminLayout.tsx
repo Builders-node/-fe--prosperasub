@@ -106,7 +106,7 @@ const RestaurantAdminLayout = ({
 
   const handleLogout = async () => {
     await logout();
-    navigate("/auth", { replace: true });
+    navigate("/", { replace: true });
   };
 
   const renderMobileDrawer = () => (

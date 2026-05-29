@@ -78,33 +78,6 @@ export function DesktopHeader({
           ProsperaSub
         </Link>
 
-        {/* Product switcher tabs */}
-        {!hideProductTabs && (
-          <div className="flex shrink-0 gap-1 rounded-full bg-muted p-1">
-            <Link
-              to="/"
-              className={cn(
-                "flex items-center gap-1.5 rounded-full px-5 py-2 text-sm font-semibold transition-all",
-                !isCleaningActive
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              🍽 {t("nav.food")}
-            </Link>
-            <Link
-              to="/cleaning"
-              className={cn(
-                "flex items-center gap-1.5 rounded-full px-5 py-2 text-sm font-semibold transition-all",
-                isCleaningActive
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              ✨ {t("nav.cleaning")}
-            </Link>
-          </div>
-        )}
 
         {/* Search */}
         {hideSearch ? (
@@ -137,7 +110,7 @@ export function DesktopHeader({
                   type="button"
                   onClick={() => openAuthModal("login")}
                   className="h-9 rounded-full px-5 text-[13px] font-semibold transition-colors hover:opacity-80"
-                  style={{ background: "#202124", color: "#FFFFFF" }}
+                  style={{ background: "hsl(var(--yd-cta-bg))", color: "hsl(var(--yd-cta-fg))" }}
                 >
                   {t("nav.logIn")}
                 </button>

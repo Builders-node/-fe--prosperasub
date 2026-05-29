@@ -4,12 +4,14 @@ import { ArrowLeft, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAuthModal } from "@/contexts/AuthModalContext";
 import { toast } from "sonner";
 
 const ResetPassword = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { requestPasswordReset, confirmPasswordReset, isAuthenticated, isLoading: isAuthLoading, isUserDataReady } = useAuth();
+  const { openAuthModal } = useAuthModal();
 
   const token = searchParams.get("token") || "";
   const initialEmail = searchParams.get("email") || "";
@@ -74,13 +76,14 @@ const ResetPassword = () => {
   return (
     <div className="min-h-screen bg-background px-space-4 py-space-8 text-foreground">
       <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-md flex-col justify-center">
-        <Link
-          to="/auth"
+        <button
+          type="button"
+          onClick={() => openAuthModal("login")}
           className="mb-space-8 inline-flex items-center gap-space-2 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to login
-        </Link>
+        </button>
 
         <section className="rounded-radius-lg bg-card p-space-6 text-card-foreground md:p-space-8">
           <div className="mb-space-8">
@@ -103,7 +106,7 @@ const ResetPassword = () => {
                 <CheckCircle2 className="h-5 w-5 text-primary" />
                 Password reset completed.
               </div>
-              <Button className="w-full" size="lg" onClick={() => navigate("/auth")}>
+              <Button className="w-full" size="lg" onClick={() => openAuthModal("login")}>
                 Go to login
               </Button>
             </div>

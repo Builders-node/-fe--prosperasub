@@ -5,10 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Zap, Loader2, CheckCircle2, Copy, Banknote, Coins, RefreshCw } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAuthModal } from "@/contexts/AuthModalContext";
 import { toast } from "sonner";
 import { addWeeks, addDays, format } from "date-fns";
 import { nowHN } from "@/lib/timezone";
@@ -21,6 +23,7 @@ const Checkout = () => {
   const { planId } = useParams();
   const navigate = useNavigate();
   const { userData, isAuthenticated, lightningPubkey } = useAuth();
+  const { openAuthModal } = useAuthModal();
   
   const [weeks, setWeeks] = useState("1");
   const [paymentMethod, setPaymentMethod] = useState<"lightning" | "fiat" | "crypto">("lightning");
@@ -28,10 +31,13 @@ const Checkout = () => {
   const [invoice, setInvoice] = useState<string | null>(null);
   const [paymentHash, setPaymentHash] = useState<string | null>(null);
   const [isPaid, setIsPaid] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [createdSubscriptionId, setCreatedSubscriptionId] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lockedSatsAmount, setLockedSatsAmount] = useState<number | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const mutationCalledRef = useRef(false);
   
   // BTC price for conversion
   const { btcPrice, isLoading: isPriceLoading, convertToSats, refreshPrice, cacheAge } = useBtcPrice();
@@ -103,17 +109,12 @@ const Checkout = () => {
       return subscription;
     },
     onSuccess: (subscription) => {
-      if (paymentMethod === "lightning") {
-        toast.success("Payment confirmed! Subscription activated.");
-      } else {
-        toast.success("Subscription created! Awaiting restaurant approval.");
-      }
-      setTimeout(() => {
-        navigate(`/subscription/${subscription.id}`);
-      }, 1500);
+      setCreatedSubscriptionId(subscription.id);
+      setShowSuccess(true);
     },
     onError: (error: Error) => {
       toast.error(error.message);
+      mutationCalledRef.current = false;
     },
   });
 
@@ -189,6 +190,7 @@ const Checkout = () => {
     if (pollingRef.current) {
       clearInterval(pollingRef.current);
     }
+    mutationCalledRef.current = false;
 
     pollingRef.current = setInterval(async () => {
       try {
@@ -204,7 +206,8 @@ const Checkout = () => {
           return;
         }
 
-        if (data.paid) {
+        if (data.paid && !mutationCalledRef.current) {
+          mutationCalledRef.current = true;
           setIsPaid(true);
           if (pollingRef.current) {
             clearInterval(pollingRef.current);
@@ -251,32 +254,51 @@ const Checkout = () => {
       <div className="min-h-screen flex items-center justify-center">
         <Card className="p-space-8 text-center">
           <p className="mb-space-4">Please sign in to checkout</p>
-          <Button asChild>
-            <Link to="/auth">Sign In</Link>
+          <Button onClick={() => openAuthModal("login", window.location.pathname)}>
+            Sign In
           </Button>
         </Card>
       </div>
     );
   }
 
-  if (isPaid) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Card className="p-space-12 text-center">
-          <CheckCircle2 className="h-16 w-16 text-accent mx-auto mb-space-4" />
-          <h2 className="mb-space-2 text-section-title">Payment Confirmed!</h2>
-          <p className="type-body text-muted-foreground">Activating your subscription...</p>
-        </Card>
-      </div>
-    );
-  }
-
   return (
-    <UserLayout 
-      title="Checkout" 
-      showBackButton 
+    <UserLayout
+      title="Checkout"
+      showBackButton
       backTo={plan ? `/plan/${plan.id}` : "/restaurants"}
     >
+      <Sheet open={showSuccess} onOpenChange={(open) => {
+        if (!open && createdSubscriptionId) {
+          navigate(`/subscription/${createdSubscriptionId}`);
+        }
+      }}>
+        <SheetContent side="bottom" className="rounded-t-3xl px-space-6 pb-space-8 pt-space-6">
+          <SheetHeader className="items-center">
+            <CheckCircle2 className="h-16 w-16 text-accent mb-space-2" />
+            <SheetTitle className="text-2xl">
+              {paymentMethod === "lightning" ? "Payment Confirmed!" : "Subscription Created!"}
+            </SheetTitle>
+            <SheetDescription>
+              {paymentMethod === "lightning"
+                ? "Your subscription is now active."
+                : "Awaiting restaurant approval."}
+            </SheetDescription>
+          </SheetHeader>
+          <Button
+            className="mt-space-6 w-full"
+            size="xl"
+            onClick={() => {
+              if (createdSubscriptionId) {
+                navigate(`/subscription/${createdSubscriptionId}`);
+              }
+            }}
+          >
+            View Subscription
+          </Button>
+        </SheetContent>
+      </Sheet>
+
       <div className="mx-auto w-full max-w-3xl px-space-5 py-space-8 sm:px-space-8 lg:py-space-12">
         {plan && (
           <>
@@ -394,9 +416,9 @@ const Checkout = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-space-4">
-                  <div className="flex justify-center rounded-radius-lg bg-white p-space-4">
+                  <a href={`lightning:${invoice}`} className="flex justify-center rounded-radius-lg bg-white p-space-4 cursor-pointer">
                     <QRCodeSVG value={invoice} size={200} level="M" />
-                  </div>
+                  </a>
                   
                   <div className="rounded-radius-lg bg-[hsl(var(--app-control))] p-space-4 text-center">
                     <p className="text-label text-muted-foreground">Amount</p>
@@ -421,8 +443,17 @@ const Checkout = () => {
                   </div>
                   
                   <div className="flex items-center justify-center gap-space-2 rounded-radius-lg bg-primary/10 p-space-4">
-                    <Loader2 className="h-5 w-5 animate-spin text-bitcoin" />
-                    <span className="text-control">Waiting for payment...</span>
+                    {isPaid ? (
+                      <>
+                        <CheckCircle2 className="h-5 w-5 text-accent" />
+                        <span className="text-control">Payment received! Activating subscription...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Loader2 className="h-5 w-5 animate-spin text-bitcoin" />
+                        <span className="text-control">Waiting for payment...</span>
+                      </>
+                    )}
                   </div>
                 </CardContent>
               </Card>

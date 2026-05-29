@@ -1,4 +1,4 @@
-import { LayoutGrid, CalendarDays, Truck, UtensilsCrossed, Shield, SparklesIcon } from "lucide-react";
+import { LayoutGrid, CalendarDays, UtensilsCrossed, Shield, SparklesIcon } from "lucide-react";
 import { AppRole } from "@/contexts/AuthContext";
 import { LucideIcon } from "lucide-react";
 
@@ -8,6 +8,8 @@ export interface NavItem {
   path: string;
   /** Paths that should also mark this nav item as active */
   activePatterns?: string[];
+  /** If true, tapping while unauthenticated opens the login modal instead of navigating */
+  requiresAuth?: boolean;
 }
 
 export interface NavigationConfig {
@@ -32,11 +34,12 @@ const USER_NAV: NavItem[] = [
     path: "/cleaning",
     activePatterns: ["/cleaning/"]
   },
-  { 
-    icon: CalendarDays, 
-    label: "My Bookings", 
+  {
+    icon: CalendarDays,
+    label: "My Bookings",
     path: "/my-subscriptions",
-    activePatterns: ["/subscription/", "/cleaning/my-bookings"]
+    activePatterns: ["/subscription/", "/cleaning/my-bookings"],
+    requiresAuth: true,
   },
 ];
 
@@ -60,22 +63,6 @@ const RESTAURANT_ADMIN_NAV: NavItem[] = [
     label: "Cleaning", 
     path: "/cleaning",
     activePatterns: ["/cleaning/"]
-  },
-];
-
-/**
- * Navigation items for drivers
- */
-const DRIVER_NAV: NavItem[] = [
-  { 
-    icon: Truck, 
-    label: "Deliveries", 
-    path: "/driver/deliveries" 
-  },
-  { 
-    icon: LayoutGrid, 
-    label: "Available", 
-    path: "/driver/available" 
   },
 ];
 
@@ -116,7 +103,7 @@ const SUPER_ADMIN_NAV: NavItem[] = [
 
 /**
  * Get navigation items based on user roles.
- * Priority: super_admin > restaurant_admin > driver > user
+ * Priority: super_admin > restaurant_admin > user
  */
 export function getNavigationForRoles(roles: AppRole[]): NavItem[] {
   if (roles.includes("super_admin")) {
@@ -124,9 +111,6 @@ export function getNavigationForRoles(roles: AppRole[]): NavItem[] {
   }
   if (roles.includes("restaurant_admin")) {
     return RESTAURANT_ADMIN_NAV;
-  }
-  if (roles.includes("driver")) {
-    return DRIVER_NAV;
   }
   return USER_NAV;
 }

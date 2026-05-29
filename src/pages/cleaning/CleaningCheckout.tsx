@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Zap, Loader2, CheckCircle2, Copy, RefreshCw } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,6 +32,8 @@ const CleaningCheckout = () => {
   const [invoice, setInvoice] = useState<string | null>(null);
   const [paymentHash, setPaymentHash] = useState<string | null>(null);
   const [isPaid, setIsPaid] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [createdSubscriptionId, setCreatedSubscriptionId] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [lockedSatsAmount, setLockedSatsAmount] = useState<number | null>(null);
@@ -38,6 +41,7 @@ const CleaningCheckout = () => {
   const [apartmentNoteError, setApartmentNoteError] = useState("");
   const [billingPeriodMonths, setBillingPeriodMonths] = useState<CleaningDurationMonths>(1);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const mutationCalledRef = useRef(false);
 
   const { btcPrice, isLoading: isPriceLoading, convertToSats, refreshPrice } = useBtcPrice();
 
@@ -105,17 +109,15 @@ const CleaningCheckout = () => {
       return data;
     },
     onSuccess: (data) => {
+      setCreatedSubscriptionId(data.id);
+      setShowSuccess(true);
       if (paymentMethod === "lightning") {
         void sendPaymentConfirmationEmail(data);
-        toast.success("Payment confirmed. Choose your weekly cleaning schedule.");
-        setTimeout(() => navigate(`/cleaning/book?subscriptionId=${data.id}`), 1000);
-      } else {
-        toast.success("Subscription created! Awaiting approval.");
-        setTimeout(() => navigate("/my-subscriptions?tab=cleaning"), 1500);
       }
     },
     onError: (error: Error) => {
       toast.error(error.message);
+      mutationCalledRef.current = false;
     },
   });
 
@@ -210,6 +212,7 @@ const CleaningCheckout = () => {
 
   const startPaymentPolling = (hash: string, satsAmount: number) => {
     if (pollingRef.current) clearInterval(pollingRef.current);
+    mutationCalledRef.current = false;
     pollingRef.current = setInterval(async () => {
       try {
         const { data, error } = await supabase.functions.invoke("verify-payment", {
@@ -219,7 +222,8 @@ const CleaningCheckout = () => {
           },
         });
         if (error) return;
-        if (data.paid) {
+        if (data.paid && !mutationCalledRef.current) {
+          mutationCalledRef.current = true;
           setIsPaid(true);
           if (pollingRef.current) clearInterval(pollingRef.current);
           createSubscriptionMutation.mutate({
@@ -255,20 +259,35 @@ const CleaningCheckout = () => {
     }
   };
 
-  if (isPaid) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Card className="p-space-12 text-center">
-          <CheckCircle2 className="h-16 w-16 text-accent mx-auto mb-space-4" />
-          <h2 className="font-display text-2xl font-bold mb-space-2">Payment Confirmed!</h2>
-          <p className="text-muted-foreground">Next, choose your recurring weekly cleaning schedule.</p>
-        </Card>
-      </div>
-    );
-  }
-
   return (
     <UserLayout title="Checkout" showBackButton backTo="/cleaning">
+      <Sheet open={showSuccess} onOpenChange={(open) => {
+        if (!open && createdSubscriptionId) {
+          navigate(`/cleaning/book?subscriptionId=${createdSubscriptionId}`);
+        }
+      }}>
+        <SheetContent side="bottom" className="rounded-t-3xl px-space-6 pb-space-8 pt-space-6">
+          <SheetHeader className="items-center">
+            <CheckCircle2 className="h-16 w-16 text-accent mb-space-2" />
+            <SheetTitle className="text-2xl">Payment Confirmed!</SheetTitle>
+            <SheetDescription>
+              Next, choose your recurring weekly cleaning schedule.
+            </SheetDescription>
+          </SheetHeader>
+          <Button
+            className="mt-space-6 w-full"
+            size="xl"
+            onClick={() => {
+              if (createdSubscriptionId) {
+                navigate(`/cleaning/book?subscriptionId=${createdSubscriptionId}`);
+              }
+            }}
+          >
+            Choose Schedule
+          </Button>
+        </SheetContent>
+      </Sheet>
+
       <div className="container mx-auto px-space-4 py-space-8 max-w-lg">
         {pkg && (
           <>
@@ -371,9 +390,9 @@ const CleaningCheckout = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-space-4">
-                  <div className="flex justify-center p-space-4 bg-white rounded-radius-md">
+                  <a href={`lightning:${invoice}`} className="flex justify-center p-space-4 bg-white rounded-radius-md cursor-pointer">
                     <QRCodeSVG value={invoice} size={200} level="M" />
-                  </div>
+                  </a>
                   <div className="text-center p-space-3 bg-muted rounded-radius-md">
                     <p className="text-sm text-muted-foreground">Amount</p>
                     <p className="text-2xl font-bold text-bitcoin">{(lockedSatsAmount || 0).toLocaleString()} sats</p>
@@ -391,8 +410,17 @@ const CleaningCheckout = () => {
                     </div>
                   </div>
                   <div className="flex items-center justify-center gap-space-2 p-space-4 bg-bitcoin/10 rounded-radius-md">
-                    <Loader2 className="h-5 w-5 animate-spin text-bitcoin" />
-                    <span className="text-sm font-medium">Waiting for payment...</span>
+                    {isPaid ? (
+                      <>
+                        <CheckCircle2 className="h-5 w-5 text-accent" />
+                        <span className="text-sm font-medium">Payment received! Creating subscription...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Loader2 className="h-5 w-5 animate-spin text-bitcoin" />
+                        <span className="text-sm font-medium">Waiting for payment...</span>
+                      </>
+                    )}
                   </div>
                 </CardContent>
               </Card>

@@ -28,6 +28,7 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUserMode } from "@/contexts/UserModeContext";
 import { adminRoutes, publicRoutes } from "@/config/adminRoutes";
 import { cn } from "@/lib/utils";
 
@@ -85,11 +86,18 @@ const SuperAdminLayout = ({
   const location = useLocation();
   const navigate = useNavigate();
   const { logout } = useAuth();
+  const { isUserMode } = useUserMode();
+
+  // Redirect to home if admin has switched to user mode and somehow ended up here
+  if (isUserMode) {
+    navigate("/", { replace: true });
+    return null;
+  }
 
   const isActive = (path: string) => location.pathname === path;
   const handleLogout = async () => {
     await logout();
-    navigate("/auth", { replace: true });
+    navigate("/", { replace: true });
   };
 
   const renderMenuLink = (item: (typeof MENU_SECTIONS)[number]["items"][number]) => {

@@ -1,4 +1,4 @@
-const CACHE = 'prosperasub-v1';
+const CACHE = 'prosperasub-v2';
 const PRECACHE = ['/', '/index.html'];
 
 self.addEventListener('install', (e) => {

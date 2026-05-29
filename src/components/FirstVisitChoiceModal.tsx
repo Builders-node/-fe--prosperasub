@@ -21,7 +21,7 @@ export function FirstVisitChoiceModal() {
 
   useEffect(() => {
     const isExcludedRoute = [
-      "/auth",
+      "/oauth/callback",
       "/login",
       "/register",
       "/forgot-password",

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAuthModal } from "@/contexts/AuthModalContext";
 import { toast } from "sonner";
 import { useLocation, useNavigate } from "react-router-dom";
 
@@ -13,6 +14,7 @@ const ensureLightningSession = async (): Promise<void> => {
 
 export function useFavorites() {
   const { userData, isAuthenticated } = useAuth();
+  const { openAuthModal } = useAuthModal();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const location = useLocation();
@@ -76,7 +78,7 @@ export function useFavorites() {
     onError: (error: Error) => {
       if (error.message === "Not authenticated") {
         toast.error("Please sign in to save favorites");
-        navigate(`/auth?redirect=${encodeURIComponent(location.pathname + location.search)}`);
+        openAuthModal("login", location.pathname + location.search);
       } else {
         toast.error("Could not update favorites");
       }

@@ -1,6 +1,8 @@
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth, AppRole } from "@/contexts/AuthContext";
+import { useAuthModal } from "@/contexts/AuthModalContext";
+import { useUserMode } from "@/contexts/UserModeContext";
 import { Loader2 } from "lucide-react";
 import Unauthorized from "@/pages/Unauthorized";
 
@@ -14,19 +16,20 @@ interface ProtectedRouteProps {
 
 /**
  * ProtectedRoute handles three distinct cases:
- * 1. Loading - Show spinner while auth state is being determined
- * 2. Not authenticated - Redirect to /auth
- * 3. Authenticated but wrong role - Show Unauthorized page (no silent redirect)
- * 4. Authenticated with correct role - Render children
+ * 1. Loading — show spinner while auth state resolves
+ * 2. Not authenticated — open AuthModal (Sheet on mobile / Dialog on desktop) over the current page
+ * 3. Authenticated but wrong role — show Unauthorized page
+ * 4. Authenticated with correct role — render children
  */
 const ProtectedRoute = ({ children, allowedRoles, requiredRoles }: ProtectedRouteProps) => {
   const { isAuthenticated, isLoading, isUserDataReady, roles } = useAuth();
+  const { openAuthModal } = useAuthModal();
+  const { isUserMode } = useUserMode();
   const location = useLocation();
 
-  // Support both prop names during migration
   const effectiveRoles = allowedRoles || requiredRoles;
 
-  // Case 1: Still loading auth state
+  // Case 1: Still resolving auth state
   if (isLoading || !isUserDataReady) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -35,22 +38,52 @@ const ProtectedRoute = ({ children, allowedRoles, requiredRoles }: ProtectedRout
     );
   }
 
-  // Case 2: Not authenticated - redirect to login
+  // Case 2: Not authenticated — open modal
   if (!isAuthenticated) {
-    return <Navigate to={`/auth?redirect=${encodeURIComponent(location.pathname + location.search)}`} replace />;
+    return <UnauthenticatedGate redirectTo={location.pathname + location.search} />;
   }
 
-  // Case 3: Authenticated but missing required role - show Unauthorized page
-  if (effectiveRoles && effectiveRoles.length > 0) {
+  // Case 3: Admin is in "View as User" mode — block any admin/restaurant-admin-only routes
+  if (isUserMode && effectiveRoles && effectiveRoles.length > 0) {
+    const isAdminOnlyRoute = effectiveRoles.every(
+      (r) => r === "super_admin" || r === "restaurant_admin",
+    );
+    if (isAdminOnlyRoute) {
+      // Treat them as a regular user — redirect to home
+      return <Navigate to="/" replace />;
+    }
+  }
+
+  // Case 4: Authenticated but missing required role (normal role check, skipped in user mode)
+  if (!isUserMode && effectiveRoles && effectiveRoles.length > 0) {
     const hasRequiredRole = effectiveRoles.some((role) => roles.includes(role));
     if (!hasRequiredRole) {
-      // Show explicit Unauthorized page instead of silent redirect
       return <Unauthorized requiredRoles={effectiveRoles} />;
     }
   }
 
-  // Case 4: Authenticated and authorized - render children
+  // Case 5: Authorized — render
   return <>{children}</>;
 };
+
+/**
+ * Renders a minimal placeholder and immediately opens the auth modal.
+ * Keeps the user on the same URL so after login they land on the right page.
+ */
+function UnauthenticatedGate({ redirectTo }: { redirectTo: string }) {
+  const { openAuthModal } = useAuthModal();
+
+  useEffect(() => {
+    // Open on next tick so the modal provider is fully mounted
+    const timer = setTimeout(() => openAuthModal("login", redirectTo), 0);
+    return () => clearTimeout(timer);
+  }, [openAuthModal, redirectTo]);
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+    </div>
+  );
+}
 
 export default ProtectedRoute;

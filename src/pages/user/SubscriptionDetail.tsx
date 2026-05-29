@@ -12,6 +12,7 @@ import { Calendar, MapPin, Utensils, Loader2, Clock, XCircle, Edit, Sun, Coffee,
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAuthModal } from "@/contexts/AuthModalContext";
 import { toast } from "sonner";
 import { format, differenceInHours, parseISO, isBefore, startOfDay } from "date-fns";
 import { nowHN } from "@/lib/timezone";
@@ -32,6 +33,7 @@ const SubscriptionDetail = () => {
   const location = useLocation();
   const queryClient = useQueryClient();
   const { userData, isLoading: authLoading, isAuthenticated, isUserDataReady, logout, lightningPubkey } = useAuth();
+  const { openAuthModal } = useAuthModal();
   const [editingMealId, setEditingMealId] = useState<string | null>(null);
   const [editAddress, setEditAddress] = useState("");
   const [editNotes, setEditNotes] = useState("");
@@ -247,8 +249,8 @@ const SubscriptionDetail = () => {
         <div className="flex items-center justify-center py-space-20">
           <Card className="p-space-8 text-center">
             <p className="mb-space-4">Please sign in to view subscriptions.</p>
-            <Button asChild>
-              <Link to="/auth">Sign In</Link>
+            <Button onClick={() => openAuthModal("login", window.location.pathname)}>
+              Sign In
             </Button>
           </Card>
         </div>

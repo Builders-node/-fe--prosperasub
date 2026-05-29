@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { useAuthModal } from "@/contexts/AuthModalContext";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
@@ -17,6 +18,7 @@ const defaultImages = [food1, food2];
 
 const Favorites = () => {
   const { isAuthenticated } = useAuth();
+  const { openAuthModal } = useAuthModal();
   const { favorites, toggleFavorite } = useFavorites();
 
   const { data: favoriteRestaurants, isLoading: loadingRestaurants } = useQuery({
@@ -70,8 +72,8 @@ const Favorites = () => {
             description="Save restaurants and meal plans you love."
             className="w-full max-w-md mx-space-4"
             action={
-              <Button asChild>
-                <Link to="/auth">Sign In</Link>
+              <Button onClick={() => openAuthModal("login", "/favorites")}>
+                Sign In
               </Button>
             }
           />

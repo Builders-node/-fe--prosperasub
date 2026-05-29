@@ -103,8 +103,7 @@ export function HomeHeader({ title, showBackButton = false, onBack }: HomeHeader
             <button
               type="button"
               onClick={() => openAuthModal("login")}
-              className="h-8 rounded-full px-4 text-xs font-semibold transition-colors hover:opacity-80"
-              style={{ background: "#F3F4F6", color: "#111111" }}
+              className="h-8 rounded-full px-4 text-xs font-semibold transition-colors hover:opacity-80 yd-circle yd-text"
             >
               Log in
             </button>

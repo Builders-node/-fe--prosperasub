@@ -12,6 +12,7 @@ import {
   X,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAuthModal } from "@/contexts/AuthModalContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { MySubscriptionCard } from "@/components/MySubscriptionCard";
@@ -183,6 +184,7 @@ function CleaningBookingRow({
 
 const MySubscriptions = () => {
   const { userData, isAuthenticated, lightningPubkey, isLoading: authLoading } = useAuth();
+  const { openAuthModal } = useAuthModal();
   const queryClient = useQueryClient();
   const navigate    = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -346,8 +348,8 @@ const MySubscriptions = () => {
             description="Track your meal plans and cleaning bookings."
             className="mx-4 max-w-sm"
             action={
-              <Button asChild>
-                <Link to="/auth">Sign In</Link>
+              <Button onClick={() => openAuthModal("login", "/my-subscriptions")}>
+                Sign In
               </Button>
             }
           />

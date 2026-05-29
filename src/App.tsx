@@ -6,6 +6,7 @@ import { BrowserRouter, Navigate, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AuthModalProvider } from "@/contexts/AuthModalContext";
+import { UserModeProvider } from "@/contexts/UserModeContext";
 import { LanguageProvider } from "@/i18n";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import { FirstVisitChoiceModal } from "@/components/FirstVisitChoiceModal";
@@ -16,7 +17,7 @@ import Index from "./pages/Index";
 import Restaurants from "./pages/Restaurants";
 import RestaurantDetail from "./pages/RestaurantDetail";
 import PlanDetail from "./pages/PlanDetail";
-import Auth from "./pages/Auth";
+import OAuthCallback from "./pages/OAuthCallback";
 import ResetPassword from "./pages/ResetPassword";
 
 // User pages
@@ -52,11 +53,12 @@ const App = () => {
       <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
         <LanguageProvider>
           <AuthProvider>
-            <AuthModalProvider>
             <TooltipProvider>
               <Toaster />
               <Sonner />
               <BrowserRouter>
+                <AuthModalProvider>
+                <UserModeProvider>
                 <FirstVisitChoiceModal />
                 <Routes>
               {/* Public Routes */}
@@ -64,9 +66,9 @@ const App = () => {
               <Route path="/restaurants" element={<FoodAccessGate><Restaurants /></FoodAccessGate>} />
               <Route path="/restaurants/:id" element={<FoodAccessGate><RestaurantDetail /></FoodAccessGate>} />
               <Route path="/plan/:planId" element={<FoodAccessGate><PlanDetail /></FoodAccessGate>} />
-              <Route path="/auth" element={<Auth />} />
-              <Route path="/login" element={<Auth />} />
-              <Route path="/register" element={<Auth />} />
+              {/* Google OAuth callback — both paths supported */}
+              <Route path="/oauth/callback" element={<OAuthCallback />} />
+              <Route path="/auth" element={<OAuthCallback />} />
               <Route path="/forgot-password" element={<ResetPassword />} />
               <Route path="/reset-password" element={<ResetPassword />} />
 
@@ -179,9 +181,10 @@ const App = () => {
               {/* Catch-all */}
               <Route path="*" element={<NotFound />} />
                 </Routes>
+                </UserModeProvider>
+                </AuthModalProvider>
               </BrowserRouter>
             </TooltipProvider>
-            </AuthModalProvider>
           </AuthProvider>
         </LanguageProvider>
       </ThemeProvider>

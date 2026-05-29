@@ -257,6 +257,23 @@
     --sidebar-ring: var(--brand-accent);
 
     --header-height: 60px;
+
+    /* ── Yandex-style design tokens (light mode) ──
+       Used as inline styles across pages; must also be overridden in .dark.
+       Keeps one-liner inline styles theme-aware without touching every component. */
+    --yd-page:           0 0% 97%;        /* page background  #F6F7F8 */
+    --yd-card:           0 0% 100%;       /* card background  #FFFFFF */
+    --yd-card-shadow:    0 2px 14px rgba(0,0,0,0.07);
+    --yd-text:           0 0% 7%;         /* primary text     #111111 */
+    --yd-text2:          0 0% 54%;        /* secondary text   #8A8A8A */
+    --yd-input:          220 9% 95%;      /* input bg         #F3F4F6 */
+    --yd-input-border:   220 13% 91%;     /* light divider    #E8E8E8 */
+    --yd-circle:         240 5% 94%;      /* icon circles     #EFEFEF */
+    --yd-nav:            0 0% 100%;       /* bottom nav bg    #FFFFFF */
+    --yd-nav-border:     220 13% 91%;     /* nav top border   #E8E8E8 */
+    /* CTA = foreground bg + background text so it auto-inverts */
+    --yd-cta-bg:         0 0% 13%;        /* CTA button bg    #202124 */
+    --yd-cta-fg:         0 0% 100%;       /* CTA button text  #FFFFFF */
   }
 
   @media (min-width: 1024px) {
@@ -264,6 +281,19 @@
   }
 
   .dark {
+    /* Override Yandex design tokens for dark mode */
+    --yd-page:           0 0% 8%;
+    --yd-card:           0 0% 11%;
+    --yd-card-shadow:    0 2px 14px rgba(0,0,0,0.28);
+    --yd-text:           0 0% 90%;
+    --yd-text2:          0 0% 60%;
+    --yd-input:          0 0% 16%;
+    --yd-input-border:   0 0% 22%;
+    --yd-circle:         0 0% 20%;
+    --yd-nav:            0 0% 11%;
+    --yd-nav-border:     0 0% 22%;
+    --yd-cta-bg:         0 0% 90%;
+    --yd-cta-fg:         0 0% 8%;
     --background: 0 0% 8%;
     --foreground: 0 0% 90%;
     --card: 0 0% 11%;
@@ -716,6 +746,48 @@
   }
   .market-category-rail {
     @apply rounded-radius-xl bg-[hsl(var(--app-rail))] p-space-2;
+  }
+
+  /* ── Yandex-style dark-aware helpers ──────────────────────
+     Use these className instead of inline style={{ color: "#111111" }}
+     so components automatically respond to the dark theme toggle.
+  ─────────────────────────────────────────────────────────── */
+
+  /* Page shell */
+  .yd-page    { background: hsl(var(--yd-page)); }
+
+  /* Card */
+  .yd-card    {
+    background: hsl(var(--yd-card));
+    box-shadow: var(--yd-card-shadow);
+  }
+
+  /* Typography */
+  .yd-text    { color: hsl(var(--yd-text)); }
+  .yd-text2   { color: hsl(var(--yd-text2)); }
+
+  /* Input field */
+  .yd-input   { background: hsl(var(--yd-input)); color: hsl(var(--yd-text)); }
+  .yd-input::placeholder { color: hsl(var(--yd-text2)); }
+
+  /* Category/icon circles */
+  .yd-circle  { background: hsl(var(--yd-circle)); }
+
+  /* CTA pill button (dark in light mode, light in dark mode) */
+  .yd-cta {
+    background: hsl(var(--yd-cta-bg));
+    color:      hsl(var(--yd-cta-fg));
+  }
+  .yd-cta:hover   { opacity: 0.88; }
+  .yd-cta:active  { transform: scale(0.98); }
+
+  /* Subtle divider */
+  .yd-border  { border-color: hsl(var(--yd-input-border)); }
+
+  /* Bottom nav bar */
+  .yd-nav {
+    background:  hsl(var(--yd-nav));
+    border-color: hsl(var(--yd-nav-border));
   }
 }
 

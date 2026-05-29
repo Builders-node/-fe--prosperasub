@@ -60,11 +60,14 @@ const RestaurantDetail = () => {
 
   return (
     <div className="min-h-screen bg-background pb-space-24 md:pb-0">
-      <HomeHeader />
+      <HomeHeader
+        title={restaurant?.name || "Restaurant"}
+        showBackButton
+      />
 
       {/* Desktop Header */}
-      <DesktopHeader 
-        showBackButton 
+      <DesktopHeader
+        showBackButton
         breadcrumb={restaurant?.name || "Restaurant Details"}
       />
 

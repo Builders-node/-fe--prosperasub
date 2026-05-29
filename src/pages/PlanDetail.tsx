@@ -7,7 +7,7 @@ import {
   Clock, 
   DollarSign, 
   CalendarDays,
-  ArrowLeft,
+
   Heart,
   Info,
   Star
@@ -15,6 +15,7 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAuthModal } from "@/contexts/AuthModalContext";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
 import { BottomNav } from "@/components/BottomNav";
 import { EmptyState } from "@/components/EmptyState";
@@ -27,6 +28,7 @@ import { useFavorites } from "@/hooks/useFavorites";
 const PlanDetail = () => {
   const { planId } = useParams();
   const { isAuthenticated } = useAuth();
+  const { openAuthModal } = useAuthModal();
   const navigate = useNavigate();
   const { t } = useI18n();
   const { toggleFavorite, isPlanFavorite } = useFavorites();
@@ -125,30 +127,20 @@ const PlanDetail = () => {
     );
   }
 
-  const checkoutPath = isAuthenticated ? `/checkout/subscription/${plan.id}` : '/auth';
+  const checkoutPath = isAuthenticated ? `/checkout/subscription/${plan.id}` : null;
   const restaurant = plan.restaurants;
 
   return (
     <div className="min-h-screen bg-background pb-space-24 md:pb-0">
-      <HomeHeader />
-
-      <div className="border-b border-[hsl(var(--app-divider))] bg-[hsl(var(--app-chrome))] md:hidden">
-        <div className="market-content flex h-12 items-center">
-          <Button 
-            variant="tertiary" 
-            size="icon" 
-            onClick={() => navigate('/restaurants')}
-            className="-ml-2"
-            aria-label={t("common.back")}
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-        </div>
-      </div>
+      <HomeHeader
+        title={plan.name}
+        showBackButton
+        onBack={() => navigate('/restaurants')}
+      />
 
       {/* Desktop Header */}
-      <DesktopHeader 
-        showBackButton 
+      <DesktopHeader
+        showBackButton
         onBack={() => navigate('/restaurants')}
         breadcrumb={plan.restaurants?.name || t("plan.details")}
       />
@@ -345,11 +337,16 @@ const PlanDetail = () => {
               </div>
             </div>
 
-            <Button asChild size="xl" className="mt-space-8 w-full">
-              <Link to={checkoutPath}>
-                <DollarSign className="h-5 w-5" />
-                {t("plan.subscribeNow")}
-              </Link>
+            <Button
+              size="xl"
+              className="mt-space-8 w-full"
+              onClick={() => {
+                if (checkoutPath) navigate(checkoutPath);
+                else openAuthModal("login", `/plan/${planId}`);
+              }}
+            >
+              <DollarSign className="h-5 w-5" />
+              {t("plan.subscribeNow")}
             </Button>
           </section>
 

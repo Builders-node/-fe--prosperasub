@@ -107,8 +107,8 @@ const Restaurants = () => {
   const totalResults = (filteredRestaurants?.length || 0) + (isSearching ? filteredPlans?.length || 0 : 0);
 
   return (
-    <div style={{ background: "#F6F7F8", minHeight: "100dvh" }} className="pb-24 md:pb-0">
-      <HomeHeader title={t("restaurants.breadcrumb")} showBackButton={false} />
+    <div style={{ background: "hsl(var(--yd-page))", minHeight: "100dvh" }} className="pb-24 md:pb-0">
+      <HomeHeader title={t("restaurants.breadcrumb")} showBackButton />
       <DesktopHeader showBackButton breadcrumb={t("restaurants.breadcrumb")} />
 
       {/* ── Single unified search + filter row ── */}
@@ -141,30 +141,18 @@ const Restaurants = () => {
 
       {/* ── Single unified main content ── */}
       <main className="mx-auto max-w-[1280px] px-4 pb-6 md:px-8">
-        {/* Section header */}
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-xl font-black tracking-tight text-foreground">
-            {isSearching ? `Results` : t("home.restaurants")}
-          </h2>
-          {!isLoading && filteredRestaurants && (
-            <span className="rounded-full bg-muted px-4 py-1 text-sm font-semibold text-foreground">
-              All {totalResults}
-            </span>
-          )}
-        </div>
-
         {/* ── Section header ── */}
         {!isLoading && !plansLoading && (
           <div className="mb-4 flex items-center justify-between">
             <h2
               className="text-[18px] font-bold md:text-[22px]"
-              style={{ color: "#111111", letterSpacing: "-0.02em" }}
+              style={{ color: "hsl(var(--yd-text))", letterSpacing: "-0.02em" }}
             >
               {isSearching ? `Results for "${searchQuery}"` : t("home.restaurants")}
             </h2>
             <span
               className="rounded-full px-4 py-1.5 text-[13px] font-semibold"
-              style={{ background: "#EFEFEF", color: "#111111" }}
+              style={{ background: "hsl(var(--yd-circle))", color: "hsl(var(--yd-text))" }}
             >
               {totalResults} {totalResults === 1 ? t("restaurants.result") : t("restaurants.results")}
             </span>
@@ -188,7 +176,7 @@ const Restaurants = () => {
             {(filteredRestaurants?.length || 0) > 0 && (
               <section>
                 {isSearching && (
-                  <h3 className="mb-3 text-[15px] font-bold md:mb-5 md:text-[18px]" style={{ color: "#111111" }}>
+                  <h3 className="mb-3 text-[15px] font-bold md:mb-5 md:text-[18px]" style={{ color: "hsl(var(--yd-text))" }}>
                     {t("home.restaurants")}
                   </h3>
                 )}
@@ -200,8 +188,8 @@ const Restaurants = () => {
                       <Link
                         key={restaurant.id}
                         to={`/restaurants/${restaurant.id}`}
-                        className="group overflow-hidden rounded-[22px] bg-white transition-transform duration-150 hover:scale-[1.02]"
-                        style={{ boxShadow: "0 2px 14px rgba(0,0,0,0.07)" }}
+                        className="group overflow-hidden rounded-[22px] transition-transform duration-150 hover:scale-[1.02] yd-card"
+                        style={{ boxShadow: "var(--yd-card-shadow)" }}
                       >
                         <div className="relative overflow-hidden" style={{ height: 130 }}>
                           {restaurant.logo_url ? (
@@ -230,12 +218,12 @@ const Restaurants = () => {
                         <div className="px-3 py-2.5">
                           <p
                             className="truncate text-[13px] font-bold leading-tight"
-                            style={{ color: "#111111" }}
+                            style={{ color: "hsl(var(--yd-text))" }}
                           >
                             {restaurant.name}
                           </p>
                           {activePlanCount > 0 && (
-                            <p className="mt-0.5 text-[11px]" style={{ color: "#8A8A8A" }}>
+                            <p className="mt-0.5 text-[11px]" style={{ color: "hsl(var(--yd-text2))" }}>
                               {activePlanCount} plan{activePlanCount !== 1 ? "s" : ""}
                             </p>
                           )}
@@ -250,7 +238,7 @@ const Restaurants = () => {
             {/* Plans grid — shown when searching */}
             {isSearching && (filteredPlans?.length || 0) > 0 && (
               <section>
-                <h3 className="mb-3 text-[15px] font-bold md:mb-5 md:text-[18px]" style={{ color: "#111111" }}>
+                <h3 className="mb-3 text-[15px] font-bold md:mb-5 md:text-[18px]" style={{ color: "hsl(var(--yd-text))" }}>
                   {t("home.subscriptionMealPlan")}
                 </h3>
                 <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-3 xl:grid-cols-4">
