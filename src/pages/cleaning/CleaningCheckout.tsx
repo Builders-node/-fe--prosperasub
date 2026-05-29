@@ -62,7 +62,7 @@ const CleaningCheckout = () => {
   const totalCents = monthlyPriceCents * billingPeriodMonths;
   const totalUsdDollars = centsToDollars(totalCents);
   const estimatedSats = convertToSats(totalUsdDollars);
-  const startDate = nowHN();
+  const startDate = new Date("2025-06-01T00:00:00-06:00");
   const endDate = addMonths(startDate, billingPeriodMonths);
   const cleaningsIncluded = pkg ? pkg.cleanings_per_month * billingPeriodMonths : 0;
 
