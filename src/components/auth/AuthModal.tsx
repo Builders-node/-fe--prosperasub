@@ -31,7 +31,7 @@ import {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type AuthView = "login" | "signup";
+export type AuthView = "login" | "signup" | "forgot_password";
 
 export interface AuthModalProps {
   open: boolean;
@@ -100,7 +100,7 @@ function AuthForm({
   redirectTo: string;
   onSuccess: () => void;
 }) {
-  const { login, signUp, loginWithGoogle, roles } = useAuth();
+  const { login, signUp, loginWithGoogle, requestPasswordReset, roles } = useAuth();
   const navigate = useNavigate();
 
   const [view, setView] = useState<AuthView>(defaultView);
@@ -108,6 +108,7 @@ function AuthForm({
   const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
   const [name, setName]         = useState("");
+  const [resetEmailSent, setResetEmailSent] = useState(false);
 
   // Reset fields when switching views
   useEffect(() => {
@@ -115,6 +116,7 @@ function AuthForm({
     setEmail("");
     setPassword("");
     setName("");
+    setResetEmailSent(false);
   }, [defaultView]);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -159,6 +161,84 @@ function AuthForm({
     // On success, Google redirects away — no need to setIsLoading(false)
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    const { error } = await requestPasswordReset(email);
+    setIsLoading(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    setResetEmailSent(true);
+  };
+
+  if (view === "forgot_password") {
+    return (
+      <div className="w-full">
+        <div className="mb-6">
+          <h2 className="text-[22px] font-black tracking-tight" style={{ color: "hsl(var(--yd-text))", letterSpacing: "-0.02em" }}>
+            Reset password
+          </h2>
+          <p className="mt-1 text-[13px]" style={{ color: "hsl(var(--yd-text2))" }}>
+            Enter your email and we'll send a reset link.
+          </p>
+        </div>
+
+        {resetEmailSent ? (
+          <div className="space-y-5">
+            <div className="flex items-center gap-3 rounded-[14px] p-4 text-[14px] font-semibold" style={{ background: "hsl(var(--yd-input))", color: "hsl(var(--yd-text))" }}>
+              ✓ Check your email for the password reset link.
+            </div>
+            <button
+              type="button"
+              onClick={() => setView("login")}
+              className="flex h-12 w-full items-center justify-center rounded-[14px] text-[15px] font-bold transition hover:opacity-90 active:scale-[0.98]"
+              style={{ background: "hsl(var(--yd-cta-bg))", color: "hsl(var(--yd-cta-fg))" }}
+            >
+              Back to login
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={handleForgotPassword} className="space-y-3">
+            <div>
+              <label htmlFor="reset-email" className="mb-1.5 block text-[12px] font-semibold" style={{ color: "hsl(var(--yd-text))" }}>
+                Email
+              </label>
+              <input
+                id="reset-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                required
+                className="h-12 w-full rounded-[14px] border-0 px-4 text-[15px] outline-none focus:ring-2 focus:ring-[#F8A31A]/40 yd-input"
+                style={{ WebkitAppearance: "none" }}
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-[14px] text-[15px] font-bold transition hover:opacity-90 active:scale-[0.98] disabled:opacity-60"
+              style={{ background: "hsl(var(--yd-cta-bg))", color: "hsl(var(--yd-cta-fg))" }}
+            >
+              {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Send reset link"}
+            </button>
+          </form>
+        )}
+
+        <button
+          type="button"
+          onClick={() => setView("login")}
+          className="mt-4 flex w-full items-center justify-center text-[13px] font-medium transition-colors hover:opacity-70"
+          style={{ color: "#F8A31A" }}
+        >
+          ← Back to login
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full">
       {/* Header */}
@@ -169,7 +249,7 @@ function AuthForm({
         <p className="mt-1 text-[13px]" style={{ color: "hsl(var(--yd-text2))" }}>
           {view === "login"
             ? "Sign in to your ProsperaSub account"
-            : "Join ProsperaSub — meal plans & cleaning"}
+            : "Join ProsperaSub — cleaning subscriptions"}
         </p>
       </div>
 
@@ -245,7 +325,7 @@ function AuthForm({
             {view === "login" && (
               <button
                 type="button"
-                onClick={() => navigate(`/reset-password${email ? `?email=${encodeURIComponent(email)}` : ""}`)}
+                onClick={() => { setResetEmailSent(false); setView("forgot_password"); }}
                 className="text-[12px] font-medium transition-colors hover:opacity-70"
                 style={{ color: "#F8A31A" }}
               >
@@ -349,7 +429,7 @@ export function AuthModal({ open, onClose, defaultView = "login", redirectTo = "
 
           {/* Visually hidden accessible title */}
           <SheetTitle className="sr-only">
-            {defaultView === "login" ? "Log in to ProsperaSub" : "Create a ProsperaSub account"}
+            {defaultView === "forgot_password" ? "Reset your password" : defaultView === "login" ? "Log in to ProsperaSub" : "Create a ProsperaSub account"}
           </SheetTitle>
           <SheetDescription className="sr-only">
             Enter your credentials to continue.
@@ -375,7 +455,7 @@ export function AuthModal({ open, onClose, defaultView = "login", redirectTo = "
         }}
       >
         <DialogTitle className="sr-only">
-          {defaultView === "login" ? "Log in to ProsperaSub" : "Create a ProsperaSub account"}
+          {defaultView === "forgot_password" ? "Reset your password" : defaultView === "login" ? "Log in to ProsperaSub" : "Create a ProsperaSub account"}
         </DialogTitle>
         <DialogDescription className="sr-only">
           Enter your credentials to continue.

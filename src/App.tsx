@@ -69,7 +69,7 @@ const App = () => {
               {/* Google OAuth callback — both paths supported */}
               <Route path="/oauth/callback" element={<OAuthCallback />} />
               <Route path="/auth" element={<OAuthCallback />} />
-              <Route path="/forgot-password" element={<ResetPassword />} />
+              <Route path="/forgot-password" element={<Navigate to="/cleaning" replace />} />
               <Route path="/reset-password" element={<ResetPassword />} />
 
               {/* User Routes */}
