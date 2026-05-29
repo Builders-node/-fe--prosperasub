@@ -101,9 +101,7 @@ const CleaningCheckout = () => {
           is_active: false,
           subscription_status: options.status === "paid" ? "pending_schedule" : "pending_payment",
           apartment_note: cleanedApartmentNote,
-        })
-        .select()
-        .single();
+        });
 
       if (error) throw error;
       return data;
