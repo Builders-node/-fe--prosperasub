@@ -6,7 +6,7 @@ import { toast } from "sonner";
 
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { EmptyState } from "@/components/EmptyState";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, supabaseDb } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -117,11 +117,25 @@ const Clients = () => {
   const { data: subscriptions = [] } = useQuery({
     queryKey: ["admin-cleaning-subscriptions"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: subs, error } = await supabaseDb
         .from("cleaning_subscriptions")
-        .select("*, cleaning_packages(name), users(display_name, email, name)");
+        .select("*")
+        .order("created_at", { ascending: false });
       if (error) throw error;
-      return data ?? [];
+      if (!subs?.length) return [];
+
+      // Look up real user data by user_id UUIDs
+      const userIds = [...new Set(subs.map((s: any) => s.user_id).filter(Boolean))];
+      const { data: usersData } = await supabaseDb
+        .from("users")
+        .select("id, name, display_name, email")
+        .in("id", userIds);
+      const usersMap = new Map((usersData ?? []).map((u: any) => [u.id, u]));
+
+      return subs.map((s: any) => ({
+        ...s,
+        users: usersMap.get(s.user_id) || null,
+      }));
     },
   });
 

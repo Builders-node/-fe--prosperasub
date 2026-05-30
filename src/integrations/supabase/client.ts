@@ -45,6 +45,8 @@ const GOOGLE_OAUTH_STATE_KEY = "prospera_google_oauth_state";
 
 // Supabase client for direct DB access (uses anon key + permissive RLS policies)
 const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+/** Direct Supabase client — use for queries that need real relation joins */
+export const supabaseDb = db;
 
 // ============================================================
 // TYPES

@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Zap, Loader2, CheckCircle2, Copy, RefreshCw } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { addMonths, format } from "date-fns";
@@ -75,11 +75,18 @@ const CleaningCheckout = () => {
   const createSubscriptionMutation = useMutation({
     mutationFn: async (options: { paymentRef: string; status: "paid" | "pending"; method: "lightning" | "fiat" | "crypto"; satsAmount: number }) => {
       if (!pkg) throw new Error("Missing package data");
-
-      const userId = userData?.id;
-      if (!userId) throw new Error("Not authenticated");
+      if (!userData?.email) throw new Error("Not authenticated");
       const cleanedApartmentNote = apartmentNote.trim();
       if (!cleanedApartmentNote) throw new Error("Apartment number is required.");
+
+      // Look up real UUID from users table by email
+      const { data: userRow } = await supabaseDb
+        .from("users")
+        .select("id")
+        .eq("email", userData.email)
+        .maybeSingle();
+      const userId = userRow?.id ?? userData.id;
+      if (!userId) throw new Error("User not found");
 
       const { data, error } = await supabase
         .from("cleaning_subscriptions")
