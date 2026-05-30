@@ -9,35 +9,21 @@ import { AuthModalProvider } from "@/contexts/AuthModalContext";
 import { UserModeProvider } from "@/contexts/UserModeContext";
 import { LanguageProvider } from "@/i18n";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import { FirstVisitChoiceModal } from "@/components/FirstVisitChoiceModal";
-import { FoodAccessGate } from "@/components/FoodAccessGate";
 
-// Public pages
-import Index from "./pages/Index";
-import Restaurants from "./pages/Restaurants";
-import RestaurantDetail from "./pages/RestaurantDetail";
-import PlanDetail from "./pages/PlanDetail";
+// Auth pages
 import OAuthCallback from "./pages/OAuthCallback";
 import ResetPassword from "./pages/ResetPassword";
 
 // User pages
 import MySubscriptions from "./pages/user/MySubscriptions";
-import Favorites from "./pages/user/Favorites";
-import SubscriptionDetail from "./pages/user/SubscriptionDetail";
-import Checkout from "./pages/user/Checkout";
 
 // Cleaning pages
 import CleaningPackages from "./pages/cleaning/CleaningPackages";
 import CleaningCheckout from "./pages/cleaning/CleaningCheckout";
 import CleaningBook from "./pages/cleaning/CleaningBook";
 
-// Restaurant Admin pages - wrapped with RestaurantProvider
-import RestaurantAdminRoutes from "./routes/RestaurantAdminRoutes";
-
 // Super Admin pages
 import AdminDashboard from "./pages/admin/Dashboard";
-import AdminSubscriptions from "./pages/admin/Subscriptions";
-import ManageRestaurants from "./pages/admin/ManageRestaurants";
 import PlatformSettings from "./pages/admin/PlatformSettings";
 import CleaningManagement from "./pages/admin/CleaningManagement";
 import AdminPayments from "./pages/admin/Payments";
@@ -59,124 +45,67 @@ const App = () => {
               <BrowserRouter>
                 <AuthModalProvider>
                 <UserModeProvider>
-                <FirstVisitChoiceModal />
                 <Routes>
-              {/* Public Routes */}
-              <Route path="/" element={<FoodAccessGate><Index /></FoodAccessGate>} />
-              <Route path="/restaurants" element={<FoodAccessGate><Restaurants /></FoodAccessGate>} />
-              <Route path="/restaurants/:id" element={<FoodAccessGate><RestaurantDetail /></FoodAccessGate>} />
-              <Route path="/plan/:planId" element={<FoodAccessGate><PlanDetail /></FoodAccessGate>} />
-              {/* Google OAuth callback — both paths supported */}
+              {/* Home → Cleaning */}
+              <Route path="/" element={<Navigate to="/cleaning" replace />} />
+
+              {/* Auth */}
               <Route path="/oauth/callback" element={<OAuthCallback />} />
               <Route path="/auth" element={<OAuthCallback />} />
               <Route path="/forgot-password" element={<Navigate to="/cleaning" replace />} />
               <Route path="/reset-password" element={<ResetPassword />} />
 
-              {/* User Routes */}
-              <Route path="/account" element={
-                <ProtectedRoute>
-                  <Navigate to="/my-subscriptions" replace />
-                </ProtectedRoute>
-              } />
-              <Route path="/dashboard" element={
-                <ProtectedRoute allowedRoles={['super_admin']}>
-                  <Navigate to="/admin/dashboard" replace />
-                </ProtectedRoute>
-              } />
-              <Route path="/my-subscriptions" element={
-                <ProtectedRoute>
-                  <MySubscriptions />
-                </ProtectedRoute>
-              } />
-              <Route path="/favorites" element={
-                <ProtectedRoute>
-                  <Favorites />
-                </ProtectedRoute>
-              } />
-              <Route path="/profile" element={
-                <ProtectedRoute>
-                  <Navigate to="/" replace />
-                </ProtectedRoute>
-              } />
-              <Route path="/subscription/:id" element={
-                <ProtectedRoute>
-                  <SubscriptionDetail />
-                </ProtectedRoute>
-              } />
-              <Route path="/checkout/subscription/:planId" element={
-                <ProtectedRoute>
-                  <FoodAccessGate>
-                    <Checkout />
-                  </FoodAccessGate>
-                </ProtectedRoute>
-              } />
-
-              {/* Cleaning Routes */}
+              {/* Cleaning */}
               <Route path="/cleaning" element={<CleaningPackages />} />
               <Route path="/cleaning/checkout/:packageId" element={
-                <ProtectedRoute>
-                  <CleaningCheckout />
-                </ProtectedRoute>
+                <ProtectedRoute><CleaningCheckout /></ProtectedRoute>
               } />
               <Route path="/cleaning/book" element={
-                <ProtectedRoute>
-                  <CleaningBook />
-                </ProtectedRoute>
-              } />
-              <Route path="/cleaning/my-bookings" element={
-                <ProtectedRoute>
-                  <Navigate to="/my-subscriptions?tab=cleaning" replace />
-                </ProtectedRoute>
+                <ProtectedRoute><CleaningBook /></ProtectedRoute>
               } />
 
-              {/* Restaurant Admin Routes - URL-driven with RestaurantContext */}
-              <Route path="/restaurant/*" element={
-                <ProtectedRoute allowedRoles={['restaurant_admin', 'super_admin']}>
-                  <RestaurantAdminRoutes />
-                </ProtectedRoute>
+              {/* User */}
+              <Route path="/my-subscriptions" element={
+                <ProtectedRoute><MySubscriptions /></ProtectedRoute>
               } />
+              <Route path="/account" element={<Navigate to="/my-subscriptions" replace />} />
+              <Route path="/profile" element={<Navigate to="/cleaning" replace />} />
+              <Route path="/cleaning/my-bookings" element={<Navigate to="/my-subscriptions" replace />} />
 
-              {/* Super Admin Routes */}
+              {/* Legacy food routes → redirect */}
+              <Route path="/restaurants" element={<Navigate to="/cleaning" replace />} />
+              <Route path="/restaurants/:id" element={<Navigate to="/cleaning" replace />} />
+              <Route path="/plan/:planId" element={<Navigate to="/cleaning" replace />} />
+              <Route path="/subscription/:id" element={<Navigate to="/my-subscriptions" replace />} />
+              <Route path="/checkout/*" element={<Navigate to="/cleaning" replace />} />
+              <Route path="/favorites" element={<Navigate to="/cleaning" replace />} />
+              <Route path="/restaurant/*" element={<Navigate to="/admin/dashboard" replace />} />
+
+              {/* Super Admin */}
               <Route path="/admin" element={
-                <ProtectedRoute allowedRoles={['super_admin']}>
-                  <Navigate to="/admin/dashboard" replace />
-                </ProtectedRoute>
+                <ProtectedRoute allowedRoles={['super_admin']}><Navigate to="/admin/dashboard" replace /></ProtectedRoute>
+              } />
+              <Route path="/dashboard" element={
+                <ProtectedRoute allowedRoles={['super_admin']}><Navigate to="/admin/dashboard" replace /></ProtectedRoute>
               } />
               <Route path="/admin/dashboard" element={
-                <ProtectedRoute allowedRoles={['super_admin']}>
-                  <AdminDashboard />
-                </ProtectedRoute>
-              } />
-              <Route path="/admin/subscriptions" element={
-                <ProtectedRoute allowedRoles={['super_admin']}>
-                  <AdminSubscriptions />
-                </ProtectedRoute>
-              } />
-              <Route path="/admin/payments" element={
-                <ProtectedRoute allowedRoles={['super_admin']}>
-                  <AdminPayments />
-                </ProtectedRoute>
-              } />
-              <Route path="/admin/clients" element={
-                <ProtectedRoute allowedRoles={['super_admin']}>
-                  <AdminClients />
-                </ProtectedRoute>
-              } />
-              <Route path="/admin/restaurants" element={
-                <ProtectedRoute allowedRoles={['super_admin']}>
-                  <ManageRestaurants />
-                </ProtectedRoute>
-              } />
-              <Route path="/admin/settings" element={
-                <ProtectedRoute allowedRoles={['super_admin']}>
-                  <PlatformSettings />
-                </ProtectedRoute>
+                <ProtectedRoute allowedRoles={['super_admin']}><AdminDashboard /></ProtectedRoute>
               } />
               <Route path="/admin/cleaning" element={
-                <ProtectedRoute allowedRoles={['super_admin']}>
-                  <CleaningManagement />
-                </ProtectedRoute>
+                <ProtectedRoute allowedRoles={['super_admin']}><CleaningManagement /></ProtectedRoute>
               } />
+              <Route path="/admin/clients" element={
+                <ProtectedRoute allowedRoles={['super_admin']}><AdminClients /></ProtectedRoute>
+              } />
+              <Route path="/admin/payments" element={
+                <ProtectedRoute allowedRoles={['super_admin']}><AdminPayments /></ProtectedRoute>
+              } />
+              <Route path="/admin/settings" element={
+                <ProtectedRoute allowedRoles={['super_admin']}><PlatformSettings /></ProtectedRoute>
+              } />
+              {/* Legacy admin food routes → redirect */}
+              <Route path="/admin/restaurants" element={<Navigate to="/admin/dashboard" replace />} />
+              <Route path="/admin/subscriptions" element={<Navigate to="/admin/dashboard" replace />} />
 
               {/* Catch-all */}
               <Route path="*" element={<NotFound />} />

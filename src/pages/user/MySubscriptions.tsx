@@ -1,14 +1,11 @@
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   CalendarDays,
   Clock,
-  HelpCircle,
   Loader2,
-  Plus,
   SparklesIcon,
-  Utensils,
   X,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -16,19 +13,11 @@ import { useAuthModal } from "@/contexts/AuthModalContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase, supabaseDb } from "@/integrations/supabase/client";
 import { useUserUuid } from "@/hooks/useUserUuid";
-import { MySubscriptionCard } from "@/components/MySubscriptionCard";
-import { HowItWorksSheet } from "@/components/HowItWorksSheet";
-import { MealDeadlineBanner } from "@/components/CutoffIndicator";
-import { addDays, format, isPast, startOfDay } from "date-fns";
-import { nowHN } from "@/lib/timezone";
+import { format, isPast } from "date-fns";
 import { UserLayout } from "@/components/layout/UserLayout";
 import { EmptyState } from "@/components/EmptyState";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-type Tab = "meal" | "cleaning";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -40,58 +29,6 @@ const cleaningStatusColor = (status: string) => {
     default:          return "outline";
   }
 };
-
-// ─── Segmented control ────────────────────────────────────────────────────────
-
-function SegmentedControl({
-  activeTab,
-  onTabChange,
-  mealCount,
-  cleaningCount,
-}: {
-  activeTab: Tab;
-  onTabChange: (tab: Tab) => void;
-  mealCount: number;
-  cleaningCount: number;
-}) {
-  return (
-    <div className="grid grid-cols-2 gap-1 rounded-2xl bg-muted p-1">
-      {(
-        [
-          { id: "meal" as Tab,     label: "Meal Plan", icon: Utensils,      count: mealCount     },
-          { id: "cleaning" as Tab, label: "Cleaning",  icon: SparklesIcon,  count: cleaningCount },
-        ] as const
-      ).map(({ id, label, icon: Icon, count }) => (
-        <button
-          key={id}
-          type="button"
-          onClick={() => onTabChange(id)}
-          className={cn(
-            "flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-all duration-150",
-            activeTab === id
-              ? "bg-card text-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground",
-          )}
-        >
-          <Icon className="h-4 w-4 shrink-0" />
-          <span>{label}</span>
-          {count > 0 && (
-            <span
-              className={cn(
-                "flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold tabular-nums",
-                activeTab === id
-                  ? "bg-primary text-black"
-                  : "bg-border text-muted-foreground",
-              )}
-            >
-              {count}
-            </span>
-          )}
-        </button>
-      ))}
-    </div>
-  );
-}
 
 // ─── Section skeleton ─────────────────────────────────────────────────────────
 
@@ -184,42 +121,13 @@ function CleaningBookingRow({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 const MySubscriptions = () => {
-  const { userData, isAuthenticated, lightningPubkey, isLoading: authLoading, isSuperAdmin, isRestaurantAdmin } = useAuth();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const userUuid = useUserUuid();
   const { openAuthModal } = useAuthModal();
   const queryClient = useQueryClient();
   const navigate    = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
 
-  const isAdmin = isSuperAdmin || isRestaurantAdmin;
-
-  // Non-admins always see cleaning tab; admins can switch
-  const rawTab   = searchParams.get("tab");
-  const activeTab: Tab = isAdmin
-    ? (rawTab === "cleaning" ? "cleaning" : "meal")
-    : "cleaning";
-
-  const setTab = (tab: Tab) => {
-    setSearchParams(tab === "meal" ? {} : { tab });
-  };
-
-  // ── Queries (unchanged) ──────────────────────────────────────────────────
-
-  const { data: subscriptions, isLoading: subsLoading } = useQuery({
-    queryKey: ["user-subscriptions", userData?.id, lightningPubkey],
-    queryFn: async () => {
-      const pubkey = userData?.lightning_pubkey || lightningPubkey;
-      if (pubkey) await supabase.rpc("set_lightning_session", { p_pubkey: pubkey });
-      const { data, error } = await supabase
-        .from("subscriptions")
-        .select("*, restaurants(name, logo_url), subscription_plans(name, meal_time)")
-        .eq("user_id", userData?.id)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: isAuthenticated && !!userData?.id,
-  });
+  // ── Queries ──────────────────────────────────────────────────────────────
 
   const { data: cleaningSubscriptions, isLoading: cleaningSubsLoading } = useQuery({
     queryKey: ["my-cleaning-subscriptions-all", userUuid],
@@ -251,49 +159,6 @@ const MySubscriptions = () => {
     enabled: isAuthenticated && !!userUuid,
   });
 
-  const { data: globalSettings } = useQuery({
-    queryKey: ["global-settings"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("global_settings")
-        .select("*")
-        .limit(1)
-        .single();
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  const { data: nextMeals } = useQuery({
-    queryKey: ["next-meals", userData?.id, lightningPubkey],
-    queryFn: async () => {
-      if (!subscriptions?.length) return {};
-      const pubkey   = userData?.lightning_pubkey || lightningPubkey;
-      const tomorrow = format(addDays(startOfDay(nowHN()), 1), "yyyy-MM-dd");
-      const map: Record<string, any> = {};
-      for (const sub of subscriptions) {
-        if (!sub.is_active) continue;
-        const { data } = await supabase.rpc("get_daily_meal_choices_by_pubkey", {
-          p_pubkey: pubkey,
-          p_subscription_id: sub.id,
-        });
-        if (data?.length) {
-          const upcoming = data
-            .filter((m: any) => m.date >= tomorrow)
-            .sort((a: any, b: any) => a.date.localeCompare(b.date));
-          if (upcoming.length)
-            map[sub.id] = {
-              date:     upcoming[0].date,
-              choice:   upcoming[0].choice,
-              mealType: upcoming[0].meal_type,
-            };
-        }
-      }
-      return map;
-    },
-    enabled: !!subscriptions?.length,
-  });
-
   const cancelCleaningMutation = useMutation({
     mutationFn: async (bookingId: string) => {
       const { data, error } = await supabase.rpc("cancel_cleaning_booking", {
@@ -310,10 +175,7 @@ const MySubscriptions = () => {
     onError: (error: Error) => toast.error(error.message),
   });
 
-  // ── Derived data (unchanged) ─────────────────────────────────────────────
-
-  const activeSubscriptions = subscriptions?.filter((s) => s.is_active) || [];
-  const pastSubscriptions   = subscriptions?.filter((s) => !s.is_active) || [];
+  // ── Derived data ─────────────────────────────────────────────────────────
 
   const pendingScheduleCleaningSubs = cleaningSubscriptions?.filter(
     (s) => s.payment_status === "paid" && s.subscription_status === "pending_schedule",
@@ -328,10 +190,6 @@ const MySubscriptions = () => {
   const pastCleaningBookings = cleaningBookings?.filter(
     (b) => b.status !== "booked" || isPast(new Date((b as any).cleaning_available_slots?.date + "T23:59:59")),
   ) || [];
-
-  // Badge counts for the segmented control
-  const mealCount     = activeSubscriptions.length;
-  const cleaningCount = activeCleaningSubs.length + pendingScheduleCleaningSubs.length + upcomingCleaningBookings.length;
 
   // ── Loading / auth gates ─────────────────────────────────────────────────
 
@@ -373,121 +231,14 @@ const MySubscriptions = () => {
       <div className="mx-auto w-full max-w-2xl px-4 pb-28 pt-5 sm:px-6">
 
         {/* ── Page header ── */}
-        <div className="mb-5 flex items-start justify-between gap-4">
-          <div>
-            <p className="type-overline text-primary">Account</p>
-            <h1 className="mt-1 text-2xl font-black tracking-tight text-foreground sm:text-3xl">
-              My Bookings
-            </h1>
-          </div>
-          <HowItWorksSheet
-            trigger={
-              <button
-                type="button"
-                aria-label="How it works"
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card text-muted-foreground transition-colors hover:text-foreground"
-              >
-                <HelpCircle className="h-5 w-5" />
-              </button>
-            }
-          />
+        <div className="mb-5">
+          <p className="type-overline text-primary">Account</p>
+          <h1 className="mt-1 text-2xl font-black tracking-tight text-foreground sm:text-3xl">
+            My Bookings
+          </h1>
         </div>
 
-        {/* ── Segmented control (admin only) ── */}
-        {isAdmin && (
-          <div className="sticky top-[60px] z-30 -mx-4 bg-background/95 px-4 pb-3 pt-1 backdrop-blur-md sm:-mx-6 sm:px-6">
-            <SegmentedControl
-              activeTab={activeTab}
-              onTabChange={setTab}
-              mealCount={mealCount}
-              cleaningCount={cleaningCount}
-            />
-          </div>
-        )}
-
-        {/* ═══════════════════════════════════════
-            MEAL PLAN TAB
-        ════════════════════════════════════════ */}
-        {activeTab === "meal" && (
-          <div className="mt-5 space-y-5">
-
-            {/* Deadline banner */}
-            {globalSettings && activeSubscriptions.length > 0 && (
-              <MealDeadlineBanner
-                cutoffHours={globalSettings.daily_choice_cutoff_hours || 3}
-                mealTime="all"
-              />
-            )}
-
-            {/* Browse CTA */}
-            <button
-              type="button"
-              onClick={() => navigate("/restaurants")}
-              className="flex w-full items-center justify-center gap-2 rounded-2xl border border-border bg-card py-3.5 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
-            >
-              <Plus className="h-4 w-4" />
-              Browse Plans &amp; Subscribe
-            </button>
-
-            {/* Content */}
-            {subsLoading ? (
-              <Skeleton rows={2} />
-            ) : (subscriptions?.length ?? 0) === 0 ? (
-              <div className="rounded-2xl border border-border bg-card p-8 text-center">
-                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
-                  <Utensils className="h-6 w-6 text-muted-foreground" />
-                </div>
-                <p className="text-base font-bold text-foreground">No meal subscriptions yet</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Subscribe to a meal plan and never worry about what to eat.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => navigate("/restaurants")}
-                  className="mt-5 inline-flex h-11 items-center justify-center rounded-full bg-foreground px-8 text-sm font-bold text-background transition-colors hover:bg-foreground/90"
-                >
-                  Browse Restaurants
-                </button>
-              </div>
-            ) : (
-              <>
-                {activeSubscriptions.length > 0 && (
-                  <section className="space-y-3">
-                    <p className="type-overline text-muted-foreground">
-                      Active · {activeSubscriptions.length}
-                    </p>
-                    {activeSubscriptions.map((sub: any) => (
-                      <MySubscriptionCard
-                        key={sub.id}
-                        subscription={sub}
-                        nextMeal={nextMeals?.[sub.id]}
-                      />
-                    ))}
-                  </section>
-                )}
-
-                {pastSubscriptions.length > 0 && (
-                  <section className="space-y-3">
-                    <p className="type-overline text-muted-foreground">
-                      Past · {pastSubscriptions.length}
-                    </p>
-                    <div className="space-y-3 opacity-70">
-                      {pastSubscriptions.map((sub: any) => (
-                        <MySubscriptionCard key={sub.id} subscription={sub} />
-                      ))}
-                    </div>
-                  </section>
-                )}
-              </>
-            )}
-          </div>
-        )}
-
-        {/* ═══════════════════════════════════════
-            CLEANING TAB
-        ════════════════════════════════════════ */}
-        {activeTab === "cleaning" && (
-          <div className="mt-5 space-y-5">
+        <div className="mt-5 space-y-5">
 
             {/* Browse + schedule CTAs */}
             <div className="grid grid-cols-2 gap-2">
@@ -668,7 +419,6 @@ const MySubscriptions = () => {
               </>
             )}
           </div>
-        )}
       </div>
     </UserLayout>
   );

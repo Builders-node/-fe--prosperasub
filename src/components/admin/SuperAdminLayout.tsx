@@ -51,13 +51,6 @@ const MENU_SECTIONS = [
     ],
   },
   {
-    title: "Food",
-    items: [
-      { path: adminRoutes.superAdminRestaurants, label: "Restaurants", icon: Store },
-      { path: adminRoutes.superAdminSubscriptions, label: "Subscriptions", icon: UtensilsCrossed },
-    ],
-  },
-  {
     title: "Cleaning",
     items: [
       { path: adminRoutes.superAdminCleaning, label: "Operations", icon: SparklesIcon },
