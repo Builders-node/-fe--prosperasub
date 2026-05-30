@@ -441,10 +441,10 @@ function findDuplicateCleaningClient(clients: any[], payload: any) {
 
 function getSeedCleaningSlots() {
   const times = [
-    ["08:00:00", "10:00:00"],
-    ["10:00:00", "12:00:00"],
-    ["13:00:00", "15:00:00"],
-    ["15:00:00", "16:00:00"],
+    ["08:00:00", "09:45:00"],
+    ["10:00:00", "11:45:00"],
+    ["12:00:00", "13:45:00"],
+    ["14:00:00", "15:45:00"],
   ];
   const slots: any[] = [];
   const today = new Date();

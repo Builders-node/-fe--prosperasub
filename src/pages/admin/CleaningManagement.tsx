@@ -227,6 +227,13 @@ const calendarStatusLabel = (status?: string | null) => {
   return "Pending";
 };
 
+const to12h = (t: string) => {
+  const [h, m] = t.slice(0, 5).split(":").map(Number);
+  const suffix = h >= 12 ? "PM" : "AM";
+  const hour = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${hour}:${String(m).padStart(2, "0")} ${suffix}`;
+};
+
 const getUserName = (user: any) => {
   if (!user) return "Unknown";
   return user.display_name || user.name || user.email || "Unknown";
@@ -1098,7 +1105,7 @@ const CleaningManagement = () => {
                                 {booking.cleaning_clients?.company_name || getUserName(booking.users)}
                               </p>
                               <p className="type-body text-muted-foreground">
-                                {booking.cleaning_available_slots?.start_time?.slice(0, 5)} - {booking.cleaning_available_slots?.end_time?.slice(0, 5)}
+                                {to12h(booking.cleaning_available_slots?.start_time ?? "")} - {to12h(booking.cleaning_available_slots?.end_time ?? "")}
                               </p>
                             </div>
                             <Badge variant={statusColor(booking.status) as any}>{booking.status}</Badge>
@@ -1123,7 +1130,7 @@ const CleaningManagement = () => {
                       const remaining = Math.max(0, slot.max_bookings - slot.current_bookings);
                       return (
                         <div key={slot.id} className="rounded-radius-lg bg-card p-space-4">
-                          <p className="text-card-title">{slot.start_time.slice(0, 5)} - {slot.end_time.slice(0, 5)}</p>
+                          <p className="text-card-title">{to12h(slot.start_time)} - {to12h(slot.end_time)}</p>
                           <p className="mt-space-1 type-body text-muted-foreground">{slot.current_bookings} booked of {slot.max_bookings}</p>
                           <Badge className="mt-space-3" variant={remaining > 0 ? "default" : "destructive"}>
                             {remaining > 0 ? "1 spot left" : "Blocked"}
@@ -1177,7 +1184,7 @@ const CleaningManagement = () => {
                             <p className="text-sm text-muted-foreground">
                               {getBookingDate(booking) ? format(new Date(`${getBookingDate(booking)}T00:00:00`), "MMM d, yyyy") : "—"}
                               {" · "}
-                              {booking.cleaning_available_slots?.start_time?.slice(0, 5)} - {booking.cleaning_available_slots?.end_time?.slice(0, 5)}
+                              {to12h(booking.cleaning_available_slots?.start_time ?? "")} - {to12h(booking.cleaning_available_slots?.end_time ?? "")}
                             </p>
                           </div>
                           <Badge variant={statusColor(booking.status) as any}>{booking.status}</Badge>
@@ -1243,7 +1250,7 @@ const CleaningManagement = () => {
                               {getBookingDate(booking) ? format(new Date(`${getBookingDate(booking)}T00:00:00`), "MMM d, yyyy") : "—"}
                             </TableCell>
                             <TableCell>
-                              {booking.cleaning_available_slots?.start_time?.slice(0, 5)} - {booking.cleaning_available_slots?.end_time?.slice(0, 5)}
+                              {to12h(booking.cleaning_available_slots?.start_time ?? "")} - {to12h(booking.cleaning_available_slots?.end_time ?? "")}
                             </TableCell>
                             <TableCell><Badge variant={statusColor(booking.status) as any}>{booking.status}</Badge></TableCell>
                             <TableCell>

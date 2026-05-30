@@ -37,7 +37,13 @@ const TIME_PERIODS = [
 const todayKey = () => todayHN();
 const toDate   = (value: string) => parseISO(`${value}T00:00:00`);
 const normalizeTime = (value: string) => (value.length === 5 ? `${value}:00` : value);
-const timeLabel     = (start: string, end: string) => `${start.slice(0, 5)} – ${end.slice(0, 5)}`;
+const to12h = (t: string) => {
+  const [h, m] = t.slice(0, 5).split(":").map(Number);
+  const suffix = h >= 12 ? "PM" : "AM";
+  const hour = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${hour}:${String(m).padStart(2, "0")} ${suffix}`;
+};
+const timeLabel     = (start: string, end: string) => `${to12h(start)} – ${to12h(end)}`;
 
 const getScheduleDates = (startDate: string, endDate: string, weekday: number) => {
   const start = toDate(startDate);
