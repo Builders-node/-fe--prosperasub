@@ -25,7 +25,8 @@ const CleaningPackages = () => {
         .from("cleaning_packages")
         .select("*")
         .eq("is_active", true)
-        .order("price_per_cleaning_cents", { ascending: true });
+        .eq("visibility", "public")
+        .order("sort_order", { ascending: true });
       if (error) throw error;
       return data ?? [];
     },
