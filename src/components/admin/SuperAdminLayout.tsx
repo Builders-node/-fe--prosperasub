@@ -40,27 +40,21 @@ interface SuperAdminLayoutProps {
 
 const MENU_SECTIONS = [
   {
-    title: "Overview",
+    title: "Platform",
     items: [
       {
         path: adminRoutes.superAdminDashboard,
-        label: "Dashboard",
-        description: "Platform health & key metrics",
+        label: "Overview",
         icon: LayoutDashboard,
       },
+      { path: adminRoutes.superAdminPayments, label: "Finance", icon: Zap },
+      { path: adminRoutes.superAdminClients, label: "Users", icon: Users },
     ],
   },
   {
-    title: "Cleaning",
+    title: "Products",
     items: [
-      { path: adminRoutes.superAdminCleaning, label: "Operations", icon: SparklesIcon },
-      { path: adminRoutes.superAdminClients, label: "Clients", icon: Users },
-    ],
-  },
-  {
-    title: "Finance",
-    items: [
-      { path: adminRoutes.superAdminPayments, label: "Payments", icon: Zap },
+      { path: adminRoutes.superAdminCleaning, label: "Cleaning", icon: SparklesIcon },
     ],
   },
   {

@@ -1,340 +1,190 @@
 import { Link } from "react-router-dom";
 import {
-  AlertCircle,
   ArrowRight,
   CalendarDays,
-  CreditCard,
-  Settings,
+  DollarSign,
   SparklesIcon,
-  Store,
-  UtensilsCrossed,
   Users,
   Zap,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { supabase, supabaseDb } from "@/integrations/supabase/client";
+import { supabaseDb } from "@/integrations/supabase/client";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { format } from "date-fns";
 
-// ─── Formatters ──────────────────────────────────────────────────────────────
-
-const formatSats = (sats: number) => {
-  if (sats >= 1_000_000) return `${(sats / 1_000_000).toFixed(2)}M sats`;
-  if (sats >= 1_000) return `${(sats / 1_000).toFixed(1)}k sats`;
-  return `${sats} sats`;
-};
-
+const formatCents = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 const formatRole = (role: string) =>
   role.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
-const formatDate = (value?: string | null) => {
-  if (!value) return null;
-  return new Intl.DateTimeFormat("en", {
-    timeZone: "America/Tegucigalpa",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(new Date(value));
-};
-
-// ─── Stat tile ───────────────────────────────────────────────────────────────
-
-function StatTile({
-  label,
-  value,
-  sub,
-  icon: Icon,
-  href,
-  accent,
-}: {
-  label: string;
-  value: string | number;
-  sub?: string;
-  icon: React.ElementType;
-  href?: string;
-  accent?: boolean;
-}) {
-  const inner = (
-    <Card className={`group relative transition-colors ${href ? "hover:border-primary/50" : ""} ${accent ? "border-primary/30 bg-primary/5" : ""}`}>
-      <CardHeader className="pb-space-2">
-        <CardTitle className="flex items-center gap-space-2 text-label font-semibold text-muted-foreground">
-          <Icon className={`h-4 w-4 ${accent ? "text-primary" : ""}`} />
-          {label}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className={`text-panel-title font-extrabold tracking-tight ${accent ? "text-primary" : "text-foreground"}`}>
-          {value}
-        </p>
-        {sub && <p className="mt-space-1 text-caption text-muted-foreground">{sub}</p>}
-        {href && (
-          <ArrowRight className="absolute right-space-4 top-space-4 h-4 w-4 text-muted-foreground/40 transition-colors group-hover:text-primary" />
-        )}
-      </CardContent>
-    </Card>
-  );
-
-  return href ? <Link to={href}>{inner}</Link> : inner;
-}
-
-// ─── Section header ───────────────────────────────────────────────────────────
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <h2 className="mb-space-3 text-caption font-bold uppercase tracking-[0.18em] text-muted-foreground">
-      {children}
-    </h2>
-  );
-}
-
-// ─── Main page ────────────────────────────────────────────────────────────────
-
 const AdminDashboard = () => {
-  const { data: stats, isLoading: statsLoading } = useQuery({
+  const { data: stats } = useQuery({
     queryKey: ["super-admin-stats"],
     queryFn: async () => {
-      const [
-        usersRes,
-        restaurantsRes,
-        cleaningSubsRes,
-        cleaningBookingsRes,
-        cleaningPaidRes,
-      ] = await Promise.all([
+      const [usersRes, cleaningSubsRes, cleaningPaidRes] = await Promise.all([
         supabaseDb.from("users").select("id", { count: "exact", head: true }),
-        supabaseDb.from("restaurants").select("id, is_active"),
-        supabaseDb.from("cleaning_subscriptions").select("id, payment_status"),
-        supabaseDb.from("cleaning_bookings").select("id").eq("status", "booked"),
+        supabaseDb.from("cleaning_subscriptions").select("id, payment_status, is_active"),
         supabaseDb.from("cleaning_subscriptions").select("total_price_cents").eq("payment_status", "paid"),
       ]);
 
-      const restaurants = restaurantsRes.data || [];
-      const cleaningSubs = cleaningSubsRes.data || [];
+      const activeSubs = (cleaningSubsRes.data || []).filter((s: any) => s.payment_status === "paid" && s.is_active);
       const revenue = (cleaningPaidRes.data || []).reduce((sum: number, s: any) => sum + (s.total_price_cents || 0), 0);
 
       return {
         users: usersRes.count || 0,
-        restaurants: restaurants.length,
-        activeRestaurants: restaurants.filter((r: any) => r.is_active).length,
-        cleaningActiveSubscriptions: cleaningSubs.filter((s: any) => s.payment_status === "paid").length,
-        cleaningPendingPayments: cleaningSubs.filter((s: any) => s.payment_status === "pending").length,
-        cleaningUpcomingBookings: cleaningBookingsRes.data?.length || 0,
+        activeClients: activeSubs.length,
         totalRevenueCents: revenue,
       };
     },
   });
 
-  const { data: users = [], isLoading: usersLoading } = useQuery({
-    queryKey: ["super-admin-users"],
+  const { data: recentActivity = [] } = useQuery({
+    queryKey: ["admin-recent-activity"],
     queryFn: async () => {
-      const { data: usersData, error } = await supabaseDb
-        .from("users")
-        .select("id, email, name, display_name, auth_provider, avatar_url, created_at, last_login_at")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
+      // Get recent subscriptions
+      const { data: subs } = await supabaseDb
+        .from("cleaning_subscriptions")
+        .select("id, user_id, payment_status, total_price_cents, created_at")
+        .order("created_at", { ascending: false })
+        .limit(5);
 
-      // Fetch roles separately
-      const { data: rolesData } = await supabaseDb.from("user_roles").select("user_id, role");
-      const rolesMap = new Map<string, string[]>();
-      for (const r of rolesData || []) {
-        const existing = rolesMap.get(r.user_id) || [];
-        existing.push(r.role);
-        rolesMap.set(r.user_id, existing);
+      // Get recent bookings
+      const { data: bookings } = await supabaseDb
+        .from("cleaning_bookings")
+        .select("id, user_id, status, created_at, cleaning_available_slots(date, start_time)")
+        .order("created_at", { ascending: false })
+        .limit(5);
+
+      // Look up all user names
+      const allUserIds = [...new Set([
+        ...(subs || []).map((s: any) => s.user_id),
+        ...(bookings || []).map((b: any) => b.user_id),
+      ].filter(Boolean))];
+
+      const { data: usersData } = await supabaseDb
+        .from("users")
+        .select("id, name, display_name, email")
+        .in("id", allUserIds);
+      const usersMap = new Map((usersData ?? []).map((u: any) => [String(u.id), u]));
+
+      const getName = (userId: string) => {
+        const u = usersMap.get(userId);
+        return u?.display_name || u?.name || u?.email || "Unknown";
+      };
+
+      const activities: any[] = [];
+
+      for (const sub of subs || []) {
+        activities.push({
+          id: `sub-${sub.id}`,
+          type: "subscription",
+          icon: sub.payment_status === "paid" ? "payment" : "pending",
+          text: `${getName(sub.user_id)} — Cleaning Plan Subscription`,
+          detail: sub.payment_status === "paid" ? formatCents(sub.total_price_cents) : "Pending",
+          date: sub.created_at,
+          href: "/admin/cleaning",
+        });
       }
 
-      return (usersData || []).map((u: any) => ({
-        ...u,
-        roles: rolesMap.get(u.id) || ["user"],
-      }));
+      for (const booking of bookings || []) {
+        const slot = (booking as any).cleaning_available_slots;
+        const dateStr = slot?.date ? format(new Date(slot.date + "T00:00:00"), "MMM d") : "";
+        activities.push({
+          id: `book-${booking.id}`,
+          type: "booking",
+          icon: "booking",
+          text: `${getName(booking.user_id)} — Cleaning Session ${dateStr}`,
+          detail: booking.status === "booked" ? "Upcoming" : booking.status,
+          date: booking.created_at,
+          href: "/admin/cleaning",
+        });
+      }
+
+      return activities
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        .slice(0, 8);
     },
   });
 
-  const pendingPayments = stats?.cleaningPendingPayments ?? 0;
-  const formatCents = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+  const STATS = [
+    { label: "Users", value: stats?.users ?? 0, icon: Users, href: "/admin/clients" },
+    { label: "Active Clients", value: stats?.activeClients ?? 0, icon: SparklesIcon, href: "/admin/cleaning" },
+    { label: "Revenue", value: formatCents(stats?.totalRevenueCents ?? 0), icon: DollarSign, href: "/admin/payments" },
+  ];
+
+  const iconColor = (type: string) => {
+    if (type === "payment") return "bg-green-500/15 text-green-500";
+    if (type === "pending") return "bg-yellow-500/15 text-yellow-500";
+    return "bg-primary/15 text-primary";
+  };
+
+  const iconComponent = (type: string) => {
+    if (type === "payment") return Zap;
+    if (type === "pending") return DollarSign;
+    return CalendarDays;
+  };
 
   return (
-    <SuperAdminLayout>
-      {/* ── Top KPIs ─────────────────────────────────────────────── */}
-      <SectionLabel>Platform</SectionLabel>
-      <div className="grid grid-cols-2 gap-space-4 md:grid-cols-4">
-        <StatTile
-          label="Revenue"
-          value={formatCents(stats?.totalRevenueCents ?? 0)}
-          icon={Zap}
-          href="/admin/payments"
-          accent
-        />
-        <StatTile
-          label="Users"
-          value={stats?.users ?? "—"}
-          icon={Users}
-        />
-        <StatTile
-          label="Active cleaning subs"
-          value={stats?.cleaningActiveSubscriptions ?? "—"}
-          icon={SparklesIcon}
-          href="/admin/cleaning"
-        />
-        <StatTile
-          label="Upcoming bookings"
-          value={stats?.cleaningUpcomingBookings ?? "—"}
-          icon={CalendarDays}
-          href="/admin/cleaning"
-        />
-      </div>
-
-      {/* ── Alerts ───────────────────────────────────────────────── */}
-      {pendingPayments > 0 && (
-        <div className="mt-space-6">
-          <SectionLabel>Needs attention</SectionLabel>
-          <Link
-            to="/admin/payments"
-            className="flex items-center justify-between rounded-radius-lg border border-warning/30 bg-warning/5 px-space-5 py-space-4 transition hover:bg-warning/10"
-          >
-            <div className="flex items-center gap-space-3">
-              <AlertCircle className="h-5 w-5 text-warning" />
-              <div>
-                <p className="font-semibold text-foreground">
-                  {pendingPayments} pending payment{pendingPayments !== 1 ? "s" : ""}
+    <SuperAdminLayout title="Overview">
+      {/* ── Stats ── */}
+      <div className="grid grid-cols-3 gap-space-4">
+        {STATS.map((stat) => (
+          <Link key={stat.label} to={stat.href}>
+            <Card className="group relative transition-colors hover:border-primary/40">
+              <CardContent className="p-space-5">
+                <div className="flex items-center gap-space-2 text-sm font-medium text-muted-foreground">
+                  <stat.icon className="h-5 w-5" />
+                  <span>{stat.label}</span>
+                  <ArrowRight className="ml-auto h-4 w-4 opacity-0 transition-opacity group-hover:opacity-60" />
+                </div>
+                <p className="mt-space-3 text-3xl font-extrabold tracking-tight text-foreground">
+                  {stat.value}
                 </p>
-                <p className="text-sm text-muted-foreground">Review unconfirmed cleaning payments</p>
-              </div>
-            </div>
-            <ArrowRight className="h-4 w-4 text-muted-foreground" />
+              </CardContent>
+            </Card>
           </Link>
-        </div>
-      )}
-
-      {/* ── Quick links ───────────────────────────────────────────── */}
-      <div className="mt-space-6">
-        <SectionLabel>Cleaning</SectionLabel>
-        <Card>
-          <CardHeader className="pb-space-3">
-            <CardTitle className="flex items-center gap-space-2">
-              <SparklesIcon className="h-5 w-5 text-primary" />
-              Cleaning service
-            </CardTitle>
-            <CardDescription>Active subscriptions, upcoming bookings, and client management.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-space-2">
-            <div className="flex gap-space-2 pt-space-1">
-              <Button asChild variant="secondary" size="sm" className="flex-1">
-                <Link to="/admin/cleaning">
-                  <CalendarDays className="h-4 w-4" />
-                  Operations
-                </Link>
-              </Button>
-              <Button asChild variant="tertiary" size="sm" className="flex-1">
-                <Link to="/admin/clients">Clients</Link>
-              </Button>
-              <Button asChild variant="tertiary" size="sm" className="flex-1">
-                <Link to="/admin/payments">Payments</Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        ))}
       </div>
 
-      {/* ── Users ─────────────────────────────────────────────────── */}
+      {/* ── Recently Log ── */}
       <div className="mt-space-8">
-        <SectionLabel>Users</SectionLabel>
         <Card>
           <CardHeader className="pb-space-3">
-            <CardTitle className="flex items-center gap-space-2">
-              <Users className="h-5 w-5 text-primary" />
-              Registered accounts
-            </CardTitle>
-            <CardDescription>All users who have signed up or authenticated on the platform.</CardDescription>
+            <CardTitle>Recently Log</CardTitle>
           </CardHeader>
           <CardContent>
-            {usersLoading ? (
-              <div className="py-space-6 text-center text-sm text-muted-foreground">Loading users…</div>
-            ) : users.length === 0 ? (
-              <div className="rounded-radius-lg bg-[hsl(var(--app-control))] px-space-4 py-space-5 text-sm text-muted-foreground text-center">
-                No users found.
-              </div>
+            {recentActivity.length === 0 ? (
+              <p className="py-space-6 text-center text-sm text-muted-foreground">No recent activity</p>
             ) : (
-              <div className="divide-y divide-[hsl(var(--app-divider))]">
-                {(users as any[]).map((user) => {
-                  const displayName = user.display_name || user.name || user.email || "User";
-                  const roles: string[] = user.roles?.length ? user.roles : ["USER"];
-                  const joinedDate = formatDate(user.created_at);
-
+              <div className="divide-y divide-border">
+                {recentActivity.map((activity: any) => {
+                  const Icon = iconComponent(activity.icon);
                   return (
-                    <div
-                      key={user.id}
-                      className="flex items-center gap-space-4 py-space-3"
+                    <Link
+                      key={activity.id}
+                      to={activity.href}
+                      className="flex items-center gap-space-4 py-space-3 transition-colors hover:bg-muted/30 -mx-space-4 px-space-4 rounded-radius-md"
                     >
-                      {/* Avatar */}
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-radius-full bg-primary text-base font-bold text-primary-foreground">
-                        {displayName.slice(0, 1).toUpperCase()}
+                      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-radius-full ${iconColor(activity.icon)}`}>
+                        <Icon className="h-4 w-4" />
                       </div>
-
-                      {/* Info */}
                       <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-x-space-2 gap-y-space-1">
-                          <p className="truncate font-semibold text-foreground">{displayName}</p>
-                          {roles.map((role) => (
-                            <Badge
-                              key={role}
-                              variant={role === "SUPER_ADMIN" ? "default" : "secondary"}
-                              className="text-xs"
-                            >
-                              {formatRole(role)}
-                            </Badge>
-                          ))}
-                        </div>
-                        <p className="truncate text-sm text-muted-foreground">{user.email || "No email"}</p>
-                      </div>
-
-                      {/* Meta */}
-                      <div className="hidden shrink-0 text-right sm:block">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                          {String(user.auth_provider || "EMAIL").toUpperCase()}
+                        <p className="truncate text-sm font-semibold text-foreground">{activity.text}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {format(new Date(activity.date), "MMM d, yyyy · h:mm a")}
                         </p>
-                        {joinedDate && (
-                          <p className="text-xs text-muted-foreground">{joinedDate}</p>
-                        )}
                       </div>
-                    </div>
+                      <Badge variant={activity.icon === "payment" ? "default" : "secondary"} className="shrink-0 text-xs">
+                        {activity.detail}
+                      </Badge>
+                    </Link>
                   );
                 })}
               </div>
             )}
           </CardContent>
         </Card>
-      </div>
-
-      {/* ── Quick actions ─────────────────────────────────────────── */}
-      <div className="mt-space-8">
-        <SectionLabel>Quick actions</SectionLabel>
-        <div className="flex flex-wrap gap-space-3">
-          <Button asChild>
-            <Link to="/admin/restaurants">
-              <Store className="h-4 w-4" />
-              Add restaurant
-            </Link>
-          </Button>
-          <Button asChild variant="secondary">
-            <Link to="/admin/payments">
-              <Zap className="h-4 w-4" />
-              Test payment
-            </Link>
-          </Button>
-          <Button asChild variant="secondary">
-            <Link to="/admin/cleaning">
-              <CalendarDays className="h-4 w-4" />
-              Cleaning slots
-            </Link>
-          </Button>
-          <Button asChild variant="tertiary">
-            <Link to="/admin/settings">
-              <Settings className="h-4 w-4" />
-              Platform settings
-            </Link>
-          </Button>
-        </div>
       </div>
     </SuperAdminLayout>
   );
