@@ -273,11 +273,12 @@ const CleaningManagement = () => {
     queryFn: async () => {
       const { data: subs, error } = await supabaseDb
         .from("cleaning_subscriptions")
-        .select("*, cleaning_packages(name, cleanings_per_month)")
+        .select("*")
         .order("created_at", { ascending: false });
       if (error) throw error;
       if (!subs?.length) return [];
 
+      // Look up users
       const userIds = [...new Set(subs.map((s: any) => s.user_id).filter(Boolean))];
       const { data: usersData } = await supabaseDb
         .from("users")
@@ -285,9 +286,18 @@ const CleaningManagement = () => {
         .in("id", userIds);
       const usersMap = new Map((usersData ?? []).map((u: any) => [String(u.id), u]));
 
+      // Look up packages
+      const pkgIds = [...new Set(subs.map((s: any) => s.package_id).filter(Boolean))];
+      const { data: pkgsData } = await supabaseDb
+        .from("cleaning_packages")
+        .select("id, name, cleanings_per_month")
+        .in("id", pkgIds);
+      const pkgsMap = new Map((pkgsData ?? []).map((p: any) => [p.id, p]));
+
       return subs.map((s: any) => ({
         ...s,
         users: usersMap.get(String(s.user_id)) || null,
+        cleaning_packages: pkgsMap.get(s.package_id) || null,
       }));
     },
   });
