@@ -472,6 +472,34 @@ const CleaningManagement = () => {
     onError: () => toast.error("Failed to approve payment"),
   });
 
+  const createClientMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabaseDb
+        .from("cleaning_clients")
+        .insert({
+          company_name: form.company_name.trim(),
+          contact_person: form.contact_person || null,
+          email: form.email || null,
+          phone: form.phone || null,
+          location: form.location.trim(),
+          service_type: form.service_type || null,
+          notes: form.notes || null,
+          status: "active",
+          client_type: "custom_cleaning_client",
+          visibility: "admin_only",
+          is_private: true,
+        });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Client created");
+      invalidateCleaning();
+      setCreateOpen(false);
+      setForm(initialForm);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const updateSubMutation = useMutation({
     mutationFn: async (updates: { id: string; [key: string]: any }) => {
       const { id, ...fields } = updates;
@@ -940,9 +968,9 @@ const CleaningManagement = () => {
                     Private admin-only cleaning clients. These records never feed the public pricing flow.
                   </p>
                 </div>
-                <Button onClick={openCreatePlanModal}>
+                <Button onClick={() => setCreateOpen(true)}>
                   <Plus className="h-4 w-4" />
-                  Create Custom Plan
+                  Create Custom Client
                 </Button>
               </CardHeader>
               <CardContent>
@@ -1387,16 +1415,64 @@ const CleaningManagement = () => {
         </TabsContent>
       </Tabs>
 
-      <Dialog open={createOpen} onOpenChange={(open) => { setCreateOpen(open); if (!open) setCreateStep(1); }}>
-        <DialogContent className="flex max-h-[92vh] w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-xl md:max-w-2xl">
-          {/* ── Sticky header ── */}
-          <div className="shrink-0 border-b border-[hsl(var(--app-divider))] px-space-6 pb-space-4 pt-space-6">
-            <DialogHeader className="mb-space-5">
-              <DialogTitle className="text-xl font-extrabold">New Cleaning Plan</DialogTitle>
-              <DialogDescription className="text-caption">
-                {createStep === 1 && "Step 1 of 4 — Who is the client?"}
-                {createStep === 2 && "Step 2 of 4 — What service and pricing?"}
-                {createStep === 3 && "Step 3 of 4 — When does it happen?"}
+      <Dialog open={createOpen} onOpenChange={(open) => { setCreateOpen(open); if (!open) { setForm(initialForm); } }}>
+        <DialogContent className="max-h-[92vh] w-full overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-extrabold">New Custom Client</DialogTitle>
+            <DialogDescription>Add a private cleaning client for admin-only management.</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-space-4 pt-space-2">
+            <div>
+              <Label>Company / client name *</Label>
+              <Input value={form.company_name} onChange={(e) => setForm({ ...form, company_name: e.target.value })} />
+            </div>
+            <div className="grid grid-cols-2 gap-space-4">
+              <div>
+                <Label>Contact person</Label>
+                <Input value={form.contact_person} onChange={(e) => setForm({ ...form, contact_person: e.target.value })} />
+              </div>
+              <div>
+                <Label>Service type</Label>
+                <Input value={form.service_type} onChange={(e) => setForm({ ...form, service_type: e.target.value })} placeholder="e.g. Office, Cowork" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-space-4">
+              <div>
+                <Label>Email</Label>
+                <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+              </div>
+              <div>
+                <Label>Phone / WhatsApp</Label>
+                <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+              </div>
+            </div>
+            <div>
+              <Label>Location / address *</Label>
+              <Input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} />
+            </div>
+            <div>
+              <Label>Client notes</Label>
+              <Textarea value={form.notes} onChange={(e: any) => setForm({ ...form, notes: e.target.value })} placeholder="Access instructions, preferences, etc." />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-space-3 pt-space-4">
+            <Button variant="secondary" onClick={() => setCreateOpen(false)}>Cancel</Button>
+            <Button
+              disabled={!form.company_name.trim() || !form.location.trim()}
+              loading={createClientMutation.isPending}
+              onClick={() => createClientMutation.mutate()}
+            >
+              <Plus className="h-4 w-4" />
+              Create Client
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Legacy wizard removed */}
+      {false && <DialogDescription>
                 {createStep === 4 && "Step 4 of 4 — Review and confirm"}
               </DialogDescription>
             </DialogHeader>
@@ -1735,8 +1811,7 @@ const CleaningManagement = () => {
               )}
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        </DialogDescription>}
 
       <Dialog
         open={clientEditOpen}
