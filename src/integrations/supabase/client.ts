@@ -776,111 +776,31 @@ class OwnedQueryBuilder {
     if (this.table === "cleaning_subscriptions") {
       if (action === "insert") {
         const input = Array.isArray(values) ? values[0] : values;
-        const packageDetails = cleaningPackageForId(input.package_id);
-        const billingPeriodMonths = normalizeBillingMonths(input.billing_period_months);
-        const monthlyPriceCents =
-          packageDetails.price_per_cleaning_cents * packageDetails.cleanings_per_month;
-        const totalPriceCents = monthlyPriceCents * billingPeriodMonths;
-        const today = toDateOnly(formatDate(new Date())) ?? new Date();
-
-        // Check for existing paid subscription to renew
-        const { data: existingSubs } = await db
-          .from("cleaning_subscriptions")
-          .select("*")
-          .eq("user_id", input.user_id)
-          .eq("package_id", input.package_id)
-          .eq("payment_status", "paid");
-
-        const paidExisting = (existingSubs || [])
-          .sort((a: any, b: any) => {
-            const aPaid = toDateOnly(a.paid_until || a.end_date)?.getTime() ?? 0;
-            const bPaid = toDateOnly(b.paid_until || b.end_date)?.getTime() ?? 0;
-            return bPaid - aPaid;
-          })[0];
-
-        const existingPaidUntil = paidExisting
-          ? toDateOnly(paidExisting.paid_until || paidExisting.end_date)
-          : null;
-
-        const shouldRenew =
-          input.payment_status === "paid" &&
-          paidExisting &&
-          paidExisting.subscription_status === "active" &&
-          paidExisting.recurring_day_of_week != null &&
-          paidExisting.recurring_time &&
-          existingPaidUntil &&
-          existingPaidUntil >= today;
-
-        if (shouldRenew) {
-          const renewedPaidUntil = addMonths(existingPaidUntil!, billingPeriodMonths);
-          const previousMonths = Number(paidExisting.billing_period_months) || 1;
-          const previousTotal = Number(paidExisting.total_price_cents) || monthlyPriceCents * previousMonths;
-          const renewedNormalized = normalizeCleaningSubscription({
-            ...paidExisting,
-            updated_at: now,
-            end_date: formatDate(renewedPaidUntil),
-            service_end_date: formatDate(renewedPaidUntil),
-            paid_until: formatDate(renewedPaidUntil),
-            billing_period_months: previousMonths + billingPeriodMonths,
-            monthly_price_cents: monthlyPriceCents,
-            total_price_cents: previousTotal + totalPriceCents,
-            cleanings_remaining:
-              Number(paidExisting.cleanings_remaining || 0) +
-              packageDetails.cleanings_per_month * billingPeriodMonths,
-            payment_status: "paid",
-            subscription_status: "active",
-            payment_method: input.payment_method,
-            payment_reference: input.payment_reference,
-            is_active: true,
-          });
-          const { cleaning_packages: _cp2, users: _u2, ...renewed } = renewedNormalized;
-          const { data, error } = await db
-            .from("cleaning_subscriptions")
-            .update(renewed)
-            .eq("id", paidExisting.id)
-            .select()
-            .single();
-          return { data: data ?? null, error: error ?? null };
-        }
-
-        const serviceStart = input.service_start_date || input.start_date || formatDate(today);
-        const serviceEnd =
-          input.service_end_date ||
-          input.end_date ||
-          formatDate(addMonths(today, billingPeriodMonths));
-
-        const normalized = normalizeCleaningSubscription({
-          ...input,
-          created_at: now,
-          updated_at: now,
-          billing_period_months: billingPeriodMonths,
-          monthly_price_cents: monthlyPriceCents,
-          total_price_cents: totalPriceCents,
-          service_start_date: serviceStart,
-          service_end_date: serviceEnd,
-          paid_until: input.paid_until || serviceEnd,
-          cleanings_remaining:
-            Number(input.cleanings_remaining) ||
-            packageDetails.cleanings_per_month * billingPeriodMonths,
-          subscription_status:
-            input.subscription_status ||
-            (input.payment_status === "paid" ? "active" : "pending"),
-          is_active:
-            input.is_active ??
-            (input.payment_status === "paid" && input.subscription_status === "active"),
-        });
-
-        const { cleaning_packages: _cp, users: _u, ...newSub } = normalized;
-
+        const row = {
+          user_id: input.user_id,
+          package_id: input.package_id,
+          start_date: input.start_date,
+          end_date: input.end_date,
+          service_start_date: input.service_start_date || input.start_date,
+          service_end_date: input.service_end_date || input.end_date,
+          paid_until: input.paid_until || input.end_date,
+          billing_period_months: input.billing_period_months || 1,
+          monthly_price_cents: input.monthly_price_cents || 0,
+          total_price_cents: input.total_price_cents || 0,
+          cleanings_remaining: input.cleanings_remaining || 0,
+          payment_status: input.payment_status || "pending",
+          subscription_status: input.subscription_status || "pending_payment",
+          payment_method: input.payment_method || null,
+          payment_reference: input.payment_reference || null,
+          apartment_note: input.apartment_note || null,
+          is_active: input.is_active ?? false,
+        };
         const { data, error } = await db
           .from("cleaning_subscriptions")
-          .insert(newSub)
+          .insert(row)
           .select()
           .single();
-        return {
-          data: data ? normalizeCleaningSubscription(data) : null,
-          error: error ?? null,
-        };
+        return { data: data ?? null, error: error ?? null };
       }
 
       if (action === "update") {
@@ -1108,10 +1028,13 @@ class OwnedQueryBuilder {
       };
     }
 
-    // ── CLEANING_PACKAGES (from NestJS API) ──
+    // ── CLEANING_PACKAGES (from Supabase DB) ──
     if (this.table === "cleaning_packages") {
-      const result = await api("/cleaning/packages");
-      return { ...result, data: (result.data || []).map(toSnakeCleaningPackage) };
+      let q = db.from("cleaning_packages").select("*");
+      q = applyDbFilters(q, this.filters);
+      q = q.order("price_per_cleaning_cents", { ascending: true });
+      const { data, error } = await q;
+      return { data: data ?? [], error: error ?? null };
     }
 
     // ── CLEANING_AVAILABLE_SLOTS ──
@@ -1127,19 +1050,11 @@ class OwnedQueryBuilder {
 
     // ── CLEANING_SUBSCRIPTIONS ──
     if (this.table === "cleaning_subscriptions") {
-      let q = db.from("cleaning_subscriptions").select("*");
+      let q = db.from("cleaning_subscriptions").select(this.selected || "*");
       q = applyDbFilters(q, this.filters);
       q = q.order("created_at", { ascending: false });
       const { data, error } = await q;
-      if (error) return { data: [], error };
-      const user = getOwnedUserDetails();
-      return {
-        data: (data || []).map((s: any) => ({
-          ...normalizeCleaningSubscription(s),
-          users: user,
-        })),
-        error: null,
-      };
+      return { data: data ?? [], error: error ?? null };
     }
 
     // ── CLEANING_BOOKINGS (with embedded relations) ──
