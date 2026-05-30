@@ -1471,8 +1471,8 @@ const CleaningManagement = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Legacy wizard removed */}
-      {false && <DialogDescription>
+      {/* Legacy wizard block start — delete to matching end */}
+      {false && <span>
                 {createStep === 4 && "Step 4 of 4 — Review and confirm"}
               </DialogDescription>
             </DialogHeader>
@@ -1811,7 +1811,7 @@ const CleaningManagement = () => {
               )}
             </div>
           </div>
-        </DialogDescription>}
+        </span>}
 
       <Dialog
         open={clientEditOpen}
