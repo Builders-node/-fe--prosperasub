@@ -133,13 +133,26 @@ const MySubscriptions = () => {
     queryKey: ["my-cleaning-subscriptions-all", userUuid],
     queryFn: async () => {
       if (!userUuid) return [];
-      const { data, error } = await supabaseDb
+      const { data: subs, error } = await supabaseDb
         .from("cleaning_subscriptions")
-        .select("*, cleaning_packages(name, cleanings_per_month)")
+        .select("*")
         .eq("user_id", userUuid)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data || [];
+      if (!subs?.length) return [];
+
+      // Manual join for packages (no FK constraint)
+      const pkgIds = [...new Set(subs.map((s: any) => s.package_id).filter(Boolean))];
+      const { data: pkgs } = await supabaseDb
+        .from("cleaning_packages")
+        .select("id, name, cleanings_per_month")
+        .in("id", pkgIds);
+      const pkgMap = new Map((pkgs ?? []).map((p: any) => [p.id, p]));
+
+      return subs.map((s: any) => ({
+        ...s,
+        cleaning_packages: pkgMap.get(s.package_id) || null,
+      }));
     },
     enabled: isAuthenticated && !!userUuid,
   });
