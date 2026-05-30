@@ -4,7 +4,6 @@ import { useAuth, AppRole } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { useUserMode } from "@/contexts/UserModeContext";
 import { Loader2 } from "lucide-react";
-import Unauthorized from "@/pages/Unauthorized";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -58,7 +57,7 @@ const ProtectedRoute = ({ children, allowedRoles, requiredRoles }: ProtectedRout
   if (!isUserMode && effectiveRoles && effectiveRoles.length > 0) {
     const hasRequiredRole = effectiveRoles.some((role) => roles.includes(role));
     if (!hasRequiredRole) {
-      return <Unauthorized requiredRoles={effectiveRoles} />;
+      return <Navigate to="/cleaning" replace />;
     }
   }
 
