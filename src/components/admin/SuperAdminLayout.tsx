@@ -48,7 +48,7 @@ const MENU_SECTIONS = [
         icon: LayoutDashboard,
       },
       { path: adminRoutes.superAdminPayments, label: "Finance", icon: Zap },
-      { path: adminRoutes.superAdminClients, label: "Users", icon: Users },
+      { path: adminRoutes.superAdminUsers, label: "Users", icon: Users },
     ],
   },
   {
