@@ -898,7 +898,7 @@ const CleaningManagement = () => {
         </TabsList>
 
         <TabsContent value="custom-clients">
-          <div className="grid gap-space-5 xl:grid-cols-[minmax(0,0.95fr)_minmax(420px,0.7fr)]">
+          <div>
             <Card>
               <CardHeader className="flex flex-col gap-space-4 md:flex-row md:items-center md:justify-between">
                 <div>
@@ -983,129 +983,6 @@ const CleaningManagement = () => {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Client Detail</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {!selectedClient ? (
-                  <EmptyState title="Select a client" description="Client plan details will appear here." compact />
-                ) : (
-                  <div className="space-y-space-5">
-                    <section className="rounded-radius-lg bg-secondary p-space-4">
-                      <div className="flex items-start justify-between gap-space-4">
-                        <div>
-                          <h3 className="text-panel-title">{selectedClient.company_name}</h3>
-                          <p className="mt-space-1 text-body text-muted-foreground">{selectedClient.contact_person || "No contact person"}</p>
-                        </div>
-                        <div className="flex items-center gap-space-2">
-                          <Badge variant={statusColor(selectedClient.status) as any}>{selectedClient.status}</Badge>
-                          <Button variant="tertiary" size="iconSm" onClick={() => openClientEditModal(selectedClient)} aria-label="Edit selected client">
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                      <div className="mt-space-4 grid gap-space-3 text-body text-muted-foreground">
-                        <p className="flex items-center gap-space-2"><MapPin className="h-4 w-4" />{selectedClient.location}</p>
-                        <p>{selectedClient.email || "No email"} · {selectedClient.phone || "No phone"}</p>
-                        <p>{selectedClient.notes || "No client notes"}</p>
-                        <p className="rounded-radius-md bg-background p-space-3">
-                          <strong className="text-foreground">Internal:</strong> {selectedClient.internal_admin_notes || "No internal notes"}
-                        </p>
-                      </div>
-                    </section>
-
-                    <section>
-                      <h4 className="mb-space-3 text-card-title">Private Plans</h4>
-                      <div className="space-y-space-3">
-                        {selectedClientPlans.map((plan: any) => (
-                          <div key={plan.id} className="rounded-radius-lg bg-secondary p-space-4">
-                            <div className="flex items-start justify-between gap-space-4">
-                              <div>
-                                <p className="text-card-title">{plan.plan_name}</p>
-                                <p className="mt-space-1 text-body text-muted-foreground">
-                                  {formatUSD(plan.custom_price_cents)} / {plan.billing_type}
-                                </p>
-                              </div>
-                              <Badge variant="secondary">{plan.visibility}</Badge>
-                            </div>
-                            <p className="mt-space-3 text-body text-muted-foreground">
-                              {formatServiceFrequency(plan.service_frequency)} · Estimated monthly {formatUSD(plan.estimated_monthly_total_cents)}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    </section>
-
-                    <section>
-                      <h4 className="mb-space-3 text-card-title">Recurring Schedule</h4>
-                      <div className="space-y-space-3">
-                        {selectedClientSchedules.map((schedule: any) => (
-                          <div key={schedule.id} className="rounded-radius-lg bg-secondary p-space-4">
-                            <div className="flex items-start justify-between gap-space-3">
-                              <div>
-                                <p className="font-bold">
-                                  {schedule.preferred_start_time} - {schedule.preferred_end_time}
-                                </p>
-                                <p className="mt-space-1 text-body text-muted-foreground">
-                                  {(schedule.days_of_week || []).join(", ")} · {schedule.assigned_cleaner || "Cleaner not assigned"}
-                                </p>
-                              </div>
-                              <Badge variant={statusColor(schedule.status) as any}>{schedule.status}</Badge>
-                            </div>
-                            <div className="mt-space-4 flex flex-wrap gap-space-2">
-                              <Button size="sm" variant="secondary" onClick={() => updateScheduleMutation.mutate({ id: schedule.id, status: "paused" })}>
-                                Pause
-                              </Button>
-                              <Button size="sm" variant="secondary" onClick={() => updateScheduleMutation.mutate({ id: schedule.id, status: "active" })}>
-                                Resume
-                              </Button>
-                              <Button size="sm" variant="secondary" onClick={() => updateScheduleMutation.mutate({ id: schedule.id, status: "cancelled" })}>
-                                Cancel Future
-                              </Button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </section>
-
-                    <section>
-                      <h4 className="mb-space-3 text-card-title">Generated Bookings</h4>
-                      <div className="max-h-[360px] space-y-space-3 overflow-auto pr-space-2">
-                        {selectedClientBookings.map((booking: any) => (
-                          <div key={booking.id} className="rounded-radius-lg bg-secondary p-space-4">
-                            <div className="flex items-start justify-between gap-space-3">
-                              <div>
-                                <p className="font-bold">
-                                  {booking.cleaning_available_slots?.date
-                                    ? format(new Date(`${booking.cleaning_available_slots.date}T00:00:00`), "EEE, MMM d")
-                                    : "No date"}
-                                </p>
-                                <p className="text-body text-muted-foreground">
-                                  {booking.cleaning_available_slots?.start_time?.slice(0, 5)} - {booking.cleaning_available_slots?.end_time?.slice(0, 5)}
-                                </p>
-                              </div>
-                              <Badge variant={statusColor(booking.status) as any}>{booking.status}</Badge>
-                            </div>
-                            {booking.status !== "completed" && (
-                              <Button
-                                className="mt-space-3 w-full"
-                                size="sm"
-                                variant="secondary"
-                                onClick={() => setCompletionBookingId(booking.id)}
-                              >
-                                <CheckCircle2 className="h-4 w-4" />
-                                Complete session
-                              </Button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </section>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
           </div>
         </TabsContent>
 
