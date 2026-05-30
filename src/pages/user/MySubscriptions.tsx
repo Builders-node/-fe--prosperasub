@@ -357,13 +357,6 @@ const MySubscriptions = () => {
                             </p>
                           </div>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => navigate(`/cleaning/book?subscriptionId=${sub.id}`)}
-                          className="shrink-0 rounded-full border border-border bg-background px-4 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-muted"
-                        >
-                          Edit
-                        </button>
                       </div>
                     ))}
                   </section>
