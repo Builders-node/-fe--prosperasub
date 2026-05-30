@@ -10,8 +10,9 @@ import { UserLayout } from "@/components/layout/UserLayout";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUserUuid } from "@/hooks/useUserUuid";
 import { cn } from "@/lib/utils";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -192,23 +193,24 @@ const CleaningBook = () => {
   const [notes,          setNotes]          = useState("");
   const [notesError,     setNotesError]     = useState("");
   const { userData, isAuthenticated } = useAuth();
+  const userUuid = useUserUuid();
 
-  // ── Queries (unchanged) ────────────────────────────────────────────────────
+  // ── Queries ────────────────────────────────────────────────────────────────
   const { data: subscriptions, isLoading: subscriptionsLoading } = useQuery({
-    queryKey: ["my-cleaning-subscriptions-schedule", userData?.id],
+    queryKey: ["my-cleaning-subscriptions-schedule", userUuid],
     queryFn: async () => {
-      if (!userData?.id) return [];
-      const { data, error } = await supabase
+      if (!userUuid) return [];
+      const { data, error } = await supabaseDb
         .from("cleaning_subscriptions")
         .select("*, cleaning_packages(name, cleanings_per_month)")
-        .eq("user_id", userData.id)
+        .eq("user_id", userUuid)
         .eq("payment_status", "paid")
         .in("subscription_status", ["pending_schedule", "active"])
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data || [];
     },
-    enabled: isAuthenticated && !!userData?.id,
+    enabled: isAuthenticated && !!userUuid,
   });
 
   const { data: slots, isLoading: slotsLoading } = useQuery({

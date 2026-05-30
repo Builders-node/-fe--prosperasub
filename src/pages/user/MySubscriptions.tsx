@@ -14,7 +14,8 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, supabaseDb } from "@/integrations/supabase/client";
+import { useUserUuid } from "@/hooks/useUserUuid";
 import { MySubscriptionCard } from "@/components/MySubscriptionCard";
 import { HowItWorksSheet } from "@/components/HowItWorksSheet";
 import { MealDeadlineBanner } from "@/components/CutoffIndicator";
@@ -184,6 +185,7 @@ function CleaningBookingRow({
 
 const MySubscriptions = () => {
   const { userData, isAuthenticated, lightningPubkey, isLoading: authLoading, isSuperAdmin, isRestaurantAdmin } = useAuth();
+  const userUuid = useUserUuid();
   const { openAuthModal } = useAuthModal();
   const queryClient = useQueryClient();
   const navigate    = useNavigate();
@@ -220,33 +222,33 @@ const MySubscriptions = () => {
   });
 
   const { data: cleaningSubscriptions, isLoading: cleaningSubsLoading } = useQuery({
-    queryKey: ["my-cleaning-subscriptions-all", userData?.id],
+    queryKey: ["my-cleaning-subscriptions-all", userUuid],
     queryFn: async () => {
-      if (!userData?.id) return [];
-      const { data, error } = await supabase
+      if (!userUuid) return [];
+      const { data, error } = await supabaseDb
         .from("cleaning_subscriptions")
         .select("*, cleaning_packages(name, cleanings_per_month)")
-        .eq("user_id", userData.id)
+        .eq("user_id", userUuid)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data || [];
     },
-    enabled: isAuthenticated && !!userData?.id,
+    enabled: isAuthenticated && !!userUuid,
   });
 
   const { data: cleaningBookings, isLoading: cleaningBookingsLoading } = useQuery({
-    queryKey: ["my-cleaning-bookings", userData?.id],
+    queryKey: ["my-cleaning-bookings", userUuid],
     queryFn: async () => {
-      if (!userData?.id) return [];
-      const { data, error } = await supabase
+      if (!userUuid) return [];
+      const { data, error } = await supabaseDb
         .from("cleaning_bookings")
         .select("*, cleaning_available_slots(date, start_time, end_time)")
-        .eq("user_id", userData.id)
+        .eq("user_id", userUuid)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data || [];
     },
-    enabled: isAuthenticated && !!userData?.id,
+    enabled: isAuthenticated && !!userUuid,
   });
 
   const { data: globalSettings } = useQuery({
