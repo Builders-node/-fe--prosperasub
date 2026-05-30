@@ -2,58 +2,34 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { supabaseDb } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { formatUSD } from "@/lib/pricing";
 
 const AdminSubscriptions = () => {
-  const { userData } = useAuth();
-
   const { data: subscriptions, isLoading } = useQuery({
-    queryKey: ['admin-subscriptions', userData?.lightning_pubkey],
+    queryKey: ['admin-subscriptions'],
     queryFn: async () => {
-      const pubkey = userData?.lightning_pubkey;
-      if (pubkey) {
-        await supabase.rpc("set_lightning_session", { p_pubkey: pubkey });
-      }
-
-      const { data, error } = await supabase
+      const { data, error } = await supabaseDb
         .from('subscriptions')
-        .select(`
-          id,
-          start_date,
-          end_date,
-          duration_weeks,
-          total_price_sats,
-          payment_status,
-          is_active,
-          created_at,
-          user_id,
-          users!subscriptions_user_id_fkey (
-            id,
-            display_name,
-            lightning_pubkey,
-            email
-          ),
-          restaurants!subscriptions_restaurant_id_fkey (
-            id,
-            name
-          ),
-          subscription_plans!subscriptions_plan_id_fkey (
-            id,
-            name
-          )
-        `)
+        .select('*, restaurants(name), subscription_plans(name)')
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error("Error fetching subscriptions:", error);
-        return [];
-      }
+      if (error) return [];
 
-      return data || [];
+      // Look up user names
+      const userIds = [...new Set((data || []).map((s: any) => s.user_id).filter(Boolean))];
+      const { data: usersData } = await supabaseDb
+        .from("users")
+        .select("id, name, display_name, email")
+        .in("id", userIds);
+      const usersMap = new Map((usersData ?? []).map((u: any) => [String(u.id), u]));
+
+      return (data || []).map((s: any) => ({
+        ...s,
+        users: usersMap.get(String(s.user_id)) || null,
+      }));
     },
   });
 

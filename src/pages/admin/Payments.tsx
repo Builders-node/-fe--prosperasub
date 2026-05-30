@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, supabaseDb } from "@/integrations/supabase/client";
 
 type TestInvoice = {
   payment_hash: string;
@@ -67,18 +67,19 @@ const AdminPayments = () => {
   const { data: paymentStats } = useQuery({
     queryKey: ["admin-payment-stats"],
     queryFn: async () => {
-      const [pendingRes, paidRes, revenueRes] = await Promise.all([
-        supabase.from("subscriptions").select("id", { count: "exact", head: true }).eq("payment_status", "pending"),
-        supabase.from("subscriptions").select("id", { count: "exact", head: true }).eq("payment_status", "paid"),
-        supabase.from("subscriptions").select("total_price_sats").eq("payment_status", "paid"),
-      ]);
+      const { data: subs } = await supabaseDb
+        .from("cleaning_subscriptions")
+        .select("payment_status, total_price_cents");
 
-      const revenue = (revenueRes.data || []).reduce((sum, item) => sum + (item.total_price_sats || 0), 0);
+      const all = subs || [];
+      const paid = all.filter((s: any) => s.payment_status === "paid");
+      const pending = all.filter((s: any) => s.payment_status === "pending");
+      const revenue = paid.reduce((sum: number, s: any) => sum + (s.total_price_cents || 0), 0);
 
       return {
-        pending: pendingRes.count || 0,
-        paid: paidRes.count || 0,
-        revenue,
+        pending: pending.length,
+        paid: paid.length,
+        revenueCents: revenue,
       };
     },
   });
@@ -214,7 +215,7 @@ const AdminPayments = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-section-title text-primary">{paymentStats?.revenue ?? 0} sats</div>
+            <div className="text-section-title text-primary">${((paymentStats?.revenueCents ?? 0) / 100).toFixed(2)}</div>
           </CardContent>
         </Card>
       </section>

@@ -12,7 +12,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, supabaseDb } from "@/integrations/supabase/client";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -98,41 +98,29 @@ const AdminDashboard = () => {
       const [
         usersRes,
         restaurantsRes,
-        plansRes,
-        activeSubsRes,
-        pendingSubsRes,
-        revenueRes,
         cleaningSubsRes,
         cleaningBookingsRes,
-        cleaningSlotsRes,
+        cleaningPaidRes,
       ] = await Promise.all([
-        supabase.from("users").select("id", { count: "exact", head: true }),
-        supabase.from("restaurants").select("id, is_active", { count: "exact" }),
-        supabase.from("subscription_plans").select("id, is_active", { count: "exact" }),
-        supabase.from("subscriptions").select("id", { count: "exact", head: true }).eq("is_active", true).eq("payment_status", "paid"),
-        supabase.from("subscriptions").select("id", { count: "exact", head: true }).eq("payment_status", "pending"),
-        supabase.from("subscriptions").select("total_price_sats").eq("payment_status", "paid"),
-        supabase.from("cleaning_subscriptions").select("id", { count: "exact", head: true }).eq("is_active", true),
-        supabase.from("cleaning_bookings").select("id", { count: "exact", head: true }).eq("status", "booked"),
-        supabase.from("cleaning_available_slots").select("id", { count: "exact", head: true }),
+        supabaseDb.from("users").select("id", { count: "exact", head: true }),
+        supabaseDb.from("restaurants").select("id, is_active"),
+        supabaseDb.from("cleaning_subscriptions").select("id, payment_status"),
+        supabaseDb.from("cleaning_bookings").select("id").eq("status", "booked"),
+        supabaseDb.from("cleaning_subscriptions").select("total_price_cents").eq("payment_status", "paid"),
       ]);
 
       const restaurants = restaurantsRes.data || [];
-      const plans = plansRes.data || [];
-      const revenue = (revenueRes.data || []).reduce((sum, s) => sum + (s.total_price_sats || 0), 0);
+      const cleaningSubs = cleaningSubsRes.data || [];
+      const revenue = (cleaningPaidRes.data || []).reduce((sum: number, s: any) => sum + (s.total_price_cents || 0), 0);
 
       return {
         users: usersRes.count || 0,
-        restaurants: restaurantsRes.count || 0,
-        activeRestaurants: restaurants.filter((r) => r.is_active).length,
-        plans: plansRes.count || 0,
-        activePlans: plans.filter((p) => p.is_active).length,
-        activeSubscriptions: activeSubsRes.count || 0,
-        pendingPayments: pendingSubsRes.count || 0,
-        totalRevenueSats: revenue,
-        cleaningActiveSubscriptions: cleaningSubsRes.count || 0,
-        cleaningUpcomingBookings: cleaningBookingsRes.count || 0,
-        cleaningAvailableSlots: cleaningSlotsRes.count || 0,
+        restaurants: restaurants.length,
+        activeRestaurants: restaurants.filter((r: any) => r.is_active).length,
+        cleaningActiveSubscriptions: cleaningSubs.filter((s: any) => s.payment_status === "paid").length,
+        cleaningPendingPayments: cleaningSubs.filter((s: any) => s.payment_status === "pending").length,
+        cleaningUpcomingBookings: cleaningBookingsRes.data?.length || 0,
+        totalRevenueCents: revenue,
       };
     },
   });
@@ -140,16 +128,30 @@ const AdminDashboard = () => {
   const { data: users = [], isLoading: usersLoading } = useQuery({
     queryKey: ["super-admin-users"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: usersData, error } = await supabaseDb
         .from("users")
-        .select("id, email, name, display_name, auth_provider, avatar_url, roles, created_at, last_login_at");
+        .select("id, email, name, display_name, auth_provider, avatar_url, created_at, last_login_at")
+        .order("created_at", { ascending: false });
       if (error) throw error;
-      return data || [];
+
+      // Fetch roles separately
+      const { data: rolesData } = await supabaseDb.from("user_roles").select("user_id, role");
+      const rolesMap = new Map<string, string[]>();
+      for (const r of rolesData || []) {
+        const existing = rolesMap.get(r.user_id) || [];
+        existing.push(r.role);
+        rolesMap.set(r.user_id, existing);
+      }
+
+      return (usersData || []).map((u: any) => ({
+        ...u,
+        roles: rolesMap.get(u.id) || ["user"],
+      }));
     },
   });
 
-  const pendingPayments = stats?.pendingPayments ?? 0;
-  const inactiveRestaurants = (stats?.restaurants ?? 0) - (stats?.activeRestaurants ?? 0);
+  const pendingPayments = stats?.cleaningPendingPayments ?? 0;
+  const formatCents = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 
   return (
     <SuperAdminLayout>
@@ -157,152 +159,81 @@ const AdminDashboard = () => {
       <SectionLabel>Platform</SectionLabel>
       <div className="grid grid-cols-2 gap-space-4 md:grid-cols-4">
         <StatTile
-          label="Total revenue"
-          value={formatSats(stats?.totalRevenueSats ?? 0)}
+          label="Revenue"
+          value={formatCents(stats?.totalRevenueCents ?? 0)}
           icon={Zap}
           href="/admin/payments"
           accent
         />
         <StatTile
-          label="Registered users"
+          label="Users"
           value={stats?.users ?? "—"}
           icon={Users}
         />
         <StatTile
-          label="Active food subs"
-          value={stats?.activeSubscriptions ?? "—"}
-          icon={CreditCard}
-          href="/admin/subscriptions"
+          label="Active cleaning subs"
+          value={stats?.cleaningActiveSubscriptions ?? "—"}
+          icon={SparklesIcon}
+          href="/admin/cleaning"
         />
         <StatTile
-          label="Pending payments"
-          value={pendingPayments}
-          sub={pendingPayments > 0 ? "Needs review" : "All clear"}
-          icon={AlertCircle}
-          href="/admin/payments"
+          label="Upcoming bookings"
+          value={stats?.cleaningUpcomingBookings ?? "—"}
+          icon={CalendarDays}
+          href="/admin/cleaning"
         />
       </div>
 
       {/* ── Alerts ───────────────────────────────────────────────── */}
-      {(pendingPayments > 0 || inactiveRestaurants > 0) && (
+      {pendingPayments > 0 && (
         <div className="mt-space-6">
           <SectionLabel>Needs attention</SectionLabel>
-          <div className="space-y-space-2">
-            {pendingPayments > 0 && (
-              <Link
-                to="/admin/payments"
-                className="flex items-center justify-between rounded-radius-lg border border-warning/30 bg-warning/5 px-space-5 py-space-4 transition hover:bg-warning/10"
-              >
-                <div className="flex items-center gap-space-3">
-                  <AlertCircle className="h-5 w-5 text-warning" />
-                  <div>
-                    <p className="font-semibold text-foreground">
-                      {pendingPayments} pending payment{pendingPayments !== 1 ? "s" : ""}
-                    </p>
-                    <p className="text-sm text-muted-foreground">Review unconfirmed subscription payments</p>
-                  </div>
-                </div>
-                <ArrowRight className="h-4 w-4 text-muted-foreground" />
-              </Link>
-            )}
-            {inactiveRestaurants > 0 && (
-              <Link
-                to="/admin/restaurants"
-                className="flex items-center justify-between rounded-radius-lg border border-[hsl(var(--app-divider))] bg-[hsl(var(--app-control))] px-space-5 py-space-4 transition hover:bg-[hsl(var(--app-control-muted))]"
-              >
-                <div className="flex items-center gap-space-3">
-                  <Store className="h-5 w-5 text-muted-foreground" />
-                  <div>
-                    <p className="font-semibold text-foreground">
-                      {inactiveRestaurants} inactive restaurant{inactiveRestaurants !== 1 ? "s" : ""}
-                    </p>
-                    <p className="text-sm text-muted-foreground">Finish setup or reactivate partners</p>
-                  </div>
-                </div>
-                <ArrowRight className="h-4 w-4 text-muted-foreground" />
-              </Link>
-            )}
-          </div>
+          <Link
+            to="/admin/payments"
+            className="flex items-center justify-between rounded-radius-lg border border-warning/30 bg-warning/5 px-space-5 py-space-4 transition hover:bg-warning/10"
+          >
+            <div className="flex items-center gap-space-3">
+              <AlertCircle className="h-5 w-5 text-warning" />
+              <div>
+                <p className="font-semibold text-foreground">
+                  {pendingPayments} pending payment{pendingPayments !== 1 ? "s" : ""}
+                </p>
+                <p className="text-sm text-muted-foreground">Review unconfirmed cleaning payments</p>
+              </div>
+            </div>
+            <ArrowRight className="h-4 w-4 text-muted-foreground" />
+          </Link>
         </div>
       )}
 
-      {/* ── Service domains ───────────────────────────────────────── */}
-      <div className="mt-space-6 grid grid-cols-1 gap-space-4 md:mt-space-8 md:gap-space-6 lg:grid-cols-2">
-
-        {/* Food */}
-        <div>
-          <SectionLabel>Food</SectionLabel>
-          <Card>
-            <CardHeader className="pb-space-3">
-              <CardTitle className="flex items-center gap-space-2">
-                <UtensilsCrossed className="h-5 w-5 text-primary" />
-                Meal subscriptions
-              </CardTitle>
-              <CardDescription>Restaurant partners and active meal plan subscribers.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-space-2">
-              <div className="grid grid-cols-3 gap-space-2">
-                {[
-                  { label: "Restaurants", value: stats?.restaurants ?? "—" },
-                  { label: "Active", value: stats?.activeRestaurants ?? "—" },
-                  { label: "Meal plans", value: stats?.activePlans ?? "—" },
-                ].map(({ label, value }) => (
-                  <div key={label} className="rounded-radius-md bg-[hsl(var(--app-control))] px-space-3 py-space-3 text-center">
-                    <p className="text-panel-title font-bold">{value}</p>
-                    <p className="mt-space-1 text-caption text-muted-foreground">{label}</p>
-                  </div>
-                ))}
-              </div>
-              <div className="flex gap-space-2 pt-space-1">
-                <Button asChild variant="secondary" size="sm" className="flex-1">
-                  <Link to="/admin/restaurants">Restaurants</Link>
-                </Button>
-                <Button asChild variant="tertiary" size="sm" className="flex-1">
-                  <Link to="/admin/subscriptions">Subscriptions</Link>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Cleaning */}
-        <div>
-          <SectionLabel>Cleaning</SectionLabel>
-          <Card>
-            <CardHeader className="pb-space-3">
-              <CardTitle className="flex items-center gap-space-2">
-                <SparklesIcon className="h-5 w-5 text-primary" />
-                Cleaning service
-              </CardTitle>
-              <CardDescription>Active subscriptions, upcoming bookings, and available slots.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-space-2">
-              <div className="grid grid-cols-3 gap-space-2">
-                {[
-                  { label: "Active subs", value: stats?.cleaningActiveSubscriptions ?? "—" },
-                  { label: "Bookings", value: stats?.cleaningUpcomingBookings ?? "—" },
-                  { label: "Open slots", value: stats?.cleaningAvailableSlots ?? "—" },
-                ].map(({ label, value }) => (
-                  <div key={label} className="rounded-radius-md bg-[hsl(var(--app-control))] px-space-3 py-space-3 text-center">
-                    <p className="text-panel-title font-bold">{value}</p>
-                    <p className="mt-space-1 text-caption text-muted-foreground">{label}</p>
-                  </div>
-                ))}
-              </div>
-              <div className="flex gap-space-2 pt-space-1">
-                <Button asChild variant="secondary" size="sm" className="flex-1">
-                  <Link to="/admin/cleaning">
-                    <CalendarDays className="h-4 w-4" />
-                    Operations
-                  </Link>
-                </Button>
-                <Button asChild variant="tertiary" size="sm" className="flex-1">
-                  <Link to="/admin/clients">Clients</Link>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+      {/* ── Quick links ───────────────────────────────────────────── */}
+      <div className="mt-space-6">
+        <SectionLabel>Cleaning</SectionLabel>
+        <Card>
+          <CardHeader className="pb-space-3">
+            <CardTitle className="flex items-center gap-space-2">
+              <SparklesIcon className="h-5 w-5 text-primary" />
+              Cleaning service
+            </CardTitle>
+            <CardDescription>Active subscriptions, upcoming bookings, and client management.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-space-2">
+            <div className="flex gap-space-2 pt-space-1">
+              <Button asChild variant="secondary" size="sm" className="flex-1">
+                <Link to="/admin/cleaning">
+                  <CalendarDays className="h-4 w-4" />
+                  Operations
+                </Link>
+              </Button>
+              <Button asChild variant="tertiary" size="sm" className="flex-1">
+                <Link to="/admin/clients">Clients</Link>
+              </Button>
+              <Button asChild variant="tertiary" size="sm" className="flex-1">
+                <Link to="/admin/payments">Payments</Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* ── Users ─────────────────────────────────────────────────── */}

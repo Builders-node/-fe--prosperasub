@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Loader2, Settings } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { supabaseDb } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 
@@ -20,7 +20,7 @@ const PlatformSettings = () => {
   const { data: settings, isLoading } = useQuery({
     queryKey: ["global-settings"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await supabaseDb
         .from("global_settings")
         .select("*")
         .limit(1)
@@ -49,13 +49,13 @@ const PlatformSettings = () => {
       };
 
       if (settings?.id) {
-        const { error } = await supabase
+        const { error } = await supabaseDb
           .from("global_settings")
           .update(settingsData)
           .eq("id", settings.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase
+        const { error } = await supabaseDb
           .from("global_settings")
           .insert(settingsData);
         if (error) throw error;
