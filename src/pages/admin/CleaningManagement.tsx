@@ -41,6 +41,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -245,6 +246,8 @@ const CleaningManagement = () => {
   const [clientSearch, setClientSearch] = useState("");
   const [clientEditOpen, setClientEditOpen] = useState(false);
   const [clientEditForm, setClientEditForm] = useState(initialClientEditForm);
+  const [editSubOpen, setEditSubOpen] = useState(false);
+  const [editingSub, setEditingSub] = useState<any>(null);
   const [completionBookingId, setCompletionBookingId] = useState<string>("");
   const [completion, setCompletion] = useState({
     completed_by: "Admin",
@@ -299,6 +302,18 @@ const CleaningManagement = () => {
         users: usersMap.get(String(s.user_id)) || null,
         cleaning_packages: pkgsMap.get(s.package_id) || null,
       }));
+    },
+  });
+
+  const { data: plans = [] } = useQuery({
+    queryKey: ["admin-all-cleaning-packages"],
+    queryFn: async () => {
+      const { data, error } = await supabaseDb
+        .from("cleaning_packages")
+        .select("*")
+        .order("sort_order");
+      if (error) throw error;
+      return data ?? [];
     },
   });
 
@@ -455,6 +470,24 @@ const CleaningManagement = () => {
       invalidateCleaning();
     },
     onError: () => toast.error("Failed to approve payment"),
+  });
+
+  const updateSubMutation = useMutation({
+    mutationFn: async (updates: { id: string; [key: string]: any }) => {
+      const { id, ...fields } = updates;
+      const { error } = await supabaseDb
+        .from("cleaning_subscriptions")
+        .update({ ...fields, updated_at: new Date().toISOString() })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Subscription updated");
+      invalidateCleaning();
+      setEditSubOpen(false);
+      setEditingSub(null);
+    },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const updateScheduleMutation = useMutation({
@@ -1280,14 +1313,25 @@ const CleaningManagement = () => {
                           <TableCell><Badge variant={statusColor(sub.payment_status) as any}>{sub.payment_status}</Badge></TableCell>
                           <TableCell><Badge variant={statusColor(getSubscriptionStatus(sub)) as any}>{getSubscriptionStatus(sub)}</Badge></TableCell>
                           <TableCell>
-                            {sub.payment_status === "pending" ? (
-                              <Button size="sm" onClick={() => approveMutation.mutate(sub.id)} loading={approveMutation.isPending}>
-                                <CheckCircle2 className="h-4 w-4" />
-                                Approve
+                            <div className="flex gap-1">
+                              {sub.payment_status === "pending" && (
+                                <Button size="sm" onClick={() => approveMutation.mutate(sub.id)} loading={approveMutation.isPending}>
+                                  Approve
+                                </Button>
+                              )}
+                              <Button size="sm" variant="tertiary" onClick={() => { setEditingSub(sub); setEditSubOpen(true); }}>
+                                Edit
                               </Button>
-                            ) : (
-                              <span className="text-sm text-muted-foreground">—</span>
-                            )}
+                              {sub.is_active ? (
+                                <Button size="sm" variant="tertiary" onClick={() => updateSubMutation.mutate({ id: sub.id, is_active: false, subscription_status: "paused" })}>
+                                  Pause
+                                </Button>
+                              ) : sub.payment_status === "paid" ? (
+                                <Button size="sm" variant="tertiary" onClick={() => updateSubMutation.mutate({ id: sub.id, is_active: true, subscription_status: "active" })}>
+                                  Activate
+                                </Button>
+                              ) : null}
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}
@@ -1843,8 +1887,130 @@ const CleaningManagement = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* ── Edit Subscription Sheet ── */}
+      <Sheet open={editSubOpen} onOpenChange={(o) => { if (!o) { setEditSubOpen(false); setEditingSub(null); } }}>
+        <SheetContent side="right" className="w-full max-w-md overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>Edit Subscription</SheetTitle>
+            <SheetDescription>{editingSub ? getUserName(editingSub.users) : ""}</SheetDescription>
+          </SheetHeader>
+          {editingSub && (
+            <EditSubscriptionForm
+              sub={editingSub}
+              packages={plans}
+              onSave={(updates) => updateSubMutation.mutate({ id: editingSub.id, ...updates })}
+              saving={updateSubMutation.isPending}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
     </SuperAdminLayout>
   );
 };
+
+function EditSubscriptionForm({ sub, packages, onSave, saving }: {
+  sub: any;
+  packages: any[];
+  onSave: (updates: any) => void;
+  saving: boolean;
+}) {
+  const [packageId, setPackageId] = useState(sub.package_id || "");
+  const [status, setStatus] = useState(sub.subscription_status || "active");
+  const [paymentStatus, setPaymentStatus] = useState(sub.payment_status || "pending");
+  const [paidUntil, setPaidUntil] = useState(sub.paid_until || "");
+  const [cleaningsRemaining, setCleaningsRemaining] = useState(String(sub.cleanings_remaining ?? 0));
+  const [apartmentNote, setApartmentNote] = useState(sub.apartment_note || "");
+  const [isActive, setIsActive] = useState(sub.is_active ?? false);
+
+  const selectedPkg = packages.find((p: any) => p.id === packageId);
+  const monthlyCents = selectedPkg
+    ? selectedPkg.price_per_cleaning_cents * selectedPkg.cleanings_per_month
+    : sub.monthly_price_cents;
+
+  return (
+    <div className="mt-6 space-y-5">
+      <div>
+        <Label>Plan</Label>
+        <Select value={packageId} onValueChange={setPackageId}>
+          <SelectTrigger><SelectValue placeholder="Select plan" /></SelectTrigger>
+          <SelectContent>
+            {packages.map((p: any) => (
+              <SelectItem key={p.id} value={p.id}>
+                {p.name} — ${(p.price_per_cleaning_cents * p.cleanings_per_month / 100).toFixed(2)}/mo
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label>Subscription Status</Label>
+          <Select value={status} onValueChange={setStatus}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="pending_payment">Pending Payment</SelectItem>
+              <SelectItem value="pending_schedule">Pending Schedule</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="paused">Paused</SelectItem>
+              <SelectItem value="cancelled">Cancelled</SelectItem>
+              <SelectItem value="expired">Expired</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label>Payment Status</Label>
+          <Select value={paymentStatus} onValueChange={setPaymentStatus}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="paid">Paid</SelectItem>
+              <SelectItem value="refunded">Refunded</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label>Paid Until</Label>
+          <Input type="date" value={paidUntil} onChange={(e) => setPaidUntil(e.target.value)} />
+        </div>
+        <div>
+          <Label>Cleanings Remaining</Label>
+          <Input type="number" value={cleaningsRemaining} onChange={(e) => setCleaningsRemaining(e.target.value)} min={0} />
+        </div>
+      </div>
+
+      <div>
+        <Label>Apartment Note</Label>
+        <Input value={apartmentNote} onChange={(e) => setApartmentNote(e.target.value)} placeholder="Apt number, access notes" />
+      </div>
+
+      <div className="flex items-center gap-3">
+        <Switch checked={isActive} onCheckedChange={setIsActive} />
+        <Label>Active</Label>
+      </div>
+
+      <Button
+        className="w-full"
+        size="xl"
+        onClick={() => onSave({
+          package_id: packageId,
+          subscription_status: status,
+          payment_status: paymentStatus,
+          paid_until: paidUntil || null,
+          cleanings_remaining: Number(cleaningsRemaining) || 0,
+          apartment_note: apartmentNote || null,
+          is_active: isActive,
+          monthly_price_cents: monthlyCents,
+        })}
+        loading={saving}
+      >
+        Save Changes
+      </Button>
+    </div>
+  );
+}
 
 export default CleaningManagement;
