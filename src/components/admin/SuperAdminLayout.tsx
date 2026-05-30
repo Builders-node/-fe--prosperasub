@@ -54,7 +54,8 @@ const MENU_SECTIONS = [
   {
     title: "Products",
     items: [
-      { path: adminRoutes.superAdminCleaning, label: "Cleaning", icon: SparklesIcon },
+      { path: adminRoutes.superAdminCleaningPlans, label: "Plans", icon: CreditCard },
+      { path: adminRoutes.superAdminCleaning, label: "Operations", icon: SparklesIcon },
     ],
   },
   {

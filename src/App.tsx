@@ -29,6 +29,7 @@ import CleaningManagement from "./pages/admin/CleaningManagement";
 import AdminPayments from "./pages/admin/Payments";
 import AdminClients from "./pages/admin/Clients";
 import AdminUsers from "./pages/admin/Users";
+import CleaningPlans from "./pages/admin/CleaningPlans";
 
 import NotFound from "./pages/NotFound";
 
@@ -91,6 +92,9 @@ const App = () => {
               } />
               <Route path="/admin/dashboard" element={
                 <ProtectedRoute allowedRoles={['super_admin']}><AdminDashboard /></ProtectedRoute>
+              } />
+              <Route path="/admin/cleaning-plans" element={
+                <ProtectedRoute allowedRoles={['super_admin']}><CleaningPlans /></ProtectedRoute>
               } />
               <Route path="/admin/cleaning" element={
                 <ProtectedRoute allowedRoles={['super_admin']}><CleaningManagement /></ProtectedRoute>

@@ -4,6 +4,7 @@ export const adminRoutes = {
   superAdminUsers: "/admin/users",
   superAdminClients: "/admin/clients",
   superAdminCleaning: "/admin/cleaning",
+  superAdminCleaningPlans: "/admin/cleaning-plans",
   superAdminSettings: "/admin/settings",
 } as const;
 
