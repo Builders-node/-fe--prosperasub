@@ -15,7 +15,6 @@ const buttonVariants = cva(
         tertiary: "bg-transparent text-foreground hover:bg-[hsl(var(--app-control-muted))] active:bg-[hsl(var(--app-control-muted))]/80",
         destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90 active:bg-destructive/80",
         chip: "bg-transparent text-muted-foreground hover:text-foreground data-[state=active]:bg-background data-[state=active]:text-foreground",
-        favorite: "bg-black/10 text-white backdrop-blur-sm hover:bg-black/15 hover:text-white data-[state=active]:text-white",
         nav: "bg-[hsl(var(--app-control-muted))] text-foreground hover:bg-[hsl(var(--app-control-muted))]/80",
         rail: "bg-transparent text-muted-foreground hover:bg-[hsl(var(--app-control-muted))] hover:text-foreground data-[state=active]:bg-[hsl(var(--app-rail-active))] data-[state=active]:text-[hsl(var(--app-rail-active-foreground))] data-[state=active]:hover:bg-[hsl(var(--app-rail-active))]/90",
         link: "h-auto rounded-none bg-transparent p-0 text-primary underline-offset-4 hover:underline active:scale-100",

@@ -596,20 +596,6 @@
   }
 
   /* ══════════════════════════════════════════════════
-     CARD & FOOD COMPONENTS
-  ══════════════════════════════════════════════════ */
-
-  .food-card {
-    @apply bg-transparent overflow-visible transition-all duration-300;
-  }
-  .food-card-image {
-    @apply aspect-[4/3] object-cover w-full;
-  }
-  .restaurant-card {
-    @apply bg-transparent overflow-visible transition-all duration-300;
-  }
-
-  /* ══════════════════════════════════════════════════
      STATUS BADGES
   ══════════════════════════════════════════════════ */
 
@@ -683,17 +669,6 @@
   .quick-action-icon {
     @apply flex h-12 w-12 items-center justify-center rounded-radius-md bg-primary/10 text-primary;
   }
-
-  .order-timeline { @apply relative space-y-space-4 pl-space-6; }
-  .order-timeline::before {
-    @apply absolute left-2 top-2 bottom-2 w-0.5 bg-border content-[''];
-  }
-  .timeline-step { @apply relative flex items-start gap-space-4; }
-  .timeline-dot {
-    @apply absolute -left-4 top-space-1 h-4 w-4 rounded-radius-full border-2 bg-background;
-  }
-  .timeline-dot.active    { @apply bg-primary border-primary; }
-  .timeline-dot.completed { @apply bg-primary border-primary; }
 
   /* ══════════════════════════════════════════════════
      MARKET / MARKETPLACE

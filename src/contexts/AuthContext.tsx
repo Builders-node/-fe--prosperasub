@@ -16,9 +16,9 @@ type Session = {
   user: User;
 };
 
-export type AppRole = 'super_admin' | 'restaurant_admin' | 'driver' | 'user';
+export type AppRole = 'super_admin' | 'user';
 
-const VALID_ROLES: AppRole[] = ['super_admin', 'restaurant_admin', 'driver', 'user'];
+const VALID_ROLES: AppRole[] = ['super_admin', 'user'];
 
 const normalizeRoles = (roles: unknown): AppRole[] => {
   if (!Array.isArray(roles)) return [];
@@ -38,7 +38,6 @@ interface UserData {
   name?: string;
   display_name?: string;
   lightning_pubkey?: string;
-  restaurant_id?: string;
   auth_provider: string;
   avatar_url?: string;
 }
@@ -53,7 +52,6 @@ interface AuthContextType {
   isLoading: boolean;
   isUserDataReady: boolean;
   isSuperAdmin: boolean;
-  isRestaurantAdmin: boolean;
   login: (email: string, password: string) => Promise<{ error: Error | null; roles?: AppRole[] }>;
   signUp: (email: string, password: string, name: string) => Promise<{ error: Error | null }>;
   requestPasswordReset: (email: string) => Promise<{ data: any; error: Error | null }>;
@@ -98,45 +96,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       let userRoles: AppRole[] = fallbackRoles;
 
       if (userId) {
-        // Supabase Auth user - fetch directly by ID from public.users
-        // The trigger handle_new_auth_user ensures this row exists
-        const { data: publicUser, error } = await supabase
-          .from('users')
-          .select('id, email, name, display_name, lightning_pubkey, restaurant_id, auth_provider, avatar_url')
-          .eq('id', userId)
-          .maybeSingle();
-
-        if (error) {
-          reportAuthError('[Auth] Error fetching public.users by id:', error.message);
-        }
-
-        if (publicUser) {
+        const { data: meResult } = await supabase.auth.getUser();
+        if (meResult?.user) {
+          const u = meResult.user;
           userRow = {
-            id: publicUser.id,
-            email: publicUser.email || undefined,
-            name: publicUser.name || publicUser.display_name || undefined,
-            display_name: publicUser.display_name || undefined,
-            lightning_pubkey: publicUser.lightning_pubkey || undefined,
-            restaurant_id: publicUser.restaurant_id || undefined,
-            auth_provider: publicUser.auth_provider || 'email',
-            avatar_url: publicUser.avatar_url || undefined,
+            id: u.id,
+            email: u.email || undefined,
+            name: u.name || u.display_name || u.user_metadata?.name || undefined,
+            display_name: u.display_name || u.name || u.user_metadata?.name || undefined,
+            lightning_pubkey: u.lightning_pubkey || undefined,
+            auth_provider: u.auth_provider || 'email',
+            avatar_url: u.avatar_url || u.user_metadata?.picture || undefined,
           };
-        } else {
-          // User row doesn't exist yet - this can happen if trigger hasn't fired
-          // Fallback to creating minimal user data from auth
-          const { data: authUser } = await supabase.auth.getUser();
-          if (authUser?.user) {
-            userRow = {
-              id: authUser.user.id,
-              email: authUser.user.email,
-              name: authUser.user.user_metadata?.name || authUser.user.user_metadata?.full_name,
-              auth_provider: authUser.user.app_metadata?.provider || 'email',
-            };
-            reportAuthError('[Auth] User not found in public.users, using auth metadata');
-          }
         }
 
-        // Fetch roles for Supabase auth user
         if (userRow) {
           const { data: rolesData } = await supabase
             .from('user_roles')
@@ -154,7 +127,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // Fetch from public.users by lightning_pubkey
         const { data: publicUser, error } = await supabase
           .from('users')
-          .select('id, email, name, display_name, lightning_pubkey, restaurant_id, auth_provider, avatar_url')
+          .select('id, email, name, display_name, lightning_pubkey, auth_provider, avatar_url')
           .eq('lightning_pubkey', pubkey)
           .maybeSingle();
 
@@ -169,7 +142,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             name: publicUser.name || publicUser.display_name || undefined,
             display_name: publicUser.display_name || undefined,
             lightning_pubkey: publicUser.lightning_pubkey || undefined,
-            restaurant_id: publicUser.restaurant_id || undefined,
             auth_provider: publicUser.auth_provider || 'lightning',
             avatar_url: publicUser.avatar_url || undefined,
           };
@@ -393,7 +365,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const isAuthenticated = !!(user || lightningPubkey);
   const isSuperAdmin = roles.includes('super_admin');
-  const isRestaurantAdmin = roles.includes('restaurant_admin');
 
   return (
     <AuthContext.Provider
@@ -407,7 +378,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         isLoading,
         isUserDataReady,
         isSuperAdmin,
-        isRestaurantAdmin,
         login,
         signUp,
         requestPasswordReset,

@@ -18,6 +18,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { UserLayout } from "@/components/layout/UserLayout";
 import { useBtcPrice } from "@/hooks/useBtcPrice";
 import { formatUSD, centsToDollars } from "@/lib/pricing";
+import { formatFrequencyLabel, monthlyCleaningEstimate, resolveMonthlyPriceCents } from "@/lib/cleaningPlanPricing";
 
 const CLEANING_DURATION_OPTIONS = [1, 2, 3] as const;
 type CleaningDurationMonths = (typeof CLEANING_DURATION_OPTIONS)[number];
@@ -58,13 +59,13 @@ const CleaningCheckout = () => {
     },
   });
 
-  const monthlyPriceCents = pkg ? pkg.price_per_cleaning_cents * pkg.cleanings_per_month : 0;
+  const monthlyPriceCents = pkg ? resolveMonthlyPriceCents(pkg) : 0;
   const totalCents = monthlyPriceCents * billingPeriodMonths;
   const totalUsdDollars = centsToDollars(totalCents);
   const estimatedSats = convertToSats(totalUsdDollars);
   const startDate = new Date("2026-06-01T00:00:00-06:00");
   const endDate = addMonths(startDate, billingPeriodMonths);
-  const cleaningsIncluded = pkg ? pkg.cleanings_per_month * billingPeriodMonths : 0;
+  const cleaningsIncluded = pkg ? monthlyCleaningEstimate(pkg) * billingPeriodMonths : 0;
 
   useEffect(() => {
     return () => {
@@ -341,7 +342,7 @@ const CleaningCheckout = () => {
                   </div>
                   <div className="flex justify-between text-sm mb-space-1">
                     <span>Frequency</span>
-                    <span>1 cleaning per week</span>
+                    <span>{formatFrequencyLabel(pkg)}</span>
                   </div>
                   <div className="flex justify-between text-lg font-bold">
                     <span>Total today</span>

@@ -11,6 +11,7 @@ import { useI18n } from "@/i18n";
 import { HomeHeader } from "@/components/HomeHeader";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
 import { BottomNav } from "@/components/BottomNav";
+import { formatFrequencyLabel, formatPricingLabel, resolveMonthlyPriceCents } from "@/lib/cleaningPlanPricing";
 
 const CleaningPackages = () => {
   const navigate = useNavigate();
@@ -34,7 +35,7 @@ const CleaningPackages = () => {
 
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-0">
-      <HomeHeader title="Cleaning Plans" />
+      <HomeHeader title="Subscriptions" />
       <DesktopHeader />
 
       <main className="market-content py-space-6 md:py-space-12">
@@ -75,7 +76,7 @@ const CleaningPackages = () => {
           ) : packages && packages.length > 0 ? (
             <div className="grid gap-space-4 md:grid-cols-2 xl:grid-cols-3">
               {packages.map((pkg, idx) => {
-                const totalCents = pkg.price_per_cleaning_cents * pkg.cleanings_per_month;
+                const totalCents = resolveMonthlyPriceCents(pkg);
                 const isFeatured = idx === 0;
                 return (
                   <article
@@ -106,7 +107,7 @@ const CleaningPackages = () => {
                         <span className="text-sm font-medium text-muted-foreground">/ mo</span>
                       </div>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        {formatUSD(pkg.price_per_cleaning_cents)} per cleaning · {pkg.cleanings_per_month}× per month
+                        {formatPricingLabel(pkg)} · {formatFrequencyLabel(pkg)}
                       </p>
                     </div>
 

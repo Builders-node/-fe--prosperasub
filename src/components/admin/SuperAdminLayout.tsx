@@ -2,7 +2,6 @@ import { ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard,
-  Store,
   Settings,
   CreditCard,
   SparklesIcon,
@@ -10,10 +9,17 @@ import {
   BadgeDollarSign,
   ChevronRight,
   Users,
+  UserCheck,
+  ClipboardList,
+  FileText,
+  ShieldCheck,
   ExternalLink,
   LogOut,
   Menu,
-  UtensilsCrossed,
+  Car,
+  CalendarCheck,
+  BarChart3,
+  MapPin,
 } from "lucide-react";
 import { AdminAccountMenu } from "@/components/admin/AdminAccountMenu";
 import { LanguageMenu } from "@/components/LanguageMenu";
@@ -49,18 +55,32 @@ const MENU_SECTIONS = [
       },
       { path: adminRoutes.superAdminPayments, label: "Finance", icon: Zap },
       { path: adminRoutes.superAdminUsers, label: "Users", icon: Users },
+      { path: adminRoutes.superAdminClients, label: "Clients", icon: UserCheck },
     ],
   },
   {
     title: "Products",
     items: [
       { path: adminRoutes.superAdminCleaningPlans, label: "Plans", icon: CreditCard },
+      { path: adminRoutes.superAdminSubscriptions, label: "Subscriptions", icon: ClipboardList },
       { path: adminRoutes.superAdminCleaning, label: "Operations", icon: SparklesIcon },
+    ],
+  },
+  {
+    title: "Car Rentals",
+    items: [
+      { path: adminRoutes.superAdminCarRentals, label: "Vehicles", icon: Car },
+      { path: adminRoutes.superAdminCarRentalsReservations, label: "Reservations", icon: CalendarCheck },
+      { path: adminRoutes.superAdminCarRentalsCustomers, label: "Customers", icon: UserCheck },
+      { path: adminRoutes.superAdminCarRentalsAnalytics, label: "Analytics", icon: BarChart3 },
+      { path: adminRoutes.superAdminCarRentalsDelivery, label: "Delivery", icon: MapPin },
     ],
   },
   {
     title: "Settings",
     items: [
+      { path: adminRoutes.superAdminRoles, label: "Roles", icon: ShieldCheck },
+      { path: adminRoutes.superAdminAuditLogs, label: "Audit Logs", icon: FileText },
       { path: adminRoutes.superAdminSettings, label: "Settings", icon: Settings },
     ],
   },
@@ -98,7 +118,7 @@ const SuperAdminLayout = ({
         to={item.path}
         aria-current={active ? "page" : undefined}
         className={cn(
-          "flex min-h-[52px] items-center gap-space-3 rounded-radius-md px-space-4 py-space-3 text-control transition-colors",
+          "flex min-h-11 items-center gap-space-3 rounded-radius-md px-space-3 py-space-2 text-control transition-colors",
           active
             ? "bg-[hsl(var(--app-control-muted))] text-foreground"
             : "text-muted-foreground hover:bg-[hsl(var(--app-control-muted))] hover:text-foreground",
@@ -125,17 +145,17 @@ const SuperAdminLayout = ({
         </Button>
       </SheetTrigger>
       <SheetContent side="left" className="flex w-[88vw] max-w-[360px] flex-col p-0">
-        <SheetHeader className="border-b border-[hsl(var(--app-divider))] px-space-5 py-space-5 text-left">
+        <SheetHeader className="border-b border-[hsl(var(--app-divider))] px-space-4 py-space-4 text-left">
           <SheetTitle className="flex items-center gap-space-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-radius-md bg-primary text-black">
-              <BadgeDollarSign className="h-5 w-5" aria-hidden="true" />
+            <span className="flex h-9 w-9 items-center justify-center rounded-radius-md bg-primary text-black">
+              <BadgeDollarSign className="h-4 w-4" aria-hidden="true" />
             </span>
             Admin Panel
           </SheetTitle>
           <SheetDescription>ProsperaSub operations</SheetDescription>
         </SheetHeader>
 
-        <nav className="flex-1 space-y-space-6 overflow-y-auto px-space-3 py-space-5" aria-label="Mobile admin navigation">
+        <nav className="flex-1 space-y-space-4 overflow-y-auto px-space-3 py-space-4" aria-label="Mobile admin navigation">
           {MENU_SECTIONS.map((section) => (
             <section key={section.title} className="space-y-space-2">
               <h2 className="px-space-3 text-caption font-bold uppercase tracking-[0.18em] text-muted-foreground">
@@ -152,22 +172,20 @@ const SuperAdminLayout = ({
           ))}
         </nav>
 
-        <div className="space-y-space-1 border-t border-[hsl(var(--app-divider))] p-space-3">
+        <div className="space-y-space-1 border-t border-[hsl(var(--app-divider))] p-space-2">
           <SheetClose asChild>
-            <a
-              href={publicRoutes.userSite}
-              target="_blank"
-              rel="noreferrer"
-              className="flex min-h-12 items-center gap-space-3 rounded-radius-md px-space-3 text-body-md font-semibold text-muted-foreground transition hover:bg-[hsl(var(--app-control-muted))] hover:text-foreground"
+            <Link
+              to={publicRoutes.userSite}
+              className="flex min-h-10 items-center gap-space-3 rounded-radius-md px-space-3 text-body-md font-semibold text-muted-foreground transition hover:bg-[hsl(var(--app-control-muted))] hover:text-foreground"
             >
               <ExternalLink className="h-5 w-5" aria-hidden="true" />
               View as user
-            </a>
+            </Link>
           </SheetClose>
           <button
             type="button"
             onClick={() => void handleLogout()}
-            className="flex min-h-12 w-full items-center gap-space-3 rounded-radius-md px-space-3 text-body-md font-semibold text-destructive transition hover:bg-destructive/10"
+            className="flex min-h-10 w-full items-center gap-space-3 rounded-radius-md px-space-3 text-body-md font-semibold text-destructive transition hover:bg-destructive/10"
           >
             <LogOut className="h-5 w-5" aria-hidden="true" />
             Log out
@@ -195,7 +213,7 @@ const SuperAdminLayout = ({
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 space-y-space-5 overflow-y-auto px-space-3 py-space-5" aria-label="Admin navigation">
+        <nav className="flex-1 space-y-space-4 overflow-y-auto px-space-3 py-space-4" aria-label="Admin navigation">
           {MENU_SECTIONS.map((section) => (
             <section key={section.title} className="space-y-space-1">
               <h2 className="px-space-4 pb-space-1 text-caption font-bold uppercase tracking-[0.18em] text-muted-foreground/70">
@@ -210,15 +228,13 @@ const SuperAdminLayout = ({
 
         {/* Footer actions */}
         <div className="shrink-0 border-t border-[hsl(var(--app-divider))] px-space-3 py-space-3 space-y-space-1">
-          <a
-            href={publicRoutes.userSite}
-            target="_blank"
-            rel="noreferrer"
+          <Link
+            to={publicRoutes.userSite}
             className="flex min-h-10 items-center gap-space-3 rounded-radius-md px-space-4 text-control font-semibold text-muted-foreground transition hover:bg-[hsl(var(--app-control-muted))] hover:text-foreground"
           >
             <ExternalLink className="h-4 w-4 shrink-0" aria-hidden="true" />
             View as user
-          </a>
+          </Link>
           <button
             type="button"
             onClick={() => void handleLogout()}
@@ -239,17 +255,6 @@ const SuperAdminLayout = ({
             <div className="flex h-full w-14 shrink-0 items-center justify-center border-r border-[hsl(var(--app-divider))] lg:hidden">
               {renderMobileDrawer()}
             </div>
-            {/* Desktop logo mark */}
-            <Link
-              to={adminRoutes.superAdminDashboard}
-              className="hidden h-full w-[72px] shrink-0 items-center justify-center border-r border-[hsl(var(--app-divider))] lg:flex"
-              aria-label="Go to admin dashboard"
-            >
-              <span className="flex h-10 w-10 items-center justify-center rounded-radius-full bg-[hsl(var(--app-logo-bg))] font-display text-2xl font-black leading-none text-[hsl(var(--app-logo-foreground))]">
-                @
-              </span>
-            </Link>
-
             {/* Breadcrumb */}
             <nav className="flex min-w-0 flex-1 items-center gap-space-2 px-space-5 text-control" aria-label="Breadcrumb">
               <Link to={adminRoutes.superAdminDashboard} className="shrink-0 text-muted-foreground transition-colors hover:text-foreground">
@@ -274,9 +279,9 @@ const SuperAdminLayout = ({
         </header>
 
         {/* Page content */}
-        <main className="mx-auto min-w-0 max-w-[1600px] px-space-4 py-space-6 md:px-space-6 lg:px-space-8 lg:py-space-8 xl:px-space-12">
+        <main className="mx-auto min-w-0 max-w-[1600px] px-space-4 py-space-5 md:px-space-5 lg:px-space-6 lg:py-space-6 xl:px-space-8">
           {title && (
-            <div className="admin-page-header">
+            <div className="admin-page-header mb-space-4">
               <h1 className="text-2xl font-black leading-tight tracking-tight md:text-3xl lg:text-4xl">{title}</h1>
               {subtitle && (
                 <p className="mt-space-2 type-body-large text-muted-foreground">{subtitle}</p>

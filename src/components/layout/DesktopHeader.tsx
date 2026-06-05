@@ -3,6 +3,7 @@ import { ArrowLeft, ChevronRight } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { LanguageMenu } from "@/components/LanguageMenu";
+import { NotificationBell } from "@/components/NotificationBell";
 import { useI18n } from "@/i18n";
 import { AccountMenu } from "@/components/AccountMenu";
 
@@ -21,7 +22,7 @@ export function DesktopHeader({
   hideNav = false,
   rightContent,
 }: DesktopHeaderProps) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { openAuthModal } = useAuthModal();
   const { t } = useI18n();
   const location = useLocation();
@@ -57,9 +58,13 @@ export function DesktopHeader({
         {/* Right actions */}
         <div className="flex items-center gap-3 ml-auto">
           {!hideNav && <LanguageMenu />}
+          {!hideNav && <NotificationBell />}
           {rightContent ?? (
             !hideNav && (
-              isAuthenticated ? (
+              authLoading ? (
+                /* Skeleton placeholder — prevents login→avatar flash */
+                <div className="h-11 w-11 animate-pulse rounded-full bg-muted" />
+              ) : isAuthenticated ? (
                 <AccountMenu />
               ) : (
                 <button

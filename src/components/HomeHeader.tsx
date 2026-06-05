@@ -13,7 +13,7 @@ interface HomeHeaderProps {
 
 export function HomeHeader({ title, showBackButton = false, onBack }: HomeHeaderProps) {
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { openAuthModal } = useAuthModal();
 
   const handleBack = () => {
@@ -41,7 +41,9 @@ export function HomeHeader({ title, showBackButton = false, onBack }: HomeHeader
 
         {/* Right */}
         <div className="ml-auto w-10 shrink-0 flex justify-end">
-          {isAuthenticated ? (
+          {authLoading ? (
+            <div className="h-10 w-10 animate-pulse rounded-full bg-muted" />
+          ) : isAuthenticated ? (
             <AccountMenu />
           ) : (
             <button

@@ -1,7 +1,6 @@
 // Supabase-backed data adapter
 // Auth: NestJS backend (JWT sessions kept in localStorage)
-// Business data: Supabase PostgREST — cleaning, favorites, profiles
-// Restaurants / Plans / Users: NestJS API endpoints (unchanged)
+// Business data: Supabase PostgREST — cleaning, profiles, admin operations
 
 import { createClient } from "@supabase/supabase-js";
 
@@ -41,8 +40,6 @@ const SUPABASE_ANON_KEY =
 const SESSION_KEY = "prospera_owned_session";
 const GOOGLE_OAUTH_STATE_KEY = "prospera_google_oauth_state";
 
-// (Restaurant overrides were stored here in localStorage — now in Supabase DB)
-
 // Supabase client for direct DB access (uses anon key + permissive RLS policies)
 const db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 /** Direct Supabase client — use for queries that need real relation joins */
@@ -68,61 +65,17 @@ const authStateListeners = new Set<AuthStateChangeCallback>();
 // DATA SHAPE HELPERS
 // ============================================================
 
-const toSnakeRestaurant = (restaurant: any) => ({
-  id: restaurant.id,
-  name: restaurant.name,
-  description: restaurant.description,
-  address: restaurant.address,
-  logo_url: restaurant.logoUrl ?? restaurant.logo_url ?? null,
-  is_active: restaurant.isActive ?? restaurant.is_active ?? true,
-  subscription_plans: (restaurant.subscriptionPlans ?? restaurant.subscription_plans ?? []).map((plan: any) => ({
-    id: plan.id,
-    is_active: plan.isActive ?? plan.is_active ?? true,
-    menu_category: String(plan.menuCategory ?? plan.menu_category ?? "standard").toLowerCase(),
-  })),
-});
-
-const normalizeRestaurantInput = (restaurant: any) => {
-  const now = new Date().toISOString();
-  return {
-    id: restaurant.id,
-    name: restaurant.name,
-    description: restaurant.description ?? "",
-    address: restaurant.address ?? "Prospera Village",
-    logoUrl: restaurant.logoUrl ?? restaurant.logo_url ?? null,
-    isActive: restaurant.isActive ?? restaurant.is_active ?? true,
-    createdAt: restaurant.createdAt ?? restaurant.created_at ?? now,
-    updatedAt: now,
-  };
-};
-
-const toSnakePlan = (plan: any) => ({
-  id: plan.id,
-  restaurant_id: plan.restaurantId ?? plan.restaurant_id,
-  name: plan.name,
-  description: plan.description,
-  price_per_week_sats: plan.pricePerWeekCents ?? plan.price_per_week_sats,
-  meal_time: plan.mealTime ?? plan.meal_time,
-  menu_category: String(plan.menuCategory ?? plan.menu_category ?? "standard").toLowerCase(),
-  supports_delivery: plan.supportsDelivery ?? plan.supports_delivery ?? true,
-  is_active: plan.isActive ?? plan.is_active ?? true,
-  max_duration_weeks: plan.maxDurationWeeks ?? plan.max_duration_weeks ?? 1,
-  restaurants: plan.restaurant
-    ? {
-        id: plan.restaurant.id,
-        name: plan.restaurant.name,
-        logo_url: plan.restaurant.logoUrl ?? plan.restaurant.logo_url ?? null,
-        address: plan.restaurant.address ?? "Prospera Village",
-      }
-    : undefined,
-});
-
 const toSnakeCleaningPackage = (pkg: any) => ({
   id: pkg.id,
   name: pkg.name,
   description: pkg.description,
   price_per_cleaning_cents: pkg.pricePerCleaningCents ?? pkg.price_per_cleaning_cents,
+  monthly_price_cents: pkg.monthlyPriceCents ?? pkg.monthly_price_cents ?? null,
   cleanings_per_month: pkg.cleaningsPerMonth ?? pkg.cleanings_per_month,
+  frequency_unit: pkg.frequencyUnit ?? pkg.frequency_unit ?? "month",
+  frequency_count: pkg.frequencyCount ?? pkg.frequency_count ?? pkg.cleaningsPerMonth ?? pkg.cleanings_per_month ?? null,
+  custom_frequency_label: pkg.customFrequencyLabel ?? pkg.custom_frequency_label ?? null,
+  pricing_mode: pkg.pricingMode ?? pkg.pricing_mode ?? "price_per_cleaning",
   is_active: pkg.isActive ?? pkg.is_active ?? true,
 });
 
@@ -133,7 +86,7 @@ const toSnakeUser = (user: any) => ({
   display_name: user.displayName ?? user.display_name ?? user.name ?? null,
   auth_provider: user.authProvider ?? user.auth_provider ?? "EMAIL",
   avatar_url: user.avatarUrl ?? user.avatar_url ?? null,
-  roles: user.roles ?? [],
+  roles: (user.roles ?? []).map((role: string) => role.toLowerCase()),
   created_at: user.createdAt ?? user.created_at ?? null,
   last_login_at: user.lastLoginAt ?? user.last_login_at ?? null,
 });
@@ -221,14 +174,29 @@ async function getValidStoredSession() {
 
 async function api(path: string, init?: RequestInit, retryOnUnauthorized = true) {
   const session = isAuthEndpoint(path) ? null : await getValidStoredSession();
-  const response = await fetch(`${API_URL}${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
-      ...(init?.headers || {}),
-    },
-  });
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 10000);
+
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}${path}`, {
+      ...init,
+      signal: init?.signal ?? controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        ...(init?.headers || {}),
+      },
+    });
+  } catch (error) {
+    window.clearTimeout(timeout);
+    return {
+      data: null,
+      error: new Error(error instanceof DOMException && error.name === "AbortError" ? "API request timed out" : "API request failed"),
+    };
+  } finally {
+    window.clearTimeout(timeout);
+  }
 
   const data = await response.json().catch(() => null);
 
@@ -244,6 +212,15 @@ async function api(path: string, init?: RequestInit, retryOnUnauthorized = true)
   }
 
   return { data, error: null };
+}
+
+export async function adminApi(path: string, init?: RequestInit) {
+  return api(path, init);
+}
+
+/** Authenticated API calls for the user-facing account portal */
+export async function accountApi(path: string, init?: RequestInit) {
+  return api(path, init);
 }
 
 function getStoredSession() {
@@ -266,27 +243,17 @@ function notifyAuthStateChange(event: "SIGNED_IN" | "SIGNED_OUT", session: any) 
 }
 
 // ============================================================
-// GENERIC LOCALSTORAGE HELPERS (for non-restaurant tables only)
-// ============================================================
-
-function getStoredRows(key: string) {
-  try { return JSON.parse(localStorage.getItem(key) || "[]"); } catch { return []; }
-}
-function saveStoredRows(key: string, rows: any[]) {
-  localStorage.setItem(key, JSON.stringify(rows));
-}
-
-// ============================================================
 // CURRENT USER DETAILS
 // ============================================================
 
 function getOwnedUserDetails() {
   const user = ownedUserFromSession();
+  if (!user) return null;
   return {
-    id: user?.id ?? "owned-user-frorex",
-    email: user?.email ?? "user@example.com",
-    name: user?.name ?? user?.displayName ?? user?.display_name ?? "Frorex Studio",
-    display_name: user?.displayName ?? user?.display_name ?? user?.name ?? "Frorex Studio",
+    id: user.id,
+    email: user.email ?? null,
+    name: user.name ?? user.displayName ?? user.display_name ?? null,
+    display_name: user.displayName ?? user.display_name ?? user.name ?? null,
   };
 }
 
@@ -354,11 +321,21 @@ const compareFilterValues = (left: any, right: any) => {
 // CLEANING PACKAGE HELPERS (hardcoded; populated from NestJS API)
 // ============================================================
 
-const cleaningPackageForId = (packageId: string) => {
-  if (packageId === "cleaning-2-bedroom") {
-    return { name: "2 Bedroom", cleanings_per_month: 4, price_per_cleaning_cents: 2475 };
-  }
-  return { name: "1 Bedroom & Studio", cleanings_per_month: 4, price_per_cleaning_cents: 1975 };
+const _packageCache = new Map<string, { name: string; cleanings_per_month: number; price_per_cleaning_cents: number }>();
+
+const cleaningPackageForId = async (packageId: string) => {
+  const cached = _packageCache.get(packageId);
+  if (cached) return cached;
+
+  const { data } = await db
+    .from("cleaning_packages")
+    .select("name, cleanings_per_month, price_per_cleaning_cents")
+    .eq("id", packageId)
+    .maybeSingle();
+
+  const pkg = data ?? { name: "Unknown", cleanings_per_month: 4, price_per_cleaning_cents: 0 };
+  _packageCache.set(packageId, pkg);
+  return pkg;
 };
 
 const normalizeBillingMonths = (value: unknown) => {
@@ -366,8 +343,8 @@ const normalizeBillingMonths = (value: unknown) => {
   return months === 2 || months === 3 ? months : 1;
 };
 
-function normalizeCleaningSubscription(subscription: any) {
-  const packageDetails = cleaningPackageForId(subscription.package_id);
+async function normalizeCleaningSubscription(subscription: any) {
+  const packageDetails = await cleaningPackageForId(subscription.package_id);
   const billingPeriodMonths = normalizeBillingMonths(subscription.billing_period_months);
   const monthlyPriceCents =
     Number(subscription.monthly_price_cents) ||
@@ -439,66 +416,14 @@ function findDuplicateCleaningClient(clients: any[], payload: any) {
 // SLOT SEEDING
 // ============================================================
 
-function getSeedCleaningSlots() {
-  const times = [
-    ["08:00:00", "09:45:00"],
-    ["10:00:00", "11:45:00"],
-    ["12:00:00", "13:45:00"],
-    ["14:00:00", "15:45:00"],
-  ];
-  const slots: any[] = [];
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  for (let offset = 0; offset < 110; offset += 1) {
-    const date = addDays(today, offset);
-    if (date.getDay() === 0) continue;
-
-    const dateKey = formatDate(date);
-    for (const [startTime, endTime] of times) {
-      slots.push({
-        id: `owned-cleaning-slot-${dateKey}-${startTime.slice(0, 5).replace(":", "")}`,
-        date: dateKey,
-        start_time: startTime,
-        end_time: endTime,
-        max_bookings: 1,
-        current_bookings: 0,
-        is_active: true,
-      });
-    }
-  }
-  return slots;
-}
-
 let _slotSeedAttempted = false;
 async function ensureSlotsSeeded() {
   if (_slotSeedAttempted) return;
   _slotSeedAttempted = true;
 
-  const today = formatDate(new Date());
-  const SEED_LS_KEY = "prospera_slots_seeded";
-  if (localStorage.getItem(SEED_LS_KEY) === today) return;
-
   try {
-    const { data } = await db
-      .from("cleaning_available_slots")
-      .select("id")
-      .eq("date", today)
-      .limit(1);
-
-    if (data && data.length > 0) {
-      localStorage.setItem(SEED_LS_KEY, today);
-      return;
-    }
-
-    const seedSlots = getSeedCleaningSlots();
-    await db.from("cleaning_available_slots").upsert(seedSlots, {
-      onConflict: "id",
-      ignoreDuplicates: true,
-    });
-    localStorage.setItem(SEED_LS_KEY, today);
+    await api("/admin/cleaning/seed-slots", { method: "POST" });
   } catch {
-    // Seeding failure is non-fatal — the app still works, users just won't see slots
     _slotSeedAttempted = false;
   }
 }
@@ -521,12 +446,23 @@ async function ensureCleaningSlot(
 
   if (existing) return existing;
 
+  // Read default capacity from global settings
+  const { data: settings } = await db
+    .from("global_settings")
+    .select("key, value")
+    .in("key", ["default_slot_capacity", "saturday_slot_capacity"]);
+  const settingsMap = new Map((settings || []).map((s: any) => [s.key, s.value]));
+  const defaultCap = Math.max(1, Number(settingsMap.get("default_slot_capacity")) || 1);
+  const saturdayCap = Math.max(1, Number(settingsMap.get("saturday_slot_capacity")) || defaultCap);
+  const dayOfWeek = new Date(`${date}T00:00:00`).getDay();
+  const capacity = dayOfWeek === 6 ? saturdayCap : defaultCap;
+
   const slot = {
     id: `owned-cleaning-slot-${date}-${normalizedStart.slice(0, 5).replace(":", "")}`,
     date,
     start_time: normalizedStart,
     end_time: normalizedEnd,
-    max_bookings: 1,
+    max_bookings: capacity,
     current_bookings: 0,
     is_active: true,
   };
@@ -569,6 +505,7 @@ class OwnedQueryBuilder {
   private take: number | null = null;
   private singleMode: "single" | "maybeSingle" | null = null;
   private orderField: string | null = null;
+  private pendingMutation: { action: string; values: any } | null = null;
 
   constructor(private readonly table: string) {}
 
@@ -622,28 +559,32 @@ class OwnedQueryBuilder {
     return this.execute();
   }
 
-  insert(values: any): Promise<{ data: any; error: any }> {
-    return this.mutate("insert", values);
+  insert(values: any) {
+    this.pendingMutation = { action: "insert", values };
+    return this;
   }
 
-  upsert(values: any): Promise<{ data: any; error: any }> {
-    return this.mutate("upsert", values);
+  upsert(values: any) {
+    this.pendingMutation = { action: "upsert", values };
+    return this;
   }
 
   update(values: any) {
     return {
-      eq: (field: string, value: any): Promise<{ data: any; error: any }> => {
+      eq: (field: string, value: any) => {
         this.filters.push({ field, op: "eq", value });
-        return this.mutate("update", values);
+        this.pendingMutation = { action: "update", values };
+        return this;
       },
     };
   }
 
   delete() {
     return {
-      eq: (field: string, value: any): Promise<{ data: any; error: any }> => {
+      eq: (field: string, value: any) => {
         this.filters.push({ field, op: "eq", value });
-        return this.mutate("delete", null);
+        this.pendingMutation = { action: "delete", values: null };
+        return this;
       },
     };
   }
@@ -661,85 +602,6 @@ class OwnedQueryBuilder {
   ): Promise<{ data: any; error: any }> {
     const now = new Date().toISOString();
 
-    // ── RESTAURANTS → Supabase (was localStorage overrides) ──
-    if (this.table === "restaurants") {
-      const id = this.filters.find((f) => f.field === "id")?.value;
-
-      if (action === "insert" || action === "upsert") {
-        const inputRows = Array.isArray(values) ? values : [values];
-        const rows = inputRows.map((input) => ({
-          id: input.id ?? `restaurant-${Date.now()}-${Math.random().toString(16).slice(2)}`,
-          name: input.name ?? input.name,
-          description: input.description ?? "",
-          address: input.address ?? "Prospera Village",
-          logo_url: input.logoUrl ?? input.logo_url ?? null,
-          is_active: input.isActive ?? input.is_active ?? true,
-        }));
-        const { data, error } = await db
-          .from("restaurants")
-          .upsert(rows, { onConflict: "id" })
-          .select();
-        return {
-          data: Array.isArray(values) ? (data ?? []).map(toSnakeRestaurant) : toSnakeRestaurant((data ?? [])[0]),
-          error: error ?? null,
-        };
-      }
-
-      if (action === "update") {
-        const payload: any = {};
-        if (values.name !== undefined)        payload.name        = values.name;
-        if (values.description !== undefined) payload.description = values.description;
-        if (values.address !== undefined)     payload.address     = values.address;
-        if (values.logo_url  !== undefined)   payload.logo_url    = values.logo_url;
-        if (values.logoUrl   !== undefined)   payload.logo_url    = values.logoUrl;
-        if (values.is_active !== undefined)   payload.is_active   = values.is_active;
-        if (values.isActive  !== undefined)   payload.is_active   = values.isActive;
-        payload.updated_at = now;
-        const { data, error } = await db
-          .from("restaurants")
-          .update(payload)
-          .eq("id", id)
-          .select()
-          .single();
-        return { data: data ? toSnakeRestaurant(data) : null, error: error ?? null };
-      }
-
-      if (action === "delete") {
-        if (id) {
-          const { error } = await db.from("restaurants").delete().eq("id", id);
-          return { data: null, error: error ?? null };
-        }
-        return { data: null, error: null };
-      }
-    }
-
-    // ── FAVORITES ──
-    if (this.table === "favorites") {
-      if (action === "delete") {
-        const id = this.filters.find((f) => f.field === "id")?.value;
-        const { error } = await db.from("favorites").delete().eq("id", id);
-        return { data: null, error: error ?? null };
-      }
-
-      if (action === "insert") {
-        const input = Array.isArray(values) ? values[0] : values;
-        // Check for existing (upsert-style)
-        const { data: existing } = await db
-          .from("favorites")
-          .select("*")
-          .eq("user_id", input.user_id)
-          .eq(
-            input.restaurant_id ? "restaurant_id" : "plan_id",
-            input.restaurant_id ?? input.plan_id,
-          )
-          .maybeSingle();
-        if (existing) return { data: existing, error: null };
-
-        const { data, error } = await db.from("favorites").insert(input).select().single();
-        return { data: data ?? null, error: error ?? null };
-      }
-    }
-
     // ── USER_PROFILES ──
     if (this.table === "user_profiles") {
       const user = ownedUserFromSession();
@@ -752,7 +614,6 @@ class OwnedQueryBuilder {
           user_id: userId,
           phone_number: input.phone_number ?? null,
           telegram_username: input.telegram_username ?? null,
-          default_delivery_address: input.default_delivery_address ?? null,
           nwc_connection: input.nwc_connection ?? null,
         };
         const { data, error } = await db
@@ -950,6 +811,22 @@ class OwnedQueryBuilder {
   // EXECUTE  (SELECT queries)
   // --------------------------------------------------------
   private async execute(): Promise<{ data: any; error: any; count?: number }> {
+    if (this.pendingMutation) {
+      const { action, values } = this.pendingMutation;
+      this.pendingMutation = null;
+      const result = await this.mutate(action, values);
+
+      if (this.singleMode && Array.isArray(result.data)) {
+        const row = result.data[0] ?? null;
+        if (!row && this.singleMode === "single") {
+          return { data: null, error: new Error("No rows found") };
+        }
+        return { data: row, error: result.error };
+      }
+
+      return result;
+    }
+
     const { data, error, count } = await this.loadTable();
     if (error) return { data: null, error, count };
 
@@ -978,58 +855,6 @@ class OwnedQueryBuilder {
   }
 
   private async loadTable(): Promise<{ data: any; error: any; count?: number }> {
-    // ── RESTAURANTS → Supabase (source of truth) ──
-    if (this.table === "restaurants") {
-      let q = db
-        .from("restaurants")
-        .select("*, subscription_plans(id, is_active, menu_category)")
-        .eq("is_active", true);
-      q = applyDbFilters(q, this.filters);
-      const { data, error } = await q.order("name");
-      if (error) return { data: [], error };
-      return {
-        data: (data ?? []).map((r: any) => toSnakeRestaurant({
-          ...r,
-          subscriptionPlans: r.subscription_plans ?? [],
-        })),
-        error: null,
-      };
-    }
-
-    // ── SUBSCRIPTION_PLANS → Supabase ──
-    if (this.table === "subscription_plans") {
-      let q = db
-        .from("subscription_plans")
-        .select("*, restaurants(id, name, logo_url, address)")
-        .eq("is_active", true);
-      q = applyDbFilters(q, this.filters);
-      const { data, error } = await q.order("name");
-      if (error) return { data: [], error };
-      return {
-        data: (data ?? []).map((plan: any) => ({
-          id: plan.id,
-          restaurant_id: plan.restaurant_id,
-          name: plan.name,
-          description: plan.description,
-          price_per_week_sats: plan.price_per_week_cents,
-          meal_time: plan.meal_time,
-          menu_category: (plan.menu_category ?? "standard").toLowerCase(),
-          supports_delivery: plan.supports_delivery,
-          max_duration_weeks: plan.max_duration_weeks ?? 1,
-          is_active: plan.is_active,
-          restaurants: plan.restaurants
-            ? {
-                id: plan.restaurants.id,
-                name: plan.restaurants.name,
-                logo_url: plan.restaurants.logo_url,
-                address: plan.restaurants.address ?? "Prospera Village",
-              }
-            : undefined,
-        })),
-        error: null,
-      };
-    }
-
     // ── CLEANING_PACKAGES (from Supabase DB) ──
     if (this.table === "cleaning_packages") {
       let q = db.from("cleaning_packages").select("*");
@@ -1072,7 +897,7 @@ class OwnedQueryBuilder {
       q = q.order("created_at", { ascending: false });
       const { data, error } = await q;
       if (error) return { data: [], error };
-      const user = getOwnedUserDetails();
+      const user = getOwnedUserDetails() ?? { id: null, email: null, name: null, display_name: null };
       return {
         data: (data || []).map((b: any) => ({ ...b, users: user })),
         error: null,
@@ -1134,9 +959,23 @@ class OwnedQueryBuilder {
 
     // ── USERS (from NestJS API or session) ──
     if (this.table === "users") {
+      const idFilter = this.filters.find((f) => f.field === "id" && f.op === "eq");
+      if (idFilter) {
+        const meResult = await api("/auth/me");
+        if (!meResult.error && meResult.data?.user) {
+          const meUser = toSnakeUser(meResult.data.user);
+          if (meUser.id === idFilter.value) {
+            return { data: [meUser], error: null, count: 1 };
+          }
+        }
+      }
       const result = await api("/admin/users");
       if (!result.error) {
-        return { ...result, data: (result.data || []).map(toSnakeUser), count: result.data?.length ?? 0 };
+        let rows = (result.data || []).map(toSnakeUser);
+        for (const f of this.filters) {
+          if (f.op === "eq") rows = rows.filter((r: any) => r[f.field] === f.value);
+        }
+        return { data: rows, error: null, count: rows.length };
       }
       const user = ownedUserFromSession() || (await api("/auth/me")).data?.user;
       return { data: user ? [toSnakeUser(user)] : [], error: null, count: user ? 1 : 0 };
@@ -1155,21 +994,11 @@ class OwnedQueryBuilder {
       };
     }
 
-    // ── FAVORITES ──
-    if (this.table === "favorites") {
-      let q = db.from("favorites").select("*");
-      q = applyDbFilters(q, this.filters);
-      q = q.order("created_at", { ascending: false });
-      const { data, error } = await q;
-      return { data: data ?? [], error: error ?? null };
-    }
-
     // ── GLOBAL_SETTINGS ──
     if (this.table === "global_settings") {
       const { data, error } = await db.from("global_settings").select("*");
-      if (error || !data?.length) {
-        return { data: [{ id: "default", key: "cutoff_hour", value: 18, cutoff_hour: 18 }], error: null };
-      }
+      if (error) return { data: [], error };
+      if (!data?.length) return { data: [], error: null };
       // Shape: [{ key, value }, ...] → also expose as flat { cutoff_hour: 18 }
       const settings = data.reduce(
         (acc: any, row: any) => ({ ...acc, [row.key]: row.value }),
@@ -1186,18 +1015,7 @@ class OwnedQueryBuilder {
       q = applyDbFilters(q, this.filters);
       const { data, error } = await q;
       if (error) return { data: [], error };
-      if (data && data.length > 0) return { data, error: null };
-      // Return empty profile shape when not yet created
-      return {
-        data: [{
-          id: `owned-profile-${user.id}`,
-          user_id: user.id,
-          phone_number: null,
-          telegram_username: null,
-          default_delivery_address: null,
-        }],
-        error: null,
-      };
+      return { data: data ?? [], error: null };
     }
 
     return { data: [], error: null, count: 0 };
@@ -1226,7 +1044,22 @@ export const supabase = {
     },
     async getUser() {
       const session = await getValidStoredSession();
-      return { data: { user: session?.user ?? null }, error: null };
+      if (!session?.access_token) {
+        return { data: { user: null }, error: null };
+      }
+
+      const result = await api("/auth/me", undefined, false);
+      if (result.error || !result.data?.user) {
+        return { data: { user: session.user ?? null }, error: result.error ?? null };
+      }
+
+      const updatedSession = {
+        ...session,
+        user: result.data.user,
+        roles: result.data.roles || session.roles || [],
+      };
+      storeSession(updatedSession);
+      return { data: { user: result.data.user }, error: null };
     },
     async signInWithPassword({ email, password }: { email: string; password: string }) {
       const result = await api("/auth/login", {
@@ -1329,15 +1162,12 @@ export const supabase = {
     async updateUser(update?: { data?: { name?: string } }) {
       const session = readStoredSession();
       if (session && update?.data?.name) {
-        const name = update.data.name;
+        const result = await api("/auth/me", undefined, false);
+        if (result.error) return { data: { user: session.user ?? null }, error: result.error };
         const updatedSession = {
           ...session,
-          user: {
-            ...(session.user ?? {}),
-            name,
-            display_name: name,
-            user_metadata: { ...(session.user as any)?.user_metadata, name },
-          },
+          user: result.data.user,
+          roles: result.data.roles || session.roles || [],
         };
         storeSession(updatedSession);
         notifyAuthStateChange("SIGNED_IN", updatedSession);
@@ -1356,6 +1186,12 @@ export const supabase = {
     return new OwnedQueryBuilder(table);
   },
 
+  // ── CALENDAR AUTO-SYNC ────────────────────────────────────
+  _syncBookingToCalendar(bookingId: string) {
+    // Fire-and-forget calendar sync via backend
+    api(`/admin/cleaning/bookings/${bookingId}/sync-calendar`, { method: "POST" }).catch(() => {});
+  },
+
   // ── RPC (business logic) ──────────────────────────────────
   rpc(name: string, params?: any) {
     if (name === "set_lightning_session") {
@@ -1365,20 +1201,6 @@ export const supabase = {
     if (name === "get_user_profile") {
       const user = ownedUserFromSession();
       return Promise.resolve({ data: user ? [{ ...user }] : [], error: null });
-    }
-
-    if (name === "create_subscription_by_pubkey") {
-      const roles = getStoredSession()?.roles || [];
-      if (!roles.includes("super_admin")) {
-        return Promise.resolve({
-          data: null,
-          error: new Error("Food subscriptions are only available to super admins"),
-        });
-      }
-      return Promise.resolve({
-        data: [{ id: `owned-subscription-${Date.now()}`, ...(params || {}) }],
-        error: null,
-      });
     }
 
     if (name === "schedule_cleaning_subscription") {
@@ -1496,7 +1318,7 @@ export const supabase = {
             cleaning_subscription_id: subscriptionId,
             subscription_id: subscriptionId,
             slot_id: slot?.id,
-            user_id: subData.user_id ?? getOwnedUserDetails().id,
+            user_id: subData.user_id ?? getOwnedUserDetails()?.id ?? "unknown",
             status: "booked",
             source: "user_recurring_schedule",
             notes,
@@ -1527,7 +1349,7 @@ export const supabase = {
         }
 
         // Update subscription
-        const packageDetails = cleaningPackageForId(subData.package_id);
+        const packageDetails = await cleaningPackageForId(subData.package_id);
         const purchasedCleanings =
           packageDetails.cleanings_per_month * normalizeBillingMonths(subData.billing_period_months);
         await db
@@ -1541,6 +1363,9 @@ export const supabase = {
             updated_at: now,
           })
           .eq("id", subscriptionId);
+
+        // Auto-sync all created bookings to Google Calendar
+        api("/admin/cleaning/bookings/sync-calendar", { method: "POST" }).catch(() => {});
 
         return {
           data: {
@@ -1629,7 +1454,7 @@ export const supabase = {
             cleaning_subscription_id: subscriptionId,
             subscription_id: subscriptionId,
             slot_id: slotId,
-            user_id: subData.user_id ?? getOwnedUserDetails().id,
+            user_id: subData.user_id ?? getOwnedUserDetails()?.id ?? "unknown",
             status: "booked",
             notes,
             google_calendar_sync_status: "pending",
@@ -1652,6 +1477,9 @@ export const supabase = {
             })
             .eq("id", subscriptionId),
         ]);
+
+        // Auto-sync to Google Calendar
+        supabase._syncBookingToCalendar(booking.id);
 
         return { data: [{ id: booking.id }], error: null };
       })();
@@ -1707,6 +1535,12 @@ export const supabase = {
           client_id: clientId,
           plan_name: payload.plan_name,
           custom_price_cents: Number(payload.custom_price_cents ?? 0),
+          monthly_price_cents: Number(payload.monthly_price_cents ?? payload.custom_price_cents ?? payload.estimated_monthly_total_cents ?? 0),
+          price_per_cleaning_cents: payload.price_per_cleaning_cents ?? null,
+          frequency_unit: payload.frequency_unit ?? "custom",
+          frequency_count: payload.frequency_count ?? null,
+          custom_frequency_label: payload.custom_frequency_label ?? payload.service_frequency ?? "Custom schedule",
+          pricing_mode: payload.pricing_mode ?? "custom_manual",
           billing_type: payload.billing_type ?? "custom",
           monthly_invoice: Boolean(payload.monthly_invoice),
           payment_timing: payload.payment_timing ?? "custom_terms",
@@ -1899,6 +1733,9 @@ export const supabase = {
           }
         }
 
+        // Auto-sync cancellation to Google Calendar
+        supabase._syncBookingToCalendar(bookingId);
+
         return { data: [{ id: bookingId }], error: null };
       })();
     }
@@ -1925,7 +1762,7 @@ export const supabase = {
           notes: params?.p_notes ?? null,
           photo_url: params?.p_photo_url ?? null,
           issue_report: params?.p_issue_report ?? null,
-          completed_by: params?.p_completed_by ?? getOwnedUserDetails().display_name,
+          completed_by: params?.p_completed_by ?? getOwnedUserDetails()?.display_name ?? "Unknown",
           completed_at: now,
         };
 
@@ -1939,6 +1776,9 @@ export const supabase = {
           .from("cleaning_bookings")
           .update({ status: "completed", google_calendar_sync_status: "pending", updated_at: now })
           .eq("id", bookingId);
+
+        // Auto-sync completion to Google Calendar
+        supabase._syncBookingToCalendar(bookingId);
 
         return { data: [{ id: reportData?.id ?? bookingId }], error: null };
       })();
@@ -2000,17 +1840,10 @@ export const supabase = {
       });
     },
     updateCleaningBooking(bookingId: string, payload: Record<string, unknown>) {
-      // Write calendar sync fields directly to Supabase (bookings now live in DB)
-      return db
-        .from("cleaning_bookings")
-        .update({ ...payload, updated_at: new Date().toISOString() })
-        .eq("id", bookingId)
-        .select()
-        .single()
-        .then(({ data, error }) => ({
-          data: data ?? { id: bookingId, ...payload },
-          error: error ?? null,
-        }));
+      return api(`/admin/cleaning/bookings/${bookingId}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      });
     },
     deleteCleaningBooking(bookingId: string) {
       return api(`/admin/cleaning/bookings/${bookingId}`, { method: "DELETE" });

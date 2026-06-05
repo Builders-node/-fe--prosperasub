@@ -1,29 +1,20 @@
-import { type ChangeEvent, useMemo, useState } from "react";
-import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
-import { format, addDays } from "date-fns";
-import { todayHN, nowHN, formatTimestampHN, HN_TZ } from "@/lib/timezone";
+import { type ChangeEvent, useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { format } from "date-fns";
 import {
-  Archive,
-  AlertTriangle,
   CalendarDays,
   CheckCircle2,
   Clock,
   ExternalLink,
   ListChecks,
-  MapPin,
-  Pencil,
-  Plus,
   RotateCcw,
-  Search,
   SparklesIcon,
-  Trash2,
-  Users,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { EmptyState } from "@/components/EmptyState";
-import { supabase, supabaseDb } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -39,22 +30,9 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-
-const weekdayOptions = [
-  { label: "Monday", value: "MONDAY", short: "Mon" },
-  { label: "Tuesday", value: "TUESDAY", short: "Tue" },
-  { label: "Wednesday", value: "WEDNESDAY", short: "Wed" },
-  { label: "Thursday", value: "THURSDAY", short: "Thu" },
-  { label: "Friday", value: "FRIDAY", short: "Fri" },
-  { label: "Saturday", value: "SATURDAY", short: "Sat" },
-  { label: "Sunday", value: "SUNDAY", short: "Sun" },
-];
 
 const dailyChecklist = [
   "Take out trash",
@@ -65,94 +43,31 @@ const dailyChecklist = [
   "Report if anything is missing, broken, damaged, or unusual",
 ];
 
-const deepChecklist = [
-  "Clean microwave",
-  "Clean refrigerators",
-  "Dust library, monitors, and other surfaces",
-  "Sweep and mop floors",
-  "Clean bean bags as needed",
-  "Wipe down swivel chairs",
-  "Clean cowork door and interior windows with glass cleaner",
-  "Take out trash and replace bags",
-  "Wipe down all surfaces",
-  "Organize workspace",
-  "Refill water jug and cups",
-  "Report missing, broken, damaged, or unusual items",
-];
-
-const initialForm = {
-  company_name: "",
-  contact_person: "",
-  email: "",
-  phone: "",
-  location: "",
-  service_type: "",
-  notes: "",
-  internal_admin_notes: "",
-  start_date: todayHN(),
-  end_date: "",
-  status: "active",
-  plan_name: "",
-  custom_price: "10",
-  billing_type: "daily",
-  monthly_invoice: true,
-  payment_timing: "after_service_completed",
-  custom_terms: "Monthly invoice after services are completed",
-  service_frequency: "daily",
-  days_of_week: ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"],
-  deep_cleaning_add_on: false,
-  estimated_monthly_total: "240",
-  preferred_start_time: "08:00",
-  preferred_end_time: "10:00",
-  service_duration_minutes: "120",
-  repeat_frequency: "weekly",
+const statusColor = (status?: string | null) => {
+  switch (status) {
+    case "booked":
+    case "paid":
+    case "active":
+    case "synced":
+      return "default";
+    case "completed":
+    case "paused":
+    case "pending":
+      return "secondary";
+    case "cancelled":
+    case "archived":
+    case "failed":
+      return "destructive";
+    default:
+      return "outline";
+  }
 };
 
-const initialClientEditForm = {
-  id: "",
-  company_name: "",
-  contact_person: "",
-  email: "",
-  phone: "",
-  location: "",
-  service_type: "",
-  notes: "",
-  internal_admin_notes: "",
-  status: "active",
+const calendarStatusLabel = (status?: string | null) => {
+  if (status === "synced") return "Synced";
+  if (status === "failed") return "Failed";
+  return "Pending";
 };
-
-const toLines = (value: string) =>
-  value
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-const toCents = (value: string) => Math.round(Number(value || 0) * 100);
-const formatUSD = (cents?: number) => `$${((cents ?? 0) / 100).toFixed(2)}`;
-const normalizeSearch = (value?: string | null) => String(value || "").trim().toLowerCase();
-const normalizePhone = (value?: string | null) => String(value || "").replace(/\D/g, "");
-const formatDateLabel = (value?: string | null) => value ? format(new Date(`${value}T00:00:00`), "MMM d, yyyy") : "—";
-
-const getSubscriptionMonths = (subscription: any) => Number(subscription.billing_period_months) || 1;
-const getSubscriptionMonthlyPrice = (subscription: any) => {
-  if (Number(subscription.monthly_price_cents)) return Number(subscription.monthly_price_cents);
-  const cleanings = Number(subscription.cleaning_packages?.cleanings_per_month) || 4;
-  const pricePerCleaning = subscription.package_id === "cleaning-2-bedroom" ? 2475 : 1975;
-  return cleanings * pricePerCleaning;
-};
-const getSubscriptionTotalPrice = (subscription: any) =>
-  Number(subscription.total_price_cents) || getSubscriptionMonthlyPrice(subscription) * getSubscriptionMonths(subscription);
-const getSubscriptionStatus = (subscription: any) =>
-  subscription.subscription_status || (subscription.is_active ? "active" : "inactive");
-
-const serviceFrequencyOptions = [
-  { value: "daily", label: "Daily" },
-  { value: "weekly", label: "Weekly" },
-  { value: "monthly", label: "Monthly" },
-];
-
-const formatServiceFrequency = (value?: string | null) =>
-  serviceFrequencyOptions.find((option) => option.value === value)?.label || value || "Custom";
 
 const calendarSyncSkipMessage = (reason?: string) => {
   switch (reason) {
@@ -169,66 +84,9 @@ const calendarSyncSkipMessage = (reason?: string) => {
   }
 };
 
-const findSimilarClient = (clients: any[] = [], formValue: typeof initialForm) => {
-  const email = normalizeSearch(formValue.email);
-  const phone = normalizePhone(formValue.phone);
-  const company = normalizeSearch(formValue.company_name);
-  const location = normalizeSearch(formValue.location);
-
-  if (!email && !phone && !company) return null;
-
-  return clients.find((client) => {
-    const clientEmail = normalizeSearch(client.email);
-    const clientPhone = normalizePhone(client.phone);
-    const clientCompany = normalizeSearch(client.company_name);
-    const clientLocation = normalizeSearch(client.location);
-
-    return (
-      (email && clientEmail && email === clientEmail) ||
-      (phone && clientPhone && phone === clientPhone) ||
-      (company && location && clientCompany === company && clientLocation === location)
-    );
-  });
-};
-
-const statusColor = (status: string) => {
-  switch (status) {
-    case "booked":
-    case "paid":
-    case "active":
-      return "default";
-    case "completed":
-    case "paused":
-      return "secondary";
-    case "cancelled":
-    case "archived":
-      return "destructive";
-    default:
-      return "outline";
-  }
-};
-
-const calendarStatusColor = (status?: string | null) => {
-  switch (status) {
-    case "synced":
-      return "default";
-    case "failed":
-      return "destructive";
-    case "pending":
-      return "secondary";
-    default:
-      return "outline";
-  }
-};
-
-const calendarStatusLabel = (status?: string | null) => {
-  if (status === "synced") return "Synced";
-  if (status === "failed") return "Failed";
-  return "Pending";
-};
-
-const to12h = (t: string) => {
-  const [h, m] = t.slice(0, 5).split(":").map(Number);
+const to12h = (time?: string | null) => {
+  if (!time) return "—";
+  const [h, m] = time.slice(0, 5).split(":").map(Number);
   const suffix = h >= 12 ? "PM" : "AM";
   const hour = h === 0 ? 12 : h > 12 ? h - 12 : h;
   return `${hour}:${String(m).padStart(2, "0")} ${suffix}`;
@@ -239,22 +97,14 @@ const getUserName = (user: any) => {
   return user.display_name || user.name || user.email || "Unknown";
 };
 
+const getBookingClientName = (booking: any) =>
+  booking.cleaning_clients?.company_name || getUserName(booking.users);
+
 const getBookingDate = (booking: any) => booking.cleaning_available_slots?.date ?? "";
 
 const CleaningManagement = () => {
   const queryClient = useQueryClient();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
-  const [createOpen, setCreateOpen] = useState(false);
-  const [createStep, setCreateStep] = useState<1 | 2 | 3 | 4>(1);
-  const [form, setForm] = useState(initialForm);
-  const [selectedClientId, setSelectedClientId] = useState<string>("");
-  const [clientMode, setClientMode] = useState<"existing" | "new">("new");
-  const [createClientId, setCreateClientId] = useState("");
-  const [clientSearch, setClientSearch] = useState("");
-  const [clientEditOpen, setClientEditOpen] = useState(false);
-  const [clientEditForm, setClientEditForm] = useState(initialClientEditForm);
-  const [editSubOpen, setEditSubOpen] = useState(false);
-  const [editingSub, setEditingSub] = useState<any>(null);
   const [completionBookingId, setCompletionBookingId] = useState<string>("");
   const [completion, setCompletion] = useState({
     completed_by: "Admin",
@@ -266,77 +116,49 @@ const CleaningManagement = () => {
 
   const invalidateCleaning = () => {
     [
-      "admin-cleaning-subscriptions",
       "admin-cleaning-bookings",
       "admin-cleaning-slots",
-      "admin-cleaning-clients",
-      "admin-cleaning-custom-plans",
-      "admin-cleaning-schedules",
-      "admin-cleaning-checklists",
       "admin-cleaning-reports",
       "cleaning-slots",
     ].forEach((key) => queryClient.invalidateQueries({ queryKey: [key] }));
   };
 
-  const { data: subscriptions, isLoading: subsLoading } = useQuery({
-    queryKey: ["admin-cleaning-subscriptions"],
+  const { data: bookings = [], isLoading: bookingsLoading } = useQuery({
+    queryKey: ["admin-cleaning-bookings"],
     queryFn: async () => {
-      const { data: subs, error } = await supabaseDb
-        .from("cleaning_subscriptions")
-        .select("*")
-        .order("created_at", { ascending: false });
+      // Load bookings without relying on FK joins (TEXT vs UUID type mismatch breaks them)
+      const { data: rawBookings, error } = await supabase
+        .from("cleaning_bookings")
+        .select("*, cleaning_available_slots(id, date, start_time, end_time), cleaning_custom_plans(*), cleaning_completion_reports(*)")
+        .order("created_at", { ascending: true });
       if (error) throw error;
-      if (!subs?.length) return [];
+      if (!rawBookings?.length) return [];
 
-      // Look up users
-      const userIds = [...new Set(subs.map((s: any) => s.user_id).filter(Boolean))];
-      const { data: usersData } = await supabaseDb
-        .from("users")
-        .select("id, name, display_name, email")
-        .in("id", userIds);
-      const usersMap = new Map((usersData ?? []).map((u: any) => [String(u.id), u]));
+      // Separately load clients and users to avoid PostgREST FK type-mismatch issues
+      const clientIds = [...new Set(rawBookings.map((b: any) => b.client_id).filter(Boolean))];
+      const userIds   = [...new Set(rawBookings.map((b: any) => b.user_id).filter(Boolean))];
 
-      // Look up packages
-      const pkgIds = [...new Set(subs.map((s: any) => s.package_id).filter(Boolean))];
-      const { data: pkgsData } = await supabaseDb
-        .from("cleaning_packages")
-        .select("id, name, cleanings_per_month")
-        .in("id", pkgIds);
-      const pkgsMap = new Map((pkgsData ?? []).map((p: any) => [p.id, p]));
+      const [clientsRes, usersRes] = await Promise.all([
+        clientIds.length
+          ? supabase.from("cleaning_clients").select("id, company_name, location, email, phone").in("id", clientIds)
+          : Promise.resolve({ data: [] }),
+        userIds.length
+          ? supabase.from("users").select("id, display_name, name, email").in("id", userIds)
+          : Promise.resolve({ data: [] }),
+      ]);
 
-      return subs.map((s: any) => ({
-        ...s,
-        users: usersMap.get(String(s.user_id)) || null,
-        cleaning_packages: pkgsMap.get(s.package_id) || null,
+      const clientMap = new Map((clientsRes.data ?? []).map((c: any) => [c.id, c]));
+      const userMap   = new Map((usersRes.data   ?? []).map((u: any) => [u.id, u]));
+
+      return rawBookings.map((b: any) => ({
+        ...b,
+        cleaning_clients: b.client_id ? (clientMap.get(b.client_id) ?? null) : null,
+        users: b.user_id ? (userMap.get(b.user_id) ?? null) : null,
       }));
     },
   });
 
-  const { data: plans = [] } = useQuery({
-    queryKey: ["admin-all-cleaning-packages"],
-    queryFn: async () => {
-      const { data, error } = await supabaseDb
-        .from("cleaning_packages")
-        .select("*")
-        .order("sort_order");
-      if (error) throw error;
-      return data ?? [];
-    },
-  });
-
-  const { data: bookings, isLoading: bookingsLoading } = useQuery({
-    queryKey: ["admin-cleaning-bookings"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("cleaning_bookings")
-        .select("*, cleaning_available_slots(id, date, start_time, end_time), users(display_name, email, name), cleaning_clients(*), cleaning_custom_plans(*), cleaning_completion_reports(*)")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data ?? [];
-    },
-  });
-
-  const { data: slots } = useQuery({
+  const { data: slots = [] } = useQuery({
     queryKey: ["admin-cleaning-slots"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -348,55 +170,7 @@ const CleaningManagement = () => {
     },
   });
 
-  const { data: clients } = useQuery({
-    queryKey: ["admin-cleaning-clients"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("cleaning_clients")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data ?? [];
-    },
-  });
-
-  const { data: customPlans } = useQuery({
-    queryKey: ["admin-cleaning-custom-plans"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("cleaning_custom_plans")
-        .select("*, cleaning_clients(*)")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data ?? [];
-    },
-  });
-
-  const { data: schedules } = useQuery({
-    queryKey: ["admin-cleaning-schedules"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("cleaning_recurring_schedules")
-        .select("*, cleaning_clients(*), cleaning_custom_plans(*)")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data ?? [];
-    },
-  });
-
-  useQuery({
-    queryKey: ["admin-cleaning-checklists"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("cleaning_checklist_templates")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data ?? [];
-    },
-  });
-
-  const { data: completionReports } = useQuery({
+  const { data: completionReports = [] } = useQuery({
     queryKey: ["admin-cleaning-reports"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -406,213 +180,6 @@ const CleaningManagement = () => {
       if (error) throw error;
       return data ?? [];
     },
-  });
-
-  const createCustomPlan = useMutation({
-    mutationFn: async () => {
-      const validationError =
-        clientMode === "existing" && !createClientId
-          ? "Select an existing client before creating the plan"
-          : !form.company_name.trim()
-            ? "Client / company name is required"
-            : !form.location.trim()
-              ? "Location is required"
-              : !form.email.trim() && !form.phone.trim()
-                ? "Email or phone is required"
-                : !form.plan_name.trim()
-                  ? "Plan name is required"
-                  : Number(form.custom_price) <= 0
-                    ? "Custom price is required"
-                    : !form.start_date
-                      ? "Start date is required"
-                      : null;
-
-      if (validationError) throw new Error(validationError);
-
-      const duplicate = clientMode === "new" ? findSimilarClient(clients ?? [], form) : null;
-      if (duplicate) {
-        throw new Error(`Similar client already exists: ${duplicate.company_name}. Select Existing client to reuse it.`);
-      }
-
-      const { data, error } = await supabase.rpc("create_custom_cleaning_plan", {
-        ...form,
-        existing_client_id: clientMode === "existing" ? createClientId : null,
-        assigned_cleaner: null,
-        deep_cleaning_add_on: false,
-        custom_price_cents: toCents(form.custom_price),
-        estimated_monthly_total_cents: toCents(form.estimated_monthly_total),
-        daily_checklist: dailyChecklist,
-        deep_cleaning_checklist: deepChecklist,
-        custom_checklist: dailyChecklist,
-      });
-      if (error) throw error;
-      return data?.[0];
-    },
-    onSuccess: (result) => {
-      toast.success(`Custom plan created. ${result?.bookings_created ?? 0} recurring slots booked.`);
-      if (result?.conflicts?.length) {
-        toast.warning(`${result.conflicts.length} dates were already occupied and skipped.`);
-      }
-      setCreateOpen(false);
-      setForm(initialForm);
-      setCreateClientId("");
-      setClientMode("new");
-      setClientSearch("");
-      setSelectedClientId(result?.client?.id ?? "");
-      invalidateCleaning();
-    },
-    onError: (error: Error) => toast.error(error.message || "Failed to create custom plan"),
-  });
-
-  const approveMutation = useMutation({
-    mutationFn: async (subId: string) => {
-      const { error } = await supabase
-        .from("cleaning_subscriptions")
-        .update({ payment_status: "paid", is_active: true })
-        .eq("id", subId);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("Payment approved and subscription activated");
-      invalidateCleaning();
-    },
-    onError: () => toast.error("Failed to approve payment"),
-  });
-
-  const createClientMutation = useMutation({
-    mutationFn: async () => {
-      const { error } = await supabaseDb
-        .from("cleaning_clients")
-        .insert({
-          company_name: form.company_name.trim(),
-          contact_person: form.contact_person || null,
-          email: form.email || null,
-          phone: form.phone || null,
-          location: form.location.trim(),
-          service_type: form.service_type || null,
-          notes: form.notes || null,
-          status: "active",
-          client_type: "custom_cleaning_client",
-          visibility: "admin_only",
-          is_private: true,
-        });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("Client created");
-      invalidateCleaning();
-      setCreateOpen(false);
-      setForm(initialForm);
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const updateSubMutation = useMutation({
-    mutationFn: async (updates: { id: string; [key: string]: any }) => {
-      const { id, ...fields } = updates;
-      const { error } = await supabaseDb
-        .from("cleaning_subscriptions")
-        .update({ ...fields, updated_at: new Date().toISOString() })
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("Subscription updated");
-      invalidateCleaning();
-      setEditSubOpen(false);
-      setEditingSub(null);
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const updateScheduleMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const { error } = await supabase
-        .from("cleaning_recurring_schedules")
-        .update({ status, paused_at: status === "paused" ? new Date().toISOString() : null })
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("Recurring schedule updated");
-      invalidateCleaning();
-    },
-  });
-
-  const updateClientMutation = useMutation({
-    mutationFn: async () => {
-      if (!clientEditForm.company_name.trim()) throw new Error("Client / company name is required");
-      if (!clientEditForm.location.trim()) throw new Error("Location is required");
-      if (!clientEditForm.email.trim() && !clientEditForm.phone.trim()) throw new Error("Email or phone is required");
-
-      const { id, ...values } = clientEditForm;
-      const { data, error } = await supabase
-        .from("cleaning_clients")
-        .update({
-          ...values,
-          company_name: values.company_name.trim(),
-          contact_person: values.contact_person.trim(),
-          email: values.email.trim(),
-          phone: values.phone.trim(),
-          location: values.location.trim(),
-          service_type: values.service_type.trim(),
-          notes: values.notes,
-          internal_admin_notes: values.internal_admin_notes,
-        })
-        .eq("id", id);
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      toast.success("Custom client updated");
-      setClientEditOpen(false);
-      setClientEditForm(initialClientEditForm);
-      invalidateCleaning();
-    },
-    onError: (error: Error) => toast.error(error.message || "Could not update client"),
-  });
-
-  const archiveClientMutation = useMutation({
-    mutationFn: async (clientId: string) => {
-      const { error } = await supabase
-        .from("cleaning_clients")
-        .update({ status: "archived" })
-        .eq("id", clientId);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("Client archived");
-      invalidateCleaning();
-    },
-  });
-
-  const deleteClientMutation = useMutation({
-    mutationFn: async (clientId: string) => {
-      const { error } = await supabase.from("cleaning_clients").delete().eq("id", clientId);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("Client deleted from admin-only records");
-      setSelectedClientId("");
-      invalidateCleaning();
-    },
-  });
-
-  const unarchiveClientMutation = useMutation({
-    mutationFn: async (clientId: string) => {
-      const { error } = await supabase
-        .from("cleaning_clients")
-        .update({ status: "active" })
-        .eq("id", clientId);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("Client unarchived");
-      setClientEditOpen(false);
-      setClientEditForm(initialClientEditForm);
-      invalidateCleaning();
-    },
-    onError: () => toast.error("Could not unarchive client"),
   });
 
   const completeBookingMutation = useMutation({
@@ -638,22 +205,15 @@ const CleaningManagement = () => {
 
   const syncCalendarMutation = useMutation({
     mutationFn: async (bookingId: string) => {
-      // Find the booking in local data so we can pass it directly (no DB needed)
-      const booking = bookings?.find((b: any) => b.id === bookingId);
+      const booking = bookings.find((candidate: any) => candidate.id === bookingId);
       const slot = booking?.cleaning_available_slots;
 
       if (booking && slot?.date && slot?.start_time && slot?.end_time) {
-        // Use direct sync — passes all booking details to avoid DB dependency
-        // Normalise to HH:mm (DB may store "08:00:00")
         const { data, error } = await supabase.admin.syncCleaningBookingDirect(bookingId, {
           date: slot.date,
           startTime: String(slot.start_time).slice(0, 5),
           endTime: String(slot.end_time).slice(0, 5),
-          clientName:
-            booking.cleaning_clients?.company_name ||
-            booking.users?.display_name ||
-            booking.users?.name ||
-            undefined,
+          clientName: getBookingClientName(booking),
           planName: booking.cleaning_custom_plans?.plan_name || undefined,
           location: booking.location || booking.cleaning_clients?.location || undefined,
           status: booking.status || "booked",
@@ -662,7 +222,6 @@ const CleaningManagement = () => {
         });
         if (error) throw error;
 
-        // Persist the returned event ID back to the DB so future syncs update instead of create
         if (data?.ok && data?.googleCalendarEventId) {
           const { error: updateError } = await supabase.admin.updateCleaningBooking(bookingId, {
             google_calendar_event_id: data.googleCalendarEventId,
@@ -675,7 +234,6 @@ const CleaningManagement = () => {
         return data;
       }
 
-      // Fallback to server-side load (when DB is available)
       const { data, error } = await supabase.admin.syncCleaningBookingCalendar(bookingId);
       if (error) throw error;
       return data;
@@ -686,7 +244,7 @@ const CleaningManagement = () => {
       } else if (result?.skipped) {
         toast.warning(calendarSyncSkipMessage(result.skipReason));
       } else {
-        toast.success("Booking synced to Google Calendar ✓");
+        toast.success("Booking synced to Google Calendar");
       }
       invalidateCleaning();
     },
@@ -695,16 +253,11 @@ const CleaningManagement = () => {
 
   const syncAllCalendarMutation = useMutation({
     mutationFn: async () => {
-      const activeBookings = (bookings ?? []).filter(
-        (b: any) => b.status === "booked" || b.status === "completed" || b.status === "cancelled"
+      const activeBookings = bookings.filter((booking: any) =>
+        ["booked", "completed", "cancelled"].includes(booking.status)
       );
-
-      if (activeBookings.length === 0) {
-        return { ok: true, total: 0, synced: 0, failed: 0, results: [] };
-      }
-
-      // Sync each booking directly (no DB required)
       const results: Array<{ ok: boolean; bookingId: string; error?: string }> = [];
+
       for (const booking of activeBookings) {
         const slot = booking.cleaning_available_slots;
         if (!slot?.date || !slot?.start_time || !slot?.end_time) {
@@ -716,11 +269,7 @@ const CleaningManagement = () => {
           date: slot.date,
           startTime: String(slot.start_time).slice(0, 5),
           endTime: String(slot.end_time).slice(0, 5),
-          clientName:
-            booking.cleaning_clients?.company_name ||
-            booking.users?.display_name ||
-            booking.users?.name ||
-            undefined,
+          clientName: getBookingClientName(booking),
           planName: booking.cleaning_custom_plans?.plan_name || undefined,
           location: booking.location || booking.cleaning_clients?.location || undefined,
           status: booking.status || "booked",
@@ -733,7 +282,6 @@ const CleaningManagement = () => {
           continue;
         }
 
-        // Save event ID back to localStorage
         if (data?.ok && data?.googleCalendarEventId) {
           await supabase.admin.updateCleaningBooking(booking.id, {
             google_calendar_event_id: data.googleCalendarEventId,
@@ -745,146 +293,75 @@ const CleaningManagement = () => {
         results.push({ ok: data?.ok ?? false, bookingId: booking.id, ...(data?.ok ? {} : { error: data?.error }) });
       }
 
-      const failed = results.filter((r) => !r.ok).length;
-      return { ok: failed === 0, total: results.length, synced: results.length - failed, failed, results };
+      const failed = results.filter((result) => !result.ok).length;
+      return { ok: failed === 0, total: results.length, synced: results.length - failed, failed };
     },
     onSuccess: (result) => {
-      if (result?.ok === false && result?.total === 0) {
+      if (!result.total) {
         toast.warning("No bookings to sync.");
-      } else if (result?.ok === false) {
-        const failed = result?.failed ?? 0;
-        toast.error(`Sync finished with ${failed} error${failed !== 1 ? "s" : ""}.`);
+      } else if (!result.ok) {
+        toast.error(`Sync finished with ${result.failed} error${result.failed !== 1 ? "s" : ""}.`);
       } else {
-        const total = result?.total ?? 0;
-        const synced = result?.synced ?? 0;
-        const failed = result?.failed ?? 0;
-        const message = failed
-          ? `Calendar sync finished: ${synced}/${total} synced, ${failed} failed.`
-          : `Calendar sync finished: ${synced}/${total} synced ✓`;
-        toast.success(message);
+        toast.success(`Calendar sync finished: ${result.synced}/${result.total} synced`);
       }
       invalidateCleaning();
     },
     onError: (error: Error) => toast.error(error.message || "Google Calendar bulk sync failed"),
   });
 
-  const selectedClient = clients?.find((client: any) => client.id === selectedClientId) ?? clients?.[0] ?? null;
-  const selectedClientPlans = customPlans?.filter((plan: any) => plan.client_id === selectedClient?.id) ?? [];
-  const selectedClientSchedules = schedules?.filter((schedule: any) => schedule.client_id === selectedClient?.id) ?? [];
-  const selectedClientBookings = bookings?.filter((booking: any) => booking.client_id === selectedClient?.id) ?? [];
-  const activeSubsCount = subscriptions?.filter((sub: any) => sub.is_active).length ?? 0;
-  const totalBookings = bookings?.length ?? 0;
-  const upcomingBookings = bookings?.filter((booking: any) => booking.status === "booked").length ?? 0;
   const selectedDateKey = selectedDate ? format(selectedDate, "yyyy-MM-dd") : "";
   const bookedDates = useMemo(
     () =>
       bookings
-        ?.filter((booking: any) => booking.status === "booked" && booking.cleaning_available_slots?.date)
-        .map((booking: any) => new Date(`${booking.cleaning_available_slots.date}T00:00:00`)) ?? [],
-    [bookings]
+        .filter((booking: any) => booking.status === "booked" && booking.cleaning_available_slots?.date)
+        .map((booking: any) => new Date(`${booking.cleaning_available_slots.date}T00:00:00`)),
+    [bookings],
   );
   const slotDates = useMemo(
-    () => slots?.map((slot: any) => new Date(`${slot.date}T00:00:00`)) ?? [],
-    [slots]
+    () => slots.map((slot: any) => new Date(`${slot.date}T00:00:00`)),
+    [slots],
   );
+  const isCancelled = (status: string) =>
+    status?.toLowerCase() === "cancelled";
+
+  // Calendar day view: exclude cancelled bookings so they don't clutter the schedule
   const bookingsForSelectedDate = useMemo(
-    () => bookings?.filter((booking: any) => booking.cleaning_available_slots?.date === selectedDateKey) ?? [],
-    [bookings, selectedDateKey]
+    () => bookings.filter(
+      (booking: any) =>
+        booking.cleaning_available_slots?.date === selectedDateKey &&
+        !isCancelled(booking.status),
+    ),
+    [bookings, selectedDateKey],
   );
   const slotsForSelectedDate = useMemo(
-    () => slots?.filter((slot: any) => slot.date === selectedDateKey) ?? [],
-    [slots, selectedDateKey]
+    () => slots.filter((slot: any) => slot.date === selectedDateKey),
+    [slots, selectedDateKey],
   );
 
-  const previewDates = useMemo(() => {
-    const days = new Set(form.days_of_week);
-    const start = new Date(`${form.start_date}T00:00:00`);
-    return Array.from({ length: 21 }, (_, index) => addDays(start, index))
-      .filter((date) => {
-        const option = weekdayOptions[date.getDay() === 0 ? 6 : date.getDay() - 1];
-        return days.has(option?.value);
-      })
-      .slice(0, 12);
-  }, [form.days_of_week, form.start_date]);
+  const sortedBookings = useMemo(
+    () =>
+      [...bookings].sort((a: any, b: any) => {
+        const dateA = a.cleaning_available_slots?.date ?? "";
+        const dateB = b.cleaning_available_slots?.date ?? "";
+        if (dateA !== dateB) return dateA < dateB ? -1 : 1;
+        const timeA = a.cleaning_available_slots?.start_time ?? "";
+        const timeB = b.cleaning_available_slots?.start_time ?? "";
+        return timeA < timeB ? -1 : timeA > timeB ? 1 : 0;
+      }),
+    [bookings],
+  );
 
-  const filteredClients = useMemo(() => {
-    const search = normalizeSearch(clientSearch);
-    const list = clients ?? [];
-    if (!search) return list.slice(0, 8);
-    return list
-      .filter((client: any) =>
-        [
-          client.company_name,
-          client.contact_person,
-          client.email,
-          client.phone,
-          client.location,
-          client.service_type,
-        ]
-          .map(normalizeSearch)
-          .some((value) => value.includes(search))
-      )
-      .slice(0, 8);
-  }, [clients, clientSearch]);
+  const stats = useMemo(
+    () => ({
+      upcoming: bookings.filter((booking: any) => booking.status === "booked").length,
+      completed: bookings.filter((booking: any) => booking.status === "completed").length,
+      total: bookings.length,
+      reports: completionReports.length,
+    }),
+    [bookings, completionReports],
+  );
 
-  const similarClient = clientMode === "new" ? findSimilarClient(clients ?? [], form) : null;
-
-  const setFormValue = (key: keyof typeof initialForm, value: any) => {
-    setForm((current) => ({ ...current, [key]: value }));
-  };
-
-  const openCreatePlanModal = () => {
-    setForm(initialForm);
-    setCreateClientId("");
-    setClientMode("new");
-    setClientSearch("");
-    setCreateStep(1);
-    setCreateOpen(true);
-  };
-
-  const openClientEditModal = (client: any) => {
-    setSelectedClientId(client.id);
-    setClientEditForm({
-      ...initialClientEditForm,
-      id: client.id,
-      company_name: client.company_name || "",
-      contact_person: client.contact_person || "",
-      email: client.email || "",
-      phone: client.phone || "",
-      location: client.location || "",
-      service_type: client.service_type || "",
-      notes: client.notes || "",
-      internal_admin_notes: client.internal_admin_notes || "",
-      status: client.status || "active",
-    });
-    setClientEditOpen(true);
-  };
-
-  const selectExistingClientForPlan = (client: any) => {
-    setCreateClientId(client.id);
-    setClientSearch(client.company_name || "");
-    setForm((current) => ({
-      ...current,
-      company_name: client.company_name || "",
-      contact_person: client.contact_person || "",
-      email: client.email || "",
-      phone: client.phone || "",
-      location: client.location || "",
-      service_type: client.service_type || "",
-      notes: client.notes || "",
-      internal_admin_notes: client.internal_admin_notes || "",
-      plan_name: current.plan_name || `${client.company_name || "Client"} Cleaning Plan`,
-    }));
-  };
-
-  const toggleWeekday = (value: string) => {
-    setForm((current) => ({
-      ...current,
-      days_of_week: current.days_of_week.includes(value)
-        ? current.days_of_week.filter((day) => day !== value)
-        : [...current.days_of_week, value],
-    }));
-  };
+  // (Auto-sync removed — use the Sync All button manually to avoid unintended side effects)
 
   const toggleChecklistItem = (item: string) => {
     setCompletion((current) => ({
@@ -907,139 +384,136 @@ const CleaningManagement = () => {
   };
 
   return (
-    <SuperAdminLayout title="Cleaning Operations" subtitle="Bookings, available slots, active subscriptions, and recurring schedules">
-      <div className="grid grid-cols-2 gap-space-3 md:grid-cols-5 md:gap-space-4">
-        <Card>
-          <CardHeader className="pb-space-2">
-            <CardTitle className="flex items-center gap-space-2 text-sm font-medium text-muted-foreground">
-              <Users className="h-4 w-4" />
-              Active Subs
-            </CardTitle>
-          </CardHeader>
-          <CardContent><div className="text-3xl font-bold">{activeSubsCount}</div></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-space-2">
-            <CardTitle className="flex items-center gap-space-2 text-sm font-medium text-muted-foreground">
-              <SparklesIcon className="h-4 w-4" />
-              Custom Clients
-            </CardTitle>
-          </CardHeader>
-          <CardContent><div className="text-3xl font-bold">{clients?.length ?? 0}</div></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-space-2">
-            <CardTitle className="flex items-center gap-space-2 text-sm font-medium text-muted-foreground">
-              <CalendarDays className="h-4 w-4" />
-              Upcoming
-            </CardTitle>
-          </CardHeader>
-          <CardContent><div className="text-3xl font-bold">{upcomingBookings}</div></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-space-2">
-            <CardTitle className="flex items-center gap-space-2 text-sm font-medium text-muted-foreground">
-              <ListChecks className="h-4 w-4" />
-              Total Bookings
-            </CardTitle>
-          </CardHeader>
-          <CardContent><div className="text-3xl font-bold">{totalBookings}</div></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-space-2">
-            <CardTitle className="flex items-center gap-space-2 text-sm font-medium text-muted-foreground">
-              <Clock className="h-4 w-4" />
-              Slots
-            </CardTitle>
-          </CardHeader>
-          <CardContent><div className="text-3xl font-bold">{slots?.length ?? 0}</div></CardContent>
-        </Card>
+    <SuperAdminLayout title="Cleaning Operations" subtitle="Operational booking calendar and cleaning completion reports">
+      <div className="grid grid-cols-2 gap-space-2 md:grid-cols-4 md:gap-space-3">
+        {[
+          { label: "Upcoming", value: stats.upcoming, icon: CalendarDays },
+          { label: "Completed", value: stats.completed, icon: CheckCircle2 },
+          { label: "Total Bookings", value: stats.total, icon: ListChecks },
+          { label: "Reports", value: stats.reports, icon: SparklesIcon },
+        ].map((item) => (
+          <Card key={item.label}>
+            <CardContent className="px-space-4 py-space-3">
+              <p className="flex items-center gap-space-2 text-sm text-muted-foreground">
+                <item.icon className="h-4 w-4" />
+                {item.label}
+              </p>
+              <p className="mt-0.5 text-2xl font-extrabold">{item.value}</p>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
-      <Tabs defaultValue="custom-clients" variant="pills" className="mt-space-8 w-full">
+      <Tabs defaultValue="bookings" variant="pills" className="mt-space-4 w-full">
         <TabsList wrap className="h-auto">
-          <TabsTrigger value="custom-clients">Custom Clients</TabsTrigger>
+          <TabsTrigger value="bookings">Bookings</TabsTrigger>
           <TabsTrigger value="calendar">Calendar</TabsTrigger>
-          <TabsTrigger value="bookings">All Bookings</TabsTrigger>
-          <TabsTrigger value="subscriptions">Subscriptions</TabsTrigger>
           <TabsTrigger value="reports">Completion Reports</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="custom-clients">
-          <div>
-            <Card>
-              <CardHeader className="flex flex-col gap-space-4 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <CardTitle>Custom Clients</CardTitle>
-                  <p className="mt-space-2 text-body text-muted-foreground">
-                    Private admin-only cleaning clients. These records never feed the public pricing flow.
-                  </p>
-                </div>
-                <Button onClick={() => setCreateOpen(true)}>
-                  <Plus className="h-4 w-4" />
-                  Create Custom Client
-                </Button>
-              </CardHeader>
-              <CardContent>
-                {!clients?.length ? (
-                  <EmptyState
-                    title="No custom clients yet"
-                    description="Create a private cleaning client plan for cowork spaces, offices, or custom agreements."
-                    compact
-                  />
-                ) : (
-                  <div className="overflow-x-auto">
+        <TabsContent value="bookings">
+          <Card>
+            <CardHeader className="flex flex-col gap-space-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <CardTitle>Cleaning Bookings</CardTitle>
+                <p className="mt-space-1 text-sm text-muted-foreground">
+                  Sync booked sessions to Google Calendar and mark completed services.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                loading={syncAllCalendarMutation.isPending}
+                disabled={bookings.length === 0 || syncAllCalendarMutation.isPending}
+                onClick={() => syncAllCalendarMutation.mutate()}
+              >
+                <RotateCcw className="h-4 w-4" aria-hidden="true" />
+                Sync all
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {bookingsLoading ? (
+                <p className="py-space-8 text-center text-muted-foreground">Loading bookings...</p>
+              ) : bookings.length === 0 ? (
+                <EmptyState title="No cleaning bookings" description="Bookings created from subscriptions or assigned plans will appear here." compact />
+              ) : (
+                <>
+                  <div className="space-y-space-3 md:hidden">
+                    {sortedBookings.map((booking: any) => (
+                      <BookingCard
+                        key={booking.id}
+                        booking={booking}
+                        syncing={syncCalendarMutation.isPending && syncCalendarMutation.variables === booking.id}
+                        onSync={() => syncCalendarMutation.mutate(booking.id)}
+                        onComplete={() => setCompletionBookingId(booking.id)}
+                      />
+                    ))}
+                  </div>
+
+                  <div className="hidden overflow-x-auto md:block">
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Client</TableHead>
-                          <TableHead>Location</TableHead>
+                          <TableHead>Customer</TableHead>
+                          <TableHead>Type</TableHead>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Time</TableHead>
                           <TableHead>Status</TableHead>
-                          <TableHead>Visibility</TableHead>
-                          <TableHead>Actions</TableHead>
+                          <TableHead>Calendar</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {clients.map((client: any) => (
-                          <TableRow
-                            key={client.id}
-                            className={selectedClient?.id === client.id ? "bg-primary/10" : undefined}
-                          >
-                            <TableCell className="font-bold">
-                              <button
-                                type="button"
-                                className="text-left"
-                                onClick={() => setSelectedClientId(client.id)}
-                                aria-label={`Open ${client.company_name} custom client details`}
-                              >
-                                {client.company_name}
-                                <span className="block text-sm font-medium text-muted-foreground">
-                                  {client.service_type || "Custom cleaning"}
-                                </span>
-                              </button>
-                            </TableCell>
-                            <TableCell>{client.location}</TableCell>
-                            <TableCell><Badge variant={statusColor(client.status) as any}>{client.status}</Badge></TableCell>
+                        {sortedBookings.map((booking: any) => (
+                          <TableRow key={booking.id}>
+                            <TableCell className="font-medium">{getBookingClientName(booking)}</TableCell>
                             <TableCell>
-                              <Badge variant="secondary">{client.visibility || "admin_only"}</Badge>
+                              <Badge variant={booking.custom_plan_id ? "secondary" : "outline"}>
+                                {booking.custom_plan_id ? "Private" : "Public"}
+                              </Badge>
                             </TableCell>
                             <TableCell>
-                              <div className="flex gap-space-2">
-                                <Button variant="tertiary" size="iconSm" onClick={() => openClientEditModal(client)} aria-label="Edit client">
-                                  <Pencil className="h-4 w-4" />
+                              {getBookingDate(booking) ? format(new Date(`${getBookingDate(booking)}T00:00:00`), "MMM d, yyyy") : "—"}
+                            </TableCell>
+                            <TableCell>
+                              {to12h(booking.cleaning_available_slots?.start_time)} - {to12h(booking.cleaning_available_slots?.end_time)}
+                            </TableCell>
+                            <TableCell><Badge variant={statusColor(booking.status) as any}>{booking.status || "unknown"}</Badge></TableCell>
+                            <TableCell>
+                              <div className="flex flex-col gap-space-1">
+                                <Badge className="w-fit" variant={statusColor(booking.google_calendar_sync_status) as any}>
+                                  {calendarStatusLabel(booking.google_calendar_sync_status)}
+                                </Badge>
+                                {booking.google_calendar_sync_error ? (
+                                  <p className="max-w-[240px] truncate text-xs text-destructive">{booking.google_calendar_sync_error}</p>
+                                ) : null}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex justify-end gap-space-2">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="secondary"
+                                  loading={syncCalendarMutation.isPending && syncCalendarMutation.variables === booking.id}
+                                  onClick={() => syncCalendarMutation.mutate(booking.id)}
+                                >
+                                  <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+                                  Sync
                                 </Button>
-                                {client.status === "archived" ? (
-                                  <Button variant="tertiary" size="iconSm" onClick={() => unarchiveClientMutation.mutate(client.id)} aria-label="Unarchive client">
-                                    <RotateCcw className="h-4 w-4" />
+                                {booking.status !== "completed" ? (
+                                  <Button type="button" size="sm" variant="secondary" onClick={() => setCompletionBookingId(booking.id)}>
+                                    <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+                                    Complete
                                   </Button>
-                                ) : (
-                                  <Button variant="tertiary" size="iconSm" onClick={() => archiveClientMutation.mutate(client.id)} aria-label="Archive client">
-                                    <Archive className="h-4 w-4" />
+                                ) : null}
+                                {booking.google_calendar_event_link ? (
+                                  <Button type="button" size="iconSm" variant="tertiary" asChild aria-label="Open Calendar Event">
+                                    <a href={booking.google_calendar_event_link} target="_blank" rel="noreferrer">
+                                      <ExternalLink className="h-4 w-4" aria-hidden="true" />
+                                    </a>
                                   </Button>
-                                )}
-                                <Button variant="tertiary" size="iconSm" onClick={() => deleteClientMutation.mutate(client.id)} aria-label="Delete client">
-                                  <Trash2 className="h-4 w-4 text-destructive" />
-                                </Button>
+                                ) : null}
                               </div>
                             </TableCell>
                           </TableRow>
@@ -1047,20 +521,19 @@ const CleaningManagement = () => {
                       </TableBody>
                     </Table>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-
-          </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="calendar">
-          <div className="grid gap-space-5 lg:grid-cols-[420px_minmax(0,1fr)]">
+          <div className="grid gap-space-4 lg:grid-cols-[360px_minmax(0,1fr)]">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-space-2">
                   <CalendarDays className="h-5 w-5 text-primary" />
-                  Slot Blocking Preview
+                  Calendar
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -1075,7 +548,7 @@ const CleaningManagement = () => {
                     slot: "ring-1 ring-primary/50",
                   }}
                 />
-                <div className="mt-space-5 grid gap-space-3 text-control text-muted-foreground sm:grid-cols-2">
+                <div className="mt-space-4 grid gap-space-2 text-sm text-muted-foreground sm:grid-cols-2 lg:grid-cols-1">
                   <div className="flex items-center gap-space-2"><span className="h-3 w-3 rounded-radius-full bg-primary" />Booked cleaning</div>
                   <div className="flex items-center gap-space-2"><span className="h-3 w-3 rounded-radius-full border border-primary" />Available slot</div>
                 </div>
@@ -1086,7 +559,7 @@ const CleaningManagement = () => {
               <CardHeader>
                 <CardTitle>{selectedDate ? format(selectedDate, "EEEE, MMMM d") : "Select a day"}</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-space-6">
+              <CardContent className="space-y-space-5">
                 <section>
                   <div className="mb-space-3 flex items-center gap-space-2">
                     <ListChecks className="h-4 w-4 text-primary" />
@@ -1094,26 +567,17 @@ const CleaningManagement = () => {
                     <Badge variant="secondary">{bookingsForSelectedDate.length}</Badge>
                   </div>
                   {bookingsForSelectedDate.length === 0 ? (
-                    <EmptyState title="No bookings for this day" description="Booked cleanings will appear here." />
+                    <EmptyState title="No bookings for this day" description="Booked cleanings will appear here." compact />
                   ) : (
                     <div className="space-y-space-3">
                       {bookingsForSelectedDate.map((booking: any) => (
-                        <div key={booking.id} className="rounded-radius-lg bg-secondary p-space-4">
-                          <div className="flex flex-wrap items-start justify-between gap-space-3">
-                            <div>
-                              <p className="text-card-title">
-                                {booking.cleaning_clients?.company_name || getUserName(booking.users)}
-                              </p>
-                              <p className="type-body text-muted-foreground">
-                                {to12h(booking.cleaning_available_slots?.start_time ?? "")} - {to12h(booking.cleaning_available_slots?.end_time ?? "")}
-                              </p>
-                            </div>
-                            <Badge variant={statusColor(booking.status) as any}>{booking.status}</Badge>
-                          </div>
-                          {booking.custom_plan_id && (
-                            <p className="mt-space-3 text-body text-primary">Private custom cleaning client</p>
-                          )}
-                        </div>
+                        <BookingCard
+                          key={booking.id}
+                          booking={booking}
+                          syncing={syncCalendarMutation.isPending && syncCalendarMutation.variables === booking.id}
+                          onSync={() => syncCalendarMutation.mutate(booking.id)}
+                          onComplete={() => setCompletionBookingId(booking.id)}
+                        />
                       ))}
                     </div>
                   )}
@@ -1125,257 +589,28 @@ const CleaningManagement = () => {
                     <h3 className="text-card-title">Slots</h3>
                     <Badge variant="secondary">{slotsForSelectedDate.length}</Badge>
                   </div>
-                  <div className="grid gap-space-3 sm:grid-cols-2">
-                    {slotsForSelectedDate.map((slot: any) => {
-                      const remaining = Math.max(0, slot.max_bookings - slot.current_bookings);
-                      return (
-                        <div key={slot.id} className="rounded-radius-lg bg-card p-space-4">
-                          <p className="text-card-title">{to12h(slot.start_time)} - {to12h(slot.end_time)}</p>
-                          <p className="mt-space-1 type-body text-muted-foreground">{slot.current_bookings} booked of {slot.max_bookings}</p>
-                          <Badge className="mt-space-3" variant={remaining > 0 ? "default" : "destructive"}>
-                            {remaining > 0 ? "1 spot left" : "Blocked"}
-                          </Badge>
-                        </div>
-                      );
-                    })}
-                  </div>
+                  {slotsForSelectedDate.length === 0 ? (
+                    <EmptyState title="No available slots" description="Available cleaning slots for this day will appear here." compact />
+                  ) : (
+                    <div className="grid gap-space-3 sm:grid-cols-2">
+                      {slotsForSelectedDate.map((slot: any) => {
+                        const remaining = Math.max(0, Number(slot.max_bookings || 0) - Number(slot.current_bookings || 0));
+                        return (
+                          <div key={slot.id} className="rounded-radius-lg bg-card p-space-4">
+                            <p className="text-card-title">{to12h(slot.start_time)} - {to12h(slot.end_time)}</p>
+                            <p className="mt-space-1 text-sm text-muted-foreground">{slot.current_bookings} booked of {slot.max_bookings}</p>
+                            <Badge className="mt-space-3" variant={remaining > 0 ? "default" : "destructive"}>
+                              {remaining > 0 ? `${remaining} open` : "Full"}
+                            </Badge>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </section>
               </CardContent>
             </Card>
           </div>
-        </TabsContent>
-
-        <TabsContent value="bookings">
-          <Card>
-            <CardHeader className="flex flex-col gap-space-3 md:flex-row md:items-center md:justify-between">
-              <div>
-                <CardTitle>All Cleaning Bookings</CardTitle>
-                <p className="mt-space-2 text-body text-muted-foreground">
-                  Push all backend-saved cleaning bookings into the shared admin Google Calendar.
-                </p>
-              </div>
-              <Button
-                type="button"
-                variant="secondary"
-                loading={syncAllCalendarMutation.isPending}
-                disabled={totalBookings === 0 || syncAllCalendarMutation.isPending}
-                onClick={() => syncAllCalendarMutation.mutate()}
-              >
-                <RotateCcw className="h-4 w-4" aria-hidden="true" />
-                Sync all booked to calendar
-              </Button>
-            </CardHeader>
-            <CardContent>
-              {bookingsLoading ? (
-                <p className="py-space-8 text-center text-muted-foreground">Loading...</p>
-              ) : !bookings?.length ? (
-                <p className="py-space-8 text-center text-muted-foreground">No bookings yet</p>
-              ) : (
-                <>
-                  {/* Mobile card view */}
-                  <div className="space-y-space-3 md:hidden">
-                    {bookings.map((booking: any) => (
-                      <div key={booking.id} className="rounded-radius-lg border border-border bg-card p-space-4 space-y-space-3">
-                        <div className="flex items-start justify-between gap-space-3">
-                          <div className="min-w-0">
-                            <p className="font-bold truncate">
-                              {booking.cleaning_clients?.company_name || getUserName(booking.users)}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              {getBookingDate(booking) ? format(new Date(`${getBookingDate(booking)}T00:00:00`), "MMM d, yyyy") : "—"}
-                              {" · "}
-                              {to12h(booking.cleaning_available_slots?.start_time ?? "")} - {to12h(booking.cleaning_available_slots?.end_time ?? "")}
-                            </p>
-                          </div>
-                          <Badge variant={statusColor(booking.status) as any}>{booking.status}</Badge>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-space-2">
-                          <Badge variant={booking.custom_plan_id ? "secondary" : "outline"}>
-                            {booking.custom_plan_id ? "Private" : "Public"}
-                          </Badge>
-                          <Badge variant={calendarStatusColor(booking.google_calendar_sync_status) as any}>
-                            {calendarStatusLabel(booking.google_calendar_sync_status)}
-                          </Badge>
-                        </div>
-                        <div className="flex gap-space-2">
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="secondary"
-                            className="flex-1"
-                            loading={syncCalendarMutation.isPending && syncCalendarMutation.variables === booking.id}
-                            onClick={() => syncCalendarMutation.mutate(booking.id)}
-                          >
-                            <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
-                            Sync
-                          </Button>
-                          {booking.google_calendar_event_link ? (
-                            <Button type="button" size="sm" variant="tertiary" asChild aria-label="Open Calendar Event">
-                              <a href={booking.google_calendar_event_link} target="_blank" rel="noreferrer">
-                                <ExternalLink className="h-4 w-4" aria-hidden="true" />
-                                Open
-                              </a>
-                            </Button>
-                          ) : null}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  {/* Desktop table */}
-                  <div className="hidden overflow-x-auto md:block">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Customer</TableHead>
-                          <TableHead>Type</TableHead>
-                          <TableHead>Date</TableHead>
-                          <TableHead>Time</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Google Calendar</TableHead>
-                          <TableHead>Notes</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {bookings.map((booking: any) => (
-                          <TableRow key={booking.id}>
-                            <TableCell className="font-medium">
-                              {booking.cleaning_clients?.company_name || getUserName(booking.users)}
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant={booking.custom_plan_id ? "secondary" : "outline"}>
-                                {booking.custom_plan_id ? "Private custom" : "Public subscription"}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              {getBookingDate(booking) ? format(new Date(`${getBookingDate(booking)}T00:00:00`), "MMM d, yyyy") : "—"}
-                            </TableCell>
-                            <TableCell>
-                              {to12h(booking.cleaning_available_slots?.start_time ?? "")} - {to12h(booking.cleaning_available_slots?.end_time ?? "")}
-                            </TableCell>
-                            <TableCell><Badge variant={statusColor(booking.status) as any}>{booking.status}</Badge></TableCell>
-                            <TableCell>
-                              <div className="flex min-w-[220px] flex-col gap-space-2">
-                                <div className="flex items-center gap-space-2">
-                                  <Badge variant={calendarStatusColor(booking.google_calendar_sync_status) as any}>
-                                    {calendarStatusLabel(booking.google_calendar_sync_status)}
-                                  </Badge>
-                                  {booking.google_calendar_synced_at ? (
-                                    <span className="text-xs text-muted-foreground">
-                                      {format(new Date(booking.google_calendar_synced_at), "MMM d, h:mm a")}
-                                    </span>
-                                  ) : null}
-                                </div>
-                                {booking.google_calendar_event_id ? (
-                                  <p className="max-w-[210px] truncate text-xs text-muted-foreground">
-                                    {booking.google_calendar_event_id}
-                                  </p>
-                                ) : null}
-                                {booking.google_calendar_sync_error ? (
-                                  <p className="max-w-[210px] truncate text-xs text-destructive">
-                                    {booking.google_calendar_sync_error}
-                                  </p>
-                                ) : null}
-                                <div className="flex items-center gap-space-2">
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="secondary"
-                                    loading={syncCalendarMutation.isPending && syncCalendarMutation.variables === booking.id}
-                                    onClick={() => syncCalendarMutation.mutate(booking.id)}
-                                  >
-                                    <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
-                                    Sync
-                                  </Button>
-                                  {booking.google_calendar_event_link ? (
-                                    <Button type="button" size="iconSm" variant="tertiary" asChild aria-label="Open Calendar Event">
-                                      <a href={booking.google_calendar_event_link} target="_blank" rel="noreferrer">
-                                        <ExternalLink className="h-4 w-4" aria-hidden="true" />
-                                      </a>
-                                    </Button>
-                                  ) : null}
-                                </div>
-                              </div>
-                            </TableCell>
-                            <TableCell className="max-w-[240px] truncate text-sm text-muted-foreground">{booking.notes || "—"}</TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="subscriptions">
-          <Card>
-            <CardHeader>
-              <CardTitle>Public Cleaning Subscriptions</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {subsLoading ? (
-                <p className="py-space-8 text-center text-muted-foreground">Loading...</p>
-              ) : !subscriptions?.length ? (
-                <p className="py-space-8 text-center text-muted-foreground">No subscriptions yet</p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Customer</TableHead>
-                        <TableHead>Package</TableHead>
-                        <TableHead>Duration</TableHead>
-                        <TableHead>Monthly</TableHead>
-                        <TableHead>Total paid</TableHead>
-                        <TableHead>Paid until</TableHead>
-                        <TableHead>Remaining</TableHead>
-                        <TableHead>Payment</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {subscriptions.map((sub: any) => (
-                        <TableRow key={sub.id}>
-                          <TableCell className="font-medium">{getUserName(sub.users)}</TableCell>
-                          <TableCell>{sub.cleaning_packages?.name || "—"}</TableCell>
-                          <TableCell>{getSubscriptionMonths(sub)} month{getSubscriptionMonths(sub) > 1 ? "s" : ""}</TableCell>
-                          <TableCell>{formatUSD(getSubscriptionMonthlyPrice(sub))}</TableCell>
-                          <TableCell>{formatUSD(getSubscriptionTotalPrice(sub))}</TableCell>
-                          <TableCell>{formatDateLabel(sub.paid_until || sub.end_date)}</TableCell>
-                          <TableCell>{sub.cleanings_remaining}</TableCell>
-                          <TableCell><Badge variant={statusColor(sub.payment_status) as any}>{sub.payment_status}</Badge></TableCell>
-                          <TableCell><Badge variant={statusColor(getSubscriptionStatus(sub)) as any}>{getSubscriptionStatus(sub)}</Badge></TableCell>
-                          <TableCell>
-                            <div className="flex gap-1">
-                              {sub.payment_status === "pending" && (
-                                <Button size="sm" onClick={() => approveMutation.mutate(sub.id)} loading={approveMutation.isPending}>
-                                  Approve
-                                </Button>
-                              )}
-                              <Button size="sm" variant="tertiary" onClick={() => { setEditingSub(sub); setEditSubOpen(true); }}>
-                                Edit
-                              </Button>
-                              {sub.is_active ? (
-                                <Button size="sm" variant="tertiary" onClick={() => updateSubMutation.mutate({ id: sub.id, is_active: false, subscription_status: "paused" })}>
-                                  Pause
-                                </Button>
-                              ) : sub.payment_status === "paid" ? (
-                                <Button size="sm" variant="tertiary" onClick={() => updateSubMutation.mutate({ id: sub.id, is_active: true, subscription_status: "active" })}>
-                                  Activate
-                                </Button>
-                              ) : null}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
         </TabsContent>
 
         <TabsContent value="reports">
@@ -1384,8 +619,8 @@ const CleaningManagement = () => {
               <CardTitle>Completion Reports</CardTitle>
             </CardHeader>
             <CardContent>
-              {!completionReports?.length ? (
-                <EmptyState title="No completion reports yet" description="Completed sessions will appear here with checklist, notes, and photo links." />
+              {completionReports.length === 0 ? (
+                <EmptyState title="No completion reports yet" description="Completed sessions will appear here with checklist, notes, and photo links." compact />
               ) : (
                 <div className="grid gap-space-4 lg:grid-cols-2">
                   {completionReports.map((report: any) => (
@@ -1393,24 +628,24 @@ const CleaningManagement = () => {
                       <div className="flex items-start justify-between gap-space-3">
                         <div>
                           <h3 className="text-card-title">{report.completed_by}</h3>
-                          <p className="mt-space-1 text-body text-muted-foreground">
+                          <p className="mt-space-1 text-sm text-muted-foreground">
                             {format(new Date(report.completed_at), "MMM d, yyyy HH:mm")}
                           </p>
                         </div>
                         <Badge variant="default">Completed</Badge>
                       </div>
-                      <p className="mt-space-4 text-body">{report.notes || "No notes"}</p>
-                      {report.issue_report && (
-                        <p className="mt-space-3 rounded-radius-md bg-background p-space-3 text-body text-muted-foreground">
+                      <p className="mt-space-4 text-sm">{report.notes || "No notes"}</p>
+                      {report.issue_report ? (
+                        <p className="mt-space-3 rounded-radius-md bg-background p-space-3 text-sm text-muted-foreground">
                           {report.issue_report}
                         </p>
-                      )}
-                      {report.photo_url && (
-                        <a className="mt-space-3 inline-flex text-control text-primary" href={report.photo_url} target="_blank" rel="noreferrer">
+                      ) : null}
+                      {report.photo_url ? (
+                        <a className="mt-space-3 inline-flex text-sm font-semibold text-primary" href={report.photo_url} target="_blank" rel="noreferrer">
                           View photo
                         </a>
-                      )}
-                      <p className="mt-space-3 text-caption text-muted-foreground">
+                      ) : null}
+                      <p className="mt-space-3 text-xs text-muted-foreground">
                         Checklist items completed: {(report.checklist_completed || []).length}
                       </p>
                     </article>
@@ -1422,203 +657,39 @@ const CleaningManagement = () => {
         </TabsContent>
       </Tabs>
 
-      <Dialog open={createOpen} onOpenChange={(open) => { setCreateOpen(open); if (!open) { setForm(initialForm); } }}>
-        <DialogContent className="max-h-[92vh] w-full overflow-y-auto sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-extrabold">New Custom Client</DialogTitle>
-            <DialogDescription>Add a private cleaning client for admin-only management.</DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-space-4 pt-space-2">
-            <div>
-              <Label>Company / client name *</Label>
-              <Input value={form.company_name} onChange={(e) => setForm({ ...form, company_name: e.target.value })} />
-            </div>
-            <div className="grid grid-cols-2 gap-space-4">
-              <div>
-                <Label>Contact person</Label>
-                <Input value={form.contact_person} onChange={(e) => setForm({ ...form, contact_person: e.target.value })} />
-              </div>
-              <div>
-                <Label>Service type</Label>
-                <Input value={form.service_type} onChange={(e) => setForm({ ...form, service_type: e.target.value })} placeholder="e.g. Office, Cowork" />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-space-4">
-              <div>
-                <Label>Email</Label>
-                <Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-              </div>
-              <div>
-                <Label>Phone / WhatsApp</Label>
-                <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-              </div>
-            </div>
-            <div>
-              <Label>Location / address *</Label>
-              <Input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} />
-            </div>
-            <div>
-              <Label>Client notes</Label>
-              <Textarea value={form.notes} onChange={(e: any) => setForm({ ...form, notes: e.target.value })} placeholder="Access instructions, preferences, etc." />
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-space-3 pt-space-4">
-            <Button variant="secondary" onClick={() => setCreateOpen(false)}>Cancel</Button>
-            <Button
-              disabled={!form.company_name.trim() || !form.location.trim()}
-              loading={createClientMutation.isPending}
-              onClick={() => createClientMutation.mutate()}
-            >
-              <Plus className="h-4 w-4" />
-              Create Client
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog
-        open={clientEditOpen}
-        onOpenChange={(open) => {
-          setClientEditOpen(open);
-          if (!open) setClientEditForm(initialClientEditForm);
-        }}
-      >
-        <DialogContent className="max-h-[92vh] w-full overflow-y-auto sm:max-w-lg md:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Edit Custom Client</DialogTitle>
-            <DialogDescription>
-              Update private cleaning client details, change status, or reactivate an archived client.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="grid gap-space-4">
-            <Input
-              label="Client / company name"
-              value={clientEditForm.company_name}
-              onChange={(event) => setClientEditForm((current) => ({ ...current, company_name: event.target.value }))}
-              required
-            />
-            <Input
-              label="Contact person"
-              value={clientEditForm.contact_person}
-              onChange={(event) => setClientEditForm((current) => ({ ...current, contact_person: event.target.value }))}
-            />
-            <div className="grid gap-space-4 sm:grid-cols-2">
-              <Input
-                label="Email"
-                type="email"
-                value={clientEditForm.email}
-                onChange={(event) => setClientEditForm((current) => ({ ...current, email: event.target.value }))}
-              />
-              <Input
-                label="Phone / WhatsApp"
-                value={clientEditForm.phone}
-                onChange={(event) => setClientEditForm((current) => ({ ...current, phone: event.target.value }))}
-              />
-            </div>
-            <Input
-              label="Location"
-              value={clientEditForm.location}
-              onChange={(event) => setClientEditForm((current) => ({ ...current, location: event.target.value }))}
-              required
-            />
-            <Input
-              label="Service type"
-              value={clientEditForm.service_type}
-              onChange={(event) => setClientEditForm((current) => ({ ...current, service_type: event.target.value }))}
-            />
-            <div>
-              <Label>Status</Label>
-              <Select
-                value={clientEditForm.status}
-                onValueChange={(value) => setClientEditForm((current) => ({ ...current, status: value }))}
-              >
-                <SelectTrigger className="mt-space-2">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="paused">Paused</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                  <SelectItem value="archived">Archived</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="mt-space-2 text-caption text-muted-foreground">
-                Set the status to Active to unarchive this custom client.
-              </p>
-            </div>
-            <Textarea
-              label="Client notes"
-              value={clientEditForm.notes}
-              onChange={(event) => setClientEditForm((current) => ({ ...current, notes: event.target.value }))}
-            />
-            <Textarea
-              label="Internal admin notes"
-              value={clientEditForm.internal_admin_notes}
-              onChange={(event) => setClientEditForm((current) => ({ ...current, internal_admin_notes: event.target.value }))}
-            />
-          </div>
-
-          <DialogFooter>
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setClientEditOpen(false);
-                setClientEditForm(initialClientEditForm);
-              }}
-            >
-              Cancel
-            </Button>
-            {clientEditForm.status === "archived" ? (
-              <Button
-                variant="secondary"
-                onClick={() => unarchiveClientMutation.mutate(clientEditForm.id)}
-                loading={unarchiveClientMutation.isPending}
-              >
-                <RotateCcw className="h-4 w-4" />
-                Unarchive
-              </Button>
-            ) : null}
-            <Button onClick={() => updateClientMutation.mutate()} loading={updateClientMutation.isPending}>
-              Save client
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       <Dialog open={Boolean(completionBookingId)} onOpenChange={(open) => !open && setCompletionBookingId("")}>
-        <DialogContent className="w-full sm:max-w-lg md:max-w-2xl">
-          <DialogHeader>
+        <DialogContent className="flex max-h-[90vh] w-full flex-col sm:max-w-lg md:max-w-2xl">
+          <DialogHeader className="shrink-0">
             <DialogTitle>Complete Cleaning Session</DialogTitle>
             <DialogDescription>Add checklist status, notes, photo URL, and any issue report.</DialogDescription>
           </DialogHeader>
-          <div className="grid gap-space-4">
-            <Input label="Completed by" value={completion.completed_by} onChange={(event) => setCompletion((current) => ({ ...current, completed_by: event.target.value }))} />
-            <div>
-              <Label>Checklist completed</Label>
-              <div className="mt-space-3 grid gap-space-2">
-                {dailyChecklist.map((item) => (
-                  <label key={item} className="flex items-start gap-space-2 rounded-radius-md bg-secondary p-space-3">
-                    <Checkbox checked={completion.checklist_completed.includes(item)} onCheckedChange={() => toggleChecklistItem(item)} />
-                    <span className="text-control">{item}</span>
-                  </label>
-                ))}
+          <div className="flex-1 overflow-y-auto pr-1">
+            <div className="grid gap-space-4 pb-2">
+              <Input label="Completed by" value={completion.completed_by} onChange={(event) => setCompletion((current) => ({ ...current, completed_by: event.target.value }))} />
+              <div>
+                <Label>Checklist completed</Label>
+                <div className="mt-space-3 grid gap-space-2">
+                  {dailyChecklist.map((item) => (
+                    <label key={item} className="flex items-start gap-space-2 rounded-radius-md bg-secondary p-space-3">
+                      <Checkbox checked={completion.checklist_completed.includes(item)} onCheckedChange={() => toggleChecklistItem(item)} />
+                      <span className="text-sm">{item}</span>
+                    </label>
+                  ))}
+                </div>
               </div>
+              <Textarea label="Notes" value={completion.notes} onChange={(event) => setCompletion((current) => ({ ...current, notes: event.target.value }))} />
+              <Input
+                label="Photo upload after cleaning"
+                type="file"
+                accept="image/*"
+                onChange={handleCompletionPhotoUpload}
+                helperText={completion.photo_url?.startsWith("data:") ? "Photo attached to this report" : "Attach a photo from the completed session"}
+              />
+              <Input label="Photo URL after cleaning" value={completion.photo_url} onChange={(event) => setCompletion((current) => ({ ...current, photo_url: event.target.value }))} />
+              <Textarea label="Missing / broken / damaged / unusual report" value={completion.issue_report} onChange={(event) => setCompletion((current) => ({ ...current, issue_report: event.target.value }))} />
             </div>
-            <Textarea label="Notes" value={completion.notes} onChange={(event) => setCompletion((current) => ({ ...current, notes: event.target.value }))} />
-            <Input
-              label="Photo upload after cleaning"
-              type="file"
-              accept="image/*"
-              onChange={handleCompletionPhotoUpload}
-              helperText={completion.photo_url?.startsWith("data:") ? "Photo attached to this report" : "Attach a photo from the completed session"}
-            />
-            <Input label="Photo URL after cleaning" value={completion.photo_url} onChange={(event) => setCompletion((current) => ({ ...current, photo_url: event.target.value }))} />
-            <Textarea label="Missing / broken / damaged / unusual report" value={completion.issue_report} onChange={(event) => setCompletion((current) => ({ ...current, issue_report: event.target.value }))} />
           </div>
-          <DialogFooter>
+          <DialogFooter className="shrink-0 border-t border-border pt-4">
             <Button variant="secondary" onClick={() => setCompletionBookingId("")}>Cancel</Button>
             <Button onClick={() => completeBookingMutation.mutate()} loading={completeBookingMutation.isPending}>
               <CheckCircle2 className="h-4 w-4" />
@@ -1627,128 +698,64 @@ const CleaningManagement = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {/* ── Edit Subscription Sheet ── */}
-      <Sheet open={editSubOpen} onOpenChange={(o) => { if (!o) { setEditSubOpen(false); setEditingSub(null); } }}>
-        <SheetContent side="right" className="w-full max-w-md overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>Edit Subscription</SheetTitle>
-            <SheetDescription>{editingSub ? getUserName(editingSub.users) : ""}</SheetDescription>
-          </SheetHeader>
-          {editingSub && (
-            <EditSubscriptionForm
-              sub={editingSub}
-              packages={plans}
-              onSave={(updates) => updateSubMutation.mutate({ id: editingSub.id, ...updates })}
-              saving={updateSubMutation.isPending}
-            />
-          )}
-        </SheetContent>
-      </Sheet>
     </SuperAdminLayout>
   );
 };
 
-function EditSubscriptionForm({ sub, packages, onSave, saving }: {
-  sub: any;
-  packages: any[];
-  onSave: (updates: any) => void;
-  saving: boolean;
+function BookingCard({
+  booking,
+  syncing,
+  onSync,
+  onComplete,
+}: {
+  booking: any;
+  syncing: boolean;
+  onSync: () => void;
+  onComplete: () => void;
 }) {
-  const [packageId, setPackageId] = useState(sub.package_id || "");
-  const [status, setStatus] = useState(sub.subscription_status || "active");
-  const [paymentStatus, setPaymentStatus] = useState(sub.payment_status || "pending");
-  const [paidUntil, setPaidUntil] = useState(sub.paid_until || "");
-  const [cleaningsRemaining, setCleaningsRemaining] = useState(String(sub.cleanings_remaining ?? 0));
-  const [apartmentNote, setApartmentNote] = useState(sub.apartment_note || "");
-  const [isActive, setIsActive] = useState(sub.is_active ?? false);
-
-  const selectedPkg = packages.find((p: any) => p.id === packageId);
-  const monthlyCents = selectedPkg
-    ? selectedPkg.price_per_cleaning_cents * selectedPkg.cleanings_per_month
-    : sub.monthly_price_cents;
-
   return (
-    <div className="mt-6 space-y-5">
-      <div>
-        <Label>Plan</Label>
-        <Select value={packageId} onValueChange={setPackageId}>
-          <SelectTrigger><SelectValue placeholder="Select plan" /></SelectTrigger>
-          <SelectContent>
-            {packages.map((p: any) => (
-              <SelectItem key={p.id} value={p.id}>
-                {p.name} — ${(p.price_per_cleaning_cents * p.cleanings_per_month / 100).toFixed(2)}/mo
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label>Subscription Status</Label>
-          <Select value={status} onValueChange={setStatus}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="pending_payment">Pending Payment</SelectItem>
-              <SelectItem value="pending_schedule">Pending Schedule</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="paused">Paused</SelectItem>
-              <SelectItem value="cancelled">Cancelled</SelectItem>
-              <SelectItem value="expired">Expired</SelectItem>
-            </SelectContent>
-          </Select>
+    <div className="rounded-radius-lg border border-border bg-card p-space-4">
+      <div className="flex items-start justify-between gap-space-3">
+        <div className="min-w-0">
+          <p className="truncate font-bold">{getBookingClientName(booking)}</p>
+          <p className="mt-space-1 text-sm text-muted-foreground">
+            {getBookingDate(booking) ? format(new Date(`${getBookingDate(booking)}T00:00:00`), "MMM d, yyyy") : "—"}
+            {" · "}
+            {to12h(booking.cleaning_available_slots?.start_time)} - {to12h(booking.cleaning_available_slots?.end_time)}
+          </p>
         </div>
-        <div>
-          <Label>Payment Status</Label>
-          <Select value={paymentStatus} onValueChange={setPaymentStatus}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="paid">Paid</SelectItem>
-              <SelectItem value="refunded">Refunded</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        <Badge variant={statusColor(booking.status) as any}>{booking.status || "unknown"}</Badge>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <Label>Paid Until</Label>
-          <Input type="date" value={paidUntil} onChange={(e) => setPaidUntil(e.target.value)} />
-        </div>
-        <div>
-          <Label>Cleanings Remaining</Label>
-          <Input type="number" value={cleaningsRemaining} onChange={(e) => setCleaningsRemaining(e.target.value)} min={0} />
-        </div>
+      <div className="mt-space-3 flex flex-wrap items-center gap-space-2">
+        <Badge variant={booking.custom_plan_id ? "secondary" : "outline"}>
+          {booking.custom_plan_id ? "Private" : "Public"}
+        </Badge>
+        <Badge variant={statusColor(booking.google_calendar_sync_status) as any}>
+          {calendarStatusLabel(booking.google_calendar_sync_status)}
+        </Badge>
       </div>
 
-      <div>
-        <Label>Apartment Note</Label>
-        <Input value={apartmentNote} onChange={(e) => setApartmentNote(e.target.value)} placeholder="Apt number, access notes" />
+      <div className="mt-space-3 flex flex-wrap gap-space-2">
+        <Button type="button" size="sm" variant="secondary" loading={syncing} onClick={onSync}>
+          <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+          Sync
+        </Button>
+        {booking.status !== "completed" ? (
+          <Button type="button" size="sm" variant="secondary" onClick={onComplete}>
+            <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+            Complete
+          </Button>
+        ) : null}
+        {booking.google_calendar_event_link ? (
+          <Button type="button" size="sm" variant="tertiary" asChild>
+            <a href={booking.google_calendar_event_link} target="_blank" rel="noreferrer">
+              <ExternalLink className="h-4 w-4" aria-hidden="true" />
+              Open
+            </a>
+          </Button>
+        ) : null}
       </div>
-
-      <div className="flex items-center gap-3">
-        <Switch checked={isActive} onCheckedChange={setIsActive} />
-        <Label>Active</Label>
-      </div>
-
-      <Button
-        className="w-full"
-        size="xl"
-        onClick={() => onSave({
-          package_id: packageId,
-          subscription_status: status,
-          payment_status: paymentStatus,
-          paid_until: paidUntil || null,
-          cleanings_remaining: Number(cleaningsRemaining) || 0,
-          apartment_note: apartmentNote || null,
-          is_active: isActive,
-          monthly_price_cents: monthlyCents,
-        })}
-        loading={saving}
-      >
-        Save Changes
-      </Button>
     </div>
   );
 }

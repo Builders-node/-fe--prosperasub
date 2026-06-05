@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { supabase, supabaseDb } from "@/integrations/supabase/client";
+import { adminApi, supabase } from "@/integrations/supabase/client";
 
 type TestInvoice = {
   payment_hash: string;
@@ -67,20 +67,9 @@ const AdminPayments = () => {
   const { data: paymentStats } = useQuery({
     queryKey: ["admin-payment-stats"],
     queryFn: async () => {
-      const { data: subs } = await supabaseDb
-        .from("cleaning_subscriptions")
-        .select("payment_status, total_price_cents");
-
-      const all = subs || [];
-      const paid = all.filter((s: any) => s.payment_status === "paid");
-      const pending = all.filter((s: any) => s.payment_status === "pending");
-      const revenue = paid.reduce((sum: number, s: any) => sum + (s.total_price_cents || 0), 0);
-
-      return {
-        pending: pending.length,
-        paid: paid.length,
-        revenueCents: revenue,
-      };
+      const { data, error } = await adminApi("/admin/payment-stats");
+      if (error) throw error;
+      return data ?? { pending: 0, paid: 0, revenueCents: 0 };
     },
   });
 

@@ -84,12 +84,21 @@ function DayStrip({
       ref={scrollRef}
       className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide"
     >
-      {days.map((day) => {
+      {[...days]
+        .sort((a, b) => {
+          const aDate = occurrences[a.value]?.nextDate ?? "9999";
+          const bDate = occurrences[b.value]?.nextDate ?? "9999";
+          return aDate.localeCompare(bDate);
+        })
+        .map((day) => {
         const info = occurrences[day.value];
         const isSelected = selected === day.value;
         const hasSlots = info && info.count > 0;
         const dateNum = info?.nextDate
           ? format(toDate(info.nextDate), "d")
+          : null;
+        const dateMonth = info?.nextDate
+          ? format(toDate(info.nextDate), "MMM")
           : null;
 
         return (
@@ -113,7 +122,10 @@ function DayStrip({
               {day.short}
             </span>
             {dateNum && (
-              <span className="text-xl font-black leading-none">{dateNum}</span>
+              <>
+                <span className="text-xl font-black leading-none">{dateNum}</span>
+                <span className={cn("text-[10px] font-semibold uppercase", isSelected ? "text-background/50" : "text-muted-foreground/70")}>{dateMonth}</span>
+              </>
             )}
             <span className={cn("text-[11px] font-semibold", isSelected ? "text-background/60" : "text-muted-foreground")}>
               {info ? `${info.count} wk${info.count !== 1 ? "s" : ""}` : "–"}
@@ -219,7 +231,7 @@ const CleaningBook = () => {
       const pkgIds = [...new Set(subs.map((s: any) => s.package_id).filter(Boolean))];
       const { data: pkgs } = await supabaseDb
         .from("cleaning_packages")
-        .select("id, name, cleanings_per_month")
+        .select("id, name, cleanings_per_month, frequency_unit, frequency_count, custom_frequency_label")
         .in("id", pkgIds);
       const pkgMap = new Map((pkgs ?? []).map((p: any) => [p.id, p]));
 
@@ -319,7 +331,7 @@ const CleaningBook = () => {
     if (!selectedSubscription) return result;
     WEEKDAYS.forEach((day) => {
       const dates = getScheduleDates(periodStart, periodEnd, day.value);
-      const upcoming = dates.filter((d) => d >= todayKey());
+      const upcoming = dates.filter((d) => d > todayKey());
       if (upcoming.length) {
         result[day.value] = { nextDate: upcoming[0], count: upcoming.length };
       }
@@ -337,7 +349,7 @@ const CleaningBook = () => {
     })).filter((group) => group.slots.length > 0);
   }, [availableTimeOptions]);
 
-  const nextCleaningDate   = scheduleDates.find((d) => d >= todayKey()) || null;
+  const nextCleaningDate   = scheduleDates.find((d) => d > todayKey()) || null;
   const selectedTimeOption = availableTimeOptions.find((o) => o.start === selectedTime);
 
   // ── Mutation (unchanged) ───────────────────────────────────────────────────
@@ -412,7 +424,7 @@ const CleaningBook = () => {
   // ─────────────────────────────────────────────────────────────────────────
 
   return (
-    <UserLayout title="Schedule Cleaning" showBackButton backTo="/my-subscriptions">
+    <UserLayout title="Schedule Cleaning" showBackButton backTo="/my-subscriptions" showBottomNav={false}>
       {/* Outer shell — accounts for sticky bottom bar height */}
       <div className="flex min-h-[calc(100dvh-60px)] flex-col bg-[hsl(var(--background))]">
 

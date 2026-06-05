@@ -1,17 +1,28 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
   CalendarDays,
   Clock,
+  CreditCard,
+  DoorOpen,
   Loader2,
   SparklesIcon,
   X,
 } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase, supabaseDb } from "@/integrations/supabase/client";
+import { accountApi, supabase, supabaseDb } from "@/integrations/supabase/client";
 import { useUserUuid } from "@/hooks/useUserUuid";
 import { format, isPast } from "date-fns";
 import { UserLayout } from "@/components/layout/UserLayout";
@@ -127,7 +138,8 @@ function CleaningBookingRow({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 const MySubscriptions = () => {
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, userData } = useAuth();
+  const [paymentDialog, setPaymentDialog] = useState<any>(null);
   const userUuid = useUserUuid();
   const { openAuthModal } = useAuthModal();
   const queryClient = useQueryClient();
@@ -139,19 +151,38 @@ const MySubscriptions = () => {
     queryKey: ["my-cleaning-subscriptions-all", userUuid],
     queryFn: async () => {
       if (!userUuid) return [];
-      const { data: subs, error } = await supabaseDb
+      let { data: subs, error } = await supabaseDb
         .from("cleaning_subscriptions")
         .select("*")
         .eq("user_id", userUuid)
         .order("created_at", { ascending: false });
       if (error) throw error;
+
+      // Fallback: if no subs found by user_id, try matching via users.email
+      // (handles cases where the subscription was created with a different user_id format)
+      if (!subs?.length && userData?.email) {
+        const { data: userRow } = await supabaseDb
+          .from("users")
+          .select("id")
+          .eq("email", userData.email)
+          .maybeSingle();
+        if (userRow?.id && userRow.id !== userUuid) {
+          const { data: fallbackSubs } = await supabaseDb
+            .from("cleaning_subscriptions")
+            .select("*")
+            .eq("user_id", userRow.id)
+            .order("created_at", { ascending: false });
+          subs = fallbackSubs ?? [];
+        }
+      }
+
       if (!subs?.length) return [];
 
       // Manual join for packages (no FK constraint)
       const pkgIds = [...new Set(subs.map((s: any) => s.package_id).filter(Boolean))];
       const { data: pkgs } = await supabaseDb
         .from("cleaning_packages")
-        .select("id, name, cleanings_per_month")
+        .select("id, name, cleanings_per_month, frequency_unit, frequency_count, custom_frequency_label")
         .in("id", pkgIds);
       const pkgMap = new Map((pkgs ?? []).map((p: any) => [p.id, p]));
 
@@ -163,19 +194,117 @@ const MySubscriptions = () => {
     enabled: isAuthenticated && !!userUuid,
   });
 
-  const { data: cleaningBookings, isLoading: cleaningBookingsLoading } = useQuery({
-    queryKey: ["my-cleaning-bookings", userUuid],
+  // Fetch client explicitly linked to this user account via the admin Clients panel.
+  // Only uses cleaning_clients.user_id — never email match (too broad, causes cross-account leaks).
+  const { data: linkedClient } = useQuery({
+    queryKey: ["my-linked-client", userUuid],
     queryFn: async () => {
+      if (!userUuid) return null;
+      const { data, error } = await supabaseDb
+        .from("cleaning_clients")
+        .select("id, company_name, status")
+        .eq("user_id", userUuid)
+        .is("deleted_at", null)
+        .maybeSingle();
+      if (error) throw error;
+      return data ?? null;
+    },
+    enabled: isAuthenticated && !!userUuid,
+  });
+
+  // Fetch custom plans for the linked client — no FK joins (they fail silently on type mismatch)
+  const { data: linkedClientPlans = [], isLoading: linkedPlansLoading } = useQuery({
+    queryKey: ["my-linked-client-plans", linkedClient?.id],
+    queryFn: async () => {
+      if (!linkedClient?.id) return [];
+      const { data, error } = await supabaseDb
+        .from("cleaning_custom_plans")
+        .select("id, plan_name, status, frequency_unit, frequency_count, custom_frequency_label, days_of_week, client_id, service_frequency")
+        .eq("client_id", linkedClient.id);
+      if (error) throw error;
+      // Exclude only explicitly archived or cancelled plans (default null = active)
+      return (data ?? []).filter((p: any) => {
+        const s = String(p.status ?? "active").toLowerCase();
+        return s !== "archived" && s !== "cancelled";
+      });
+    },
+    enabled: !!linkedClient?.id,
+  });
+
+  // Fetch subscriptions linked by client_id (private/custom plans may be in cleaning_subscriptions, not custom_plans)
+  const { data: linkedClientSubscriptions = [] } = useQuery({
+    queryKey: ["my-linked-client-subscriptions", linkedClient?.id],
+    queryFn: async () => {
+      if (!linkedClient?.id) return [];
+      // Fetch all subscriptions for this client — no server-side filters (avoid missing column errors)
+      const { data, error } = await supabaseDb
+        .from("cleaning_subscriptions")
+        .select("id, subscription_status, payment_status, is_active, package_id, cleanings_remaining, recurring_day_of_week, recurring_time, apartment_note, admin_notes, client_id")
+        .eq("client_id", linkedClient.id);
+      if (error) throw error;
+      if (!data?.length) return [];
+
+      // Client-side filter: exclude only cancelled/expired
+      const active = data.filter((s: any) => {
+        const st = (s.subscription_status ?? "").toLowerCase();
+        return st !== "cancelled" && st !== "expired";
+      });
+      if (!active.length) return [];
+
+      // Manually fetch packages (no FK join — type mismatch)
+      const pkgIds = [...new Set(active.map((s: any) => s.package_id).filter(Boolean))];
+      const { data: pkgs } = pkgIds.length
+        ? await supabaseDb.from("cleaning_packages").select("id, name, cleanings_per_month, frequency_unit, frequency_count, custom_frequency_label").in("id", pkgIds)
+        : { data: [] };
+      const pkgMap = new Map((pkgs ?? []).map((p: any) => [p.id, p]));
+      return active.map((s: any) => ({ ...s, cleaning_packages: pkgMap.get(s.package_id) || null }));
+    },
+    enabled: !!linkedClient?.id,
+  });
+
+  // Fetch user's cleaning preferences (access instructions + reminder settings)
+  const { data: cleaningPrefs } = useQuery({
+    queryKey: ["my-cleaning-prefs", userUuid],
+    queryFn: async () => {
+      const { data, error } = await accountApi("/account/preferences/cleaning");
+      if (error) return null;
+      return data as { reminder_enabled: boolean; reminder_method: string; reminder_minutes_before: number; access_instructions: string | null } | null;
+    },
+    enabled: isAuthenticated && !!userUuid,
+  });
+
+  const { data: cleaningBookings, isLoading: cleaningBookingsLoading } = useQuery({
+    queryKey: ["my-cleaning-bookings", userUuid, linkedClient?.id],
+    queryFn: async () => {
+      const sortByDate = (rows: any[]) => rows.sort((a, b) => {
+        const dtA = `${a.cleaning_available_slots?.date ?? "9999"}T${a.cleaning_available_slots?.start_time ?? "00:00:00"}`;
+        const dtB = `${b.cleaning_available_slots?.date ?? "9999"}T${b.cleaning_available_slots?.start_time ?? "00:00:00"}`;
+        return dtA < dtB ? -1 : dtA > dtB ? 1 : 0;
+      });
+
+      // Priority: if this user has a linked client, show ONLY that client's bookings.
+      // This prevents mixing bookings from different accounts (e.g. admin's own bookings).
+      if (linkedClient?.id) {
+        const { data, error } = await supabaseDb
+          .from("cleaning_bookings")
+          .select("*, cleaning_available_slots(date, start_time, end_time)")
+          .eq("client_id", linkedClient.id);
+        if (error) throw error;
+        return sortByDate(data ?? []);
+      }
+
+      // Fallback: no linked client — show only the user's OWN direct bookings
+      // (filter client_id IS NULL to exclude admin-created client bookings that use admin's user_id)
       if (!userUuid) return [];
       const { data, error } = await supabaseDb
         .from("cleaning_bookings")
         .select("*, cleaning_available_slots(date, start_time, end_time)")
         .eq("user_id", userUuid)
-        .order("created_at", { ascending: false });
+        .is("client_id", null);
       if (error) throw error;
-      return data || [];
+      return sortByDate(data ?? []);
     },
-    enabled: isAuthenticated && !!userUuid,
+    enabled: isAuthenticated && (!!linkedClient?.id || !!userUuid),
   });
 
   const cancelCleaningMutation = useMutation({
@@ -194,6 +323,25 @@ const MySubscriptions = () => {
     onError: (error: Error) => toast.error(error.message),
   });
 
+  const payMutation = useMutation({
+    mutationFn: async (subscriptionId: string) => {
+      const { data, error } = await accountApi(`/account/subscriptions/${subscriptionId}/invoice`, { method: "POST" });
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data: any) => {
+      if (data?.status === "paid") {
+        toast.success("Subscription is already paid!");
+        queryClient.invalidateQueries({ queryKey: ["my-linked-client-subscriptions"] });
+      } else if (data?.payment_request) {
+        setPaymentDialog(data);
+      } else {
+        toast.info("Payment is not available yet. Please contact support.");
+      }
+    },
+    onError: (e: Error) => toast.error(e.message || "Failed to generate payment"),
+  });
+
   // ── Derived data ─────────────────────────────────────────────────────────
 
   const pendingScheduleCleaningSubs = cleaningSubscriptions?.filter(
@@ -203,12 +351,21 @@ const MySubscriptions = () => {
     (s) => s.payment_status === "paid" && s.subscription_status === "active" && s.is_active,
   ) || [];
 
-  const upcomingCleaningBookings = cleaningBookings?.filter(
+  const byDateTime = (a: any, b: any) => {
+    const dtA = `${a.cleaning_available_slots?.date ?? "9999"}T${a.cleaning_available_slots?.start_time ?? "00:00:00"}`;
+    const dtB = `${b.cleaning_available_slots?.date ?? "9999"}T${b.cleaning_available_slots?.start_time ?? "00:00:00"}`;
+    return dtA < dtB ? -1 : dtA > dtB ? 1 : 0;
+  };
+
+  // Upcoming: booked + not yet past end-of-day — sorted nearest first
+  const upcomingCleaningBookings = (cleaningBookings?.filter(
     (b) => b.status === "booked" && !isPast(new Date((b as any).cleaning_available_slots?.date + "T23:59:59")),
-  ) || [];
-  const pastCleaningBookings = cleaningBookings?.filter(
+  ) || []).sort(byDateTime);
+
+  // Past: completed / cancelled / past date — sorted newest first (most recent cleaning at top)
+  const pastCleaningBookings = (cleaningBookings?.filter(
     (b) => b.status !== "booked" || isPast(new Date((b as any).cleaning_available_slots?.date + "T23:59:59")),
-  ) || [];
+  ) || []).sort((a, b) => -byDateTime(a, b));
 
   // ── Loading / auth gates ─────────────────────────────────────────────────
 
@@ -228,7 +385,7 @@ const MySubscriptions = () => {
         <div className="flex items-center justify-center py-20">
           <EmptyState
             title="Sign in to view bookings"
-            description="Track your meal plans and cleaning bookings."
+            description="Track your cleaning plans and bookings."
             className="mx-4 max-w-sm"
             action={
               <Button onClick={() => openAuthModal("login", "/my-subscriptions")}>
@@ -289,7 +446,7 @@ const MySubscriptions = () => {
                         : "/cleaning/book",
                     )
                   }
-                  disabled={activeCleaningSubs.length === 0}
+                  disabled={activeCleaningSubs.length === 0 && linkedClientPlans.length === 0 && linkedClientSubscriptions.length === 0}
                   className="flex items-center justify-center gap-2 rounded-2xl bg-foreground py-3 text-sm font-bold text-background transition-colors hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <CalendarDays className="h-4 w-4" />
@@ -298,7 +455,7 @@ const MySubscriptions = () => {
               )}
             </div>
 
-            {cleaningSubsLoading || cleaningBookingsLoading ? (
+            {cleaningSubsLoading || cleaningBookingsLoading || linkedPlansLoading ? (
               <Skeleton rows={3} />
             ) : (
               <>
@@ -332,10 +489,10 @@ const MySubscriptions = () => {
                 )}
 
                 {/* ── Active plan ── */}
-                {activeCleaningSubs.length > 0 && (
+                {(activeCleaningSubs.length > 0 || linkedClientPlans.length > 0 || linkedClientSubscriptions.length > 0) && (
                   <section className="space-y-2">
                     <p className="type-overline text-muted-foreground">
-                      Active plan · {activeCleaningSubs.length}
+                      Active plan · {activeCleaningSubs.length + linkedClientPlans.length + linkedClientSubscriptions.length}
                     </p>
                     {activeCleaningSubs.map((sub) => (
                       <div
@@ -359,11 +516,99 @@ const MySubscriptions = () => {
                         </div>
                       </div>
                     ))}
+                    {linkedClientPlans.map((plan: any) => {
+                      const hasWeeklySchedule =
+                        plan.frequency_unit === "week" ||
+                        plan.frequency_unit === "weekly" ||
+                        (plan.days_of_week && plan.days_of_week.length > 0) ||
+                        (plan.service_frequency ?? "").toLowerCase().includes("week");
+                      return (
+                        <div key={plan.id} className="flex items-center justify-between gap-4 rounded-2xl border border-border bg-card px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+                              <SparklesIcon className="h-5 w-5 text-primary" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-bold text-foreground">{plan.plan_name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {hasWeeklySchedule ? "Weekly schedule active" : plan.custom_frequency_label || "Active plan"}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {linkedClientSubscriptions.map((sub: any) => {
+                      const isPending = sub.payment_status !== "paid";
+                      return (
+                        <div key={sub.id} className="rounded-2xl border border-border bg-card px-4 py-3">
+                          <div className="flex items-center justify-between gap-4">
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+                                <SparklesIcon className="h-5 w-5 text-primary" />
+                              </div>
+                              <div>
+                                <p className="text-sm font-bold text-foreground">
+                                  {sub.cleaning_packages?.name ?? "Cleaning plan"}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {sub.recurring_day_of_week != null
+                                    ? "Weekly schedule active"
+                                    : isPending
+                                      ? "Payment pending"
+                                      : sub.cleanings_remaining != null
+                                        ? `${sub.cleanings_remaining} cleanings remaining`
+                                        : "Active plan"}
+                                </p>
+                              </div>
+                            </div>
+                            {isPending && (
+                              <Button
+                                size="sm"
+                                onClick={() => payMutation.mutate(sub.id)}
+                                loading={payMutation.isPending && payMutation.variables === sub.id}
+                                className="shrink-0"
+                              >
+                                <CreditCard className="h-3.5 w-3.5" />
+                                Pay now
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </section>
                 )}
 
+                {/* ── Door-access reminder alert ── */}
+                {(activeCleaningSubs.length > 0 || linkedClientPlans.length > 0 || linkedClientSubscriptions.length > 0) && (
+                  <div className="flex items-start gap-3 rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3.5">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/15">
+                      <DoorOpen className="h-5 w-5 text-primary" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-foreground">
+                        Cleaning day reminder
+                      </p>
+                      {cleaningPrefs?.access_instructions ? (
+                        // Custom instructions set by the user
+                        <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                          {cleaningPrefs.access_instructions}
+                        </p>
+                      ) : (
+                        // Generic fallback
+                        <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                          On your cleaning day, please make sure the apartment door is{" "}
+                          <span className="font-semibold text-foreground">unlocked or accessible</span>{" "}
+                          so the cleaning team can enter.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* ── No plan empty state ── */}
-                {activeCleaningSubs.length === 0 && pendingScheduleCleaningSubs.length === 0 && (
+                {activeCleaningSubs.length === 0 && pendingScheduleCleaningSubs.length === 0 && linkedClientPlans.length === 0 && linkedClientSubscriptions.length === 0 && (
                   <div className="rounded-2xl border border-border bg-card p-8 text-center">
                     <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
                       <SparklesIcon className="h-6 w-6 text-muted-foreground" />
@@ -432,6 +677,49 @@ const MySubscriptions = () => {
             )}
           </div>
       </div>
+      {/* ── Lightning payment dialog ── */}
+      <Dialog open={!!paymentDialog} onOpenChange={(open) => !open && setPaymentDialog(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CreditCard className="h-5 w-5 text-primary" />
+              Pay with Lightning
+            </DialogTitle>
+            <DialogDescription>
+              Scan the QR code or copy the invoice to pay with any Bitcoin Lightning wallet.
+            </DialogDescription>
+          </DialogHeader>
+          {paymentDialog && (
+            <div className="space-y-4">
+              <div className="flex justify-center rounded-xl bg-white p-4">
+                <QRCodeSVG value={paymentDialog.payment_request} size={200} />
+              </div>
+              <div className="space-y-2 text-center">
+                <p className="text-sm font-semibold text-foreground">
+                  {paymentDialog.plan_name ?? "Cleaning plan"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {paymentDialog.amount_cents != null
+                    ? `$${(paymentDialog.amount_cents / 100).toFixed(2)}`
+                    : paymentDialog.amount_sats != null
+                      ? `${paymentDialog.amount_sats.toLocaleString()} sats`
+                      : ""}
+                </p>
+              </div>
+              <Button
+                variant="secondary"
+                className="w-full"
+                onClick={() => {
+                  navigator.clipboard.writeText(paymentDialog.payment_request);
+                  toast.success("Invoice copied to clipboard");
+                }}
+              >
+                Copy invoice
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </UserLayout>
   );
 };

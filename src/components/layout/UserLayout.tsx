@@ -20,6 +20,7 @@ interface UserLayoutProps {
   breadcrumb?: string;
   /** Allow unauthenticated visitors to view the page */
   allowGuest?: boolean;
+  showBottomNav?: boolean;
 }
 
 export function UserLayout({ 
@@ -29,6 +30,7 @@ export function UserLayout({
   backTo,
   breadcrumb,
   allowGuest = false,
+  showBottomNav = true,
 }: UserLayoutProps) {
   const { isAuthenticated, isLoading, isUserDataReady } = useAuth();
   const isMobile = useIsMobile();
@@ -84,12 +86,12 @@ export function UserLayout({
       )}
 
       {/* Page Content */}
-      <main className={cn("pb-space-24 md:pb-space-8", isMobile && "min-h-[calc(100vh-3.5rem)]")}>
+      <main className={cn(showBottomNav ? "pb-space-24 md:pb-space-8" : "pb-space-8", isMobile && "min-h-[calc(100vh-3.5rem)]")}>
         {children}
       </main>
 
       {/* Bottom Navigation (mobile only) */}
-      <BottomNav />
+      {showBottomNav && <BottomNav />}
     </div>
   );
 }

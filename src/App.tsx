@@ -16,11 +16,20 @@ import ResetPassword from "./pages/ResetPassword";
 
 // User pages
 import MySubscriptions from "./pages/user/MySubscriptions";
+import Notifications from "./pages/user/Notifications";
+
+// Discovery
+import Discovery from "./pages/Discovery";
 
 // Cleaning pages
 import CleaningPackages from "./pages/cleaning/CleaningPackages";
 import CleaningCheckout from "./pages/cleaning/CleaningCheckout";
 import CleaningBook from "./pages/cleaning/CleaningBook";
+
+// Car Rental pages
+import CarRental from "./pages/cars/CarRental";
+import CarDetail from "./pages/cars/CarDetail";
+import CarBooking from "./pages/cars/CarBooking";
 
 // Super Admin pages
 import AdminDashboard from "./pages/admin/Dashboard";
@@ -30,6 +39,14 @@ import AdminPayments from "./pages/admin/Payments";
 import AdminClients from "./pages/admin/Clients";
 import AdminUsers from "./pages/admin/Users";
 import CleaningPlans from "./pages/admin/CleaningPlans";
+import AdminSubscriptions from "./pages/admin/Subscriptions";
+import AuditLogs from "./pages/admin/AuditLogs";
+import RoleManagement from "./pages/admin/RoleManagement";
+import CarRentalsVehicles from "./pages/admin/CarRentalsVehicles";
+import CarRentalsReservations from "./pages/admin/CarRentalsReservations";
+import CarRentalsCustomers from "./pages/admin/CarRentalsCustomers";
+import CarRentalsAnalytics from "./pages/admin/CarRentalsAnalytics";
+import CarRentalsDelivery from "./pages/admin/CarRentalsDelivery";
 
 import NotFound from "./pages/NotFound";
 
@@ -48,14 +65,17 @@ const App = () => {
                 <AuthModalProvider>
                 <UserModeProvider>
                 <Routes>
-              {/* Home → Cleaning */}
-              <Route path="/" element={<Navigate to="/cleaning" replace />} />
+              {/* Home → Discovery */}
+              <Route path="/" element={<Navigate to="/discovery" replace />} />
 
               {/* Auth */}
               <Route path="/oauth/callback" element={<OAuthCallback />} />
               <Route path="/auth" element={<OAuthCallback />} />
-              <Route path="/forgot-password" element={<Navigate to="/cleaning" replace />} />
+              <Route path="/forgot-password" element={<Navigate to="/discovery" replace />} />
               <Route path="/reset-password" element={<ResetPassword />} />
+
+              {/* Discovery */}
+              <Route path="/discovery" element={<Discovery />} />
 
               {/* Cleaning */}
               <Route path="/cleaning" element={<CleaningPackages />} />
@@ -66,22 +86,23 @@ const App = () => {
                 <ProtectedRoute><CleaningBook /></ProtectedRoute>
               } />
 
+              {/* Car Rental */}
+              <Route path="/cars" element={<CarRental />} />
+              <Route path="/cars/:id" element={<CarDetail />} />
+              <Route path="/cars/:id/book" element={
+                <ProtectedRoute><CarBooking /></ProtectedRoute>
+              } />
+
               {/* User */}
               <Route path="/my-subscriptions" element={
                 <ProtectedRoute><MySubscriptions /></ProtectedRoute>
               } />
+              <Route path="/notifications" element={
+                <ProtectedRoute><Notifications /></ProtectedRoute>
+              } />
               <Route path="/account" element={<Navigate to="/my-subscriptions" replace />} />
-              <Route path="/profile" element={<Navigate to="/cleaning" replace />} />
+              <Route path="/profile" element={<Navigate to="/discovery" replace />} />
               <Route path="/cleaning/my-bookings" element={<Navigate to="/my-subscriptions" replace />} />
-
-              {/* Legacy food routes → redirect */}
-              <Route path="/restaurants" element={<Navigate to="/cleaning" replace />} />
-              <Route path="/restaurants/:id" element={<Navigate to="/cleaning" replace />} />
-              <Route path="/plan/:planId" element={<Navigate to="/cleaning" replace />} />
-              <Route path="/subscription/:id" element={<Navigate to="/my-subscriptions" replace />} />
-              <Route path="/checkout/*" element={<Navigate to="/cleaning" replace />} />
-              <Route path="/favorites" element={<Navigate to="/cleaning" replace />} />
-              <Route path="/restaurant/*" element={<Navigate to="/admin/dashboard" replace />} />
 
               {/* Super Admin */}
               <Route path="/admin" element={
@@ -108,13 +129,34 @@ const App = () => {
               <Route path="/admin/payments" element={
                 <ProtectedRoute allowedRoles={['super_admin']}><AdminPayments /></ProtectedRoute>
               } />
+              <Route path="/admin/subscriptions" element={
+                <ProtectedRoute allowedRoles={['super_admin']}><AdminSubscriptions /></ProtectedRoute>
+              } />
+              <Route path="/admin/roles" element={
+                <ProtectedRoute allowedRoles={['super_admin']}><RoleManagement /></ProtectedRoute>
+              } />
+              <Route path="/admin/audit-logs" element={
+                <ProtectedRoute allowedRoles={['super_admin']}><AuditLogs /></ProtectedRoute>
+              } />
               <Route path="/admin/settings" element={
                 <ProtectedRoute allowedRoles={['super_admin']}><PlatformSettings /></ProtectedRoute>
               } />
-              {/* Legacy admin food routes → redirect */}
-              <Route path="/admin/restaurants" element={<Navigate to="/admin/dashboard" replace />} />
-              <Route path="/admin/subscriptions" element={<Navigate to="/admin/dashboard" replace />} />
-
+              {/* Admin Car Rentals */}
+              <Route path="/admin/car-rentals" element={
+                <ProtectedRoute allowedRoles={['super_admin']}><CarRentalsVehicles /></ProtectedRoute>
+              } />
+              <Route path="/admin/car-rentals/reservations" element={
+                <ProtectedRoute allowedRoles={['super_admin']}><CarRentalsReservations /></ProtectedRoute>
+              } />
+              <Route path="/admin/car-rentals/customers" element={
+                <ProtectedRoute allowedRoles={['super_admin']}><CarRentalsCustomers /></ProtectedRoute>
+              } />
+              <Route path="/admin/car-rentals/analytics" element={
+                <ProtectedRoute allowedRoles={['super_admin']}><CarRentalsAnalytics /></ProtectedRoute>
+              } />
+              <Route path="/admin/car-rentals/delivery" element={
+                <ProtectedRoute allowedRoles={['super_admin']}><CarRentalsDelivery /></ProtectedRoute>
+              } />
               {/* Catch-all */}
               <Route path="*" element={<NotFound />} />
                 </Routes>

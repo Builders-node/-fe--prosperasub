@@ -24,8 +24,6 @@ import {
   AppDropdownThemeItem,
 } from "@/components/ui/app-dropdown";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/i18n";
 import { useUserMode } from "@/contexts/UserModeContext";
@@ -41,7 +39,6 @@ export function AdminAccountMenu() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [telegram, setTelegram] = useState("");
-  const [deliveryAddress, setDeliveryAddress] = useState("");
   const [showProfileDialog, setShowProfileDialog] = useState(false);
 
   const { data: profile } = useQuery({
@@ -61,13 +58,11 @@ export function AdminAccountMenu() {
 
   useEffect(() => {
     if (userData) {
-      setName(userData.name || "");
+      setName(userData.name || userData.display_name || "");
     }
     if (profile) {
       setPhone(profile.phone_number || "");
       setTelegram((profile as any).telegram_username || "");
-      const address = profile.default_delivery_address as { address?: string } | null;
-      setDeliveryAddress(address?.address || "");
     }
   }, [userData, profile]);
 
@@ -75,7 +70,7 @@ export function AdminAccountMenu() {
     mutationFn: async () => {
       if (!userData?.id) throw new Error("Not authenticated");
 
-      const pubkey = userData.lightning_pubkey || localStorage.getItem("lightning_pubkey");
+      const pubkey = userData.lightning_pubkey;
       if (pubkey) {
         await supabase.rpc("set_lightning_session", { p_pubkey: pubkey });
       }
@@ -89,7 +84,6 @@ export function AdminAccountMenu() {
       const profilePayload = {
         phone_number: phone,
         telegram_username: telegram,
-        default_delivery_address: { address: deliveryAddress },
       } as any;
 
       if (existingProfile) {
@@ -132,10 +126,10 @@ export function AdminAccountMenu() {
   };
 
   const handleViewAsUser = () => {
-    window.open(publicRoutes.userSite, "_blank", "noopener,noreferrer");
+    navigate(publicRoutes.userSite);
   };
 
-  const displayName = name || userData?.name || userData?.display_name || t("profile.user");
+  const displayName = userData?.name || userData?.display_name || name || t("profile.user");
   const avatarLabel = displayName.slice(0, 1).toUpperCase();
 
   return (
@@ -144,7 +138,7 @@ export function AdminAccountMenu() {
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-radius-full bg-primary text-xl font-black text-black transition hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-radius-full bg-primary text-lg font-black text-black transition hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-label={t("nav.account")}
           >
             {avatarLabel}
@@ -167,7 +161,7 @@ export function AdminAccountMenu() {
             <AppDropdownItem
               icon={Eye}
               title={t("profile.viewAsUser")}
-              subtitle="Open user site in new tab"
+              subtitle="Open user site"
               onSelect={handleViewAsUser}
             />
           </div>
@@ -212,22 +206,6 @@ export function AdminAccountMenu() {
               leftIcon={<Send className="h-4 w-4 text-primary" />}
               wrapperClassName="sm:col-span-2"
             />
-
-            <div className="sm:col-span-2">
-              <Label htmlFor="admin-delivery-address" className="mb-space-2 block text-label text-foreground">
-                {t("profile.deliveryAddress")}
-              </Label>
-              <Select value={deliveryAddress} onValueChange={setDeliveryAddress}>
-                <SelectTrigger id="admin-delivery-address">
-                  <SelectValue placeholder={t("profile.selectDelivery")} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Beach Club Pristine Bay">Beach Club Pristine Bay</SelectItem>
-                  <SelectItem value="Las Verandas Pristine Bay">Las Verandas Pristine Bay</SelectItem>
-                  <SelectItem value="Duna Tower Beta District">Duna Tower Beta District</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
           </div>
 
           <Button onClick={() => saveMutation.mutate()} loading={saveMutation.isPending} size="xl" className="w-full">

@@ -128,17 +128,17 @@ const AdminDashboard = () => {
   return (
     <SuperAdminLayout title="Overview">
       {/* ── Stats ── */}
-      <div className="grid grid-cols-3 gap-space-4">
+      <div className="grid grid-cols-1 gap-space-3 sm:grid-cols-3">
         {STATS.map((stat) => (
           <Link key={stat.label} to={stat.href}>
             <Card className="group relative transition-colors hover:border-primary/40">
-              <CardContent className="p-space-5">
+              <CardContent className="p-space-4">
                 <div className="flex items-center gap-space-2 text-sm font-medium text-muted-foreground">
-                  <stat.icon className="h-5 w-5" />
-                  <span>{stat.label}</span>
+                  <stat.icon className="h-4 w-4 shrink-0" />
+                  <span className="min-w-0 truncate">{stat.label}</span>
                   <ArrowRight className="ml-auto h-4 w-4 opacity-0 transition-opacity group-hover:opacity-60" />
                 </div>
-                <p className="mt-space-3 text-3xl font-extrabold tracking-tight text-foreground">
+                <p className="mt-space-2 break-words text-2xl font-extrabold tracking-tight text-foreground md:text-3xl">
                   {stat.value}
                 </p>
               </CardContent>
@@ -148,12 +148,12 @@ const AdminDashboard = () => {
       </div>
 
       {/* ── Recently Log ── */}
-      <div className="mt-space-8">
+      <div className="mt-space-5">
         <Card>
           <CardHeader className="pb-space-3">
             <CardTitle>Recently Log</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-space-4 pb-space-4">
             {recentActivity.length === 0 ? (
               <p className="py-space-6 text-center text-sm text-muted-foreground">No recent activity</p>
             ) : (
@@ -164,18 +164,20 @@ const AdminDashboard = () => {
                     <Link
                       key={activity.id}
                       to={activity.href}
-                      className="flex items-center gap-space-4 py-space-3 transition-colors hover:bg-muted/30 -mx-space-4 px-space-4 rounded-radius-md"
+                      className="-mx-space-2 flex min-w-0 flex-col gap-space-3 rounded-radius-md px-space-2 py-space-3 transition-colors hover:bg-muted/30 sm:flex-row sm:items-center"
                     >
-                      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-radius-full ${iconColor(activity.icon)}`}>
-                        <Icon className="h-4 w-4" />
+                      <div className="flex min-w-0 items-center gap-space-3">
+                        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-radius-full ${iconColor(activity.icon)}`}>
+                          <Icon className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold text-foreground">{activity.text}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {format(new Date(activity.date), "MMM d, yyyy · h:mm a")}
+                          </p>
+                        </div>
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold text-foreground">{activity.text}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {format(new Date(activity.date), "MMM d, yyyy · h:mm a")}
-                        </p>
-                      </div>
-                      <Badge variant={activity.icon === "payment" ? "default" : "secondary"} className="shrink-0 text-xs">
+                      <Badge variant={activity.icon === "payment" ? "default" : "secondary"} className="w-fit shrink-0 text-xs sm:ml-auto">
                         {activity.detail}
                       </Badge>
                     </Link>

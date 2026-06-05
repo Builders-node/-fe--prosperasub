@@ -3,10 +3,12 @@ import { supabaseDb } from "@/integrations/supabase/client";
 export type AuditAction =
   | "create" | "edit" | "delete" | "archive" | "restore"
   | "assign_plan" | "change_price" | "change_status" | "change_role"
-  | "block" | "unblock" | "pause" | "reactivate";
+  | "block" | "unblock" | "pause" | "reactivate"
+  | "cancel" | "soft_delete";
 
 export type EntityType =
-  | "user" | "client" | "plan" | "subscription" | "booking" | "assignment";
+  | "user" | "client" | "plan" | "subscription" | "booking" | "assignment"
+  | "cleaning_client" | "cleaning_plan";
 
 export async function logAuditEvent(
   adminUserId: string,

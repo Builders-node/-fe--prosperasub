@@ -1,4 +1,4 @@
-import { CalendarDays, SparklesIcon } from "lucide-react";
+import { Bell, CalendarDays, Compass } from "lucide-react";
 import { AppRole } from "@/contexts/AuthContext";
 import { LucideIcon } from "lucide-react";
 
@@ -23,16 +23,22 @@ export interface NavigationConfig {
  */
 const USER_NAV: NavItem[] = [
   {
-    icon: SparklesIcon,
-    label: "Cleaning",
-    path: "/cleaning",
-    activePatterns: ["/cleaning/"]
+    icon: Compass,
+    label: "Services",
+    path: "/discovery",
+    activePatterns: ["/discovery"],
   },
   {
     icon: CalendarDays,
     label: "My Bookings",
     path: "/my-subscriptions",
-    activePatterns: ["/subscription/", "/cleaning/my-bookings"],
+    activePatterns: ["/cleaning/my-bookings"],
+    requiresAuth: true,
+  },
+  {
+    icon: Bell,
+    label: "Notifications",
+    path: "/notifications",
     requiresAuth: true,
   },
 ];
@@ -43,7 +49,7 @@ const USER_NAV: NavItem[] = [
 
 /**
  * Get navigation items based on user roles.
- * Priority: super_admin > restaurant_admin > user
+ * Priority: super_admin > user
  */
 export function getNavigationForRoles(_roles: AppRole[]): NavItem[] {
   return USER_NAV;

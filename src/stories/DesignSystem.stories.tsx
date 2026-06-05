@@ -87,7 +87,7 @@ export const Inputs: Story = {
       </div>
       <Textarea
         label="Notes"
-        placeholder="Add restaurant notes..."
+        placeholder="Add service notes..."
         helperText="Textarea with helper text and counter."
         maxLength={180}
         showCount
@@ -102,7 +102,7 @@ export const ChoiceControls: Story = {
     <Section title="Select, Checkbox, Radio, Switch">
       <div className="grid gap-space-6 md:grid-cols-2">
         <div className="space-y-space-2">
-          <Label>Delivery location</Label>
+          <Label>Service location</Label>
           <Select defaultValue="prospera">
             <SelectTrigger>
               <SelectValue placeholder="Choose location" />
@@ -121,7 +121,7 @@ export const ChoiceControls: Story = {
           </label>
           <label className="flex items-center gap-space-3">
             <Switch defaultChecked />
-            <span className="text-body">Delivery enabled</span>
+            <span className="text-body">Notifications enabled</span>
           </label>
         </div>
         <RadioGroup defaultValue="weekly" className="space-y-space-3">
@@ -211,7 +211,7 @@ export const Overlays: Story = {
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem>View bookings</DropdownMenuItem>
-            <DropdownMenuItem>Open favorites</DropdownMenuItem>
+            <DropdownMenuItem>Open client profile</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
         <AlertDialog>

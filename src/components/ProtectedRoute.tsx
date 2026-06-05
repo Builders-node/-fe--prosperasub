@@ -42,10 +42,10 @@ const ProtectedRoute = ({ children, allowedRoles, requiredRoles }: ProtectedRout
     return <UnauthenticatedGate redirectTo={location.pathname + location.search} />;
   }
 
-  // Case 3: Admin is in "View as User" mode — block any admin/restaurant-admin-only routes
+  // Case 3: Admin is in "View as User" mode — block admin-only routes
   if (isUserMode && effectiveRoles && effectiveRoles.length > 0) {
     const isAdminOnlyRoute = effectiveRoles.every(
-      (r) => r === "super_admin" || r === "restaurant_admin",
+      (r) => r === "super_admin",
     );
     if (isAdminOnlyRoute) {
       // Treat them as a regular user — redirect to home

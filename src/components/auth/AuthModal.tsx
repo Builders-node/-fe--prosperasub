@@ -249,7 +249,7 @@ function AuthForm({
         <p className="mt-1 text-[13px]" style={{ color: "hsl(var(--yd-text2))" }}>
           {view === "login"
             ? "Sign in to your ProsperaSub account"
-            : "Join ProsperaSub — cleaning subscriptions"}
+            : "Join ProsperaSub — Convenience Subscriptions to Próspera"}
         </p>
       </div>
 
