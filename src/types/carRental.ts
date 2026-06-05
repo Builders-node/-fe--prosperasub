@@ -11,6 +11,9 @@ export interface RentalVehicle {
   air_conditioning: boolean;
   luggage_capacity: number;
   daily_price_cents: number;
+  weekly_price_cents: number;
+  biweekly_price_cents: number;
+  monthly_price_cents: number;
   monthly_discount_pct: number;
   status: "public" | "private" | "archived";
   sort_order: number;
@@ -89,14 +92,32 @@ export const QUICK_DURATIONS = [
 ] as const;
 
 export function calcRentalPrice(
-  dailyPriceCents: number,
-  monthlyDiscountPct: number,
+  vehicle: Pick<RentalVehicle, "daily_price_cents" | "weekly_price_cents" | "biweekly_price_cents" | "monthly_price_cents" | "monthly_discount_pct">,
   rentalDays: number,
 ): RentalPriceCalc {
-  const subtotalCents = dailyPriceCents * rentalDays;
-  // Discount only applies for monthly rentals (>= 28 days)
-  const discountPct = rentalDays >= 28 ? monthlyDiscountPct : 0;
-  const discountCents = Math.round(subtotalCents * (discountPct / 100));
+  const { daily_price_cents, weekly_price_cents, biweekly_price_cents, monthly_price_cents, monthly_discount_pct } = vehicle;
+
+  // Use explicit period price if set, else fall back to daily × days
+  let subtotalCents: number;
+  let discountPct = 0;
+  let discountCents = 0;
+
+  if (rentalDays >= 28 && monthly_price_cents > 0) {
+    // Monthly flat price
+    subtotalCents = monthly_price_cents;
+  } else if (rentalDays >= 28) {
+    // Monthly: daily × days with discount
+    subtotalCents = daily_price_cents * rentalDays;
+    discountPct = monthly_discount_pct;
+    discountCents = Math.round(subtotalCents * (discountPct / 100));
+  } else if (rentalDays >= 14 && biweekly_price_cents > 0) {
+    subtotalCents = biweekly_price_cents;
+  } else if (rentalDays >= 7 && weekly_price_cents > 0) {
+    subtotalCents = weekly_price_cents;
+  } else {
+    subtotalCents = daily_price_cents * rentalDays;
+  }
+
   const totalCents = subtotalCents - discountCents;
-  return { rentalDays, dailyPriceCents, subtotalCents, discountPct, discountCents, totalCents };
+  return { rentalDays, dailyPriceCents: daily_price_cents, subtotalCents, discountPct, discountCents, totalCents };
 }

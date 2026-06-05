@@ -43,6 +43,9 @@ const EMPTY_FORM = {
   air_conditioning: true,
   luggage_capacity: 2,
   daily_price_cents: 0,
+  weekly_price_cents: 0,
+  biweekly_price_cents: 0,
+  monthly_price_cents: 0,
   monthly_discount_pct: 0,
   status: "private" as const,
   sort_order: 0,
@@ -101,6 +104,9 @@ const CarRentalsVehicles = () => {
         air_conditioning: form.air_conditioning,
         luggage_capacity: form.luggage_capacity,
         daily_price_cents: form.daily_price_cents,
+        weekly_price_cents: form.weekly_price_cents,
+        biweekly_price_cents: form.biweekly_price_cents,
+        monthly_price_cents: form.monthly_price_cents,
         monthly_discount_pct: form.monthly_discount_pct,
         status: form.status,
         sort_order: form.sort_order,
@@ -202,6 +208,9 @@ const CarRentalsVehicles = () => {
       air_conditioning: v.air_conditioning,
       luggage_capacity: v.luggage_capacity,
       daily_price_cents: v.daily_price_cents,
+      weekly_price_cents: v.weekly_price_cents ?? 0,
+      biweekly_price_cents: v.biweekly_price_cents ?? 0,
+      monthly_price_cents: v.monthly_price_cents ?? 0,
       monthly_discount_pct: Number(v.monthly_discount_pct),
       status: v.status as any,
       sort_order: v.sort_order,
@@ -281,7 +290,9 @@ const CarRentalsVehicles = () => {
                     </div>
                     <p className="text-xs text-muted-foreground">
                       {v.brand} {v.model} · {v.year} · {formatUSD(v.daily_price_cents)}/day
-                      {v.monthly_discount_pct > 0 && ` · ${v.monthly_discount_pct}% mo discount`}
+                      {v.weekly_price_cents > 0 && ` · ${formatUSD(v.weekly_price_cents)}/wk`}
+                      {v.biweekly_price_cents > 0 && ` · ${formatUSD(v.biweekly_price_cents)}/2wk`}
+                      {v.monthly_price_cents > 0 && ` · ${formatUSD(v.monthly_price_cents)}/mo`}
                     </p>
                   </div>
 
@@ -385,9 +396,48 @@ const CarRentalsVehicles = () => {
             </div>
 
             <NumberField label="Luggage capacity (bags)" value={form.luggage_capacity} onChange={(v) => setForm((f) => ({ ...f, luggage_capacity: v }))} />
-            <NumberField label="Daily price (USD cents)" value={form.daily_price_cents} onChange={(v) => setForm((f) => ({ ...f, daily_price_cents: v }))} />
-            <NumberField label="Monthly discount %" value={form.monthly_discount_pct} onChange={(v) => setForm((f) => ({ ...f, monthly_discount_pct: v }))} />
             <NumberField label="Sort order" value={form.sort_order} onChange={(v) => setForm((f) => ({ ...f, sort_order: v }))} />
+
+            {/* Pricing section */}
+            <div className="sm:col-span-2 space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="h-px flex-1 bg-border" />
+                <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Pricing (USD cents)</span>
+                <div className="h-px flex-1 bg-border" />
+              </div>
+              <p className="text-xs text-muted-foreground -mt-1">
+                Leave a period price at 0 to auto-calculate from the daily rate. Monthly discount % applies only when no monthly price is set.
+              </p>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <PriceField
+                  label="1 Day"
+                  cents={form.daily_price_cents}
+                  onChange={(v) => setForm((f) => ({ ...f, daily_price_cents: v }))}
+                />
+                <PriceField
+                  label="1 Week"
+                  cents={form.weekly_price_cents}
+                  onChange={(v) => setForm((f) => ({ ...f, weekly_price_cents: v }))}
+                />
+                <PriceField
+                  label="2 Weeks"
+                  cents={form.biweekly_price_cents}
+                  onChange={(v) => setForm((f) => ({ ...f, biweekly_price_cents: v }))}
+                />
+                <PriceField
+                  label="1 Month"
+                  cents={form.monthly_price_cents}
+                  onChange={(v) => setForm((f) => ({ ...f, monthly_price_cents: v }))}
+                />
+              </div>
+              <div className="w-36">
+                <NumberField
+                  label="Monthly discount % (fallback)"
+                  value={form.monthly_discount_pct}
+                  onChange={(v) => setForm((f) => ({ ...f, monthly_discount_pct: v }))}
+                />
+              </div>
+            </div>
 
             <div className="flex items-center gap-3 sm:col-span-2">
               <Switch checked={form.air_conditioning} onCheckedChange={(c) => setForm((f) => ({ ...f, air_conditioning: c }))} />
@@ -492,6 +542,32 @@ function NumberField({ label, value, onChange }: { label: string; value: number;
         onChange={(e) => onChange(Number(e.target.value))}
         min={0}
       />
+    </div>
+  );
+}
+
+function PriceField({ label, cents, onChange }: { label: string; cents: number; onChange: (v: number) => void }) {
+  const dollars = cents > 0 ? (cents / 100).toFixed(0) : "";
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs">{label}</Label>
+      <div className="relative">
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+        <Input
+          type="number"
+          className="pl-6"
+          placeholder="0"
+          value={dollars}
+          onChange={(e) => {
+            const val = e.target.value === "" ? 0 : Math.round(Number(e.target.value) * 100);
+            onChange(val);
+          }}
+          min={0}
+        />
+      </div>
+      {cents > 0 && (
+        <p className="text-[10px] text-muted-foreground">{cents} cents</p>
+      )}
     </div>
   );
 }
