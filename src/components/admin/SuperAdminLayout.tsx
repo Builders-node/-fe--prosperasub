@@ -1,25 +1,12 @@
-import { ReactNode } from "react";
+import { ReactNode, useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
-  LayoutDashboard,
-  Settings,
-  CreditCard,
-  SparklesIcon,
-  Zap,
   BadgeDollarSign,
   ChevronRight,
-  Users,
-  UserCheck,
-  ClipboardList,
-  FileText,
-  ShieldCheck,
+  ChevronDown,
   ExternalLink,
   LogOut,
   Menu,
-  Car,
-  CalendarCheck,
-  BarChart3,
-  MapPin,
 } from "lucide-react";
 import { AdminAccountMenu } from "@/components/admin/AdminAccountMenu";
 import { LanguageMenu } from "@/components/LanguageMenu";
@@ -35,7 +22,15 @@ import {
 } from "@/components/ui/sheet";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserMode } from "@/contexts/UserModeContext";
-import { adminRoutes, publicRoutes } from "@/config/adminRoutes";
+import { publicRoutes } from "@/config/adminRoutes";
+import {
+  PLATFORM_SECTION,
+  SERVICES,
+  SETTINGS_SECTION,
+  getActiveService,
+  type NavItem,
+  type ServiceGroup,
+} from "@/config/adminNav";
 import { cn } from "@/lib/utils";
 
 interface SuperAdminLayoutProps {
@@ -44,166 +39,249 @@ interface SuperAdminLayoutProps {
   subtitle?: string;
 }
 
-const MENU_SECTIONS = [
-  {
-    title: "Platform",
-    items: [
-      {
-        path: adminRoutes.superAdminDashboard,
-        label: "Overview",
-        icon: LayoutDashboard,
-      },
-      { path: adminRoutes.superAdminPayments, label: "Finance", icon: Zap },
-      { path: adminRoutes.superAdminUsers, label: "Users", icon: Users },
-      { path: adminRoutes.superAdminClients, label: "Clients", icon: UserCheck },
-    ],
-  },
-  {
-    title: "Products",
-    items: [
-      { path: adminRoutes.superAdminCleaningPlans, label: "Plans", icon: CreditCard },
-      { path: adminRoutes.superAdminSubscriptions, label: "Subscriptions", icon: ClipboardList },
-      { path: adminRoutes.superAdminCleaning, label: "Operations", icon: SparklesIcon },
-    ],
-  },
-  {
-    title: "Car Rentals",
-    items: [
-      { path: adminRoutes.superAdminCarRentals, label: "Vehicles", icon: Car },
-      { path: adminRoutes.superAdminCarRentalsReservations, label: "Reservations", icon: CalendarCheck },
-      { path: adminRoutes.superAdminCarRentalsCustomers, label: "Customers", icon: UserCheck },
-      { path: adminRoutes.superAdminCarRentalsAnalytics, label: "Analytics", icon: BarChart3 },
-      { path: adminRoutes.superAdminCarRentalsDelivery, label: "Delivery", icon: MapPin },
-    ],
-  },
-  {
-    title: "Settings",
-    items: [
-      { path: adminRoutes.superAdminRoles, label: "Roles", icon: ShieldCheck },
-      { path: adminRoutes.superAdminAuditLogs, label: "Audit Logs", icon: FileText },
-      { path: adminRoutes.superAdminSettings, label: "Settings", icon: Settings },
-    ],
-  },
-];
+// ─── Shared styles ────────────────────────────────────────────────────────────
+const linkBase =
+  "flex min-h-10 items-center gap-space-3 rounded-radius-md px-space-3 py-space-2 text-control transition-colors";
+const linkActive = "bg-[hsl(var(--app-control-muted))] text-foreground font-semibold";
+const linkIdle =
+  "text-muted-foreground hover:bg-[hsl(var(--app-control-muted))] hover:text-foreground";
 
-const SuperAdminLayout = ({
-  children,
-  title,
-  subtitle
-}: SuperAdminLayoutProps) => {
+// ─── Flat link ────────────────────────────────────────────────────────────────
+function FlatLink({
+  item,
+  isActive,
+  wrap,
+}: {
+  item: NavItem;
+  isActive: boolean;
+  wrap?: (el: React.ReactElement) => React.ReactElement;
+}) {
+  const Icon = item.icon;
+  const el = (
+    <Link
+      to={item.path}
+      aria-current={isActive ? "page" : undefined}
+      className={cn(linkBase, isActive ? linkActive : linkIdle)}
+    >
+      <Icon
+        className={cn("h-4 w-4 shrink-0", isActive ? "text-primary" : "text-muted-foreground")}
+        aria-hidden
+      />
+      <span className="truncate">{item.label}</span>
+    </Link>
+  );
+  return wrap ? wrap(el) : el;
+}
+
+// ─── Collapsible service group ────────────────────────────────────────────────
+function ServiceDropdown({
+  service,
+  currentPath,
+  wrap,
+}: {
+  service: ServiceGroup;
+  currentPath: string;
+  wrap?: (el: React.ReactElement) => React.ReactElement;
+}) {
+  const isGroupActive = getActiveService(currentPath) === service.id;
+  const [open, setOpen] = useState(isGroupActive);
+
+  useEffect(() => {
+    if (isGroupActive) setOpen(true);
+  }, [isGroupActive]);
+
+  const Icon = service.icon;
+
+  return (
+    <div>
+      {/* Group header — NOT wrapped in SheetClose so it stays interactive on mobile */}
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className={cn(linkBase, "w-full justify-between", isGroupActive ? linkActive : linkIdle)}
+        aria-expanded={open}
+      >
+        <span className="flex items-center gap-space-3 min-w-0">
+          <span
+            className={cn(
+              "flex h-5 w-5 shrink-0 items-center justify-center rounded-md",
+              service.color,
+            )}
+          >
+            <Icon className="h-3 w-3 text-white" aria-hidden />
+          </span>
+          <span className="truncate font-semibold">{service.label}</span>
+        </span>
+        <ChevronDown
+          className={cn(
+            "h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200",
+            open && "rotate-180",
+          )}
+          aria-hidden
+        />
+      </button>
+
+      {/* Animated children */}
+      <div
+        className={cn(
+          "overflow-hidden transition-all duration-200 ease-in-out",
+          open ? "max-h-96 opacity-100" : "max-h-0 opacity-0 pointer-events-none",
+        )}
+      >
+        <div className="ml-[1.35rem] mt-0.5 space-y-0.5 border-l border-[hsl(var(--app-divider))] pl-3 pb-1">
+          {service.items.map((item) => {
+            const isActive =
+              currentPath === item.path || currentPath.startsWith(item.path + "/");
+            const el = (
+              <Link
+                key={item.path}
+                to={item.path}
+                aria-current={isActive ? "page" : undefined}
+                className={cn(
+                  "flex min-h-9 items-center gap-2.5 rounded-radius-md px-2.5 py-1.5 text-sm transition-colors",
+                  isActive
+                    ? "bg-[hsl(var(--app-control-muted))] text-foreground font-semibold"
+                    : "text-muted-foreground hover:bg-[hsl(var(--app-control-muted))] hover:text-foreground",
+                )}
+              >
+                <item.icon
+                  className={cn(
+                    "h-3.5 w-3.5 shrink-0",
+                    isActive ? "text-primary" : "text-muted-foreground/70",
+                  )}
+                  aria-hidden
+                />
+                {item.label}
+              </Link>
+            );
+            return wrap ? wrap(el) : el;
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Sidebar nav (shared by desktop + mobile) ─────────────────────────────────
+function SidebarNav({
+  currentPath,
+  wrap,
+}: {
+  currentPath: string;
+  wrap?: (el: React.ReactElement) => React.ReactElement;
+}) {
+  return (
+    <nav
+      className="flex-1 space-y-space-5 overflow-y-auto px-space-3 py-space-4"
+      aria-label="Admin navigation"
+    >
+      {/* Platform */}
+      <section className="space-y-space-1" aria-labelledby="nav-platform">
+        <h2
+          id="nav-platform"
+          className="px-space-3 pb-space-1 text-caption font-bold uppercase tracking-[0.18em] text-muted-foreground/70"
+        >
+          {PLATFORM_SECTION.title}
+        </h2>
+        {PLATFORM_SECTION.items.map((item) => (
+          <FlatLink
+            key={item.path}
+            item={item}
+            isActive={currentPath === item.path}
+            wrap={wrap}
+          />
+        ))}
+      </section>
+
+      {/* Services */}
+      <section className="space-y-space-1" aria-labelledby="nav-services">
+        <h2
+          id="nav-services"
+          className="px-space-3 pb-space-1 text-caption font-bold uppercase tracking-[0.18em] text-muted-foreground/70"
+        >
+          Services
+        </h2>
+        {SERVICES.map((service) => (
+          <ServiceDropdown
+            key={service.id}
+            service={service}
+            currentPath={currentPath}
+            wrap={wrap}
+          />
+        ))}
+      </section>
+
+      {/* Settings */}
+      <section className="space-y-space-1" aria-labelledby="nav-settings">
+        <h2
+          id="nav-settings"
+          className="px-space-3 pb-space-1 text-caption font-bold uppercase tracking-[0.18em] text-muted-foreground/70"
+        >
+          {SETTINGS_SECTION.title}
+        </h2>
+        {SETTINGS_SECTION.items.map((item) => (
+          <FlatLink
+            key={item.path}
+            item={item}
+            isActive={currentPath === item.path}
+            wrap={wrap}
+          />
+        ))}
+      </section>
+    </nav>
+  );
+}
+
+// ─── Main layout ──────────────────────────────────────────────────────────────
+const SuperAdminLayout = ({ children, title, subtitle }: SuperAdminLayoutProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { logout } = useAuth();
   const { isUserMode } = useUserMode();
 
-  // Redirect to home if admin has switched to user mode and somehow ended up here
   if (isUserMode) {
     navigate("/", { replace: true });
     return null;
   }
 
-  const isActive = (path: string) => location.pathname === path;
+  const currentPath = location.pathname;
+
   const handleLogout = async () => {
     await logout();
     navigate("/", { replace: true });
   };
 
-  const renderMenuLink = (item: (typeof MENU_SECTIONS)[number]["items"][number]) => {
-    const Icon = item.icon;
-    const active = isActive(item.path);
-
-    return (
+  // Footer links (desktop + mobile)
+  const SidebarFooter = () => (
+    <div className="shrink-0 border-t border-[hsl(var(--app-divider))] px-space-3 py-space-3 space-y-space-1">
       <Link
-        key={item.path}
-        to={item.path}
-        aria-current={active ? "page" : undefined}
-        className={cn(
-          "flex min-h-11 items-center gap-space-3 rounded-radius-md px-space-3 py-space-2 text-control transition-colors",
-          active
-            ? "bg-[hsl(var(--app-control-muted))] text-foreground"
-            : "text-muted-foreground hover:bg-[hsl(var(--app-control-muted))] hover:text-foreground",
-        )}
+        to={publicRoutes.userSite}
+        className={cn(linkBase, linkIdle, "text-sm")}
       >
-        <Icon className={cn("h-5 w-5 shrink-0", active ? "text-primary" : "text-muted-foreground")} aria-hidden="true" />
-        <span className="min-w-0 flex-1">
-          <span className="block truncate font-semibold">{item.label}</span>
-          {"description" in item && item.description && (
-            <span className="mt-0.5 block truncate text-caption font-medium text-muted-foreground">
-              {item.description}
-            </span>
-          )}
-        </span>
+        <ExternalLink className="h-4 w-4 shrink-0" aria-hidden />
+        View as user
       </Link>
-    );
-  };
-
-  const renderMobileDrawer = () => (
-    <Sheet>
-      <SheetTrigger asChild>
-        <Button type="button" variant="tertiary" size="icon" className="h-11 w-11" aria-label="Open admin menu">
-          <Menu className="h-5 w-5" aria-hidden="true" />
-        </Button>
-      </SheetTrigger>
-      <SheetContent side="left" className="flex w-[88vw] max-w-[360px] flex-col p-0">
-        <SheetHeader className="border-b border-[hsl(var(--app-divider))] px-space-4 py-space-4 text-left">
-          <SheetTitle className="flex items-center gap-space-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded-radius-md bg-primary text-black">
-              <BadgeDollarSign className="h-4 w-4" aria-hidden="true" />
-            </span>
-            Admin Panel
-          </SheetTitle>
-          <SheetDescription>ProsperaSub operations</SheetDescription>
-        </SheetHeader>
-
-        <nav className="flex-1 space-y-space-4 overflow-y-auto px-space-3 py-space-4" aria-label="Mobile admin navigation">
-          {MENU_SECTIONS.map((section) => (
-            <section key={section.title} className="space-y-space-2">
-              <h2 className="px-space-3 text-caption font-bold uppercase tracking-[0.18em] text-muted-foreground">
-                {section.title}
-              </h2>
-              <div className="space-y-space-1">
-                {section.items.map((item) => (
-                  <SheetClose key={item.path} asChild>
-                    {renderMenuLink(item)}
-                  </SheetClose>
-                ))}
-              </div>
-            </section>
-          ))}
-        </nav>
-
-        <div className="space-y-space-1 border-t border-[hsl(var(--app-divider))] p-space-2">
-          <SheetClose asChild>
-            <Link
-              to={publicRoutes.userSite}
-              className="flex min-h-10 items-center gap-space-3 rounded-radius-md px-space-3 text-body-md font-semibold text-muted-foreground transition hover:bg-[hsl(var(--app-control-muted))] hover:text-foreground"
-            >
-              <ExternalLink className="h-5 w-5" aria-hidden="true" />
-              View as user
-            </Link>
-          </SheetClose>
-          <button
-            type="button"
-            onClick={() => void handleLogout()}
-            className="flex min-h-10 w-full items-center gap-space-3 rounded-radius-md px-space-3 text-body-md font-semibold text-destructive transition hover:bg-destructive/10"
-          >
-            <LogOut className="h-5 w-5" aria-hidden="true" />
-            Log out
-          </button>
-        </div>
-      </SheetContent>
-    </Sheet>
+      <button
+        type="button"
+        onClick={() => void handleLogout()}
+        className={cn(linkBase, "w-full text-sm text-destructive hover:bg-destructive/10")}
+      >
+        <LogOut className="h-4 w-4 shrink-0" aria-hidden />
+        Log out
+      </button>
+    </div>
   );
 
   return (
     <div className="min-h-screen bg-background lg:grid lg:grid-cols-[272px_minmax(0,1fr)]">
-      {/* Desktop Sidebar */}
+
+      {/* ── Desktop sidebar ─────────────────────────────── */}
       <aside className="hidden min-h-screen border-r border-[hsl(var(--app-divider))] bg-card lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col">
         {/* Logo */}
-        <div className="flex h-[60px] shrink-0 items-center gap-space-3 border-b border-[hsl(var(--app-divider))] px-space-5 lg:h-[72px]">
-          <Link to={adminRoutes.superAdminDashboard} className="flex min-w-0 items-center gap-space-3">
+        <div className="flex h-[72px] shrink-0 items-center gap-space-3 border-b border-[hsl(var(--app-divider))] px-space-5">
+          <Link to="/admin/dashboard" className="flex min-w-0 items-center gap-space-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-radius-md bg-primary text-black">
-              <BadgeDollarSign className="h-5 w-5" aria-hidden="true" />
+              <BadgeDollarSign className="h-5 w-5" aria-hidden />
             </div>
             <div className="min-w-0">
               <p className="type-card-title truncate">Admin Panel</p>
@@ -212,63 +290,71 @@ const SuperAdminLayout = ({
           </Link>
         </div>
 
-        {/* Nav */}
-        <nav className="flex-1 space-y-space-4 overflow-y-auto px-space-3 py-space-4" aria-label="Admin navigation">
-          {MENU_SECTIONS.map((section) => (
-            <section key={section.title} className="space-y-space-1">
-              <h2 className="px-space-4 pb-space-1 text-caption font-bold uppercase tracking-[0.18em] text-muted-foreground/70">
-                {section.title}
-              </h2>
-              <div>
-                {section.items.map((item) => renderMenuLink(item))}
-              </div>
-            </section>
-          ))}
-        </nav>
-
-        {/* Footer actions */}
-        <div className="shrink-0 border-t border-[hsl(var(--app-divider))] px-space-3 py-space-3 space-y-space-1">
-          <Link
-            to={publicRoutes.userSite}
-            className="flex min-h-10 items-center gap-space-3 rounded-radius-md px-space-4 text-control font-semibold text-muted-foreground transition hover:bg-[hsl(var(--app-control-muted))] hover:text-foreground"
-          >
-            <ExternalLink className="h-4 w-4 shrink-0" aria-hidden="true" />
-            View as user
-          </Link>
-          <button
-            type="button"
-            onClick={() => void handleLogout()}
-            className="flex min-h-10 w-full items-center gap-space-3 rounded-radius-md px-space-4 text-control font-semibold text-destructive transition hover:bg-destructive/10"
-          >
-            <LogOut className="h-4 w-4 shrink-0" aria-hidden="true" />
-            Log out
-          </button>
-        </div>
+        <SidebarNav currentPath={currentPath} />
+        <SidebarFooter />
       </aside>
 
-      {/* Main content */}
+      {/* ── Main ────────────────────────────────────────── */}
       <div className="min-w-0">
         {/* Top header */}
         <header className="sticky top-0 z-40 border-b border-[hsl(var(--app-divider))] bg-[hsl(var(--app-chrome))]">
           <div className="flex h-[60px] items-center lg:h-[72px]">
+
             {/* Mobile hamburger */}
             <div className="flex h-full w-14 shrink-0 items-center justify-center border-r border-[hsl(var(--app-divider))] lg:hidden">
-              {renderMobileDrawer()}
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="tertiary"
+                    size="icon"
+                    className="h-11 w-11"
+                    aria-label="Open admin menu"
+                  >
+                    <Menu className="h-5 w-5" aria-hidden />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="left" className="flex w-[88vw] max-w-[360px] flex-col p-0">
+                  <SheetHeader className="border-b border-[hsl(var(--app-divider))] px-space-4 py-space-4 text-left">
+                    <SheetTitle className="flex items-center gap-space-3">
+                      <span className="flex h-9 w-9 items-center justify-center rounded-radius-md bg-primary text-black">
+                        <BadgeDollarSign className="h-4 w-4" aria-hidden />
+                      </span>
+                      Admin Panel
+                    </SheetTitle>
+                    <SheetDescription>ProsperaSub operations</SheetDescription>
+                  </SheetHeader>
+
+                  {/* On mobile, flat leaf links close the drawer; group headers do not */}
+                  <SidebarNav
+                    currentPath={currentPath}
+                    wrap={(el) => <SheetClose asChild>{el}</SheetClose>}
+                  />
+                  <SidebarFooter />
+                </SheetContent>
+              </Sheet>
             </div>
+
             {/* Breadcrumb */}
-            <nav className="flex min-w-0 flex-1 items-center gap-space-2 px-space-5 text-control" aria-label="Breadcrumb">
-              <Link to={adminRoutes.superAdminDashboard} className="shrink-0 text-muted-foreground transition-colors hover:text-foreground">
+            <nav
+              className="flex min-w-0 flex-1 items-center gap-space-2 px-space-5 text-control"
+              aria-label="Breadcrumb"
+            >
+              <Link
+                to="/admin/dashboard"
+                className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
+              >
                 Admin
               </Link>
               {title && (
                 <>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/50" aria-hidden="true" />
+                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/50" aria-hidden />
                   <span className="truncate font-semibold text-foreground">{title}</span>
                 </>
               )}
             </nav>
 
-            {/* Header actions */}
+            {/* Actions */}
             <div className="flex items-center gap-space-3 px-space-5">
               <div className="hidden sm:block">
                 <LanguageMenu />
@@ -282,7 +368,9 @@ const SuperAdminLayout = ({
         <main className="mx-auto min-w-0 max-w-[1600px] px-space-4 py-space-5 md:px-space-5 lg:px-space-6 lg:py-space-6 xl:px-space-8">
           {title && (
             <div className="admin-page-header mb-space-4">
-              <h1 className="text-2xl font-black leading-tight tracking-tight md:text-3xl lg:text-4xl">{title}</h1>
+              <h1 className="text-2xl font-black leading-tight tracking-tight md:text-3xl lg:text-4xl">
+                {title}
+              </h1>
               {subtitle && (
                 <p className="mt-space-2 type-body-large text-muted-foreground">{subtitle}</p>
               )}
