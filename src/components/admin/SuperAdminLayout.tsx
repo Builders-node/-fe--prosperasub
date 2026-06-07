@@ -130,8 +130,7 @@ function ServiceDropdown({
       >
         <div className="ml-[1.35rem] mt-0.5 space-y-0.5 border-l border-[hsl(var(--app-divider))] pl-3 pb-1">
           {service.items.map((item) => {
-            const isActive =
-              currentPath === item.path || currentPath.startsWith(item.path + "/");
+            const isActive = currentPath === item.path;
             const el = (
               <Link
                 key={item.path}
