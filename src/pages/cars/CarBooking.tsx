@@ -87,9 +87,7 @@ const CarBooking = () => {
     differenceInCalendarDays(parseISO(endDate), parseISO(startDate)),
   );
 
-  const pricing = vehicle
-    ? calcRentalPrice(vehicle.daily_price_cents, vehicle.monthly_discount_pct, rentalDays)
-    : null;
+  const pricing = vehicle ? calcRentalPrice(vehicle, rentalDays) : null;
 
   const applyQuick = (days: number) => {
     const start = new Date(startDate);
