@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, parseISO, differenceInCalendarDays } from "date-fns";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, Trash2 } from "lucide-react";
 import { supabaseDb } from "@/integrations/supabase/client";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +11,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { formatUSD } from "@/lib/pricing";
 import { calcRentalPrice } from "@/types/carRental";
 import { toast } from "sonner";
@@ -54,6 +64,9 @@ const CarRentalsReservations = () => {
   const [editStatus, setEditStatus] = useState<RentalBookingStatus>("pending");
   const [editPayment, setEditPayment] = useState<"pending" | "paid" | "failed">("pending");
   const [editNotes, setEditNotes] = useState("");
+
+  // Delete
+  const [deleteTarget, setDeleteTarget] = useState<BookingWithVehicle | null>(null);
 
   // New reservation
   const [showNew, setShowNew] = useState(false);
@@ -174,6 +187,25 @@ const CarRentalsReservations = () => {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabaseDb
+        .from("rental_bookings")
+        .delete()
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-rental-bookings"] });
+      qc.invalidateQueries({ queryKey: ["admin-car-rentals-analytics"] });
+      toast.success("Reservation deleted successfully");
+      setDeleteTarget(null);
+    },
+    onError: (err: Error) => {
+      toast.error(err.message || "Failed to delete reservation");
+    },
+  });
+
   /* ── Handlers ────────────────────────────────────────────── */
   const openEdit = (b: BookingWithVehicle) => {
     setEditBooking(b);
@@ -287,7 +319,20 @@ const CarRentalsReservations = () => {
                         {format(parseISO(b.created_at), "MMM d, yyyy")}
                       </td>
                       <td className="px-4 py-3">
-                        <Button variant="ghost" size="sm" onClick={() => openEdit(b)}>Edit</Button>
+                        <div className="flex items-center gap-1">
+                          <Button variant="ghost" size="sm" onClick={() => openEdit(b)}>
+                            Edit
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            title="Delete reservation"
+                            onClick={() => setDeleteTarget(b)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -483,6 +528,37 @@ const CarRentalsReservations = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ── Delete confirmation ──────────────────────────── */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete reservation?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget && (
+                <>
+                  <span className="block font-medium text-foreground mb-1">
+                    {deleteTarget.vehicle?.name ?? "Unknown vehicle"} ·{" "}
+                    {format(parseISO(deleteTarget.start_date), "MMM d")}–
+                    {format(parseISO(deleteTarget.end_date), "MMM d, yyyy")}
+                  </span>
+                </>
+              )}
+              This action cannot be undone. The vehicle and customer will not be affected.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteMutation.isPending}
+              onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}
+            >
+              {deleteMutation.isPending ? "Deleting…" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* ── Edit Dialog ───────────────────────────────────── */}
       <Dialog open={!!editBooking} onOpenChange={(o) => !o && setEditBooking(null)}>
