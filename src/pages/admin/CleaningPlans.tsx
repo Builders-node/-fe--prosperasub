@@ -615,6 +615,7 @@ function PlanFormSheet({
 }) {
   const [form, setForm] = useState<any>({ ...EMPTY_PLAN });
   const [featuresText, setFeaturesText] = useState("");
+  const [notIncludedText, setNotIncludedText] = useState("");
 
   useEffect(() => {
     if (!open) return;
@@ -627,14 +628,17 @@ function PlanFormSheet({
         monthly_price_cents: plan.monthly_price_cents ?? resolveMonthlyPriceCents(plan),
       });
       setFeaturesText((plan.features || []).join("\n"));
+      setNotIncludedText((plan.not_included || []).join("\n"));
       return;
     }
     setForm({ ...EMPTY_PLAN });
     setFeaturesText("");
+    setNotIncludedText("");
   }, [open, plan]);
 
   const handleSave = () => {
     const features = featuresText.split("\n").map((s) => s.trim()).filter(Boolean);
+    const not_included = notIncludedText.split("\n").map((s) => s.trim()).filter(Boolean);
     const normalized = {
       ...form,
       pricing_mode: normalizePricingMode(form.pricing_mode),
@@ -657,6 +661,7 @@ function PlanFormSheet({
     onSave({
       ...normalized,
       features,
+      not_included,
       cleanings_per_month: monthlyCleaningEstimate(normalized) || Number(form.cleanings_per_month) || 0,
       sort_order: Number(form.sort_order) || 0,
     });
@@ -773,13 +778,25 @@ function PlanFormSheet({
           </div>
 
           <div>
-            <Label>Features (one per line)</Label>
+            <Label>What's Included (one per line)</Label>
             <Textarea
               value={featuresText}
               onChange={(e) => setFeaturesText(e.target.value)}
-              placeholder={"Professional cleaning\nKitchen & bathroom\nFloors & dusting"}
+              placeholder={"Full apartment cleaning\nKitchen: counters, sink & stovetop\nBathroom: toilet, sink & shower\nFloors – mopping & sweeping\nDusting all surfaces\nTrash removal"}
+              rows={6}
+            />
+            <p className="mt-1 text-xs text-muted-foreground">Each line becomes a ✓ checklist item on the public page.</p>
+          </div>
+
+          <div>
+            <Label>Not Included by Default (one per line)</Label>
+            <Textarea
+              value={notIncludedText}
+              onChange={(e) => setNotIncludedText(e.target.value)}
+              placeholder={"Laundry or folding clothes\nInside oven or refrigerator\nWindow cleaning\nSpecialized services unless requested"}
               rows={4}
             />
+            <p className="mt-1 text-xs text-muted-foreground">Each line becomes an ✗ item shown in the collapsible "Not included" section.</p>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
