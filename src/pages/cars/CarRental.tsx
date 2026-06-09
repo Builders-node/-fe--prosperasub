@@ -77,7 +77,16 @@ const CarRental = () => {
               return (
                 <article
                   key={v.id}
-                  className="flex flex-col overflow-hidden rounded-3xl border border-border bg-card"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => navigate(`/cars/${v.id}`)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      navigate(`/cars/${v.id}`);
+                    }
+                  }}
+                  className="group flex cursor-pointer flex-col overflow-hidden rounded-3xl border border-border bg-card transition-all hover:border-primary/40 hover:shadow-lg hover:shadow-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 >
                   {/* Image */}
                   <div className="relative h-52 w-full overflow-hidden bg-muted">
@@ -85,7 +94,7 @@ const CarRental = () => {
                       <img
                         src={thumb}
                         alt={v.name}
-                        className="h-full w-full object-cover transition-transform duration-300 hover:scale-105"
+                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                       />
                     ) : (
                       <div className="flex h-full items-center justify-center">
@@ -127,7 +136,7 @@ const CarRental = () => {
                     </div>
 
                     {/* CTAs */}
-                    <div className="mt-5 flex gap-2">
+                    <div className="mt-5 flex gap-2" onClick={(e) => e.stopPropagation()}>
                       <Button asChild variant="secondary" size="sm" className="flex-1 rounded-full">
                         <Link to={`/cars/${v.id}`}>Details</Link>
                       </Button>
