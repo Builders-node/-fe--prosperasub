@@ -63,7 +63,9 @@ const CleaningCheckout = () => {
   const totalCents = monthlyPriceCents * billingPeriodMonths;
   const totalUsdDollars = centsToDollars(totalCents);
   const estimatedSats = convertToSats(totalUsdDollars);
-  const startDate = new Date("2026-06-01T00:00:00-06:00");
+  // Provisional period — anchored to today. The real period is re-anchored to the
+  // client's FIRST cleaning date when they schedule (see schedule_cleaning_subscription RPC).
+  const startDate = nowHN();
   const endDate = addMonths(startDate, billingPeriodMonths);
   const cleaningsIncluded = pkg ? monthlyCleaningEstimate(pkg) * billingPeriodMonths : 0;
 
@@ -326,8 +328,11 @@ const CleaningCheckout = () => {
                 <div className="pt-space-2 border-t">
                   <div className="flex justify-between text-sm mb-space-1">
                     <span>Service period</span>
-                    <span>{format(startDate, "MMM d")} — {format(endDate, "MMM d, yyyy")}</span>
+                    <span>{billingPeriodMonths} month{billingPeriodMonths > 1 ? "s" : ""} from 1st cleaning</span>
                   </div>
+                  <p className="mb-space-2 text-xs text-muted-foreground">
+                    Your subscription starts on the date of your first cleaning and runs for the full period.
+                  </p>
                   <div className="flex justify-between text-sm mb-space-1">
                     <span>Monthly price</span>
                     <span>{formatUSD(monthlyPriceCents)}</span>
