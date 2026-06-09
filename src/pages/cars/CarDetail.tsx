@@ -11,7 +11,7 @@ import { DesktopHeader } from "@/components/layout/DesktopHeader";
 import { BottomNav } from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
 import { formatUSD } from "@/lib/pricing";
-import type { RentalVehicle, RentalVehicleImage, RentalDeliverySettings } from "@/types/carRental";
+import type { RentalVehicle, RentalVehicleImage, RentalDeliverySettings, RentalDeliveryZone } from "@/types/carRental";
 
 const transmissionLabel = (t: string) => (t === "automatic" ? "Automatic" : "Manual");
 const fuelLabel = (f: string) =>
@@ -65,6 +65,19 @@ const CarDetail = () => {
         .single();
       if (error) return null;
       return data as RentalDeliverySettings;
+    },
+  });
+
+  const { data: deliveryZones = [] } = useQuery({
+    queryKey: ["rental-delivery-zones"],
+    queryFn: async () => {
+      const { data, error } = await supabaseDb
+        .from("rental_delivery_zones")
+        .select("*")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true });
+      if (error) return [];
+      return data as RentalDeliveryZone[];
     },
   });
 
@@ -208,22 +221,30 @@ const CarDetail = () => {
                   Delivery & Pickup
                 </h2>
 
+                {/* Delivery zones with prices */}
+                {deliveryZones.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Delivery zones</p>
+                    <div className="divide-y divide-border/60 overflow-hidden rounded-xl border border-border/60">
+                      {deliveryZones.map((z) => (
+                        <div key={z.id} className="flex items-start justify-between gap-3 px-3.5 py-2.5">
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-foreground">{z.name}</p>
+                            {z.areas && <p className="text-xs text-muted-foreground leading-snug">{z.areas}</p>}
+                          </div>
+                          <span className={`shrink-0 text-sm font-bold ${z.fee_cents === 0 ? "text-green-400" : z.fee_cents >= 4000 ? "text-red-400" : "text-yellow-400"}`}>
+                            {z.fee_cents === 0 ? "FREE" : formatUSD(z.fee_cents)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid gap-3 sm:grid-cols-2">
-                  {delivery.delivery_available && (
-                    <InfoBlock
-                      icon={MapPin}
-                      title="Delivery available"
-                      body={delivery.delivery_areas ?? "Contact us for supported areas"}
-                    />
-                  )}
                   {delivery.pickup_instructions && (
                     <InfoBlock icon={Clock} title="Pickup instructions" body={delivery.pickup_instructions} />
                   )}
-                  <InfoBlock
-                    icon={Zap}
-                    title="Delivery fee"
-                    body={delivery.delivery_fee_cents === 0 ? "Free" : formatUSD(delivery.delivery_fee_cents)}
-                  />
                   {delivery.terms_and_conditions && (
                     <InfoBlock icon={FileText} title="Terms & conditions" body={delivery.terms_and_conditions} />
                   )}

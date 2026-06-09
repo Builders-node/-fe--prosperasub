@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
-import type { RentalVehicle, RentalVehicleImage, RentalInsuranceTier } from "@/types/carRental";
+import type { RentalVehicle, RentalVehicleImage, RentalInsuranceTier, RentalDeliveryZone } from "@/types/carRental";
 import { calcRentalPrice } from "@/types/carRental";
 import { RentalCalendar } from "@/components/rental/RentalCalendar";
 import { cn } from "@/lib/utils";
@@ -54,6 +54,7 @@ const CarBooking = () => {
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [deliveryNotes, setDeliveryNotes] = useState("");
   const [insuranceId, setInsuranceId] = useState<string | null>(null);
+  const [deliveryZoneId, setDeliveryZoneId] = useState<string>("");
 
   // Payment state
   const [showPayment, setShowPayment] = useState(false);
@@ -110,6 +111,20 @@ const CarBooking = () => {
     }
   }, [insuranceTiers, insuranceId]);
 
+  // Delivery zones — DB-driven, managed from the admin panel
+  const { data: deliveryZones = [] } = useQuery({
+    queryKey: ["rental-delivery-zones"],
+    queryFn: async () => {
+      const { data, error } = await supabaseDb
+        .from("rental_delivery_zones")
+        .select("*")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true });
+      if (error) return [];
+      return data as RentalDeliveryZone[];
+    },
+  });
+
   useEffect(() => {
     return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
   }, []);
@@ -121,7 +136,9 @@ const CarBooking = () => {
   const pricing = (vehicle && rentalDays > 0) ? calcRentalPrice(vehicle, rentalDays) : null;
   const insuranceTier = insuranceTiers.find(t => t.id === insuranceId) ?? insuranceTiers[0];
   const insuranceCents = (pricing?.rentalDays ?? 0) * (insuranceTier?.price_per_day_cents ?? 0);
-  const grandTotalCents = (pricing?.totalCents ?? 0) + insuranceCents;
+  const deliveryZone = deliveryZones.find(z => z.id === deliveryZoneId) ?? null;
+  const deliveryFeeCents = deliveryZone?.fee_cents ?? 0;
+  const grandTotalCents = (pricing?.totalCents ?? 0) + insuranceCents + deliveryFeeCents;
 
   const createBookingMutation = useMutation({
     mutationFn: async (opts: { paymentRef: string; status: "paid" | "pending"; method: string; satsAmount: number }) => {
@@ -157,7 +174,7 @@ const CarBooking = () => {
           payment_reference: opts.paymentRef,
           delivery_address: deliveryAddress.trim() || null,
           delivery_notes: deliveryNotes.trim() || null,
-          admin_notes: `Insurance: ${insuranceTier?.name ?? "Basic"}${insuranceCents > 0 ? ` (+${formatUSD(insuranceCents)})` : " (included)"} · Rate tier: ${pricing.tier}`,
+          admin_notes: `Insurance: ${insuranceTier?.name ?? "Basic"}${insuranceCents > 0 ? ` (+${formatUSD(insuranceCents)})` : " (included)"} · Delivery: ${deliveryZone?.name ?? "Office pickup"}${deliveryFeeCents > 0 ? ` (+${formatUSD(deliveryFeeCents)})` : " (free)"} · Rate tier: ${pricing.tier}`,
         })
         .select("id")
         .single();
@@ -425,6 +442,28 @@ const CarBooking = () => {
             {/* Delivery info */}
             <div className="rounded-2xl bg-card p-5 space-y-4">
               <h2 className="font-black text-foreground">Delivery Information</h2>
+
+              {deliveryZones.length > 0 && (
+                <div className="space-y-1.5">
+                  <Label>Delivery zone</Label>
+                  <select
+                    value={deliveryZoneId}
+                    onChange={(e) => setDeliveryZoneId(e.target.value)}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <option value="">Pick up at office (free)</option>
+                    {deliveryZones.map((z) => (
+                      <option key={z.id} value={z.id}>
+                        {z.name} — {z.fee_cents === 0 ? "FREE" : formatUSD(z.fee_cents)}
+                      </option>
+                    ))}
+                  </select>
+                  {deliveryZone?.areas && (
+                    <p className="text-xs text-muted-foreground">Covers: {deliveryZone.areas}</p>
+                  )}
+                </div>
+              )}
+
               <div className="space-y-1.5">
                 <Label>Delivery address (optional)</Label>
                 <Input
@@ -487,6 +526,12 @@ const CarBooking = () => {
                           label={`Insurance · ${insuranceTier?.name ?? "Basic"}`}
                           value={insuranceCents > 0 ? `+${formatUSD(insuranceCents)}` : "Included"}
                           className={insuranceCents > 0 ? "" : "text-green-400"}
+                        />
+                        {/* Delivery line */}
+                        <SummaryRow
+                          label={`Delivery · ${deliveryZone?.name ?? "Office pickup"}`}
+                          value={deliveryFeeCents > 0 ? `+${formatUSD(deliveryFeeCents)}` : "Free"}
+                          className={deliveryFeeCents > 0 ? "" : "text-green-400"}
                         />
                       </>
                     )}
