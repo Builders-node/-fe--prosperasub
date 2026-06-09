@@ -182,29 +182,51 @@ const CarBooking = () => {
     try {
       const satsAmount = convertToSats(centsToDollars(grandTotalCents));
       setLockedSatsAmount(satsAmount);
-      const res = await fetch(`${API_URL}/payments/create-invoice`, {
+      const description = `Car rental: ${vehicle.name} (${format(parseISO(startDate), "MMM d")}–${format(parseISO(endDate), "MMM d, yyyy")})`;
+      const serviceName = "Car Rental";
+      const planName = `${vehicle.name} · ${insuranceTier?.name ?? "Basic"} insurance`;
+      const clientName = userData?.name ?? userData?.email ?? "";
+      const clientEmail = userData?.email ?? "";
+
+      const res = await fetch(`${API_URL}/payments/lightning/invoice`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          amount_sats: satsAmount,
-          memo: `Car rental: ${vehicle.name} (${format(parseISO(startDate), "MMM d")}–${format(parseISO(endDate), "MMM d, yyyy")})`,
-          service_name: "Car Rental",
-          plan_name: `${vehicle.name} · ${insuranceTier?.name ?? "Basic"} insurance`,
-          client_name: userData?.name ?? userData?.email ?? "",
-          client_email: userData?.email ?? "",
           amount_cents: grandTotalCents,
+          amount_sats: satsAmount,
+          description,
+          service_name: serviceName,
+          plan_name: planName,
+          client_name: clientName,
+          client_email: clientEmail,
+          duration: `${pricing.rentalDays} day${pricing.rentalDays !== 1 ? "s" : ""}`,
+          selected_date_time: `${format(parseISO(startDate), "MMM d")} ${fmt12(startTime)} → ${format(parseISO(endDate), "MMM d, yyyy")} ${fmt12(endTime)}`,
           context: "car_rental",
+          external_id: `car-${vehicle.id}-${Date.now()}`.replace(/[^a-zA-Z0-9_-]/g, "-").slice(0, 100),
         }),
       });
-      if (!res.ok) throw new Error("Failed to create invoice");
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => null);
+        throw new Error(errBody?.message || "Failed to create invoice");
+      }
       const data = await res.json();
       setInvoice(data.payment_request);
       setPaymentHash(data.payment_hash);
 
-      // Poll for payment
+      // Poll for payment via the Blink status endpoint
       pollingRef.current = setInterval(async () => {
         try {
-          const vRes = await fetch(`${API_URL}/payments/verify/${data.payment_hash}`);
+          const vRes = await fetch(`${API_URL}/payments/lightning/status`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              payment_hash: data.payment_hash,
+              service_name: serviceName,
+              plan_name: planName,
+              client_name: clientName,
+              client_email: clientEmail,
+            }),
+          });
           const vData = await vRes.json();
           if (vData.paid && !mutationCalledRef.current) {
             mutationCalledRef.current = true;
