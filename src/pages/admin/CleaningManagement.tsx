@@ -9,6 +9,7 @@ import {
   ListChecks,
   RotateCcw,
   SparklesIcon,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -33,6 +34,16 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const dailyChecklist = [
   "Take out trash",
@@ -106,6 +117,7 @@ const CleaningManagement = () => {
   const queryClient = useQueryClient();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [completionBookingId, setCompletionBookingId] = useState<string>("");
+  const [deleteBooking, setDeleteBooking] = useState<any | null>(null);
   const [completion, setCompletion] = useState({
     completed_by: "Admin",
     notes: "",
@@ -201,6 +213,19 @@ const CleaningManagement = () => {
       invalidateCleaning();
     },
     onError: (error: Error) => toast.error(error.message || "Could not complete booking"),
+  });
+
+  const deleteBookingMutation = useMutation({
+    mutationFn: async (bookingId: string) => {
+      const { error } = await supabase.admin.deleteCleaningBooking(bookingId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Booking deleted successfully");
+      setDeleteBooking(null);
+      invalidateCleaning();
+    },
+    onError: (error: Error) => toast.error(error.message || "Failed to delete booking"),
   });
 
   const syncCalendarMutation = useMutation({
@@ -446,6 +471,7 @@ const CleaningManagement = () => {
                         syncing={syncCalendarMutation.isPending && syncCalendarMutation.variables === booking.id}
                         onSync={() => syncCalendarMutation.mutate(booking.id)}
                         onComplete={() => setCompletionBookingId(booking.id)}
+                        onDelete={() => setDeleteBooking(booking)}
                       />
                     ))}
                   </div>
@@ -514,6 +540,16 @@ const CleaningManagement = () => {
                                     </a>
                                   </Button>
                                 ) : null}
+                                <Button
+                                  type="button"
+                                  size="iconSm"
+                                  variant="tertiary"
+                                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                  aria-label="Delete booking"
+                                  onClick={() => setDeleteBooking(booking)}
+                                >
+                                  <Trash2 className="h-4 w-4" aria-hidden="true" />
+                                </Button>
                               </div>
                             </TableCell>
                           </TableRow>
@@ -577,6 +613,7 @@ const CleaningManagement = () => {
                           syncing={syncCalendarMutation.isPending && syncCalendarMutation.variables === booking.id}
                           onSync={() => syncCalendarMutation.mutate(booking.id)}
                           onComplete={() => setCompletionBookingId(booking.id)}
+                          onDelete={() => setDeleteBooking(booking)}
                         />
                       ))}
                     </div>
@@ -698,6 +735,40 @@ const CleaningManagement = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete booking confirmation */}
+      <AlertDialog open={Boolean(deleteBooking)} onOpenChange={(open) => !open && setDeleteBooking(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete booking?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteBooking && (
+                <span className="mb-1 block font-medium text-foreground">
+                  {getBookingClientName(deleteBooking)}
+                  {getBookingDate(deleteBooking)
+                    ? ` · ${format(new Date(`${getBookingDate(deleteBooking)}T00:00:00`), "MMM d, yyyy")}`
+                    : ""}
+                  {deleteBooking.cleaning_available_slots?.start_time
+                    ? ` · ${to12h(deleteBooking.cleaning_available_slots.start_time)}`
+                    : ""}
+                </span>
+              )}
+              This action cannot be undone. The booking and its Google Calendar event will be
+              removed. The customer and subscription will not be affected.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteBookingMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteBookingMutation.isPending}
+              onClick={() => deleteBooking && deleteBookingMutation.mutate(deleteBooking.id)}
+            >
+              {deleteBookingMutation.isPending ? "Deleting…" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </SuperAdminLayout>
   );
 };
@@ -707,11 +778,13 @@ function BookingCard({
   syncing,
   onSync,
   onComplete,
+  onDelete,
 }: {
   booking: any;
   syncing: boolean;
   onSync: () => void;
   onComplete: () => void;
+  onDelete: () => void;
 }) {
   return (
     <div className="rounded-radius-lg border border-border bg-card p-space-4">
@@ -755,6 +828,16 @@ function BookingCard({
             </a>
           </Button>
         ) : null}
+        <Button
+          type="button"
+          size="sm"
+          variant="tertiary"
+          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+          onClick={onDelete}
+        >
+          <Trash2 className="h-4 w-4" aria-hidden="true" />
+          Delete
+        </Button>
       </div>
     </div>
   );
