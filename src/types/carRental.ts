@@ -11,9 +11,9 @@ export interface RentalVehicle {
   air_conditioning: boolean;
   luggage_capacity: number;
   daily_price_cents: number;
-  weekly_price_cents: number;
+  weekly_price_cents: number;      // 8-day package total ("+8 días" from price table)
   biweekly_price_cents: number;
-  monthly_price_cents: number;
+  monthly_price_cents: number;     // 30-day package total
   monthly_discount_pct: number;
   status: "public" | "private" | "archived";
   sort_order: number;
@@ -77,47 +77,88 @@ export interface RentalDeliverySettings {
 
 export interface RentalPriceCalc {
   rentalDays: number;
-  dailyPriceCents: number;
+  dailyPriceCents: number;      // base daily rate
+  effectiveDailyRate: number;   // actual per-day rate at this duration
   subtotalCents: number;
-  discountPct: number;
   discountCents: number;
+  discountPct: number;
   totalCents: number;
+  tier: "daily" | "extended" | "monthly"; // which pricing tier applied
 }
 
-export const QUICK_DURATIONS = [
-  { label: "1 Day", days: 1 },
-  { label: "1 Week", days: 7 },
-  { label: "2 Weeks", days: 14 },
-  { label: "1 Month", days: 30 },
-] as const;
-
+/**
+ * Pricing tiers from Atlantis Transportation & Rentals price table:
+ *   1–7 days  → daily rate × days
+ *   8–29 days → weekly_price_cents is the 8-day package total; prorated for each day at that rate
+ *   30 days   → monthly_price_cents flat
+ */
 export function calcRentalPrice(
-  vehicle: Pick<RentalVehicle, "daily_price_cents" | "weekly_price_cents" | "biweekly_price_cents" | "monthly_price_cents" | "monthly_discount_pct">,
+  vehicle: Pick<RentalVehicle, "daily_price_cents" | "weekly_price_cents" | "monthly_price_cents" | "monthly_discount_pct" | "biweekly_price_cents">,
   rentalDays: number,
 ): RentalPriceCalc {
-  const { daily_price_cents, weekly_price_cents, biweekly_price_cents, monthly_price_cents, monthly_discount_pct } = vehicle;
+  const { daily_price_cents, weekly_price_cents, monthly_price_cents, monthly_discount_pct } = vehicle;
 
-  // Use explicit period price if set, else fall back to daily × days
   let subtotalCents: number;
-  let discountPct = 0;
   let discountCents = 0;
+  let discountPct = 0;
+  let tier: RentalPriceCalc["tier"] = "daily";
+  let effectiveDailyRate = daily_price_cents;
 
-  if (rentalDays >= 28 && monthly_price_cents > 0) {
-    // Monthly flat price
+  if (rentalDays >= 30 && monthly_price_cents > 0) {
+    // 30-day flat package
     subtotalCents = monthly_price_cents;
-  } else if (rentalDays >= 28) {
-    // Monthly: daily × days with discount
-    subtotalCents = daily_price_cents * rentalDays;
+    effectiveDailyRate = Math.round(monthly_price_cents / 30);
+    tier = "monthly";
+  } else if (rentalDays >= 30 && monthly_discount_pct > 0) {
+    // Fallback: daily × days with discount percentage
+    const full = daily_price_cents * rentalDays;
     discountPct = monthly_discount_pct;
-    discountCents = Math.round(subtotalCents * (discountPct / 100));
-  } else if (rentalDays >= 14 && biweekly_price_cents > 0) {
-    subtotalCents = biweekly_price_cents;
-  } else if (rentalDays >= 7 && weekly_price_cents > 0) {
-    subtotalCents = weekly_price_cents;
+    discountCents = Math.round(full * (discountPct / 100));
+    subtotalCents = full;
+    effectiveDailyRate = Math.round((full - discountCents) / rentalDays);
+    tier = "monthly";
+  } else if (rentalDays >= 8 && weekly_price_cents > 0) {
+    // Extended rate: weekly_price_cents is the 8-day package total.
+    // For 8+ days, prorate at the 8-day per-day rate.
+    const extendedDailyRate = Math.round(weekly_price_cents / 8);
+    subtotalCents = extendedDailyRate * rentalDays;
+    effectiveDailyRate = extendedDailyRate;
+    // Show discount vs full daily rate
+    const fullDailyTotal = daily_price_cents * rentalDays;
+    discountCents = fullDailyTotal - subtotalCents;
+    discountPct = Math.round((discountCents / fullDailyTotal) * 100);
+    tier = "extended";
   } else {
+    // Standard daily rate
     subtotalCents = daily_price_cents * rentalDays;
+    effectiveDailyRate = daily_price_cents;
+    tier = "daily";
   }
 
-  const totalCents = subtotalCents - discountCents;
-  return { rentalDays, dailyPriceCents: daily_price_cents, subtotalCents, discountPct, discountCents, totalCents };
+  const totalCents = subtotalCents - (tier === "monthly" && monthly_discount_pct > 0 ? discountCents : 0);
+
+  return {
+    rentalDays,
+    dailyPriceCents: daily_price_cents,
+    effectiveDailyRate,
+    subtotalCents: tier === "extended" ? subtotalCents : subtotalCents,
+    discountCents: tier === "extended" ? discountCents : (tier === "monthly" && monthly_discount_pct > 0 ? discountCents : 0),
+    discountPct: tier === "extended" ? discountPct : (tier === "monthly" && monthly_discount_pct > 0 ? discountPct : 0),
+    totalCents: tier === "extended" ? subtotalCents : totalCents,
+    tier,
+  };
 }
+
+/**
+ * Quick duration buttons matching Atlantis pricing tiers:
+ *   1 day  → standard daily rate
+ *   3 days → standard daily rate × 3
+ *   8 days → triggers extended (+8 días) rate
+ *   30 days → monthly package rate
+ */
+export const QUICK_DURATIONS = [
+  { label: "1 Day",   days: 1,  tier: "daily"    },
+  { label: "3 Days",  days: 3,  tier: "daily"    },
+  { label: "8 Days",  days: 8,  tier: "extended" },
+  { label: "30 Days", days: 30, tier: "monthly"  },
+] as const;

@@ -23,6 +23,7 @@ import { supabaseDb } from "@/integrations/supabase/client";
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from "@/components/ui/sheet";
+import { QUICK_DURATIONS } from "@/types/carRental";
 import { cn } from "@/lib/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -388,6 +389,25 @@ export function RentalCalendar({
     }
   }, [phase, startDate, isDateBooked]);
 
+  /** Quick-pick a duration: starts from the chosen start (or today) for N days. */
+  const handleQuickSelect = useCallback((days: number) => {
+    setError(null);
+    const base = startDate && !isDateBooked(startDate) ? startDate : TODAY;
+    const s = base;
+    const e = format(addDays(parseISO(s), days), "yyyy-MM-dd");
+    if (hasOverlap(s, e)) {
+      const msg = "This vehicle is unavailable for the selected period";
+      setError(msg);
+      onError?.(msg);
+      return;
+    }
+    onRangeChange(s, e);
+    setPhase("start");
+    setHoverDate(null);
+    // keep the start month in view
+    setViewMonth(startOfMonth(parseISO(s)));
+  }, [startDate, isDateBooked, hasOverlap, onRangeChange, onError]);
+
   const reset = () => {
     onRangeChange("", "");
     setPhase("start");
@@ -469,6 +489,20 @@ export function RentalCalendar({
             <X className="h-3 w-3" /> Clear
           </button>
         )}
+      </div>
+
+      {/* Quick-duration buttons (matches Atlantis day / +8 / 30-day tiers) */}
+      <div className="mb-4 flex flex-wrap gap-2">
+        {QUICK_DURATIONS.map(({ label, days }) => (
+          <button
+            key={label}
+            type="button"
+            onClick={() => handleQuickSelect(days)}
+            className="rounded-full border border-border bg-[hsl(var(--app-rail))] px-3 py-1.5 text-xs font-semibold text-foreground transition hover:border-primary hover:text-primary active:scale-95"
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       {isLoading ? (

@@ -19,8 +19,39 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
 import type { RentalVehicle, RentalVehicleImage } from "@/types/carRental";
-import { calcRentalPrice } from "@/types/carRental";
+import { calcRentalPrice, QUICK_DURATIONS } from "@/types/carRental";
 import { RentalCalendar } from "@/components/rental/RentalCalendar";
+import { cn } from "@/lib/utils";
+
+// Insurance tiers from Atlantis price sheet
+const INSURANCE_TIERS = [
+  {
+    id: "basic",
+    label: "Basic",
+    sublabel: "Included",
+    pricePerDay: 0,
+    color: "border-border",
+    items: ["Collision, rollover, self-ignition", "Legal assistance"],
+  },
+  {
+    id: "plus",
+    label: "Plus",
+    sublabel: "+$10 / day",
+    pricePerDay: 1000,
+    color: "border-primary/50",
+    items: ["All Basic coverage", "Civil liability (property)", "Theft protection", "Force majeure", "Seniors (60–75 yrs)", "Fuel service (deferred)"],
+  },
+  {
+    id: "platinum",
+    label: "Platinum",
+    sublabel: "+$20 / day",
+    pricePerDay: 2000,
+    color: "border-yellow-500/50",
+    items: ["All Plus coverage", "Occupant medical", "Glass & tyre protection", "Occupant insurance", "Civil liability (persons)"],
+  },
+] as const;
+
+type InsuranceTierId = "basic" | "plus" | "platinum";
 
 const API_URL = (import.meta.env.VITE_API_URL as string) || "https://api.prosperasub.com";
 
@@ -45,6 +76,7 @@ const CarBooking = () => {
   const [endTime, setEndTime] = useState("09:00");
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [deliveryNotes, setDeliveryNotes] = useState("");
+  const [insurance, setInsurance] = useState<InsuranceTierId>("basic");
 
   // Payment state
   const [showPayment, setShowPayment] = useState(false);
@@ -89,6 +121,9 @@ const CarBooking = () => {
     : 0;
 
   const pricing = (vehicle && rentalDays > 0) ? calcRentalPrice(vehicle, rentalDays) : null;
+  const insuranceTier = INSURANCE_TIERS.find(t => t.id === insurance)!;
+  const insuranceCents = (pricing?.rentalDays ?? 0) * insuranceTier.pricePerDay;
+  const grandTotalCents = (pricing?.totalCents ?? 0) + insuranceCents;
 
   const createBookingMutation = useMutation({
     mutationFn: async (opts: { paymentRef: string; status: "paid" | "pending"; method: string; satsAmount: number }) => {
@@ -113,17 +148,18 @@ const CarBooking = () => {
           start_time: startTime,
           end_time: endTime,
           rental_days: pricing.rentalDays,
-          daily_price_cents: pricing.dailyPriceCents,
+          daily_price_cents: pricing.effectiveDailyRate,
           subtotal_cents: pricing.subtotalCents,
           discount_pct: pricing.discountPct,
           discount_cents: pricing.discountCents,
-          total_cents: pricing.totalCents,
+          total_cents: grandTotalCents,
           status: opts.status === "paid" ? "paid" : "pending",
           payment_status: opts.status,
           payment_method: opts.method,
           payment_reference: opts.paymentRef,
           delivery_address: deliveryAddress.trim() || null,
           delivery_notes: deliveryNotes.trim() || null,
+          admin_notes: `Insurance: ${insuranceTier.label}${insuranceCents > 0 ? ` (+${formatUSD(insuranceCents)})` : " (included)"} · Rate tier: ${pricing.tier}`,
         })
         .select("id")
         .single();
@@ -146,7 +182,7 @@ const CarBooking = () => {
     if (!vehicle || !pricing || !btcPrice) return;
     setIsGenerating(true);
     try {
-      const satsAmount = convertToSats(centsToDollars(pricing.totalCents));
+      const satsAmount = convertToSats(centsToDollars(grandTotalCents));
       setLockedSatsAmount(satsAmount);
       const res = await fetch(`${API_URL}/payments/create-invoice`, {
         method: "POST",
@@ -155,10 +191,10 @@ const CarBooking = () => {
           amount_sats: satsAmount,
           memo: `Car rental: ${vehicle.name} (${format(parseISO(startDate), "MMM d")}–${format(parseISO(endDate), "MMM d, yyyy")})`,
           service_name: "Car Rental",
-          plan_name: vehicle.name,
+          plan_name: `${vehicle.name} · ${insuranceTier.label} insurance`,
           client_name: userData?.name ?? userData?.email ?? "",
           client_email: userData?.email ?? "",
-          amount_cents: pricing.totalCents,
+          amount_cents: grandTotalCents,
           context: "car_rental",
         }),
       });
@@ -313,6 +349,63 @@ const CarBooking = () => {
               </div>
             )}
 
+            {/* Insurance selector — shown after dates selected */}
+            {startDate && endDate && (
+              <div className="rounded-2xl bg-card p-5 space-y-4">
+                <div>
+                  <h2 className="font-black text-foreground">Insurance Coverage</h2>
+                  <p className="mt-1 text-xs text-muted-foreground">Select your protection level</p>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {INSURANCE_TIERS.map((tier) => (
+                    <button
+                      key={tier.id}
+                      type="button"
+                      onClick={() => setInsurance(tier.id)}
+                      className={cn(
+                        "flex flex-col rounded-2xl border-2 p-4 text-left transition-all",
+                        insurance === tier.id
+                          ? tier.id === "platinum"
+                            ? "border-yellow-500/60 bg-yellow-500/5"
+                            : "border-primary bg-primary/5"
+                          : "border-border hover:border-border/80",
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-1">
+                        <span className="font-black text-foreground">{tier.label}</span>
+                        {insurance === tier.id && (
+                          <span className={cn(
+                            "h-4 w-4 shrink-0 rounded-full flex items-center justify-center",
+                            tier.id === "platinum" ? "bg-yellow-500" : "bg-primary",
+                          )}>
+                            <CheckCircle2 className="h-3 w-3 text-background" />
+                          </span>
+                        )}
+                      </div>
+                      <span className={cn(
+                        "mt-0.5 text-xs font-semibold",
+                        tier.pricePerDay === 0 ? "text-green-400" :
+                        tier.id === "platinum" ? "text-yellow-400" : "text-primary",
+                      )}>
+                        {tier.sublabel}
+                      </span>
+                      <ul className="mt-3 space-y-1">
+                        {tier.items.slice(0, 4).map((item) => (
+                          <li key={item} className="flex items-start gap-1.5 text-[11px] text-muted-foreground leading-snug">
+                            <span className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-muted-foreground/30" />
+                            {item}
+                          </li>
+                        ))}
+                        {tier.items.length > 4 && (
+                          <li className="text-[11px] text-muted-foreground/50">+{tier.items.length - 4} more</li>
+                        )}
+                      </ul>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Delivery info */}
             <div className="rounded-2xl bg-card p-5 space-y-4">
               <h2 className="font-black text-foreground">Delivery Information</h2>
@@ -353,15 +446,32 @@ const CarBooking = () => {
                     {pricing && (
                       <>
                         <SummaryRow label="Duration" value={`${pricing.rentalDays} day${pricing.rentalDays !== 1 ? "s" : ""}`} />
-                        <SummaryRow label="Daily rate" value={formatUSD(pricing.dailyPriceCents)} />
-                        <SummaryRow label="Subtotal" value={formatUSD(pricing.subtotalCents)} />
+                        <SummaryRow
+                          label={
+                            pricing.tier === "monthly" ? "Monthly rate" :
+                            pricing.tier === "extended" ? "Extended rate (8+ days)" :
+                            "Daily rate"
+                          }
+                          value={`${formatUSD(pricing.effectiveDailyRate)} / day`}
+                        />
+                        {pricing.tier === "monthly" ? (
+                          <SummaryRow label="Monthly package" value={formatUSD(pricing.subtotalCents)} />
+                        ) : (
+                          <SummaryRow label="Rental subtotal" value={formatUSD(pricing.subtotalCents)} />
+                        )}
                         {pricing.discountCents > 0 && (
                           <SummaryRow
-                            label={`Monthly discount (${pricing.discountPct}%)`}
+                            label={`You save (${pricing.discountPct}%)`}
                             value={`−${formatUSD(pricing.discountCents)}`}
                             className="text-green-400"
                           />
                         )}
+                        {/* Insurance line */}
+                        <SummaryRow
+                          label={`Insurance · ${insuranceTier.label}`}
+                          value={insuranceCents > 0 ? `+${formatUSD(insuranceCents)}` : "Included"}
+                          className={insuranceCents > 0 ? "" : "text-green-400"}
+                        />
                       </>
                     )}
                   </>
@@ -378,12 +488,12 @@ const CarBooking = () => {
                     <div className="flex items-baseline justify-between">
                       <span className="text-sm font-bold text-muted-foreground">Total</span>
                       <span className="text-2xl font-black tabular-nums text-foreground">
-                        {formatUSD(pricing.totalCents)}
+                        {formatUSD(grandTotalCents)}
                       </span>
                     </div>
                     {btcPrice && (
                       <p className="mt-1 text-right text-xs text-muted-foreground">
-                        ≈ {convertToSats(centsToDollars(pricing.totalCents)).toLocaleString()} sats
+                        ≈ {convertToSats(centsToDollars(grandTotalCents)).toLocaleString()} sats
                       </p>
                     )}
                   </>
@@ -424,7 +534,7 @@ const CarBooking = () => {
           <SheetHeader className="mb-6">
             <SheetTitle>Pay with Lightning</SheetTitle>
             <SheetDescription>
-              {formatUSD(pricing.totalCents)} · {vehicle.name} · {pricing.rentalDays} day{pricing.rentalDays !== 1 ? "s" : ""}
+              {formatUSD(grandTotalCents)} · {vehicle.name} · {pricing?.rentalDays ?? 0} day{pricing?.rentalDays !== 1 ? "s" : ""}
             </SheetDescription>
           </SheetHeader>
 
@@ -435,10 +545,10 @@ const CarBooking = () => {
               ) : (
                 <>
                   <div className="text-center">
-                    <p className="text-4xl font-black tabular-nums">{formatUSD(pricing.totalCents)}</p>
+                    <p className="text-4xl font-black tabular-nums">{formatUSD(grandTotalCents)}</p>
                     {btcPrice && (
                       <p className="mt-1 text-sm text-muted-foreground">
-                        ≈ {convertToSats(centsToDollars(pricing.totalCents)).toLocaleString()} sats
+                        ≈ {convertToSats(centsToDollars(grandTotalCents)).toLocaleString()} sats
                       </p>
                     )}
                   </div>
