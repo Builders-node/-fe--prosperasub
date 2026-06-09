@@ -65,6 +65,17 @@ export interface RentalBooking {
   vehicle?: RentalVehicle;
 }
 
+export interface RentalInsuranceTier {
+  id: string;
+  name: string;
+  price_per_day_cents: number;
+  items: string[];
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface RentalDeliverySettings {
   id: string;
   delivery_available: boolean;

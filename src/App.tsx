@@ -47,6 +47,7 @@ import CarRentalsReservations from "./pages/admin/CarRentalsReservations";
 import CarRentalsCustomers from "./pages/admin/CarRentalsCustomers";
 import CarRentalsAnalytics from "./pages/admin/CarRentalsAnalytics";
 import CarRentalsDelivery from "./pages/admin/CarRentalsDelivery";
+import CarRentalsInsurance from "./pages/admin/CarRentalsInsurance";
 
 import NotFound from "./pages/NotFound";
 
@@ -156,6 +157,9 @@ const App = () => {
               } />
               <Route path="/admin/car-rentals/delivery" element={
                 <ProtectedRoute allowedRoles={['super_admin']}><CarRentalsDelivery /></ProtectedRoute>
+              } />
+              <Route path="/admin/car-rentals/insurance" element={
+                <ProtectedRoute allowedRoles={['super_admin']}><CarRentalsInsurance /></ProtectedRoute>
               } />
               {/* Catch-all */}
               <Route path="*" element={<NotFound />} />

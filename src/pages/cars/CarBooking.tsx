@@ -18,40 +18,17 @@ import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
-import type { RentalVehicle, RentalVehicleImage } from "@/types/carRental";
-import { calcRentalPrice, QUICK_DURATIONS } from "@/types/carRental";
+import type { RentalVehicle, RentalVehicleImage, RentalInsuranceTier } from "@/types/carRental";
+import { calcRentalPrice } from "@/types/carRental";
 import { RentalCalendar } from "@/components/rental/RentalCalendar";
 import { cn } from "@/lib/utils";
 
-// Insurance tiers from Atlantis price sheet
-const INSURANCE_TIERS = [
-  {
-    id: "basic",
-    label: "Basic",
-    sublabel: "Included",
-    pricePerDay: 0,
-    color: "border-border",
-    items: ["Collision, rollover, self-ignition", "Legal assistance"],
-  },
-  {
-    id: "plus",
-    label: "Plus",
-    sublabel: "+$10 / day",
-    pricePerDay: 1000,
-    color: "border-primary/50",
-    items: ["All Basic coverage", "Civil liability (property)", "Theft protection", "Force majeure", "Seniors (60–75 yrs)", "Fuel service (deferred)"],
-  },
-  {
-    id: "platinum",
-    label: "Platinum",
-    sublabel: "+$20 / day",
-    pricePerDay: 2000,
-    color: "border-yellow-500/50",
-    items: ["All Plus coverage", "Occupant medical", "Glass & tyre protection", "Occupant insurance", "Civil liability (persons)"],
-  },
-] as const;
-
-type InsuranceTierId = "basic" | "plus" | "platinum";
+// Fallback tiers if the DB table is empty / unreachable (mirrors the Atlantis price sheet)
+const FALLBACK_INSURANCE_TIERS: RentalInsuranceTier[] = [
+  { id: "basic",    name: "Basic",    price_per_day_cents: 0,    items: ["Collision, rollover, self-ignition", "Legal assistance"], sort_order: 1, is_active: true, created_at: "", updated_at: "" },
+  { id: "plus",     name: "Plus",     price_per_day_cents: 1000, items: ["All Basic coverage", "Civil liability (property)", "Theft protection", "Force majeure", "Seniors (60-75 yrs)", "Fuel service (deferred)"], sort_order: 2, is_active: true, created_at: "", updated_at: "" },
+  { id: "platinum", name: "Platinum", price_per_day_cents: 2000, items: ["All Plus coverage", "Occupant medical", "Glass & tyre protection", "Occupant insurance", "Civil liability (persons)"], sort_order: 3, is_active: true, created_at: "", updated_at: "" },
+];
 
 const API_URL = (import.meta.env.VITE_API_URL as string) || "https://api.prosperasub.com";
 
@@ -76,7 +53,7 @@ const CarBooking = () => {
   const [endTime, setEndTime] = useState("09:00");
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [deliveryNotes, setDeliveryNotes] = useState("");
-  const [insurance, setInsurance] = useState<InsuranceTierId>("basic");
+  const [insuranceId, setInsuranceId] = useState<string | null>(null);
 
   // Payment state
   const [showPayment, setShowPayment] = useState(false);
@@ -112,6 +89,27 @@ const CarBooking = () => {
     enabled: !!id,
   });
 
+  // Insurance tiers — DB-driven, managed from the admin panel
+  const { data: insuranceTiers = FALLBACK_INSURANCE_TIERS } = useQuery({
+    queryKey: ["rental-insurance-tiers"],
+    queryFn: async () => {
+      const { data, error } = await supabaseDb
+        .from("rental_insurance_tiers")
+        .select("*")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true });
+      if (error || !data || data.length === 0) return FALLBACK_INSURANCE_TIERS;
+      return data as RentalInsuranceTier[];
+    },
+  });
+
+  // Default-select the first (cheapest / lowest sort) tier once loaded
+  useEffect(() => {
+    if (!insuranceId && insuranceTiers.length > 0) {
+      setInsuranceId(insuranceTiers[0].id);
+    }
+  }, [insuranceTiers, insuranceId]);
+
   useEffect(() => {
     return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
   }, []);
@@ -121,8 +119,8 @@ const CarBooking = () => {
     : 0;
 
   const pricing = (vehicle && rentalDays > 0) ? calcRentalPrice(vehicle, rentalDays) : null;
-  const insuranceTier = INSURANCE_TIERS.find(t => t.id === insurance)!;
-  const insuranceCents = (pricing?.rentalDays ?? 0) * insuranceTier.pricePerDay;
+  const insuranceTier = insuranceTiers.find(t => t.id === insuranceId) ?? insuranceTiers[0];
+  const insuranceCents = (pricing?.rentalDays ?? 0) * (insuranceTier?.price_per_day_cents ?? 0);
   const grandTotalCents = (pricing?.totalCents ?? 0) + insuranceCents;
 
   const createBookingMutation = useMutation({
@@ -159,7 +157,7 @@ const CarBooking = () => {
           payment_reference: opts.paymentRef,
           delivery_address: deliveryAddress.trim() || null,
           delivery_notes: deliveryNotes.trim() || null,
-          admin_notes: `Insurance: ${insuranceTier.label}${insuranceCents > 0 ? ` (+${formatUSD(insuranceCents)})` : " (included)"} · Rate tier: ${pricing.tier}`,
+          admin_notes: `Insurance: ${insuranceTier?.name ?? "Basic"}${insuranceCents > 0 ? ` (+${formatUSD(insuranceCents)})` : " (included)"} · Rate tier: ${pricing.tier}`,
         })
         .select("id")
         .single();
@@ -191,7 +189,7 @@ const CarBooking = () => {
           amount_sats: satsAmount,
           memo: `Car rental: ${vehicle.name} (${format(parseISO(startDate), "MMM d")}–${format(parseISO(endDate), "MMM d, yyyy")})`,
           service_name: "Car Rental",
-          plan_name: `${vehicle.name} · ${insuranceTier.label} insurance`,
+          plan_name: `${vehicle.name} · ${insuranceTier?.name ?? "Basic"} insurance`,
           client_name: userData?.name ?? userData?.email ?? "",
           client_email: userData?.email ?? "",
           amount_cents: grandTotalCents,
@@ -356,52 +354,48 @@ const CarBooking = () => {
                   <h2 className="font-black text-foreground">Insurance Coverage</h2>
                   <p className="mt-1 text-xs text-muted-foreground">Select your protection level</p>
                 </div>
-                <div className="grid gap-3 sm:grid-cols-3">
-                  {INSURANCE_TIERS.map((tier) => (
-                    <button
-                      key={tier.id}
-                      type="button"
-                      onClick={() => setInsurance(tier.id)}
-                      className={cn(
-                        "flex flex-col rounded-2xl border-2 p-4 text-left transition-all",
-                        insurance === tier.id
-                          ? tier.id === "platinum"
-                            ? "border-yellow-500/60 bg-yellow-500/5"
-                            : "border-primary bg-primary/5"
-                          : "border-border hover:border-border/80",
-                      )}
-                    >
-                      <div className="flex items-start justify-between gap-1">
-                        <span className="font-black text-foreground">{tier.label}</span>
-                        {insurance === tier.id && (
-                          <span className={cn(
-                            "h-4 w-4 shrink-0 rounded-full flex items-center justify-center",
-                            tier.id === "platinum" ? "bg-yellow-500" : "bg-primary",
-                          )}>
-                            <CheckCircle2 className="h-3 w-3 text-background" />
-                          </span>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {insuranceTiers.map((tier) => {
+                    const selected = insuranceId === tier.id;
+                    const items = tier.items ?? [];
+                    return (
+                      <button
+                        key={tier.id}
+                        type="button"
+                        onClick={() => setInsuranceId(tier.id)}
+                        className={cn(
+                          "flex flex-col rounded-2xl border-2 p-4 text-left transition-all",
+                          selected ? "border-primary bg-primary/5" : "border-border hover:border-border/80",
                         )}
-                      </div>
-                      <span className={cn(
-                        "mt-0.5 text-xs font-semibold",
-                        tier.pricePerDay === 0 ? "text-green-400" :
-                        tier.id === "platinum" ? "text-yellow-400" : "text-primary",
-                      )}>
-                        {tier.sublabel}
-                      </span>
-                      <ul className="mt-3 space-y-1">
-                        {tier.items.slice(0, 4).map((item) => (
-                          <li key={item} className="flex items-start gap-1.5 text-[11px] text-muted-foreground leading-snug">
-                            <span className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-muted-foreground/30" />
-                            {item}
-                          </li>
-                        ))}
-                        {tier.items.length > 4 && (
-                          <li className="text-[11px] text-muted-foreground/50">+{tier.items.length - 4} more</li>
-                        )}
-                      </ul>
-                    </button>
-                  ))}
+                      >
+                        <div className="flex items-start justify-between gap-1">
+                          <span className="font-black text-foreground">{tier.name}</span>
+                          {selected && (
+                            <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-primary">
+                              <CheckCircle2 className="h-3 w-3 text-background" />
+                            </span>
+                          )}
+                        </div>
+                        <span className={cn(
+                          "mt-0.5 text-xs font-semibold",
+                          tier.price_per_day_cents === 0 ? "text-green-400" : "text-primary",
+                        )}>
+                          {tier.price_per_day_cents === 0 ? "Included" : `+${formatUSD(tier.price_per_day_cents)} / day`}
+                        </span>
+                        <ul className="mt-3 space-y-1">
+                          {items.slice(0, 4).map((item) => (
+                            <li key={item} className="flex items-start gap-1.5 text-[11px] text-muted-foreground leading-snug">
+                              <span className="mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full bg-muted-foreground/30" />
+                              {item}
+                            </li>
+                          ))}
+                          {items.length > 4 && (
+                            <li className="text-[11px] text-muted-foreground/50">+{items.length - 4} more</li>
+                          )}
+                        </ul>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -468,7 +462,7 @@ const CarBooking = () => {
                         )}
                         {/* Insurance line */}
                         <SummaryRow
-                          label={`Insurance · ${insuranceTier.label}`}
+                          label={`Insurance · ${insuranceTier?.name ?? "Basic"}`}
                           value={insuranceCents > 0 ? `+${formatUSD(insuranceCents)}` : "Included"}
                           className={insuranceCents > 0 ? "" : "text-green-400"}
                         />

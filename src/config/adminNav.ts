@@ -22,6 +22,7 @@ import {
   FileText,
   MapPin,
   Wrench,
+  Shield,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { adminRoutes } from "./adminRoutes";
@@ -84,6 +85,7 @@ export const SERVICES: ServiceGroup[] = [
       { label: "Vehicles",      path: adminRoutes.superAdminCarRentals,             icon: Car          },
       { label: "Reservations",  path: adminRoutes.superAdminCarRentalsReservations, icon: ClipboardList },
       { label: "Customers",     path: adminRoutes.superAdminCarRentalsCustomers,    icon: UserCheck    },
+      { label: "Insurance",     path: adminRoutes.superAdminCarRentalsInsurance,    icon: Shield       },
       { label: "Delivery",      path: adminRoutes.superAdminCarRentalsDelivery,     icon: MapPin       },
     ],
   },
