@@ -23,6 +23,7 @@ import {
   MapPin,
   Wrench,
   Shield,
+  PlusCircle,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { adminRoutes } from "./adminRoutes";
@@ -86,6 +87,7 @@ export const SERVICES: ServiceGroup[] = [
       { label: "Reservations",  path: adminRoutes.superAdminCarRentalsReservations, icon: ClipboardList },
       { label: "Customers",     path: adminRoutes.superAdminCarRentalsCustomers,    icon: UserCheck    },
       { label: "Insurance",     path: adminRoutes.superAdminCarRentalsInsurance,    icon: Shield       },
+      { label: "Extras",        path: adminRoutes.superAdminCarRentalsExtras,       icon: PlusCircle   },
       { label: "Delivery",      path: adminRoutes.superAdminCarRentalsDelivery,     icon: MapPin       },
     ],
   },

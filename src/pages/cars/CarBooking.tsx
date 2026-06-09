@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
-import type { RentalVehicle, RentalVehicleImage, RentalInsuranceTier, RentalDeliveryZone } from "@/types/carRental";
+import type { RentalVehicle, RentalVehicleImage, RentalInsuranceTier, RentalDeliveryZone, RentalExtra } from "@/types/carRental";
 import { calcRentalPrice } from "@/types/carRental";
 import { RentalCalendar } from "@/components/rental/RentalCalendar";
 import { cn } from "@/lib/utils";
@@ -55,6 +55,7 @@ const CarBooking = () => {
   const [deliveryNotes, setDeliveryNotes] = useState("");
   const [insuranceId, setInsuranceId] = useState<string | null>(null);
   const [deliveryZoneId, setDeliveryZoneId] = useState<string>("");
+  const [selectedExtraIds, setSelectedExtraIds] = useState<string[]>([]);
 
   // Payment state
   const [showPayment, setShowPayment] = useState(false);
@@ -125,6 +126,20 @@ const CarBooking = () => {
     },
   });
 
+  // Extras (add-ons) — DB-driven, managed from the admin panel
+  const { data: extras = [] } = useQuery({
+    queryKey: ["rental-extras"],
+    queryFn: async () => {
+      const { data, error } = await supabaseDb
+        .from("rental_extras")
+        .select("*")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true });
+      if (error) return [];
+      return data as RentalExtra[];
+    },
+  });
+
   useEffect(() => {
     return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
   }, []);
@@ -138,7 +153,10 @@ const CarBooking = () => {
   const insuranceCents = (pricing?.rentalDays ?? 0) * (insuranceTier?.price_per_day_cents ?? 0);
   const deliveryZone = deliveryZones.find(z => z.id === deliveryZoneId) ?? null;
   const deliveryFeeCents = deliveryZone?.fee_cents ?? 0;
-  const grandTotalCents = (pricing?.totalCents ?? 0) + insuranceCents + deliveryFeeCents;
+  const selectedExtras = extras.filter(e => selectedExtraIds.includes(e.id));
+  const extraCost = (e: RentalExtra) => e.price_type === "per_day" ? e.price_cents * (pricing?.rentalDays ?? 0) : e.price_cents;
+  const extrasCents = selectedExtras.reduce((sum, e) => sum + extraCost(e), 0);
+  const grandTotalCents = (pricing?.totalCents ?? 0) + insuranceCents + deliveryFeeCents + extrasCents;
 
   const createBookingMutation = useMutation({
     mutationFn: async (opts: { paymentRef: string; status: "paid" | "pending"; method: string; satsAmount: number }) => {
@@ -174,7 +192,7 @@ const CarBooking = () => {
           payment_reference: opts.paymentRef,
           delivery_address: deliveryAddress.trim() || null,
           delivery_notes: deliveryNotes.trim() || null,
-          admin_notes: `Insurance: ${insuranceTier?.name ?? "Basic"}${insuranceCents > 0 ? ` (+${formatUSD(insuranceCents)})` : " (included)"} · Delivery: ${deliveryZone?.name ?? "Office pickup"}${deliveryFeeCents > 0 ? ` (+${formatUSD(deliveryFeeCents)})` : " (free)"} · Rate tier: ${pricing.tier}`,
+          admin_notes: `Insurance: ${insuranceTier?.name ?? "Basic"}${insuranceCents > 0 ? ` (+${formatUSD(insuranceCents)})` : " (included)"} · Delivery: ${deliveryZone?.name ?? "Office pickup"}${deliveryFeeCents > 0 ? ` (+${formatUSD(deliveryFeeCents)})` : " (free)"}${selectedExtras.length > 0 ? ` · Extras: ${selectedExtras.map((e) => `${e.name} (${extraCost(e) > 0 ? formatUSD(extraCost(e)) : "free"})`).join(", ")}` : ""} · Rate tier: ${pricing.tier}`,
         })
         .select("id")
         .single();
@@ -439,6 +457,51 @@ const CarBooking = () => {
               </div>
             )}
 
+            {/* Extras — shown after dates selected */}
+            {startDate && endDate && extras.length > 0 && (
+              <div className="rounded-2xl bg-card p-5 space-y-4">
+                <div>
+                  <h2 className="font-black text-foreground">Extras</h2>
+                  <p className="mt-1 text-xs text-muted-foreground">Optional add-ons for your trip</p>
+                </div>
+                <div className="space-y-2">
+                  {extras.map((e) => {
+                    const selected = selectedExtraIds.includes(e.id);
+                    const cost = extraCost(e);
+                    return (
+                      <button
+                        key={e.id}
+                        type="button"
+                        onClick={() => setSelectedExtraIds((ids) => selected ? ids.filter((x) => x !== e.id) : [...ids, e.id])}
+                        className={cn(
+                          "flex w-full items-center gap-3 rounded-xl border-2 px-4 py-3 text-left transition-all",
+                          selected ? "border-primary bg-primary/5" : "border-border hover:border-border/80",
+                        )}
+                      >
+                        <span className={cn(
+                          "flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition",
+                          selected ? "border-primary bg-primary" : "border-muted-foreground/40",
+                        )}>
+                          {selected && <CheckCircle2 className="h-3.5 w-3.5 text-background" />}
+                        </span>
+                        <span className="flex-1 text-sm font-semibold text-foreground">{e.name}</span>
+                        <span className={cn(
+                          "text-sm font-bold",
+                          e.price_cents === 0 ? "text-green-400" : selected ? "text-primary" : "text-muted-foreground",
+                        )}>
+                          {e.price_cents === 0
+                            ? "Free"
+                            : e.price_type === "per_day"
+                            ? `${formatUSD(e.price_cents)}/day${selected && cost > 0 ? ` · ${formatUSD(cost)}` : ""}`
+                            : formatUSD(e.price_cents)}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Delivery info */}
             <div className="rounded-2xl bg-card p-5 space-y-4">
               <h2 className="font-black text-foreground">Delivery Information</h2>
@@ -529,6 +592,18 @@ const CarBooking = () => {
                           value={deliveryFeeCents > 0 ? `+${formatUSD(deliveryFeeCents)}` : "Free"}
                           className={deliveryFeeCents > 0 ? "" : "text-green-400"}
                         />
+                        {/* Extras lines */}
+                        {selectedExtras.map((e) => {
+                          const cost = extraCost(e);
+                          return (
+                            <SummaryRow
+                              key={e.id}
+                              label={`+ ${e.name}`}
+                              value={cost > 0 ? `+${formatUSD(cost)}` : "Free"}
+                              className={cost > 0 ? "" : "text-green-400"}
+                            />
+                          );
+                        })}
                       </>
                     )}
                   </>

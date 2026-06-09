@@ -16,6 +16,7 @@ export const adminRoutes = {
   superAdminCarRentalsAnalytics: "/admin/car-rentals/analytics",
   superAdminCarRentalsDelivery: "/admin/car-rentals/delivery",
   superAdminCarRentalsInsurance: "/admin/car-rentals/insurance",
+  superAdminCarRentalsExtras: "/admin/car-rentals/extras",
 } as const;
 
 export const publicRoutes = {

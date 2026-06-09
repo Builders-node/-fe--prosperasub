@@ -76,6 +76,18 @@ export interface RentalInsuranceTier {
   updated_at: string;
 }
 
+export interface RentalExtra {
+  id: string;
+  name: string;
+  description: string | null;
+  price_cents: number;
+  price_type: "per_day" | "flat";
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface RentalDeliveryZone {
   id: string;
   name: string;
