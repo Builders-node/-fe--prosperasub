@@ -252,10 +252,6 @@ const CalendarMonth = ({
 
   return (
     <div className="w-full">
-      <p className="mb-3 text-center text-sm font-bold text-foreground tracking-wide">
-        {format(viewMonth, "MMMM yyyy")}
-      </p>
-
       {/* Weekday headers */}
       <div className="mb-1 grid grid-cols-7">
         {WEEKDAYS.map((wd) => (
@@ -415,11 +411,9 @@ export function RentalCalendar({
     setHoverDate(null);
   };
 
-  const nextMonth   = () => setViewMonth(m => addMonths(m, 1));
-  const prevMonth   = () => setViewMonth(m => subMonths(m, 1));
-  const nextMonth2  = () => setViewMonth(m => addMonths(m, 2));
-  const prevMonth2  = () => setViewMonth(m => subMonths(m, 2));
-  const nextMo  = addMonths(viewMonth, 1);
+  const nextMonth = () => setViewMonth(m => addMonths(m, 1));
+  const prevMonth = () => setViewMonth(m => subMonths(m, 1));
+  const nextMo = addMonths(viewMonth, 1);
 
   // Phase hint text
   const hint = !startDate
@@ -547,38 +541,29 @@ export function RentalCalendar({
           </div>
         </div>
       ) : (
-        /* Two months (desktop) */
-        <div>
-          <div className="mb-3 flex items-center justify-between">
-            <button type="button" onClick={prevMonth2} className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition hover:bg-muted hover:text-foreground">
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <div className="flex-1" />
-            <button type="button" onClick={nextMonth2} className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition hover:bg-muted hover:text-foreground">
-              <ChevronRight className="h-4 w-4" />
-            </button>
+        /* Two months (desktop) — single nav: one arrow per side, one label per month */
+        <div className="grid gap-6 sm:grid-cols-2">
+          {/* Left month */}
+          <div>
+            <div className="mb-3 flex items-center">
+              <button type="button" onClick={prevMonth} aria-label="Previous month" className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground">
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <p className="flex-1 text-center text-sm font-bold text-foreground">{format(viewMonth, "MMMM yyyy")}</p>
+              <span className="h-8 w-8 shrink-0" aria-hidden />
+            </div>
+            <CalendarMonth viewMonth={viewMonth} {...calendarProps} />
           </div>
-
-          <div className="grid gap-6 sm:grid-cols-2">
-            {/* Navigation for each month column */}
-            <div>
-              <div className="mb-3 flex items-center">
-                <button type="button" onClick={prevMonth} className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground">
-                  <ChevronLeft className="h-3.5 w-3.5" />
-                </button>
-                <p className="flex-1 text-center text-sm font-bold text-foreground">{format(viewMonth, "MMMM yyyy")}</p>
-              </div>
-              <CalendarMonth viewMonth={viewMonth} {...calendarProps} />
+          {/* Right month */}
+          <div>
+            <div className="mb-3 flex items-center">
+              <span className="h-8 w-8 shrink-0" aria-hidden />
+              <p className="flex-1 text-center text-sm font-bold text-foreground">{format(nextMo, "MMMM yyyy")}</p>
+              <button type="button" onClick={nextMonth} aria-label="Next month" className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground">
+                <ChevronRight className="h-4 w-4" />
+              </button>
             </div>
-            <div>
-              <div className="mb-3 flex items-center">
-                <p className="flex-1 text-center text-sm font-bold text-foreground">{format(nextMo, "MMMM yyyy")}</p>
-                <button type="button" onClick={nextMonth} className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground">
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </button>
-              </div>
-              <CalendarMonth viewMonth={nextMo} {...calendarProps} />
-            </div>
+            <CalendarMonth viewMonth={nextMo} {...calendarProps} />
           </div>
         </div>
       )}
