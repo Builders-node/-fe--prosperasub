@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { format, addDays, differenceInCalendarDays, parseISO } from "date-fns";
-import { Car, Zap, Loader2, CheckCircle2, Copy, RefreshCw, Calendar, Clock } from "lucide-react";
+import { format, differenceInCalendarDays, parseISO } from "date-fns";
+import { Car, Zap, Loader2, CheckCircle2, Copy, RefreshCw, Clock, AlertCircle } from "lucide-react";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
@@ -12,14 +12,15 @@ import { HomeHeader } from "@/components/HomeHeader";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
 import { BottomNav } from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
 import type { RentalVehicle, RentalVehicleImage } from "@/types/carRental";
-import { calcRentalPrice, QUICK_DURATIONS } from "@/types/carRental";
+import { calcRentalPrice } from "@/types/carRental";
+import { RentalCalendar } from "@/components/rental/RentalCalendar";
 
 const API_URL = (import.meta.env.VITE_API_URL as string) || "https://api.prosperasub.com";
 
@@ -37,8 +38,9 @@ const CarBooking = () => {
   const { isAuthenticated, userData } = useAuth();
   const { openAuthModal } = useAuthModal();
 
-  const [startDate, setStartDate] = useState(todayStr());
-  const [endDate, setEndDate] = useState(format(addDays(new Date(), 1), "yyyy-MM-dd"));
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [calendarError, setCalendarError] = useState<string | null>(null);
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("09:00");
   const [deliveryAddress, setDeliveryAddress] = useState("");
@@ -82,17 +84,11 @@ const CarBooking = () => {
     return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
   }, []);
 
-  const rentalDays = Math.max(
-    1,
-    differenceInCalendarDays(parseISO(endDate), parseISO(startDate)),
-  );
+  const rentalDays = (startDate && endDate)
+    ? Math.max(1, differenceInCalendarDays(parseISO(endDate), parseISO(startDate)))
+    : 0;
 
-  const pricing = vehicle ? calcRentalPrice(vehicle, rentalDays) : null;
-
-  const applyQuick = (days: number) => {
-    const start = new Date(startDate);
-    setEndDate(format(addDays(start, days), "yyyy-MM-dd"));
-  };
+  const pricing = (vehicle && rentalDays > 0) ? calcRentalPrice(vehicle, rentalDays) : null;
 
   const createBookingMutation = useMutation({
     mutationFn: async (opts: { paymentRef: string; status: "paid" | "pending"; method: string; satsAmount: number }) => {
@@ -211,7 +207,7 @@ const CarBooking = () => {
     setLockedSatsAmount(null);
   };
 
-  if (!vehicle || !pricing) {
+  if (!vehicle) {
     return (
       <div className="min-h-screen bg-background">
         <HomeHeader title="Book Vehicle" showBackButton onBack={() => navigate(`/cars/${id ?? ""}`)} />
@@ -257,85 +253,65 @@ const CarBooking = () => {
               </div>
             </div>
 
-            {/* Date & time */}
-            <div className="rounded-2xl bg-card p-5 space-y-4">
-              <h2 className="flex items-center gap-2 font-black text-foreground">
-                <Calendar className="h-5 w-5 text-primary" />
-                Rental Dates
-              </h2>
+            {/* Calendar date range picker */}
+            {id && (
+              <RentalCalendar
+                vehicleId={id}
+                startDate={startDate}
+                endDate={endDate}
+                onRangeChange={(s, e) => { setStartDate(s); setEndDate(e); }}
+                onError={setCalendarError}
+                maxDays={30}
+              />
+            )}
 
-              {/* Quick selectors */}
-              <div className="flex flex-wrap gap-2">
-                {QUICK_DURATIONS.map(({ label, days }) => (
-                  <button
-                    key={label}
-                    type="button"
-                    onClick={() => applyQuick(days)}
-                    className="rounded-full border border-border bg-[hsl(var(--app-rail))] px-3 py-1.5 text-xs font-semibold text-foreground transition hover:border-primary hover:text-primary"
-                  >
-                    {label}
-                  </button>
-                ))}
+            {/* Overlap error banner */}
+            {calendarError && (
+              <div className="flex items-start gap-3 rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+                <p className="text-sm font-medium text-destructive">{calendarError}</p>
               </div>
+            )}
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label>Start date</Label>
-                  <Input
-                    type="date"
-                    value={startDate}
-                    min={todayStr()}
-                    onChange={(e) => {
-                      setStartDate(e.target.value);
-                      if (e.target.value >= endDate) {
-                        setEndDate(format(addDays(parseISO(e.target.value), 1), "yyyy-MM-dd"));
-                      }
-                    }}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label>End date</Label>
-                  <Input
-                    type="date"
-                    value={endDate}
-                    min={format(addDays(parseISO(startDate), 1), "yyyy-MM-dd")}
-                    max={format(addDays(parseISO(startDate), 30), "yyyy-MM-dd")}
-                    onChange={(e) => setEndDate(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label className="flex items-center gap-1.5">
-                    <Clock className="h-3.5 w-3.5" /> Start time
-                  </Label>
-                  <select
-                    value={startTime}
-                    onChange={(e) => setStartTime(e.target.value)}
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    {TIME_OPTIONS.map((t) => (
-                      <option key={t} value={t}>{fmt12(t)}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="flex items-center gap-1.5">
-                    <Clock className="h-3.5 w-3.5" /> End time
-                  </Label>
-                  <select
-                    value={endTime}
-                    onChange={(e) => setEndTime(e.target.value)}
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    {TIME_OPTIONS.map((t) => (
-                      <option key={t} value={t}>{fmt12(t)}</option>
-                    ))}
-                  </select>
+            {/* Time pickers — shown once both dates are selected */}
+            {startDate && endDate && (
+              <div className="rounded-2xl bg-card p-5 space-y-4">
+                <h2 className="flex items-center gap-2 font-black text-foreground">
+                  <Clock className="h-5 w-5 text-primary" />
+                  Pickup & Return Times
+                </h2>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label className="flex items-center gap-1.5">
+                      <Clock className="h-3.5 w-3.5" /> Pickup time
+                    </Label>
+                    <select
+                      value={startTime}
+                      onChange={(e) => setStartTime(e.target.value)}
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      {TIME_OPTIONS.map((t) => (
+                        <option key={t} value={t}>{fmt12(t)}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="flex items-center gap-1.5">
+                      <Clock className="h-3.5 w-3.5" /> Return time
+                    </Label>
+                    <select
+                      value={endTime}
+                      onChange={(e) => setEndTime(e.target.value)}
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      {TIME_OPTIONS.map((t) => (
+                        <option key={t} value={t}>{fmt12(t)}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
             {/* Delivery info */}
             <div className="rounded-2xl bg-card p-5 space-y-4">
@@ -367,43 +343,55 @@ const CarBooking = () => {
 
               <div className="space-y-2 text-sm">
                 <SummaryRow label="Vehicle" value={vehicle.name} />
-                <SummaryRow
-                  label="Dates"
-                  value={`${format(parseISO(startDate), "MMM d")} – ${format(parseISO(endDate), "MMM d, yyyy")}`}
-                />
-                <SummaryRow
-                  label="Times"
-                  value={`${fmt12(startTime)} → ${fmt12(endTime)}`}
-                />
-                <SummaryRow label="Duration" value={`${pricing.rentalDays} day${pricing.rentalDays !== 1 ? "s" : ""}`} />
-                <SummaryRow
-                  label="Daily rate"
-                  value={formatUSD(pricing.dailyPriceCents)}
-                />
-                <SummaryRow
-                  label="Subtotal"
-                  value={formatUSD(pricing.subtotalCents)}
-                />
-                {pricing.discountCents > 0 && (
-                  <SummaryRow
-                    label={`Monthly discount (${pricing.discountPct}%)`}
-                    value={`-${formatUSD(pricing.discountCents)}`}
-                    className="text-green-400"
-                  />
+                {startDate && endDate ? (
+                  <>
+                    <SummaryRow
+                      label="Dates"
+                      value={`${format(parseISO(startDate), "MMM d")} – ${format(parseISO(endDate), "MMM d, yyyy")}`}
+                    />
+                    <SummaryRow label="Times" value={`${fmt12(startTime)} → ${fmt12(endTime)}`} />
+                    {pricing && (
+                      <>
+                        <SummaryRow label="Duration" value={`${pricing.rentalDays} day${pricing.rentalDays !== 1 ? "s" : ""}`} />
+                        <SummaryRow label="Daily rate" value={formatUSD(pricing.dailyPriceCents)} />
+                        <SummaryRow label="Subtotal" value={formatUSD(pricing.subtotalCents)} />
+                        {pricing.discountCents > 0 && (
+                          <SummaryRow
+                            label={`Monthly discount (${pricing.discountPct}%)`}
+                            value={`−${formatUSD(pricing.discountCents)}`}
+                            className="text-green-400"
+                          />
+                        )}
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <p className="py-3 text-center text-xs text-muted-foreground italic">
+                    Select dates in the calendar above
+                  </p>
                 )}
               </div>
 
               <div className="border-t border-[hsl(var(--app-divider))] pt-3">
-                <div className="flex items-baseline justify-between">
-                  <span className="text-sm font-bold text-muted-foreground">Total</span>
-                  <span className="text-2xl font-black tabular-nums text-foreground">
-                    {formatUSD(pricing.totalCents)}
-                  </span>
-                </div>
-                {btcPrice && (
-                  <p className="mt-1 text-right text-xs text-muted-foreground">
-                    ≈ {convertToSats(centsToDollars(pricing.totalCents)).toLocaleString()} sats
-                  </p>
+                {pricing ? (
+                  <>
+                    <div className="flex items-baseline justify-between">
+                      <span className="text-sm font-bold text-muted-foreground">Total</span>
+                      <span className="text-2xl font-black tabular-nums text-foreground">
+                        {formatUSD(pricing.totalCents)}
+                      </span>
+                    </div>
+                    {btcPrice && (
+                      <p className="mt-1 text-right text-xs text-muted-foreground">
+                        ≈ {convertToSats(centsToDollars(pricing.totalCents)).toLocaleString()} sats
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-sm font-bold text-muted-foreground">Total</span>
+                    <span className="text-lg text-muted-foreground/40">—</span>
+                  </div>
                 )}
               </div>
 
@@ -411,7 +399,7 @@ const CarBooking = () => {
                 size="lg"
                 className="w-full rounded-full"
                 onClick={handleProceed}
-                disabled={pricing.rentalDays < 1 || pricing.rentalDays > 30}
+                disabled={!pricing || !startDate || !endDate || !!calendarError}
               >
                 <Zap className="mr-2 h-4 w-4" />
                 Proceed to Payment
