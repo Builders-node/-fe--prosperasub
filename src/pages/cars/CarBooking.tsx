@@ -613,7 +613,10 @@ const CarBooking = () => {
             <div>
               <p className="text-2xl font-black">Booking Confirmed!</p>
               <p className="mt-2 text-muted-foreground">
-                {vehicle.name} · {format(parseISO(startDate), "MMM d")} – {format(parseISO(endDate), "MMM d, yyyy")}
+                {vehicle.name}
+                {startDate && endDate
+                  ? ` · ${format(parseISO(startDate), "MMM d")} – ${format(parseISO(endDate), "MMM d, yyyy")}`
+                  : ""}
               </p>
             </div>
             <Button size="lg" className="rounded-full" onClick={() => navigate("/my-subscriptions")}>
