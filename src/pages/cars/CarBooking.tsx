@@ -464,7 +464,7 @@ const CarBooking = () => {
             {startDate && endDate && extras.length > 0 && (
               <div className="rounded-2xl bg-card p-5 space-y-4">
                 <div>
-                  <h2 className="font-black text-foreground">Extras <span className="text-primary">*</span></h2>
+                  <h2 className="font-black text-foreground">Add-ons <span className="text-primary">*</span></h2>
                   <p className="mt-1 text-xs text-muted-foreground">Select at least one add-on for your trip</p>
                 </div>
                 <div className="space-y-2">
