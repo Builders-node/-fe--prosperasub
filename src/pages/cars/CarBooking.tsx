@@ -157,6 +157,8 @@ const CarBooking = () => {
   const extraCost = (e: RentalExtra) => e.price_type === "per_day" ? e.price_cents * (pricing?.rentalDays ?? 0) : e.price_cents;
   const extrasCents = selectedExtras.reduce((sum, e) => sum + extraCost(e), 0);
   const grandTotalCents = (pricing?.totalCents ?? 0) + insuranceCents + deliveryFeeCents + extrasCents;
+  // At least one add-on must be chosen when extras are available
+  const extrasRequiredUnmet = extras.length > 0 && selectedExtraIds.length === 0;
 
   const createBookingMutation = useMutation({
     mutationFn: async (opts: { paymentRef: string; status: "paid" | "pending"; method: string; satsAmount: number }) => {
@@ -461,8 +463,8 @@ const CarBooking = () => {
             {startDate && endDate && extras.length > 0 && (
               <div className="rounded-2xl bg-card p-5 space-y-4">
                 <div>
-                  <h2 className="font-black text-foreground">Extras</h2>
-                  <p className="mt-1 text-xs text-muted-foreground">Optional add-ons for your trip</p>
+                  <h2 className="font-black text-foreground">Extras <span className="text-primary">*</span></h2>
+                  <p className="mt-1 text-xs text-muted-foreground">Select at least one add-on for your trip</p>
                 </div>
                 <div className="space-y-2">
                   {extras.map((e) => {
@@ -641,15 +643,21 @@ const CarBooking = () => {
                 size="lg"
                 className="w-full rounded-full"
                 onClick={handleProceed}
-                disabled={!pricing || !startDate || !endDate || !!calendarError}
+                disabled={!pricing || !startDate || !endDate || !!calendarError || extrasRequiredUnmet}
               >
                 <Zap className="mr-2 h-4 w-4" />
                 Proceed to Payment
               </Button>
 
-              <p className="text-center text-xs text-muted-foreground">
-                Paid via Bitcoin Lightning Network
-              </p>
+              {extrasRequiredUnmet && startDate && endDate ? (
+                <p className="text-center text-xs font-medium text-primary">
+                  Select at least one add-on to continue
+                </p>
+              ) : (
+                <p className="text-center text-xs text-muted-foreground">
+                  Paid via Bitcoin Lightning Network
+                </p>
+              )}
             </div>
           </div>
         </div>
