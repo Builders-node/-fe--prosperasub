@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Edit, Archive, RotateCcw, Trash2, Eye, EyeOff, X, ImagePlus, GripVertical } from "lucide-react";
+import { Plus, Edit, Archive, RotateCcw, Trash2, Eye, EyeOff, X, ImagePlus, Upload, Loader2, Link2 } from "lucide-react";
 import { supabaseDb } from "@/integrations/supabase/client";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { Button } from "@/components/ui/button";
@@ -59,6 +59,9 @@ const CarRentalsVehicles = () => {
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [newImageUrl, setNewImageUrl] = useState("");
+  const [showUrlInput, setShowUrlInput] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [deleteTarget, setDeleteTarget] = useState<VehicleWithImages | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>("all");
 
@@ -222,6 +225,7 @@ const CarRentalsVehicles = () => {
     setEditVehicle(null);
     setIsNew(false);
     setNewImageUrl("");
+    setShowUrlInput(false);
   };
 
   const addImage = () => {
@@ -229,6 +233,42 @@ const CarRentalsVehicles = () => {
     if (!url) return;
     setImageUrls((prev) => [...prev, url]);
     setNewImageUrl("");
+  };
+
+  const uploadFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setUploading(true);
+    try {
+      const uploaded: string[] = [];
+      for (const file of Array.from(files)) {
+        if (!file.type.startsWith("image/")) {
+          toast.error(`${file.name} is not an image`);
+          continue;
+        }
+        if (file.size > 10 * 1024 * 1024) {
+          toast.error(`${file.name} is larger than 10 MB`);
+          continue;
+        }
+        const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+        const path = `vehicles/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const { error } = await supabaseDb.storage
+          .from("rental-vehicles")
+          .upload(path, file, { cacheControl: "3600", upsert: false, contentType: file.type });
+        if (error) {
+          toast.error(`Upload failed: ${error.message}`);
+          continue;
+        }
+        const { data } = supabaseDb.storage.from("rental-vehicles").getPublicUrl(path);
+        if (data?.publicUrl) uploaded.push(data.publicUrl);
+      }
+      if (uploaded.length > 0) {
+        setImageUrls((prev) => [...prev, ...uploaded]);
+        toast.success(`${uploaded.length} image${uploaded.length > 1 ? "s" : ""} uploaded`);
+      }
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   };
 
   const filtered = filterStatus === "all" ? vehicles : vehicles.filter((v) => v.status === filterStatus);
@@ -457,35 +497,85 @@ const CarRentalsVehicles = () => {
             </div>
 
             {/* Images */}
-            <div className="space-y-2 sm:col-span-2">
-              <Label>Images (URLs)</Label>
-              <div className="flex gap-2">
-                <Input
-                  placeholder="https://example.com/image.jpg"
-                  value={newImageUrl}
-                  onChange={(e) => setNewImageUrl(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && addImage()}
-                />
-                <Button type="button" variant="secondary" onClick={addImage}>
-                  <ImagePlus className="h-4 w-4" />
-                </Button>
-              </div>
+            <div className="space-y-2.5 sm:col-span-2">
+              <Label>Vehicle photos</Label>
+
+              {/* Upload dropzone */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => uploadFiles(e.target.files)}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="flex w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-border px-4 py-6 text-center transition hover:border-primary/50 hover:bg-muted/30 disabled:opacity-60"
+              >
+                {uploading ? (
+                  <>
+                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    <span className="text-sm font-medium text-muted-foreground">Uploading…</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/10">
+                      <Upload className="h-5 w-5 text-primary" />
+                    </span>
+                    <span className="text-sm font-semibold text-foreground">Click to upload photos</span>
+                    <span className="text-xs text-muted-foreground">JPG, PNG, WEBP or GIF · up to 10 MB each · multiple allowed</span>
+                  </>
+                )}
+              </button>
+
+              {/* Thumbnails */}
               {imageUrls.length > 0 && (
-                <div className="space-y-1">
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
                   {imageUrls.map((url, i) => (
-                    <div key={i} className="flex items-center gap-2 rounded-lg bg-muted px-3 py-1.5">
-                      <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      <span className="flex-1 truncate text-xs">{url}</span>
+                    <div key={i} className="group relative aspect-[4/3] overflow-hidden rounded-xl border border-border bg-muted">
+                      <img src={url} alt="" className="h-full w-full object-cover" />
+                      {i === 0 && (
+                        <span className="absolute left-1.5 top-1.5 rounded-full bg-foreground px-2 py-0.5 text-[10px] font-bold text-background">
+                          Cover
+                        </span>
+                      )}
                       <button
                         type="button"
                         onClick={() => setImageUrls((prev) => prev.filter((_, j) => j !== i))}
-                        className="text-muted-foreground hover:text-destructive"
+                        className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition group-hover:opacity-100 hover:bg-destructive"
+                        aria-label="Remove image"
                       >
-                        <X className="h-4 w-4" />
+                        <X className="h-3.5 w-3.5" />
                       </button>
                     </div>
                   ))}
                 </div>
+              )}
+
+              {/* Optional: add by URL */}
+              {showUrlInput ? (
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="https://example.com/image.jpg"
+                    value={newImageUrl}
+                    onChange={(e) => setNewImageUrl(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addImage(); } }}
+                  />
+                  <Button type="button" variant="secondary" onClick={addImage}>
+                    <ImagePlus className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowUrlInput(true)}
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground transition hover:text-foreground"
+                >
+                  <Link2 className="h-3.5 w-3.5" /> or add by URL
+                </button>
               )}
             </div>
           </div>
