@@ -161,7 +161,7 @@ const DayCell = ({ date, role, isFirstInRow, isLastInRow, onClick, onHover, onLe
   const isBooked        = role === "booked" || role === "booking-start" || role === "booking-end";
   const isPast          = role === "past";
   const isBookingEdge   = role === "booking-start" || role === "booking-end";
-  const isDisabled      = isPast || role === "booked";
+  const isDisabled      = isPast || isBooked;
   const isInteractive   = !isDisabled;
 
   // Strip (background connecting range)
@@ -328,12 +328,15 @@ export function RentalCalendar({
   // Propagate errors
   useEffect(() => { onError?.(error); }, [error, onError]);
 
+  // A day is unavailable if it falls anywhere within an existing booking,
+  // INCLUDING the start and end days (the car is out on its return day too).
   const isDateBooked = useCallback((ds: string) =>
-    bookedRanges.some(b => ds >= b.start && ds < b.end),
+    bookedRanges.some(b => ds >= b.start && ds <= b.end),
   [bookedRanges]);
 
+  // Two ranges conflict if they share any day (inclusive on both ends).
   const hasOverlap = useCallback((s: string, e: string) =>
-    bookedRanges.some(b => s < b.end && e > b.start),
+    bookedRanges.some(b => s <= b.end && e >= b.start),
   [bookedRanges]);
 
   const handleDayClick = useCallback((ds: string) => {
