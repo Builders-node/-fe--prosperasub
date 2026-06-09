@@ -105,9 +105,10 @@ const CarBooking = () => {
     },
   });
 
-  // Default-select the first (cheapest / lowest sort) tier once loaded
+  // Default-select the first (Basic / lowest sort) tier. Re-runs if the current
+  // selection isn't valid for the loaded tiers (e.g. fallback → real DB ids).
   useEffect(() => {
-    if (!insuranceId && insuranceTiers.length > 0) {
+    if (insuranceTiers.length > 0 && !insuranceTiers.some((t) => t.id === insuranceId)) {
       setInsuranceId(insuranceTiers[0].id);
     }
   }, [insuranceTiers, insuranceId]);
