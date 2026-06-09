@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, Fragment } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, parseISO, differenceInCalendarDays } from "date-fns";
 import { Plus, Search, Trash2 } from "lucide-react";
@@ -24,7 +24,9 @@ import {
 import { formatUSD } from "@/lib/pricing";
 import { calcRentalPrice } from "@/types/carRental";
 import { toast } from "sonner";
-import type { RentalBooking, RentalVehicle, RentalBookingStatus } from "@/types/carRental";
+import { cn } from "@/lib/utils";
+import { CheckCircle2 } from "lucide-react";
+import type { RentalBooking, RentalVehicle, RentalBookingStatus, RentalInsuranceTier, RentalDeliveryZone, RentalExtra } from "@/types/carRental";
 
 type BookingWithVehicle = RentalBooking & { vehicle: RentalVehicle | null };
 
@@ -49,6 +51,9 @@ const EMPTY_NEW = {
   end_time: "09:00",
   status: "confirmed" as RentalBookingStatus,
   payment_status: "paid" as "pending" | "paid" | "failed",
+  insurance_id: "",
+  delivery_zone_id: "",
+  extra_ids: [] as string[],
   delivery_address: "",
   delivery_notes: "",
   admin_notes: "",
@@ -106,6 +111,30 @@ const CarRentalsReservations = () => {
     },
   });
 
+  const { data: insuranceTiers = [] } = useQuery({
+    queryKey: ["admin-rental-insurance-picker"],
+    queryFn: async () => {
+      const { data } = await supabaseDb.from("rental_insurance_tiers").select("*").eq("is_active", true).order("sort_order", { ascending: true });
+      return (data ?? []) as RentalInsuranceTier[];
+    },
+  });
+
+  const { data: deliveryZones = [] } = useQuery({
+    queryKey: ["admin-rental-zones-picker"],
+    queryFn: async () => {
+      const { data } = await supabaseDb.from("rental_delivery_zones").select("*").eq("is_active", true).order("sort_order", { ascending: true });
+      return (data ?? []) as RentalDeliveryZone[];
+    },
+  });
+
+  const { data: extras = [] } = useQuery({
+    queryKey: ["admin-rental-extras-picker"],
+    queryFn: async () => {
+      const { data } = await supabaseDb.from("rental_extras").select("*").eq("is_active", true).order("sort_order", { ascending: true });
+      return (data ?? []) as RentalExtra[];
+    },
+  });
+
   const { data: users = [] } = useQuery({
     queryKey: ["admin-users-picker", userSearch],
     enabled: showNew && userSearch.length >= 2,
@@ -128,6 +157,15 @@ const CarRentalsReservations = () => {
     if (days < 1) return null;
     return calcRentalPrice(v, days);
   }, [newForm.vehicle_id, newForm.start_date, newForm.end_date, vehicles]);
+
+  const newInsurance = insuranceTiers.find((t) => t.id === newForm.insurance_id) ?? null;
+  const newInsuranceCents = (newInsurance?.price_per_day_cents ?? 0) * (newPrice?.rentalDays ?? 0);
+  const newZone = deliveryZones.find((z) => z.id === newForm.delivery_zone_id) ?? null;
+  const newDeliveryCents = newZone?.fee_cents ?? 0;
+  const newSelectedExtras = extras.filter((e) => newForm.extra_ids.includes(e.id));
+  const extraCost = (e: RentalExtra) => e.price_type === "per_day" ? e.price_cents * (newPrice?.rentalDays ?? 0) : e.price_cents;
+  const newExtrasCents = newSelectedExtras.reduce((s, e) => s + extraCost(e), 0);
+  const newGrandTotalCents = (newPrice?.totalCents ?? 0) + newInsuranceCents + newDeliveryCents + newExtrasCents;
 
   /* ── Mutations ───────────────────────────────────────────── */
   const updateMutation = useMutation({
@@ -163,16 +201,19 @@ const CarRentalsReservations = () => {
         subtotal_cents: newPrice.subtotalCents,
         discount_pct: newPrice.discountPct,
         discount_cents: newPrice.discountCents,
-        total_cents: newPrice.totalCents,
+        total_cents: newGrandTotalCents,
         status: newForm.status,
         payment_status: newForm.payment_status,
         delivery_address: newForm.delivery_address || null,
         delivery_notes: newForm.delivery_notes || null,
-        admin_notes: newForm.admin_notes
-          ? `[Admin created] ${newForm.customer_name ? `Customer: ${newForm.customer_name}. ` : ""}${newForm.admin_notes}`
-          : newForm.customer_name
-          ? `[Admin created] Customer: ${newForm.customer_name}`
-          : "[Admin created]",
+        admin_notes: [
+          "[Admin created]",
+          newForm.customer_name ? `Customer: ${newForm.customer_name}` : null,
+          `Insurance: ${newInsurance?.name ?? "Basic"}${newInsuranceCents > 0 ? ` (+${formatUSD(newInsuranceCents)})` : " (included)"}`,
+          `Delivery: ${newZone?.name ?? "Office pickup"}${newDeliveryCents > 0 ? ` (+${formatUSD(newDeliveryCents)})` : " (free)"}`,
+          newSelectedExtras.length > 0 ? `Extras: ${newSelectedExtras.map((e) => `${e.name} (${extraCost(e) > 0 ? formatUSD(extraCost(e)) : "free"})`).join(", ")}` : null,
+          newForm.admin_notes ? `Notes: ${newForm.admin_notes}` : null,
+        ].filter(Boolean).join(" · "),
       };
       const { error } = await supabaseDb.from("rental_bookings").insert(payload);
       if (error) throw error;
@@ -452,23 +493,98 @@ const CarRentalsReservations = () => {
               />
             </div>
 
+            {/* Insurance */}
+            {insuranceTiers.length > 0 && (
+              <div className="space-y-1.5">
+                <Label>Insurance</Label>
+                <Select value={newForm.insurance_id || "none"} onValueChange={(v) => setNewForm((f) => ({ ...f, insurance_id: v === "none" ? "" : v }))}>
+                  <SelectTrigger><SelectValue placeholder="Basic (included)" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Basic (included)</SelectItem>
+                    {insuranceTiers.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>
+                        {t.name} — {t.price_per_day_cents === 0 ? "Included" : `${formatUSD(t.price_per_day_cents)}/day`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Delivery zone */}
+            {deliveryZones.length > 0 && (
+              <div className="space-y-1.5">
+                <Label>Delivery zone</Label>
+                <Select value={newForm.delivery_zone_id || "none"} onValueChange={(v) => setNewForm((f) => ({ ...f, delivery_zone_id: v === "none" ? "" : v }))}>
+                  <SelectTrigger><SelectValue placeholder="Office pickup (free)" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Office pickup (free)</SelectItem>
+                    {deliveryZones.map((z) => (
+                      <SelectItem key={z.id} value={z.id}>
+                        {z.name} — {z.fee_cents === 0 ? "FREE" : formatUSD(z.fee_cents)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Extras */}
+            {extras.length > 0 && (
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label>Extras</Label>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {extras.map((e) => {
+                    const selected = newForm.extra_ids.includes(e.id);
+                    return (
+                      <button
+                        key={e.id}
+                        type="button"
+                        onClick={() => setNewForm((f) => ({ ...f, extra_ids: selected ? f.extra_ids.filter((x) => x !== e.id) : [...f.extra_ids, e.id] }))}
+                        className={cn(
+                          "flex items-center gap-2.5 rounded-lg border-2 px-3 py-2 text-left text-sm transition",
+                          selected ? "border-primary bg-primary/5" : "border-border hover:border-border/80",
+                        )}
+                      >
+                        <span className={cn("flex h-4 w-4 shrink-0 items-center justify-center rounded border-2", selected ? "border-primary bg-primary" : "border-muted-foreground/40")}>
+                          {selected && <CheckCircle2 className="h-3 w-3 text-background" />}
+                        </span>
+                        <span className="flex-1 font-medium text-foreground">{e.name}</span>
+                        <span className={cn("text-xs font-bold", e.price_cents === 0 ? "text-green-400" : "text-primary")}>
+                          {e.price_cents === 0 ? "Free" : `${formatUSD(e.price_cents)}${e.price_type === "per_day" ? "/day" : ""}`}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Price summary */}
             {newPrice && selectedVehicle && (
               <div className="sm:col-span-2 rounded-xl bg-muted/40 border border-border p-4 text-sm space-y-2">
                 <p className="font-semibold text-foreground">Price summary</p>
                 <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-muted-foreground">
                   <span>Duration</span>
-                  <span className="text-foreground font-medium">{newPrice.rentalDays} day{newPrice.rentalDays !== 1 ? "s" : ""}</span>
-                  <span>Daily rate</span>
-                  <span className="text-foreground">{formatUSD(selectedVehicle.daily_price_cents)}</span>
-                  <span>Subtotal</span>
-                  <span className="text-foreground">{formatUSD(newPrice.subtotalCents)}</span>
+                  <span className="text-foreground font-medium text-right">{newPrice.rentalDays} day{newPrice.rentalDays !== 1 ? "s" : ""}</span>
+                  <span>Rental ({formatUSD(newPrice.effectiveDailyRate)}/day)</span>
+                  <span className="text-foreground text-right">{formatUSD(newPrice.subtotalCents)}</span>
                   {newPrice.discountCents > 0 && <>
-                    <span>Discount ({newPrice.discountPct}%)</span>
-                    <span className="text-green-400">−{formatUSD(newPrice.discountCents)}</span>
+                    <span>{newPrice.capped ? "Capped at monthly" : `Discount (${newPrice.discountPct}%)`}</span>
+                    <span className="text-green-400 text-right">−{formatUSD(newPrice.discountCents)}</span>
                   </>}
-                  <span className="font-semibold text-foreground">Total</span>
-                  <span className="font-bold text-foreground text-base">{formatUSD(newPrice.totalCents)}</span>
+                  <span>Insurance · {newInsurance?.name ?? "Basic"}</span>
+                  <span className="text-foreground text-right">{newInsuranceCents > 0 ? `+${formatUSD(newInsuranceCents)}` : "Included"}</span>
+                  <span>Delivery · {newZone?.name ?? "Pickup"}</span>
+                  <span className="text-foreground text-right">{newDeliveryCents > 0 ? `+${formatUSD(newDeliveryCents)}` : "Free"}</span>
+                  {newSelectedExtras.map((e) => (
+                    <Fragment key={e.id}>
+                      <span>+ {e.name}</span>
+                      <span className="text-foreground text-right">{extraCost(e) > 0 ? `+${formatUSD(extraCost(e))}` : "Free"}</span>
+                    </Fragment>
+                  ))}
+                  <span className="font-semibold text-foreground border-t border-border pt-1.5 mt-1">Total</span>
+                  <span className="font-bold text-foreground text-base text-right border-t border-border pt-1.5 mt-1">{formatUSD(newGrandTotalCents)}</span>
                 </div>
               </div>
             )}
@@ -523,7 +639,7 @@ const CarRentalsReservations = () => {
               onClick={() => createMutation.mutate()}
               disabled={createMutation.isPending || !newForm.vehicle_id || !newForm.start_date || !newForm.end_date || !newPrice}
             >
-              {createMutation.isPending ? "Creating…" : `Create${newPrice ? ` · ${formatUSD(newPrice.totalCents)}` : ""}`}
+              {createMutation.isPending ? "Creating…" : `Create${newPrice ? ` · ${formatUSD(newGrandTotalCents)}` : ""}`}
             </Button>
           </DialogFooter>
         </DialogContent>
