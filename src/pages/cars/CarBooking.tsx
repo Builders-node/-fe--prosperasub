@@ -504,19 +504,15 @@ const CarBooking = () => {
                         <SummaryRow
                           label={
                             pricing.tier === "monthly" ? "Monthly rate" :
-                            pricing.tier === "extended" ? "Extended rate (8+ days)" :
+                            pricing.tier === "weekly" ? "Weekly rate" :
                             "Daily rate"
                           }
                           value={`${formatUSD(pricing.effectiveDailyRate)} / day`}
                         />
-                        {pricing.tier === "monthly" ? (
-                          <SummaryRow label="Monthly package" value={formatUSD(pricing.subtotalCents)} />
-                        ) : (
-                          <SummaryRow label="Rental subtotal" value={formatUSD(pricing.subtotalCents)} />
-                        )}
+                        <SummaryRow label="Rental subtotal" value={formatUSD(pricing.subtotalCents)} />
                         {pricing.discountCents > 0 && (
                           <SummaryRow
-                            label={`You save (${pricing.discountPct}%)`}
+                            label={pricing.capped ? "Capped at monthly price" : `You save (${pricing.discountPct}%)`}
                             value={`−${formatUSD(pricing.discountCents)}`}
                             className="text-green-400"
                           />

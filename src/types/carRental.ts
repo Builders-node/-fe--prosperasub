@@ -101,86 +101,91 @@ export interface RentalPriceCalc {
   rentalDays: number;
   dailyPriceCents: number;      // base daily rate
   effectiveDailyRate: number;   // actual per-day rate at this duration
-  subtotalCents: number;
-  discountCents: number;
+  subtotalCents: number;        // raw price before the monthly cap
+  discountCents: number;        // amount saved (cap savings + weekly savings vs daily)
   discountPct: number;
-  totalCents: number;
-  tier: "daily" | "extended" | "monthly"; // which pricing tier applied
+  totalCents: number;           // final price (never exceeds the monthly price)
+  tier: "daily" | "weekly" | "monthly";
+  capped: boolean;              // true when the monthly cap was applied
 }
 
 /**
- * Pricing tiers from Atlantis Transportation & Rentals price table:
- *   1–7 days  → daily rate × days
- *   8–29 days → weekly_price_cents is the 8-day package total; prorated for each day at that rate
- *   30 days   → monthly_price_cents flat
+ * Capped rental pricing.
+ *
+ *   • Daily   (1–6 days)  → daily_price_cents × days
+ *   • Weekly  (7+ days)   → full weeks × weekly_price_cents
+ *                           + leftover days × daily_price_cents
+ *                           (leftover is itself capped at one week's price)
+ *   • Monthly             → the total can NEVER exceed monthly_price_cents.
+ *
+ * Example (weekly $320, monthly $850):
+ *   1 week  → $320
+ *   2 weeks → $640
+ *   3 weeks → $960 → capped to $850
+ *   30 days → capped to $850
  */
 export function calcRentalPrice(
   vehicle: Pick<RentalVehicle, "daily_price_cents" | "weekly_price_cents" | "monthly_price_cents" | "monthly_discount_pct" | "biweekly_price_cents">,
   rentalDays: number,
 ): RentalPriceCalc {
-  const { daily_price_cents, weekly_price_cents, monthly_price_cents, monthly_discount_pct } = vehicle;
+  const daily = vehicle.daily_price_cents || 0;
+  const weekly = vehicle.weekly_price_cents || 0;
+  const monthly = vehicle.monthly_price_cents || 0;
 
+  // ── 1. Raw price by tier ────────────────────────────────────────────────
   let subtotalCents: number;
-  let discountCents = 0;
-  let discountPct = 0;
-  let tier: RentalPriceCalc["tier"] = "daily";
-  let effectiveDailyRate = daily_price_cents;
+  let tier: RentalPriceCalc["tier"];
 
-  if (rentalDays >= 30 && monthly_price_cents > 0) {
-    // 30-day flat package
-    subtotalCents = monthly_price_cents;
-    effectiveDailyRate = Math.round(monthly_price_cents / 30);
-    tier = "monthly";
-  } else if (rentalDays >= 30 && monthly_discount_pct > 0) {
-    // Fallback: daily × days with discount percentage
-    const full = daily_price_cents * rentalDays;
-    discountPct = monthly_discount_pct;
-    discountCents = Math.round(full * (discountPct / 100));
-    subtotalCents = full;
-    effectiveDailyRate = Math.round((full - discountCents) / rentalDays);
-    tier = "monthly";
-  } else if (rentalDays >= 8 && weekly_price_cents > 0) {
-    // Extended rate: weekly_price_cents is the 8-day package total.
-    // For 8+ days, prorate at the 8-day per-day rate.
-    const extendedDailyRate = Math.round(weekly_price_cents / 8);
-    subtotalCents = extendedDailyRate * rentalDays;
-    effectiveDailyRate = extendedDailyRate;
-    // Show discount vs full daily rate
-    const fullDailyTotal = daily_price_cents * rentalDays;
-    discountCents = fullDailyTotal - subtotalCents;
-    discountPct = Math.round((discountCents / fullDailyTotal) * 100);
-    tier = "extended";
+  if (weekly > 0 && rentalDays >= 7) {
+    const weeks = Math.floor(rentalDays / 7);
+    const leftoverDays = rentalDays % 7;
+    // A few leftover days should never cost more than a whole week
+    const leftoverCost = Math.min(leftoverDays * daily, weekly);
+    subtotalCents = weeks * weekly + leftoverCost;
+    tier = "weekly";
   } else {
-    // Standard daily rate
-    subtotalCents = daily_price_cents * rentalDays;
-    effectiveDailyRate = daily_price_cents;
+    subtotalCents = rentalDays * daily;
     tier = "daily";
   }
 
-  const totalCents = subtotalCents - (tier === "monthly" && monthly_discount_pct > 0 ? discountCents : 0);
+  // ── 2. Apply the monthly cap — total can never exceed the monthly price ──
+  let totalCents = subtotalCents;
+  let capped = false;
+  if (monthly > 0 && totalCents > monthly) {
+    totalCents = monthly;
+    capped = true;
+    tier = "monthly";
+  } else if (monthly > 0 && rentalDays >= 28) {
+    // Long rental that lands at/under the monthly price → treat as monthly tier
+    tier = "monthly";
+  }
+
+  const discountCents = Math.max(0, subtotalCents - totalCents);
+  const discountPct = subtotalCents > 0 ? Math.round((discountCents / subtotalCents) * 100) : 0;
+  const effectiveDailyRate = rentalDays > 0 ? Math.round(totalCents / rentalDays) : daily;
 
   return {
     rentalDays,
-    dailyPriceCents: daily_price_cents,
+    dailyPriceCents: daily,
     effectiveDailyRate,
-    subtotalCents: tier === "extended" ? subtotalCents : subtotalCents,
-    discountCents: tier === "extended" ? discountCents : (tier === "monthly" && monthly_discount_pct > 0 ? discountCents : 0),
-    discountPct: tier === "extended" ? discountPct : (tier === "monthly" && monthly_discount_pct > 0 ? discountPct : 0),
-    totalCents: tier === "extended" ? subtotalCents : totalCents,
+    subtotalCents,
+    discountCents,
+    discountPct,
+    totalCents,
     tier,
+    capped,
   };
 }
 
 /**
- * Quick duration buttons matching Atlantis pricing tiers:
- *   1 day  → standard daily rate
- *   3 days → standard daily rate × 3
- *   8 days → triggers extended (+8 días) rate
- *   30 days → monthly package rate
+ * Quick duration buttons.
+ *   1 day / 3 days → daily rate
+ *   1 week        → weekly pricing
+ *   1 month       → monthly (capped) pricing
  */
 export const QUICK_DURATIONS = [
-  { label: "1 Day",   days: 1,  tier: "daily"    },
-  { label: "3 Days",  days: 3,  tier: "daily"    },
-  { label: "8 Days",  days: 8,  tier: "extended" },
-  { label: "30 Days", days: 30, tier: "monthly"  },
+  { label: "1 Day",   days: 1,  tier: "daily"   },
+  { label: "3 Days",  days: 3,  tier: "daily"   },
+  { label: "1 Week",  days: 7,  tier: "weekly"  },
+  { label: "1 Month", days: 30, tier: "monthly" },
 ] as const;
