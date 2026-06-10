@@ -58,6 +58,7 @@ export interface RentalBooking {
   payment_reference: string | null;
   delivery_address: string | null;
   delivery_notes: string | null;
+  customer_whatsapp: string | null;
   admin_notes: string | null;
   deleted_at: string | null;
   created_at: string;

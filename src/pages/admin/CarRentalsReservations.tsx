@@ -692,6 +692,19 @@ const CarRentalsReservations = () => {
                   <p className="font-semibold">{format(parseISO(editBooking.start_date), "MMM d")} – {format(parseISO(editBooking.end_date), "MMM d")}</p>
                 </div>
                 <div><p className="text-xs text-muted-foreground">Duration</p><p className="font-semibold">{editBooking.rental_days} days</p></div>
+                {editBooking.customer_whatsapp && (
+                  <div className="col-span-2">
+                    <p className="text-xs text-muted-foreground">WhatsApp</p>
+                    <a
+                      href={`https://wa.me/${editBooking.customer_whatsapp.replace(/[^0-9]/g, "")}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-semibold text-green-400 hover:underline"
+                    >
+                      {editBooking.customer_whatsapp}
+                    </a>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-1.5">
