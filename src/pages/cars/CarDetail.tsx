@@ -268,6 +268,22 @@ const CarDetail = () => {
                 <span className="text-sm text-muted-foreground">/ day</span>
               </div>
 
+              {/* Weekly / monthly pricing (smaller) */}
+              {(vehicle.weekly_price_cents > 0 || vehicle.monthly_price_cents > 0) && (
+                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                  {vehicle.weekly_price_cents > 0 && (
+                    <span className="text-muted-foreground">
+                      <span className="font-bold text-foreground tabular-nums">{formatUSD(vehicle.weekly_price_cents)}</span> / week
+                    </span>
+                  )}
+                  {vehicle.monthly_price_cents > 0 && (
+                    <span className="text-muted-foreground">
+                      <span className="font-bold text-foreground tabular-nums">{formatUSD(vehicle.monthly_price_cents)}</span> / month
+                    </span>
+                  )}
+                </div>
+              )}
+
               {vehicle.monthly_discount_pct > 0 && (
                 <p className="mt-1 text-sm text-green-400">
                   {vehicle.monthly_discount_pct}% discount on monthly rentals
