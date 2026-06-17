@@ -133,69 +133,67 @@ const FoodProviderDetail = () => {
       <HomeHeader title={provider.name} showBackButton onBack={() => navigate("/food")} />
       <DesktopHeader />
 
+      {/* ─── Full-width banner ───────────────────────────────────────────── */}
+      <div className="relative h-52 w-full overflow-hidden bg-gradient-to-br from-orange-500/25 via-amber-500/10 to-transparent md:h-72">
+        {provider.banner_url ? (
+          <img src={provider.banner_url} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <div className="flex h-full items-center justify-center">
+            <UtensilsCrossed className="h-20 w-20 text-muted-foreground/15" />
+          </div>
+        )}
+      </div>
+
       <main className="market-content py-space-6 md:py-space-12 space-y-space-8">
 
-        {/* ─── App-Store-style product header ──────────────────────────────── */}
-        <section className="overflow-hidden rounded-3xl bg-card">
-          {/* Banner */}
-          <div className="relative h-40 w-full overflow-hidden bg-gradient-to-br from-orange-500/25 via-amber-500/10 to-transparent md:h-52">
-            {provider.banner_url ? (
-              <img src={provider.banner_url} alt="" className="h-full w-full object-cover" />
-            ) : (
-              <div className="flex h-full items-center justify-center">
-                <UtensilsCrossed className="h-20 w-20 text-muted-foreground/15" />
-              </div>
-            )}
-          </div>
-
-          <div className="px-5 pb-6 pt-4 md:px-7">
-            {/* Icon + title + CTA — App Store product row */}
-            <div className="flex items-start gap-4">
-              <div className="-mt-12 h-24 w-24 shrink-0 overflow-hidden rounded-[1.4rem] border-4 border-card bg-muted shadow-lg md:h-28 md:w-28">
-                {provider.avatar_url ? (
-                  <img
-                    src={provider.avatar_url}
-                    alt={provider.name}
-                    loading="lazy"
-                    decoding="async"
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full items-center justify-center bg-orange-500/10">
-                    <ChefHat className="h-10 w-10 text-orange-400" />
-                  </div>
-                )}
-              </div>
-
-              <div className="min-w-0 flex-1 pt-1">
-                <h1 className="text-2xl font-black leading-tight tracking-tight md:text-3xl">
-                  {provider.name}
-                </h1>
-                {provider.location && (
-                  <p className="mt-1 truncate text-sm text-muted-foreground">{provider.location}</p>
-                )}
-              </div>
+        {/* ─── Product header (below banner) ───────────────────────────────── */}
+        <section className="rounded-3xl bg-card p-5 md:p-7">
+          {/* Icon + title */}
+          <div className="flex items-start gap-4">
+            <div className="h-20 w-20 shrink-0 overflow-hidden rounded-[1.4rem] border border-border bg-muted md:h-24 md:w-24">
+              {provider.avatar_url ? (
+                <img
+                  src={provider.avatar_url}
+                  alt={provider.name}
+                  loading="lazy"
+                  decoding="async"
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="flex h-full items-center justify-center bg-orange-500/10">
+                  <ChefHat className="h-9 w-9 text-orange-400" />
+                </div>
+              )}
             </div>
 
-            {/* CTA row */}
-            <div className="mt-4 flex items-center gap-4">
-              <Button onClick={scrollToPlans} className="h-9 rounded-full px-7 font-bold">
-                Subscribe
-              </Button>
-              <div className="leading-tight">
-                <p className="text-sm font-bold text-foreground">{formatUSD(fromPrice)}</p>
-                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">From / week</p>
-              </div>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-2xl font-black leading-tight tracking-tight md:text-3xl">
+                {provider.name}
+              </h1>
+              {provider.location && (
+                <p className="mt-1 truncate text-sm text-muted-foreground">{provider.location}</p>
+              )}
             </div>
-
-            {provider.description && (
-              <p className="mt-4 text-body text-muted-foreground">{provider.description}</p>
-            )}
           </div>
+
+          {/* CTA row */}
+          <div className="mt-5 flex items-center gap-4">
+            <Button onClick={scrollToPlans} className="h-9 rounded-full px-7 font-bold">
+              Subscribe
+            </Button>
+            <div className="leading-tight">
+              <p className="text-sm font-bold text-foreground">{formatUSD(fromPrice)}</p>
+              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">From / week</p>
+            </div>
+          </div>
+
+          {provider.description && (
+            <p className="mt-4 text-body text-muted-foreground">{provider.description}</p>
+          )}
         </section>
 
         {/* ─── Stats strip ─────────────────────────────────────────────────── */}
-        <section className="-mt-4 grid grid-cols-4 divide-x divide-border rounded-3xl bg-card py-4">
+        <section className="grid grid-cols-4 divide-x divide-border rounded-3xl bg-card py-4">
           <Stat
             label={ratingCount ? `${ratingCount} ${ratingCount === 1 ? "Rating" : "Ratings"}` : "Ratings"}
             value={
