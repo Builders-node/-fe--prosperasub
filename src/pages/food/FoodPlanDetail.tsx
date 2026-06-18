@@ -166,6 +166,9 @@ const FoodPlanDetail = () => {
   const totalUsd = centsToDollars(totalCents);
   const estimatedSats = convertToSats(totalUsd);
   const mealTypes = plan ? getMealTypesForPlan(plan) : [];
+  const mealPhotos = (weeklyMenu?.meals ?? [])
+    .map((m) => m.image_url)
+    .filter((u): u is string => !!u);
   const checkoutValid =
     checkout.customer_name.trim() &&
     checkout.customer_whatsapp.trim() &&
@@ -445,47 +448,71 @@ const FoodPlanDetail = () => {
 
           {/* Left column — Plan info (sticky on desktop) */}
           <section className="lg:sticky lg:top-20 lg:self-start">
-            <div className="p-6 md:p-8">
-              {provider && <p className="mb-2 text-sm text-muted-foreground">{provider.name}</p>}
-              <h1 className="text-page-title">{plan.name}</h1>
-              {plan.description && (
-                <p className="mt-2 text-body text-muted-foreground">{plan.description}</p>
-              )}
-
-              <div className="mt-4 flex flex-wrap gap-2">
-                <span className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1 text-sm font-medium text-muted-foreground">
-                  <UtensilsCrossed className="h-3.5 w-3.5" /> {plan.meals_per_day} meals/day
-                </span>
-                <span className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1 text-sm font-medium text-muted-foreground">
-                  <CalendarDays className="h-3.5 w-3.5" /> {plan.days_per_week} days/week
-                </span>
-                {mealTypes.map((t) => (
-                  <span key={t} className="inline-flex items-center gap-1 rounded-full bg-orange-500/10 px-3 py-1 text-sm font-medium text-orange-400">
-                    {MEAL_TYPE_LABELS[t]}
-                  </span>
-                ))}
-              </div>
-
-              {plan.highlights && plan.highlights.length > 0 && (
-                <ul className="mt-4 flex flex-wrap gap-x-6 gap-y-1.5">
-                  {plan.highlights.map((h, i) => (
-                    <li key={i} className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Check className="h-3.5 w-3.5 shrink-0 text-orange-400" /> {h}
-                    </li>
-                  ))}
-                </ul>
-              )}
-
-              <div className="mt-5 flex items-baseline gap-1">
-                <span className="text-4xl font-black tabular-nums text-foreground">
-                  {formatUSD(plan.weekly_price_cents)}
-                </span>
-                <span className="text-sm text-muted-foreground">/ week</span>
-                {btcPrice && (
-                  <span className="ml-2 text-sm text-muted-foreground">
-                    ≈ {convertToSats(centsToDollars(plan.weekly_price_cents)).toLocaleString()} sats
+            <div className="overflow-hidden rounded-3xl bg-card">
+              {/* Dish photo hero */}
+              <div className="relative h-44 w-full overflow-hidden bg-gradient-to-br from-orange-500/25 via-amber-500/10 to-transparent md:h-52">
+                {mealPhotos.length > 0 ? (
+                  <img src={mealPhotos[0]} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full items-center justify-center">
+                    <UtensilsCrossed className="h-16 w-16 text-muted-foreground/15" />
+                  </div>
+                )}
+                {mealPhotos.length > 1 && (
+                  <span className="absolute bottom-3 right-3 rounded-full bg-background/85 px-2.5 py-1 text-xs font-bold text-foreground backdrop-blur-sm">
+                    {mealPhotos.length} dishes
                   </span>
                 )}
+              </div>
+
+              <div className="p-5 md:p-7">
+                {provider && (
+                  <p className="flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.16em] text-orange-300">
+                    <ChefHat className="h-3 w-3" /> {provider.name}
+                  </p>
+                )}
+                <h1 className="mt-1 text-2xl font-black leading-tight tracking-tight text-foreground md:text-3xl">
+                  {plan.name}
+                </h1>
+                {plan.description && (
+                  <p className="mt-2 text-body text-muted-foreground">{plan.description}</p>
+                )}
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1 text-sm font-medium text-muted-foreground">
+                    <UtensilsCrossed className="h-3.5 w-3.5" /> {plan.meals_per_day} meals/day
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1 text-sm font-medium text-muted-foreground">
+                    <CalendarDays className="h-3.5 w-3.5" /> {plan.days_per_week} days/week
+                  </span>
+                  {mealTypes.map((t) => (
+                    <span key={t} className="inline-flex items-center gap-1 rounded-full bg-orange-500/10 px-3 py-1 text-sm font-medium text-orange-400">
+                      {MEAL_TYPE_LABELS[t]}
+                    </span>
+                  ))}
+                </div>
+
+                {plan.highlights && plan.highlights.length > 0 && (
+                  <ul className="mt-4 flex flex-wrap gap-x-6 gap-y-1.5">
+                    {plan.highlights.map((h, i) => (
+                      <li key={i} className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Check className="h-3.5 w-3.5 shrink-0 text-orange-400" /> {h}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                <div className="mt-5 flex items-baseline gap-1 border-t border-border/60 pt-4">
+                  <span className="text-4xl font-black tabular-nums text-foreground">
+                    {formatUSD(plan.weekly_price_cents)}
+                  </span>
+                  <span className="text-sm text-muted-foreground">/ week</span>
+                  {btcPrice && (
+                    <span className="ml-2 text-sm text-muted-foreground">
+                      ≈ {convertToSats(centsToDollars(plan.weekly_price_cents)).toLocaleString()} sats
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           </section>
