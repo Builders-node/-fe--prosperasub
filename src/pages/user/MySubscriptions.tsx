@@ -472,8 +472,7 @@ const MySubscriptions = () => {
 
         {/* ── Page header ── */}
         <div className="mb-5">
-          <p className="type-overline text-primary">Account</p>
-          <h1 className="mt-1 text-2xl font-black tracking-tight text-foreground sm:text-3xl">
+          <h1 className="text-2xl font-black tracking-tight text-foreground sm:text-3xl">
             My Subs
           </h1>
         </div>
