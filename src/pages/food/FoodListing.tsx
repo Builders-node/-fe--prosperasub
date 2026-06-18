@@ -79,6 +79,35 @@ const FoodListing = () => {
     },
   });
 
+  // Meal photos for every plan (across all restaurants), keyed by plan id.
+  const { data: planImages = {} } = useQuery({
+    queryKey: ["food-all-plan-meal-images"],
+    queryFn: async () => {
+      const { data: menus } = await supabaseDb
+        .from("food_weekly_menus")
+        .select("id, meal_plan_id");
+      const menuIds = (menus ?? []).map((m) => m.id);
+      if (!menuIds.length) return {} as Record<string, string[]>;
+
+      const { data: meals } = await supabaseDb
+        .from("food_menu_meals")
+        .select("menu_id, image_url, sort_order")
+        .in("menu_id", menuIds)
+        .not("image_url", "is", null)
+        .order("sort_order", { ascending: true });
+
+      const menuToPlan = new Map((menus ?? []).map((m) => [m.id, m.meal_plan_id]));
+      const map: Record<string, string[]> = {};
+      for (const meal of meals ?? []) {
+        const url = (meal as any).image_url as string | null;
+        const planId = menuToPlan.get((meal as any).menu_id);
+        if (!url || !planId) continue;
+        (map[planId] ??= []).push(url);
+      }
+      return map;
+    },
+  });
+
   // All meal plans across restaurants, flattened with their provider for context.
   const allPlans = (providers ?? []).flatMap((p) =>
     p.plans.map((plan) => ({ plan, provider: p })),
@@ -131,6 +160,7 @@ const FoodListing = () => {
                   key={plan.id}
                   plan={plan}
                   providerName={provider.name}
+                  images={planImages[plan.id] ?? []}
                   onClick={() => navigate(`/food/${provider.id}/plans/${plan.id}`)}
                 />
               ))}
@@ -273,12 +303,15 @@ function RestaurantCard({
 function MealPlanCard({
   plan,
   providerName,
+  images = [],
   onClick,
 }: {
   plan: FoodMealPlan;
   providerName: string;
+  images?: string[];
   onClick: () => void;
 }) {
+  const photos = images.slice(0, 3);
   return (
     <article
       role="button"
@@ -291,6 +324,25 @@ function MealPlanCard({
                  motion-safe:hover:scale-[1.01] hover:border-emerald-500/40
                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
     >
+      {/* Meal photos */}
+      {photos.length > 0 && (
+        <div className="mb-4 grid grid-cols-3 gap-1.5">
+          {photos.map((url, i) => (
+            <div
+              key={i}
+              className={`relative aspect-square overflow-hidden rounded-xl bg-muted ${photos.length === 1 ? "col-span-3 aspect-[16/9]" : ""}`}
+            >
+              <img src={url} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
+              {i === 2 && images.length > 3 && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/55 text-sm font-bold text-white">
+                  +{images.length - 3}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
       <p className="flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.16em] text-emerald-300">
         <ChefHat className="h-3 w-3" /> {providerName}
       </p>
