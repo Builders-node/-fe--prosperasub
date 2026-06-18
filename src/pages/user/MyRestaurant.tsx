@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { ChefHat, Info, BookOpen, CalendarDays, Users, ExternalLink, CreditCard } from "lucide-react";
+import { ChefHat, Info, BookOpen, CalendarDays, Users, ExternalLink, CreditCard, UtensilsCrossed } from "lucide-react";
 import { UserLayout } from "@/components/layout/UserLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -77,7 +77,19 @@ export default function MyRestaurant() {
         )}
 
         {/* Header */}
-        <div className="flex flex-wrap items-start gap-3 rounded-2xl border border-border bg-card p-4 sm:gap-4">
+        <div className="overflow-hidden rounded-2xl border border-border bg-card">
+          {/* Banner */}
+          <div className="relative h-28 w-full overflow-hidden bg-gradient-to-br from-orange-500/25 via-amber-500/10 to-transparent sm:h-40">
+            {selected.banner_url ? (
+              <img src={selected.banner_url} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <div className="flex h-full items-center justify-center">
+                <UtensilsCrossed className="h-12 w-12 text-muted-foreground/15" />
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-start gap-3 p-4 sm:gap-4">
           <div className="h-12 w-12 shrink-0 overflow-hidden rounded-2xl border border-border bg-muted sm:h-14 sm:w-14">
             {selected.avatar_url ? (
               <img src={selected.avatar_url} alt={selected.name} className="h-full w-full object-cover" />
@@ -106,6 +118,7 @@ export default function MyRestaurant() {
             onClick={() => window.open(`/food/${selected.id}`, "_blank")}>
             <ExternalLink className="h-3.5 w-3.5" /> View Public
           </Button>
+          </div>
         </div>
 
         {/* Tabs — keyed by restaurant so switching resets inner state */}
