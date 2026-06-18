@@ -38,7 +38,7 @@ export function DesktopHeader({
   };
 
   return (
-    <header className="hidden md:block sticky top-0 z-40 bg-background/97 backdrop-blur-md border-b border-border/30">
+    <header className="hidden md:block sticky top-0 z-40 bg-background border-b border-border/30">
       {/* ── Yandex Go desktop header: logo · tabs · search · account ── */}
       <div className="app-container flex h-[68px] items-center gap-4">
 

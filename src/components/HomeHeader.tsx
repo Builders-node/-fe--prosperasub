@@ -22,12 +22,12 @@ export function HomeHeader({ title, showBackButton = false, onBack }: HomeHeader
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-background/97 backdrop-blur-md border-b border-border/40 md:hidden">
+    <header className="sticky top-0 z-40 bg-background border-b border-border/40 md:hidden">
       <div className="relative flex items-center px-4" style={{ height: "56px" }}>
         {/* Left */}
         <div className="w-10 shrink-0">
           {showBackButton && (
-            <Button type="button" variant="ghost" size="icon" className="h-9 w-9 rounded-full" aria-label="Back" onClick={handleBack}>
+            <Button type="button" variant="ghost" size="icon" className="h-10 w-10 rounded-full" aria-label="Back" onClick={handleBack}>
               <ArrowLeft className="h-5 w-5" aria-hidden="true" />
             </Button>
           )}
@@ -49,7 +49,7 @@ export function HomeHeader({ title, showBackButton = false, onBack }: HomeHeader
             <button
               type="button"
               onClick={() => openAuthModal("login")}
-              className="h-8 rounded-full px-4 text-xs font-semibold transition-colors hover:opacity-80 yd-circle yd-text"
+              className="inline-flex h-9 shrink-0 items-center whitespace-nowrap rounded-full px-4 text-sm font-semibold transition-colors hover:opacity-80 yd-circle yd-text"
             >
               Log in
             </button>

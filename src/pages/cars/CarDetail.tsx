@@ -189,7 +189,7 @@ const CarDetail = () => {
                   <button
                     type="button"
                     onClick={() => setImgIndex((i) => (i - 1 + images.length) % images.length)}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-background/80 backdrop- transition hover:bg-background"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-background/80 backdrop-blur-sm transition hover:bg-background"
                     aria-label="Previous image"
                   >
                     <ChevronLeft className="h-5 w-5" />
@@ -197,13 +197,13 @@ const CarDetail = () => {
                   <button
                     type="button"
                     onClick={() => setImgIndex((i) => (i + 1) % images.length)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-background/80 backdrop- transition hover:bg-background"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-background/80 backdrop-blur-sm transition hover:bg-background"
                     aria-label="Next image"
                   >
                     <ChevronRight className="h-5 w-5" />
                   </button>
                   {/* Index pill */}
-                  <span className="absolute right-3 bottom-3 rounded-full bg-background/80 backdrop- px-2.5 py-1 text-xs font-bold text-foreground">
+                  <span className="absolute right-3 bottom-3 rounded-full bg-background/80 backdrop-blur-sm px-2.5 py-1 text-xs font-bold text-foreground">
                     {imgIndex + 1} / {images.length}
                   </span>
                   {/* Dots */}
@@ -402,7 +402,7 @@ const CarDetail = () => {
 
       {/* ─── Sticky bottom bar (Yandex-style) ──────────────────────── */}
       <div
-        className="fixed inset-x-0 bottom-0 z-40 bg-background/95 backdrop- md:left-[var(--sidebar-width,0px)]"
+        className="fixed inset-x-0 bottom-0 z-40 bg-background border-t border-border/40 md:left-[var(--sidebar-width,0px)]"
         style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
       >
         <div className="market-content px-4 py-3">
