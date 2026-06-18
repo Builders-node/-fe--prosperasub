@@ -25,7 +25,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { UserPicker } from "@/components/UserPicker";
 import { logAuditEvent } from "@/lib/auditLog";
 import type { FoodSubscription, FoodSubscriptionStatus, FoodMealPlan } from "@/types/food";
-import { Pause, Play, X, Plus, Trash2, Check, Pencil } from "lucide-react";
+import { Pause, Play, X, Plus, Trash2, Check, Pencil, StickyNote } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 
 // Supabase PostgrestErrors are plain objects, so String(e) yields "[object Object]".
@@ -403,44 +403,46 @@ export function RestaurantSubscriptionsTab({ providerId }: Props) {
                   )}
                 </div>
 
-                <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
+                <div className="flex flex-wrap items-center gap-1.5 sm:justify-end">
                   {sub.status === "pending" && (
-                    <Button size="sm" className="gap-1 rounded-full bg-green-600 text-white hover:bg-green-600/90"
+                    <Button size="iconSm" title="Approve" aria-label="Approve"
+                      className="rounded-full bg-green-600 text-white hover:bg-green-600/90"
                       onClick={() => setConfirmAction({ sub, action: "approve" })}>
-                      <Check className="h-3.5 w-3.5" /> Approve
+                      <Check />
                     </Button>
                   )}
                   {sub.status === "active" && (
-                    <Button size="sm" variant="outline" className="gap-1 rounded-full"
+                    <Button size="iconSm" variant="outline" title="Pause" aria-label="Pause" className="rounded-full"
                       onClick={() => setConfirmAction({ sub, action: "pause" })}>
-                      <Pause className="h-3.5 w-3.5" /> Pause
+                      <Pause />
                     </Button>
                   )}
                   {sub.status === "paused" && (
-                    <Button size="sm" variant="outline" className="gap-1 rounded-full"
+                    <Button size="iconSm" variant="outline" title="Resume" aria-label="Resume" className="rounded-full"
                       onClick={() => setConfirmAction({ sub, action: "resume" })}>
-                      <Play className="h-3.5 w-3.5" /> Resume
+                      <Play />
                     </Button>
                   )}
                   {sub.status !== "cancelled" && (
-                    <Button size="sm" variant="ghost"
-                      className="gap-1 rounded-full text-destructive hover:text-destructive"
+                    <Button size="iconSm" variant="ghost" title="Cancel" aria-label="Cancel"
+                      className="rounded-full text-destructive hover:text-destructive"
                       onClick={() => setConfirmAction({ sub, action: "cancel" })}>
-                      <X className="h-3.5 w-3.5" /> Cancel
+                      <X />
                     </Button>
                   )}
-                  <Button size="sm" variant="outline" className="gap-1 rounded-full"
+                  <Button size="iconSm" variant="outline" title="Edit" aria-label="Edit" className="rounded-full"
                     onClick={() => openEdit(sub)}>
-                    <Pencil className="h-3.5 w-3.5" /> Edit
+                    <Pencil />
                   </Button>
-                  <Button size="sm" variant="ghost" className="rounded-full text-xs"
+                  <Button size="iconSm" variant="ghost" title="Notes" aria-label="Notes"
+                    className={`rounded-full ${sub.admin_notes ? "text-primary" : ""}`}
                     onClick={() => { setSelectedSub(sub); setAdminNotes(sub.admin_notes ?? ""); }}>
-                    Notes
+                    <StickyNote />
                   </Button>
-                  <Button size="sm" variant="ghost"
-                    className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  <Button size="iconSm" variant="ghost" title="Delete" aria-label="Delete"
+                    className="rounded-full text-destructive hover:bg-destructive/10 hover:text-destructive"
                     onClick={() => setDeleteTarget(sub)}>
-                    <Trash2 className="h-3.5 w-3.5" />
+                    <Trash2 />
                   </Button>
                 </div>
               </div>
