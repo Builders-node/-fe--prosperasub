@@ -49,8 +49,7 @@ export default function MyBusiness() {
     <UserLayout title="My Business">
       <div className="app-container space-y-6 py-6">
         <div>
-          <p className="type-overline text-primary">Account</p>
-          <h1 className="mt-1 text-2xl font-black tracking-tight text-foreground sm:text-3xl">My Business</h1>
+          <h1 className="text-2xl font-black tracking-tight text-foreground sm:text-3xl">My Business</h1>
           <p className="mt-1 text-sm text-muted-foreground">Manage the restaurants and car rentals you own or run.</p>
         </div>
 
