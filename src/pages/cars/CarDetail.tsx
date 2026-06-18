@@ -2,36 +2,54 @@ import { useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
-  Car, Users, Luggage, Zap, Wind, ChevronLeft, ChevronRight as ChevronRightIcon,
-  MapPin, Clock, FileText, Gauge,
+  Car, Users, Luggage, Zap, Wind, ChevronLeft, ChevronRight,
+  MapPin, Clock, FileText, CalendarDays, ShieldCheck, Gauge,
+  CheckCircle2, ArrowRight,
 } from "lucide-react";
+import { format, parseISO, differenceInCalendarDays } from "date-fns";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { HomeHeader } from "@/components/HomeHeader";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
-import { BottomNav } from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
+import {
+  Sheet, SheetContent, SheetHeader, SheetTitle,
+} from "@/components/ui/sheet";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import { RentalCalendar } from "@/components/rental/RentalCalendar";
 import { formatUSD } from "@/lib/pricing";
-import type { RentalVehicle, RentalVehicleImage, RentalDeliverySettings, RentalDeliveryZone } from "@/types/carRental";
+import { YdIllustration } from "@/components/yd/YdPrimitives";
+import type {
+  RentalVehicle, RentalVehicleImage,
+  RentalDeliverySettings, RentalDeliveryZone,
+} from "@/types/carRental";
 
 const transmissionLabel = (t: string) => (t === "automatic" ? "Automatic" : "Manual");
 const fuelLabel = (f: string) =>
   ({ gasoline: "Gasoline", diesel: "Diesel", electric: "Electric", hybrid: "Hybrid" }[f] ?? f);
 
-const SPECS = (v: RentalVehicle) => [
-  { label: "Brand", value: v.brand },
-  { label: "Model", value: v.model },
-  { label: "Year", value: String(v.year) },
-  { label: "Seats", value: `${v.seats} seats` },
-  { label: "Transmission", value: transmissionLabel(v.transmission) },
-  { label: "Fuel Type", value: fuelLabel(v.fuel_type) },
-  { label: "Air Conditioning", value: v.air_conditioning ? "Yes" : "No" },
-  { label: "Luggage Capacity", value: `${v.luggage_capacity} bag${v.luggage_capacity !== 1 ? "s" : ""}` },
-];
+const TIME_OPTIONS = ["07:00", "08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00"];
+const fmt12 = (t: string) => {
+  if (!t) return "";
+  const [h, m] = t.split(":").map(Number);
+  const ampm = h >= 12 ? "PM" : "AM";
+  return `${h % 12 || 12}:${m.toString().padStart(2, "0")} ${ampm}`;
+};
 
 const CarDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [imgIndex, setImgIndex] = useState(0);
+
+  // ─── Date selection state (shared with booking page via URL params) ─────────
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [startTime, setStartTime] = useState("09:00");
+  const [endTime, setEndTime] = useState("09:00");
+  const [dateSheetOpen, setDateSheetOpen] = useState(false);
+  const [calendarError, setCalendarError] = useState<string | null>(null);
+  const [zonesOpen, setZonesOpen] = useState(false);
 
   const { data: vehicle, isLoading } = useQuery({
     queryKey: ["rental-vehicle", id],
@@ -91,7 +109,6 @@ const CarDetail = () => {
           <div className="mt-4 h-8 w-48 animate-pulse rounded-xl bg-muted" />
           <div className="mt-3 h-4 w-full animate-pulse rounded bg-muted" />
         </main>
-        <BottomNav />
       </div>
     );
   }
@@ -108,7 +125,6 @@ const CarDetail = () => {
             <Link to="/cars">Back to fleet</Link>
           </Button>
         </main>
-        <BottomNav />
       </div>
     );
   }
@@ -116,225 +132,441 @@ const CarDetail = () => {
   const images = vehicle.images ?? [];
 
   return (
-    <div className="min-h-screen bg-background pb-24 md:pb-0">
+    <div className="min-h-screen bg-background pb-28 md:pb-32">
       <HomeHeader title={vehicle.name} showBackButton onBack={() => navigate("/cars")} />
       <DesktopHeader />
 
-      <main className="market-content py-space-6 md:py-space-10">
-        <div className="grid gap-space-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(320px,1fr)]">
-          {/* Left column */}
-          <div className="space-y-space-6">
-            {/* Gallery */}
-            <div className="relative overflow-hidden rounded-3xl bg-muted" style={{ aspectRatio: "16/9" }}>
-              {images.length > 0 ? (
+      <main className="market-content py-4 md:py-8">
+
+        {/* ─── Step indicator (mobile only — desktop shows it inside right column) ─── */}
+        <section className="lg:hidden mb-4">
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-orange-300">
+            Step 1 of 2
+          </p>
+          <h1 className="mt-1 text-2xl font-black tracking-tight text-foreground">
+            Book your car
+          </h1>
+        </section>
+
+        {/* ─── Adaptive 2-column layout (Yandex desktop pattern) ───── */}
+        <div className="grid gap-4 lg:grid-cols-2 lg:gap-8 lg:items-start">
+
+          {/* ─── LEFT COLUMN: Image + car summary (sticky on desktop) ── */}
+          <div className="space-y-4 lg:sticky lg:top-24">
+
+            {/* ─── Hero image gallery ───────────────────────────────── */}
+            <section className="relative overflow-hidden rounded-3xl bg-muted" style={{ aspectRatio: "16/10" }}>
+          {images.length > 0 ? (
+            <>
+              <img
+                src={images[imgIndex].url}
+                alt={`${vehicle.name} photo ${imgIndex + 1}`}
+                className="h-full w-full object-cover"
+              />
+              {images.length > 1 && (
                 <>
-                  <img
-                    src={images[imgIndex].url}
-                    alt={`${vehicle.name} photo ${imgIndex + 1}`}
-                    className="h-full w-full object-cover"
-                  />
-                  {images.length > 1 && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => setImgIndex((i) => (i - 1 + images.length) % images.length)}
-                        className="absolute left-3 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full bg-background/80 backdrop-blur-sm transition hover:bg-background"
-                        aria-label="Previous image"
-                      >
-                        <ChevronLeft className="h-5 w-5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setImgIndex((i) => (i + 1) % images.length)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full bg-background/80 backdrop-blur-sm transition hover:bg-background"
-                        aria-label="Next image"
-                      >
-                        <ChevronRightIcon className="h-5 w-5" />
-                      </button>
-                      {/* Dots */}
-                      <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1.5">
-                        {images.map((_, i) => (
-                          <button
-                            key={i}
-                            type="button"
-                            onClick={() => setImgIndex(i)}
-                            className={`h-1.5 rounded-full transition-all ${i === imgIndex ? "w-4 bg-white" : "w-1.5 bg-white/50"}`}
-                            aria-label={`Go to image ${i + 1}`}
-                          />
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </>
-              ) : (
-                <div className="flex h-full items-center justify-center">
-                  <Car className="h-20 w-20 text-muted-foreground/30" />
-                </div>
-              )}
-            </div>
-
-            {/* Thumbnail strip */}
-            {images.length > 1 && (
-              <div className="flex gap-2 overflow-x-auto pb-1">
-                {images.map((img, i) => (
                   <button
-                    key={img.id}
                     type="button"
-                    onClick={() => setImgIndex(i)}
-                    className={`h-16 w-24 shrink-0 overflow-hidden rounded-xl border-2 transition ${i === imgIndex ? "border-primary" : "border-transparent"}`}
+                    onClick={() => setImgIndex((i) => (i - 1 + images.length) % images.length)}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-background/80 backdrop- transition hover:bg-background"
+                    aria-label="Previous image"
                   >
-                    <img src={img.url} alt="" className="h-full w-full object-cover" />
+                    <ChevronLeft className="h-5 w-5" />
                   </button>
-                ))}
-              </div>
-            )}
-
-            {/* Description */}
-            {vehicle.description && (
-              <div className="rounded-2xl bg-card p-5">
-                <h2 className="mb-3 font-black text-foreground">About this vehicle</h2>
-                <p className="text-sm leading-relaxed text-muted-foreground">{vehicle.description}</p>
-              </div>
-            )}
-
-            {/* Specifications */}
-            <div className="rounded-2xl bg-card p-5">
-              <h2 className="mb-4 flex items-center gap-2 font-black text-foreground">
-                <Gauge className="h-5 w-5 text-primary" />
-                Specifications
-              </h2>
-              <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                {SPECS(vehicle).map(({ label, value }) => (
-                  <div key={label} className="rounded-xl bg-[hsl(var(--app-rail))] p-3">
-                    <dt className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</dt>
-                    <dd className="mt-1 font-bold text-foreground">{value}</dd>
+                  <button
+                    type="button"
+                    onClick={() => setImgIndex((i) => (i + 1) % images.length)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full bg-background/80 backdrop- transition hover:bg-background"
+                    aria-label="Next image"
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </button>
+                  {/* Index pill */}
+                  <span className="absolute right-3 bottom-3 rounded-full bg-background/80 backdrop- px-2.5 py-1 text-xs font-bold text-foreground">
+                    {imgIndex + 1} / {images.length}
+                  </span>
+                  {/* Dots */}
+                  <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-1.5">
+                    {images.map((_, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => setImgIndex(i)}
+                        className={`h-1.5 rounded-full transition-all ${i === imgIndex ? "w-4 bg-white" : "w-1.5 bg-white/50"}`}
+                        aria-label={`Go to image ${i + 1}`}
+                      />
+                    ))}
                   </div>
-                ))}
-              </dl>
+                </>
+              )}
+            </>
+          ) : (
+            <div className="flex h-full items-center justify-center ">
+              <YdIllustration icon={Car} accent="orange" size="lg" />
             </div>
+          )}
+            </section>
 
-            {/* Delivery section */}
-            {delivery && (
-              <div className="rounded-2xl bg-card p-5 space-y-4">
-                <h2 className="flex items-center gap-2 font-black text-foreground">
-                  <MapPin className="h-5 w-5 text-primary" />
-                  Delivery & Pickup
-                </h2>
-
-                {/* Delivery zones with prices */}
-                {deliveryZones.length > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Delivery zones</p>
-                    <div className="divide-y divide-border/60 overflow-hidden rounded-xl border border-border/60">
-                      {deliveryZones.map((z) => (
-                        <div key={z.id} className="flex items-start justify-between gap-3 px-3.5 py-2.5">
-                          <div className="min-w-0">
-                            <p className="text-sm font-semibold text-foreground">{z.name}</p>
-                            {z.areas && <p className="text-xs text-muted-foreground leading-snug">{z.areas}</p>}
-                          </div>
-                          <span className={`shrink-0 text-sm font-bold ${z.fee_cents === 0 ? "text-green-400" : z.fee_cents >= 4000 ? "text-red-400" : "text-yellow-400"}`}>
-                            {z.fee_cents === 0 ? "FREE" : formatUSD(z.fee_cents)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {delivery.pickup_instructions && (
-                    <InfoBlock icon={Clock} title="Pickup instructions" body={delivery.pickup_instructions} />
-                  )}
-                  {delivery.terms_and_conditions && (
-                    <InfoBlock icon={FileText} title="Terms & conditions" body={delivery.terms_and_conditions} />
-                  )}
-                </div>
-              </div>
-            )}
+            {/* ─── Car info card (under image on both layouts) ─────── */}
+            <section className="overflow-hidden rounded-3xl bg-card">
+              <InfoRow
+                icon={<Car className="h-5 w-5 text-muted-foreground" />}
+                caption={`${transmissionLabel(vehicle.transmission)} · ${fuelLabel(vehicle.fuel_type)}`}
+                title={`${vehicle.brand} ${vehicle.model} ${vehicle.year}`}
+                sublink="Car details and specs"
+              />
+            </section>
           </div>
 
-          {/* Right column — sticky booking summary */}
-          <div className="lg:sticky lg:top-24 lg:self-start">
-            <div className="rounded-3xl border border-border bg-card p-6">
-              <p className="text-caption font-bold uppercase tracking-widest text-muted-foreground">
-                {vehicle.brand} {vehicle.model} · {vehicle.year}
+          {/* ─── RIGHT COLUMN: Booking info + sections ─────────────── */}
+          <div className="space-y-4">
+
+            {/* Desktop-only step indicator at the top of right column */}
+            <section className="hidden lg:block">
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-orange-300">
+                Step 1 of 2
               </p>
-              <h1 className="mt-1 text-2xl font-black tracking-tight text-foreground">{vehicle.name}</h1>
+              <h1 className="mt-1 text-3xl font-black tracking-tight text-foreground">
+                Book your car
+              </h1>
+            </section>
 
-              <div className="mt-5 flex items-baseline gap-1">
-                <span className="text-4xl font-black tabular-nums text-foreground">
-                  {formatUSD(vehicle.daily_price_cents)}
-                </span>
-                <span className="text-sm text-muted-foreground">/ day</span>
-              </div>
+            {/* ─── Dates + Price card ─────────────────────────────── */}
+            <section className="overflow-hidden rounded-3xl bg-card">
+              <button
+                type="button"
+                onClick={() => setDateSheetOpen(true)}
+                className="block w-full text-left transition-colors hover:bg-muted/30"
+              >
+                <InfoRow
+                  icon={<CalendarDays className="h-5 w-5 text-muted-foreground" />}
+                  title={
+                    startDate && endDate
+                      ? `${format(parseISO(startDate), "MMM d")} → ${format(parseISO(endDate), "MMM d, yyyy")}`
+                      : "Daily, weekly or monthly"
+                  }
+                  caption={
+                    startDate && endDate
+                      ? `${fmt12(startTime)} → ${fmt12(endTime)}`
+                      : undefined
+                  }
+                  sublink={
+                    startDate && endDate ? (
+                      <span className="inline-flex items-center gap-1 text-emerald-600">
+                        <CheckCircle2 className="h-3 w-3" />
+                        {Math.max(1, differenceInCalendarDays(parseISO(endDate), parseISO(startDate)))} day rental
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-emerald-600">
+                        <CheckCircle2 className="h-3 w-3" /> Available now · tap to select
+                      </span>
+                    )
+                  }
+                  chevron
+                />
+              </button>
+              <PriceRow vehicle={vehicle} />
+            </section>
 
-              {/* Weekly / monthly pricing (smaller) */}
-              {(vehicle.weekly_price_cents > 0 || vehicle.monthly_price_cents > 0) && (
-                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
-                  {vehicle.weekly_price_cents > 0 && (
-                    <span className="text-muted-foreground">
-                      <span className="font-bold text-foreground tabular-nums">{formatUSD(vehicle.weekly_price_cents)}</span> / week
-                    </span>
-                  )}
-                  {vehicle.monthly_price_cents > 0 && (
-                    <span className="text-muted-foreground">
-                      <span className="font-bold text-foreground tabular-nums">{formatUSD(vehicle.monthly_price_cents)}</span> / month
-                    </span>
-                  )}
-                </div>
-              )}
+            {/* ─── Requirements & terms section ──────────────────── */}
+        <h2 className="mt-2 text-xl font-black tracking-tight text-foreground">
+          Requirements & terms
+        </h2>
+        <section className="overflow-hidden rounded-3xl bg-card">
+          <InfoRow
+            icon={<Users className="h-5 w-5 text-muted-foreground" />}
+            title="Minimum driver requirements"
+            caption="18 years old · valid driving license"
+          />
+          <InfoRow
+            icon={<FileText className="h-5 w-5 text-muted-foreground" />}
+            title="Required documents"
+            chevron
+          />
+        </section>
 
-              {vehicle.monthly_discount_pct > 0 && (
-                <p className="mt-1 text-sm text-green-400">
-                  {vehicle.monthly_discount_pct}% discount on monthly rentals
-                </p>
-              )}
-
-              <div className="mt-6 space-y-2">
-                <Button asChild size="lg" className="w-full rounded-full">
-                  <Link to={`/cars/${vehicle.id}/book`}>Book Now</Link>
-                </Button>
-                <Button asChild variant="secondary" size="lg" className="w-full rounded-full">
-                  <Link to="/cars">Browse other cars</Link>
-                </Button>
-              </div>
-
-              <div className="mt-6 space-y-2 border-t border-[hsl(var(--app-divider))] pt-5">
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Rental rules</p>
-                <ul className="space-y-1 text-sm text-muted-foreground">
-                  <li>• Minimum: 1 day</li>
-                  <li>• Maximum: 1 month (30 days)</li>
-                  {vehicle.monthly_discount_pct > 0 && (
-                    <li className="text-green-400">• {vehicle.monthly_discount_pct}% discount for monthly bookings</li>
-                  )}
-                </ul>
-              </div>
+        {/* ─── Insurance ───────────────────────────────────────────── */}
+        <h2 className="mt-2 text-xl font-black tracking-tight text-foreground">Insurance</h2>
+        <section className="overflow-hidden rounded-3xl bg-card">
+          <div className="flex items-center gap-3 p-4">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-500/15">
+              <ShieldCheck className="h-5 w-5 text-emerald-400" />
+            </span>
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-foreground leading-tight">Basic liability coverage</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Included in rental price ·{" "}
+                <Link to="#" className="text-orange-400 hover:underline">More</Link>
+              </p>
             </div>
+          </div>
+        </section>
+
+        {/* ─── Vehicle specs ──────────────────────────────────────── */}
+        <h2 className="mt-2 text-xl font-black tracking-tight text-foreground">Vehicle specs</h2>
+        <section className="overflow-hidden rounded-3xl bg-card divide-y divide-border/60">
+          <SpecRow icon={<Users className="h-4 w-4" />} label="Seats" value={`${vehicle.seats}`} />
+          <SpecRow icon={<Luggage className="h-4 w-4" />} label="Luggage" value={`${vehicle.luggage_capacity} bag${vehicle.luggage_capacity !== 1 ? "s" : ""}`} />
+          <SpecRow icon={<Gauge className="h-4 w-4" />} label="Transmission" value={transmissionLabel(vehicle.transmission)} />
+          <SpecRow icon={<Zap className="h-4 w-4" />} label="Fuel" value={fuelLabel(vehicle.fuel_type)} />
+          <SpecRow icon={<Wind className="h-4 w-4" />} label="Air conditioning" value={vehicle.air_conditioning ? "Yes" : "No"} />
+        </section>
+
+        {/* ─── Delivery & pickup ──────────────────────────────────── */}
+        {(delivery || deliveryZones.length > 0) && (
+          <>
+            <h2 className="mt-2 text-xl font-black tracking-tight text-foreground">
+              Pickup & delivery
+            </h2>
+            <section className="overflow-hidden rounded-3xl bg-card">
+              {deliveryZones.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setZonesOpen(true)}
+                  className="flex w-full items-center gap-4 border-b border-border/60 p-4 text-left transition-colors hover:bg-muted/40"
+                >
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-muted">
+                    <MapPin className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold text-foreground">Delivery zones</p>
+                    <p className="text-sm text-muted-foreground">
+                      {deliveryZones.length} zone{deliveryZones.length !== 1 ? "s" : ""}
+                      {deliveryZones.some((z) => z.fee_cents === 0) && (
+                        <span className="text-emerald-400"> · Free pickup available</span>
+                      )}
+                    </p>
+                  </div>
+                  <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
+                </button>
+              )}
+              {delivery?.pickup_instructions && (
+                <InfoRow
+                  icon={<Clock className="h-5 w-5 text-muted-foreground" />}
+                  title="Pickup instructions"
+                  caption={delivery.pickup_instructions}
+                />
+              )}
+              {delivery?.terms_and_conditions && (
+                <InfoRow
+                  icon={<FileText className="h-5 w-5 text-muted-foreground" />}
+                  title="Terms & conditions"
+                  caption={delivery.terms_and_conditions}
+                />
+              )}
+            </section>
+          </>
+        )}
+
+            {/* ─── Description ──────────────────────────────────── */}
+            {vehicle.description && (
+              <>
+                <h2 className="mt-2 text-xl font-black tracking-tight text-foreground">
+                  About this car
+                </h2>
+                <section className="rounded-3xl bg-card p-5">
+                  <p className="text-sm leading-relaxed text-muted-foreground">
+                    {vehicle.description}
+                  </p>
+                </section>
+              </>
+            )}
           </div>
         </div>
       </main>
 
-      <BottomNav />
+      {/* ─── Sticky bottom bar (Yandex-style) ──────────────────────── */}
+      <div
+        className="fixed inset-x-0 bottom-0 z-40 bg-background/95 backdrop- md:left-[var(--sidebar-width,0px)]"
+        style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+      >
+        <div className="market-content px-4 py-3">
+          <div className="flex items-center justify-center gap-2 mb-2 text-xs text-muted-foreground">
+            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+            Free cancellation · 24h before pickup
+          </div>
+          <Button
+            size="lg"
+            className="w-full h-14 rounded-2xl font-bold text-base"
+            onClick={() => {
+              if (!startDate || !endDate) {
+                setDateSheetOpen(true);
+                return;
+              }
+              const params = new URLSearchParams({
+                start: startDate,
+                end: endDate,
+                startTime,
+                endTime,
+              });
+              navigate(`/cars/${vehicle.id}/book?${params.toString()}`);
+            }}
+          >
+            {startDate && endDate ? "Continue" : "Select dates"}
+            <ArrowRight className="ml-2 h-5 w-5" />
+          </Button>
+          <p className="mt-1.5 text-center text-[11px] text-muted-foreground">
+            {startDate && endDate ? "Only one step left" : "Tap to choose your rental dates"}
+          </p>
+        </div>
+      </div>
+
+      {/* ─── Delivery zones modal ──────────────────────────────────────────── */}
+      <Dialog open={zonesOpen} onOpenChange={setZonesOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delivery zones</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 overflow-y-auto">
+            {deliveryZones.map((z) => (
+              <div key={z.id} className="flex items-start justify-between gap-3 rounded-2xl bg-muted/40 px-3.5 py-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-foreground">{z.name}</p>
+                  {z.areas && <p className="text-xs leading-snug text-muted-foreground">{z.areas}</p>}
+                </div>
+                <span className={`shrink-0 text-sm font-black tabular-nums ${
+                  z.fee_cents === 0 ? "text-emerald-400" :
+                  z.fee_cents >= 4000 ? "text-red-400" :
+                  "text-yellow-400"
+                }`}>
+                  {z.fee_cents === 0 ? "FREE" : formatUSD(z.fee_cents)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── Date selection sheet (Yandex Прокат "Select rental dates" modal) ─── */}
+      <Sheet open={dateSheetOpen} onOpenChange={setDateSheetOpen}>
+        <SheetContent side="bottom" className="h-[92vh] overflow-y-auto rounded-t-3xl px-4 pb-8 pt-5">
+          <SheetHeader className="mb-3">
+            <SheetTitle className="text-lg font-black">Select rental dates</SheetTitle>
+          </SheetHeader>
+          {id && (
+            <>
+              <RentalCalendar
+                vehicleId={id}
+                startDate={startDate}
+                endDate={endDate}
+                onRangeChange={(s, e) => { setStartDate(s); setEndDate(e); }}
+                onError={setCalendarError}
+                maxDays={30}
+                pickupTime={startTime}
+                dropoffTime={endTime}
+                timeOptions={TIME_OPTIONS}
+                onPickupTimeChange={setStartTime}
+                onDropoffTimeChange={setEndTime}
+              />
+              {calendarError && (
+                <p className="mt-3 text-center text-sm font-medium text-destructive">
+                  {calendarError}
+                </p>
+              )}
+              <div className="sticky bottom-0 -mx-4 mt-4 bg-background/95 px-4 pt-3 ">
+                <Button
+                  size="lg"
+                  className="w-full h-12 rounded-2xl font-bold"
+                  onClick={() => setDateSheetOpen(false)}
+                  disabled={!startDate || !endDate || !!calendarError}
+                >
+                  {startDate && endDate ? "Apply" : "Pick a date range"}
+                </Button>
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 };
 
-function ChevronLeft({ className }: { className?: string }) {
+// ─── Yandex-style grouped row ─────────────────────────────────────────────────
+function InfoRow({
+  icon, title, caption, sublink, chevron,
+}: {
+  icon: React.ReactNode;
+  title: React.ReactNode;
+  caption?: React.ReactNode;
+  sublink?: React.ReactNode;
+  chevron?: boolean;
+}) {
   return (
-    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-      <polyline points="15 18 9 12 15 6" />
-    </svg>
+    <div className="flex items-start gap-3 border-b border-border/60 last:border-0 p-4">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted/40">
+        {icon}
+      </span>
+      <div className="flex-1 min-w-0">
+        {caption && typeof caption === "string" && (
+          <p className="text-xs text-muted-foreground">{caption}</p>
+        )}
+        {caption && typeof caption !== "string" && (
+          <div className="text-xs text-muted-foreground">{caption}</div>
+        )}
+        <p className={`font-bold text-foreground leading-tight ${caption ? "mt-0.5" : ""}`}>
+          {title}
+        </p>
+        {sublink && (
+          <div className="mt-1 text-sm text-orange-400">{sublink}</div>
+        )}
+      </div>
+      {chevron && (
+        <ChevronRight className="mt-2 h-4 w-4 shrink-0 text-muted-foreground" />
+      )}
+    </div>
   );
 }
 
-function InfoBlock({ icon: Icon, title, body }: { icon: React.FC<{ className?: string }>; title: string; body: string }) {
+// ─── Price row (special inline format) ────────────────────────────────────────
+function PriceRow({ vehicle }: { vehicle: RentalVehicle }) {
   return (
-    <div className="rounded-xl bg-[hsl(var(--app-rail))] p-3">
-      <p className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-muted-foreground">
-        <Icon className="h-3.5 w-3.5" />
-        {title}
-      </p>
-      <p className="mt-1 text-sm text-foreground">{body}</p>
+    <div className="flex items-start gap-3 p-4">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted/40">
+        <CalendarDays className="h-5 w-5 text-muted-foreground" />
+      </span>
+      <div className="flex-1 min-w-0">
+        <p className="font-bold text-foreground leading-tight">Daily rate</p>
+        <div className="mt-1 flex items-baseline gap-2">
+          <span className="text-sm tabular-nums text-emerald-400 font-bold">
+            {formatUSD(vehicle.daily_price_cents)} / day
+          </span>
+          {vehicle.weekly_price_cents > 0 && (
+            <span className="text-xs text-muted-foreground tabular-nums">
+              · {formatUSD(vehicle.weekly_price_cents)} / wk
+            </span>
+          )}
+          {vehicle.monthly_price_cents > 0 && (
+            <span className="text-xs text-muted-foreground tabular-nums">
+              · {formatUSD(vehicle.monthly_price_cents)} / mo
+            </span>
+          )}
+        </div>
+      </div>
+      <div className="text-right shrink-0">
+        <p className="text-xl font-black tabular-nums text-foreground leading-none">
+          {formatUSD(vehicle.daily_price_cents)}
+        </p>
+        <p className="mt-0.5 text-[11px] text-muted-foreground">starting</p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Spec row ─────────────────────────────────────────────────────────────────
+function SpecRow({
+  icon, label, value,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 px-4 py-3">
+      <div className="flex items-center gap-3">
+        <span className="text-muted-foreground">{icon}</span>
+        <span className="text-sm text-muted-foreground">{label}</span>
+      </div>
+      <span className="text-sm font-bold text-foreground">{value}</span>
     </div>
   );
 }
