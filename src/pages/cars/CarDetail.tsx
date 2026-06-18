@@ -22,8 +22,14 @@ import { formatUSD } from "@/lib/pricing";
 import { YdIllustration } from "@/components/yd/YdPrimitives";
 import type {
   RentalVehicle, RentalVehicleImage,
-  RentalDeliverySettings, RentalDeliveryZone,
+  RentalDeliverySettings, RentalDeliveryZone, RentalInsuranceTier,
 } from "@/types/carRental";
+
+const FALLBACK_INSURANCE_TIERS: RentalInsuranceTier[] = [
+  { id: "basic",    name: "Basic",    price_per_day_cents: 0,    items: ["Collision, rollover, self-ignition", "Legal assistance"], sort_order: 1, is_active: true, created_at: "", updated_at: "" },
+  { id: "plus",     name: "Plus",     price_per_day_cents: 1000, items: ["All Basic coverage", "Civil liability (property)", "Theft protection", "Force majeure", "Seniors (60-75 yrs)", "Fuel service (deferred)"], sort_order: 2, is_active: true, created_at: "", updated_at: "" },
+  { id: "platinum", name: "Platinum", price_per_day_cents: 2000, items: ["All Plus coverage", "Occupant medical", "Glass & tyre protection", "Occupant insurance", "Civil liability (persons)"], sort_order: 3, is_active: true, created_at: "", updated_at: "" },
+];
 
 const transmissionLabel = (t: string) => (t === "automatic" ? "Automatic" : "Manual");
 const fuelLabel = (f: string) =>
@@ -50,6 +56,7 @@ const CarDetail = () => {
   const [dateSheetOpen, setDateSheetOpen] = useState(false);
   const [calendarError, setCalendarError] = useState<string | null>(null);
   const [zonesOpen, setZonesOpen] = useState(false);
+  const [insuranceOpen, setInsuranceOpen] = useState(false);
 
   const { data: vehicle, isLoading } = useQuery({
     queryKey: ["rental-vehicle", id],
@@ -96,6 +103,19 @@ const CarDetail = () => {
         .order("sort_order", { ascending: true });
       if (error) return [];
       return data as RentalDeliveryZone[];
+    },
+  });
+
+  const { data: insuranceTiers = FALLBACK_INSURANCE_TIERS } = useQuery({
+    queryKey: ["rental-insurance-tiers"],
+    queryFn: async () => {
+      const { data, error } = await supabaseDb
+        .from("rental_insurance_tiers")
+        .select("*")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true });
+      if (error || !data || data.length === 0) return FALLBACK_INSURANCE_TIERS;
+      return data as RentalInsuranceTier[];
     },
   });
 
@@ -288,18 +308,22 @@ const CarDetail = () => {
         {/* ─── Insurance ───────────────────────────────────────────── */}
         <h2 className="mt-2 text-xl font-black tracking-tight text-foreground">Insurance</h2>
         <section className="overflow-hidden rounded-3xl bg-card">
-          <div className="flex items-center gap-3 p-4">
+          <button
+            type="button"
+            onClick={() => setInsuranceOpen(true)}
+            className="flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-muted/40"
+          >
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-500/15">
               <ShieldCheck className="h-5 w-5 text-emerald-400" />
             </span>
-            <div className="flex-1 min-w-0">
+            <div className="min-w-0 flex-1">
               <p className="font-bold text-foreground leading-tight">Basic liability coverage</p>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                Included in rental price ·{" "}
-                <Link to="#" className="text-orange-400 hover:underline">More</Link>
+                Included in rental price · <span className="text-orange-400">More</span>
               </p>
             </div>
-          </div>
+            <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
+          </button>
         </section>
 
         {/* ─── Vehicle specs ──────────────────────────────────────── */}
@@ -431,6 +455,40 @@ const CarDetail = () => {
                 }`}>
                   {z.fee_cents === 0 ? "FREE" : formatUSD(z.fee_cents)}
                 </span>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* ─── Insurance modal ───────────────────────────────────────────────── */}
+      <Dialog open={insuranceOpen} onOpenChange={setInsuranceOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Insurance coverage</DialogTitle>
+          </DialogHeader>
+          <p className="-mt-1 text-sm text-muted-foreground">
+            Basic liability is included in every rental. Upgrade for extra protection at checkout.
+          </p>
+          <div className="space-y-3 overflow-y-auto">
+            {insuranceTiers.map((tier) => (
+              <div key={tier.id} className="rounded-2xl bg-muted/40 p-4">
+                <div className="flex items-baseline justify-between gap-3">
+                  <p className="font-black text-foreground">{tier.name}</p>
+                  <span className={`shrink-0 text-sm font-black tabular-nums ${tier.price_per_day_cents === 0 ? "text-emerald-400" : "text-foreground"}`}>
+                    {tier.price_per_day_cents === 0 ? "Included" : `${formatUSD(tier.price_per_day_cents)} / day`}
+                  </span>
+                </div>
+                {tier.items?.length > 0 && (
+                  <ul className="mt-3 space-y-1.5">
+                    {tier.items.map((item, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+                        <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-400" />
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             ))}
           </div>
