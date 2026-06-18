@@ -364,7 +364,7 @@ const SuperAdminLayout = ({ children, title, subtitle }: SuperAdminLayoutProps) 
         </header>
 
         {/* Page content */}
-        <main className="mx-auto min-w-0 max-w-[1600px] px-space-4 py-space-5 md:px-space-5 lg:px-space-6 lg:py-space-6 xl:px-space-8">
+        <main className="app-container min-w-0 py-space-5 lg:py-space-6">
           {title && (
             <div className="admin-page-header mb-space-4">
               <h1 className="text-2xl font-black leading-tight tracking-tight md:text-3xl lg:text-4xl">

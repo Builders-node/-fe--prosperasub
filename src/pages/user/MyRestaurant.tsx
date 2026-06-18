@@ -29,7 +29,7 @@ export default function MyRestaurant() {
   if (isLoading) {
     return (
       <UserLayout title="My Restaurant">
-        <div className="mx-auto max-w-5xl space-y-4 px-4 py-6">
+        <div className="app-container space-y-4 py-6">
           <div className="h-20 animate-pulse rounded-2xl bg-muted" />
           <div className="h-96 animate-pulse rounded-2xl bg-muted" />
         </div>
@@ -65,7 +65,7 @@ export default function MyRestaurant() {
         )}
       </div>
 
-      <div className="mx-auto max-w-5xl space-y-6 px-4 py-6">
+      <div className="app-container space-y-6 py-6">
         {/* Restaurant switcher (only when the user manages more than one) */}
         {restaurants.length > 1 && (
           <div className="flex flex-wrap gap-2">

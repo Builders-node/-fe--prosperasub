@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { PageLoader, Spinner } from "@/components/ui/spinner";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -14,8 +15,11 @@ import {
   Clock,
   CreditCard,
   DoorOpen,
-  Loader2,
   SparklesIcon,
+  UtensilsCrossed,
+  Car,
+  ChefHat,
+  ArrowRight,
   X,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
@@ -24,8 +28,10 @@ import { useAuthModal } from "@/contexts/AuthModalContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { accountApi, supabase, supabaseDb } from "@/integrations/supabase/client";
 import { useUserUuid } from "@/hooks/useUserUuid";
-import { format, isPast } from "date-fns";
+import { format, isPast, addWeeks, parseISO } from "date-fns";
 import { UserLayout } from "@/components/layout/UserLayout";
+import { TodaysMeals } from "@/components/food/TodaysMeals";
+import { PullToRefresh } from "@/components/PullToRefresh";
 import { EmptyState } from "@/components/EmptyState";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -121,7 +127,7 @@ function CleaningBookingRow({
           className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
         >
           {cancelling ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <Spinner size="sm" />
           ) : (
             <X className="h-4 w-4" />
           )}
@@ -137,6 +143,8 @@ function CleaningBookingRow({
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+type ServiceTab = "cleaning" | "food" | "cars";
+
 const MySubscriptions = () => {
   const { isAuthenticated, isLoading: authLoading, userData } = useAuth();
   const [paymentDialog, setPaymentDialog] = useState<any>(null);
@@ -144,6 +152,57 @@ const MySubscriptions = () => {
   const { openAuthModal } = useAuthModal();
   const queryClient = useQueryClient();
   const navigate    = useNavigate();
+
+  // ── Service tab state (Cleaning / Food / Cars) ──────────────────────────
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTab = (searchParams.get("tab") as ServiceTab) || "cleaning";
+  const [activeTab, setActiveTab] = useState<ServiceTab>(
+    ["cleaning", "food", "cars"].includes(initialTab) ? initialTab : "cleaning",
+  );
+  const changeTab = (t: ServiceTab) => {
+    setActiveTab(t);
+    setSearchParams((sp) => {
+      const next = new URLSearchParams(sp);
+      next.set("tab", t);
+      return next;
+    }, { replace: true });
+  };
+
+  // ── Food subscriptions for the current user ─────────────────────────────
+  const { data: foodSubscriptions = [], isLoading: foodSubsLoading } = useQuery({
+    queryKey: ["my-food-subscriptions", userUuid, userData?.id],
+    queryFn: async () => {
+      // Match both the canonical UUID and the raw auth id (Google logins were
+      // historically stored as "google-xxx" rather than the resolved UUID).
+      const ids = [userUuid, userData?.id].filter(Boolean) as string[];
+      if (ids.length === 0) return [];
+      const { data, error } = await supabaseDb
+        .from("food_subscriptions")
+        .select("*")
+        .in("user_id", ids)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: (!!userUuid || !!userData?.id) && activeTab === "food",
+  });
+
+  // ── Car rental bookings for the current user ────────────────────────────
+  const { data: rentalBookings = [], isLoading: rentalBookingsLoading } = useQuery({
+    queryKey: ["my-rental-bookings", userUuid],
+    queryFn: async () => {
+      if (!userUuid) return [];
+      const { data, error } = await supabaseDb
+        .from("rental_bookings")
+        .select("*")
+        .eq("user_id", userUuid)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!userUuid && activeTab === "cars",
+  });
 
   // ── Queries ──────────────────────────────────────────────────────────────
 
@@ -371,17 +430,15 @@ const MySubscriptions = () => {
 
   if (authLoading) {
     return (
-      <UserLayout title="My Bookings">
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
+      <UserLayout title="My Subs">
+        <PageLoader />
       </UserLayout>
     );
   }
 
   if (!isAuthenticated) {
     return (
-      <UserLayout title="My Bookings">
+      <UserLayout title="My Subs">
         <div className="flex items-center justify-center py-20">
           <EmptyState
             title="Sign in to view bookings"
@@ -403,17 +460,162 @@ const MySubscriptions = () => {
   // ─────────────────────────────────────────────────────────────────────────
 
   return (
-    <UserLayout title="My Bookings">
-      <div className="mx-auto w-full max-w-2xl px-4 pb-28 pt-5 sm:px-6">
+    <UserLayout title="My Subs">
+      <PullToRefresh onRefresh={async () => {
+        try {
+          const API_URL = (import.meta.env.VITE_API_URL as string) || "https://api.prosperasub.com";
+          await fetch(`${API_URL}/cron/reconcile-payments`, { method: "POST" });
+        } catch { /* best effort */ }
+        await queryClient.invalidateQueries();
+      }}>
+      <div className="app-container pb-28 pt-5">
 
         {/* ── Page header ── */}
         <div className="mb-5">
           <p className="type-overline text-primary">Account</p>
           <h1 className="mt-1 text-2xl font-black tracking-tight text-foreground sm:text-3xl">
-            My Bookings
+            My Subs
           </h1>
         </div>
 
+        {/* ── Service tabs ────────────────────────────────────────── */}
+        <div className="mb-5 flex gap-1 rounded-2xl bg-muted/50 p-1">
+          {([
+            { id: "cleaning" as const, label: "Cleaning",   icon: SparklesIcon },
+            { id: "food"     as const, label: "Food",       icon: UtensilsCrossed },
+            { id: "cars"     as const, label: "Car Rental", icon: Car },
+          ]).map(({ id, label, icon: Icon }) => {
+            const active = activeTab === id;
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => changeTab(id)}
+                className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-bold transition-colors ${
+                  active
+                    ? "bg-foreground text-background"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Icon className="h-4 w-4" />
+                <span className="truncate">{label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* ─── FOOD tab content ──────────────────────────────────── */}
+        {activeTab === "food" && (
+          <div className="space-y-3">
+            <button
+              type="button"
+              onClick={() => navigate("/food")}
+              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-card py-3 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
+            >
+              <UtensilsCrossed className="h-4 w-4" />
+              Browse Restaurants
+            </button>
+
+            {foodSubscriptions
+              .filter((s: any) => s.status === "active")
+              .map((s: any) => (
+                <TodaysMeals
+                  key={`today-${s.id}`}
+                  providerId={s.provider_id}
+                  mealPlanId={s.meal_plan_id ?? null}
+                />
+              ))}
+
+            {foodSubsLoading ? (
+              <Skeleton rows={3} />
+            ) : foodSubscriptions.length === 0 ? (
+              <div className="flex flex-col items-center justify-center rounded-3xl bg-card py-14 text-center">
+                <ChefHat className="mb-3 h-10 w-10 text-muted-foreground/40" />
+                <p className="font-semibold text-foreground">No food subscriptions yet</p>
+                <p className="mt-1 text-sm text-muted-foreground max-w-xs">
+                  Subscribe to a weekly meal plan to see it here.
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-hidden rounded-3xl bg-card divide-y divide-border/60">
+                {foodSubscriptions.map((s: any) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => navigate(`/food/subscription/${s.id}`)}
+                    className="flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-muted/30"
+                  >
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15">
+                      <UtensilsCrossed className="h-5 w-5 text-emerald-600" />
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-muted-foreground capitalize">{s.status}</p>
+                      <p className="font-bold text-foreground leading-tight truncate">
+                        {s.customer_name ?? "Weekly meal plan"}
+                      </p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        Started {new Date(s.started_at).toLocaleDateString()}
+                        {s.started_at && ` · Until ${addWeeks(parseISO(s.started_at), s.commitment_weeks || 1).toLocaleDateString()}`}
+                      </p>
+                    </div>
+                    <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ─── CARS tab content ─────────────────────────────────── */}
+        {activeTab === "cars" && (
+          <div className="space-y-3">
+            <button
+              type="button"
+              onClick={() => navigate("/cars")}
+              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-card py-3 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
+            >
+              <Car className="h-4 w-4" />
+              Browse Vehicles
+            </button>
+
+            {rentalBookingsLoading ? (
+              <Skeleton rows={3} />
+            ) : rentalBookings.length === 0 ? (
+              <div className="flex flex-col items-center justify-center rounded-3xl bg-card py-14 text-center">
+                <Car className="mb-3 h-10 w-10 text-muted-foreground/40" />
+                <p className="font-semibold text-foreground">No car rentals yet</p>
+                <p className="mt-1 text-sm text-muted-foreground max-w-xs">
+                  Book a vehicle to see your rental history here.
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-hidden rounded-3xl bg-card divide-y divide-border/60">
+                {rentalBookings.map((b: any) => (
+                  <div key={b.id} className="flex items-center gap-3 p-4">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-orange-500/15">
+                      <Car className="h-5 w-5 text-orange-600" />
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-muted-foreground capitalize">
+                        {b.status} · {b.rental_days} day{b.rental_days !== 1 ? "s" : ""}
+                      </p>
+                      <p className="font-bold text-foreground leading-tight truncate">
+                        {new Date(b.start_date).toLocaleDateString()} → {new Date(b.end_date).toLocaleDateString()}
+                      </p>
+                      <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">
+                        ${(b.total_cents / 100).toFixed(2)}
+                      </p>
+                    </div>
+                    <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ─── CLEANING tab content (existing) ─────────────────── */}
+        {activeTab === "cleaning" && (
         <div className="mt-5 space-y-5">
 
             {/* Browse + schedule CTAs */}
@@ -676,6 +878,7 @@ const MySubscriptions = () => {
               </>
             )}
           </div>
+        )}
       </div>
       {/* ── Lightning payment dialog ── */}
       <Dialog open={!!paymentDialog} onOpenChange={(open) => !open && setPaymentDialog(null)}>
@@ -720,6 +923,7 @@ const MySubscriptions = () => {
           )}
         </DialogContent>
       </Dialog>
+      </PullToRefresh>
     </UserLayout>
   );
 };

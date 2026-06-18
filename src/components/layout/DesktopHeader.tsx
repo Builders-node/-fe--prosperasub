@@ -40,7 +40,7 @@ export function DesktopHeader({
   return (
     <header className="hidden md:block sticky top-0 z-40 bg-background/97 backdrop-blur-md border-b border-border/30">
       {/* ── Yandex Go desktop header: logo · tabs · search · account ── */}
-      <div className="mx-auto flex h-[68px] max-w-[1440px] items-center gap-4 px-8">
+      <div className="app-container flex h-[68px] items-center gap-4">
 
         {/* Logo wordmark */}
         <Link
@@ -84,7 +84,7 @@ export function DesktopHeader({
       {/* Secondary nav: back + breadcrumb */}
       {showSecondaryNav && (
         <div className="border-t border-border/30 bg-muted/30">
-          <div className="mx-auto flex h-11 max-w-[1440px] items-center gap-3 px-8 text-sm text-muted-foreground">
+          <div className="app-container flex h-11 items-center gap-3 text-sm text-muted-foreground">
             {showBackButton && (
               <button
                 type="button"

@@ -7,10 +7,10 @@ import {
   CheckCheck,
   Clock,
   CreditCard,
-  Loader2,
   Sparkles,
   X,
 } from "lucide-react";
+import { PageLoader } from "@/components/ui/spinner";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -207,9 +207,7 @@ const Notifications = () => {
   if (authLoading) {
     return (
       <UserLayout title="Notifications">
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
+        <PageLoader />
       </UserLayout>
     );
   }
@@ -239,7 +237,7 @@ const Notifications = () => {
 
   return (
     <UserLayout title="Notifications">
-      <div className="mx-auto w-full max-w-2xl px-4 pb-28 pt-5 sm:px-6">
+      <div className="app-container pb-28 pt-5">
 
         {/* Header */}
         <div className="mb-5 flex items-center justify-between gap-4">

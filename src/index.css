@@ -190,8 +190,10 @@
     --accent-foreground: var(--brand-on-accent);
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
-    --border: 0 0% 88%;
-    --input: 0 0% 100%;
+    /* Borderless — borders are nearly invisible; contrast comes from bg layering */
+    --border: 0 0% 96%;
+    /* Inputs sit on muted bg — Yandex Прокат form-field aesthetic */
+    --input: 0 0% 93%;
     --ring: var(--brand-accent);
     --radius: 1rem;
     --radius-xs: 0.375rem;
@@ -343,6 +345,35 @@
 
 @layer base {
   * { @apply border-border; }
+
+  /* ─── Yandex Go borderless aesthetic (light mode) ──────────────────── */
+  /* Cards rely on pure background tone contrast (page-gray → white card),
+     NO shadows anywhere — flatness is the design language. */
+
+  /* Form inputs (Input, Textarea, Select triggers, etc.) — Yandex Прокат style:
+     muted background, NO border, ring on focus.
+     Catches all the shadcn/ui form components without per-file changes. */
+  .light input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+  .light textarea,
+  .light select,
+  .light [role="combobox"],
+  .light [data-radix-select-trigger] {
+    border-color: transparent !important;
+    background-color: hsl(var(--input));
+  }
+  .light input:focus,
+  .light textarea:focus,
+  .light select:focus,
+  .light [role="combobox"]:focus,
+  .light [data-radix-select-trigger]:focus {
+    background-color: hsl(0 0% 90%);
+  }
+
+  /* Buttons with `border-input` (shadcn outline variant) → flat muted */
+  .light button.border-input,
+  .light .border-input {
+    border-color: transparent !important;
+  }
 
   body {
     @apply bg-background text-foreground antialiased;
@@ -716,8 +747,23 @@
   .market-shell {
     @apply min-h-screen bg-background pb-space-20 md:pb-0;
   }
+  /*
+    ─── Global platform container ───────────────────────────────────────────
+    The single source of truth for page width & horizontal rhythm. Every page
+    shell uses `.app-container` (or the <AppContainer> component, which applies
+    it). `.market-content` is kept as a back-compat alias of the same rule.
+
+      • width 100%, capped at 1280px → no ultra-wide layouts
+      • centered with margin auto
+      • mobile-first fluid side padding: clamp(16px → 24px)
+    Content alignment is therefore identical on every screen and breakpoint.
+  */
+  .app-container,
   .market-content {
-    @apply mx-auto max-w-[1720px] px-space-4 md:px-space-8 xl:px-space-12;
+    width: 100%;
+    max-width: 1280px;
+    margin-inline: auto;
+    padding-inline: clamp(16px, 4vw, 24px);
   }
   .market-category-rail {
     @apply rounded-radius-xl bg-[hsl(var(--app-rail))] p-space-2;
