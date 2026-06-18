@@ -25,7 +25,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { UserPicker } from "@/components/UserPicker";
 import { logAuditEvent } from "@/lib/auditLog";
 import type { FoodSubscription, FoodSubscriptionStatus, FoodMealPlan } from "@/types/food";
-import { Pause, Play, X, Plus, Trash2, Check, Pencil, StickyNote } from "lucide-react";
+import { Pause, Play, X, Plus, Trash2, Check, Pencil, StickyNote, MoreVertical } from "lucide-react";
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
+  DropdownMenuItem, DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import { Spinner } from "@/components/ui/spinner";
 
 // Supabase PostgrestErrors are plain objects, so String(e) yields "[object Object]".
@@ -403,47 +407,61 @@ export function RestaurantSubscriptionsTab({ providerId }: Props) {
                   )}
                 </div>
 
-                <div className="flex flex-wrap items-center gap-1.5 sm:justify-end">
+                <div className="flex items-center gap-2 sm:justify-end">
+                  {/* Primary status action — the one thing you most likely want to do */}
                   {sub.status === "pending" && (
-                    <Button size="iconSm" title="Approve" aria-label="Approve"
-                      className="rounded-full bg-green-600 text-white hover:bg-green-600/90"
+                    <Button size="sm" className="gap-1.5 rounded-full bg-green-600 text-white hover:bg-green-600/90"
                       onClick={() => setConfirmAction({ sub, action: "approve" })}>
-                      <Check />
+                      <Check className="h-3.5 w-3.5" /> Approve
                     </Button>
                   )}
                   {sub.status === "active" && (
-                    <Button size="iconSm" variant="outline" title="Pause" aria-label="Pause" className="rounded-full"
+                    <Button size="sm" variant="outline" className="gap-1.5 rounded-full"
                       onClick={() => setConfirmAction({ sub, action: "pause" })}>
-                      <Pause />
+                      <Pause className="h-3.5 w-3.5" /> Pause
                     </Button>
                   )}
                   {sub.status === "paused" && (
-                    <Button size="iconSm" variant="outline" title="Resume" aria-label="Resume" className="rounded-full"
+                    <Button size="sm" variant="outline" className="gap-1.5 rounded-full"
                       onClick={() => setConfirmAction({ sub, action: "resume" })}>
-                      <Play />
+                      <Play className="h-3.5 w-3.5" /> Resume
                     </Button>
                   )}
-                  {sub.status !== "cancelled" && (
-                    <Button size="iconSm" variant="ghost" title="Cancel" aria-label="Cancel"
-                      className="rounded-full text-destructive hover:text-destructive"
-                      onClick={() => setConfirmAction({ sub, action: "cancel" })}>
-                      <X />
-                    </Button>
-                  )}
-                  <Button size="iconSm" variant="outline" title="Edit" aria-label="Edit" className="rounded-full"
-                    onClick={() => openEdit(sub)}>
-                    <Pencil />
-                  </Button>
-                  <Button size="iconSm" variant="ghost" title="Notes" aria-label="Notes"
-                    className={`rounded-full ${sub.admin_notes ? "text-primary" : ""}`}
-                    onClick={() => { setSelectedSub(sub); setAdminNotes(sub.admin_notes ?? ""); }}>
-                    <StickyNote />
-                  </Button>
-                  <Button size="iconSm" variant="ghost" title="Delete" aria-label="Delete"
-                    className="rounded-full text-destructive hover:bg-destructive/10 hover:text-destructive"
-                    onClick={() => setDeleteTarget(sub)}>
-                    <Trash2 />
-                  </Button>
+
+                  {/* Everything else lives in an overflow menu — keeps the row calm and
+                      tucks destructive actions behind an extra tap. */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="iconSm" variant="ghost" className="rounded-full" title="More actions" aria-label="More actions">
+                        <MoreVertical />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-44">
+                      <DropdownMenuItem onClick={() => openEdit(sub)}>
+                        <Pencil className="mr-2 h-4 w-4" /> Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => { setSelectedSub(sub); setAdminNotes(sub.admin_notes ?? ""); }}>
+                        <StickyNote className={`mr-2 h-4 w-4 ${sub.admin_notes ? "text-primary" : ""}`} />
+                        Notes{sub.admin_notes ? " •" : ""}
+                      </DropdownMenuItem>
+                      {sub.status !== "cancelled" && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={() => setConfirmAction({ sub, action: "cancel" })}>
+                            <X className="mr-2 h-4 w-4" /> Cancel subscription
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                      {sub.status === "cancelled" && <DropdownMenuSeparator />}
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={() => setDeleteTarget(sub)}>
+                        <Trash2 className="mr-2 h-4 w-4" /> Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
             </div>
