@@ -58,6 +58,7 @@ const CarDetail = () => {
   const [calendarError, setCalendarError] = useState<string | null>(null);
   const [zonesOpen, setZonesOpen] = useState(false);
   const [insuranceOpen, setInsuranceOpen] = useState(false);
+  const [docsOpen, setDocsOpen] = useState(false);
 
   const { data: vehicle, isLoading } = useQuery({
     queryKey: ["rental-vehicle", id],
@@ -303,6 +304,7 @@ const CarDetail = () => {
             icon={<FileText className="h-5 w-5 text-muted-foreground" />}
             title="Required documents"
             chevron
+            onClick={() => setDocsOpen(true)}
           />
         </section>
 
@@ -496,6 +498,36 @@ const CarDetail = () => {
         </DialogContent>
       </Dialog>
 
+      {/* ─── Required documents modal ──────────────────────────────────────── */}
+      <Dialog open={docsOpen} onOpenChange={setDocsOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Required documents</DialogTitle>
+          </DialogHeader>
+          <p className="-mt-1 text-sm text-muted-foreground">
+            Please bring the following when you pick up your vehicle:
+          </p>
+          <ul className="space-y-2.5">
+            {[
+              "Valid driver's license",
+              "Booking confirmation (digital or printed)",
+              "Credit card for the security deposit",
+              "Government-issued ID or passport",
+            ].map((doc) => (
+              <li key={doc} className="flex items-start gap-3 rounded-2xl bg-muted/40 px-3.5 py-3">
+                <FileText className="mt-0.5 h-4 w-4 shrink-0 text-orange-400" />
+                <span className="text-sm text-foreground">{doc}</span>
+              </li>
+            ))}
+          </ul>
+          {delivery?.pickup_instructions && (
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              {delivery.pickup_instructions}
+            </p>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* ─── Date selection sheet (Yandex Прокат "Select rental dates" modal) ─── */}
       <Sheet open={dateSheetOpen} onOpenChange={setDateSheetOpen}>
         <SheetContent side="bottom" className="h-[92vh] overflow-y-auto rounded-t-3xl px-4 pb-8 pt-5">
@@ -542,16 +574,21 @@ const CarDetail = () => {
 
 // ─── Yandex-style grouped row ─────────────────────────────────────────────────
 function InfoRow({
-  icon, title, caption, sublink, chevron,
+  icon, title, caption, sublink, chevron, onClick,
 }: {
   icon: React.ReactNode;
   title: React.ReactNode;
   caption?: React.ReactNode;
   sublink?: React.ReactNode;
   chevron?: boolean;
+  onClick?: () => void;
 }) {
+  const Tag = onClick ? "button" : "div";
   return (
-    <div className="flex items-start gap-3 border-b border-border/60 last:border-0 p-4">
+    <Tag
+      {...(onClick ? { type: "button" as const, onClick } : {})}
+      className={`flex w-full items-start gap-3 border-b border-border/60 p-4 text-left last:border-0 ${onClick ? "transition-colors hover:bg-muted/40" : ""}`}
+    >
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted/40">
         {icon}
       </span>
@@ -572,7 +609,7 @@ function InfoRow({
       {chevron && (
         <ChevronRight className="mt-2 h-4 w-4 shrink-0 text-muted-foreground" />
       )}
-    </div>
+    </Tag>
   );
 }
 
