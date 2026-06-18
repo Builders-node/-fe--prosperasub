@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
   Car, Users, Luggage, Zap, Wind, ChevronLeft, ChevronRight,
@@ -48,11 +48,12 @@ const CarDetail = () => {
   const navigate = useNavigate();
   const [imgIndex, setImgIndex] = useState(0);
 
-  // ─── Date selection state (shared with booking page via URL params) ─────────
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [startTime, setStartTime] = useState("09:00");
-  const [endTime, setEndTime] = useState("09:00");
+  // ─── Date selection state (pre-filled from the listing filter via URL) ──────
+  const [searchParams] = useSearchParams();
+  const [startDate, setStartDate] = useState(() => searchParams.get("start") ?? "");
+  const [endDate, setEndDate] = useState(() => searchParams.get("end") ?? "");
+  const [startTime, setStartTime] = useState(() => searchParams.get("startTime") ?? "09:00");
+  const [endTime, setEndTime] = useState(() => searchParams.get("endTime") ?? "09:00");
   const [dateSheetOpen, setDateSheetOpen] = useState(false);
   const [calendarError, setCalendarError] = useState<string | null>(null);
   const [zonesOpen, setZonesOpen] = useState(false);
