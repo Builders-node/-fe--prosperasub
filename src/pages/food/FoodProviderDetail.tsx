@@ -124,10 +124,6 @@ const FoodProviderDetail = () => {
   const ratingCount = reviewStats?.count ?? 0;
   const ratingAvg = reviewStats?.avg ?? 0;
 
-  const scrollToPlans = () => {
-    document.getElementById("meal-plans")?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
-
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-0">
       <HomeHeader title={provider.name} showBackButton onBack={() => navigate("/food")} />
@@ -173,17 +169,6 @@ const FoodProviderDetail = () => {
               {provider.location && (
                 <p className="mt-1 truncate text-sm text-muted-foreground">{provider.location}</p>
               )}
-            </div>
-          </div>
-
-          {/* CTA row */}
-          <div className="mt-5 flex items-center gap-4">
-            <Button onClick={scrollToPlans} className="h-9 rounded-full px-7 font-bold">
-              Subscribe
-            </Button>
-            <div className="leading-tight">
-              <p className="text-sm font-bold text-foreground">{formatUSD(fromPrice)}</p>
-              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">From / week</p>
             </div>
           </div>
 
