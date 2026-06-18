@@ -10,7 +10,7 @@ import { DesktopHeader } from "@/components/layout/DesktopHeader";
 import { BottomNav } from "@/components/BottomNav";
 import { formatUSD } from "@/lib/pricing";
 import {
-  YdHero, YdIllustration, YdChip, YdEmptyState,
+  YdIllustration, YdChip, YdEmptyState,
 } from "@/components/yd/YdPrimitives";
 import type { FoodProvider, FoodMealPlan } from "@/types/food";
 
@@ -90,16 +90,6 @@ const FoodListing = () => {
       <DesktopHeader />
 
       <main className="market-content py-space-4 md:py-space-8">
-
-        {/* Hero */}
-        <YdHero
-          accent="emerald"
-          badge="Food"
-          badgeIcon={UtensilsCrossed}
-          title="Pick a restaurant"
-          subtitle="Chef-prepared weekly menus. Subscribe in 60 seconds, pay with Lightning."
-          illustration={<YdIllustration icon={UtensilsCrossed} accent="emerald" size="lg" />}
-        />
 
         {/* ─── Restaurants ─────────────────────────────────────────── */}
         <h2 className="mb-4 text-xl font-black tracking-tight text-foreground">Restaurants</h2>
