@@ -1,8 +1,29 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="light" style="background:#f5f5f5;color-scheme:light">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Set theme BEFORE any JS runs. Follow the OS unless the user explicitly chose light/dark. -->
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('theme');
+          var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          // No stored choice (or 'system') → follow the operating system.
+          var dark = t === 'dark' || ((!t || t === 'system') && prefersDark);
+          var html = document.documentElement;
+          html.classList.toggle('dark', dark);
+          html.classList.toggle('light', !dark);
+          html.style.backgroundColor = dark ? '#141414' : '#f5f5f5';
+          html.style.colorScheme = dark ? 'dark' : 'light';
+        } catch (e) {}
+      })();
+    </script>
+    <style>
+      /* Light mode background until React mounts — matches Yandex Go */
+      html, body { background: #f5f5f5; }
+      html.dark, html.dark body { background: #141414; }
+    </style>
     <title>ProsperaSub - Convenience Subscriptions to Próspera</title>
     <meta name="description" content="Your all-in-one platform for subscriptions and services in the Próspera ecosystem." />
     <meta name="author" content="ProsperaSub" />
