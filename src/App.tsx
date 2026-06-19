@@ -82,7 +82,7 @@ const FoodSubscriptions = lazy(() => import("./pages/admin/FoodSubscriptions"));
 
 // Admin Beach Club
 const BeachClubPlans = lazy(() => import("./pages/admin/BeachClubPlans"));
-const BeachClubInquiries = lazy(() => import("./pages/admin/BeachClubInquiries"));
+const BeachClubSubscriptions = lazy(() => import("./pages/admin/BeachClubSubscriptions"));
 
 // ─── Suspense fallback ────────────────────────────────────────────────────────
 // Unified loader (Spinner is a tiny leaf module — no extra chunk).
@@ -261,8 +261,8 @@ const App = () => {
               <Route path="/admin/beach-club/plans" element={
                 <ProtectedRoute allowedRoles={['super_admin']}><BeachClubPlans /></ProtectedRoute>
               } />
-              <Route path="/admin/beach-club/inquiries" element={
-                <ProtectedRoute allowedRoles={['super_admin']}><BeachClubInquiries /></ProtectedRoute>
+              <Route path="/admin/beach-club/subscriptions" element={
+                <ProtectedRoute allowedRoles={['super_admin']}><BeachClubSubscriptions /></ProtectedRoute>
               } />
               {/* Catch-all */}
               <Route path="*" element={<NotFound />} />

@@ -27,7 +27,6 @@ import {
   ChefHat,
   Megaphone,
   Waves,
-  Mail,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { adminRoutes } from "./adminRoutes";
@@ -111,8 +110,8 @@ export const SERVICES: ServiceGroup[] = [
     color: "bg-cyan-500",
     rootPath: adminRoutes.superAdminBeachClubPlans,
     items: [
-      { label: "Plans",     path: adminRoutes.superAdminBeachClubPlans,     icon: CreditCard },
-      { label: "Inquiries", path: adminRoutes.superAdminBeachClubInquiries, icon: Mail       },
+      { label: "Plans",         path: adminRoutes.superAdminBeachClubPlans,         icon: CreditCard   },
+      { label: "Subscriptions", path: adminRoutes.superAdminBeachClubSubscriptions, icon: ClipboardList },
     ],
   },
 ];
