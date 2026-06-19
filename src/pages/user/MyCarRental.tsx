@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Car, Info, CarFront, Shield, PlusCircle, MapPin, Users, ExternalLink } from "lucide-react";
+import { Car, Info, CarFront, Shield, PlusCircle, MapPin, Users, ExternalLink, CalendarCheck } from "lucide-react";
 import { UserLayout } from "@/components/layout/UserLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProviderInfoTab } from "@/components/rental/admin/ProviderInfoTab";
 import { ProviderVehiclesTab } from "@/components/rental/admin/ProviderVehiclesTab";
+import { ProviderReservationsTab } from "@/components/rental/admin/ProviderReservationsTab";
 import { ProviderInsuranceTab } from "@/components/rental/admin/ProviderInsuranceTab";
 import { ProviderExtrasTab } from "@/components/rental/admin/ProviderExtrasTab";
 import { ProviderDeliveryTab } from "@/components/rental/admin/ProviderDeliveryTab";
@@ -106,6 +107,7 @@ export default function MyCarRental() {
           <TabsList className="mb-6 w-full">
             <TabsTrigger value="info" className="gap-2"><Info className="h-4 w-4" /><span>Info</span></TabsTrigger>
             <TabsTrigger value="vehicles" className="gap-2"><CarFront className="h-4 w-4" /><span>Vehicles</span></TabsTrigger>
+            <TabsTrigger value="reservations" className="gap-2"><CalendarCheck className="h-4 w-4" /><span className="hidden sm:inline">Reservations</span><span className="sm:hidden">Res.</span></TabsTrigger>
             <TabsTrigger value="insurance" className="gap-2"><Shield className="h-4 w-4" /><span className="hidden sm:inline">Insurance</span><span className="sm:hidden">Ins.</span></TabsTrigger>
             <TabsTrigger value="extras" className="gap-2"><PlusCircle className="h-4 w-4" /><span>Extras</span></TabsTrigger>
             <TabsTrigger value="delivery" className="gap-2"><MapPin className="h-4 w-4" /><span>Delivery</span></TabsTrigger>
@@ -114,6 +116,7 @@ export default function MyCarRental() {
 
           <TabsContent value="info"><ProviderInfoTab provider={selected} /></TabsContent>
           <TabsContent value="vehicles"><ProviderVehiclesTab providerId={selected.id} /></TabsContent>
+          <TabsContent value="reservations"><ProviderReservationsTab providerId={selected.id} /></TabsContent>
           <TabsContent value="insurance"><ProviderInsuranceTab providerId={selected.id} /></TabsContent>
           <TabsContent value="extras"><ProviderExtrasTab providerId={selected.id} /></TabsContent>
           <TabsContent value="delivery"><ProviderDeliveryTab providerId={selected.id} /></TabsContent>
