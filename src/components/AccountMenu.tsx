@@ -41,6 +41,11 @@ import { useMyBusinesses } from "@/hooks/useMyBusinesses";
 import { useI18n } from "@/i18n";
 import { accountApi, supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { AddressFields } from "@/components/account/AddressFields";
+import {
+  EMPTY_ADDRESS, addressFromProfile, addressPayload, addressIsEqual, composeAddress,
+  type AddressDetails,
+} from "@/lib/address";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -183,13 +188,13 @@ export function AccountMenu() {
   const [savedPhone,    setSavedPhone]    = useState("");
   const [savedTelegram, setSavedTelegram] = useState("");
   const [savedWhatsApp, setSavedWhatsApp] = useState("");
-  const [savedAddress,  setSavedAddress]  = useState("");
+  const [savedAddr,     setSavedAddr]     = useState<AddressDetails>(EMPTY_ADDRESS);
 
   const [draftName,     setDraftName]     = useState("");
   const [draftPhone,    setDraftPhone]    = useState("");
   const [draftTelegram, setDraftTelegram] = useState("");
   const [draftWhatsApp, setDraftWhatsApp] = useState("");
-  const [draftAddress,  setDraftAddress]  = useState("");
+  const [draftAddr,     setDraftAddr]     = useState<AddressDetails>(EMPTY_ADDRESS);
 
   const [currentPw, setCurrentPw] = useState("");
   const [newPw,     setNewPw]     = useState("");
@@ -242,7 +247,7 @@ export function AccountMenu() {
       setSavedPhone(profile.phone_number || "");
       setSavedTelegram((profile as any).telegram_username || "");
       setSavedWhatsApp((profile as any).whatsapp || "");
-      setSavedAddress((profile as any).default_delivery_address || "");
+      setSavedAddr(addressFromProfile(profile as any));
     }
   }, [userData, profile]);
 
@@ -271,8 +276,9 @@ export function AccountMenu() {
 
   const resetPw = () => { setCurrentPw(""); setNewPw(""); setConfirmPw(""); setPwErrors({}); };
   const back = () => { setMode("view"); resetPw(); };
-  const enterEdit = () => { setDraftName(savedName); setDraftPhone(savedPhone); setDraftTelegram(savedTelegram); setDraftWhatsApp(savedWhatsApp); setDraftAddress(savedAddress); setMode("editing"); };
-  const hasChanges = draftName.trim() !== savedName.trim() || draftPhone.trim() !== savedPhone.trim() || draftTelegram.trim() !== savedTelegram.trim() || draftWhatsApp.trim() !== savedWhatsApp.trim() || draftAddress.trim() !== savedAddress.trim();
+  const enterEdit = () => { setDraftName(savedName); setDraftPhone(savedPhone); setDraftTelegram(savedTelegram); setDraftWhatsApp(savedWhatsApp); setDraftAddr(savedAddr); setMode("editing"); };
+  const hasChanges = draftName.trim() !== savedName.trim() || draftPhone.trim() !== savedPhone.trim() || draftTelegram.trim() !== savedTelegram.trim() || draftWhatsApp.trim() !== savedWhatsApp.trim() || !addressIsEqual(draftAddr, savedAddr);
+  const savedAddressLine = composeAddress(savedAddr);
 
   // ── Mutations ─────────────────────────────────────────────────────────────
 
@@ -281,14 +287,14 @@ export function AccountMenu() {
       if (!userData?.id) throw new Error("Not authenticated");
       if (userData.lightning_pubkey) await supabase.rpc("set_lightning_session", { p_pubkey: userData.lightning_pubkey });
       const { data: ex } = await supabase.from("user_profiles").select("id").eq("user_id", userData.id).maybeSingle();
-      const payload = { phone_number: draftPhone.trim() || null, telegram_username: draftTelegram.trim() || null, whatsapp: draftWhatsApp.trim() || null, default_delivery_address: draftAddress.trim() || null } as any;
+      const payload = { phone_number: draftPhone.trim() || null, telegram_username: draftTelegram.trim() || null, whatsapp: draftWhatsApp.trim() || null, ...addressPayload(draftAddr) } as any;
       if (ex) { const { error } = await supabase.from("user_profiles").update(payload).eq("user_id", userData.id); if (error) throw error; }
       else { const { error } = await supabase.from("user_profiles").insert({ user_id: userData.id, ...payload } as any); if (error) throw error; }
       if (provider !== "lightning") { const { error } = await supabase.auth.updateUser({ data: { name: draftName.trim() } }); if (error) throw error; }
     },
     onSuccess: () => {
       toast.success("Profile updated");
-      setSavedName(draftName.trim()); setSavedPhone(draftPhone.trim()); setSavedTelegram(draftTelegram.trim()); setSavedWhatsApp(draftWhatsApp.trim()); setSavedAddress(draftAddress.trim());
+      setSavedName(draftName.trim()); setSavedPhone(draftPhone.trim()); setSavedTelegram(draftTelegram.trim()); setSavedWhatsApp(draftWhatsApp.trim()); setSavedAddr(draftAddr);
       setMode("view"); queryClient.invalidateQueries({ queryKey: ["user-profile"] }); refreshUserData();
     },
     onError: (err: Error) => toast.error(err.message || "Failed to save"),
@@ -436,18 +442,18 @@ export function AccountMenu() {
                         </div>
                       </div>
                     )}
-                    {savedAddress && (
+                    {savedAddressLine && (
                       <div className={cn("flex items-center gap-3 px-4 py-2.5", (savedPhone || savedWhatsApp || savedTelegram) && "border-t border-border/50")}>
                         <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-orange-500/10">
                           <MapPin className="h-3.5 w-3.5 text-orange-500" />
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Address</p>
-                          <p className="truncate text-[13px] font-semibold text-foreground">{savedAddress}</p>
+                          <p className="truncate text-[13px] font-semibold text-foreground">{savedAddressLine}</p>
                         </div>
                       </div>
                     )}
-                    {(savedPhone || savedWhatsApp || savedTelegram || savedAddress) && <div className="border-t border-border/50" />}
+                    {(savedPhone || savedWhatsApp || savedTelegram || savedAddressLine) && <div className="border-t border-border/50" />}
 
                     <button type="button" onClick={() => { setDraftPrefs(prefs); setMode("preferences"); }}
                       className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-muted/30 active:bg-muted/50"
@@ -485,7 +491,7 @@ export function AccountMenu() {
                     </button>
                   </div>
 
-                  {!savedPhone && !savedWhatsApp && !savedTelegram && !savedAddress && (
+                  {!savedPhone && !savedWhatsApp && !savedTelegram && !savedAddressLine && (
                     <p className="mt-2 text-center text-[11px] text-muted-foreground/50">Tap Edit Profile to add contact info</p>
                   )}
                 </>
@@ -499,7 +505,7 @@ export function AccountMenu() {
                   <Input id="e-phone" label="Phone (optional)" type="tel" value={draftPhone} onChange={(e) => setDraftPhone(e.target.value)} placeholder="+1 234 567 8900" />
                   <Input id="e-wa" label="WhatsApp (optional)" type="tel" value={draftWhatsApp} onChange={(e) => setDraftWhatsApp(e.target.value)} placeholder="+1 234 567 8900" leftIcon={<WhatsAppIcon className="h-4 w-4 text-green-500" />} />
                   <Input id="e-tg" label="Telegram (optional)" value={draftTelegram} onChange={(e) => setDraftTelegram(e.target.value)} placeholder="@username" leftIcon={<TelegramIcon className="h-4 w-4 text-[#2AABEE]" />} />
-                  <Input id="e-addr" label="Address (optional)" value={draftAddress} onChange={(e) => setDraftAddress(e.target.value)} placeholder="House / apartment, block, area" leftIcon={<MapPin className="h-4 w-4 text-orange-500" />} />
+                  <AddressFields value={draftAddr} onChange={setDraftAddr} />
                   <div className="flex gap-2 pt-1">
                     <Button variant="secondary" className="flex-1" onClick={back} disabled={saveMutation.isPending}>Cancel</Button>
                     <Button className="flex-1" onClick={() => saveMutation.mutate()} loading={saveMutation.isPending} disabled={!hasChanges || saveMutation.isPending}>
