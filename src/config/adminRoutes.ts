@@ -24,6 +24,7 @@ export const adminRoutes = {
   superAdminFoodProviders: "/admin/food/providers",
   superAdminFoodSubscriptions: "/admin/food/subscriptions",
   // Beach Club
+  superAdminBeachClubAnalytics: "/admin/beach-club/analytics",
   superAdminBeachClubPlans: "/admin/beach-club/plans",
   superAdminBeachClubSubscriptions: "/admin/beach-club/subscriptions",
 } as const;

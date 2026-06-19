@@ -108,8 +108,9 @@ export const SERVICES: ServiceGroup[] = [
     label: "Beach Club",
     icon: Waves,
     color: "bg-cyan-500",
-    rootPath: adminRoutes.superAdminBeachClubPlans,
+    rootPath: adminRoutes.superAdminBeachClubAnalytics,
     items: [
+      { label: "Analytics",     path: adminRoutes.superAdminBeachClubAnalytics,     icon: BarChart3    },
       { label: "Plans",         path: adminRoutes.superAdminBeachClubPlans,         icon: CreditCard   },
       { label: "Subscriptions", path: adminRoutes.superAdminBeachClubSubscriptions, icon: ClipboardList },
     ],

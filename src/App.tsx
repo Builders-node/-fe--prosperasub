@@ -81,6 +81,7 @@ const FoodRestaurantDetail = lazy(() => import("./pages/admin/FoodRestaurantDeta
 const FoodSubscriptions = lazy(() => import("./pages/admin/FoodSubscriptions"));
 
 // Admin Beach Club
+const BeachClubAnalytics = lazy(() => import("./pages/admin/BeachClubAnalytics"));
 const BeachClubPlans = lazy(() => import("./pages/admin/BeachClubPlans"));
 const BeachClubSubscriptions = lazy(() => import("./pages/admin/BeachClubSubscriptions"));
 
@@ -258,6 +259,9 @@ const App = () => {
                 <ProtectedRoute allowedRoles={['super_admin']}><FoodSubscriptions /></ProtectedRoute>
               } />
               {/* Admin Beach Club */}
+              <Route path="/admin/beach-club/analytics" element={
+                <ProtectedRoute allowedRoles={['super_admin']}><BeachClubAnalytics /></ProtectedRoute>
+              } />
               <Route path="/admin/beach-club/plans" element={
                 <ProtectedRoute allowedRoles={['super_admin']}><BeachClubPlans /></ProtectedRoute>
               } />
