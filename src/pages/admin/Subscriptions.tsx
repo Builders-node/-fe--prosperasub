@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import {
@@ -17,7 +17,10 @@ import { toast } from "sonner";
 
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { adminApi } from "@/integrations/supabase/client";
+import { useBtcPrice } from "@/hooks/useBtcPrice";
+import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { PaymentMethodBadge } from "@/components/admin/PaymentMethodBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -277,15 +280,34 @@ const AdminSubscriptions = () => {
   const [editSub, setEditSub] = useState<any>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [paymentInvoice, setPaymentInvoice] = useState<any>(null);
+  const [invoiceSubId, setInvoiceSubId] = useState<string | null>(null);
   const [deleteConfirmSub, setDeleteConfirmSub] = useState<any>(null);
+  const { convertToSats } = useBtcPrice();
+
+  // Auto-reconcile pending payments when the list is opened, so subscriptions
+  // that were paid (e.g. an admin invoice) activate without any manual action.
+  useEffect(() => {
+    (async () => {
+      try {
+        const API_URL = (import.meta.env.VITE_API_URL as string) || "https://api.prosperasub.com";
+        await fetch(`${API_URL}/cron/reconcile-payments`, { method: "POST" });
+        queryClient.invalidateQueries({ queryKey: ["admin-subscriptions-full"] });
+      } catch {
+        /* best effort */
+      }
+    })();
+  }, [queryClient]);
 
   const generateInvoiceMutation = useMutation({
-    mutationFn: async (subscriptionId: string) => {
-      const { data, error } = await adminApi(`/admin/subscriptions/${subscriptionId}/invoice`, { method: "POST" });
+    mutationFn: async ({ subscriptionId, method }: { subscriptionId: string; method: "lightning" | "onchain" }) => {
+      const { data, error } = await adminApi(`/admin/subscriptions/${subscriptionId}/invoice`, {
+        method: "POST",
+        body: JSON.stringify({ method }),
+      });
       if (error) throw error;
-      return data;
+      return { ...data, method, subscriptionId };
     },
-    onSuccess: (data) => setPaymentInvoice(data),
+    onSuccess: (data) => { setInvoiceSubId(data.subscriptionId); setPaymentInvoice(data); },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -580,16 +602,19 @@ const AdminSubscriptions = () => {
                         {formatDate(sub.paid_until || sub.service_end_date || sub.end_date)}
                       </TableCell>
                       <TableCell>
-                        <Badge
-                          variant={
-                            sub.payment_status === "paid"
-                              ? "default"
-                              : "secondary"
-                          }
-                          className="text-xs"
-                        >
-                          {sub.payment_status}
-                        </Badge>
+                        <div className="flex flex-col items-start gap-1">
+                          <Badge
+                            variant={
+                              sub.payment_status === "paid"
+                                ? "default"
+                                : "secondary"
+                            }
+                            className="text-xs"
+                          >
+                            {sub.payment_status}
+                          </Badge>
+                          <PaymentMethodBadge method={sub.payment_method} />
+                        </div>
                       </TableCell>
                       <TableCell>
                         <Badge
@@ -606,7 +631,7 @@ const AdminSubscriptions = () => {
                               variant="tertiary"
                               size="sm"
                               loading={generateInvoiceMutation.isPending}
-                              onClick={() => generateInvoiceMutation.mutate(sub.id)}
+                              onClick={() => generateInvoiceMutation.mutate({ subscriptionId: sub.id, method: "lightning" })}
                             >
                               <QrCode className="h-3.5 w-3.5 mr-1" />
                               Pay
@@ -741,47 +766,67 @@ const AdminSubscriptions = () => {
               {paymentInvoice?.plan_name} — {paymentInvoice?.client_name}
             </DialogDescription>
           </DialogHeader>
-          {paymentInvoice && (
-            <div className="flex flex-col items-center gap-4 py-4">
-              <div className="rounded-xl bg-white p-4">
-                <QRCodeSVG
-                  value={paymentInvoice.payment_request}
-                  size={240}
-                  level="M"
-                />
-              </div>
-              <div className="text-center">
-                <p className="text-2xl font-bold">{formatCents(paymentInvoice.amount_cents)}</p>
-                {paymentInvoice.amount_sats && (
-                  <p className="text-sm text-muted-foreground">{paymentInvoice.amount_sats.toLocaleString()} sats</p>
-                )}
-              </div>
-              <div className="w-full space-y-2">
-                <Label className="text-xs text-muted-foreground">Payment Code</Label>
-                <div className="relative">
-                  <Input
-                    readOnly
-                    value={paymentInvoice.payment_request}
-                    className="pr-10 text-xs font-mono truncate"
-                  />
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
-                    onClick={() => {
-                      navigator.clipboard.writeText(paymentInvoice.payment_request);
-                      toast.success("Payment code copied");
-                    }}
-                  >
-                    <Copy className="h-3.5 w-3.5" />
-                  </Button>
+          {paymentInvoice && (() => {
+            const isOnchain = paymentInvoice.method === "onchain";
+            const onchainSats = isOnchain ? convertToSats((paymentInvoice.amount_cents || 0) / 100) : 0;
+            const bitcoinUri = isOnchain
+              ? `bitcoin:${paymentInvoice.address}?amount=${(onchainSats / 1e8).toFixed(8)}&label=ProsperaSub&message=${encodeURIComponent(`${paymentInvoice.plan_name ?? ""} — ${paymentInvoice.client_name ?? ""}`)}`
+              : "";
+            const qrValue = isOnchain ? bitcoinUri : paymentInvoice.payment_request;
+            const code = isOnchain ? paymentInvoice.address : paymentInvoice.payment_request;
+            const subSats = isOnchain ? onchainSats : paymentInvoice.amount_sats;
+            return (
+              <div className="flex flex-col items-center gap-4 py-2">
+                {/* Method chooser */}
+                <div className="grid w-full grid-cols-2 gap-2">
+                  {(["lightning", "onchain"] as const).map((m) => (
+                    <button
+                      key={m}
+                      type="button"
+                      disabled={generateInvoiceMutation.isPending}
+                      onClick={() => invoiceSubId && generateInvoiceMutation.mutate({ subscriptionId: invoiceSubId, method: m })}
+                      className={cn(
+                        "rounded-xl border-2 px-3 py-2 text-sm font-semibold transition-all",
+                        (m === "onchain") === isOnchain ? "border-[#f7931a] bg-[#f7931a]/10 text-foreground" : "border-border bg-card text-muted-foreground hover:border-muted-foreground/30",
+                        generateInvoiceMutation.isPending && "opacity-60",
+                      )}
+                    >
+                      {m === "lightning" ? "Lightning" : "On-chain"}
+                    </button>
+                  ))}
                 </div>
+
+                <div className="rounded-xl bg-white p-4">
+                  <QRCodeSVG value={qrValue || " "} size={240} level="M" />
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold">{formatCents(paymentInvoice.amount_cents)}</p>
+                  {subSats ? (
+                    <p className="text-sm text-muted-foreground">{Number(subSats).toLocaleString()} sats</p>
+                  ) : null}
+                </div>
+                <div className="w-full space-y-2">
+                  <Label className="text-xs text-muted-foreground">{isOnchain ? "Bitcoin Address" : "Payment Code"}</Label>
+                  <div className="relative">
+                    <Input readOnly value={code} className="pr-10 text-xs font-mono truncate" />
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
+                      onClick={() => { navigator.clipboard.writeText(code); toast.success("Copied"); }}
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground text-center">
+                  {isOnchain
+                    ? "Send the exact amount on-chain to this address. Re-open Pay to refresh status."
+                    : "Scan the QR code or copy the payment code to pay with any Lightning wallet."}
+                </p>
               </div>
-              <p className="text-xs text-muted-foreground text-center">
-                Scan the QR code or copy the payment code to pay with any Lightning wallet.
-              </p>
-            </div>
-          )}
+            );
+          })()}
         </DialogContent>
       </Dialog>
 

@@ -23,6 +23,7 @@ import { supabase, supabaseDb } from "@/integrations/supabase/client";
 import { logAuditEvent } from "@/lib/auditLog";
 import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
+import { PaymentMethodBadge } from "@/components/admin/PaymentMethodBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -242,6 +243,9 @@ const Clients = () => {
         ),
       )[0];
 
+      // Subscriptions are ordered newest-first, so [0] is the latest payment.
+      const latestSub = matchingPublicSubs[0];
+
       return {
         ...client,
         isDerived: false,
@@ -252,6 +256,8 @@ const Clients = () => {
         active_plans_count: activePlansCount,
         last_service_date: lastBooking?.cleaning_available_slots?.date || null,
         total_bookings: clientBookings.length,
+        payment_method: latestSub?.payment_method ?? null,
+        payment_status: latestSub?.payment_status ?? null,
       };
     });
 
@@ -284,6 +290,8 @@ const Clients = () => {
         active_plans_count: subscription.is_active ? 1 : 0,
         last_service_date: null,
         total_bookings: 0,
+        payment_method: subscription.payment_method ?? null,
+        payment_status: subscription.payment_status ?? null,
       }));
 
     return [...storedClients, ...publicClients];
@@ -576,9 +584,14 @@ const Clients = () => {
                           <span className="block truncate">{client.location || "—"}</span>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="secondary">
-                            {client.client_type_label}
-                          </Badge>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <Badge variant="secondary">
+                              {client.client_type_label}
+                            </Badge>
+                            {client.payment_method && (
+                              <PaymentMethodBadge method={client.payment_method} />
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell className="hidden 2xl:table-cell">{client.active_plans_count}</TableCell>
                         <TableCell className="hidden 2xl:table-cell">
