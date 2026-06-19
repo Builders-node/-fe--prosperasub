@@ -1,13 +1,10 @@
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Waves, Check, ArrowRight } from "lucide-react";
-import { toast } from "sonner";
 import { HomeHeader } from "@/components/HomeHeader";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
 import { BottomNav } from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/contexts/AuthContext";
-import { useAuthModal } from "@/contexts/AuthModalContext";
 import { YdHero, YdIllustration, YdEmptyState } from "@/components/yd/YdPrimitives";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { formatUSD } from "@/lib/pricing";
@@ -23,8 +20,6 @@ interface BeachPlan {
 
 const BeachClub = () => {
   const navigate = useNavigate();
-  const { isAuthenticated, userData } = useAuth();
-  const { openAuthModal } = useAuthModal();
 
   const { data: plans = [], isLoading } = useQuery({
     queryKey: ["beach-club-plans-public"],
@@ -38,27 +33,6 @@ const BeachClub = () => {
       return (data ?? []) as BeachPlan[];
     },
   });
-
-  const inquire = async (plan: BeachPlan) => {
-    if (!isAuthenticated) {
-      openAuthModal("login", "/beach-club");
-      return;
-    }
-    try {
-      const { error } = await supabaseDb.from("beach_club_inquiries").insert({
-        plan_id: plan.id,
-        plan_name: plan.name,
-        user_id: userData?.id ?? null,
-        name: userData?.name || userData?.display_name || null,
-        email: userData?.email || null,
-        status: "new",
-      });
-      if (error) throw error;
-      toast.success(`Thanks! Our Beach Club team will reach out about the ${plan.name}.`);
-    } catch {
-      toast.error("Could not send your inquiry. Please try again.");
-    }
-  };
 
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-12">
@@ -123,9 +97,9 @@ const BeachClub = () => {
 
                 <Button
                   className="mt-5 w-full rounded-full bg-sky-500 text-white hover:bg-sky-600"
-                  onClick={() => inquire(plan)}
+                  onClick={() => navigate(`/beach-club/checkout/${plan.id}`)}
                 >
-                  Inquire
+                  Subscribe
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </article>
@@ -137,8 +111,8 @@ const BeachClub = () => {
           <p className="font-bold text-foreground">How memberships work</p>
           <ul className="mt-2 space-y-1.5 text-sm leading-relaxed text-muted-foreground">
             <li>• Pricing is per person and billed monthly (up to one month; longer-term pricing available on request).</li>
-            <li>• Ideal for groups — we coordinate how to identify guests so visits are invoiced correctly and our staff can welcome them.</li>
-            <li>• Tap <span className="font-semibold text-foreground">Inquire</span> and the Beach Club team will follow up.</li>
+            <li>• Ideal for groups — choose how many people and pay for everyone at once.</li>
+            <li>• Tap <span className="font-semibold text-foreground">Subscribe</span> to pay with Lightning, on-chain, LIVES or PayPal and activate your membership.</li>
           </ul>
         </section>
       </main>

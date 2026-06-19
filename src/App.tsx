@@ -37,6 +37,7 @@ const MyCarRental = lazy(() => import("./pages/user/MyCarRental"));
 
 // Beach Club
 const BeachClub = lazy(() => import("./pages/beach/BeachClub"));
+const BeachClubCheckout = lazy(() => import("./pages/beach/BeachClubCheckout"));
 
 // Cleaning
 const CleaningPackages = lazy(() => import("./pages/cleaning/CleaningPackages"));
@@ -127,6 +128,9 @@ const App = () => {
 
               {/* Beach Club */}
               <Route path="/beach-club" element={<BeachClub />} />
+              <Route path="/beach-club/checkout/:planId" element={
+                <ProtectedRoute><BeachClubCheckout /></ProtectedRoute>
+              } />
 
               {/* Cleaning */}
               <Route path="/cleaning" element={<CleaningPackages />} />
