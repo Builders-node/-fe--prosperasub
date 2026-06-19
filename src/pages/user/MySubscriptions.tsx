@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { PageLoader, Spinner } from "@/components/ui/spinner";
 import { Badge } from "@/components/ui/badge";
+import { PaymentMethodBadge } from "@/components/admin/PaymentMethodBadge";
 import {
   Dialog,
   DialogContent,
@@ -715,6 +716,9 @@ const MySubscriptions = () => {
                             </p>
                           </div>
                         </div>
+                        {(sub as any).payment_method && (
+                          <PaymentMethodBadge method={(sub as any).payment_method} />
+                        )}
                       </div>
                     ))}
                     {linkedClientPlans.map((plan: any) => {

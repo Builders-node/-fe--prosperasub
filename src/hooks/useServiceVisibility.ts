@@ -42,6 +42,7 @@ export function useServiceVisibility() {
       };
     },
     staleTime: 60_000,
-    placeholderData: ALL_VISIBLE,
+    // No placeholder: callers wait for the real value so hidden categories never
+    // flash in before being filtered out. ALL_VISIBLE is only the error fallback.
   });
 }

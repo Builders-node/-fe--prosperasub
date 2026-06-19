@@ -36,15 +36,18 @@ const SERVICES: Service[] = [
 const Discovery = () => {
   const { userData, roles } = useAuth();
   const { hasAny: managesBusiness } = useMyBusinesses();
-  const { data: visibility } = useServiceVisibility();
+  const { data: visibility, isLoading: visLoading } = useServiceVisibility();
 
   const firstName = userData?.name?.split(" ")[0] || userData?.display_name?.split(" ")[0];
 
   // Admins always see every category (with a "Hidden" tag); regular users only
   // see the categories that are enabled in Platform Settings.
   const isAdmin = roles.includes("super_admin");
-  const isHidden = (s: Service) => !!s.category && visibility ? !visibility[s.category!] : false;
-  const services = SERVICES.filter((s) => !s.category || isAdmin || (visibility ? visibility[s.category] : true));
+  // Regular users must wait for the visibility flags so a soon-to-be-hidden
+  // category never flashes in before it's filtered out.
+  const visibilityResolving = !isAdmin && (visLoading || !visibility);
+  const isHidden = (s: Service) => isAdmin && !!s.category && !!visibility && !visibility[s.category];
+  const services = SERVICES.filter((s) => !s.category || isAdmin || (visibility ? visibility[s.category] : false));
 
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-12">
@@ -85,6 +88,13 @@ const Discovery = () => {
         {/* ─── Services ──────────────────────────────────────────────── */}
         <section>
           <SectionHeader title="Our services" scrollable={false} />
+          {visibilityResolving ? (
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="min-h-[112px] animate-pulse rounded-2xl bg-muted/40" />
+              ))}
+            </div>
+          ) : (
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             {services.map((s) => (
               <Link
@@ -117,6 +127,7 @@ const Discovery = () => {
               </Link>
             ))}
           </div>
+          )}
         </section>
 
 
