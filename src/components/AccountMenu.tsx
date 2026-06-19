@@ -5,19 +5,21 @@ import {
   Bell,
   BellOff,
   CheckCircle2,
+  ChefHat,
   ChevronRight,
   Eye,
   EyeOff,
   KeyRound,
   List,
-  Loader2,
   LogOut,
+  MapPin,
   Pencil,
   Shield,
 } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -35,6 +37,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/contexts/AuthContext";
+import { useMyBusinesses } from "@/hooks/useMyBusinesses";
 import { useI18n } from "@/i18n";
 import { accountApi, supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -180,11 +183,13 @@ export function AccountMenu() {
   const [savedPhone,    setSavedPhone]    = useState("");
   const [savedTelegram, setSavedTelegram] = useState("");
   const [savedWhatsApp, setSavedWhatsApp] = useState("");
+  const [savedAddress,  setSavedAddress]  = useState("");
 
   const [draftName,     setDraftName]     = useState("");
   const [draftPhone,    setDraftPhone]    = useState("");
   const [draftTelegram, setDraftTelegram] = useState("");
   const [draftWhatsApp, setDraftWhatsApp] = useState("");
+  const [draftAddress,  setDraftAddress]  = useState("");
 
   const [currentPw, setCurrentPw] = useState("");
   const [newPw,     setNewPw]     = useState("");
@@ -208,6 +213,7 @@ export function AccountMenu() {
     staleTime: 5 * 60 * 1000,
   });
   const isAdminUser = isSuperAdmin || (rbacAdminData?.isAdmin ?? false);
+  const { hasAny: managesBusiness } = useMyBusinesses();
   const email        = userData?.email ?? "";
 
   // Detect Google by email domain — reliable regardless of JWT/session auth_provider inconsistencies
@@ -236,6 +242,7 @@ export function AccountMenu() {
       setSavedPhone(profile.phone_number || "");
       setSavedTelegram((profile as any).telegram_username || "");
       setSavedWhatsApp((profile as any).whatsapp || "");
+      setSavedAddress((profile as any).default_delivery_address || "");
     }
   }, [userData, profile]);
 
@@ -264,8 +271,8 @@ export function AccountMenu() {
 
   const resetPw = () => { setCurrentPw(""); setNewPw(""); setConfirmPw(""); setPwErrors({}); };
   const back = () => { setMode("view"); resetPw(); };
-  const enterEdit = () => { setDraftName(savedName); setDraftPhone(savedPhone); setDraftTelegram(savedTelegram); setDraftWhatsApp(savedWhatsApp); setMode("editing"); };
-  const hasChanges = draftName.trim() !== savedName.trim() || draftPhone.trim() !== savedPhone.trim() || draftTelegram.trim() !== savedTelegram.trim() || draftWhatsApp.trim() !== savedWhatsApp.trim();
+  const enterEdit = () => { setDraftName(savedName); setDraftPhone(savedPhone); setDraftTelegram(savedTelegram); setDraftWhatsApp(savedWhatsApp); setDraftAddress(savedAddress); setMode("editing"); };
+  const hasChanges = draftName.trim() !== savedName.trim() || draftPhone.trim() !== savedPhone.trim() || draftTelegram.trim() !== savedTelegram.trim() || draftWhatsApp.trim() !== savedWhatsApp.trim() || draftAddress.trim() !== savedAddress.trim();
 
   // ── Mutations ─────────────────────────────────────────────────────────────
 
@@ -274,14 +281,14 @@ export function AccountMenu() {
       if (!userData?.id) throw new Error("Not authenticated");
       if (userData.lightning_pubkey) await supabase.rpc("set_lightning_session", { p_pubkey: userData.lightning_pubkey });
       const { data: ex } = await supabase.from("user_profiles").select("id").eq("user_id", userData.id).maybeSingle();
-      const payload = { phone_number: draftPhone.trim() || null, telegram_username: draftTelegram.trim() || null, whatsapp: draftWhatsApp.trim() || null } as any;
+      const payload = { phone_number: draftPhone.trim() || null, telegram_username: draftTelegram.trim() || null, whatsapp: draftWhatsApp.trim() || null, default_delivery_address: draftAddress.trim() || null } as any;
       if (ex) { const { error } = await supabase.from("user_profiles").update(payload).eq("user_id", userData.id); if (error) throw error; }
       else { const { error } = await supabase.from("user_profiles").insert({ user_id: userData.id, ...payload } as any); if (error) throw error; }
       if (provider !== "lightning") { const { error } = await supabase.auth.updateUser({ data: { name: draftName.trim() } }); if (error) throw error; }
     },
     onSuccess: () => {
       toast.success("Profile updated");
-      setSavedName(draftName.trim()); setSavedPhone(draftPhone.trim()); setSavedTelegram(draftTelegram.trim()); setSavedWhatsApp(draftWhatsApp.trim());
+      setSavedName(draftName.trim()); setSavedPhone(draftPhone.trim()); setSavedTelegram(draftTelegram.trim()); setSavedWhatsApp(draftWhatsApp.trim()); setSavedAddress(draftAddress.trim());
       setMode("view"); queryClient.invalidateQueries({ queryKey: ["user-profile"] }); refreshUserData();
     },
     onError: (err: Error) => toast.error(err.message || "Failed to save"),
@@ -341,6 +348,9 @@ export function AccountMenu() {
           <div className="space-y-space-1">
             <AppDropdownItem icon={List} title={t("profile.bookings")} to="/my-subscriptions" />
             <AppDropdownItem icon={Bell} title="Notifications" to="/notifications" />
+            {managesBusiness && (
+              <AppDropdownItem icon={ChefHat} title="My Business" to="/my-business" />
+            )}
           </div>
           {isAdminUser && <AppDropdownSeparator />}
           <div className="space-y-space-1">
@@ -426,7 +436,18 @@ export function AccountMenu() {
                         </div>
                       </div>
                     )}
-                    {(savedPhone || savedWhatsApp || savedTelegram) && <div className="border-t border-border/50" />}
+                    {savedAddress && (
+                      <div className={cn("flex items-center gap-3 px-4 py-2.5", (savedPhone || savedWhatsApp || savedTelegram) && "border-t border-border/50")}>
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-orange-500/10">
+                          <MapPin className="h-3.5 w-3.5 text-orange-500" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Address</p>
+                          <p className="truncate text-[13px] font-semibold text-foreground">{savedAddress}</p>
+                        </div>
+                      </div>
+                    )}
+                    {(savedPhone || savedWhatsApp || savedTelegram || savedAddress) && <div className="border-t border-border/50" />}
 
                     <button type="button" onClick={() => { setDraftPrefs(prefs); setMode("preferences"); }}
                       className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-muted/30 active:bg-muted/50"
@@ -464,7 +485,7 @@ export function AccountMenu() {
                     </button>
                   </div>
 
-                  {!savedPhone && !savedWhatsApp && !savedTelegram && (
+                  {!savedPhone && !savedWhatsApp && !savedTelegram && !savedAddress && (
                     <p className="mt-2 text-center text-[11px] text-muted-foreground/50">Tap Edit Profile to add contact info</p>
                   )}
                 </>
@@ -478,10 +499,11 @@ export function AccountMenu() {
                   <Input id="e-phone" label="Phone (optional)" type="tel" value={draftPhone} onChange={(e) => setDraftPhone(e.target.value)} placeholder="+1 234 567 8900" />
                   <Input id="e-wa" label="WhatsApp (optional)" type="tel" value={draftWhatsApp} onChange={(e) => setDraftWhatsApp(e.target.value)} placeholder="+1 234 567 8900" leftIcon={<WhatsAppIcon className="h-4 w-4 text-green-500" />} />
                   <Input id="e-tg" label="Telegram (optional)" value={draftTelegram} onChange={(e) => setDraftTelegram(e.target.value)} placeholder="@username" leftIcon={<TelegramIcon className="h-4 w-4 text-[#2AABEE]" />} />
+                  <Input id="e-addr" label="Address (optional)" value={draftAddress} onChange={(e) => setDraftAddress(e.target.value)} placeholder="House / apartment, block, area" leftIcon={<MapPin className="h-4 w-4 text-orange-500" />} />
                   <div className="flex gap-2 pt-1">
                     <Button variant="secondary" className="flex-1" onClick={back} disabled={saveMutation.isPending}>Cancel</Button>
                     <Button className="flex-1" onClick={() => saveMutation.mutate()} loading={saveMutation.isPending} disabled={!hasChanges || saveMutation.isPending}>
-                      {saveMutation.isPending ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</> : "Save Changes"}
+                      {saveMutation.isPending ? <><Spinner size="sm" /> Saving…</> : "Save Changes"}
                     </Button>
                   </div>
                 </div>
@@ -518,7 +540,7 @@ export function AccountMenu() {
                   <div className="flex gap-2">
                     <Button variant="secondary" className="flex-1" onClick={back} disabled={savePrefsMutation.isPending}>Cancel</Button>
                     <Button className="flex-1" onClick={() => savePrefsMutation.mutate()} loading={savePrefsMutation.isPending} disabled={savePrefsMutation.isPending}>
-                      {savePrefsMutation.isPending ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</> : "Save"}
+                      {savePrefsMutation.isPending ? <><Spinner size="sm" /> Saving…</> : "Save"}
                     </Button>
                   </div>
                 </div>
@@ -533,7 +555,7 @@ export function AccountMenu() {
                   <div className="flex gap-2 pt-1">
                     <Button variant="secondary" className="flex-1" onClick={back} disabled={changePwMutation.isPending}>Cancel</Button>
                     <Button className="flex-1" onClick={() => { if (validatePw()) changePwMutation.mutate(); }} loading={changePwMutation.isPending} disabled={changePwMutation.isPending}>
-                      {changePwMutation.isPending ? <><Loader2 className="h-4 w-4 animate-spin" /> Updating…</> : "Update Password"}
+                      {changePwMutation.isPending ? <><Spinner size="sm" /> Updating…</> : "Update Password"}
                     </Button>
                   </div>
                 </div>
