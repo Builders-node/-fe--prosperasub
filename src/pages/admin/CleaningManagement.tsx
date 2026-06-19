@@ -3,8 +3,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import {
   CalendarDays,
+  CalendarClock,
   CheckCircle2,
   Clock,
+  Eye,
+  EyeOff,
   ExternalLink,
   ListChecks,
   RotateCcw,
@@ -118,6 +121,10 @@ const CleaningManagement = () => {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [completionBookingId, setCompletionBookingId] = useState<string>("");
   const [deleteBooking, setDeleteBooking] = useState<any | null>(null);
+  const [hideCompleted, setHideCompleted] = useState(false);
+  const [rescheduleBooking, setRescheduleBooking] = useState<any | null>(null);
+  const [rescheduleDate, setRescheduleDate] = useState<string>("");
+  const [rescheduleSlotId, setRescheduleSlotId] = useState<string>("");
   const [completion, setCompletion] = useState({
     completed_by: "Admin",
     notes: "",
@@ -226,6 +233,81 @@ const CleaningManagement = () => {
       invalidateCleaning();
     },
     onError: (error: Error) => toast.error(error.message || "Failed to delete booking"),
+  });
+
+  const openReschedule = (booking: any) => {
+    setRescheduleBooking(booking);
+    setRescheduleDate(getBookingDate(booking) || "");
+    setRescheduleSlotId("");
+  };
+
+  // Active slots for the date chosen in the reschedule dialog.
+  const rescheduleSlots = useMemo(() => {
+    if (!rescheduleDate) return [] as any[];
+    return (slots as any[])
+      .filter((s) => s.date === rescheduleDate && s.is_active)
+      .sort((a, b) => String(a.start_time).localeCompare(String(b.start_time)));
+  }, [slots, rescheduleDate]);
+
+  const rescheduleMutation = useMutation({
+    mutationFn: async () => {
+      const booking = rescheduleBooking;
+      const oldSlotId = booking?.slot_id || booking?.cleaning_available_slots?.id;
+      const newSlotId = rescheduleSlotId;
+      if (!booking || !newSlotId) throw new Error("Pick a new slot");
+      if (newSlotId === oldSlotId) throw new Error("Pick a different time slot");
+
+      const { data: newSlot, error: nsErr } = await supabase
+        .from("cleaning_available_slots").select("*").eq("id", newSlotId).single();
+      if (nsErr || !newSlot) throw new Error("Slot not found");
+      if (!newSlot.is_active) throw new Error("That slot is not available");
+      if ((newSlot.current_bookings ?? 0) >= (newSlot.max_bookings ?? 0)) throw new Error("That slot is full");
+
+      // Move the booking to the new slot.
+      const { error: upErr } = await supabase.admin.updateCleaningBooking(booking.id, { slot_id: newSlotId });
+      if (upErr) throw upErr;
+
+      // Free up the old slot's capacity, then take one on the new slot.
+      if (oldSlotId) {
+        const { error: decErr } = await supabase.rpc("decrement_slot_bookings", { p_slot_id: oldSlotId });
+        if (decErr) {
+          const { data: os } = await supabase.from("cleaning_available_slots").select("current_bookings").eq("id", oldSlotId).single();
+          if (os) await supabase.from("cleaning_available_slots")
+            .update({ current_bookings: Math.max(0, (os.current_bookings ?? 0) - 1) }).eq("id", oldSlotId);
+        }
+      }
+      await supabase.from("cleaning_available_slots")
+        .update({ current_bookings: (newSlot.current_bookings ?? 0) + 1 }).eq("id", newSlotId);
+
+      // Re-sync the Google Calendar event to the new time (best effort).
+      try {
+        const { data } = await supabase.admin.syncCleaningBookingDirect(booking.id, {
+          date: newSlot.date,
+          startTime: String(newSlot.start_time).slice(0, 5),
+          endTime: String(newSlot.end_time).slice(0, 5),
+          clientName: getBookingClientName(booking),
+          planName: booking.cleaning_custom_plans?.plan_name || undefined,
+          location: booking.location || booking.cleaning_clients?.location || undefined,
+          status: booking.status || "booked",
+          notes: booking.notes || undefined,
+          googleCalendarEventId: booking.google_calendar_event_id || undefined,
+        });
+        if (data?.ok && data?.googleCalendarEventId) {
+          await supabase.admin.updateCleaningBooking(booking.id, {
+            google_calendar_event_id: data.googleCalendarEventId,
+            google_calendar_event_link: data.googleCalendarEventLink ?? null,
+            google_calendar_sync_status: "synced",
+          });
+        }
+      } catch { /* calendar sync is best-effort */ }
+    },
+    onSuccess: () => {
+      toast.success("Cleaning rescheduled");
+      setRescheduleBooking(null);
+      setRescheduleSlotId("");
+      invalidateCleaning();
+    },
+    onError: (error: Error) => toast.error(error.message || "Could not reschedule"),
   });
 
   const syncCalendarMutation = useMutation({
@@ -376,6 +458,15 @@ const CleaningManagement = () => {
     [bookings],
   );
 
+  const completedCount = useMemo(
+    () => sortedBookings.filter((b: any) => b.status === "completed").length,
+    [sortedBookings],
+  );
+  const visibleBookings = useMemo(
+    () => (hideCompleted ? sortedBookings.filter((b: any) => b.status !== "completed") : sortedBookings),
+    [sortedBookings, hideCompleted],
+  );
+
   const stats = useMemo(
     () => ({
       upcoming: bookings.filter((booking: any) => booking.status === "booked").length,
@@ -430,7 +521,7 @@ const CleaningManagement = () => {
       </div>
 
       <Tabs defaultValue="bookings" variant="pills" className="mt-space-4 w-full">
-        <TabsList wrap className="h-auto">
+        <TabsList className="mb-2">
           <TabsTrigger value="bookings">Bookings</TabsTrigger>
           <TabsTrigger value="calendar">Calendar</TabsTrigger>
           <TabsTrigger value="reports">Completion Reports</TabsTrigger>
@@ -445,16 +536,28 @@ const CleaningManagement = () => {
                   Sync booked sessions to Google Calendar and mark completed services.
                 </p>
               </div>
-              <Button
-                type="button"
-                variant="secondary"
-                loading={syncAllCalendarMutation.isPending}
-                disabled={bookings.length === 0 || syncAllCalendarMutation.isPending}
-                onClick={() => syncAllCalendarMutation.mutate()}
-              >
-                <RotateCcw className="h-4 w-4" aria-hidden="true" />
-                Sync all
-              </Button>
+              <div className="flex items-center gap-space-2">
+                {completedCount > 0 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => setHideCompleted((v) => !v)}
+                  >
+                    {hideCompleted ? <Eye className="h-4 w-4" aria-hidden="true" /> : <EyeOff className="h-4 w-4" aria-hidden="true" />}
+                    {hideCompleted ? `Show completed (${completedCount})` : "Hide completed"}
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  variant="secondary"
+                  loading={syncAllCalendarMutation.isPending}
+                  disabled={bookings.length === 0 || syncAllCalendarMutation.isPending}
+                  onClick={() => syncAllCalendarMutation.mutate()}
+                >
+                  <RotateCcw className="h-4 w-4" aria-hidden="true" />
+                  Sync all
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               {bookingsLoading ? (
@@ -464,7 +567,7 @@ const CleaningManagement = () => {
               ) : (
                 <>
                   <div className="space-y-space-3 md:hidden">
-                    {sortedBookings.map((booking: any) => (
+                    {visibleBookings.map((booking: any) => (
                       <BookingCard
                         key={booking.id}
                         booking={booking}
@@ -490,7 +593,7 @@ const CleaningManagement = () => {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {sortedBookings.map((booking: any) => (
+                        {visibleBookings.map((booking: any) => (
                           <TableRow key={booking.id}>
                             <TableCell className="font-medium">{getBookingClientName(booking)}</TableCell>
                             <TableCell>
@@ -531,6 +634,12 @@ const CleaningManagement = () => {
                                   <Button type="button" size="sm" variant="secondary" onClick={() => setCompletionBookingId(booking.id)}>
                                     <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
                                     Complete
+                                  </Button>
+                                ) : null}
+                                {booking.status === "booked" ? (
+                                  <Button type="button" size="sm" variant="secondary" onClick={() => openReschedule(booking)}>
+                                    <CalendarClock className="h-3.5 w-3.5" aria-hidden="true" />
+                                    Reschedule
                                   </Button>
                                 ) : null}
                                 {booking.google_calendar_event_link ? (
@@ -613,6 +722,7 @@ const CleaningManagement = () => {
                           syncing={syncCalendarMutation.isPending && syncCalendarMutation.variables === booking.id}
                           onSync={() => syncCalendarMutation.mutate(booking.id)}
                           onComplete={() => setCompletionBookingId(booking.id)}
+                          onReschedule={() => openReschedule(booking)}
                           onDelete={() => setDeleteBooking(booking)}
                         />
                       ))}
@@ -736,6 +846,79 @@ const CleaningManagement = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Reschedule cleaning */}
+      <Dialog open={Boolean(rescheduleBooking)} onOpenChange={(open) => { if (!open) { setRescheduleBooking(null); setRescheduleSlotId(""); } }}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Reschedule cleaning</DialogTitle>
+            <DialogDescription>
+              {rescheduleBooking ? getBookingClientName(rescheduleBooking) : ""}
+              {rescheduleBooking?.cleaning_available_slots ? (
+                <> · currently {getBookingDate(rescheduleBooking) ? format(new Date(`${getBookingDate(rescheduleBooking)}T00:00:00`), "MMM d") : ""} {to12h(rescheduleBooking.cleaning_available_slots.start_time)}</>
+              ) : null}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-space-4">
+            <div>
+              <Label htmlFor="reschedule-date">New date</Label>
+              <Input
+                id="reschedule-date"
+                type="date"
+                value={rescheduleDate}
+                min={format(new Date(), "yyyy-MM-dd")}
+                onChange={(e) => { setRescheduleDate(e.target.value); setRescheduleSlotId(""); }}
+              />
+            </div>
+
+            <div>
+              <Label>Available times</Label>
+              {rescheduleSlots.length === 0 ? (
+                <p className="mt-space-1 text-sm text-muted-foreground">No slots for this date.</p>
+              ) : (
+                <div className="mt-space-2 grid grid-cols-2 gap-space-2">
+                  {rescheduleSlots.map((s: any) => {
+                    const remaining = (s.max_bookings ?? 0) - (s.current_bookings ?? 0);
+                    const isCurrent = s.id === (rescheduleBooking?.slot_id || rescheduleBooking?.cleaning_available_slots?.id);
+                    const full = remaining <= 0 && !isCurrent;
+                    const selected = rescheduleSlotId === s.id;
+                    return (
+                      <button
+                        key={s.id}
+                        type="button"
+                        disabled={full || isCurrent}
+                        onClick={() => setRescheduleSlotId(s.id)}
+                        className={cn(
+                          "rounded-radius-md border px-space-3 py-space-2 text-left transition-colors",
+                          selected ? "border-primary bg-primary/10" : "border-border hover:bg-muted/40",
+                          (full || isCurrent) && "cursor-not-allowed opacity-50",
+                        )}
+                      >
+                        <p className="text-sm font-bold text-foreground">{to12h(s.start_time)}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {isCurrent ? "Current" : full ? "Full" : `${remaining} open`}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setRescheduleBooking(null)}>Cancel</Button>
+            <Button
+              onClick={() => rescheduleMutation.mutate()}
+              loading={rescheduleMutation.isPending}
+              disabled={!rescheduleSlotId || rescheduleMutation.isPending}
+            >
+              Reschedule
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Delete booking confirmation */}
       <AlertDialog open={Boolean(deleteBooking)} onOpenChange={(open) => !open && setDeleteBooking(null)}>
         <AlertDialogContent>
@@ -778,12 +961,14 @@ function BookingCard({
   syncing,
   onSync,
   onComplete,
+  onReschedule,
   onDelete,
 }: {
   booking: any;
   syncing: boolean;
   onSync: () => void;
   onComplete: () => void;
+  onReschedule: () => void;
   onDelete: () => void;
 }) {
   return (
@@ -818,6 +1003,12 @@ function BookingCard({
           <Button type="button" size="sm" variant="secondary" onClick={onComplete}>
             <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
             Complete
+          </Button>
+        ) : null}
+        {booking.status === "booked" ? (
+          <Button type="button" size="sm" variant="secondary" onClick={onReschedule}>
+            <CalendarClock className="h-3.5 w-3.5" aria-hidden="true" />
+            Reschedule
           </Button>
         ) : null}
         {booking.google_calendar_event_link ? (
