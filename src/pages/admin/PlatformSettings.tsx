@@ -4,7 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { CalendarClock, Loader2, Settings } from "lucide-react";
+import { CalendarClock, Settings, Eye } from "lucide-react";
+import { PageLoader } from "@/components/ui/spinner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { adminApi } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -95,12 +96,45 @@ const PlatformSettings = () => {
     onError: (error: Error) => toast.error(error.message),
   });
 
+  // ── Service category visibility (shown/hidden from regular users) ───────────
+  const [catVis, setCatVis] = useState({ cleaning: true, cars: true, food: true, beach: true });
+
+  useEffect(() => {
+    if (settings) {
+      setCatVis({
+        cleaning: settings.category_cleaning_visible !== false,
+        cars: settings.category_cars_visible !== false,
+        food: settings.category_food_visible !== false,
+        beach: settings.category_beach_visible !== false,
+      });
+    }
+  }, [settings]);
+
+  const saveVisibilityMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await adminApi("/admin/settings", {
+        method: "PATCH",
+        body: JSON.stringify({
+          category_cleaning_visible: catVis.cleaning,
+          category_cars_visible: catVis.cars,
+          category_food_visible: catVis.food,
+          category_beach_visible: catVis.beach,
+        }),
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Service visibility saved!");
+      queryClient.invalidateQueries({ queryKey: ["global-settings"] });
+      queryClient.invalidateQueries({ queryKey: ["service-visibility"] });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
   if (isLoading) {
     return (
       <SuperAdminLayout title="Platform Settings">
-        <div className="flex items-center justify-center py-space-12">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
+        <PageLoader />
       </SuperAdminLayout>
     );
   }
@@ -181,6 +215,42 @@ const PlatformSettings = () => {
         </Card>
 
         <div className="space-y-space-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-space-2">
+                <Eye className="h-5 w-5" />
+                Service Visibility
+              </CardTitle>
+              <CardDescription>
+                Show or hide service categories from regular users. Admins always see every category.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-space-3">
+              {([
+                { key: "cleaning", label: "Cleaning" },
+                { key: "cars", label: "Car Rental" },
+                { key: "food", label: "Food" },
+                { key: "beach", label: "Beach Club" },
+              ] as const).map(({ key, label }) => (
+                <div key={key} className="flex items-center justify-between gap-space-3 rounded-radius-md border border-[hsl(var(--app-divider))] px-space-4 py-space-3">
+                  <Label className="cursor-pointer">{label}</Label>
+                  <Switch
+                    checked={catVis[key]}
+                    onCheckedChange={(v) => setCatVis((p) => ({ ...p, [key]: v }))}
+                  />
+                </div>
+              ))}
+              <Button
+                onClick={() => saveVisibilityMutation.mutate()}
+                loading={saveVisibilityMutation.isPending}
+                loadingText="Saving..."
+                className="w-full"
+              >
+                Save Visibility
+              </Button>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-space-2">

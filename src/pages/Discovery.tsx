@@ -9,6 +9,7 @@ import { BottomNav } from "@/components/BottomNav";
 import { AdBanner } from "@/components/AdBanner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMyBusinesses } from "@/hooks/useMyBusinesses";
+import { useServiceVisibility, type ServiceCategory } from "@/hooks/useServiceVisibility";
 import { cn } from "@/lib/utils";
 import type { LucideIcon } from "lucide-react";
 
@@ -20,22 +21,30 @@ interface Service {
   tint: string;      // card background tint
   chip: string;      // icon chip background
   badge?: string;
+  category?: ServiceCategory; // gated by admin visibility; undefined = always shown
 }
 
 const SERVICES: Service[] = [
-  { to: "/cleaning",         title: "Cleaning",        icon: SparklesIcon,     tint: "bg-sky-50 dark:bg-sky-950/40",        chip: "bg-sky-500" },
-  { to: "/cars",             title: "Car Rental",      icon: Car,              tint: "bg-orange-50 dark:bg-orange-950/40",  chip: "bg-orange-500" },
-  { to: "/food",             title: "Food",            icon: UtensilsCrossed,  tint: "bg-emerald-50 dark:bg-emerald-950/40", chip: "bg-emerald-500" },
-  { to: "/beach-club",       title: "Beach Club",      icon: Waves,            tint: "bg-cyan-50 dark:bg-cyan-950/40",      chip: "bg-cyan-500", badge: "NEW" },
+  { to: "/cleaning",         title: "Cleaning",        icon: SparklesIcon,     tint: "bg-sky-50 dark:bg-sky-950/40",        chip: "bg-sky-500",    category: "cleaning" },
+  { to: "/cars",             title: "Car Rental",      icon: Car,              tint: "bg-orange-50 dark:bg-orange-950/40",  chip: "bg-orange-500", category: "cars" },
+  { to: "/food",             title: "Food",            icon: UtensilsCrossed,  tint: "bg-emerald-50 dark:bg-emerald-950/40", chip: "bg-emerald-500", category: "food" },
+  { to: "/beach-club",       title: "Beach Club",      icon: Waves,            tint: "bg-cyan-50 dark:bg-cyan-950/40",      chip: "bg-cyan-500", badge: "NEW", category: "beach" },
   { to: "/my-subscriptions", title: "My Subs", icon: Users,           tint: "bg-violet-50 dark:bg-violet-950/40",  chip: "bg-violet-500" },
 ];
 
 
 const Discovery = () => {
-  const { userData } = useAuth();
+  const { userData, roles } = useAuth();
   const { hasAny: managesBusiness } = useMyBusinesses();
+  const { data: visibility } = useServiceVisibility();
 
   const firstName = userData?.name?.split(" ")[0] || userData?.display_name?.split(" ")[0];
+
+  // Admins always see every category (with a "Hidden" tag); regular users only
+  // see the categories that are enabled in Platform Settings.
+  const isAdmin = roles.includes("super_admin");
+  const isHidden = (s: Service) => !!s.category && visibility ? !visibility[s.category!] : false;
+  const services = SERVICES.filter((s) => !s.category || isAdmin || (visibility ? visibility[s.category] : true));
 
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-12">
@@ -77,7 +86,7 @@ const Discovery = () => {
         <section>
           <SectionHeader title="Our services" scrollable={false} />
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            {SERVICES.map((s) => (
+            {services.map((s) => (
               <Link
                 key={s.to}
                 to={s.to}
@@ -85,13 +94,18 @@ const Discovery = () => {
                 className={cn(
                   "group relative flex min-h-[112px] flex-col justify-between overflow-hidden rounded-2xl p-4 transition-transform active:scale-[0.98]",
                   s.tint,
+                  isHidden(s) && "opacity-60",
                 )}
               >
-                {s.badge && (
+                {isHidden(s) ? (
+                  <span className="absolute right-2 top-2 rounded-full bg-muted px-2 py-0.5 text-[10px] font-black tracking-wider text-muted-foreground">
+                    HIDDEN
+                  </span>
+                ) : s.badge ? (
                   <span className="absolute right-2 top-2 rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-black tracking-wider text-emerald-950">
                     {s.badge}
                   </span>
-                )}
+                ) : null}
                 <p className="max-w-[80%] text-[15px] font-bold leading-tight text-foreground">
                   {s.title}
                 </p>
