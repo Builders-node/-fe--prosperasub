@@ -35,6 +35,9 @@ const MyRestaurant = lazy(() => import("./pages/user/MyRestaurant"));
 const MyBusiness = lazy(() => import("./pages/user/MyBusiness"));
 const MyCarRental = lazy(() => import("./pages/user/MyCarRental"));
 
+// Beach Club
+const BeachClub = lazy(() => import("./pages/beach/BeachClub"));
+
 // Cleaning
 const CleaningPackages = lazy(() => import("./pages/cleaning/CleaningPackages"));
 const CleaningCheckout = lazy(() => import("./pages/cleaning/CleaningCheckout"));
@@ -117,6 +120,9 @@ const App = () => {
 
               {/* Discovery */}
               <Route path="/discovery" element={<Discovery />} />
+
+              {/* Beach Club */}
+              <Route path="/beach-club" element={<BeachClub />} />
 
               {/* Cleaning */}
               <Route path="/cleaning" element={<CleaningPackages />} />
