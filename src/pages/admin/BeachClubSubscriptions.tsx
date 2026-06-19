@@ -10,7 +10,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { PaymentMethodBadge } from "@/components/admin/PaymentMethodBadge";
+import { PaymentMethodBadge, PaymentReference } from "@/components/admin/PaymentMethodBadge";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { formatUSD } from "@/lib/pricing";
 import { toast } from "sonner";
@@ -26,6 +26,7 @@ interface BeachSub {
   total_cents: number | null;
   payment_status: string | null;
   payment_method: string | null;
+  payment_reference: string | null;
   status: string;
   created_at: string;
 }
@@ -127,6 +128,7 @@ export default function BeachClubSubscriptions() {
                       {s.payment_status || "—"}
                     </Badge>
                     <PaymentMethodBadge method={s.payment_method} />
+                    <PaymentReference method={s.payment_method} reference={s.payment_reference} />
                   </div>
                 </TableCell>
                 <TableCell>

@@ -20,7 +20,7 @@ import { adminApi } from "@/integrations/supabase/client";
 import { useBtcPrice } from "@/hooks/useBtcPrice";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-import { PaymentMethodBadge } from "@/components/admin/PaymentMethodBadge";
+import { PaymentMethodBadge, PaymentReference } from "@/components/admin/PaymentMethodBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -614,6 +614,7 @@ const AdminSubscriptions = () => {
                             {sub.payment_status}
                           </Badge>
                           <PaymentMethodBadge method={sub.payment_method} />
+                          <PaymentReference method={sub.payment_method} reference={sub.payment_reference} />
                         </div>
                       </TableCell>
                       <TableCell>

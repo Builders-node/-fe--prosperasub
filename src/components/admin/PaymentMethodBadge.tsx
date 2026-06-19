@@ -1,4 +1,4 @@
-import { Zap, Bitcoin, Coins, Wallet, Minus, type LucideIcon } from "lucide-react";
+import { Zap, Bitcoin, Coins, Wallet, Minus, ExternalLink, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /** Collapse the various stored values into a canonical payment method. */
@@ -22,6 +22,31 @@ const META: Record<PaymentMethodKey, { label: string; Icon: LucideIcon; classNam
   paypal:    { label: "PayPal",    Icon: Wallet,  className: "bg-blue-500/15 text-blue-400" },
   unknown:   { label: "—",         Icon: Minus,   className: "bg-muted text-muted-foreground" },
 };
+
+/** The transaction reference for a payment. For Infinita/Solana it links to Solscan. */
+export function PaymentReference({ method, reference }: { method?: string | null; reference?: string | null }) {
+  if (!reference) return null;
+  const key = normalizePaymentMethod(method);
+  const short = reference.length > 16 ? `${reference.slice(0, 6)}…${reference.slice(-6)}` : reference;
+
+  if (key === "infinita") {
+    return (
+      <a
+        href={`https://solscan.io/tx/${reference}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        title={`View on Solscan: ${reference}`}
+        className="inline-flex items-center gap-1 font-mono text-[11px] text-violet-400 hover:underline"
+      >
+        {short}
+        <ExternalLink className="h-3 w-3" />
+      </a>
+    );
+  }
+  return (
+    <span className="font-mono text-[11px] text-muted-foreground" title={reference}>{short}</span>
+  );
+}
 
 /** A compact pill showing how a subscription was paid (LIVES / Lightning / On-chain / PayPal). */
 export function PaymentMethodBadge({ method, className }: { method?: string | null; className?: string }) {
