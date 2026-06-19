@@ -5,8 +5,10 @@ import { cn } from "@/lib/utils";
 export function normalizePaymentMethod(method?: string | null): PaymentMethodKey {
   const m = (method || "").toLowerCase();
   if (m === "lightning" || m === "blink") return "lightning";
-  if (m === "onchain" || m === "crypto" || m === "bitcoin") return "onchain";
-  if (m === "infinita" || m === "lives") return "infinita";
+  if (m === "onchain" || m === "bitcoin") return "onchain";
+  // Solana settles through the Infinita wallet (LIVES). The Infinita checkout
+  // stores this as "crypto", so treat crypto/solana/lives as Infinita.
+  if (m === "infinita" || m === "lives" || m === "crypto" || m === "solana") return "infinita";
   if (m === "paypal") return "paypal";
   return "unknown";
 }
