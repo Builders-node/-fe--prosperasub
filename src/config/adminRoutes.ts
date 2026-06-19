@@ -9,6 +9,7 @@ export const adminRoutes = {
   superAdminRoles: "/admin/roles",
   superAdminAuditLogs: "/admin/audit-logs",
   superAdminSettings: "/admin/settings",
+  superAdminAds: "/admin/ads",
   // Car Rentals
   superAdminCarRentals: "/admin/car-rentals",
   superAdminCarRentalsReservations: "/admin/car-rentals/reservations",
@@ -17,6 +18,14 @@ export const adminRoutes = {
   superAdminCarRentalsDelivery: "/admin/car-rentals/delivery",
   superAdminCarRentalsInsurance: "/admin/car-rentals/insurance",
   superAdminCarRentalsExtras: "/admin/car-rentals/extras",
+  superAdminCarRentalsProviders: "/admin/car-rentals/providers",
+  // Food
+  superAdminFoodAnalytics: "/admin/food/analytics",
+  superAdminFoodProviders: "/admin/food/providers",
+  superAdminFoodSubscriptions: "/admin/food/subscriptions",
+  // Beach Club
+  superAdminBeachClubPlans: "/admin/beach-club/plans",
+  superAdminBeachClubInquiries: "/admin/beach-club/inquiries",
 } as const;
 
 export const publicRoutes = {

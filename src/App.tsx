@@ -79,6 +79,10 @@ const FoodProviders = lazy(() => import("./pages/admin/FoodProviders"));
 const FoodRestaurantDetail = lazy(() => import("./pages/admin/FoodRestaurantDetail"));
 const FoodSubscriptions = lazy(() => import("./pages/admin/FoodSubscriptions"));
 
+// Admin Beach Club
+const BeachClubPlans = lazy(() => import("./pages/admin/BeachClubPlans"));
+const BeachClubInquiries = lazy(() => import("./pages/admin/BeachClubInquiries"));
+
 // ─── Suspense fallback ────────────────────────────────────────────────────────
 // Unified loader (Spinner is a tiny leaf module — no extra chunk).
 const PageFallback = () => <PageLoader className="min-h-screen bg-background" />;
@@ -248,6 +252,13 @@ const App = () => {
               } />
               <Route path="/admin/food/subscriptions" element={
                 <ProtectedRoute allowedRoles={['super_admin']}><FoodSubscriptions /></ProtectedRoute>
+              } />
+              {/* Admin Beach Club */}
+              <Route path="/admin/beach-club/plans" element={
+                <ProtectedRoute allowedRoles={['super_admin']}><BeachClubPlans /></ProtectedRoute>
+              } />
+              <Route path="/admin/beach-club/inquiries" element={
+                <ProtectedRoute allowedRoles={['super_admin']}><BeachClubInquiries /></ProtectedRoute>
               } />
               {/* Catch-all */}
               <Route path="*" element={<NotFound />} />

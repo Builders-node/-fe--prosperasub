@@ -20,10 +20,14 @@ import {
   Settings,
   ShieldCheck,
   FileText,
-  MapPin,
   Wrench,
-  Shield,
-  PlusCircle,
+  Building2,
+  UtensilsCrossed,
+  RefreshCw,
+  ChefHat,
+  Megaphone,
+  Waves,
+  Mail,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { adminRoutes } from "./adminRoutes";
@@ -86,30 +90,38 @@ export const SERVICES: ServiceGroup[] = [
       { label: "Vehicles",      path: adminRoutes.superAdminCarRentals,             icon: Car          },
       { label: "Reservations",  path: adminRoutes.superAdminCarRentalsReservations, icon: ClipboardList },
       { label: "Customers",     path: adminRoutes.superAdminCarRentalsCustomers,    icon: UserCheck    },
-      { label: "Insurance",     path: adminRoutes.superAdminCarRentalsInsurance,    icon: Shield       },
-      { label: "Extras",        path: adminRoutes.superAdminCarRentalsExtras,       icon: PlusCircle   },
-      { label: "Delivery",      path: adminRoutes.superAdminCarRentalsDelivery,     icon: MapPin       },
+      { label: "Providers",     path: adminRoutes.superAdminCarRentalsProviders,   icon: Building2    },
     ],
   },
-  // ── Add future services here ─────────────────────────────────────────────
-  // {
-  //   id: "food-delivery",
-  //   label: "Food Delivery",
-  //   icon: UtensilsCrossed,
-  //   color: "bg-red-500",
-  //   rootPath: "/admin/food/analytics",
-  //   items: [
-  //     { label: "Analytics", path: "/admin/food/analytics",   icon: BarChart3 },
-  //     { label: "Menu",      path: "/admin/food/menu",        icon: BookOpen  },
-  //     { label: "Orders",    path: "/admin/food/orders",      icon: ShoppingBag },
-  //   ],
-  // },
+  {
+    id: "food",
+    label: "Food",
+    icon: UtensilsCrossed,
+    color: "bg-orange-500",
+    rootPath: adminRoutes.superAdminFoodAnalytics,
+    items: [
+      { label: "Analytics",      path: adminRoutes.superAdminFoodAnalytics,      icon: BarChart3     },
+      { label: "Restaurants",    path: adminRoutes.superAdminFoodProviders,      icon: ChefHat       },
+    ],
+  },
+  {
+    id: "beach-club",
+    label: "Beach Club",
+    icon: Waves,
+    color: "bg-cyan-500",
+    rootPath: adminRoutes.superAdminBeachClubPlans,
+    items: [
+      { label: "Plans",     path: adminRoutes.superAdminBeachClubPlans,     icon: CreditCard },
+      { label: "Inquiries", path: adminRoutes.superAdminBeachClubInquiries, icon: Mail       },
+    ],
+  },
 ];
 
 // ─── Settings (flat links) ────────────────────────────────────────────────────
 export const SETTINGS_SECTION: NavSection = {
   title: "Settings",
   items: [
+    { label: "Ads",        path: adminRoutes.superAdminAds,       icon: Megaphone   },
     { label: "Roles",      path: adminRoutes.superAdminRoles,     icon: ShieldCheck },
     { label: "Audit Logs", path: adminRoutes.superAdminAuditLogs, icon: FileText    },
     { label: "Settings",   path: adminRoutes.superAdminSettings,  icon: Settings    },
