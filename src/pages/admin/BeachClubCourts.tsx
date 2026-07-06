@@ -18,7 +18,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { supabaseDb, adminApi } from "@/integrations/supabase/client";
+import { supabaseDb, adminApi, accountApi } from "@/integrations/supabase/client";
 import { todayHN, nowHN } from "@/lib/timezone";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -41,10 +41,12 @@ interface Court {
 const SUPABASE_URL = "https://igbytraidldkhhamsfdo.supabase.co";
 const feedUrlFor = (token: string) =>
   `${SUPABASE_URL}/functions/v1/beach-court-ics?token=${token}`;
-interface CourtBooking {
-  id: string; court_id: string; date: string; start_hour: number; end_hour: number;
-  member_name: string | null; notes: string | null; status: string;
-  google_calendar_event_id?: string | null;
+/** Booking as returned by the new engine (`/booking/bookings`). */
+interface EngineBooking {
+  id: string; resource_id: string; subject_ref: string | null;
+  start_at: string; end_at: string; slot_key: string; status: string;
+  label: string | null; notes: string | null;
+  google_calendar_event_id: string | null; google_calendar_sync_status: string | null;
 }
 
 const hourLabel = (h: number) => {
@@ -113,23 +115,37 @@ export default function BeachClubCourts() {
     return Array.from({ length: n }, (_, i) => start + i);
   }, [activeCourt]);
 
-  const { data: bookings = [], isLoading: bookingsLoading } = useQuery({
-    queryKey: ["admin-bc-court-bookings", activeCourtId, date],
-    queryFn: async () => {
-      if (!activeCourtId) return [];
-      const { data, error } = await supabaseDb
-        .from("beach_club_court_bookings")
-        .select("id, court_id, date, start_hour, end_hour, member_name, notes, status, google_calendar_event_id")
-        .eq("court_id", activeCourtId).eq("date", date).eq("status", "booked");
-      if (error) throw error;
-      return (data ?? []) as CourtBooking[];
-    },
+  // DDD cutover — bridge legacy court id → engine bookable_resources.id (once).
+  const { data: resourceId = "" } = useQuery({
+    queryKey: ["admin-bc-court-resource", activeCourtId],
     enabled: !!activeCourtId,
+    queryFn: async () => {
+      const { data, error } = await supabaseDb
+        .from("bookable_resources").select("id")
+        .eq("source_service_key", "beach")
+        .eq("source_resource_id", activeCourtId).maybeSingle();
+      if (error) throw error;
+      return (data?.id ?? "") as string;
+    },
+  });
+
+  const bookingsQueryKey = ["admin-bc-engine-bookings", resourceId, date] as const;
+  const { data: bookings = [], isLoading: bookingsLoading } = useQuery({
+    queryKey: bookingsQueryKey,
+    enabled: !!resourceId,
+    queryFn: async () => {
+      const { data, error } = await accountApi(`/booking/bookings?resourceId=${encodeURIComponent(resourceId)}&date=${date}`);
+      if (error) throw error;
+      return (data ?? []) as EngineBooking[];
+    },
   });
 
   const bookingByHour = useMemo(() => {
-    const m = new Map<number, CourtBooking>();
-    bookings.forEach((b) => m.set(b.start_hour, b));
+    const m = new Map<number, EngineBooking>();
+    for (const b of bookings) {
+      const h = new Date(b.start_at).getHours();
+      m.set(h, b);
+    }
     return m;
   }, [bookings]);
 
@@ -140,54 +156,65 @@ export default function BeachClubCourts() {
     return nowHN().getHours() >= h + 1;
   };
 
-  // ── Booking mutations ───────────────────────────────────────────────────────
+  // ── Booking mutations (engine as source of truth) ───────────────────────────
   const createBooking = useMutation({
     mutationFn: async () => {
       if (bookSlot === null) return null;
       if (isPastSlot(bookSlot)) throw new Error("That time has already passed — pick a future slot.");
-      const { data, error } = await supabaseDb.from("beach_club_court_bookings").insert({
-        court_id: activeCourtId,
-        date,
-        start_hour: bookSlot,
-        end_hour: bookSlot + 1,
-        member_name: memberName.trim() || null,
-        notes: notes.trim() || null,
-        status: "booked",
-      }).select("id").single();
-      if (error) {
-        if (/duplicate|unique/i.test(error.message)) throw new Error("That slot is already booked.");
-        throw error;
+      if (!resourceId) throw new Error("Court not yet bridged to the resource registry.");
+
+      const from = `${String(bookSlot).padStart(2, "0")}:00`;
+      const hold = await accountApi("/booking/hold", {
+        method: "POST",
+        body: JSON.stringify({
+          resource_id: resourceId, date, from,
+          label: memberName.trim() || null,
+          notes: notes.trim() || null,
+        }),
+      });
+      if (hold.error) throw new Error(hold.error.message || "Could not hold slot");
+      const held = hold.data as { held?: boolean; bookingId?: string; reason?: string } | null;
+      if (!held?.held || !held.bookingId) {
+        throw new Error(held?.reason === "slot_taken" ? "That slot is already booked." : "Slot unavailable");
       }
+      const confirm = await accountApi(`/booking/holds/${held.bookingId}/confirm`, {
+        method: "POST", body: JSON.stringify({}),
+      });
+      if (confirm.error) throw new Error(confirm.error.message || "Could not confirm");
       // Best-effort push to Google Calendar if this court has one configured.
-      if (data?.id && activeCourt?.google_calendar_id) {
-        adminApi(`/admin/beach-club/court-bookings/${data.id}/sync-google`, { method: "POST" })
+      if (activeCourt?.google_calendar_id) {
+        adminApi(`/admin/beach-club/court-bookings/${held.bookingId}/sync-google`, { method: "POST" })
           .catch(() => { /* non-fatal */ });
       }
-      return data;
+      return { id: held.bookingId };
     },
     onSuccess: () => {
       toast.success(activeCourt?.google_calendar_id ? "Court booked — syncing to Google Calendar…" : "Court booked");
-      qc.invalidateQueries({ queryKey: ["admin-bc-court-bookings", activeCourtId, date] });
+      qc.invalidateQueries({ queryKey: bookingsQueryKey });
       setBookSlot(null); setMemberName(""); setNotes("");
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const cancelBooking = useMutation({
-    mutationFn: async (booking: CourtBooking) => {
-      const { error } = await supabaseDb.from("beach_club_court_bookings").delete().eq("id", booking.id);
-      if (error) throw error;
-      // Remove the paired Google Calendar event, if any.
+    mutationFn: async (booking: EngineBooking) => {
+      const { error } = await accountApi(`/booking/bookings/${booking.id}/cancel`, {
+        method: "POST", body: JSON.stringify({}),
+      });
+      if (error) throw new Error(error.message || "Could not cancel");
+      // Remove the paired Google Calendar event, if any. The admin endpoint takes
+      // the LEGACY court id (for its Google mapping) and the event id we recorded
+      // on the engine booking during syncCreated.
       if (booking.google_calendar_event_id && activeCourt?.google_calendar_id) {
         adminApi(`/admin/beach-club/court-bookings/${booking.id}/unsync-google`, {
           method: "POST",
-          body: JSON.stringify({ courtId: booking.court_id, eventId: booking.google_calendar_event_id }),
+          body: JSON.stringify({ courtId: activeCourtId, eventId: booking.google_calendar_event_id }),
         }).catch(() => { /* non-fatal */ });
       }
     },
     onSuccess: () => {
       toast.success("Booking cancelled");
-      qc.invalidateQueries({ queryKey: ["admin-bc-court-bookings", activeCourtId, date] });
+      qc.invalidateQueries({ queryKey: bookingsQueryKey });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -426,7 +453,7 @@ export default function BeachClubCourts() {
                         {slotLabel(h)}
                       </p>
                       {b ? (
-                        <p className="mt-0.5 truncate text-xs text-primary">{b.member_name || "Booked"}</p>
+                        <p className="mt-0.5 truncate text-xs text-primary">{b.label || "Booked"}</p>
                       ) : past ? (
                         <p className="mt-0.5 text-xs text-muted-foreground">Past</p>
                       ) : (

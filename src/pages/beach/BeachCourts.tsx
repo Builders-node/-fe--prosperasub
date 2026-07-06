@@ -9,10 +9,9 @@ import { BottomNav } from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
 import { PageLoader, Spinner } from "@/components/ui/spinner";
 import { YdEmptyState } from "@/components/yd/YdPrimitives";
-import { supabaseDb } from "@/integrations/supabase/client";
+import { supabaseDb, accountApi } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserUuid } from "@/hooks/useUserUuid";
-import { useBookingEngineShadow, shadowConfirmBooking } from "@/hooks/useBookingEngineShadow";
 import { todayHN } from "@/lib/timezone";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -25,9 +24,10 @@ const hourLabel = (h: number) => `${h % 12 === 0 ? 12 : h % 12}${h >= 12 ? "PM" 
 const slotLabel = (h: number) => `${hourLabel(h)} - ${hourLabel(h + 1)}`;
 
 interface Court { id: string; name: string; type: string; }
-interface CourtBooking {
-  id: string; court_id: string; date: string; start_hour: number;
-  member_name: string | null; user_id: string | null; status: string;
+/** Booking as returned by the new engine (`/booking/bookings`). */
+interface EngineBooking {
+  id: string; resource_id: string; subject_ref: string | null;
+  start_at: string; end_at: string; slot_key: string; status: string;
 }
 
 const BeachCourts = () => {
@@ -71,74 +71,80 @@ const BeachCourts = () => {
 
   const activeCourtId = courtId || courts[0]?.id || "";
 
-  // DDD Step 2 — shadow-read the new Booking engine's availability and log a
-  // parity check. Off by default (localStorage['ddd.shadowBooking']==='1'); no
-  // network and no UI effect unless a dev flips the flag.
-  const shadowEnabled = useMemo(() => {
-    try { return localStorage.getItem("ddd.shadowBooking") === "1"; } catch { return false; }
-  }, []);
-  const frontendSlots = useMemo(() => HOURS.map((h) => `${String(h).padStart(2, "0")}:00`), []);
-  useBookingEngineShadow({ sourceServiceKey: "beach", sourceResourceId: activeCourtId, date, enabled: shadowEnabled, frontendSlots });
-
-  const { data: bookings = [], isLoading: bookingsLoading } = useQuery({
-    queryKey: ["beach-court-bookings", activeCourtId, date],
-    queryFn: async () => {
-      if (!activeCourtId) return [];
-      const { data, error } = await supabaseDb
-        .from("beach_club_court_bookings")
-        .select("*")
-        .eq("court_id", activeCourtId).eq("date", date).eq("status", "booked");
-      if (error) throw error;
-      return (data ?? []) as CourtBooking[];
-    },
+  // DDD Step 4+5 cutover — bookings now go through the domain Booking engine.
+  // Bridge: courtId (legacy) → bookable_resources.id (engine key).
+  const { data: resourceId = "" } = useQuery({
+    queryKey: ["beach-court-resource-id", activeCourtId],
     enabled: !!activeCourtId,
+    queryFn: async () => {
+      const { data, error } = await supabaseDb
+        .from("bookable_resources").select("id")
+        .eq("source_service_key", "beach")
+        .eq("source_resource_id", activeCourtId).maybeSingle();
+      if (error) throw error;
+      return (data?.id ?? "") as string;
+    },
+  });
+
+  const bookingsQueryKey = ["beach-engine-bookings", resourceId, date] as const;
+  const { data: bookings = [], isLoading: bookingsLoading } = useQuery({
+    queryKey: bookingsQueryKey,
+    enabled: !!resourceId,
+    queryFn: async () => {
+      const { data, error } = await accountApi(`/booking/bookings?resourceId=${encodeURIComponent(resourceId)}&date=${date}`);
+      if (error) throw error;
+      return (data ?? []) as EngineBooking[];
+    },
   });
 
   const bookingByHour = useMemo(() => {
-    const m = new Map<number, CourtBooking>();
-    bookings.forEach((b) => m.set(b.start_hour, b));
+    const m = new Map<number, EngineBooking>();
+    for (const b of bookings) {
+      const h = new Date(b.start_at).getHours();
+      m.set(h, b);
+    }
     return m;
   }, [bookings]);
 
+  const mySubjectRefs = useMemo(() => myIds.map((id) => `user:${id}`), [myIds]);
+  const isMine = (b?: EngineBooking) => !!b && mySubjectRefs.includes(String(b.subject_ref));
+
   const book = useMutation({
     mutationFn: async (hour: number) => {
-      const { error } = await supabaseDb.from("beach_club_court_bookings").insert({
-        court_id: activeCourtId,
-        date,
-        start_hour: hour,
-        end_hour: hour + 1,
-        member_name: userData?.name || userData?.display_name || userData?.email || "Member",
-        user_id: userData?.id ?? userUuid,
-        status: "booked",
+      const from = `${String(hour).padStart(2, "0")}:00`;
+      const hold = await accountApi("/booking/hold", {
+        method: "POST",
+        body: JSON.stringify({ resource_id: resourceId, date, from }),
       });
-      if (error) {
-        if (/duplicate|unique/i.test(error.message)) throw new Error("That slot was just taken.");
-        throw error;
+      if (hold.error) throw new Error(hold.error.message || "Could not hold slot");
+      const held = hold.data as { held?: boolean; bookingId?: string; reason?: string } | null;
+      if (!held?.held || !held.bookingId) {
+        throw new Error(held?.reason === "slot_taken" ? "That slot was just taken." : "Slot unavailable");
       }
+      const confirm = await accountApi(`/booking/holds/${held.bookingId}/confirm`, {
+        method: "POST", body: JSON.stringify({}),
+      });
+      if (confirm.error) throw new Error(confirm.error.message || "Could not confirm booking");
     },
-    onSuccess: (_data, hour) => {
+    onSuccess: () => {
       toast.success("Court booked");
-      qc.invalidateQueries({ queryKey: ["beach-court-bookings", activeCourtId, date] });
-      // DDD Step 3 — mirror the (already-successful) booking into the new engine.
-      // Fire-and-forget, off by default, never affects this real booking.
-      if (shadowEnabled) {
-        void shadowConfirmBooking({ sourceServiceKey: "beach", sourceResourceId: activeCourtId, date, from: `${String(hour).padStart(2, "0")}:00` });
-      }
+      qc.invalidateQueries({ queryKey: bookingsQueryKey });
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const cancel = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabaseDb.from("beach_club_court_bookings").delete().eq("id", id);
-      if (error) throw error;
+      const { error } = await accountApi(`/booking/bookings/${id}/cancel`, {
+        method: "POST", body: JSON.stringify({}),
+      });
+      if (error) throw new Error(error.message || "Could not cancel");
     },
-    onSuccess: () => { toast.success("Booking cancelled"); qc.invalidateQueries({ queryKey: ["beach-court-bookings", activeCourtId, date] }); },
+    onSuccess: () => { toast.success("Booking cancelled"); qc.invalidateQueries({ queryKey: bookingsQueryKey }); },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const shiftDay = (n: number) => setDate(format(addDays(new Date(`${date}T00:00:00`), n), "yyyy-MM-dd"));
-  const isMine = (b?: CourtBooking) => !!b && myIds.includes(String(b.user_id));
 
   const content = () => {
     if (authLoading || membershipLoading) return <PageLoader />;
