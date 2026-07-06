@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Edit, Archive, RotateCcw, Trash2, Eye, EyeOff, X, ImagePlus, Upload, Loader2, Link2 } from "lucide-react";
+import { Plus, Edit, Archive, RotateCcw, Trash2, Eye, EyeOff, X, ImagePlus, Upload, Link2 } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import { supabaseDb } from "@/integrations/supabase/client";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { Button } from "@/components/ui/button";
@@ -21,7 +22,7 @@ import { toast } from "sonner";
 import { formatUSD } from "@/lib/pricing";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAuditEvent } from "@/lib/auditLog";
-import type { RentalVehicle, RentalVehicleImage } from "@/types/carRental";
+import type { RentalVehicle, RentalVehicleImage, RentalProvider } from "@/types/carRental";
 
 type VehicleWithImages = RentalVehicle & { images: RentalVehicleImage[] };
 
@@ -47,6 +48,7 @@ const EMPTY_FORM = {
   biweekly_price_cents: 0,
   monthly_price_cents: 0,
   monthly_discount_pct: 0,
+  provider_id: "" as string,
   status: "private" as const,
   sort_order: 0,
 };
@@ -64,6 +66,7 @@ const CarRentalsVehicles = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [deleteTarget, setDeleteTarget] = useState<VehicleWithImages | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [filterProvider, setFilterProvider] = useState<string>("all");
 
   const { data: vehicles = [], isLoading } = useQuery({
     queryKey: ["admin-rental-vehicles"],
@@ -93,6 +96,19 @@ const CarRentalsVehicles = () => {
     },
   });
 
+  const { data: providers = [] } = useQuery({
+    queryKey: ["admin-rental-providers"],
+    queryFn: async () => {
+      const { data, error } = await supabaseDb
+        .from("rental_providers")
+        .select("*")
+        .eq("status", "active")
+        .order("sort_order", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as RentalProvider[];
+    },
+  });
+
   const saveMutation = useMutation({
     mutationFn: async () => {
       const payload = {
@@ -111,6 +127,7 @@ const CarRentalsVehicles = () => {
         biweekly_price_cents: form.biweekly_price_cents,
         monthly_price_cents: form.monthly_price_cents,
         monthly_discount_pct: form.monthly_discount_pct,
+        provider_id: form.provider_id || null,
         status: form.status,
         sort_order: form.sort_order,
       };
@@ -215,6 +232,7 @@ const CarRentalsVehicles = () => {
       biweekly_price_cents: v.biweekly_price_cents ?? 0,
       monthly_price_cents: v.monthly_price_cents ?? 0,
       monthly_discount_pct: Number(v.monthly_discount_pct),
+      provider_id: v.provider_id ?? "",
       status: v.status as any,
       sort_order: v.sort_order,
     });
@@ -271,7 +289,14 @@ const CarRentalsVehicles = () => {
     }
   };
 
-  const filtered = filterStatus === "all" ? vehicles : vehicles.filter((v) => v.status === filterStatus);
+  const filtered = vehicles.filter((v) => {
+    if (filterStatus !== "all" && v.status !== filterStatus) return false;
+    if (filterProvider !== "all") {
+      if (filterProvider === "none") return !v.provider_id;
+      return v.provider_id === filterProvider;
+    }
+    return true;
+  });
 
   return (
     <SuperAdminLayout title="Car Rental — Vehicles">
@@ -294,6 +319,20 @@ const CarRentalsVehicles = () => {
               </button>
             ))}
           </div>
+          {providers.length > 0 && (
+            <Select value={filterProvider} onValueChange={setFilterProvider}>
+              <SelectTrigger className="w-[160px] h-9 text-xs">
+                <SelectValue placeholder="All providers" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All providers</SelectItem>
+                <SelectItem value="none">Unassigned</SelectItem>
+                {providers.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <div className="flex-1" />
           <Button onClick={openNew}>
             <Plus className="mr-2 h-4 w-4" /> Add Vehicle
@@ -314,7 +353,8 @@ const CarRentalsVehicles = () => {
             {filtered.map((v) => {
               const thumb = v.images[0]?.url;
               return (
-                <div key={v.id} className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3">
+                <div key={v.id} className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-3 sm:flex-row sm:items-center">
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
                   <div className="h-14 w-20 shrink-0 overflow-hidden rounded-xl bg-muted">
                     {thumb ? (
                       <img src={thumb} alt="" className="h-full w-full object-cover" />
@@ -330,13 +370,15 @@ const CarRentalsVehicles = () => {
                     </div>
                     <p className="text-xs text-muted-foreground">
                       {v.brand} {v.model} · {v.year} · {formatUSD(v.daily_price_cents)}/day
+                      {v.provider_id && providers.find((p) => p.id === v.provider_id)?.name && ` · ${providers.find((p) => p.id === v.provider_id)!.name}`}
                       {v.weekly_price_cents > 0 && ` · ${formatUSD(v.weekly_price_cents)}/wk`}
                       {v.biweekly_price_cents > 0 && ` · ${formatUSD(v.biweekly_price_cents)}/2wk`}
                       {v.monthly_price_cents > 0 && ` · ${formatUSD(v.monthly_price_cents)}/mo`}
                     </p>
                   </div>
+                  </div>
 
-                  <div className="flex shrink-0 items-center gap-1">
+                  <div className="flex shrink-0 items-center justify-end gap-1 border-t border-border/40 pt-2 sm:border-t-0 sm:pt-0">
                     {/* Toggle public/private */}
                     {v.status !== "archived" && (
                       <Button
@@ -484,6 +526,21 @@ const CarRentalsVehicles = () => {
               <Label>Air conditioning</Label>
             </div>
 
+            {providers.length > 0 && (
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label>Provider</Label>
+                <Select value={form.provider_id || "none"} onValueChange={(v) => setForm((f) => ({ ...f, provider_id: v === "none" ? "" : v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No provider</SelectItem>
+                    {providers.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             <div className="space-y-1.5 sm:col-span-2">
               <Label>Status</Label>
               <Select value={form.status} onValueChange={(v) => setForm((f) => ({ ...f, status: v as any }))}>
@@ -517,7 +574,7 @@ const CarRentalsVehicles = () => {
               >
                 {uploading ? (
                   <>
-                    <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                    <Spinner className="text-primary" />
                     <span className="text-sm font-medium text-muted-foreground">Uploading…</span>
                   </>
                 ) : (

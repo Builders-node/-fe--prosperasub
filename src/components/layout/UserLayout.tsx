@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Loader2 } from "lucide-react";
+import { PageLoader } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -49,9 +49,7 @@ export function UserLayout({
   // Still determining auth state — show spinner to prevent flash
   if ((isLoading || !isUserDataReady) && !allowGuest) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
+      <PageLoader className="min-h-screen bg-background" />
     );
   }
 

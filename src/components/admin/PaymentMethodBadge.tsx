@@ -1,4 +1,4 @@
-import { Zap, Bitcoin, Coins, Wallet, Minus, ExternalLink, type LucideIcon } from "lucide-react";
+import { Zap, Bitcoin, Coins, Wallet, Banknote, Gift, HandCoins, Minus, ExternalLink, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /** Collapse the various stored values into a canonical payment method. */
@@ -10,17 +10,23 @@ export function normalizePaymentMethod(method?: string | null): PaymentMethodKey
   // stores this as "crypto", so treat crypto/solana/lives as Infinita.
   if (m === "infinita" || m === "lives" || m === "crypto" || m === "solana") return "infinita";
   if (m === "paypal") return "paypal";
+  if (m === "cash") return "cash";
+  if (m === "free" || m === "comp") return "free";
+  if (m === "manual" || m === "external" || m === "offline" || m === "bank") return "manual";
   return "unknown";
 }
 
-type PaymentMethodKey = "lightning" | "onchain" | "infinita" | "paypal" | "unknown";
+type PaymentMethodKey = "lightning" | "onchain" | "infinita" | "paypal" | "cash" | "free" | "manual" | "unknown";
 
 const META: Record<PaymentMethodKey, { label: string; Icon: LucideIcon; className: string }> = {
-  lightning: { label: "Lightning", Icon: Zap,     className: "bg-yellow-500/15 text-yellow-500" },
-  onchain:   { label: "On-chain",  Icon: Bitcoin, className: "bg-orange-500/15 text-orange-400" },
-  infinita:  { label: "LIVES",     Icon: Coins,   className: "bg-violet-500/15 text-violet-400" },
-  paypal:    { label: "PayPal",    Icon: Wallet,  className: "bg-blue-500/15 text-blue-400" },
-  unknown:   { label: "—",         Icon: Minus,   className: "bg-muted text-muted-foreground" },
+  lightning: { label: "Lightning", Icon: Zap,      className: "bg-yellow-500/15 text-yellow-500" },
+  onchain:   { label: "On-chain",  Icon: Bitcoin,  className: "bg-orange-500/15 text-orange-400" },
+  infinita:  { label: "LIVES",     Icon: Coins,    className: "bg-violet-500/15 text-violet-400" },
+  paypal:    { label: "PayPal",    Icon: Wallet,   className: "bg-blue-500/15 text-blue-400" },
+  cash:      { label: "Cash",      Icon: Banknote, className: "bg-green-500/15 text-green-400" },
+  free:      { label: "Free",      Icon: Gift,     className: "bg-pink-500/15 text-pink-400" },
+  manual:    { label: "Manual",    Icon: HandCoins, className: "bg-teal-500/15 text-teal-400" },
+  unknown:   { label: "—",         Icon: Minus,    className: "bg-muted text-muted-foreground" },
 };
 
 /** The transaction reference for a payment. For Infinita/Solana it links to Solscan. */

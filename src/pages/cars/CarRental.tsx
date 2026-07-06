@@ -4,6 +4,8 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Car, Users, Luggage, Zap, Wind, ArrowRight, CalendarDays, Pencil } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { supabaseDb } from "@/integrations/supabase/client";
+import { useSelectedResidence } from "@/contexts/LocationContext";
+import { useResidences } from "@/hooks/useResidences";
 import { HomeHeader } from "@/components/HomeHeader";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
 import { BottomNav } from "@/components/BottomNav";
@@ -87,9 +89,24 @@ const CarRental = () => {
         imgMap[img.vehicle_id].push(img);
       });
 
-      return vData.map((v: RentalVehicle) => ({ ...v, images: imgMap[v.id] ?? [] }));
+      // Location availability per vehicle (empty = everywhere).
+      const { data: links } = await supabaseDb
+        .from("rental_vehicle_residences").select("vehicle_id, residence_id").in("vehicle_id", ids);
+      const resMap: Record<string, string[]> = {};
+      (links ?? []).forEach((l: any) => { (resMap[l.vehicle_id] ??= []).push(l.residence_id); });
+
+      return vData.map((v: RentalVehicle) => ({ ...v, images: imgMap[v.id] ?? [], residenceIds: resMap[v.id] ?? [] }));
     },
   });
+
+  // ── Location filter ──────────────────────────────────────────────────────
+  const { residence } = useSelectedResidence();
+  const { data: residences = [] } = useResidences();
+  const selectedResidenceId = residence ? (residences.find((r) => r.name === residence)?.id ?? null) : null;
+  const visibleVehicles = (vehicles ?? []).filter(
+    (v: any) => !selectedResidenceId || (v.residenceIds?.length ?? 0) === 0 || v.residenceIds.includes(selectedResidenceId),
+  );
+  const hiddenVehicleCount = (vehicles ?? []).length - visibleVehicles.length;
 
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-12">
@@ -140,12 +157,25 @@ const CarRental = () => {
               <div key={i} className="h-[380px] animate-pulse rounded-3xl bg-muted" />
             ))}
           </div>
-        ) : vehicles && vehicles.length > 0 ? (
+        ) : visibleVehicles.length > 0 ? (
+          <>
           <div className="grid gap-3 md:gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {vehicles.map((v) => (
+            {visibleVehicles.map((v) => (
               <VehicleCard key={v.id} v={v} onClick={() => navigate(`/cars/${v.id}${datesQuery()}`)} />
             ))}
           </div>
+          {hiddenVehicleCount > 0 && (
+            <p className="mt-3 text-center text-xs text-muted-foreground">
+              {hiddenVehicleCount} vehicle{hiddenVehicleCount > 1 ? "s" : ""} not available in {residence}
+            </p>
+          )}
+          </>
+        ) : selectedResidenceId ? (
+          <YdEmptyState
+            icon={Car}
+            title={`No vehicles in ${residence} yet`}
+            subtitle="Try another location or check back soon."
+          />
         ) : (
           <YdEmptyState
             icon={Car}

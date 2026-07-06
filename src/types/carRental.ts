@@ -1,3 +1,17 @@
+export interface RentalProvider {
+  id: string;
+  name: string;
+  description: string | null;
+  logo_url: string | null;
+  contact_phone: string | null;
+  contact_email: string | null;
+  admin_user_id: string | null;
+  status: "active" | "inactive";
+  sort_order: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface RentalVehicle {
   id: string;
   name: string;
@@ -15,6 +29,7 @@ export interface RentalVehicle {
   biweekly_price_cents: number;
   monthly_price_cents: number;     // 30-day package total
   monthly_discount_pct: number;
+  provider_id: string | null;
   status: "public" | "private" | "archived";
   sort_order: number;
   created_at: string;

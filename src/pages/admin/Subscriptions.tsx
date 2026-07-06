@@ -2,12 +2,22 @@ import { useState, useMemo, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
   CalendarDays,
+  Bell,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
   Copy,
+  MoreVertical,
   Pause,
+  Pencil,
   Play,
   Plus,
   QrCode,
+  RefreshCcw,
   Search,
   Trash2,
   XCircle,
@@ -16,7 +26,8 @@ import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
 
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
-import { adminApi } from "@/integrations/supabase/client";
+import { adminApi, supabaseDb, ensureCleaningSlot } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { useBtcPrice } from "@/hooks/useBtcPrice";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -47,13 +58,43 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils";
 import { formatPricingLabel, monthlyCleaningEstimate, resolveMonthlyPriceCents } from "@/lib/cleaningPlanPricing";
+import { todayHN, addDaysISO, addMonthsISO } from "@/lib/timezone";
 
-type SubFilter = "all" | "active" | "paused" | "cancelled" | "expired";
+type SubFilter = "all" | "active" | "pending" | "paused" | "cancelled" | "expired";
+type SortKey = "user" | "price" | "period" | "status";
+type SortDir = "asc" | "desc";
+
+// Normalized lifecycle status used for display + action logic.
+const effectiveStatus = (sub: any): string =>
+  sub.subscription_status || (sub.is_active ? "active" : "inactive");
+
+// A subscription still awaiting payment (and not already ended/cancelled).
+const isPendingPayment = (sub: any): boolean =>
+  sub.payment_status !== "paid" && !["cancelled", "expired"].includes(effectiveStatus(sub));
+
+// Single source of truth for the displayed status badge.
+const displayStatus = (sub: any): { label: string; className: string } => {
+  if (isPendingPayment(sub)) return { label: "Pending", className: "bg-amber-500/15 text-amber-500" };
+  const s = effectiveStatus(sub);
+  switch (s) {
+    case "active":    return { label: "Active",    className: "bg-emerald-500/15 text-emerald-400" };
+    case "paused":    return { label: "Paused",    className: "bg-yellow-500/15 text-yellow-400" };
+    case "cancelled": return { label: "Cancelled", className: "bg-muted text-muted-foreground" };
+    case "expired":   return { label: "Expired",   className: "bg-red-500/15 text-red-400" };
+    default:          return { label: s || "—",    className: "bg-muted text-muted-foreground" };
+  }
+};
 
 const formatCents = (c: number) => `$${(c / 100).toFixed(2)}`;
 const formatDate = (v?: string | null) =>
@@ -274,14 +315,30 @@ function RecurrenceScheduler({
 
 const AdminSubscriptions = () => {
   const queryClient = useQueryClient();
+  const { userData } = useAuth();
 
   const [filter, setFilter] = useState<SubFilter>("all");
   const [search, setSearch] = useState("");
+  const [sortKey, setSortKey] = useState<SortKey>("period");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 25;
   const [editSub, setEditSub] = useState<any>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [paymentInvoice, setPaymentInvoice] = useState<any>(null);
   const [invoiceSubId, setInvoiceSubId] = useState<string | null>(null);
   const [deleteConfirmSub, setDeleteConfirmSub] = useState<any>(null);
+  const [cancelConfirmSub, setCancelConfirmSub] = useState<any>(null);
+  const [renewConfirmSub, setRenewConfirmSub] = useState<any>(null);
+
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir(key === "user" ? "asc" : "desc");
+    }
+  };
   const { convertToSats } = useBtcPrice();
 
   // Auto-reconcile pending payments when the list is opened, so subscriptions
@@ -291,7 +348,7 @@ const AdminSubscriptions = () => {
       try {
         const API_URL = (import.meta.env.VITE_API_URL as string) || "https://api.prosperasub.com";
         await fetch(`${API_URL}/cron/reconcile-payments`, { method: "POST" });
-        queryClient.invalidateQueries({ queryKey: ["admin-subscriptions-full"] });
+        queryClient.invalidateQueries({ queryKey: ["admin-subscriptions"] });
       } catch {
         /* best effort */
       }
@@ -312,19 +369,36 @@ const AdminSubscriptions = () => {
   });
 
   const invalidate = () => {
-    queryClient.invalidateQueries({ queryKey: ["admin-subscriptions-full"] });
+    // Prefix-invalidate — every paged/filtered variant of the list.
+    queryClient.invalidateQueries({ queryKey: ["admin-subscriptions"] });
   };
 
   // ── Queries ────────────────────────────────────────────────────────────────
 
-  const { data: subscriptions = [], isLoading } = useQuery({
-    queryKey: ["admin-subscriptions-full"],
+  const PAGE_SIZE_SERVER = 25;
+  const listQuery = useQuery<{
+    rows: any[]; total: number;
+    stats: { total: number; active: number; pending: number; paused: number; cancelled: number; expired: number };
+  }>({
+    queryKey: ["admin-subscriptions", { page, filter, search, sortKey, sortDir }],
     queryFn: async () => {
-      const { data, error } = await adminApi("/admin/subscriptions");
+      const qs = new URLSearchParams({
+        page: String(page),
+        limit: String(PAGE_SIZE_SERVER),
+        status: filter,
+        q: search,
+        sortBy: sortKey,
+        sortDir,
+      });
+      const { data, error } = await adminApi(`/admin/subscriptions?${qs.toString()}`);
       if (error) throw error;
-      return data ?? [];
+      return data ?? { rows: [], total: 0, stats: { total: 0, active: 0, pending: 0, paused: 0, cancelled: 0, expired: 0 } };
     },
-  });
+    keepPreviousData: true,
+  } as any);
+  const isLoading = listQuery.isLoading;
+  const subscriptions = listQuery.data?.rows ?? [];
+  const total = listQuery.data?.total ?? 0;
 
   const { data: packages = [] } = useQuery({
     queryKey: ["admin-cleaning-packages-list"],
@@ -377,6 +451,48 @@ const AdminSubscriptions = () => {
 
   const createSubMutation = useMutation({
     mutationFn: async (data: Record<string, any>) => {
+      // One-time cleaning: create the subscription, then book the single slot
+      // directly via Supabase (the backend recurrence engine can't create new
+      // slots reliably). This mirrors how the user schedule books slots.
+      if (data.one_time) {
+        const res = data.reservations || {};
+        const { reservations, ...subFields } = data;
+        const { data: created, error } = await adminApi("/admin/subscriptions", {
+          method: "POST",
+          body: JSON.stringify(subFields),
+        });
+        if (error) throw error;
+        const subId = created?.id;
+        let bookings_created = 0;
+        if (subId && res.start_time) {
+          const date = String(subFields.start_date);
+          const slot = await ensureCleaningSlot(date, res.start_time, res.end_time || res.start_time);
+          const { data: bRow, error: bErr } = await supabaseDb.from("cleaning_bookings").insert({
+            user_id: subFields.user_id || userData?.id || null,
+            client_id: subFields.client_id || null,
+            slot_id: slot.id,
+            cleaning_subscription_id: subId,
+            subscription_id: subId,
+            status: "booked",
+            reservation_type: "booking_reserved",
+            source: "admin_onetime",
+            notes: subFields.apartment_note || null,
+            google_calendar_sync_status: "pending",
+          }).select("id").single();
+          if (bErr) throw new Error(`Subscription created, but booking failed: ${bErr.message}`);
+          await supabaseDb.from("cleaning_available_slots")
+            .update({ current_bookings: (slot.current_bookings || 0) + 1, updated_at: new Date().toISOString() })
+            .eq("id", slot.id);
+          bookings_created = 1;
+          // Push the booking to Google Calendar right away (best-effort — the daily
+          // sync cron would otherwise pick it up from its "pending" status).
+          if (bRow?.id) {
+            await adminApi(`/admin/cleaning/bookings/${bRow.id}/sync-calendar`, { method: "POST" }).catch(() => {});
+          }
+        }
+        return { ...created, bookings_created };
+      }
+
       const endpoint = data.reservations?.enabled ? "/admin/subscriptions/with-reservations" : "/admin/subscriptions";
       const { data: created, error } = await adminApi(endpoint, {
         method: "POST",
@@ -387,10 +503,35 @@ const AdminSubscriptions = () => {
     },
     onSuccess: (result: any) => {
       const bookings = result?.bookings_created;
-      toast.success(bookings ? `Subscription created + ${bookings} slots reserved` : "Subscription created");
+      toast.success(bookings ? `Subscription created + ${bookings} slot reserved` : "Subscription created");
       invalidate();
       setCreateOpen(false);
     },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const reminderMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { data, error } = await adminApi(`/admin/cleaning/subscriptions/${id}/payment-reminder`, { method: "POST" });
+      if (error) throw error;
+      return data as { ok: boolean; methods?: string[]; reason?: string };
+    },
+    onSuccess: (res) => {
+      if (res?.ok) toast.success(`Reminder sent${res.methods?.length ? ` (${res.methods.join(", ")})` : ""}`);
+      else if (res?.reason === "already_paid") toast.info("Already paid — no reminder needed");
+      else if (res?.reason === "no_channel") toast.error("No email/account on file to notify this member");
+      else toast.error("Could not send reminder");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const remindAllMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await adminApi(`/admin/cleaning/payment-reminders/remind-unpaid`, { method: "POST", body: JSON.stringify({}) });
+      if (error) throw error;
+      return data as { total: number; sent: number; skipped: number };
+    },
+    onSuccess: (r) => toast.success(`Reminders: ${r.sent} sent${r.skipped ? `, ${r.skipped} skipped` : ""} (of ${r.total} unpaid)`),
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -407,9 +548,10 @@ const AdminSubscriptions = () => {
           ? `Subscription cancelled · ${cancelled} booking${cancelled !== 1 ? "s" : ""} removed from calendar`
           : "Subscription cancelled",
       );
+      setCancelConfirmSub(null);
       invalidate();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => { toast.error(e.message); setCancelConfirmSub(null); },
   });
 
   const deleteSubMutation = useMutation({
@@ -431,66 +573,32 @@ const AdminSubscriptions = () => {
     onError: (e: Error) => { toast.error(e.message); setDeleteConfirmSub(null); },
   });
 
-  // ── Filter / Search ────────────────────────────────────────────────────────
-
-  const filtered = useMemo(() => {
-    let result = subscriptions;
-    if (filter === "active")
-      result = result.filter(
-        (s: any) =>
-          s.subscription_status === "active" ||
-          (s.is_active && !["paused", "cancelled", "expired"].includes(s.subscription_status)),
-      );
-    else if (filter === "paused")
-      result = result.filter((s: any) => s.subscription_status === "paused");
-    else if (filter === "cancelled")
-      result = result.filter((s: any) => s.subscription_status === "cancelled");
-    else if (filter === "expired")
-      result = result.filter((s: any) => s.subscription_status === "expired");
-
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      result = result.filter(
-        (s: any) =>
-          (s.user?.name || "").toLowerCase().includes(q) ||
-          (s.user?.display_name || "").toLowerCase().includes(q) ||
-          (s.user?.email || "").toLowerCase().includes(q) ||
-          (s.package_name || "").toLowerCase().includes(q),
-      );
-    }
-    return result;
-  }, [subscriptions, filter, search]);
-
-  const stats = useMemo(
-    () => ({
-      total: subscriptions.length,
-      active: subscriptions.filter(
-        (s: any) =>
-          s.subscription_status === "active" || (s.is_active && !["paused", "cancelled", "expired"].includes(s.subscription_status)),
-      ).length,
-      paused: subscriptions.filter(
-        (s: any) => s.subscription_status === "paused",
-      ).length,
-      cancelled: subscriptions.filter(
-        (s: any) => s.subscription_status === "cancelled",
-      ).length,
-    }),
-    [subscriptions],
-  );
-
-  const FILTERS: { label: string; value: SubFilter; count: number }[] = [
-    { label: "All", value: "all", count: stats.total },
-    { label: "Active", value: "active", count: stats.active },
-    { label: "Paused", value: "paused", count: stats.paused },
-    { label: "Cancelled", value: "cancelled", count: stats.cancelled },
-    { label: "Expired", value: "expired", count: subscriptions.filter((s: any) => s.subscription_status === "expired").length },
-  ];
+  // ── Filter / Search / Sort ───────────────────────────────────────────────────
 
   const getSubscriberName = (sub: any) =>
     sub.user?.display_name || sub.user?.name || sub.client_name || sub.user?.email || "Unknown";
 
   const getSubscriberEmail = (sub: any) =>
     sub.user?.email || sub.client_email || null;
+
+  // Reset to first page whenever the filter/search/sort changes.
+  useEffect(() => { setPage(0); }, [filter, search, sortKey, sortDir]);
+
+  // Rows are already filtered/sorted/paged on the server — render as-is.
+  const paged = subscriptions;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages - 1);
+
+  const stats = listQuery.data?.stats ?? { total: 0, active: 0, pending: 0, paused: 0, cancelled: 0, expired: 0 };
+
+  const FILTERS: { label: string; value: SubFilter; count: number }[] = [
+    { label: "All", value: "all", count: stats.total },
+    { label: "Active", value: "active", count: stats.active },
+    { label: "Pending", value: "pending", count: stats.pending },
+    { label: "Paused", value: "paused", count: stats.paused },
+    { label: "Cancelled", value: "cancelled", count: stats.cancelled },
+    { label: "Expired", value: "expired", count: stats.expired },
+  ];
 
   return (
     <SuperAdminLayout title="Subscriptions" subtitle="Manage all cleaning subscriptions">
@@ -546,6 +654,11 @@ const AdminSubscriptions = () => {
               className="pl-9"
             />
           </div>
+          {stats.pending > 0 && (
+            <Button variant="outline" className="gap-2" onClick={() => remindAllMutation.mutate()} disabled={remindAllMutation.isPending}>
+              <Bell className="h-4 w-4" /> Remind unpaid ({stats.pending})
+            </Button>
+          )}
           <Button onClick={() => setCreateOpen(true)}>
             <Plus className="h-4 w-4" />
             New Subscription
@@ -560,7 +673,7 @@ const AdminSubscriptions = () => {
             <div className="py-12 text-center text-sm text-muted-foreground">
               Loading...
             </div>
-          ) : filtered.length === 0 ? (
+          ) : total === 0 ? (
             <div className="py-12 text-center text-sm text-muted-foreground">
               No subscriptions found
             </div>
@@ -569,143 +682,189 @@ const AdminSubscriptions = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>User</TableHead>
+                    <SortableHead label="User" sortKey="user" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
                     <TableHead>Plan</TableHead>
-                    <TableHead>Price</TableHead>
-                    <TableHead>Period</TableHead>
+                    <SortableHead label="Price" sortKey="price" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
+                    <SortableHead label="Period" sortKey="period" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
                     <TableHead>Payment</TableHead>
-                    <TableHead>Status</TableHead>
+                    <SortableHead label="Status" sortKey="status" activeKey={sortKey} dir={sortDir} onSort={toggleSort} />
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.map((sub: any) => (
-                    <TableRow key={sub.id}>
+                  {paged.map((sub: any) => {
+                    const st = effectiveStatus(sub);
+                    const ended = st === "cancelled" || st === "expired";
+                    const pending = isPendingPayment(sub);
+                    const ds = displayStatus(sub);
+                    const end = sub.paid_until || sub.service_end_date || sub.end_date;
+                    const daysLeft = end ? Math.ceil((new Date(`${String(end).slice(0, 10)}T00:00:00`).getTime() - Date.now()) / 86400000) : null;
+                    return (
+                    <TableRow
+                      key={sub.id}
+                      className="cursor-pointer [&>td]:py-2.5"
+                      onClick={() => setEditSub(sub)}
+                    >
                       <TableCell>
-                        <div>
-                          <p className="font-semibold text-sm">
-                            {getSubscriberName(sub)}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {getSubscriberEmail(sub) || "—"}
-                          </p>
-                        </div>
+                        <p className="font-semibold text-sm">{getSubscriberName(sub)}</p>
+                        <p className="text-xs text-muted-foreground">{getSubscriberEmail(sub) || "—"}</p>
                       </TableCell>
                       <TableCell className="font-medium">
-                        {sub.package_name}
+                        {sub.package_id ? sub.package_name : (sub.admin_notes || "One-time cleaning")}
+                        {!sub.package_id && (
+                          <span className="ml-2 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase text-muted-foreground">One-time</span>
+                        )}
                       </TableCell>
                       <TableCell className="font-mono text-sm">
                         {formatCents(sub.monthly_price_cents || sub.total_price_cents || 0)}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {formatDate(sub.service_start_date || sub.start_date)} —{" "}
-                        {formatDate(sub.paid_until || sub.service_end_date || sub.end_date)}
+                        {!sub.package_id ? (
+                          // One-time cleaning: a single dated event, not a billing period.
+                          <>
+                            <div>{formatDate(sub.service_start_date || sub.start_date)}</div>
+                            {!ended && daysLeft != null && (
+                              daysLeft < 0 ? (
+                                <span className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground"><Clock className="h-3 w-3" /> Completed</span>
+                              ) : (
+                                <span className="mt-0.5 flex items-center gap-1 text-xs text-amber-500"><Clock className="h-3 w-3" /> {daysLeft === 0 ? "Today" : `in ${daysLeft}d`}</span>
+                              )
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <div>
+                              {formatDate(sub.service_start_date || sub.start_date)} —{" "}
+                              {formatDate(end)}
+                            </div>
+                            {!ended && daysLeft != null && daysLeft < 0 && (
+                              <span className="mt-0.5 flex items-center gap-1 text-xs text-destructive"><Clock className="h-3 w-3" /> Expired</span>
+                            )}
+                            {!ended && daysLeft != null && daysLeft >= 0 && daysLeft <= 7 && (
+                              <span className="mt-0.5 flex items-center gap-1 text-xs text-amber-500"><Clock className="h-3 w-3" /> {daysLeft === 0 ? "Expires today" : `${daysLeft}d left`}</span>
+                            )}
+                          </>
+                        )}
                       </TableCell>
                       <TableCell>
-                        <div className="flex flex-col items-start gap-1">
-                          <Badge
-                            variant={
-                              sub.payment_status === "paid"
-                                ? "default"
-                                : "secondary"
-                            }
-                            className="text-xs"
-                          >
-                            {sub.payment_status}
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <Badge variant={sub.payment_status === "paid" ? "default" : "secondary"} className="text-xs">
+                            {sub.payment_status === "paid" ? "Paid" : "Unpaid"}
                           </Badge>
                           <PaymentMethodBadge method={sub.payment_method} />
                           <PaymentReference method={sub.payment_method} reference={sub.payment_reference} />
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge
-                          variant={statusBadge(sub.subscription_status || (sub.is_active ? "active" : "inactive"))}
-                          className="text-xs"
-                        >
-                          {sub.subscription_status || (sub.is_active ? "active" : "inactive")}
-                        </Badge>
+                        <Badge className={`text-xs ${ds.className}`}>{ds.label}</Badge>
                       </TableCell>
-                      <TableCell>
-                        <div className="flex justify-end gap-1">
-                          {sub.payment_status !== "paid" && sub.subscription_status !== "cancelled" && (
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-1">
+                          {/* Primary, context-aware action */}
+                          {pending ? (
                             <Button
                               variant="tertiary"
                               size="sm"
                               loading={generateInvoiceMutation.isPending}
                               onClick={() => generateInvoiceMutation.mutate({ subscriptionId: sub.id, method: "lightning" })}
                             >
-                              <QrCode className="h-3.5 w-3.5 mr-1" />
-                              Pay
+                              <QrCode className="h-3.5 w-3.5 mr-1" /> Pay
                             </Button>
-                          )}
-                          <Button
-                            variant="tertiary"
-                            size="sm"
-                            onClick={() => setEditSub(sub)}
-                          >
-                            Edit
-                          </Button>
-                          {sub.subscription_status === "active" ||
-                          sub.is_active ? (
+                          ) : st === "paused" ? (
                             <Button
                               variant="tertiary"
                               size="sm"
                               onClick={() =>
-                                updateSubMutation.mutate({
-                                  id: sub.id,
-                                  fields: {
-                                    subscription_status: "paused",
-                                    is_active: false,
-                                  },
-                                  action: "pause",
-                                })
+                                updateSubMutation.mutate({ id: sub.id, fields: { subscription_status: "active", is_active: true }, action: "reactivate" })
                               }
                             >
-                              <Pause className="h-3.5 w-3.5" />
+                              <Play className="h-3.5 w-3.5 mr-1 text-emerald-500" /> Resume
                             </Button>
-                          ) : sub.subscription_status === "paused" ? (
+                          ) : st === "active" ? (
                             <Button
                               variant="tertiary"
                               size="sm"
                               onClick={() =>
-                                updateSubMutation.mutate({
-                                  id: sub.id,
-                                  fields: {
-                                    subscription_status: "active",
-                                    is_active: true,
-                                  },
-                                  action: "reactivate",
-                                })
+                                updateSubMutation.mutate({ id: sub.id, fields: { subscription_status: "paused", is_active: false }, action: "pause" })
                               }
                             >
-                              <Play className="h-3.5 w-3.5" />
+                              <Pause className="h-3.5 w-3.5 mr-1" /> Pause
                             </Button>
                           ) : null}
-                          {sub.subscription_status !== "cancelled" && (
-                            <Button
-                              variant="tertiary"
-                              size="sm"
-                              title="Cancel subscription and remove all future bookings from calendar"
-                              loading={cancelSubMutation.isPending && cancelSubMutation.variables === sub.id}
-                              onClick={() => cancelSubMutation.mutate(sub.id)}
-                            >
-                              <XCircle className="h-3.5 w-3.5" />
-                            </Button>
-                          )}
-                          <Button
-                            variant="tertiary"
-                            size="sm"
-                            title="Permanently delete subscription and all bookings"
-                            onClick={() => setDeleteConfirmSub(sub)}
-                          >
-                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                          </Button>
+
+                          {/* Overflow menu */}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="iconSm" className="rounded-full" aria-label="More actions">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-52">
+                              <DropdownMenuItem onClick={() => setEditSub(sub)}>
+                                <Pencil className="mr-2 h-4 w-4" /> Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => setRenewConfirmSub(sub)}>
+                                <RefreshCcw className="mr-2 h-4 w-4 text-green-500" /> Renew (payment received)
+                              </DropdownMenuItem>
+                              {pending && (
+                                <DropdownMenuItem onClick={() => reminderMutation.mutate(sub.id)} disabled={reminderMutation.isPending}>
+                                  <Bell className="mr-2 h-4 w-4 text-amber-500" /> Send payment reminder
+                                </DropdownMenuItem>
+                              )}
+                              {!ended && (
+                                <DropdownMenuItem onClick={() => setCancelConfirmSub(sub)}>
+                                  <XCircle className="mr-2 h-4 w-4 text-amber-500" /> Cancel subscription
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                className="text-destructive focus:text-destructive"
+                                onClick={() => setDeleteConfirmSub(sub)}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" /> Delete permanently
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                 </TableBody>
               </Table>
+            </div>
+          )}
+
+          {total > 0 && (
+            <div className="flex items-center justify-between gap-3 border-t border-border/60 px-1 pt-4 mt-2 text-sm text-muted-foreground">
+              <span>
+                {currentPage * PAGE_SIZE + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, total)} of {total}
+              </span>
+              {totalPages > 1 && (
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="tertiary"
+                    size="iconSm"
+                    className="rounded-full"
+                    disabled={currentPage === 0}
+                    onClick={() => setPage((p) => Math.max(0, p - 1))}
+                    aria-label="Previous page"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="tabular-nums">Page {currentPage + 1} / {totalPages}</span>
+                  <Button
+                    variant="tertiary"
+                    size="iconSm"
+                    className="rounded-full"
+                    disabled={currentPage >= totalPages - 1}
+                    onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                    aria-label="Next page"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </CardContent>
@@ -878,9 +1037,144 @@ const AdminSubscriptions = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* ── Cancel confirmation dialog ── */}
+      <Dialog open={!!cancelConfirmSub} onOpenChange={(open) => !open && setCancelConfirmSub(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-500">
+              <XCircle className="h-5 w-5" />
+              Cancel Subscription
+            </DialogTitle>
+            <DialogDescription>
+              This marks the subscription as <strong>cancelled</strong> and removes all of its
+              future bookings from the calendar. The record is kept (you can still delete it later).
+            </DialogDescription>
+          </DialogHeader>
+          {cancelConfirmSub && (
+            <div className="space-y-4">
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm">
+                <p className="font-semibold text-foreground">{getSubscriberName(cancelConfirmSub)}</p>
+                <p className="text-muted-foreground">
+                  {cancelConfirmSub.package_name || "Subscription"} · {effectiveStatus(cancelConfirmSub)}
+                </p>
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="secondary"
+                  className="flex-1"
+                  onClick={() => setCancelConfirmSub(null)}
+                  disabled={cancelSubMutation.isPending}
+                >
+                  Keep subscription
+                </Button>
+                <Button
+                  variant="destructive"
+                  className="flex-1"
+                  loading={cancelSubMutation.isPending}
+                  onClick={() => cancelSubMutation.mutate(cancelConfirmSub.id)}
+                >
+                  <XCircle className="h-4 w-4" />
+                  {cancelSubMutation.isPending ? "Cancelling…" : "Cancel subscription"}
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Renew (off-platform payment) dialog ── */}
+      <Dialog open={!!renewConfirmSub} onOpenChange={(open) => !open && setRenewConfirmSub(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-green-500">
+              <RefreshCcw className="h-5 w-5" />
+              Renew Subscription
+            </DialogTitle>
+            <DialogDescription>
+              Record an <strong>off-platform payment</strong>: the period is extended by the plan
+              duration (continuing from the current end date), and it's marked <strong>Paid</strong>{" "}
+              (method: Manual). Use this when money was received outside the platform.
+            </DialogDescription>
+          </DialogHeader>
+          {renewConfirmSub && (
+            <div className="space-y-4">
+              <div className="rounded-lg border border-green-500/30 bg-green-500/5 px-4 py-3 text-sm">
+                <p className="font-semibold text-foreground">{getSubscriberName(renewConfirmSub)}</p>
+                <p className="text-muted-foreground">
+                  {renewConfirmSub.package_name || "Subscription"} · {effectiveStatus(renewConfirmSub)}
+                </p>
+              </div>
+              <DialogFooter>
+                <Button variant="secondary" className="flex-1" onClick={() => setRenewConfirmSub(null)} disabled={updateSubMutation.isPending}>
+                  Go back
+                </Button>
+                <Button
+                  className="flex-1"
+                  loading={updateSubMutation.isPending}
+                  onClick={() => {
+                    const sub = renewConfirmSub;
+                    const months = Math.max(Number(sub.billing_period_months) || 1, 1);
+                    const today = todayHN();
+                    const prevEndStr = (sub.paid_until || sub.service_end_date || sub.end_date || "").slice(0, 10);
+                    const nextStartStr = prevEndStr && prevEndStr >= today ? addDaysISO(prevEndStr, 1) : today;
+                    const endStr = addMonthsISO(nextStartStr, months);
+                    updateSubMutation.mutate({
+                      id: sub.id,
+                      action: "renew",
+                      fields: {
+                        subscription_status: "active", is_active: true,
+                        payment_status: "paid", payment_method: "manual",
+                        service_start_date: nextStartStr, service_end_date: endStr,
+                        paid_until: endStr, end_date: endStr,
+                      },
+                    });
+                    setRenewConfirmSub(null);
+                  }}
+                >
+                  <RefreshCcw className="h-4 w-4" /> Confirm renewal
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </SuperAdminLayout>
   );
 };
+
+// ── Sortable column header ──
+function SortableHead({
+  label,
+  sortKey,
+  activeKey,
+  dir,
+  onSort,
+}: {
+  label: string;
+  sortKey: SortKey;
+  activeKey: SortKey;
+  dir: SortDir;
+  onSort: (k: SortKey) => void;
+}) {
+  const active = activeKey === sortKey;
+  const Icon = !active ? ArrowUpDown : dir === "asc" ? ArrowUp : ArrowDown;
+  return (
+    <TableHead>
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className={cn(
+          "-ml-1 inline-flex items-center gap-1 rounded px-1 py-0.5 text-xs font-semibold uppercase tracking-wide transition-colors hover:text-foreground",
+          active ? "text-foreground" : "text-muted-foreground",
+        )}
+      >
+        {label}
+        <Icon className={cn("h-3 w-3", active ? "opacity-100" : "opacity-40")} />
+      </button>
+    </TableHead>
+  );
+}
 
 function EditSubscriptionForm({
   sub,
@@ -988,23 +1282,35 @@ function EditSubscriptionForm({
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const isOneTime = !sub.package_id;
+
   return (
     <div className="mt-6 space-y-5">
-      <div>
-        <Label>Plan</Label>
-        <Select value={packageId} onValueChange={setPackageId}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {packages.map((p: any) => (
-              <SelectItem key={p.id} value={p.id}>
-                {p.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
+      {isOneTime ? (
+        <div>
+          <Label>Plan</Label>
+          <div className="flex items-center gap-2 rounded-md border border-input bg-muted/40 px-3 py-2 text-sm">
+            <span className="font-medium">{sub.admin_notes || "One-time cleaning"}</span>
+            <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase text-muted-foreground">One-time</span>
+          </div>
+        </div>
+      ) : (
+        <div>
+          <Label>Plan</Label>
+          <Select value={packageId} onValueChange={setPackageId}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {packages.map((p: any) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
       <div>
         <Label>Subscription Status</Label>
         <Select value={status} onValueChange={setStatus}>
@@ -1075,12 +1381,20 @@ function EditSubscriptionForm({
           placeholder="Internal notes"
         />
       </div>
+      {sub.cleaner_hint && (
+        <div>
+          <Label>Hints for cleaners (from customer)</Label>
+          <p className="mt-1 whitespace-pre-wrap rounded-radius-md border border-[hsl(var(--app-divider))] bg-muted/30 p-space-3 text-sm text-muted-foreground">
+            {sub.cleaner_hint}
+          </p>
+        </div>
+      )}
       <Button
         className="w-full"
         size="xl"
         onClick={() =>
           onSave({
-            package_id: packageId,
+            package_id: packageId || null,
             subscription_status: status,
             is_active: status === "active",
             payment_status: paymentStatus,
@@ -1181,13 +1495,21 @@ function CreateSubscriptionForm({
   onSave: (d: any) => void;
   saving: boolean;
 }) {
+  const [mode, setMode] = useState<"plan" | "onetime">("plan");
   const [subscriberType, setSubscriberType] = useState<"user" | "client">("user");
   const [userId, setUserId] = useState("");
   const [clientId, setClientId] = useState("");
   const [packageId, setPackageId] = useState("");
   const [billingMonths, setBillingMonths] = useState("1");
-  const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10));
+  const [startDate, setStartDate] = useState(todayHN());
   const [notes, setNotes] = useState("");
+
+  // One-time cleaning (no plan): custom price + single date/time
+  const [onetimePrice, setOnetimePrice] = useState("");
+  const [onetimeStart, setOnetimeStart] = useState("08:00:00");
+  const [onetimeEnd, setOnetimeEnd] = useState("09:45:00");
+  const [onetimeLabel, setOnetimeLabel] = useState("One-time cleaning");
+  const [isFree, setIsFree] = useState(false);
 
   // Reservation
   const [reserveSlots, setReserveSlots] = useState(false);
@@ -1206,17 +1528,37 @@ function CreateSubscriptionForm({
     return d.toISOString().slice(0, 10);
   };
 
+  const oneTime = mode === "onetime";
+  const onetimeCents = isFree ? 0 : Math.round((parseFloat(onetimePrice) || 0) * 100);
   const selectedPkg = packages.find((p: any) => p.id === packageId);
-  const monthly = selectedPkg ? resolveMonthlyPriceCents(selectedPkg) : 0;
-  const total = monthly * (Number(billingMonths) || 1);
+  const monthly = oneTime ? onetimeCents : (selectedPkg ? resolveMonthlyPriceCents(selectedPkg) : 0);
+  const total = oneTime ? onetimeCents : monthly * (Number(billingMonths) || 1);
   const hasSubscriber = subscriberType === "user" ? !!userId : !!clientId;
-  const endDate = addMonths(startDate, Number(billingMonths));
+  const endDate = oneTime ? startDate : addMonths(startDate, Number(billingMonths));
   const resCount = (reserveSlots && resDays.length)
     ? generateReservationDates(startDate, endDate, resDays, recurrenceType, weeksOfMonth).length
     : 0;
 
   return (
     <div className="mt-6 space-y-5">
+      <div className="grid grid-cols-2 gap-1 rounded-xl bg-muted p-1">
+        {([
+          { id: "plan" as const, label: "Subscription plan" },
+          { id: "onetime" as const, label: "One-time cleaning" },
+        ]).map(({ id, label }) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => setMode(id)}
+            className={`rounded-lg py-2 text-sm font-semibold transition-colors ${
+              mode === id ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       <div>
         <Label>Subscriber Type</Label>
         <Select value={subscriberType} onValueChange={(v) => { setSubscriberType(v as "user" | "client"); setUserId(""); setClientId(""); }}>
@@ -1280,72 +1622,134 @@ function CreateSubscriptionForm({
         </div>
       )}
 
+      {!oneTime && (
+        <>
+          <div>
+            <Label>Plan *</Label>
+            <Select value={packageId} onValueChange={setPackageId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a plan" />
+              </SelectTrigger>
+              <SelectContent>
+                {packages.map((p: any) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name} — {formatPricingLabel(p)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Billing Period (months)</Label>
+            <Select value={billingMonths} onValueChange={setBillingMonths}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">1 month</SelectItem>
+                <SelectItem value="2">2 months</SelectItem>
+                <SelectItem value="3">3 months</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </>
+      )}
+
+      {oneTime && (
+        <>
+          <div>
+            <Label>Label</Label>
+            <Input value={onetimeLabel} onChange={(e) => setOnetimeLabel(e.target.value)} placeholder="One-time cleaning" />
+          </div>
+          <div className="flex items-center justify-between rounded-lg bg-muted p-3">
+            <div>
+              <p className="text-sm font-medium">Free cleaning</p>
+              <p className="text-xs text-muted-foreground">No charge — created as paid &amp; active</p>
+            </div>
+            <Switch checked={isFree} onCheckedChange={setIsFree} />
+          </div>
+          {!isFree && (
+            <div>
+              <Label>Price (USD) *</Label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                value={onetimePrice}
+                onChange={(e) => setOnetimePrice(e.target.value)}
+                placeholder="e.g. 50.00"
+              />
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Start time</Label>
+              <Input type="time" value={onetimeStart.slice(0, 5)} onChange={(e) => setOnetimeStart(`${e.target.value}:00`)} />
+            </div>
+            <div>
+              <Label>End time</Label>
+              <Input type="time" value={onetimeEnd.slice(0, 5)} onChange={(e) => setOnetimeEnd(`${e.target.value}:00`)} />
+            </div>
+          </div>
+        </>
+      )}
+
       <div>
-        <Label>Plan *</Label>
-        <Select value={packageId} onValueChange={setPackageId}>
-          <SelectTrigger>
-            <SelectValue placeholder="Select a plan" />
-          </SelectTrigger>
-          <SelectContent>
-            {packages.map((p: any) => (
-              <SelectItem key={p.id} value={p.id}>
-                {p.name} — {formatPricingLabel(p)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-      <div>
-        <Label>Billing Period (months)</Label>
-        <Select value={billingMonths} onValueChange={setBillingMonths}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="1">1 month</SelectItem>
-            <SelectItem value="2">2 months</SelectItem>
-            <SelectItem value="3">3 months</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div>
-        <Label>Start Date</Label>
+        <Label>{oneTime ? "Cleaning Date" : "Start Date"}</Label>
         <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
       </div>
-      {selectedPkg && (
-        <div className="rounded-lg bg-muted p-3 text-sm">
-          <p>
-            Monthly: <strong>{formatCents(monthly)}</strong>
-          </p>
-          <p>
-            Total: <strong>{formatCents(total)}</strong>
-          </p>
-          <p>
-            Period: {startDate} — {addMonths(startDate, Number(billingMonths))}
-          </p>
-        </div>
+      {oneTime ? (
+        (isFree || onetimeCents > 0) && (
+          <div className="rounded-lg bg-muted p-3 text-sm">
+            <p>
+              Price: <strong>{isFree ? "Free" : formatCents(total)}</strong>
+            </p>
+            <p>
+              {startDate} · {onetimeStart.slice(0, 5)}–{onetimeEnd.slice(0, 5)}
+            </p>
+            <p className="text-xs text-muted-foreground">A single cleaning will be reserved on this date.</p>
+          </div>
+        )
+      ) : (
+        selectedPkg && (
+          <div className="rounded-lg bg-muted p-3 text-sm">
+            <p>
+              Monthly: <strong>{formatCents(monthly)}</strong>
+            </p>
+            <p>
+              Total: <strong>{formatCents(total)}</strong>
+            </p>
+            <p>
+              Period: {startDate} — {addMonths(startDate, Number(billingMonths))}
+            </p>
+          </div>
+        )
       )}
-      {/* Reserve Time Slots */}
-      <div className="flex items-center justify-between rounded-lg bg-muted p-3">
-        <div>
-          <p className="text-sm font-medium">Reserve time slots</p>
-          <p className="text-xs text-muted-foreground">Block weekly cleaning times for this subscription</p>
-        </div>
-        <Switch checked={reserveSlots} onCheckedChange={setReserveSlots} />
-      </div>
+      {/* Reserve Time Slots — plan mode only (one-time always reserves its single date) */}
+      {!oneTime && (
+        <>
+          <div className="flex items-center justify-between rounded-lg bg-muted p-3">
+            <div>
+              <p className="text-sm font-medium">Reserve time slots</p>
+              <p className="text-xs text-muted-foreground">Block weekly cleaning times for this subscription</p>
+            </div>
+            <Switch checked={reserveSlots} onCheckedChange={setReserveSlots} />
+          </div>
 
-      {reserveSlots && (
-        <RecurrenceScheduler
-          resDays={resDays} setResDays={setResDays}
-          resTime={resTime} setResTime={setResTime}
-          resEndTime={resEndTime} setResEndTime={setResEndTime}
-          resType={resType} setResType={setResType}
-          blockCapacity={blockCapacity} setBlockCapacity={setBlockCapacity}
-          syncCalendar={syncCalendar} setSyncCalendar={setSyncCalendar}
-          recurrenceType={recurrenceType} setRecurrenceType={setRecurrenceType}
-          weeksOfMonth={weeksOfMonth} setWeeksOfMonth={setWeeksOfMonth}
-          startDate={startDate} endDate={endDate}
-        />
+          {reserveSlots && (
+            <RecurrenceScheduler
+              resDays={resDays} setResDays={setResDays}
+              resTime={resTime} setResTime={setResTime}
+              resEndTime={resEndTime} setResEndTime={setResEndTime}
+              resType={resType} setResType={setResType}
+              blockCapacity={blockCapacity} setBlockCapacity={setBlockCapacity}
+              syncCalendar={syncCalendar} setSyncCalendar={setSyncCalendar}
+              recurrenceType={recurrenceType} setRecurrenceType={setRecurrenceType}
+              weeksOfMonth={weeksOfMonth} setWeeksOfMonth={setWeeksOfMonth}
+              startDate={startDate} endDate={endDate}
+            />
+          )}
+        </>
       )}
 
       <div>
@@ -1360,6 +1764,44 @@ function CreateSubscriptionForm({
         className="w-full"
         size="xl"
         onClick={() => {
+          if (oneTime) {
+            const dow = new Date(`${startDate}T00:00:00`).getDay();
+            onSave({
+              user_id: subscriberType === "user" ? userId : null,
+              client_id: subscriberType === "client" ? clientId : null,
+              package_id: null,
+              one_time: true,
+              start_date: startDate,
+              end_date: startDate,
+              service_start_date: startDate,
+              service_end_date: startDate,
+              paid_until: startDate,
+              billing_period_months: 1,
+              monthly_price_cents: total,
+              total_price_cents: total,
+              cleanings_remaining: 1,
+              payment_status: isFree ? "paid" : "pending",
+              payment_method: isFree ? "free" : undefined,
+              subscription_status: isFree ? "active" : "pending_payment",
+              is_active: isFree,
+              apartment_note: notes || null,
+              admin_notes: onetimeLabel || (isFree ? "Free cleaning" : "One-time cleaning"),
+              reservations: {
+                enabled: true,
+                recurrence_type: "weekly",
+                days_of_week: [dow],
+                weeks_of_month: [],
+                start_time: onetimeStart,
+                end_time: onetimeEnd,
+                reservation_type: "booking_reserved",
+                block_capacity: true,
+                sync_calendar: true,
+                end_date: startDate,
+                notes,
+              },
+            });
+            return;
+          }
           const payload: any = {
             user_id: subscriberType === "user" ? userId : null,
             client_id: subscriberType === "client" ? clientId : null,
@@ -1396,9 +1838,11 @@ function CreateSubscriptionForm({
           onSave(payload);
         }}
         loading={saving}
-        disabled={!hasSubscriber || !packageId}
+        disabled={oneTime ? (!hasSubscriber || (!isFree && onetimeCents <= 0)) : (!hasSubscriber || !packageId)}
       >
-        Create Subscription{reserveSlots && resCount > 0 ? ` + ${resCount} Reservations` : ""}
+        {oneTime
+          ? (isFree ? "Create Free Cleaning" : "Create One-time Cleaning")
+          : `Create Subscription${reserveSlots && resCount > 0 ? ` + ${resCount} Reservations` : ""}`}
       </Button>
     </div>
   );

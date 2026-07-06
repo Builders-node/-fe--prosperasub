@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Table, TableHeader, TableRow, TableHead, TableBody, TableCell,
 } from "@/components/ui/table";
+import { usePagination, TablePagination } from "@/components/ui/table-pagination";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -24,6 +25,8 @@ interface BeachPlan {
   name: string;
   tagline: string | null;
   price_per_person_cents: number;
+  provider_price_per_person_cents: number;
+  extra_per_person_cents: number;
   amenities: string[];
   featured: boolean;
   is_active: boolean;
@@ -33,7 +36,8 @@ interface BeachPlan {
 const blankForm = {
   name: "",
   tagline: "",
-  priceDollars: 0,
+  providerPriceDollars: 0,
+  extraDollars: 0,
   amenities: "",   // newline-separated in the form
   featured: false,
   is_active: true,
@@ -59,13 +63,16 @@ export default function BeachClubPlans() {
     },
   });
 
+  const plansPager = usePagination(plans, 20);
+
   const openCreate = () => { setEditing(null); setForm(blankForm); setOpen(true); };
   const openEdit = (p: BeachPlan) => {
     setEditing(p);
     setForm({
       name: p.name,
       tagline: p.tagline ?? "",
-      priceDollars: p.price_per_person_cents / 100,
+      providerPriceDollars: (p.provider_price_per_person_cents ?? 0) / 100,
+      extraDollars: (p.extra_per_person_cents ?? 0) / 100,
       amenities: (p.amenities ?? []).join("\n"),
       featured: p.featured,
       is_active: p.is_active,
@@ -76,10 +83,14 @@ export default function BeachClubPlans() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      const providerCents = Math.round((form.providerPriceDollars || 0) * 100);
+      const extraCents = Math.round((form.extraDollars || 0) * 100);
       const payload = {
         name: form.name.trim(),
         tagline: form.tagline.trim() || null,
-        price_per_person_cents: Math.round((form.priceDollars || 0) * 100),
+        provider_price_per_person_cents: providerCents,
+        extra_per_person_cents: extraCents,
+        price_per_person_cents: providerCents + extraCents,
         amenities: form.amenities.split("\n").map((l) => l.trim()).filter(Boolean),
         featured: form.featured,
         is_active: form.is_active,
@@ -146,13 +157,18 @@ export default function BeachClubPlans() {
                   No plans yet — create one.
                 </TableCell>
               </TableRow>
-            ) : plans.map((p) => (
+            ) : plansPager.paged.map((p) => (
               <TableRow key={p.id}>
                 <TableCell>
                   <p className="font-bold text-foreground">{p.name}</p>
                   {p.tagline && <p className="text-xs text-muted-foreground">{p.tagline}</p>}
                 </TableCell>
-                <TableCell className="font-mono">{formatUSD(p.price_per_person_cents)} / mo</TableCell>
+                <TableCell className="font-mono">
+                  {formatUSD(p.price_per_person_cents)} / mo
+                  <span className="mt-0.5 block text-xs font-sans text-muted-foreground">
+                    {formatUSD(p.provider_price_per_person_cents ?? 0)} provider + {formatUSD(p.extra_per_person_cents ?? 0)} extra
+                  </span>
+                </TableCell>
                 <TableCell className="text-sm text-muted-foreground">{(p.amenities ?? []).length} items</TableCell>
                 <TableCell>
                   <div className="flex flex-wrap gap-1">
@@ -174,6 +190,7 @@ export default function BeachClubPlans() {
             ))}
           </TableBody>
         </Table>
+        <TablePagination {...plansPager} onPage={plansPager.setPage} />
       </div>
 
       {/* Create / edit dialog */}
@@ -193,15 +210,26 @@ export default function BeachClubPlans() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label>Price / person (USD, monthly)</Label>
-                <Input type="number" min={0} step={1} value={form.priceDollars}
-                  onChange={(e) => setForm((f) => ({ ...f, priceDollars: parseFloat(e.target.value) || 0 }))} />
+                <Label>Provider price / person (USD, monthly)</Label>
+                <Input type="number" min={0} step={1} value={form.providerPriceDollars}
+                  onChange={(e) => setForm((f) => ({ ...f, providerPriceDollars: parseFloat(e.target.value) || 0 }))} />
               </div>
               <div>
-                <Label>Sort Order</Label>
-                <Input type="number" value={form.sort_order}
-                  onChange={(e) => setForm((f) => ({ ...f, sort_order: parseInt(e.target.value || "0") }))} />
+                <Label>Our extra / person (USD, monthly)</Label>
+                <Input type="number" min={0} step={1} value={form.extraDollars}
+                  onChange={(e) => setForm((f) => ({ ...f, extraDollars: parseFloat(e.target.value) || 0 }))} />
               </div>
+            </div>
+            <div className="flex items-center justify-between rounded-xl border border-[hsl(var(--app-divider))] bg-muted/30 px-4 py-3">
+              <span className="text-sm font-medium text-muted-foreground">Customer price / person (auto)</span>
+              <span className="font-mono text-base font-bold text-foreground">
+                {formatUSD(Math.round(((form.providerPriceDollars || 0) + (form.extraDollars || 0)) * 100))} / mo
+              </span>
+            </div>
+            <div>
+              <Label>Sort Order</Label>
+              <Input type="number" value={form.sort_order}
+                onChange={(e) => setForm((f) => ({ ...f, sort_order: parseInt(e.target.value || "0") }))} />
             </div>
             <div>
               <Label>Amenities (one per line)</Label>

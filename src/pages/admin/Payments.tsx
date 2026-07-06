@@ -1,16 +1,27 @@
-import { useState } from "react";
-import { Copy, CreditCard, Loader2, Mail, MessageCircle, RefreshCw, ShieldCheck, Zap } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Bitcoin, Copy, CreditCard, Loader2, Mail, MessageCircle, RefreshCw, Wallet, Zap } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Link } from "react-router-dom";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { adminApi, supabase } from "@/integrations/supabase/client";
+import { usePagination, TablePagination } from "@/components/ui/table-pagination";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { adminApi, supabase, supabaseDb } from "@/integrations/supabase/client";
+import { FinanceBreakdown } from "@/components/admin/FinanceBreakdown";
+import { NetProfitPanel } from "@/components/admin/NetProfitPanel";
+
+const PAYMENT_METHOD_META = [
+  { method: "lightning", label: "Lightning", description: "Instant Bitcoin Lightning payments (Blink).", icon: Zap },
+  { method: "onchain", label: "On-chain Bitcoin", description: "On-chain BTC via Blink.", icon: Bitcoin },
+  { method: "infinita", label: "LIVES", description: "Pay with LIVES via SimpleFi checkout.", icon: Wallet },
+  { method: "paypal", label: "PayPal", description: "Pay with PayPal or card.", icon: CreditCard },
+] as const;
 
 type TestInvoice = {
   payment_hash: string;
@@ -64,14 +75,89 @@ const AdminPayments = () => {
   const queryClient = useQueryClient();
   const [testInvoice, setTestInvoice] = useState<TestInvoice | null>(null);
 
-  const { data: paymentStats } = useQuery({
-    queryKey: ["admin-payment-stats"],
+  // All-time finance totals across EVERY service (cleaning, food, beach, car).
+  const { data: paymentStats = { pending: 0, paid: 0, revenueCents: 0 } } = useQuery({
+    queryKey: ["admin-finance-totals-all"],
     queryFn: async () => {
-      const { data, error } = await adminApi("/admin/payment-stats");
-      if (error) throw error;
-      return data ?? { pending: 0, paid: 0, revenueCents: 0 };
+      const [cleaning, beach, rental, food] = await Promise.all([
+        supabaseDb.from("cleaning_subscriptions").select("payment_status, subscription_status, total_price_cents, monthly_price_cents").is("deleted_at", null),
+        supabaseDb.from("beach_club_subscriptions").select("payment_status, status, total_cents"),
+        supabaseDb.from("rental_bookings").select("payment_status, status, total_cents").is("deleted_at", null),
+        supabaseDb.from("food_subscriptions").select("status, weekly_price_cents, commitment_weeks, periods_paid"),
+      ]);
+      let paid = 0, pending = 0, revenueCents = 0;
+      (cleaning.data ?? []).forEach((r: any) => {
+        if (r.payment_status === "paid") { paid++; revenueCents += r.total_price_cents || r.monthly_price_cents || 0; }
+        else if (!["cancelled", "expired"].includes(r.subscription_status)) pending++;
+      });
+      (beach.data ?? []).forEach((r: any) => {
+        if (r.payment_status === "paid") { paid++; revenueCents += r.total_cents || 0; }
+        else if (r.status !== "cancelled") pending++;
+      });
+      (rental.data ?? []).forEach((r: any) => {
+        if (r.payment_status === "paid") { paid++; revenueCents += r.total_cents || 0; }
+        else if (r.status !== "cancelled") pending++;
+      });
+      (food.data ?? []).forEach((r: any) => {
+        const s = String(r.status ?? "").toLowerCase();
+        if (["active", "paused", "expired"].includes(s)) { paid++; revenueCents += (r.weekly_price_cents || 0) * (r.commitment_weeks || 1) * (r.periods_paid || 1); }
+        else if (s === "pending") pending++;
+      });
+      return { paid, pending, revenueCents };
     },
   });
+
+  const { data: methodSettings = [] } = useQuery({
+    queryKey: ["payment-method-settings"],
+    queryFn: async () => {
+      const { data, error } = await supabaseDb
+        .from("payment_method_settings").select("method, enabled, surcharge_percent");
+      if (error) throw error;
+      return (data ?? []) as { method: string; enabled: boolean; surcharge_percent: number | null }[];
+    },
+  });
+
+  const toggleMethodMutation = useMutation({
+    mutationFn: async ({ method, enabled }: { method: string; enabled: boolean }) => {
+      const { error } = await supabaseDb
+        .from("payment_method_settings")
+        .upsert({ method, enabled, updated_at: new Date().toISOString() }, { onConflict: "method" });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["payment-method-settings"] });
+    },
+    onError: (e: Error) => toast.error(e.message || "Failed to update payment method"),
+  });
+
+  const setSurchargeMutation = useMutation({
+    mutationFn: async ({ method, percent }: { method: string; percent: number }) => {
+      // Preserve `enabled` (row may not exist yet — assume enabled by default).
+      const existing = methodSettings.find((r) => r.method === method);
+      const { error } = await supabaseDb
+        .from("payment_method_settings")
+        .upsert(
+          { method, enabled: existing?.enabled ?? true, surcharge_percent: percent, updated_at: new Date().toISOString() },
+          { onConflict: "method" },
+        );
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["payment-method-settings"] });
+      toast.success("Surcharge updated");
+    },
+    onError: (e: Error) => toast.error(e.message || "Failed to update surcharge"),
+  });
+
+  const isMethodEnabled = (method: string) => {
+    const row = methodSettings.find((r) => r.method === method);
+    return row ? row.enabled : true;
+  };
+  const methodSurcharge = (method: string) => {
+    const row = methodSettings.find((r) => r.method === method);
+    return Number(row?.surcharge_percent ?? 0);
+  };
+
 
   const { data: adminNotifications = [] } = useQuery({
     queryKey: ["admin-payment-notifications"],
@@ -81,6 +167,8 @@ const AdminPayments = () => {
       return (data || []) as AdminPaymentNotification[];
     },
   });
+
+  const notifPager = usePagination(adminNotifications, 15);
 
   const testInvoiceMutation = useMutation({
     mutationFn: async () => {
@@ -170,7 +258,14 @@ const AdminPayments = () => {
   };
 
   return (
-    <SuperAdminLayout title="Payments" subtitle="Monitor Lightning payments and test Blink invoices">
+    <SuperAdminLayout title="Finance" subtitle="Payments, revenue and net profit across all services">
+      <Tabs defaultValue="payments" variant="pills" className="w-full">
+        <TabsList className="mb-space-4">
+          <TabsTrigger value="payments">Payments</TabsTrigger>
+          <TabsTrigger value="profit">Net Profit</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="payments">
       <section className="grid grid-cols-2 gap-space-3 md:gap-space-4 xl:grid-cols-12">
         <Card className="xl:col-span-4">
           <CardHeader className="pb-space-2">
@@ -181,6 +276,7 @@ const AdminPayments = () => {
           </CardHeader>
           <CardContent>
             <div className="text-section-title">{paymentStats?.paid ?? 0}</div>
+            <p className="mt-1 text-xs text-muted-foreground">All-time · all services</p>
           </CardContent>
         </Card>
 
@@ -193,6 +289,7 @@ const AdminPayments = () => {
           </CardHeader>
           <CardContent>
             <div className="text-section-title">{paymentStats?.pending ?? 0}</div>
+            <p className="mt-1 text-xs text-muted-foreground">All-time · all services</p>
           </CardContent>
         </Card>
 
@@ -205,12 +302,73 @@ const AdminPayments = () => {
           </CardHeader>
           <CardContent>
             <div className="text-section-title text-primary">${((paymentStats?.revenueCents ?? 0) / 100).toFixed(2)}</div>
+            <p className="mt-1 text-xs text-muted-foreground">All-time · all services (the breakdown below is per period)</p>
           </CardContent>
         </Card>
       </section>
 
-      <section className="mt-space-4 grid grid-cols-1 gap-space-4 md:mt-space-5 md:gap-space-5 xl:grid-cols-12">
-        <Card className="xl:col-span-4">
+      {/* Cross-category finance breakdown */}
+      <section className="mt-space-4 md:mt-space-5">
+        <FinanceBreakdown />
+      </section>
+
+      {/* Payment methods on/off */}
+      <section className="mt-space-4 md:mt-space-5">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-space-2">
+              <CreditCard className="h-5 w-5" />
+              Payment methods
+            </CardTitle>
+            <CardDescription>
+              Turn a method on or off. When off, it's hidden from all checkouts (cleaning, food, cars).
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="divide-y divide-border/60 p-0">
+            {PAYMENT_METHOD_META.map(({ method, label, description, icon: Icon }) => {
+              const enabled = isMethodEnabled(method);
+              const surcharge = methodSurcharge(method);
+              return (
+                <div key={method} className="flex flex-col gap-3 px-space-5 py-space-4 sm:flex-row sm:items-center sm:gap-space-4">
+                  <div className="flex min-w-0 flex-1 items-center gap-space-4">
+                    <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${enabled ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}`}>
+                      <Icon className="h-5 w-5" />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-foreground">{label}</p>
+                      <p className="text-sm text-muted-foreground">{description}</p>
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 items-center justify-end gap-3 pl-[56px] sm:pl-0">
+                    <div className="flex items-center gap-1.5" title="Extra fee added on top of the price for this method">
+                      <label className="text-xs text-muted-foreground">Fee</label>
+                      <SurchargeInput
+                        method={method}
+                        initial={surcharge}
+                        disabled={setSurchargeMutation.isPending}
+                        onCommit={(percent) => {
+                          if (percent !== surcharge) setSurchargeMutation.mutate({ method, percent });
+                        }}
+                      />
+                    </div>
+                    <Badge variant="secondary" className={enabled ? "bg-green-500/15 text-green-600 dark:text-green-400" : ""}>
+                      {enabled ? "On" : "Off"}
+                    </Badge>
+                    <Switch
+                      checked={enabled}
+                      disabled={toggleMethodMutation.isPending}
+                      onCheckedChange={(v) => toggleMethodMutation.mutate({ method, enabled: v })}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </CardContent>
+        </Card>
+      </section>
+
+      <section className="mt-space-4 grid grid-cols-1 gap-space-4 md:mt-space-5 md:gap-space-5">
+        <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-space-2">
               <Zap className="h-5 w-5 text-primary" />
@@ -290,28 +448,6 @@ const AdminPayments = () => {
           </CardContent>
         </Card>
 
-        <Card className="xl:col-span-8">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-space-2">
-              <ShieldCheck className="h-5 w-5 text-primary" />
-              Payment Operations
-            </CardTitle>
-            <CardDescription>Use this area for payment verification and Blink diagnostics.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-space-3">
-            <div className="rounded-radius-lg bg-[hsl(var(--app-control))] p-space-4">
-              <p className="font-bold">Pending review queue</p>
-              <p className="mt-space-1 text-sm text-muted-foreground">Subscriptions waiting for payment confirmation should be reviewed from the Subscriptions tab.</p>
-            </div>
-            <div className="rounded-radius-lg bg-[hsl(var(--app-control))] p-space-4">
-              <p className="font-bold">Blink health check</p>
-              <p className="mt-space-1 text-sm text-muted-foreground">Generate a test invoice after changing Blink keys or wallet settings.</p>
-            </div>
-            <Button asChild variant="secondary" className="w-full">
-              <Link to="/admin/subscriptions">Open Subscriptions</Link>
-            </Button>
-          </CardContent>
-        </Card>
       </section>
 
       <Card className="mt-space-5">
@@ -327,7 +463,7 @@ const AdminPayments = () => {
             <>
               {/* Mobile card view */}
               <div className="space-y-space-3 md:hidden">
-                {adminNotifications.map((notification) => (
+                {notifPager.paged.map((notification) => (
                   <div key={notification.id} className="rounded-radius-lg border border-border bg-card p-space-4 space-y-space-2">
                     <div className="flex items-start justify-between gap-space-3">
                       <div className="min-w-0">
@@ -379,7 +515,7 @@ const AdminPayments = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {adminNotifications.map((notification) => (
+                    {notifPager.paged.map((notification) => (
                       <TableRow key={notification.id}>
                         <TableCell>
                           <div className="font-bold">{notification.serviceName}</div>
@@ -427,6 +563,7 @@ const AdminPayments = () => {
                   </TableBody>
                 </Table>
               </div>
+              <TablePagination {...notifPager} onPage={notifPager.setPage} />
             </>
           ) : (
             <div className="rounded-radius-lg bg-[hsl(var(--app-control))] p-space-8 text-center text-muted-foreground">
@@ -435,8 +572,54 @@ const AdminPayments = () => {
           )}
         </CardContent>
       </Card>
+        </TabsContent>
+
+        <TabsContent value="profit">
+          <NetProfitPanel />
+        </TabsContent>
+      </Tabs>
     </SuperAdminLayout>
   );
 };
 
 export default AdminPayments;
+
+/** Small local input for the per-method processing-fee surcharge (percent). */
+function SurchargeInput({
+  method,
+  initial,
+  disabled,
+  onCommit,
+}: {
+  method: string;
+  initial: number;
+  disabled?: boolean;
+  onCommit: (percent: number) => void;
+}) {
+  const [value, setValue] = useState<string>(String(initial ?? 0));
+  useEffect(() => { setValue(String(initial ?? 0)); }, [initial, method]);
+  const commit = () => {
+    const n = Number(value);
+    const clamped = Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : 0;
+    setValue(String(clamped));
+    onCommit(clamped);
+  };
+  return (
+    <div className="relative">
+      <input
+        type="number"
+        min="0"
+        max="100"
+        step="0.1"
+        inputMode="decimal"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => { if (e.key === "Enter") { (e.target as HTMLInputElement).blur(); } }}
+        disabled={disabled}
+        className="h-8 w-[80px] rounded-md border border-input bg-background pl-2 pr-6 text-right text-sm tabular-nums outline-none focus:ring-2 focus:ring-primary/30"
+      />
+      <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
+    </div>
+  );
+}

@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Edit, Trash2, PlusCircle } from "lucide-react";
 import { supabaseDb } from "@/integrations/supabase/client";
-import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,7 +26,11 @@ const EMPTY = { name: "", price_dollars: 0, price_type: "per_day" as "per_day" |
 const priceLabel = (e: { price_cents: number; price_type: string }) =>
   e.price_cents === 0 ? "Free" : `${formatUSD(e.price_cents)}${e.price_type === "per_day" ? " / day" : ""}`;
 
-const CarRentalsExtras = () => {
+interface Props {
+  providerId: string;
+}
+
+export function ProviderExtrasTab({ providerId }: Props) {
   const qc = useQueryClient();
   const { userData } = useAuth();
   const [editItem, setEditItem] = useState<RentalExtra | null>(null);
@@ -36,9 +39,13 @@ const CarRentalsExtras = () => {
   const [deleteTarget, setDeleteTarget] = useState<RentalExtra | null>(null);
 
   const { data: extras = [], isLoading } = useQuery({
-    queryKey: ["admin-rental-extras"],
+    queryKey: ["admin-rental-extras", providerId],
     queryFn: async () => {
-      const { data, error } = await supabaseDb.from("rental_extras").select("*").order("sort_order", { ascending: true });
+      const { data, error } = await supabaseDb
+        .from("rental_extras")
+        .select("*")
+        .eq("provider_id", providerId)
+        .order("sort_order", { ascending: true });
       if (error) throw error;
       return (data ?? []) as RentalExtra[];
     },
@@ -52,6 +59,7 @@ const CarRentalsExtras = () => {
         price_type: form.price_type,
         sort_order: Number(form.sort_order) || 0,
         is_active: form.is_active,
+        provider_id: providerId,
       };
       let id = editItem?.id ?? "";
       if (isNew) {
@@ -65,8 +73,7 @@ const CarRentalsExtras = () => {
       if (userData?.id) await logAuditEvent(userData.id, isNew ? "create" : "edit", "plan", id, { entity: "rental_extra", name: form.name });
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["admin-rental-extras"] });
-      qc.invalidateQueries({ queryKey: ["rental-extras"] });
+      qc.invalidateQueries({ queryKey: ["admin-rental-extras", providerId] });
       toast.success(isNew ? "Extra created" : "Extra updated");
       close();
     },
@@ -78,10 +85,7 @@ const CarRentalsExtras = () => {
       const { error } = await supabaseDb.from("rental_extras").update({ is_active }).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["admin-rental-extras"] });
-      qc.invalidateQueries({ queryKey: ["rental-extras"] });
-    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["admin-rental-extras", providerId] }); },
     onError: (err: Error) => toast.error(err.message),
   });
 
@@ -91,8 +95,7 @@ const CarRentalsExtras = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["admin-rental-extras"] });
-      qc.invalidateQueries({ queryKey: ["rental-extras"] });
+      qc.invalidateQueries({ queryKey: ["admin-rental-extras", providerId] });
       toast.success("Extra deleted");
       setDeleteTarget(null);
     },
@@ -107,10 +110,10 @@ const CarRentalsExtras = () => {
   const close = () => { setEditItem(null); setIsNew(false); };
 
   return (
-    <SuperAdminLayout title="Car Rental — Extras">
-      <div className="max-w-3xl space-y-space-5">
+    <>
+      <div className="space-y-4">
         <div className="flex items-center justify-between gap-3">
-          <p className="text-sm text-muted-foreground">Optional add-ons customers can choose at checkout. Per-day extras multiply by rental days.</p>
+          <p className="text-sm text-muted-foreground">Optional add-ons for this provider. Per-day extras multiply by rental days.</p>
           <Button onClick={openNew}><Plus className="mr-2 h-4 w-4" /> Add Extra</Button>
         </div>
 
@@ -156,7 +159,6 @@ const CarRentalsExtras = () => {
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
                   <Input type="number" min={0} step="1" className="pl-6" value={form.price_dollars} onChange={(e) => setForm((f) => ({ ...f, price_dollars: Number(e.target.value) }))} />
                 </div>
-                <p className="text-[11px] text-muted-foreground">{form.price_dollars === 0 ? 'Shows as "Free"' : ""}</p>
               </div>
               <div className="space-y-1.5">
                 <Label>Charge type</Label>
@@ -193,19 +195,15 @@ const CarRentalsExtras = () => {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete extra?</AlertDialogTitle>
-            <AlertDialogDescription><strong>{deleteTarget?.name}</strong> will be removed from the booking page. This cannot be undone.</AlertDialogDescription>
+            <AlertDialogDescription><strong>{deleteTarget?.name}</strong> will be removed. This cannot be undone.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteMutation.isPending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={deleteMutation.isPending}
-              onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}>
-              {deleteMutation.isPending ? "Deleting…" : "Delete"}
-            </AlertDialogAction>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}>Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </SuperAdminLayout>
+    </>
   );
-};
-
-export default CarRentalsExtras;
+}

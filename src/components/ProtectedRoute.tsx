@@ -3,7 +3,7 @@ import { Navigate, useLocation } from "react-router-dom";
 import { useAuth, AppRole } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { useUserMode } from "@/contexts/UserModeContext";
-import { Loader2 } from "lucide-react";
+import { PageLoader } from "@/components/ui/spinner";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -21,7 +21,7 @@ interface ProtectedRouteProps {
  * 4. Authenticated with correct role — render children
  */
 const ProtectedRoute = ({ children, allowedRoles, requiredRoles }: ProtectedRouteProps) => {
-  const { isAuthenticated, isLoading, isUserDataReady, roles } = useAuth();
+  const { isAuthenticated, isLoading, isUserDataReady, roles, isAdmin, isAdminResolved } = useAuth();
   const { openAuthModal } = useAuthModal();
   const { isUserMode } = useUserMode();
   const location = useLocation();
@@ -31,9 +31,7 @@ const ProtectedRoute = ({ children, allowedRoles, requiredRoles }: ProtectedRout
   // Case 1: Still resolving auth state
   if (isLoading || !isUserDataReady) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
+      <PageLoader className="min-h-screen bg-background" />
     );
   }
 
@@ -55,7 +53,17 @@ const ProtectedRoute = ({ children, allowedRoles, requiredRoles }: ProtectedRout
 
   // Case 4: Authenticated but missing required role (normal role check, skipped in user mode)
   if (!isUserMode && effectiveRoles && effectiveRoles.length > 0) {
-    const hasRequiredRole = effectiveRoles.some((role) => roles.includes(role));
+    let hasRequiredRole = effectiveRoles.some((role) => roles.includes(role));
+
+    // Admin routes (require super_admin) are also open to RBAC admins. Wait for
+    // the admin check to resolve before deciding, so we don't redirect early.
+    if (!hasRequiredRole && effectiveRoles.includes("super_admin")) {
+      if (!isAdminResolved) {
+        return <PageLoader className="min-h-screen bg-background" />;
+      }
+      if (isAdmin) hasRequiredRole = true;
+    }
+
     if (!hasRequiredRole) {
       return <Navigate to="/cleaning" replace />;
     }
@@ -78,11 +86,7 @@ function UnauthenticatedGate({ redirectTo }: { redirectTo: string }) {
     return () => clearTimeout(timer);
   }, [openAuthModal, redirectTo]);
 
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <Loader2 className="h-8 w-8 animate-spin text-primary" />
-    </div>
-  );
+  return <PageLoader className="min-h-screen bg-background" />;
 }
 
 export default ProtectedRoute;

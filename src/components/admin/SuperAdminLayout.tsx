@@ -1,15 +1,16 @@
-import { ReactNode, useState, useEffect } from "react";
+import { ReactNode, useEffect, useState, cloneElement } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   BadgeDollarSign,
-  ChevronRight,
   ChevronDown,
+  ChevronRight,
   ExternalLink,
   LogOut,
   Menu,
 } from "lucide-react";
 import { AdminAccountMenu } from "@/components/admin/AdminAccountMenu";
 import { LanguageMenu } from "@/components/LanguageMenu";
+import { LocationSelector } from "@/components/LocationSelector";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -24,11 +25,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useUserMode } from "@/contexts/UserModeContext";
 import { publicRoutes } from "@/config/adminRoutes";
 import {
-  PLATFORM_SECTION,
+  NAV_SECTIONS,
+  NAV_SECTIONS_BELOW,
   SERVICES,
-  SETTINGS_SECTION,
   getActiveService,
   type NavItem,
+  type NavSection,
   type ServiceGroup,
 } from "@/config/adminNav";
 import { cn } from "@/lib/utils";
@@ -75,9 +77,7 @@ function FlatLink({
 
 // ─── Collapsible service group ────────────────────────────────────────────────
 function ServiceDropdown({
-  service,
-  currentPath,
-  wrap,
+  service, currentPath, wrap,
 }: {
   service: ServiceGroup;
   currentPath: string;
@@ -85,49 +85,28 @@ function ServiceDropdown({
 }) {
   const isGroupActive = getActiveService(currentPath) === service.id;
   const [open, setOpen] = useState(isGroupActive);
-
-  useEffect(() => {
-    if (isGroupActive) setOpen(true);
-  }, [isGroupActive]);
+  useEffect(() => { if (isGroupActive) setOpen(true); }, [isGroupActive]);
 
   const Icon = service.icon;
 
   return (
     <div>
-      {/* Group header — NOT wrapped in SheetClose so it stays interactive on mobile */}
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         className={cn(linkBase, "w-full justify-between", isGroupActive ? linkActive : linkIdle)}
         aria-expanded={open}
       >
-        <span className="flex items-center gap-space-3 min-w-0">
-          <span
-            className={cn(
-              "flex h-5 w-5 shrink-0 items-center justify-center rounded-md",
-              service.color,
-            )}
-          >
+        <span className="flex min-w-0 items-center gap-space-3">
+          <span className={cn("flex h-5 w-5 shrink-0 items-center justify-center rounded-md", service.color)}>
             <Icon className="h-3 w-3 text-white" aria-hidden />
           </span>
           <span className="truncate font-semibold">{service.label}</span>
         </span>
-        <ChevronDown
-          className={cn(
-            "h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200",
-            open && "rotate-180",
-          )}
-          aria-hidden
-        />
+        <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200", open && "rotate-180")} aria-hidden />
       </button>
 
-      {/* Animated children */}
-      <div
-        className={cn(
-          "overflow-hidden transition-all duration-200 ease-in-out",
-          open ? "max-h-96 opacity-100" : "max-h-0 opacity-0 pointer-events-none",
-        )}
-      >
+      <div className={cn("overflow-hidden transition-all duration-200 ease-in-out", open ? "max-h-96 opacity-100" : "max-h-0 opacity-0 pointer-events-none")}>
         <div className="ml-[1.35rem] mt-0.5 space-y-0.5 border-l border-[hsl(var(--app-divider))] pl-3 pb-1">
           {service.items.map((item) => {
             const isActive = currentPath === item.path;
@@ -138,22 +117,15 @@ function ServiceDropdown({
                 aria-current={isActive ? "page" : undefined}
                 className={cn(
                   "flex min-h-9 items-center gap-2.5 rounded-radius-md px-2.5 py-1.5 text-sm transition-colors",
-                  isActive
-                    ? "bg-[hsl(var(--app-control-muted))] text-foreground font-semibold"
-                    : "text-muted-foreground hover:bg-[hsl(var(--app-control-muted))] hover:text-foreground",
+                  isActive ? "bg-[hsl(var(--app-control-muted))] text-foreground font-semibold" : "text-muted-foreground hover:bg-[hsl(var(--app-control-muted))] hover:text-foreground",
                 )}
               >
-                <item.icon
-                  className={cn(
-                    "h-3.5 w-3.5 shrink-0",
-                    isActive ? "text-primary" : "text-muted-foreground/70",
-                  )}
-                  aria-hidden
-                />
+                <item.icon className={cn("h-3.5 w-3.5 shrink-0", isActive ? "text-primary" : "text-muted-foreground/70")} aria-hidden />
                 {item.label}
               </Link>
             );
-            return wrap ? wrap(el) : el;
+            const node = wrap ? wrap(el) : el;
+            return cloneElement(node, { key: item.path });
           })}
         </div>
       </div>
@@ -174,60 +146,30 @@ function SidebarNav({
       className="flex-1 space-y-space-5 overflow-y-auto px-space-3 py-space-4"
       aria-label="Admin navigation"
     >
-      {/* Platform */}
-      <section className="space-y-space-1" aria-labelledby="nav-platform">
-        <h2
-          id="nav-platform"
-          className="px-space-3 pb-space-1 text-caption font-bold uppercase tracking-[0.18em] text-muted-foreground/70"
-        >
-          {PLATFORM_SECTION.title}
-        </h2>
-        {PLATFORM_SECTION.items.map((item) => (
-          <FlatLink
-            key={item.path}
-            item={item}
-            isActive={currentPath === item.path}
-            wrap={wrap}
-          />
-        ))}
-      </section>
-
-      {/* Services */}
-      <section className="space-y-space-1" aria-labelledby="nav-services">
-        <h2
-          id="nav-services"
-          className="px-space-3 pb-space-1 text-caption font-bold uppercase tracking-[0.18em] text-muted-foreground/70"
-        >
-          Services
-        </h2>
-        {SERVICES.map((service) => (
-          <ServiceDropdown
-            key={service.id}
-            service={service}
-            currentPath={currentPath}
-            wrap={wrap}
-          />
-        ))}
-      </section>
-
-      {/* Settings */}
-      <section className="space-y-space-1" aria-labelledby="nav-settings">
-        <h2
-          id="nav-settings"
-          className="px-space-3 pb-space-1 text-caption font-bold uppercase tracking-[0.18em] text-muted-foreground/70"
-        >
-          {SETTINGS_SECTION.title}
-        </h2>
-        {SETTINGS_SECTION.items.map((item) => (
-          <FlatLink
-            key={item.path}
-            item={item}
-            isActive={currentPath === item.path}
-            wrap={wrap}
-          />
-        ))}
-      </section>
+      {NAV_SECTIONS.map((section) => (
+        <NavSectionBlock key={section.title} section={section} currentPath={currentPath} wrap={wrap} />
+      ))}
     </nav>
+  );
+}
+
+function NavSectionBlock({
+  section, currentPath, wrap,
+}: {
+  section: NavSection;
+  currentPath: string;
+  wrap?: (el: React.ReactElement) => React.ReactElement;
+}) {
+  const id = `nav-${section.title.toLowerCase().replace(/\s+/g, "-")}`;
+  return (
+    <section className="space-y-space-1" aria-labelledby={id}>
+      <h2 id={id} className="px-space-3 pb-space-1 text-caption font-bold uppercase tracking-[0.18em] text-muted-foreground/70">
+        {section.title}
+      </h2>
+      {section.items.map((item) => (
+        <FlatLink key={item.path} item={item} isActive={currentPath === item.path} wrap={wrap} />
+      ))}
+    </section>
   );
 }
 
@@ -355,6 +297,7 @@ const SuperAdminLayout = ({ children, title, subtitle }: SuperAdminLayoutProps) 
 
             {/* Actions */}
             <div className="flex items-center gap-space-3 px-space-5">
+              <LocationSelector />
               <div className="hidden sm:block">
                 <LanguageMenu />
               </div>

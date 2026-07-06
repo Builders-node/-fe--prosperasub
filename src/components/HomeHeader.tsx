@@ -4,6 +4,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { AccountMenu } from "@/components/AccountMenu";
 import { Button } from "@/components/ui/button";
 import { useAuthModal } from "@/contexts/AuthModalContext";
+import { LocationSelector } from "@/components/LocationSelector";
+import { CartButton } from "@/components/CartButton";
 
 interface HomeHeaderProps {
   title?: string;
@@ -40,7 +42,8 @@ export function HomeHeader({ title, showBackButton = false, onBack }: HomeHeader
         </div>
 
         {/* Right */}
-        <div className="ml-auto w-10 shrink-0 flex justify-end">
+        <div className="ml-auto flex shrink-0 items-center justify-end gap-0.5">
+          <CartButton />
           {authLoading ? (
             <div className="h-10 w-10 animate-pulse rounded-full bg-muted" />
           ) : isAuthenticated ? (
@@ -56,6 +59,9 @@ export function HomeHeader({ title, showBackButton = false, onBack }: HomeHeader
           )}
         </div>
       </div>
+
+      {/* Global location selector (self-hides when no residences exist) */}
+      <LocationSelector variant="full" />
     </header>
   );
 }

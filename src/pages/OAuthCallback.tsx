@@ -6,7 +6,7 @@
 
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Loader2 } from "lucide-react";
+import { PageLoader } from "@/components/ui/spinner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -81,9 +81,7 @@ const OAuthCallback = () => {
   }, [isAuthenticated, isLoading, isUserDataReady, done, navigate, redirectTo, roles]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <Loader2 className="h-8 w-8 animate-spin text-primary" />
-    </div>
+    <PageLoader className="min-h-screen bg-background" />
   );
 };
 

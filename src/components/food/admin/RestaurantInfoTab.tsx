@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Edit, MapPin, Clock, Truck } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Edit, MapPin, Clock, Truck, Check } from "lucide-react";
+import { useResidences } from "@/hooks/useResidences";
 import { Spinner } from "@/components/ui/spinner";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -154,6 +155,9 @@ export function RestaurantInfoTab({ restaurant }: Props) {
         )}
       </section>
 
+      {/* Service Locations (residences this restaurant delivers to) */}
+      <ServiceLocationsSection providerId={restaurant.id} />
+
       {/* ─── Edit dialog ──────────────────────────────────────────────────── */}
       <Dialog open={open} onOpenChange={(o) => { if (!o) setOpen(false); }}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
@@ -241,5 +245,106 @@ export function RestaurantInfoTab({ restaurant }: Props) {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+// ─── Service locations: which residences this restaurant delivers to ───────────
+interface ProviderResidence { id: string; residence_id: string; }
+
+function ServiceLocationsSection({ providerId }: { providerId: string }) {
+  const qc = useQueryClient();
+  const { userData } = useAuth();
+  const { data: residences = [], isLoading: resLoading } = useResidences();
+  const [pendingId, setPendingId] = useState<string | null>(null);
+
+  const { data: links = [], isLoading: linksLoading } = useQuery({
+    queryKey: ["food-provider-residences", providerId],
+    queryFn: async () => {
+      const { data, error } = await supabaseDb
+        .from("food_provider_residences")
+        .select("id, residence_id")
+        .eq("provider_id", providerId);
+      if (error) throw error;
+      return (data ?? []) as ProviderResidence[];
+    },
+  });
+
+  const linkByResidence: Record<string, string> = {};
+  links.forEach((l) => { linkByResidence[l.residence_id] = l.id; });
+
+  const toggle = useMutation({
+    mutationFn: async (residenceId: string) => {
+      setPendingId(residenceId);
+      const existingLinkId = linkByResidence[residenceId];
+      if (existingLinkId) {
+        const { error } = await supabaseDb
+          .from("food_provider_residences").delete().eq("id", existingLinkId);
+        if (error) throw error;
+        await logAuditEvent(userData!.id, "delete", "food_provider_residence", existingLinkId, { provider_id: providerId, residence_id: residenceId });
+      } else {
+        const { data, error } = await supabaseDb
+          .from("food_provider_residences")
+          .insert({ provider_id: providerId, residence_id: residenceId })
+          .select("id").single();
+        if (error) throw error;
+        await logAuditEvent(userData!.id, "create", "food_provider_residence", data.id, { provider_id: providerId, residence_id: residenceId });
+      }
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["food-provider-residences", providerId] }),
+    onError: (e) => toast.error(String(e)),
+    onSettled: () => setPendingId(null),
+  });
+
+  return (
+    <section className="rounded-2xl border border-border bg-card p-5">
+      <div className="mb-1 flex items-center gap-2">
+        <MapPin className="h-4 w-4 text-orange-400" />
+        <h3 className="font-bold uppercase text-xs tracking-wider text-muted-foreground">
+          Service Locations
+        </h3>
+      </div>
+      <p className="mb-3 text-sm text-muted-foreground">
+        Pick the residences this restaurant delivers to. Customers in other locations won't see it.
+      </p>
+
+      {resLoading || linksLoading ? (
+        <div className="flex gap-2">
+          {[1, 2].map((i) => <div key={i} className="h-9 w-32 animate-pulse rounded-full bg-muted" />)}
+        </div>
+      ) : residences.length === 0 ? (
+        <p className="text-sm text-muted-foreground italic">
+          No residences configured yet.
+        </p>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {residences.map((r) => {
+            const active = !!linkByResidence[r.id];
+            const busy = pendingId === r.id && toggle.isPending;
+            return (
+              <button
+                key={r.id}
+                type="button"
+                disabled={busy}
+                onClick={() => toggle.mutate(r.id)}
+                className={`flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-semibold transition-colors disabled:opacity-60 ${
+                  active
+                    ? "border-primary bg-primary/15 text-foreground"
+                    : "border-border bg-muted/40 text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {busy ? (
+                  <Spinner size="xs" />
+                ) : active ? (
+                  <Check className="h-3.5 w-3.5 text-primary" />
+                ) : (
+                  <MapPin className="h-3.5 w-3.5" />
+                )}
+                {r.name}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </section>
   );
 }

@@ -1,17 +1,19 @@
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   ChefHat, UtensilsCrossed, CalendarDays,
   RefreshCw, Check,
   MessageCircle, MapPin, User as UserIcon, CheckCircle2,
-  Zap, Copy, Wallet, Bitcoin,
+  Zap, Wallet, Bitcoin, ShoppingCart,
 } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { CheckoutShell } from "@/components/patterns/CheckoutShell";
-import { QRCodeSVG } from "qrcode.react";
-import { supabase, supabaseDb } from "@/integrations/supabase/client";
+import { supabase, supabaseDb, accountApi } from "@/integrations/supabase/client";
+import { InvoiceQrPanel } from "@/components/payment/InvoiceQrPanel";
+import { useInvoicePayment } from "@/hooks/useInvoicePayment";
 import { useAuth } from "@/contexts/AuthContext";
+import { LocationPicker } from "@/components/account/SavedLocations";
 import { useUserUuid } from "@/hooks/useUserUuid";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { HomeHeader } from "@/components/HomeHeader";
@@ -31,16 +33,15 @@ import { MEAL_TYPE_LABELS } from "@/types/food";
 import { toast } from "sonner";
 import { PaymentMethodSelector, type PaymentMethod } from "@/components/payment/PaymentMethodSelector";
 import { usePaymentMethods } from "@/hooks/usePaymentMethods";
+import { useResidences } from "@/hooks/useResidences";
+import { useSelectedResidence } from "@/contexts/LocationContext";
+import { useCart } from "@/contexts/CartContext";
+import { DURATION_OPTIONS, durationLabel } from "@/lib/durations";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { PayPalPanel } from "@/components/payment/PayPalPanel";
 import { InfinitaPaymentPanel } from "@/components/payment/InfinitaPaymentPanel";
-
-// ─── Duration options ─────────────────────────────────────────────────────────
-const DURATION_OPTIONS = [
-  { weeks: 1, label: "1 Week" },
-  { weeks: 2, label: "2 Weeks" },
-  { weeks: 3, label: "3 Weeks" },
-  { weeks: 4, label: "1 Month" },
-] as const;
 
 function currentWeekMonday(): string {
   const d = new Date();
@@ -54,6 +55,7 @@ function currentWeekMonday(): string {
 const EMPTY_CHECKOUT = {
   customer_name: "",
   customer_whatsapp: "",
+  residence: "",
   delivery_address: "",
   notes: "",
   duration_weeks: 1,
@@ -65,6 +67,8 @@ type PaymentStep = "details" | "pay" | "success";
 // ─── Component ────────────────────────────────────────────────────────────────
 const FoodPlanDetail = () => {
   const { providerId, planId } = useParams<{ providerId: string; planId: string }>();
+  const [searchParams] = useSearchParams();
+  const renewSubId = searchParams.get("renew");
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user, userData, isAuthenticated } = useAuth();
@@ -79,22 +83,42 @@ const FoodPlanDetail = () => {
 
   // ─── Payment state ────────────────────────────────────────────────────────
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("lightning");
-  const { enabled: enabledMethods } = usePaymentMethods();
-  const [invoice, setInvoice] = useState<string | null>(null);
-  const [paymentHash, setPaymentHash] = useState<string | null>(null);
-  const [lockedSatsAmount, setLockedSatsAmount] = useState<number | null>(null);
-  const [onchainAddress, setOnchainAddress] = useState<string | null>(null);
-  const [onchainUri, setOnchainUri] = useState<string | null>(null);
+  const { enabled: enabledMethods, addSurchargeCents, surchargePercent } = usePaymentMethods();
+  const { data: residences = [] } = useResidences();
+  const { residence: globalResidence } = useSelectedResidence();
+  const { addItem: addToCart } = useCart();
+  const [cartDuration, setCartDuration] = useState(1);
+
+  const handleAddToCart = () => {
+    if (!plan) return;
+    addToCart({
+      providerId: plan.provider_id,
+      providerName: provider?.name ?? "Restaurant",
+      planId: plan.id,
+      planName: plan.name,
+      unitPriceCents: plan.weekly_price_cents,
+      durationWeeks: cartDuration,
+      mealsPerDay: plan.meals_per_day ?? 3,
+    }, 1);
+    toast.success(`Added to cart · ${durationLabel(cartDuration)}`, {
+      action: { label: "View cart", onClick: () => navigate("/cart") },
+    });
+  };
   const [isPaid, setIsPaid] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [createdId, setCreatedId] = useState<string | null>(null);
-  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mutationCalledRef = useRef(false);
 
-  // Cleanup polling on unmount
-  useEffect(() => {
-    return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
-  }, []);
+  // Unified Lightning + on-chain invoice generation + polling.
+  const inv = useInvoicePayment({
+    onPaid: (paymentRef) => {
+      setIsPaid(true);
+      if (!mutationCalledRef.current) {
+        mutationCalledRef.current = true;
+        createRecordMutation.mutate({ paymentRef, satsAmount: inv.state.sats ?? 0 });
+      }
+    },
+  });
 
   // Keep the selected method valid as toggles load.
   useEffect(() => {
@@ -125,6 +149,34 @@ const FoodPlanDetail = () => {
     },
     enabled: !!planId,
   });
+
+  // Renewal: load the existing subscription so we can prefill + lock its plan.
+  const { data: renewSub } = useQuery({
+    queryKey: ["food-renew-sub", renewSubId],
+    enabled: !!renewSubId,
+    queryFn: async () => {
+      const { data, error } = await supabaseDb
+        .from("food_subscriptions").select("*").eq("id", renewSubId!).maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // When renewing, jump straight into the subscribe checkout, prefilled from the sub.
+  useEffect(() => {
+    if (!renewSubId || !renewSub || !plan) return;
+    setCheckout({
+      customer_name: renewSub.customer_name ?? userData?.display_name ?? "",
+      customer_whatsapp: renewSub.customer_whatsapp ?? "",
+      residence: renewSub.residence ?? "",
+      delivery_address: renewSub.delivery_address ?? "",
+      notes: renewSub.notes ?? "",
+      duration_weeks: renewSub.commitment_weeks || 1,
+    });
+    setCheckoutMode("subscribe");
+    setPaymentStep("details");
+    setDialogOpen(true);
+  }, [renewSubId, renewSub, plan, userData]);
 
   const { data: weeklyMenu, isLoading: loadingMenu } = useQuery({
     queryKey: ["food-plan-menu", planId, plan?.provider_id],
@@ -163,7 +215,9 @@ const FoodPlanDetail = () => {
 
   // ─── Derived ──────────────────────────────────────────────────────────────
   const totalCents = (plan?.weekly_price_cents ?? 0) * checkout.duration_weeks;
-  const totalUsd = centsToDollars(totalCents);
+  const effectiveTotalCents = addSurchargeCents(totalCents, paymentMethod);
+  const feePct = surchargePercent(paymentMethod);
+  const totalUsd = centsToDollars(effectiveTotalCents);
   const estimatedSats = convertToSats(totalUsd);
   const mealTypes = plan ? getMealTypesForPlan(plan) : [];
   const mealPhotos = (weeklyMenu?.meals ?? [])
@@ -175,11 +229,85 @@ const FoodPlanDetail = () => {
     checkout.delivery_address.trim();
 
   // ─── Create record after payment ──────────────────────────────────────────
+  // Track the pending row so payment confirmation UPDATEs it in place. Keeps a
+  // record if the user closes the tab mid-payment — admin can complete it.
+  const pendingRecordIdRef = useRef<string | null>(null);
+
+  const reservePendingRecord = async (): Promise<string | null> => {
+    if (!plan || renewSubId) return null; // renewals don't need a pre-created row
+    const weekStart = weeklyMenu?.menu.week_start_date ?? currentWeekMonday();
+    const methodKey = paymentMethod === "infinita" ? "crypto" : paymentMethod;
+
+    try {
+      if (checkoutMode === "order") {
+        const payload = {
+          user_id: userUuid ?? user!.id,
+          provider_id: plan.provider_id,
+          meal_plan_id: planId,
+          menu_id: weeklyMenu?.menu.id ?? null,
+          week_start_date: weekStart,
+          total_cents: totalCents,
+          duration_weeks: checkout.duration_weeks,
+          status: "pending",
+          delivery_status: "pending",
+          customer_name: checkout.customer_name.trim(),
+          customer_whatsapp: checkout.customer_whatsapp.trim(),
+          delivery_address: checkout.delivery_address.trim(),
+          notes: checkout.notes.trim() || null,
+        };
+        if (pendingRecordIdRef.current) {
+          await supabaseDb.from("food_orders").update(payload).eq("id", pendingRecordIdRef.current);
+          return pendingRecordIdRef.current;
+        }
+        const { data, error } = await supabaseDb.from("food_orders").insert(payload).select("id").single();
+        if (error) throw error;
+        pendingRecordIdRef.current = data.id as string;
+        return data.id as string;
+      }
+      const payload = {
+        user_id: userUuid ?? user!.id,
+        provider_id: plan.provider_id,
+        meal_plan_id: planId,
+        weekly_price_cents: plan.weekly_price_cents,
+        commitment_weeks: checkout.duration_weeks,
+        status: "pending",
+        payment_status: "pending",
+        payment_method: methodKey,
+        customer_name: checkout.customer_name.trim(),
+        customer_whatsapp: checkout.customer_whatsapp.trim(),
+        residence: checkout.residence.trim() || null,
+        delivery_address: checkout.delivery_address.trim(),
+        notes: checkout.notes.trim() || null,
+      };
+      if (pendingRecordIdRef.current) {
+        await supabaseDb.from("food_subscriptions").update(payload).eq("id", pendingRecordIdRef.current);
+        return pendingRecordIdRef.current;
+      }
+      const { data, error } = await supabaseDb.from("food_subscriptions").insert(payload).select("id").single();
+      if (error) throw error;
+      pendingRecordIdRef.current = data.id as string;
+      return data.id as string;
+    } catch (e: any) {
+      toast.error(e?.message || "Could not reserve record");
+      return null;
+    }
+  };
+
   const createRecordMutation = useMutation({
     mutationFn: async ({ paymentRef, satsAmount, pending }: { paymentRef: string; satsAmount: number; pending?: boolean }) => {
       const weekStart = weeklyMenu?.menu.week_start_date ?? currentWeekMonday();
 
       if (checkoutMode === "order") {
+        const patch = {
+          status: pending ? "pending" : "confirmed",
+          delivery_status: "pending",
+        };
+        if (pendingRecordIdRef.current) {
+          const { data, error } = await supabaseDb.from("food_orders")
+            .update(patch).eq("id", pendingRecordIdRef.current).select("id").single();
+          if (error) throw error;
+          return data.id as string;
+        }
         const { data, error } = await supabaseDb
           .from("food_orders")
           .insert({
@@ -190,20 +318,35 @@ const FoodPlanDetail = () => {
             week_start_date: weekStart,
             total_cents: totalCents,
             duration_weeks: checkout.duration_weeks,
-            // Infinita payments await manual admin confirmation, so the order
-            // stays "pending" until an admin verifies the transaction.
-            status: pending ? "pending" : "confirmed",
-            delivery_status: "pending",
             customer_name: checkout.customer_name.trim(),
             customer_whatsapp: checkout.customer_whatsapp.trim(),
             delivery_address: checkout.delivery_address.trim(),
             notes: checkout.notes.trim() || null,
+            ...patch,
           })
           .select("id")
           .single();
         if (error) throw error;
+        pendingRecordIdRef.current = data.id as string;
         return data.id as string;
+      } else if (renewSubId) {
+        // Renewal: payment done → extend the existing subscription's period.
+        const { error } = await accountApi(`/account/food/subscriptions/${renewSubId}/renew`, { method: "POST" });
+        if (error) throw error;
+        return renewSubId;
       } else {
+        const patch = {
+          status: pending ? "pending" : "active",
+          payment_status: pending ? "pending" : "paid",
+          payment_method: paymentMethod === "infinita" ? "crypto" : paymentMethod,
+          payment_reference: paymentRef || null,
+        };
+        if (pendingRecordIdRef.current) {
+          const { data, error } = await supabaseDb.from("food_subscriptions")
+            .update(patch).eq("id", pendingRecordIdRef.current).select("id").single();
+          if (error) throw error;
+          return data.id as string;
+        }
         const { data, error } = await supabaseDb
           .from("food_subscriptions")
           .insert({
@@ -212,16 +355,17 @@ const FoodPlanDetail = () => {
             meal_plan_id: planId,
             weekly_price_cents: plan!.weekly_price_cents,
             commitment_weeks: checkout.duration_weeks,
-            // Infinita payments await manual admin confirmation.
-            status: pending ? "pending" : "active",
             customer_name: checkout.customer_name.trim(),
             customer_whatsapp: checkout.customer_whatsapp.trim(),
+            residence: checkout.residence.trim() || null,
             delivery_address: checkout.delivery_address.trim(),
             notes: checkout.notes.trim() || null,
+            ...patch,
           })
           .select("id")
           .single();
         if (error) throw error;
+        pendingRecordIdRef.current = data.id as string;
         return data.id as string;
       }
     },
@@ -239,131 +383,52 @@ const FoodPlanDetail = () => {
 
     setIsGenerating(true);
 
+    // Reserve a pending row BEFORE payment. Survives tab-close.
+    const reserved = await reservePendingRecord();
+    if (!reserved && !renewSubId) { setIsGenerating(false); return; }
+
     try {
       const label = checkoutMode === "order" ? "Order" : "Subscription";
       const description = `Food ${label} - ${plan.name} - ${checkout.duration_weeks} week${checkout.duration_weeks > 1 ? "s" : ""} - ${formatUSD(totalCents)}`;
 
       if (paymentMethod === "infinita" || paymentMethod === "paypal") {
         setPaymentStep("pay");
-        setIsGenerating(false);
         return;
-      } else if (paymentMethod === "onchain") {
-        if (!btcPrice) { toast.error("BTC price not loaded yet."); setIsGenerating(false); return; }
-        const satsAmount = convertToSats(totalUsd);
-        if (satsAmount <= 0) { toast.error("Unable to calculate payment amount."); setIsGenerating(false); return; }
-        setLockedSatsAmount(satsAmount);
-
-        const { data, error } = await supabase.functions.invoke("create-onchain-charge", {
-          body: {
-            amount_sats: satsAmount,
-            amount_cents: totalCents,
-            description,
-            service_name: `Food ${label}`,
-            client_name: checkout.customer_name.trim(),
-            client_phone: checkout.customer_whatsapp.trim(),
-            plan_name: plan.name,
-            duration: `${checkout.duration_weeks} week${checkout.duration_weeks > 1 ? "s" : ""}`,
-            admin_url: `${window.location.origin}/admin/food/orders`,
-          },
-        });
-        if (error) throw error;
-        if (data?.error) throw new Error(data.error);
-        if (!data?.address) throw new Error("Could not generate a Bitcoin address.");
-
-        setOnchainAddress(data.address);
-        setOnchainUri(`bitcoin:${data.address}?amount=${(satsAmount / 1e8).toFixed(8)}&label=ProsperaSub&message=${encodeURIComponent(description)}`);
-        setPaymentStep("pay");
-        startOnchainPolling(data.address, satsAmount);
-      } else {
-        if (!btcPrice) { toast.error("BTC price not loaded yet."); setIsGenerating(false); return; }
-        const satsAmount = convertToSats(totalUsd);
-        if (satsAmount <= 0) { toast.error("Unable to calculate payment amount."); setIsGenerating(false); return; }
-        setLockedSatsAmount(satsAmount);
-
-        const { data, error } = await supabase.functions.invoke("create-invoice", {
-          body: {
-            amount_cents: totalCents,
-            amount_sats: satsAmount,
-            context: `food_${checkoutMode}`,
-            description,
-            service_name: `Food ${label}`,
-            client_name: checkout.customer_name.trim(),
-            client_phone: checkout.customer_whatsapp.trim(),
-            plan_name: plan.name,
-            duration: `${checkout.duration_weeks} week${checkout.duration_weeks > 1 ? "s" : ""}`,
-            admin_url: `${window.location.origin}/admin/food/orders`,
-            external_id: `food-${checkoutMode}-${planId}-${Date.now()}`.slice(0, 100),
-          },
-        });
-
-        if (error) throw error;
-        if (data.error) throw new Error(data.error);
-
-        setInvoice(data.payment_request);
-        setPaymentHash(data.payment_hash);
-        setPaymentStep("pay");
-        startLightningPolling(data.payment_hash, satsAmount);
       }
-    } catch (err: any) {
-      toast.error(err.message || "Failed to generate invoice");
-      setLockedSatsAmount(null);
+
+      if (!btcPrice) { toast.error("BTC price not loaded yet."); return; }
+      const satsAmount = convertToSats(totalUsd);
+      if (satsAmount <= 0) { toast.error("Unable to calculate payment amount."); return; }
+
+      mutationCalledRef.current = false;
+      setPaymentStep("pay");
+      await inv.start({
+        method: paymentMethod === "onchain" ? "onchain" : "lightning",
+        amountCents: effectiveTotalCents,
+        amountSats: satsAmount,
+        description,
+        context: `food_${checkoutMode}`,
+        externalId: `food-${checkoutMode}-${planId}-${Date.now()}`.slice(0, 100),
+        meta: {
+          service_name: `Food ${label}`,
+          client_name: checkout.customer_name.trim(),
+          client_phone: checkout.customer_whatsapp.trim(),
+          plan_name: plan.name,
+          duration: `${checkout.duration_weeks} week${checkout.duration_weeks > 1 ? "s" : ""}`,
+          admin_url: `${window.location.origin}/admin/food/subscriptions`,
+        },
+      });
     } finally {
       setIsGenerating(false);
     }
   };
 
-  const startLightningPolling = (hash: string, satsAmount: number) => {
-    if (pollingRef.current) clearInterval(pollingRef.current);
-    mutationCalledRef.current = false;
-
-    pollingRef.current = setInterval(async () => {
-      try {
-        const { data, error } = await supabase.functions.invoke("verify-payment", {
-          body: { payment_hash: hash },
-        });
-        if (error) return;
-        if (data.paid && !mutationCalledRef.current) {
-          mutationCalledRef.current = true;
-          setIsPaid(true);
-          if (pollingRef.current) clearInterval(pollingRef.current);
-          createRecordMutation.mutate({ paymentRef: hash, satsAmount });
-        }
-      } catch (err) {
-        console.error("Payment check error:", err);
-      }
-    }, 3000);
-  };
-
-  const startOnchainPolling = (address: string, satsAmount: number) => {
-    if (pollingRef.current) clearInterval(pollingRef.current);
-    mutationCalledRef.current = false;
-
-    pollingRef.current = setInterval(async () => {
-      try {
-        const { data, error } = await supabase.functions.invoke("verify-onchain-payment", {
-          body: { address, amount_sats: satsAmount },
-        });
-        if (error) return;
-        if (data?.paid && !mutationCalledRef.current) {
-          mutationCalledRef.current = true;
-          setIsPaid(true);
-          if (pollingRef.current) clearInterval(pollingRef.current);
-          createRecordMutation.mutate({ paymentRef: address, satsAmount });
-        }
-      } catch (err) {
-        console.error("On-chain payment check error:", err);
-      }
-    }, 5000);
-  };
-
-  const handleInfinitaPaid = (txHash: string) => {
+  const handleInfinitaPaid = (paymentId: string) => {
     setIsPaid(true);
     if (!mutationCalledRef.current) {
       mutationCalledRef.current = true;
-      // Infinita payments are confirmed manually by an admin — create the order
-      // as pending. (Food subscriptions have no pending state, so they are
-      // created normally and verified from the payment reference.)
-      createRecordMutation.mutate({ paymentRef: txHash, satsAmount: 0, pending: true });
+      // SimpleFi confirms the payment via status check → create the order as paid.
+      createRecordMutation.mutate({ paymentRef: paymentId, satsAmount: 0, pending: false });
     }
   };
 
@@ -375,28 +440,19 @@ const FoodPlanDetail = () => {
     }
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast.success("Copied to clipboard!");
-  };
-
   // ─── Dialog open handlers ─────────────────────────────────────────────────
   const openCheckout = (mode: CheckoutMode) => {
     if (!isAuthenticated) { openAuthModal(); return; }
     setCheckoutMode(mode);
     setPaymentStep("details");
-    setInvoice(null);
-    setPaymentHash(null);
-    setLockedSatsAmount(null);
-    setOnchainAddress(null);
-    setOnchainUri(null);
+    inv.reset();
     setIsPaid(false);
     setCreatedId(null);
     mutationCalledRef.current = false;
-    if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
     setCheckout({
       customer_name: userData?.name ?? "",
       customer_whatsapp: "",
+      residence: globalResidence || "",
       delivery_address: "",
       notes: "",
       duration_weeks: mode === "subscribe" ? 4 : 1,
@@ -405,7 +461,7 @@ const FoodPlanDetail = () => {
   };
 
   const closeDialog = () => {
-    if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
+    inv.reset();
     setDialogOpen(false);
   };
 
@@ -551,19 +607,40 @@ const FoodPlanDetail = () => {
       >
         <div className="market-content px-4 py-3">
           <div className="flex items-center justify-center gap-2 mb-2 text-xs text-muted-foreground">
-            <Check className="h-3.5 w-3.5 text-emerald-600" />
+            <Check className="h-3.5 w-3.5 text-primary" />
             {formatUSD(plan.weekly_price_cents)} / week · Pay with Lightning
           </div>
-          <Button
-            size="lg"
-            className="w-full h-14 rounded-2xl font-bold text-base"
-            onClick={() => openCheckout("subscribe")}
-          >
-            <Zap className="mr-2 h-5 w-5" />
-            Subscribe Weekly
-          </Button>
+          <div className="flex gap-2">
+            <Select value={String(cartDuration)} onValueChange={(v) => setCartDuration(parseInt(v))}>
+              <SelectTrigger className="h-14 w-[116px] shrink-0 rounded-2xl font-semibold" aria-label="Duration">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {DURATION_OPTIONS.map((d) => (
+                  <SelectItem key={d.weeks} value={String(d.weeks)}>{d.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              size="lg"
+              variant="outline"
+              className="h-14 shrink-0 rounded-2xl px-4 font-bold"
+              onClick={handleAddToCart}
+              aria-label="Add to cart"
+            >
+              <ShoppingCart className="h-5 w-5" />
+            </Button>
+            <Button
+              size="lg"
+              className="h-14 flex-1 rounded-2xl font-bold text-base"
+              onClick={() => openCheckout("subscribe")}
+            >
+              <Zap className="mr-2 h-5 w-5" />
+              Subscribe
+            </Button>
+          </div>
           <p className="mt-1.5 text-center text-[11px] text-muted-foreground">
-            Confirm in the next step
+            Add multiple portions to your cart and pay together
           </p>
         </div>
       </div>
@@ -576,7 +653,7 @@ const FoodPlanDetail = () => {
           paymentStep === "success"
             ? "Payment Confirmed!"
             : paymentStep === "pay"
-            ? paymentMethod === "infinita" ? "Pay with Infinita"
+            ? paymentMethod === "infinita" ? "Pay with LIVES"
               : paymentMethod === "paypal" ? "Pay with PayPal"
               : paymentMethod === "onchain" ? "Pay on-chain (Bitcoin)"
               : "Pay with Lightning"
@@ -594,7 +671,7 @@ const FoodPlanDetail = () => {
                   {isGenerating ? (
                     <><Spinner size="sm" className="mr-2" /> Creating…</>
                   ) : (
-                    <>Pay {formatUSD(totalCents)} with Infinita</>
+                    <>Pay {formatUSD(effectiveTotalCents)} with LIVES</>
                   )}
                 </Button>
               ) : paymentMethod === "paypal" ? (
@@ -628,26 +705,36 @@ const FoodPlanDetail = () => {
           {/* ── Step 1: Details ──────────────────────────────────────────── */}
           {paymentStep === "details" && plan && (
             <div className="space-y-5">
-              {/* Duration selector */}
-              <div>
-                <Label className="mb-2 block">
-                  {checkoutMode === "order" ? "Duration" : "Subscription Period"}
-                </Label>
-                <div className="grid grid-cols-4 gap-2">
-                  {DURATION_OPTIONS.map(({ weeks, label }) => (
-                    <button key={weeks} type="button"
-                      onClick={() => setCheckout((f) => ({ ...f, duration_weeks: weeks }))}
-                      className={`rounded-xl border py-3 text-center text-sm font-bold transition-all ${
-                        checkout.duration_weeks === weeks
-                          ? "border-orange-500 bg-orange-500/15 text-orange-400"
-                          : "border-border bg-muted/30 text-muted-foreground hover:border-orange-500/50"
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  ))}
+              {renewSubId ? (
+                /* Renewal: duration is fixed to the original subscription term. */
+                <div className="rounded-xl border border-orange-500/30 bg-orange-500/10 p-4 text-sm">
+                  <p className="font-bold text-foreground">Renewing your subscription</p>
+                  <p className="mt-0.5 text-muted-foreground">
+                    {checkout.duration_weeks} week{checkout.duration_weeks > 1 ? "s" : ""} · continues from your current period.
+                  </p>
                 </div>
-              </div>
+              ) : (
+                /* Duration selector */
+                <div>
+                  <Label className="mb-2 block">
+                    {checkoutMode === "order" ? "Duration" : "Subscription Period"}
+                  </Label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {DURATION_OPTIONS.map(({ weeks, label }) => (
+                      <button key={weeks} type="button"
+                        onClick={() => setCheckout((f) => ({ ...f, duration_weeks: weeks }))}
+                        className={`rounded-xl border py-3 text-center text-sm font-bold transition-all ${
+                          checkout.duration_weeks === weeks
+                            ? "border-orange-500 bg-orange-500/15 text-orange-400"
+                            : "border-border bg-muted/30 text-muted-foreground hover:border-orange-500/50"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Summary */}
               <div className="rounded-xl bg-muted/50 p-4 space-y-1 text-sm">
@@ -668,7 +755,10 @@ const FoodPlanDetail = () => {
                 <div className="flex justify-between border-t border-border pt-2 mt-2">
                   <span className="font-bold">Total</span>
                   <div className="text-right">
-                    <span className="font-black text-orange-400">{formatUSD(totalCents)}</span>
+                    <span className="font-black text-orange-400">{formatUSD(effectiveTotalCents)}</span>
+                    {feePct > 0 && (
+                      <p className="text-[10px] text-muted-foreground">Base {formatUSD(totalCents)} + {feePct}% fee</p>
+                    )}
                     {btcPrice && (
                       <p className="text-xs text-muted-foreground">
                         ≈ {estimatedSats.toLocaleString()} sats
@@ -697,13 +787,31 @@ const FoodPlanDetail = () => {
                     onChange={(e) => setCheckout((f) => ({ ...f, customer_whatsapp: e.target.value }))}
                     placeholder="+504 1234 5678" type="tel" />
                 </div>
+                {residences.length > 0 && (
+                  <div>
+                    <Label className="mb-1.5 flex items-center gap-1.5">
+                      <MapPin className="h-3.5 w-3.5" /> Residence
+                    </Label>
+                    <Select value={checkout.residence || "_none"}
+                      onValueChange={(v) => setCheckout((f) => ({ ...f, residence: v === "_none" ? "" : v }))}>
+                      <SelectTrigger><SelectValue placeholder="Select your residence" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="_none">Other / not listed</SelectItem>
+                        {residences.map((r) => (
+                          <SelectItem key={r.id} value={r.name}>{r.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 <div>
                   <Label className="mb-1.5 flex items-center gap-1.5">
-                    <MapPin className="h-3.5 w-3.5" /> Delivery Address *
+                    <MapPin className="h-3.5 w-3.5" /> Apartment / Address *
                   </Label>
+                  <LocationPicker userId={userData?.id} onPick={(line) => setCheckout((f) => ({ ...f, delivery_address: line }))} />
                   <Textarea value={checkout.delivery_address}
                     onChange={(e) => setCheckout((f) => ({ ...f, delivery_address: e.target.value }))}
-                    rows={2} placeholder="Building, apartment, street…" />
+                    rows={2} placeholder="Apartment / unit, building, details…" />
                 </div>
                 <div>
                   <Label className="mb-1.5 block">Notes (optional)</Label>
@@ -736,7 +844,7 @@ const FoodPlanDetail = () => {
           {/* ── Step 2: Payment ──────────────────────────────────────── */}
           {paymentStep === "pay" && paymentMethod === "infinita" && (
             <InfinitaPaymentPanel
-              totalCents={totalCents}
+              totalCents={effectiveTotalCents}
               onPaid={handleInfinitaPaid}
               orderMeta={{
                 description: `Food ${checkoutMode === "order" ? "Order" : "Subscription"} - ${plan.name}`,
@@ -745,7 +853,7 @@ const FoodPlanDetail = () => {
                 client_phone: checkout.customer_whatsapp.trim(),
                 plan_name: plan.name,
                 duration: `${checkout.duration_weeks} week${checkout.duration_weeks > 1 ? "s" : ""}`,
-                admin_url: `${window.location.origin}/admin/food/orders`,
+                admin_url: `${window.location.origin}/admin/food/subscriptions`,
               }}
             />
           )}
@@ -760,7 +868,7 @@ const FoodPlanDetail = () => {
               </div>
             ) : (
               <PayPalPanel
-                totalCents={totalCents}
+                totalCents={effectiveTotalCents}
                 onPaid={handlePaypalPaid}
                 orderMeta={{
                   description: `Food ${checkoutMode === "order" ? "Order" : "Subscription"} - ${plan.name}`,
@@ -769,113 +877,23 @@ const FoodPlanDetail = () => {
                   client_phone: checkout.customer_whatsapp.trim(),
                   plan_name: plan.name,
                   duration: `${checkout.duration_weeks} week${checkout.duration_weeks > 1 ? "s" : ""}`,
-                  admin_url: `${window.location.origin}/admin/food/orders`,
+                  admin_url: `${window.location.origin}/admin/food/subscriptions`,
                 }}
               />
             )
           )}
 
-          {paymentStep === "pay" && paymentMethod === "lightning" && invoice && (
-            <div className="space-y-4">
-              <a
-                href={`lightning:${invoice}`}
-                className="flex justify-center p-4 bg-white rounded-xl cursor-pointer"
-              >
-                <QRCodeSVG value={invoice!} size={220} level="M" />
-              </a>
-
-              <div className="text-center p-4 bg-muted/50 rounded-xl">
-                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Amount Due</p>
-                <p className="text-3xl font-black text-amber-400">
-                  {(lockedSatsAmount || 0).toLocaleString()} sats
-                </p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {formatUSD(totalCents)} · {checkout.duration_weeks} week{checkout.duration_weeks > 1 ? "s" : ""}
-                </p>
-              </div>
-
-              <div>
-                <Label className="text-xs text-muted-foreground">Lightning Invoice</Label>
-                <div className="flex items-center gap-2 mt-1">
-                  <code className="flex-1 p-2.5 bg-muted rounded-lg text-xs break-all max-h-16 overflow-y-auto leading-relaxed">
-                    {invoice}
-                  </code>
-                  <Button variant="secondary" size="icon" className="shrink-0"
-                    onClick={() => copyToClipboard(invoice!)}>
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-
-              <div className={`flex items-center justify-center gap-2 p-4 rounded-xl ${
-                isPaid ? "bg-green-500/10" : "bg-amber-500/10"
-              }`}>
-                {isPaid ? (
-                  <>
-                    <CheckCircle2 className="h-5 w-5 text-green-400" />
-                    <span className="text-sm font-semibold text-green-400">
-                      Payment received! Creating {checkoutMode === "order" ? "order" : "subscription"}…
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <Spinner size="md" className="text-amber-400" />
-                    <span className="text-sm font-medium text-muted-foreground">
-                      Waiting for payment…
-                    </span>
-                  </>
-                )}
-              </div>
-
-              <p className="text-center text-xs text-muted-foreground">
-                Scan the QR code with any Lightning wallet or tap it to open your wallet app.
-              </p>
-            </div>
-          )}
-
-          {paymentStep === "pay" && paymentMethod === "onchain" && onchainAddress && (
-            <div className="space-y-4">
-              <a
-                href={onchainUri ?? `bitcoin:${onchainAddress}`}
-                className="flex justify-center p-4 bg-white rounded-xl cursor-pointer"
-              >
-                <QRCodeSVG value={onchainUri ?? `bitcoin:${onchainAddress}`} size={220} level="M" />
-              </a>
-
-              <div className="text-center p-4 bg-muted/50 rounded-xl">
-                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Send exactly</p>
-                <p className="text-3xl font-black text-amber-400">{(lockedSatsAmount || 0).toLocaleString()} sats</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  {formatUSD(totalCents)} · {checkout.duration_weeks} week{checkout.duration_weeks > 1 ? "s" : ""}
-                </p>
-              </div>
-
-              <div>
-                <Label className="text-xs text-muted-foreground">Bitcoin Address</Label>
-                <div className="flex items-center gap-2 mt-1">
-                  <code className="flex-1 p-2.5 bg-muted rounded-lg text-xs break-all leading-relaxed">{onchainAddress}</code>
-                  <Button variant="secondary" size="icon" className="shrink-0" onClick={() => copyToClipboard(onchainAddress!)}>
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-
-              <div className={`flex items-center justify-center gap-2 p-4 rounded-xl ${isPaid ? "bg-green-500/10" : "bg-amber-500/10"}`}>
-                {isPaid ? (
-                  <>
-                    <CheckCircle2 className="h-5 w-5 text-green-400" />
-                    <span className="text-sm font-semibold text-green-400">
-                      Payment detected! Creating {checkoutMode === "order" ? "order" : "subscription"}…
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <Spinner size="md" className="text-amber-400" />
-                    <span className="text-sm font-medium text-muted-foreground">Waiting for payment… on-chain can take a few minutes.</span>
-                  </>
-                )}
-              </div>
-            </div>
+          {paymentStep === "pay" && (inv.state.invoice || inv.state.address) && (
+            <InvoiceQrPanel
+              mode={inv.state.invoice ? "lightning" : "onchain"}
+              invoice={inv.state.invoice}
+              address={inv.state.address}
+              uri={inv.state.uri}
+              sats={inv.state.sats ?? 0}
+              totalCents={effectiveTotalCents}
+              isPaid={isPaid}
+              successLabel={`Creating ${checkoutMode === "order" ? "order" : "subscription"}…`}
+            />
           )}
 
           {/* ── Step 3: Success ──────────────────────────────────────────── */}
@@ -924,7 +942,7 @@ const FoodPlanDetail = () => {
                   <span className="font-bold text-green-400">
                     {paymentMethod === "infinita"
                       ? formatUSD(totalCents)
-                      : `${(lockedSatsAmount ?? 0).toLocaleString()} sats (${formatUSD(totalCents)})`}
+                      : `${(inv.state.sats ?? 0).toLocaleString()} sats (${formatUSD(totalCents)})`}
                   </span>
                 </div>
               </div>

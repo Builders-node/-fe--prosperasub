@@ -1,50 +1,61 @@
 import { useState, useEffect, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { Zap, Loader2, CheckCircle2, Copy, RefreshCw } from "lucide-react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { Zap, CheckCircle2, RefreshCw, Wallet, Bitcoin } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase, supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { LocationPicker } from "@/components/account/SavedLocations";
 import { toast } from "sonner";
 import { addMonths, format } from "date-fns";
 import { nowHN } from "@/lib/timezone";
-import { QRCodeSVG } from "qrcode.react";
 import { UserLayout } from "@/components/layout/UserLayout";
 import { useBtcPrice } from "@/hooks/useBtcPrice";
 import { formatUSD, centsToDollars } from "@/lib/pricing";
 import { formatFrequencyLabel, monthlyCleaningEstimate, resolveMonthlyPriceCents } from "@/lib/cleaningPlanPricing";
-
+import { PaymentMethodSelector, type PaymentMethod } from "@/components/payment/PaymentMethodSelector";
+import { usePaymentMethods } from "@/hooks/usePaymentMethods";
+import { InfinitaPaymentPanel } from "@/components/payment/InfinitaPaymentPanel";
+import { PayPalPanel } from "@/components/payment/PayPalPanel";
+import { InvoiceQrPanel } from "@/components/payment/InvoiceQrPanel";
+import { useInvoicePayment } from "@/hooks/useInvoicePayment";
 const CLEANING_DURATION_OPTIONS = [1, 2, 3] as const;
 type CleaningDurationMonths = (typeof CLEANING_DURATION_OPTIONS)[number];
 
 const CleaningCheckout = () => {
   const { packageId } = useParams();
+  const [searchParams] = useSearchParams();
+  const renewFromSubId = searchParams.get("renew");
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { userData, lightningPubkey } = useAuth();
-
-  const [paymentMethod] = useState<"lightning">("lightning");
   const [showPayment, setShowPayment] = useState(false);
-  const [invoice, setInvoice] = useState<string | null>(null);
-  const [paymentHash, setPaymentHash] = useState<string | null>(null);
   const [isPaid, setIsPaid] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [createdSubscriptionId, setCreatedSubscriptionId] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [lockedSatsAmount, setLockedSatsAmount] = useState<number | null>(null);
   const [apartmentNote, setApartmentNote] = useState("");
   const [apartmentNoteError, setApartmentNoteError] = useState("");
+  const [cleanerHint, setCleanerHint] = useState("");
   const [billingPeriodMonths, setBillingPeriodMonths] = useState<CleaningDurationMonths>(1);
-  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("lightning");
   const mutationCalledRef = useRef(false);
 
   const { btcPrice, isLoading: isPriceLoading, convertToSats, refreshPrice } = useBtcPrice();
+  const { enabled: enabledMethods, addSurchargeCents, surchargePercent } = usePaymentMethods();
+
+  // Keep the selected method valid as toggles load.
+  useEffect(() => {
+    if (enabledMethods.length > 0 && !enabledMethods.includes(paymentMethod)) {
+      setPaymentMethod(enabledMethods[0]);
+    }
+  }, [enabledMethods, paymentMethod]);
 
   const { data: pkg } = useQuery({
     queryKey: ["cleaning-package", packageId],
@@ -59,35 +70,146 @@ const CleaningCheckout = () => {
     },
   });
 
+  // Renewal: load the previous subscription so we can prefill apartment/notes
+  // and re-apply the same weekly schedule (day + time) on the new one.
+  const { data: prevSub } = useQuery({
+    queryKey: ["cleaning-sub-renew", renewFromSubId],
+    enabled: !!renewFromSubId,
+    queryFn: async () => {
+      const { data, error } = await supabaseDb
+        .from("cleaning_subscriptions")
+        .select("id, package_id, billing_period_months, apartment_note, cleaner_hint, recurring_day_of_week, recurring_time")
+        .eq("id", renewFromSubId)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Prefill from the previous subscription once on load.
+  const prefilledRef = useRef(false);
+  useEffect(() => {
+    if (!prevSub || prefilledRef.current) return;
+    prefilledRef.current = true;
+    if (prevSub.apartment_note) setApartmentNote(prevSub.apartment_note);
+    if (prevSub.cleaner_hint) setCleanerHint(prevSub.cleaner_hint);
+    const months = Number(prevSub.billing_period_months);
+    if (months === 1 || months === 2 || months === 3) {
+      setBillingPeriodMonths(months as CleaningDurationMonths);
+    }
+  }, [prevSub]);
+
   const monthlyPriceCents = pkg ? resolveMonthlyPriceCents(pkg) : 0;
   const totalCents = monthlyPriceCents * billingPeriodMonths;
-  const totalUsdDollars = centsToDollars(totalCents);
+  const effectiveTotalCents = addSurchargeCents(totalCents, paymentMethod);
+  const feePct = surchargePercent(paymentMethod);
+  const totalUsdDollars = centsToDollars(effectiveTotalCents);
   const estimatedSats = convertToSats(totalUsdDollars);
-  // Provisional period — anchored to today. The real period is re-anchored to the
-  // client's FIRST cleaning date when they schedule (see schedule_cleaning_subscription RPC).
   const startDate = nowHN();
   const endDate = addMonths(startDate, billingPeriodMonths);
   const cleaningsIncluded = pkg ? monthlyCleaningEstimate(pkg) * billingPeriodMonths : 0;
 
-  useEffect(() => {
-    return () => {
-      if (pollingRef.current) clearInterval(pollingRef.current);
-    };
-  }, []);
+  // Unified Lightning + on-chain invoice generation + polling.
+  const inv = useInvoicePayment({
+    onPaid: (paymentRef, method) => {
+      setIsPaid(true);
+      if (!mutationCalledRef.current) {
+        mutationCalledRef.current = true;
+        createSubscriptionMutation.mutate({
+          paymentRef,
+          status: "paid",
+          method,
+          satsAmount: inv.state.sats ?? 0,
+        });
+      }
+    },
+  });
+
+  // ── Payment-durable subscription persistence ──────────────────────────────
+  // Insert a "pending" row BEFORE payment so it survives tab-closure. The
+  // payment success handler upgrades the same row instead of inserting again.
+  const pendingSubIdRef = useRef<string | null>(null);
+
+  const reservePendingSubscription = async (method: string): Promise<string | null> => {
+    if (!pkg) return null;
+    if (!userData?.email) return null;
+    const cleanedApartmentNote = apartmentNote.trim();
+    if (!cleanedApartmentNote) return null;
+    try {
+      const { data: userRow } = await supabaseDb
+        .from("users").select("id").eq("email", userData.email).maybeSingle();
+      const userId = userRow?.id ?? userData.id;
+      if (!userId) return null;
+
+      const common = {
+        user_id: userId,
+        package_id: pkg.id,
+        start_date: format(startDate, "yyyy-MM-dd"),
+        end_date: format(endDate, "yyyy-MM-dd"),
+        service_start_date: format(startDate, "yyyy-MM-dd"),
+        service_end_date: format(endDate, "yyyy-MM-dd"),
+        paid_until: format(endDate, "yyyy-MM-dd"),
+        billing_period_months: billingPeriodMonths,
+        monthly_price_cents: monthlyPriceCents,
+        total_price_cents: totalCents,
+        cleanings_remaining: cleaningsIncluded,
+        payment_status: "pending",
+        payment_method: method,
+        is_active: false,
+        subscription_status: "pending_payment",
+        apartment_note: cleanedApartmentNote,
+        cleaner_hint: cleanerHint.trim() || null,
+      };
+
+      if (pendingSubIdRef.current) {
+        await supabase.from("cleaning_subscriptions")
+          .update(common)
+          .eq("id", pendingSubIdRef.current);
+        return pendingSubIdRef.current;
+      }
+      const { data, error } = await supabase
+        .from("cleaning_subscriptions")
+        .insert(common)
+        .select("id")
+        .single();
+      if (error) throw error;
+      pendingSubIdRef.current = data.id;
+      return data.id;
+    } catch (e: any) {
+      toast.error(e?.message || "Could not reserve subscription");
+      return null;
+    }
+  };
 
   const createSubscriptionMutation = useMutation({
-    mutationFn: async (options: { paymentRef: string; status: "paid" | "pending"; method: "lightning" | "fiat" | "crypto"; satsAmount: number }) => {
+    mutationFn: async (options: { paymentRef: string; status: "paid" | "pending"; method: "lightning" | "fiat" | "crypto" | "onchain" | "paypal"; satsAmount: number }) => {
       if (!pkg) throw new Error("Missing package data");
       if (!userData?.email) throw new Error("Not authenticated");
       const cleanedApartmentNote = apartmentNote.trim();
       if (!cleanedApartmentNote) throw new Error("Apartment number is required.");
 
-      // Look up real UUID from users table by email
+      const patch = {
+        payment_status: options.status,
+        payment_method: options.method,
+        payment_reference: options.paymentRef,
+        subscription_status: options.status === "paid" ? "pending_schedule" : "pending_payment",
+      };
+
+      // Fast path: we already reserved a pending row before payment → UPDATE it.
+      if (pendingSubIdRef.current) {
+        const { data, error } = await supabase
+          .from("cleaning_subscriptions")
+          .update(patch)
+          .eq("id", pendingSubIdRef.current)
+          .select("id, service_start_date, service_end_date, paid_until, payment_reference")
+          .single();
+        if (error) throw error;
+        return data;
+      }
+
+      // Fallback: no reservation (race, old tab) — insert a fresh row.
       const { data: userRow } = await supabaseDb
-        .from("users")
-        .select("id")
-        .eq("email", userData.email)
-        .maybeSingle();
+        .from("users").select("id").eq("email", userData.email).maybeSingle();
       const userId = userRow?.id ?? userData.id;
       if (!userId) throw new Error("User not found");
 
@@ -105,23 +227,49 @@ const CleaningCheckout = () => {
           monthly_price_cents: monthlyPriceCents,
           total_price_cents: totalCents,
           cleanings_remaining: cleaningsIncluded,
-          payment_status: options.status,
-          payment_method: options.method,
-          payment_reference: options.paymentRef,
           is_active: false,
-          subscription_status: options.status === "paid" ? "pending_schedule" : "pending_payment",
           apartment_note: cleanedApartmentNote,
-        });
-
+          cleaner_hint: cleanerHint.trim() || null,
+          ...patch,
+        })
+        .select("id, service_start_date, service_end_date, paid_until, payment_reference")
+        .single();
       if (error) throw error;
+      pendingSubIdRef.current = data.id;
       return data;
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
+      // Refresh My Bookings data so the new subscription appears without a manual refresh.
+      queryClient.invalidateQueries({ queryKey: ["my-cleaning-subscriptions-all"] });
+      queryClient.invalidateQueries({ queryKey: ["my-linked-client-subscriptions"] });
+
+      // Renewal: if the previous subscription had a weekly schedule (day + time),
+      // apply it automatically to the new one so the user doesn't have to redo it.
+      if (
+        prevSub &&
+        data?.id &&
+        typeof prevSub.recurring_day_of_week === "number" &&
+        prevSub.recurring_time
+      ) {
+        try {
+          await supabase.rpc("schedule_cleaning_subscription", {
+            p_subscription_id: data.id,
+            p_day_of_week: prevSub.recurring_day_of_week,
+            p_start_time: prevSub.recurring_time,
+            p_notes: apartmentNote.trim() || prevSub.apartment_note || "",
+          });
+          queryClient.invalidateQueries({ queryKey: ["my-cleaning-subscriptions-all"] });
+          queryClient.invalidateQueries({ queryKey: ["my-cleaning-bookings"] });
+          toast.success("Renewed — schedule restored from your previous plan.");
+        } catch (err: any) {
+          // Non-fatal: fall through to the normal success screen.
+          toast.error(err?.message || "Renewed, but couldn't restore the old schedule automatically.");
+        }
+      }
+
       setCreatedSubscriptionId(data.id);
       setShowSuccess(true);
-      if (paymentMethod === "lightning") {
-        void sendPaymentConfirmationEmail(data);
-      }
+      void sendPaymentConfirmationEmail(data);
     },
     onError: (error: Error) => {
       toast.error(error.message);
@@ -178,78 +326,76 @@ const CleaningCheckout = () => {
   });
 
   const generateInvoice = async () => {
-    if (!pkg || !btcPrice) return;
+    if (!pkg) return;
     if (!validateApartmentNote()) return;
     if (!CLEANING_DURATION_OPTIONS.includes(billingPeriodMonths)) {
       toast.error("Choose a cleaning duration of 1, 2, or 3 months.");
       return;
     }
-    const satsAmount = convertToSats(totalUsdDollars);
-    if (satsAmount <= 0) {
-      toast.error("Unable to calculate payment amount.");
-      return;
-    }
-    setLockedSatsAmount(satsAmount);
+
     setIsGenerating(true);
+    const description = `Cleaning - ${pkg.name} - ${billingPeriodMonths} month${billingPeriodMonths > 1 ? "s" : ""} - ${formatUSD(totalCents)}`;
+
+    // Reserve a pending subscription BEFORE payment. Survives tab-close.
+    const methodKey = paymentMethod === "infinita" ? "crypto" : paymentMethod;
+    const reserved = await reservePendingSubscription(methodKey);
+    if (!reserved) { setIsGenerating(false); return; }
+
     try {
-      const { data, error } = await supabase.functions.invoke("create-invoice", {
-        body: {
-          amount_cents: totalCents,
-          amount_sats: satsAmount,
-          context: "cleaning_subscription",
+      if (paymentMethod === "infinita" || paymentMethod === "paypal") {
+        setShowPayment(true);
+        return;
+      }
+
+      if (!btcPrice) { toast.error("BTC price not loaded yet."); return; }
+      const satsAmount = convertToSats(totalUsdDollars);
+      if (satsAmount <= 0) { toast.error("Unable to calculate payment amount."); return; }
+
+      mutationCalledRef.current = false;
+      setShowPayment(true);
+      await inv.start({
+        method: paymentMethod === "onchain" ? "onchain" : "lightning",
+        amountCents: effectiveTotalCents,
+        amountSats: satsAmount,
+        description,
+        context: "cleaning_subscription",
+        externalId: `cleaning-${pkg.id}-${billingPeriodMonths}m-${Date.now()}`.replace(/[^a-zA-Z0-9_-]/g, "-").slice(0, 100),
+        meta: {
           package_id: pkg.id,
           billing_period_months: billingPeriodMonths,
           ...getCleaningPaymentMetadata(),
-          description: `Cleaning - ${pkg.name} - ${billingPeriodMonths} month${billingPeriodMonths > 1 ? "s" : ""} - ${formatUSD(totalCents)}`,
-          external_id: `cleaning-${pkg.id}-${billingPeriodMonths}m-${Date.now()}`.replace(/[^a-zA-Z0-9_-]/g, "-").slice(0, 100),
         },
       });
-      if (error) throw error;
-      if (data.error) throw new Error(data.error);
-      setInvoice(data.payment_request);
-      setPaymentHash(data.payment_hash);
-      setShowPayment(true);
-      startPaymentPolling(data.payment_hash, satsAmount);
-    } catch (error: any) {
-      toast.error(error.message || "Failed to generate invoice");
-      setLockedSatsAmount(null);
     } finally {
       setIsGenerating(false);
     }
   };
 
-  const startPaymentPolling = (hash: string, satsAmount: number) => {
-    if (pollingRef.current) clearInterval(pollingRef.current);
-    mutationCalledRef.current = false;
-    pollingRef.current = setInterval(async () => {
-      try {
-        const { data, error } = await supabase.functions.invoke("verify-payment", {
-          body: {
-            payment_hash: hash,
-            ...getCleaningPaymentMetadata(),
-          },
-        });
-        if (error) return;
-        if (data.paid && !mutationCalledRef.current) {
-          mutationCalledRef.current = true;
-          setIsPaid(true);
-          if (pollingRef.current) clearInterval(pollingRef.current);
-          createSubscriptionMutation.mutate({
-            paymentRef: hash,
-            status: "paid",
-            method: "lightning",
-            satsAmount,
-          });
-        }
-      } catch (err) {
-        console.error("Payment check error:", err);
-      }
-    }, 3000);
+  const handleInfinitaPaid = (paymentId: string) => {
+    setIsPaid(true);
+    if (!mutationCalledRef.current) {
+      mutationCalledRef.current = true;
+      // SimpleFi confirms the payment via status check → subscription is created as paid.
+      createSubscriptionMutation.mutate({
+        paymentRef: paymentId,
+        status: "paid",
+        method: "crypto",
+        satsAmount: 0,
+      });
+    }
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast.success("Copied to clipboard!");
+  const handlePaypalPaid = (captureId: string) => {
+    setIsPaid(true);
+    if (!mutationCalledRef.current) {
+      mutationCalledRef.current = true;
+      createSubscriptionMutation.mutate({
+        paymentRef: captureId,
+        status: "paid",
+        method: "paypal",
+        satsAmount: 0,
+      });
+    }
   };
 
   const handleManualPayment = async () => {
@@ -257,9 +403,9 @@ const CleaningCheckout = () => {
     setIsSubmitting(true);
     try {
       await createSubscriptionMutation.mutateAsync({
-        paymentRef: `${paymentMethod}_${Date.now()}`,
+        paymentRef: `lightning_${Date.now()}`,
         status: "pending",
-        method: paymentMethod,
+        method: "lightning",
         satsAmount: estimatedSats || 0,
       });
     } finally {
@@ -268,7 +414,7 @@ const CleaningCheckout = () => {
   };
 
   return (
-    <UserLayout title="Checkout" showBackButton backTo="/cleaning">
+    <UserLayout title="Checkout" showBackButton backTo="/cleaning" showBottomNav={false}>
       <Sheet open={showSuccess} onOpenChange={(open) => {
         if (!open && createdSubscriptionId) {
           navigate(`/cleaning/book?subscriptionId=${createdSubscriptionId}`);
@@ -277,9 +423,13 @@ const CleaningCheckout = () => {
         <SheetContent side="bottom" className="rounded-t-3xl px-space-6 pb-space-8 pt-space-6">
           <SheetHeader className="items-center">
             <CheckCircle2 className="h-16 w-16 text-accent mb-space-2" />
-            <SheetTitle className="text-2xl">Payment Confirmed!</SheetTitle>
+            <SheetTitle className="text-2xl">
+              {paymentMethod === "infinita" ? "Payment Submitted!" : "Payment Confirmed!"}
+            </SheetTitle>
             <SheetDescription>
-              Next, choose your recurring weekly cleaning schedule.
+              {paymentMethod === "infinita"
+                ? "An admin will verify your transaction and confirm your payment. Next, choose your recurring weekly cleaning schedule."
+                : "Next, choose your recurring weekly cleaning schedule."}
             </SheetDescription>
           </SheetHeader>
           <Button
@@ -293,84 +443,105 @@ const CleaningCheckout = () => {
           >
             Choose Schedule
           </Button>
+          <Button
+            variant="ghost"
+            className="mt-space-2 w-full"
+            onClick={() => navigate("/my-subscriptions")}
+          >
+            View My Bookings
+          </Button>
         </SheetContent>
       </Sheet>
 
-      <div className="container mx-auto px-space-4 py-space-8 max-w-lg">
+      <div className="mx-auto max-w-xl px-4 py-4 md:py-8 space-y-4 pb-32">
         {pkg && (
           <>
-            <Card className="mb-space-6">
-              <CardHeader>
-                <CardTitle>{pkg.name}</CardTitle>
-                <p className="text-muted-foreground">Cleaning Subscription</p>
-              </CardHeader>
-              <CardContent className="space-y-space-4">
-                {!showPayment && (
-                  <div className="space-y-space-2">
-                    <Label htmlFor="cleaning-duration">Duration</Label>
-                    <Select
-                      value={String(billingPeriodMonths)}
-                      onValueChange={(value) => setBillingPeriodMonths(Number(value) as CleaningDurationMonths)}
-                    >
-                      <SelectTrigger id="cleaning-duration" aria-label="Cleaning purchase duration">
-                        <SelectValue placeholder="Choose duration" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {CLEANING_DURATION_OPTIONS.map((months) => (
-                          <SelectItem key={months} value={String(months)}>
-                            {months} month{months > 1 ? "s" : ""}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-                <div className="pt-space-2 border-t">
-                  <div className="flex justify-between text-sm mb-space-1">
-                    <span>Service period</span>
-                    <span>{billingPeriodMonths} month{billingPeriodMonths > 1 ? "s" : ""} from 1st cleaning</span>
-                  </div>
-                  <p className="mb-space-2 text-xs text-muted-foreground">
-                    Your subscription starts on the date of your first cleaning and runs for the full period.
-                  </p>
-                  <div className="flex justify-between text-sm mb-space-1">
-                    <span>Monthly price</span>
-                    <span>{formatUSD(monthlyPriceCents)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm mb-space-1">
-                    <span>Selected duration</span>
-                    <span>{billingPeriodMonths} month{billingPeriodMonths > 1 ? "s" : ""}</span>
-                  </div>
-                  <div className="flex justify-between text-sm mb-space-1">
-                    <span>Cleanings included</span>
-                    <span>{cleaningsIncluded}</span>
-                  </div>
-                  <div className="flex justify-between text-sm mb-space-1">
-                    <span>Frequency</span>
-                    <span>{formatFrequencyLabel(pkg)}</span>
-                  </div>
-                  <div className="flex justify-between text-lg font-bold">
-                    <span>Total today</span>
-                    <div className="text-right">
-                      <div>{formatUSD(totalCents)}</div>
-                      {paymentMethod === "lightning" && btcPrice && (
-                        <div className="text-sm font-normal text-muted-foreground">
-                          ≈ {(lockedSatsAmount || estimatedSats).toLocaleString()} sats
-                        </div>
-                      )}
-                    </div>
-                  </div>
+            {/* ─── Step indicator ─── */}
+            <section>
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-primary">
+                Step 2 of 2
+              </p>
+              <h1 className="mt-1 text-2xl md:text-3xl font-black tracking-tight text-foreground">
+                {showPayment ? "Complete payment" : renewFromSubId ? "Renew your plan" : "Review & pay"}
+              </h1>
+              {renewFromSubId && !showPayment && (
+                <p className="mt-1 text-sm text-muted-foreground">
+                  We'll keep your previous weekly schedule (day &amp; time) — just confirm payment.
+                </p>
+              )}
+            </section>
+
+            {/* ─── Plan + price summary ─── */}
+            <section className="overflow-hidden rounded-3xl bg-card">
+              <div className="p-5">
+                <h2 className="text-xl font-black tracking-tight text-foreground">{pkg.name}</h2>
+                <p className="mt-0.5 text-sm text-muted-foreground">Cleaning subscription</p>
+              </div>
+
+              {!showPayment && (
+                <div className="px-5 pb-4">
+                  <Label htmlFor="cleaning-duration" className="text-xs text-muted-foreground">Duration</Label>
+                  <Select
+                    value={String(billingPeriodMonths)}
+                    onValueChange={(value) => setBillingPeriodMonths(Number(value) as CleaningDurationMonths)}
+                  >
+                    <SelectTrigger id="cleaning-duration" aria-label="Cleaning purchase duration" className="mt-1.5 h-12 rounded-2xl">
+                      <SelectValue placeholder="Choose duration" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CLEANING_DURATION_OPTIONS.map((months) => (
+                        <SelectItem key={months} value={String(months)}>
+                          {months} month{months > 1 ? "s" : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-              </CardContent>
-            </Card>
+              )}
+
+              <div className="divide-y divide-border/60 border-t border-border/60">
+                <div className="flex items-start justify-between gap-4 px-5 py-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground">Service period</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground leading-relaxed">
+                      Starts on your first cleaning and runs the full period.
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-sm text-muted-foreground text-right">
+                    {billingPeriodMonths} month{billingPeriodMonths > 1 ? "s" : ""} from 1st cleaning
+                  </span>
+                </div>
+                <SummaryRow label="Monthly price" value={formatUSD(monthlyPriceCents)} />
+                <SummaryRow label="Selected duration" value={`${billingPeriodMonths} month${billingPeriodMonths > 1 ? "s" : ""}`} />
+                <SummaryRow label="Cleanings included" value={String(cleaningsIncluded)} />
+                <SummaryRow label="Frequency" value={formatFrequencyLabel(pkg)} />
+              </div>
+
+              <div className="flex items-center justify-between gap-3 border-t border-border/60 p-5">
+                <span className="text-lg font-black text-foreground">Total today</span>
+                <div className="text-right">
+                  <p className="text-2xl font-black tabular-nums text-foreground leading-none">{formatUSD(effectiveTotalCents)}</p>
+                  {feePct > 0 && (
+                    <p className="mt-1 text-xs text-muted-foreground">Base {formatUSD(totalCents)} + {feePct}% processing fee</p>
+                  )}
+                  {btcPrice && (
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      ≈ {(inv.state.sats ?? estimatedSats).toLocaleString()} sats
+                    </p>
+                  )}
+                </div>
+              </div>
+            </section>
 
             {!showPayment && (
-              <Card className="mb-space-6">
-                <CardHeader>
-                  <CardTitle>Apartment details</CardTitle>
-                  <p className="text-muted-foreground">Required so the cleaning team can find your unit.</p>
-                </CardHeader>
-                <CardContent>
+              <section className="overflow-hidden rounded-3xl bg-card p-5">
+                <h2 className="text-xl font-black tracking-tight text-foreground">Apartment details</h2>
+                <p className="mt-0.5 text-sm text-muted-foreground">Required so the cleaning team can find your unit.</p>
+                <div className="mt-4">
+                  <LocationPicker userId={userData?.id} onPick={(line) => {
+                    setApartmentNote(line);
+                    if (apartmentNoteError && line.trim()) setApartmentNoteError("");
+                  }} />
                   <Textarea
                     id="cleaning-apartment-note"
                     label="Apartment / unit number"
@@ -388,80 +559,175 @@ const CleaningCheckout = () => {
                     maxLength={180}
                     showCount
                   />
-                </CardContent>
-              </Card>
+                </div>
+                <div className="mt-4">
+                  <Textarea
+                    id="cleaning-cleaner-hint"
+                    label="Hints for cleaners (optional)"
+                    value={cleanerHint}
+                    onChange={(event) => setCleanerHint(event.target.value)}
+                    placeholder="Example: Key under the mat, please water the plants, careful with the cat."
+                    helperText="Anything that helps the cleaning team — access, pets, fragile items, preferences."
+                    maxLength={500}
+                    showCount
+                  />
+                </div>
+              </section>
             )}
 
-            {/* Lightning Payment Flow */}
-            {showPayment && invoice ? (
-              <Card className="mb-space-6">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-space-2">
-                    <Zap className="h-5 w-5 text-bitcoin" />Pay with Lightning
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-space-4">
-                  <a href={`lightning:${invoice}`} className="flex justify-center p-space-4 bg-white rounded-radius-md cursor-pointer">
-                    <QRCodeSVG value={invoice} size={200} level="M" />
-                  </a>
-                  <div className="text-center p-space-3 bg-muted rounded-radius-md">
-                    <p className="text-sm text-muted-foreground">Amount</p>
-                    <p className="text-2xl font-bold text-bitcoin">{(lockedSatsAmount || 0).toLocaleString()} sats</p>
-                    <p className="text-sm text-muted-foreground">
-                      {formatUSD(totalCents)} total for {billingPeriodMonths} month{billingPeriodMonths > 1 ? "s" : ""}
-                    </p>
+            {/* Payment Flow */}
+            {showPayment && paymentMethod === "infinita" ? (
+              <section className="overflow-hidden rounded-3xl bg-card p-5">
+                <h2 className="mb-4 text-xl font-black tracking-tight text-foreground">Pay with LIVES</h2>
+                <InfinitaPaymentPanel
+                  totalCents={effectiveTotalCents}
+                  onPaid={handleInfinitaPaid}
+                  orderMeta={{
+                    description: `Cleaning - ${pkg.name} - ${billingPeriodMonths} month${billingPeriodMonths > 1 ? "s" : ""} - ${formatUSD(totalCents)}`,
+                    ...getCleaningPaymentMetadata(),
+                  }}
+                />
+              </section>
+            ) : showPayment && paymentMethod === "paypal" ? (
+              <section className="overflow-hidden rounded-3xl bg-card p-5">
+                <h2 className="mb-4 text-xl font-black tracking-tight text-foreground">Pay with PayPal</h2>
+                {isPaid ? (
+                  <div className="flex items-center justify-center gap-2 rounded-2xl bg-green-500/10 p-4">
+                    <CheckCircle2 className="h-5 w-5 text-green-500" />
+                    <span className="text-sm font-medium text-green-500">Payment received! Creating subscription...</span>
                   </div>
-                  <div className="space-y-space-2">
-                    <Label className="text-sm text-muted-foreground">Lightning Invoice</Label>
-                    <div className="flex items-center gap-space-2">
-                      <code className="flex-1 p-space-3 bg-muted rounded-radius-md text-xs break-all max-h-20 overflow-y-auto">{invoice}</code>
-                      <Button variant="secondary" size="icon" onClick={() => copyToClipboard(invoice)} aria-label="Copy invoice">
-                        <Copy className="h-4 w-4" />
-                      </Button>
+                ) : (
+                  <PayPalPanel
+                    totalCents={effectiveTotalCents}
+                    onPaid={handlePaypalPaid}
+                    orderMeta={{
+                      description: `Cleaning - ${pkg.name} - ${billingPeriodMonths} month${billingPeriodMonths > 1 ? "s" : ""} - ${formatUSD(totalCents)}`,
+                      ...getCleaningPaymentMetadata(),
+                    }}
+                  />
+                )}
+              </section>
+            ) : showPayment && (inv.state.invoice || inv.state.address) ? (
+              <InvoiceQrPanel
+                mode={inv.state.invoice ? "lightning" : "onchain"}
+                invoice={inv.state.invoice}
+                address={inv.state.address}
+                uri={inv.state.uri}
+                sats={inv.state.sats ?? 0}
+                totalCents={effectiveTotalCents}
+                isPaid={isPaid}
+                successLabel="Creating subscription…"
+              />
+            ) : !showPayment ? (
+              <div className="space-y-3">
+                <h2 className="text-xl font-black tracking-tight text-foreground">Payment method</h2>
+                <PaymentMethodSelector value={paymentMethod} onChange={setPaymentMethod} available={enabledMethods} />
+
+                {paymentMethod === "lightning" && (
+                  <>
+                    <div className="flex items-center gap-2 rounded-2xl bg-bitcoin/10 p-3 text-sm">
+                      <Zap className="h-4 w-4 text-bitcoin shrink-0" />
+                      <span className="text-muted-foreground">
+                        Payment is processed via <span className="font-medium text-foreground">Lightning</span> — instant and auto-verified.
+                      </span>
                     </div>
-                  </div>
-                  <div className="flex items-center justify-center gap-space-2 p-space-4 bg-bitcoin/10 rounded-radius-md">
-                    {isPaid ? (
-                      <>
-                        <CheckCircle2 className="h-5 w-5 text-accent" />
-                        <span className="text-sm font-medium">Payment received! Creating subscription...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Loader2 className="h-5 w-5 animate-spin text-bitcoin" />
-                        <span className="text-sm font-medium">Waiting for payment...</span>
-                      </>
+                    {btcPrice && (
+                      <div className="flex items-center justify-between rounded-2xl bg-muted/40 p-3 text-sm text-muted-foreground">
+                        <span>1 BTC = ${btcPrice.toLocaleString()}</span>
+                        <Button variant="tertiary" size="iconSm" onClick={refreshPrice} aria-label="Refresh Bitcoin price">
+                          <RefreshCw className="h-3 w-3" />
+                        </Button>
+                      </div>
                     )}
-                  </div>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-space-3">
-                <div className="flex items-center gap-space-2 p-space-3 bg-bitcoin/10 border border-bitcoin/20 rounded-radius-md text-sm">
-                  <Zap className="h-4 w-4 text-bitcoin shrink-0" />
-                  <span className="text-muted-foreground">
-                    Payment is processed via <span className="font-medium text-foreground">Lightning</span> — instant and auto-verified.
-                  </span>
-                </div>
-                {btcPrice && (
-                  <div className="flex items-center justify-between text-sm text-muted-foreground p-space-3 bg-muted/50 rounded-radius-md">
-                    <span>1 BTC = ${btcPrice.toLocaleString()}</span>
-                    <Button variant="tertiary" size="iconSm" onClick={refreshPrice} aria-label="Refresh Bitcoin price">
-                      <RefreshCw className="h-3 w-3" />
-                    </Button>
+                  </>
+                )}
+
+                {paymentMethod === "onchain" && (
+                  <>
+                    <div className="flex items-center gap-2 rounded-2xl bg-bitcoin/10 p-3 text-sm">
+                      <Bitcoin className="h-4 w-4 text-bitcoin shrink-0" />
+                      <span className="text-muted-foreground">
+                        On-chain <span className="font-medium text-foreground">Bitcoin</span> — confirmation can take a few minutes.
+                      </span>
+                    </div>
+                    {btcPrice && (
+                      <div className="flex items-center justify-between rounded-2xl bg-muted/40 p-3 text-sm text-muted-foreground">
+                        <span>1 BTC = ${btcPrice.toLocaleString()}</span>
+                        <Button variant="tertiary" size="iconSm" onClick={refreshPrice} aria-label="Refresh Bitcoin price">
+                          <RefreshCw className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {paymentMethod === "infinita" && (
+                  <div className="flex items-center gap-2 rounded-2xl bg-purple-500/10 p-3 text-sm">
+                    <Wallet className="h-4 w-4 text-purple-500 shrink-0" />
+                    <span className="text-muted-foreground">
+                      Pay with <span className="font-medium text-foreground">LIVES</span> via SimpleFi checkout.
+                    </span>
                   </div>
                 )}
-                <Button className="w-full" size="xl" onClick={generateInvoice} loading={isGenerating} disabled={isPriceLoading || !btcPrice}>
-                  {!isGenerating && <Zap className="h-5 w-5" />}
-                  {isGenerating ? "Generating Invoice..." : isPriceLoading ? "Loading rate..." : `Pay ${estimatedSats.toLocaleString()} sats`}
-                </Button>
+
+                {paymentMethod === "paypal" && (
+                  <div className="flex items-center gap-2 rounded-2xl bg-[#0070ba]/10 p-3 text-sm">
+                    <span className="text-muted-foreground">
+                      Pay <span className="font-medium text-foreground">{formatUSD(effectiveTotalCents)}</span> securely with PayPal or card.
+                    </span>
+                  </div>
+                )}
               </div>
-            )}
+            ) : null}
           </>
         )}
       </div>
+
+      {/* ─── Sticky bottom CTA (matches step 1) ─── */}
+      {pkg && !showPayment && (
+        <div
+          className="fixed inset-x-0 bottom-0 z-40 bg-background/95 backdrop-blur md:left-[var(--sidebar-width,0px)]"
+          style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+        >
+          <div className="market-content px-4 py-3">
+            <Button
+              size="lg"
+              className="w-full h-14 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-base"
+              onClick={generateInvoice}
+              loading={isGenerating}
+              disabled={isGenerating || ((paymentMethod === "lightning" || paymentMethod === "onchain") && (isPriceLoading || !btcPrice))}
+            >
+              {paymentMethod === "lightning" ? (
+                <>
+                  {!isGenerating && <Zap className="h-5 w-5" />}
+                  {isGenerating ? "Generating Invoice..." : isPriceLoading ? "Loading rate..." : `Pay ${estimatedSats.toLocaleString()} sats`}
+                </>
+              ) : paymentMethod === "onchain" ? (
+                <>
+                  {!isGenerating && <Bitcoin className="h-5 w-5" />}
+                  {isGenerating ? "Generating address..." : isPriceLoading ? "Loading rate..." : `Pay ${estimatedSats.toLocaleString()} sats on-chain`}
+                </>
+              ) : paymentMethod === "paypal" ? (
+                "Continue with PayPal"
+              ) : (
+                isGenerating ? "Creating Payment..." : `Pay ${formatUSD(effectiveTotalCents)} with LIVES`
+              )}
+            </Button>
+          </div>
+        </div>
+      )}
     </UserLayout>
   );
 };
+
+// ─── SummaryRow (grouped key/value row, matching the plan screen) ────────────
+function SummaryRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-4 px-5 py-3">
+      <span className="text-sm text-muted-foreground">{label}</span>
+      <span className="text-sm font-medium text-foreground text-right tabular-nums">{value}</span>
+    </div>
+  );
+}
 
 export default CleaningCheckout;

@@ -4,15 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { Zap, CheckCircle2, Copy, RefreshCw, Wallet, Bitcoin, Minus, Plus } from "lucide-react";
-import { Spinner } from "@/components/ui/spinner";
+import { Zap, CheckCircle2, RefreshCw, Wallet, Bitcoin, Minus, Plus, CalendarDays } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase, supabaseDb } from "@/integrations/supabase/client";
+import { supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { addMonths, format } from "date-fns";
 import { nowHN } from "@/lib/timezone";
-import { QRCodeSVG } from "qrcode.react";
 import { UserLayout } from "@/components/layout/UserLayout";
 import { useBtcPrice } from "@/hooks/useBtcPrice";
 import { formatUSD, centsToDollars } from "@/lib/pricing";
@@ -20,6 +18,8 @@ import { PaymentMethodSelector, type PaymentMethod } from "@/components/payment/
 import { usePaymentMethods } from "@/hooks/usePaymentMethods";
 import { InfinitaPaymentPanel } from "@/components/payment/InfinitaPaymentPanel";
 import { PayPalPanel } from "@/components/payment/PayPalPanel";
+import { InvoiceQrPanel } from "@/components/payment/InvoiceQrPanel";
+import { useInvoicePayment } from "@/hooks/useInvoicePayment";
 
 interface BeachPlan {
   id: string;
@@ -35,24 +35,16 @@ const BeachClubCheckout = () => {
   const { userData } = useAuth();
 
   const [showPayment, setShowPayment] = useState(false);
-  const [invoice, setInvoice] = useState<string | null>(null);
-  const [paymentHash, setPaymentHash] = useState<string | null>(null);
   const [isPaid, setIsPaid] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [lockedSatsAmount, setLockedSatsAmount] = useState<number | null>(null);
-  const [onchainAddress, setOnchainAddress] = useState<string | null>(null);
-  const [onchainUri, setOnchainUri] = useState<string | null>(null);
   const [people, setPeople] = useState(1);
   const [startDate, setStartDate] = useState(format(nowHN(), "yyyy-MM-dd"));
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("lightning");
-  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const mutationCalledRef = useRef(false);
-  // Silence unused-var lint while keeping parity with the cleaning flow.
-  void paymentHash;
 
   const { btcPrice, isLoading: isPriceLoading, convertToSats, refreshPrice } = useBtcPrice();
-  const { enabled: enabledMethods } = usePaymentMethods();
+  const { enabled: enabledMethods, addSurchargeCents, surchargePercent } = usePaymentMethods();
 
   useEffect(() => {
     if (enabledMethods.length > 0 && !enabledMethods.includes(paymentMethod)) {
@@ -71,22 +63,101 @@ const BeachClubCheckout = () => {
   });
 
   const totalCents = (plan?.price_per_person_cents ?? 0) * people;
-  const totalUsdDollars = centsToDollars(totalCents);
+  const effectiveTotalCents = addSurchargeCents(totalCents, paymentMethod);
+  const feePct = surchargePercent(paymentMethod);
+  const totalUsdDollars = centsToDollars(effectiveTotalCents);
   const estimatedSats = convertToSats(totalUsdDollars);
   const endDate = addMonths(new Date(`${startDate}T00:00:00`), 1);
 
-  useEffect(() => () => { if (pollingRef.current) clearInterval(pollingRef.current); }, []);
+  // Unified Lightning + on-chain invoice generation + polling.
+  const inv = useInvoicePayment({
+    onPaid: (paymentRef, method) => {
+      setIsPaid(true);
+      if (!mutationCalledRef.current) {
+        mutationCalledRef.current = true;
+        createSubscriptionMutation.mutate({ paymentRef, status: "paid", method });
+      }
+    },
+  });
+
+  // Track the pending row so on-payment we can UPDATE it (not create a new one).
+  // This keeps a record even if the user closes the tab mid-payment — the admin
+  // will see it in "pending" status and can approve/renew instead of it disappearing.
+  const pendingSubIdRef = useRef<string | null>(null);
+
+  /**
+   * Reserve a pending subscription BEFORE we start the payment. Idempotent:
+   * subsequent calls (e.g. if the user retries with a different method) update
+   * the same row instead of creating orphans.
+   */
+  const reservePendingSubscription = async (method: string): Promise<string | null> => {
+    if (!plan) return null;
+    const commonFields = {
+      plan_id: plan.id,
+      plan_name: plan.name,
+      user_id: userData?.id ?? null,
+      customer_name: userData?.name || userData?.display_name || null,
+      customer_email: userData?.email || null,
+      people,
+      start_date: startDate,
+      end_date: format(endDate, "yyyy-MM-dd"),
+      price_per_person_cents: plan.price_per_person_cents,
+      total_cents: totalCents,
+      payment_status: "pending",
+      payment_method: method,
+      status: "pending",
+    };
+    try {
+      if (pendingSubIdRef.current) {
+        await supabaseDb.from("beach_club_subscriptions")
+          .update({ ...commonFields, updated_at: new Date().toISOString() })
+          .eq("id", pendingSubIdRef.current);
+        return pendingSubIdRef.current;
+      }
+      const { data, error } = await supabaseDb
+        .from("beach_club_subscriptions")
+        .insert(commonFields)
+        .select("id")
+        .single();
+      if (error) throw error;
+      pendingSubIdRef.current = data.id;
+      return data.id;
+    } catch (err: any) {
+      toast.error(err?.message || "Could not reserve subscription");
+      return null;
+    }
+  };
 
   const createSubscriptionMutation = useMutation({
     mutationFn: async (options: { paymentRef: string; status: "paid" | "pending"; method: string }) => {
       if (!plan) throw new Error("Missing plan data");
-      const userId = userData?.id ?? null;
+      const patch = {
+        payment_status: options.status,
+        payment_method: options.method,
+        payment_reference: options.paymentRef,
+        status: options.status === "paid" ? "active" : "pending",
+        updated_at: new Date().toISOString(),
+      };
+
+      // Fast path: we already reserved a pending row → update it in place.
+      if (pendingSubIdRef.current) {
+        const { data, error } = await supabaseDb
+          .from("beach_club_subscriptions")
+          .update(patch)
+          .eq("id", pendingSubIdRef.current)
+          .select()
+          .single();
+        if (error) throw error;
+        return data;
+      }
+
+      // Fallback: no reservation (older tab, race, etc.) — insert fresh.
       const { data, error } = await supabaseDb
         .from("beach_club_subscriptions")
         .insert({
           plan_id: plan.id,
           plan_name: plan.name,
-          user_id: userId,
+          user_id: userData?.id ?? null,
           customer_name: userData?.name || userData?.display_name || null,
           customer_email: userData?.email || null,
           people,
@@ -94,14 +165,12 @@ const BeachClubCheckout = () => {
           end_date: format(endDate, "yyyy-MM-dd"),
           price_per_person_cents: plan.price_per_person_cents,
           total_cents: totalCents,
-          payment_status: options.status,
-          payment_method: options.method,
-          payment_reference: options.paymentRef,
-          status: options.status === "paid" ? "active" : "pending",
+          ...patch,
         })
         .select()
         .single();
       if (error) throw error;
+      pendingSubIdRef.current = data.id;
       return data;
     },
     onSuccess: () => {
@@ -134,107 +203,44 @@ const BeachClubCheckout = () => {
     setIsGenerating(true);
     const description = `Beach Club - ${plan.name} - ${people}p - ${formatUSD(totalCents)}`;
 
+    // Reserve a pending subscription BEFORE we start the payment. If the user
+    // closes the tab after paying, this row survives so admins can complete it.
+    const methodKey = paymentMethod === "infinita" ? "crypto" : paymentMethod;
+    const reserved = await reservePendingSubscription(methodKey);
+    if (!reserved) { setIsGenerating(false); return; }
+
     try {
       if (paymentMethod === "infinita" || paymentMethod === "paypal") {
         setShowPayment(true);
-        setIsGenerating(false);
         return;
-      } else if (paymentMethod === "onchain") {
-        if (!btcPrice) { toast.error("BTC price not loaded yet."); setIsGenerating(false); return; }
-        const satsAmount = convertToSats(totalUsdDollars);
-        if (satsAmount <= 0) { toast.error("Unable to calculate payment amount."); setIsGenerating(false); return; }
-        setLockedSatsAmount(satsAmount);
-
-        const { data, error } = await supabase.functions.invoke("create-onchain-charge", {
-          body: { amount_sats: satsAmount, amount_cents: totalCents, description, ...paymentMeta() },
-        });
-        if (error) throw error;
-        if (data?.error) throw new Error(data.error);
-        if (!data?.address) throw new Error("Could not generate a Bitcoin address.");
-
-        setOnchainAddress(data.address);
-        setOnchainUri(`bitcoin:${data.address}?amount=${(satsAmount / 1e8).toFixed(8)}&label=ProsperaSub&message=${encodeURIComponent(description)}`);
-        setShowPayment(true);
-        startOnchainPolling(data.address, satsAmount);
-      } else {
-        if (!btcPrice) { toast.error("BTC price not loaded yet."); setIsGenerating(false); return; }
-        const satsAmount = convertToSats(totalUsdDollars);
-        if (satsAmount <= 0) { toast.error("Unable to calculate payment amount."); setIsGenerating(false); return; }
-        setLockedSatsAmount(satsAmount);
-
-        const { data, error } = await supabase.functions.invoke("create-invoice", {
-          body: {
-            amount_cents: totalCents,
-            amount_sats: satsAmount,
-            context: "beach_club_subscription",
-            ...paymentMeta(),
-            description,
-            external_id: `beach-${plan.id}-${people}p-${Date.now()}`.replace(/[^a-zA-Z0-9_-]/g, "-").slice(0, 100),
-          },
-        });
-        if (error) throw error;
-        if (data.error) throw new Error(data.error);
-
-        setInvoice(data.payment_request);
-        setPaymentHash(data.payment_hash);
-        setShowPayment(true);
-        startLightningPolling(data.payment_hash, satsAmount);
       }
-    } catch (error: any) {
-      toast.error(error.message || "Failed to generate invoice");
-      setLockedSatsAmount(null);
+
+      if (!btcPrice) { toast.error("BTC price not loaded yet."); return; }
+      const satsAmount = convertToSats(totalUsdDollars);
+      if (satsAmount <= 0) { toast.error("Unable to calculate payment amount."); return; }
+
+      mutationCalledRef.current = false;
+      setShowPayment(true);
+      await inv.start({
+        method: paymentMethod === "onchain" ? "onchain" : "lightning",
+        amountCents: effectiveTotalCents,
+        amountSats: satsAmount,
+        description,
+        context: "beach_club_subscription",
+        externalId: `beach-${plan.id}-${people}p-${Date.now()}`.replace(/[^a-zA-Z0-9_-]/g, "-").slice(0, 100),
+        meta: paymentMeta(),
+      });
     } finally {
       setIsGenerating(false);
     }
   };
 
-  const startLightningPolling = (hash: string, _satsAmount: number) => {
-    if (pollingRef.current) clearInterval(pollingRef.current);
-    mutationCalledRef.current = false;
-    pollingRef.current = setInterval(async () => {
-      try {
-        const { data, error } = await supabase.functions.invoke("verify-payment", {
-          body: { payment_hash: hash, ...paymentMeta() },
-        });
-        if (error) return;
-        if (data.paid && !mutationCalledRef.current) {
-          mutationCalledRef.current = true;
-          setIsPaid(true);
-          if (pollingRef.current) clearInterval(pollingRef.current);
-          createSubscriptionMutation.mutate({ paymentRef: hash, status: "paid", method: "lightning" });
-        }
-      } catch (err) {
-        console.error("Payment check error:", err);
-      }
-    }, 3000);
-  };
-
-  const startOnchainPolling = (address: string, satsAmount: number) => {
-    if (pollingRef.current) clearInterval(pollingRef.current);
-    mutationCalledRef.current = false;
-    pollingRef.current = setInterval(async () => {
-      try {
-        const { data, error } = await supabase.functions.invoke("verify-onchain-payment", {
-          body: { address, amount_sats: satsAmount },
-        });
-        if (error) return;
-        if (data?.paid && !mutationCalledRef.current) {
-          mutationCalledRef.current = true;
-          setIsPaid(true);
-          if (pollingRef.current) clearInterval(pollingRef.current);
-          createSubscriptionMutation.mutate({ paymentRef: address, status: "paid", method: "onchain" });
-        }
-      } catch (err) {
-        console.error("On-chain payment check error:", err);
-      }
-    }, 5000);
-  };
-
-  const handleInfinitaPaid = (txHash: string) => {
+  const handleInfinitaPaid = (paymentId: string) => {
     setIsPaid(true);
     if (!mutationCalledRef.current) {
       mutationCalledRef.current = true;
-      createSubscriptionMutation.mutate({ paymentRef: txHash, status: "pending", method: "crypto" });
+      // SimpleFi confirms the payment via status check, so it's recorded as paid.
+      createSubscriptionMutation.mutate({ paymentRef: paymentId, status: "paid", method: "crypto" });
     }
   };
 
@@ -244,11 +250,6 @@ const BeachClubCheckout = () => {
       mutationCalledRef.current = true;
       createSubscriptionMutation.mutate({ paymentRef: captureId, status: "paid", method: "paypal" });
     }
-  };
-
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    toast.success("Copied to clipboard!");
   };
 
   return (
@@ -279,7 +280,7 @@ const BeachClubCheckout = () => {
         {plan && (
           <>
             <section>
-              <p className="text-xs font-bold uppercase tracking-[0.16em] text-sky-400">Step 2 of 2</p>
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-primary">Step 2 of 2</p>
               <h1 className="mt-1 text-2xl md:text-3xl font-black tracking-tight text-foreground">
                 {showPayment ? "Complete payment" : "Review & pay"}
               </h1>
@@ -310,9 +311,18 @@ const BeachClubCheckout = () => {
                   </div>
                   <div>
                     <Label htmlFor="bc-start" className="text-xs text-muted-foreground">Start date</Label>
-                    <Input id="bc-start" type="date" className="mt-1.5 h-12 rounded-2xl"
-                      value={startDate} min={format(nowHN(), "yyyy-MM-dd")}
-                      onChange={(e) => setStartDate(e.target.value)} />
+                    <div className="relative mt-1.5">
+                      <Input
+                        id="bc-start"
+                        type="date"
+                        className="h-12 w-full rounded-2xl pr-11 text-left [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-date-and-time-value]:text-left"
+                        value={startDate}
+                        min={format(nowHN(), "yyyy-MM-dd")}
+                        onChange={(e) => setStartDate(e.target.value)}
+                        onClick={(e) => (e.currentTarget as HTMLInputElement & { showPicker?: () => void }).showPicker?.()}
+                      />
+                      <CalendarDays className="pointer-events-none absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+                    </div>
                   </div>
                 </div>
               )}
@@ -321,15 +331,18 @@ const BeachClubCheckout = () => {
                 <SummaryRow label="Price / person" value={`${formatUSD(plan.price_per_person_cents)} / mo`} />
                 <SummaryRow label="People" value={String(people)} />
                 <SummaryRow label="Duration" value="1 month" />
-                <SummaryRow label="Start date" value={startDate} />
+                <SummaryRow label="Start date" value={format(new Date(`${startDate}T00:00:00`), "d MMM yyyy")} />
               </div>
 
               <div className="flex items-center justify-between gap-3 border-t border-border/60 p-5">
                 <span className="text-lg font-black text-foreground">Total today</span>
                 <div className="text-right">
-                  <p className="text-2xl font-black tabular-nums text-foreground leading-none">{formatUSD(totalCents)}</p>
+                  <p className="text-2xl font-black tabular-nums text-foreground leading-none">{formatUSD(effectiveTotalCents)}</p>
+                  {feePct > 0 && (
+                    <p className="mt-1 text-xs text-muted-foreground">Base {formatUSD(totalCents)} + {feePct}% processing fee</p>
+                  )}
                   {btcPrice && (
-                    <p className="mt-1 text-sm text-muted-foreground">≈ {(lockedSatsAmount || estimatedSats).toLocaleString()} sats</p>
+                    <p className="mt-1 text-sm text-muted-foreground">≈ {(inv.state.sats ?? estimatedSats).toLocaleString()} sats</p>
                   )}
                 </div>
               </div>
@@ -338,9 +351,9 @@ const BeachClubCheckout = () => {
             {/* Payment flow */}
             {showPayment && paymentMethod === "infinita" ? (
               <section className="overflow-hidden rounded-3xl bg-card p-5">
-                <h2 className="mb-4 text-xl font-black tracking-tight text-foreground">Pay with Infinita</h2>
-                <InfinitaPaymentPanel totalCents={totalCents} onPaid={handleInfinitaPaid}
-                  orderMeta={{ description: `Beach Club - ${plan.name} - ${people}p - ${formatUSD(totalCents)}`, ...paymentMeta() }} />
+                <h2 className="mb-4 text-xl font-black tracking-tight text-foreground">Pay with LIVES</h2>
+                <InfinitaPaymentPanel totalCents={effectiveTotalCents} onPaid={handleInfinitaPaid}
+                  orderMeta={{ description: `Beach Club - ${plan.name} - ${people}p - ${formatUSD(effectiveTotalCents)}`, ...paymentMeta() }} />
               </section>
             ) : showPayment && paymentMethod === "paypal" ? (
               <section className="overflow-hidden rounded-3xl bg-card p-5">
@@ -351,70 +364,21 @@ const BeachClubCheckout = () => {
                     <span className="text-sm font-medium text-green-500">Payment received! Activating membership…</span>
                   </div>
                 ) : (
-                  <PayPalPanel totalCents={totalCents} onPaid={handlePaypalPaid}
-                    orderMeta={{ description: `Beach Club - ${plan.name} - ${people}p - ${formatUSD(totalCents)}`, ...paymentMeta() }} />
+                  <PayPalPanel totalCents={effectiveTotalCents} onPaid={handlePaypalPaid}
+                    orderMeta={{ description: `Beach Club - ${plan.name} - ${people}p - ${formatUSD(effectiveTotalCents)}`, ...paymentMeta() }} />
                 )}
               </section>
-            ) : showPayment && invoice ? (
-              <section className="overflow-hidden rounded-3xl bg-card p-5 space-y-4">
-                <h2 className="flex items-center gap-2 text-xl font-black tracking-tight text-foreground">
-                  <Zap className="h-5 w-5 text-bitcoin" />Pay with Lightning
-                </h2>
-                <a href={`lightning:${invoice}`} className="flex justify-center rounded-2xl bg-white p-4 cursor-pointer">
-                  <QRCodeSVG value={invoice} size={200} level="M" />
-                </a>
-                <div className="rounded-2xl bg-muted/40 p-4 text-center">
-                  <p className="text-sm text-muted-foreground">Amount</p>
-                  <p className="text-2xl font-black text-bitcoin">{(lockedSatsAmount || 0).toLocaleString()} sats</p>
-                  <p className="text-sm text-muted-foreground">{formatUSD(totalCents)} total</p>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-sm text-muted-foreground">Lightning Invoice</Label>
-                  <div className="flex items-center gap-2">
-                    <code className="flex-1 rounded-xl bg-muted/40 p-3 text-xs break-all max-h-20 overflow-y-auto">{invoice}</code>
-                    <Button variant="secondary" size="icon" onClick={() => copyToClipboard(invoice)} aria-label="Copy invoice">
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-                <div className={`flex items-center justify-center gap-2 rounded-2xl p-4 ${isPaid ? "bg-green-500/10" : "bg-bitcoin/10"}`}>
-                  {isPaid ? (
-                    <><CheckCircle2 className="h-5 w-5 text-green-500" /><span className="text-sm font-medium text-green-500">Payment confirmed! Activating membership…</span></>
-                  ) : (
-                    <><Spinner size="md" className="text-bitcoin" /><span className="text-sm font-medium">Waiting for payment...</span></>
-                  )}
-                </div>
-              </section>
-            ) : showPayment && onchainAddress ? (
-              <section className="overflow-hidden rounded-3xl bg-card p-5 space-y-4">
-                <h2 className="flex items-center gap-2 text-xl font-black tracking-tight text-foreground">
-                  <Bitcoin className="h-5 w-5 text-bitcoin" />Pay on-chain (Bitcoin)
-                </h2>
-                <a href={onchainUri ?? `bitcoin:${onchainAddress}`} className="flex justify-center rounded-2xl bg-white p-4 cursor-pointer">
-                  <QRCodeSVG value={onchainUri ?? `bitcoin:${onchainAddress}`} size={200} level="M" />
-                </a>
-                <div className="rounded-2xl bg-muted/40 p-4 text-center">
-                  <p className="text-sm text-muted-foreground">Amount</p>
-                  <p className="text-2xl font-black text-bitcoin">{(lockedSatsAmount || 0).toLocaleString()} sats</p>
-                  <p className="text-sm text-muted-foreground">{formatUSD(totalCents)} total · send exactly this amount</p>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-sm text-muted-foreground">Bitcoin Address</Label>
-                  <div className="flex items-center gap-2">
-                    <code className="flex-1 rounded-xl bg-muted/40 p-3 text-xs break-all">{onchainAddress}</code>
-                    <Button variant="secondary" size="icon" onClick={() => copyToClipboard(onchainAddress)} aria-label="Copy address">
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-                <div className={`flex items-center justify-center gap-2 rounded-2xl p-4 ${isPaid ? "bg-green-500/10" : "bg-bitcoin/10"}`}>
-                  {isPaid ? (
-                    <><CheckCircle2 className="h-5 w-5 text-green-500" /><span className="text-sm font-medium text-green-500">Payment detected! Activating membership…</span></>
-                  ) : (
-                    <><Spinner size="md" className="text-bitcoin" /><span className="text-sm font-medium">Waiting for payment… on-chain can take a few minutes.</span></>
-                  )}
-                </div>
-              </section>
+            ) : showPayment && (inv.state.invoice || inv.state.address) ? (
+              <InvoiceQrPanel
+                mode={inv.state.invoice ? "lightning" : "onchain"}
+                invoice={inv.state.invoice}
+                address={inv.state.address}
+                uri={inv.state.uri}
+                sats={inv.state.sats ?? 0}
+                totalCents={effectiveTotalCents}
+                isPaid={isPaid}
+                successLabel="Activating membership…"
+              />
             ) : !showPayment ? (
               <div className="space-y-3">
                 <h2 className="text-xl font-black tracking-tight text-foreground">Payment method</h2>
@@ -435,12 +399,12 @@ const BeachClubCheckout = () => {
                 {paymentMethod === "infinita" && (
                   <div className="flex items-center gap-2 rounded-2xl bg-purple-500/10 p-3 text-sm">
                     <Wallet className="h-4 w-4 text-purple-500 shrink-0" />
-                    <span className="text-muted-foreground">Pay with <span className="font-medium text-foreground">LIVES</span> via Infinita Wallet checkout.</span>
+                    <span className="text-muted-foreground">Pay with <span className="font-medium text-foreground">LIVES</span> via SimpleFi checkout.</span>
                   </div>
                 )}
                 {paymentMethod === "paypal" && (
                   <div className="flex items-center gap-2 rounded-2xl bg-[#0070ba]/10 p-3 text-sm">
-                    <span className="text-muted-foreground">Pay <span className="font-medium text-foreground">{formatUSD(totalCents)}</span> securely with PayPal or card.</span>
+                    <span className="text-muted-foreground">Pay <span className="font-medium text-foreground">{formatUSD(effectiveTotalCents)}</span> securely with PayPal or card.</span>
                   </div>
                 )}
               </div>
@@ -454,7 +418,7 @@ const BeachClubCheckout = () => {
         <div className="fixed inset-x-0 bottom-0 z-40 bg-background/95 backdrop-blur md:left-[var(--sidebar-width,0px)]"
           style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
           <div className="market-content px-4 py-3">
-            <Button size="lg" className="h-14 w-full rounded-2xl bg-sky-500 text-white hover:bg-sky-600 text-base font-bold"
+            <Button size="lg" className="h-14 w-full rounded-2xl bg-primary text-black hover:bg-[hsl(var(--brand-accent-hover))] text-base font-bold"
               onClick={generateInvoice}
               loading={isGenerating}
               disabled={isGenerating || ((paymentMethod === "lightning" || paymentMethod === "onchain") && (isPriceLoading || !btcPrice))}>
@@ -465,7 +429,7 @@ const BeachClubCheckout = () => {
               ) : paymentMethod === "paypal" ? (
                 "Continue with PayPal"
               ) : (
-                isGenerating ? "Creating Payment..." : `Pay ${formatUSD(totalCents)} with Infinita`
+                isGenerating ? "Creating Payment..." : `Pay ${formatUSD(effectiveTotalCents)} with LIVES`
               )}
             </Button>
           </div>

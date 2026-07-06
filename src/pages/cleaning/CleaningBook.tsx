@@ -3,11 +3,12 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { addDays, format, isBefore, parseISO } from "date-fns";
 import { todayHN } from "@/lib/timezone";
-import { CalendarDays, CheckCircle2, Loader2, Sparkles } from "lucide-react";
+import { CalendarDays, CheckCircle2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 import { UserLayout } from "@/components/layout/UserLayout";
 import { Button } from "@/components/ui/button";
+import { PageLoader, Spinner } from "@/components/ui/spinner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase, supabaseDb } from "@/integrations/supabase/client";
@@ -112,7 +113,7 @@ function DayStrip({
               "flex shrink-0 flex-col items-center gap-1 rounded-2xl px-4 py-3 transition-all duration-150",
               "min-w-[72px] border",
               isSelected
-                ? "border-transparent bg-foreground text-background shadow-sm"
+                ? "border-transparent bg-foreground text-background "
                 : hasSlots
                   ? "border-border bg-card text-foreground hover:border-foreground/20 hover:bg-muted"
                   : "border-border bg-muted/40 text-muted-foreground opacity-50 cursor-not-allowed",
@@ -154,7 +155,7 @@ function TimeChip({
       className={cn(
         "flex h-11 w-full items-center justify-center rounded-full border text-sm font-semibold transition-all duration-150",
         selected
-          ? "border-transparent bg-foreground text-background shadow-sm"
+          ? "border-transparent bg-foreground text-background "
           : "border-border bg-card text-foreground hover:border-foreground/30 hover:bg-muted",
       )}
     >
@@ -429,16 +430,12 @@ const CleaningBook = () => {
       <div className="flex min-h-[calc(100dvh-60px)] flex-col bg-[hsl(var(--background))]">
 
         {/* ── Loading state ── */}
-        {isLoading && (
-          <div className="flex flex-1 items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
-        )}
+        {isLoading && <PageLoader />}
 
         {/* ── No subscription state ── */}
         {!isLoading && !schedulableSubscriptions.length && (
           <div className="flex flex-1 items-center justify-center px-4">
-            <div className="w-full max-w-sm rounded-3xl bg-card p-8 text-center shadow-sm">
+            <div className="w-full max-w-sm rounded-3xl bg-card p-8 text-center ">
               <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
                 <CalendarDays className="h-7 w-7 text-primary" />
               </div>
@@ -618,7 +615,7 @@ const CleaningBook = () => {
 
         {/* ── Sticky bottom action bar ─────────────────────────────────────── */}
         {!isLoading && schedulableSubscriptions.length > 0 && (
-          <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-card/95 px-4 py-4 backdrop-blur-sm md:hidden"
+          <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-card/95 px-4 py-4  md:hidden"
                style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px), 1rem)" }}>
             <div className="mx-auto flex max-w-2xl gap-3">
               <button
@@ -640,7 +637,7 @@ const CleaningBook = () => {
                 )}
               >
                 {scheduleMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Spinner size="sm" />
                 ) : (
                   <CheckCircle2 className="h-4 w-4" />
                 )}
@@ -673,7 +670,7 @@ const CleaningBook = () => {
                 )}
               >
                 {scheduleMutation.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Spinner size="sm" />
                 ) : (
                   <CheckCircle2 className="h-4 w-4" />
                 )}

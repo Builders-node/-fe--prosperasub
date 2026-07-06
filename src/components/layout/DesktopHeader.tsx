@@ -6,6 +6,8 @@ import { LanguageMenu } from "@/components/LanguageMenu";
 import { NotificationBell } from "@/components/NotificationBell";
 import { useI18n } from "@/i18n";
 import { AccountMenu } from "@/components/AccountMenu";
+import { LocationSelector } from "@/components/LocationSelector";
+import { CartButton } from "@/components/CartButton";
 
 interface DesktopHeaderProps {
   showBackButton?: boolean;
@@ -50,6 +52,7 @@ export function DesktopHeader({
           ProsperaSub
         </Link>
 
+        <LocationSelector />
 
         <div className="flex-1" />
 
@@ -57,6 +60,7 @@ export function DesktopHeader({
 
         {/* Right actions */}
         <div className="flex items-center gap-3 ml-auto">
+          {!hideNav && <CartButton />}
           {!hideNav && <LanguageMenu />}
           {!hideNav && <NotificationBell />}
           {rightContent ?? (

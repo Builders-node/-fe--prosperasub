@@ -12,10 +12,14 @@ import { formatUSD } from "@/lib/pricing";
 import {
   YdIllustration, YdChip, YdEmptyState,
 } from "@/components/yd/YdPrimitives";
+import { useSelectedResidence } from "@/contexts/LocationContext";
+import { useResidences } from "@/hooks/useResidences";
 import type { FoodProvider, FoodMealPlan } from "@/types/food";
 
+type PlanWithResidences = FoodMealPlan & { residenceIds: string[] };
 type ProviderWithPlans = FoodProvider & {
-  plans: FoodMealPlan[];
+  plans: PlanWithResidences[];
+  residenceIds: string[];
   minPrice: number | null;
   rating: number | null;
   reviewCount: number;
@@ -44,10 +48,24 @@ const FoodListing = () => {
         .eq("status", "active")
         .order("sort_order", { ascending: true });
 
-      const plansMap: Record<string, FoodMealPlan[]> = {};
+      // Location scoping: which residences each provider serves and each plan
+      // is offered in. Empty list = available everywhere.
+      const planIds = (plansData ?? []).map((p: FoodMealPlan) => p.id);
+      const [{ data: provLinks }, { data: planLinks }] = await Promise.all([
+        supabaseDb.from("food_provider_residences").select("provider_id, residence_id").in("provider_id", ids),
+        planIds.length
+          ? supabaseDb.from("food_meal_plan_residences").select("meal_plan_id, residence_id").in("meal_plan_id", planIds)
+          : Promise.resolve({ data: [] as any[] }),
+      ]);
+      const provResidences: Record<string, string[]> = {};
+      (provLinks ?? []).forEach((l: any) => { (provResidences[l.provider_id] ??= []).push(l.residence_id); });
+      const planResidences: Record<string, string[]> = {};
+      (planLinks ?? []).forEach((l: any) => { (planResidences[l.meal_plan_id] ??= []).push(l.residence_id); });
+
+      const plansMap: Record<string, PlanWithResidences[]> = {};
       (plansData ?? []).forEach((plan: FoodMealPlan) => {
         if (!plansMap[plan.provider_id]) plansMap[plan.provider_id] = [];
-        plansMap[plan.provider_id].push(plan);
+        plansMap[plan.provider_id].push({ ...plan, residenceIds: planResidences[plan.id] ?? [] });
       });
 
       // Aggregate review ratings per provider.
@@ -71,6 +89,7 @@ const FoodListing = () => {
         return {
           ...p,
           plans,
+          residenceIds: provResidences[p.id] ?? [],
           minPrice,
           rating: agg ? agg.sum / agg.count : null,
           reviewCount: agg?.count ?? 0,
@@ -108,8 +127,22 @@ const FoodListing = () => {
     },
   });
 
+  // ── Location filter ──────────────────────────────────────────────────────
+  const { residence } = useSelectedResidence();
+  const { data: residences = [] } = useResidences();
+  const selectedResidenceId = residence ? (residences.find((r) => r.name === residence)?.id ?? null) : null;
+  // Empty link list = available everywhere; otherwise must include the selection.
+  const servesHere = (ids: string[]) => !selectedResidenceId || ids.length === 0 || ids.includes(selectedResidenceId);
+
+  const visibleProviders = (providers ?? [])
+    .filter((p) => servesHere(p.residenceIds))
+    .map((p) => ({ ...p, plans: p.plans.filter((pl) => servesHere(pl.residenceIds)) }))
+    .filter((p) => p.plans.length > 0 || (providers ?? []).find((o) => o.id === p.id)!.plans.length === 0);
+
+  const hiddenCount = (providers ?? []).length - visibleProviders.length;
+
   // All meal plans across restaurants, flattened with their provider for context.
-  const allPlans = (providers ?? []).flatMap((p) =>
+  const allPlans = visibleProviders.flatMap((p) =>
     p.plans.map((plan) => ({ plan, provider: p })),
   );
 
@@ -121,24 +154,44 @@ const FoodListing = () => {
       <main className="market-content py-space-4 md:py-space-8">
 
         {/* ─── Restaurants ─────────────────────────────────────────── */}
-        <h2 className="mb-4 text-xl font-black tracking-tight text-foreground">Restaurants</h2>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-xl font-black tracking-tight text-foreground">Restaurants</h2>
+          {selectedResidenceId && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+              <MapPin className="h-3.5 w-3.5" /> {residence}
+            </span>
+          )}
+        </div>
         {isLoading ? (
           <div className="grid gap-3 md:gap-4 md:grid-cols-2">
             {[1, 2].map((i) => (
               <div key={i} className="h-72 animate-pulse rounded-3xl bg-muted" />
             ))}
           </div>
-        ) : providers && providers.length > 0 ? (
+        ) : visibleProviders.length > 0 ? (
+          <>
           <div className="grid gap-3 md:gap-4 md:grid-cols-2">
-            {providers.map((p, idx) => (
+            {visibleProviders.map((p, idx) => (
               <RestaurantCard
                 key={p.id}
                 provider={p}
-                featured={idx === 0 && providers.length > 1}
+                featured={idx === 0 && visibleProviders.length > 1}
                 onClick={() => navigate(`/food/${p.id}`)}
               />
             ))}
           </div>
+          {hiddenCount > 0 && (
+            <p className="mt-3 text-center text-xs text-muted-foreground">
+              {hiddenCount} restaurant{hiddenCount > 1 ? "s" : ""} not available in {residence}
+            </p>
+          )}
+          </>
+        ) : selectedResidenceId ? (
+          <YdEmptyState
+            icon={MapPin}
+            title={`No restaurants in ${residence} yet`}
+            subtitle="Try another location or check back soon."
+          />
         ) : (
           <YdEmptyState
             icon={ChefHat}
@@ -195,9 +248,9 @@ function RestaurantCard({
       className={`group relative flex cursor-pointer flex-col overflow-hidden rounded-3xl
                   
                   transition-all duration-200 ease-out
-                  motion-safe:hover:scale-[1.01] hover:border-emerald-500/40
+                  motion-safe:hover:scale-[1.01] hover:border-primary/40
                   hover:
-                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500
+                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary
                   ${featured ? "md:col-span-2" : ""}`}
     >
       {/* Banner image */}
@@ -212,7 +265,7 @@ function RestaurantCard({
           />
         ) : (
           <div className="flex h-full items-center justify-center ">
-            <YdIllustration icon={UtensilsCrossed} accent="emerald" size="lg" />
+            <YdIllustration icon={UtensilsCrossed} accent="amber" size="lg" />
           </div>
         )}
         {/* Plan count pill */}
@@ -224,7 +277,7 @@ function RestaurantCard({
         )}
         {/* Featured badge */}
         {featured && (
-          <span className="absolute left-3 top-3 rounded-full bg-emerald-500 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-emerald-950">
+          <span className="absolute left-3 top-3 rounded-full bg-primary px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-black">
             Featured
           </span>
         )}
@@ -238,8 +291,8 @@ function RestaurantCard({
             {provider.avatar_url ? (
               <img src={provider.avatar_url} alt={provider.name} loading="lazy" decoding="async" className="h-full w-full object-cover" />
             ) : (
-              <div className="flex h-full items-center justify-center bg-emerald-500/10">
-                <ChefHat className="h-5 w-5 text-emerald-400" />
+              <div className="flex h-full items-center justify-center bg-primary/10">
+                <ChefHat className="h-5 w-5 text-primary" />
               </div>
             )}
           </div>
@@ -288,7 +341,7 @@ function RestaurantCard({
               <span className="text-sm text-muted-foreground">Coming soon</span>
             )}
           </div>
-          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-500 px-4 py-2 text-sm font-bold text-emerald-950
+          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-bold text-black
                            transition-transform duration-200 group-hover:translate-x-0.5">
             View plans
             <ArrowRight className="h-4 w-4" />
@@ -321,8 +374,8 @@ function MealPlanCard({
         if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); }
       }}
       className="group flex cursor-pointer flex-col rounded-3xl bg-card p-5 transition-all duration-200
-                 motion-safe:hover:scale-[1.01] hover:border-emerald-500/40
-                 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                 motion-safe:hover:scale-[1.01] hover:border-primary/40
+                 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
     >
       {/* Meal photos */}
       {photos.length > 0 && (
@@ -343,7 +396,7 @@ function MealPlanCard({
         </div>
       )}
 
-      <p className="flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.16em] text-emerald-300">
+      <p className="flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.16em] text-primary">
         <ChefHat className="h-3 w-3" /> {providerName}
       </p>
       <h3 className="mt-1 text-lg font-black tracking-tight text-foreground leading-tight">
@@ -367,7 +420,7 @@ function MealPlanCard({
           </span>
           <span className="text-xs text-muted-foreground">/wk</span>
         </div>
-        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-500 px-4 py-2 text-sm font-bold text-emerald-950
+        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-bold text-black
                          transition-transform duration-200 group-hover:translate-x-0.5">
           View menu
           <ArrowRight className="h-4 w-4" />

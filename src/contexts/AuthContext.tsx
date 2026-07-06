@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, accountApi } from '@/integrations/supabase/client';
 
 type User = {
   id: string;
@@ -52,6 +52,10 @@ interface AuthContextType {
   isLoading: boolean;
   isUserDataReady: boolean;
   isSuperAdmin: boolean;
+  /** True if super_admin OR an RBAC admin role. */
+  isAdmin: boolean;
+  /** True once the admin check has resolved (avoids premature redirects). */
+  isAdminResolved: boolean;
   login: (email: string, password: string) => Promise<{ error: Error | null; roles?: AppRole[] }>;
   signUp: (email: string, password: string, name: string) => Promise<{ error: Error | null }>;
   requestPasswordReset: (email: string) => Promise<{ data: any; error: Error | null }>;
@@ -76,6 +80,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUserDataReady, setIsUserDataReady] = useState(false);
+  // RBAC admin status (for users who are admins via RBAC roles, not the legacy
+  // super_admin role). null = not yet checked.
+  const [isRbacAdmin, setIsRbacAdmin] = useState<boolean | null>(null);
 
   // Lightning auth state (stored separately)
   const [lightningPubkey, setLightningPubkey] = useState<string | null>(null);
@@ -336,7 +343,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Clear lightning auth
     localStorage.removeItem('lightning_pubkey');
     setLightningPubkey(null);
-    
+
+    // Clear per-user client state so the next person on a shared device doesn't
+    // inherit the previous user's cart or chosen delivery location.
+    localStorage.removeItem('prospera_cart');
+    localStorage.removeItem('prospera_residence');
+
     // Clear Supabase auth
     await supabase.auth.signOut();
     
@@ -366,6 +378,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const isAuthenticated = !!(user || lightningPubkey);
   const isSuperAdmin = roles.includes('super_admin');
 
+  // Resolve admin access: super_admin (legacy) OR an RBAC admin role.
+  useEffect(() => {
+    if (!isAuthenticated || !isUserDataReady) { setIsRbacAdmin(null); return; }
+    if (isSuperAdmin) { setIsRbacAdmin(true); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await accountApi("/account/is-admin");
+        if (!cancelled) setIsRbacAdmin(Boolean((data as { isAdmin?: boolean } | null)?.isAdmin));
+      } catch {
+        if (!cancelled) setIsRbacAdmin(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isAuthenticated, isUserDataReady, isSuperAdmin, userData?.id]);
+
+  const isAdmin = isSuperAdmin || isRbacAdmin === true;
+  // Whether the admin check has resolved (so guards/UI don't act early).
+  // Anonymous users are trivially "resolved" (definitely not admin).
+  const isAdminResolved = !isAuthenticated || isSuperAdmin || isRbacAdmin !== null;
+
   return (
     <AuthContext.Provider
       value={{
@@ -378,6 +411,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         isLoading,
         isUserDataReady,
         isSuperAdmin,
+        isAdmin,
+        isAdminResolved,
         login,
         signUp,
         requestPasswordReset,

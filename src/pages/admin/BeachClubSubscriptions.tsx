@@ -1,16 +1,18 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Trash2, Waves, Plus } from "lucide-react";
-import { addMonths, format } from "date-fns";
+import { Trash2, Waves, Plus, Search, RefreshCcw, Bell } from "lucide-react";
+import { todayHN, addDaysISO, addMonthsISO } from "@/lib/timezone";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { PageLoader, Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { UserPicker } from "@/components/UserPicker";
 import { Label } from "@/components/ui/label";
 import {
   Table, TableHeader, TableRow, TableHead, TableBody, TableCell,
 } from "@/components/ui/table";
+import { usePagination, TablePagination } from "@/components/ui/table-pagination";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -18,12 +20,13 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { PaymentMethodBadge, PaymentReference } from "@/components/admin/PaymentMethodBadge";
-import { supabaseDb } from "@/integrations/supabase/client";
+import { supabaseDb, adminApi } from "@/integrations/supabase/client";
 import { formatUSD } from "@/lib/pricing";
 import { toast } from "sonner";
 
 interface BeachSub {
   id: string;
+  user_id: string | null;
   plan_name: string | null;
   customer_name: string | null;
   customer_email: string | null;
@@ -52,10 +55,11 @@ const PAYMENT_METHODS = ["manual", "lightning", "onchain", "infinita", "paypal"]
 
 const emptyForm = {
   plan_id: "",
+  user_id: "",
   customer_name: "",
   customer_email: "",
   people: 1,
-  start_date: format(new Date(), "yyyy-MM-dd"),
+  start_date: todayHN(),
   payment_method: "manual" as string,
   payment_status: "paid" as string,
   payment_reference: "",
@@ -85,15 +89,15 @@ export default function BeachClubSubscriptions() {
   const createMutation = useMutation({
     mutationFn: async () => {
       if (!selectedPlan) throw new Error("Choose a plan");
-      const end = addMonths(new Date(`${form.start_date}T00:00:00`), 1);
       const { error } = await supabaseDb.from("beach_club_subscriptions").insert({
         plan_id: selectedPlan.id,
         plan_name: selectedPlan.name,
+        user_id: form.user_id || null,
         customer_name: form.customer_name.trim() || null,
         customer_email: form.customer_email.trim() || null,
         people: form.people,
         start_date: form.start_date,
-        end_date: format(end, "yyyy-MM-dd"),
+        end_date: addMonthsISO(form.start_date, 1),
         price_per_person_cents: selectedPlan.price_per_person_cents,
         total_cents: newTotalCents,
         payment_method: form.payment_method,
@@ -102,6 +106,7 @@ export default function BeachClubSubscriptions() {
         status: form.status,
       });
       if (error) throw error;
+      // Period history is recorded automatically by a DB trigger.
     },
     onSuccess: () => {
       toast.success("Subscription added");
@@ -125,6 +130,13 @@ export default function BeachClubSubscriptions() {
     },
   });
 
+  const [search, setSearch] = useState("");
+  const q = search.trim().toLowerCase();
+  const filteredSubs = q
+    ? subs.filter((s) => [s.customer_name, s.customer_email, s.customer_whatsapp].some((v) => (v ?? "").toLowerCase().includes(q)))
+    : subs;
+  const subsPager = usePagination(filteredSubs, 20);
+
   const statusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
       const { error } = await supabaseDb
@@ -134,6 +146,56 @@ export default function BeachClubSubscriptions() {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-beach-club-subscriptions"] }),
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const renewMutation = useMutation({
+    mutationFn: async (s: BeachSub) => {
+      // Record an off-platform paid renewal: extend the membership by one month
+      // (continuing from the current end date), mark Paid + Manual + active.
+      const today = todayHN();
+      const prevEnd = (s.end_date || "").slice(0, 10);
+      const start = prevEnd && prevEnd >= today ? addDaysISO(prevEnd, 1) : today;
+      const end = addMonthsISO(start, 1);
+      const { error } = await supabaseDb.from("beach_club_subscriptions")
+        .update({
+          start_date: start, end_date: end, status: "active",
+          payment_status: "paid", payment_method: "manual",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", s.id);
+      if (error) throw error;
+      // Period history is recorded automatically by a DB trigger.
+    },
+    onSuccess: () => {
+      toast.success("Renewed — payment recorded");
+      qc.invalidateQueries({ queryKey: ["admin-beach-club-subscriptions"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const reminderMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { data, error } = await adminApi(`/admin/beach-club/subscriptions/${id}/payment-reminder`, { method: "POST" });
+      if (error) throw error;
+      return data as { ok: boolean; methods?: string[]; reason?: string };
+    },
+    onSuccess: (res) => {
+      if (res?.ok) toast.success(`Reminder sent${res.methods?.length ? ` (${res.methods.join(", ")})` : ""}`);
+      else if (res?.reason === "already_paid") toast.info("Already paid — no reminder needed");
+      else if (res?.reason === "no_channel") toast.error("No email/account on file to notify this member");
+      else toast.error("Could not send reminder");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const remindAllMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await adminApi(`/admin/beach-club/payment-reminders/remind-unpaid`, { method: "POST", body: JSON.stringify({}) });
+      if (error) throw error;
+      return data as { total: number; sent: number; skipped: number };
+    },
+    onSuccess: (r) => toast.success(`Reminders: ${r.sent} sent${r.skipped ? `, ${r.skipped} skipped` : ""} (of ${r.total} unpaid)`),
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -154,18 +216,32 @@ export default function BeachClubSubscriptions() {
   }
 
   const activeCount = subs.filter((s) => s.status === "active").length;
+  const unpaidCount = subs.filter((s) => s.payment_status !== "paid" && s.status !== "cancelled").length;
 
   return (
     <SuperAdminLayout title="Beach Club Subscriptions" subtitle="Paid memberships from the Beach Club page">
       <div className="mb-space-4 flex flex-wrap items-center justify-between gap-space-3">
-        <div className="flex gap-space-3 text-sm text-muted-foreground">
-          <span>{subs.length} total</span>
-          <span>·</span>
-          <span>{activeCount} active</span>
+        <div className="flex items-center gap-space-3">
+          <div className="relative w-[220px]">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search members…" className="h-9 rounded-full pl-9" />
+          </div>
+          <div className="hidden gap-space-3 text-sm text-muted-foreground sm:flex">
+            <span>{subs.length} total</span>
+            <span>·</span>
+            <span>{activeCount} active</span>
+          </div>
         </div>
-        <Button onClick={() => { setForm(emptyForm); setOpen(true); }} className="gap-2">
-          <Plus className="h-4 w-4" /> Add subscription
-        </Button>
+        <div className="flex items-center gap-2">
+          {unpaidCount > 0 && (
+            <Button variant="outline" className="gap-2" onClick={() => remindAllMutation.mutate()} disabled={remindAllMutation.isPending}>
+              <Bell className="h-4 w-4" /> Remind unpaid ({unpaidCount})
+            </Button>
+          )}
+          <Button onClick={() => { setForm(emptyForm); setOpen(true); }} className="gap-2">
+            <Plus className="h-4 w-4" /> Add subscription
+          </Button>
+        </div>
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-[hsl(var(--app-divider))]">
@@ -183,14 +259,14 @@ export default function BeachClubSubscriptions() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {subs.length === 0 ? (
+            {filteredSubs.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
                   <Waves className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                  No subscriptions yet.
+                  {subs.length === 0 ? "No subscriptions yet." : "No members match your search."}
                 </TableCell>
               </TableRow>
-            ) : subs.map((s) => (
+            ) : subsPager.paged.map((s) => (
               <TableRow key={s.id}>
                 <TableCell>
                   <p className="font-bold text-foreground">{s.customer_name || "—"}</p>
@@ -224,15 +300,28 @@ export default function BeachClubSubscriptions() {
                   </Select>
                 </TableCell>
                 <TableCell className="text-right">
-                  <Button size="iconSm" variant="ghost" className="rounded-full text-destructive hover:bg-destructive/10 hover:text-destructive"
-                    title="Delete" onClick={() => deleteMutation.mutate(s.id)}>
-                    <Trash2 />
-                  </Button>
+                  <div className="flex items-center justify-end gap-1">
+                    {s.payment_status !== "paid" && s.status !== "cancelled" && (
+                      <Button size="iconSm" variant="ghost" className="rounded-full text-amber-500 hover:bg-amber-500/10 hover:text-amber-500"
+                        title="Send payment reminder" onClick={() => reminderMutation.mutate(s.id)} disabled={reminderMutation.isPending}>
+                        <Bell />
+                      </Button>
+                    )}
+                    <Button size="iconSm" variant="ghost" className="rounded-full text-green-500 hover:bg-green-500/10 hover:text-green-500"
+                      title="Renew (payment received)" onClick={() => renewMutation.mutate(s)}>
+                      <RefreshCcw />
+                    </Button>
+                    <Button size="iconSm" variant="ghost" className="rounded-full text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      title="Delete" onClick={() => deleteMutation.mutate(s.id)}>
+                      <Trash2 />
+                    </Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
+        <TablePagination {...subsPager} onPage={subsPager.setPage} />
       </div>
 
       {/* Add subscription dialog */}
@@ -254,6 +343,22 @@ export default function BeachClubSubscriptions() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div>
+              <Label>Platform user</Label>
+              <UserPicker
+                value={form.user_id}
+                onSelect={(u) => setForm((f) => ({
+                  ...f,
+                  user_id: u?.id ?? "",
+                  customer_name: u ? (u.display_name || u.name || u.email || f.customer_name) : f.customer_name,
+                  customer_email: u ? (u.email || f.customer_email) : f.customer_email,
+                }))}
+                placeholder="Select an existing user…"
+                allowClear
+                clearLabel="No linked user (manual entry)"
+              />
+              <p className="mt-1 text-xs text-muted-foreground">Pick a user, or leave unset and type the name below.</p>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -283,7 +388,7 @@ export default function BeachClubSubscriptions() {
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {PAYMENT_METHODS.map((m) => (
-                      <SelectItem key={m} value={m} className="capitalize">{m === "infinita" ? "LIVES (Infinita)" : m}</SelectItem>
+                      <SelectItem key={m} value={m} className="capitalize">{m === "infinita" ? "LIVES" : m}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

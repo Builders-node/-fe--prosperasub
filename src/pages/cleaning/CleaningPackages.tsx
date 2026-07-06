@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, supabaseDb } from "@/integrations/supabase/client";
+import { useSelectedResidence } from "@/contexts/LocationContext";
+import { useResidences } from "@/hooks/useResidences";
 import { Button } from "@/components/ui/button";
 import {
   SparklesIcon, CheckCircle2, ArrowRight,
@@ -35,9 +37,24 @@ const CleaningPackages = () => {
         .eq("visibility", "public")
         .order("sort_order", { ascending: true });
       if (error) throw error;
-      return data ?? [];
+      const list = data ?? [];
+      const ids = list.map((p: any) => p.id);
+      const { data: links } = ids.length
+        ? await supabaseDb.from("cleaning_package_residences").select("package_id, residence_id").in("package_id", ids)
+        : { data: [] as any[] };
+      const resMap: Record<string, string[]> = {};
+      (links ?? []).forEach((l: any) => { (resMap[l.package_id] ??= []).push(l.residence_id); });
+      return list.map((p: any) => ({ ...p, residenceIds: resMap[p.id] ?? [] }));
     },
   });
+
+  // ── Location filter ──────────────────────────────────────────────────────
+  const { residence } = useSelectedResidence();
+  const { data: residences = [] } = useResidences();
+  const selectedResidenceId = residence ? (residences.find((r) => r.name === residence)?.id ?? null) : null;
+  const visiblePackages = (packages ?? []).filter(
+    (p: any) => !selectedResidenceId || (p.residenceIds?.length ?? 0) === 0 || p.residenceIds.includes(selectedResidenceId),
+  );
 
   const goToCheckout = (pkgId: string) => {
     if (!isAuthenticated) {
@@ -106,9 +123,9 @@ const CleaningPackages = () => {
                   <div key={i} className="h-24 animate-pulse rounded-3xl bg-muted" />
                 ))}
               </div>
-            ) : packages && packages.length > 0 ? (
+            ) : visiblePackages.length > 0 ? (
               <section className="overflow-hidden rounded-3xl bg-card divide-y divide-border/60">
-                {packages.map((pkg) => {
+                {visiblePackages.map((pkg) => {
                   const monthlyCents = resolveMonthlyPriceCents(pkg);
                   const isSelected = selectedId === pkg.id;
                   return (
@@ -136,8 +153,8 @@ const CleaningPackages = () => {
             )}
 
             {/* What's included summary */}
-            {selectedId && packages && (() => {
-              const pkg = packages.find((p) => p.id === selectedId);
+            {selectedId && visiblePackages.length > 0 && (() => {
+              const pkg = visiblePackages.find((p) => p.id === selectedId);
               const features: string[] = Array.isArray(pkg?.features) ? pkg.features : [];
               if (!pkg) return null;
               return (

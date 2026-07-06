@@ -1,32 +1,18 @@
 /**
- * Centralized Admin Panel navigation configuration.
+ * Admin Panel navigation, aligned with the Categories → Providers → Plans →
+ * Customers model. No per-service SERVICES section anymore: everything that
+ * fits the model lives in MARKETPLACE; the only exceptions are OPERATIONS
+ * — physical scheduling tools (cleaner slot calendars, court bookings)
+ * that cannot be flattened into a marketplace list.
  *
- * To add a new service (e.g. Food Delivery):
- *   1. Add its routes to adminRoutes.ts
- *   2. Add a new entry to SERVICES below
- *   3. Done — sidebar picks it up automatically
+ * Legacy per-service pages (FoodProviders, CleaningProviders, etc.) still
+ * work by URL for old bookmarks; they just don't clutter the sidebar.
  */
 
 import {
-  LayoutDashboard,
-  Zap,
-  Users,
-  UserCheck,
-  SparklesIcon,
-  Car,
-  CreditCard,
-  ClipboardList,
-  BarChart3,
-  Settings,
-  ShieldCheck,
-  FileText,
-  Wrench,
-  Building2,
-  UtensilsCrossed,
-  RefreshCw,
-  ChefHat,
-  Megaphone,
-  Waves,
+  BarChart3, CalendarDays, ClipboardList, CreditCard, DollarSign,
+  FileText, LandPlot, LayoutDashboard, MapPin, Megaphone, Settings,
+  ShieldCheck, Store, UserCheck, Users, Wrench, Building2,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { adminRoutes } from "./adminRoutes";
@@ -37,90 +23,59 @@ export interface NavItem {
   icon: LucideIcon;
 }
 
-export interface ServiceGroup {
-  id: string;
-  label: string;
-  icon: LucideIcon;
-  /** Colour class for the service icon dot (Tailwind bg-* class) */
-  color: string;
-  /** The "home" route for the service — navigated when the parent header is clicked */
-  rootPath: string;
-  items: NavItem[];
-}
-
 export interface NavSection {
   title: string;
   items: NavItem[];
 }
 
-// ─── Platform (flat links) ────────────────────────────────────────────────────
-export const PLATFORM_SECTION: NavSection = {
-  title: "Platform",
+// ─── OVERVIEW ───────────────────────────────────────────────────────────
+export const OVERVIEW_SECTION: NavSection = {
+  title: "Overview",
   items: [
-    { label: "Overview",  path: adminRoutes.superAdminDashboard, icon: LayoutDashboard },
-    { label: "Finance",   path: adminRoutes.superAdminPayments,  icon: Zap           },
-    { label: "Users",     path: adminRoutes.superAdminUsers,     icon: Users         },
-    { label: "Clients",   path: adminRoutes.superAdminClients,   icon: UserCheck     },
+    { label: "Dashboard", path: adminRoutes.superAdminDashboard, icon: LayoutDashboard },
+    { label: "Analytics", path: adminRoutes.superAdminAnalytics, icon: BarChart3       },
+    { label: "Finance",   path: adminRoutes.superAdminPayments,  icon: DollarSign      },
   ],
 };
 
-// ─── Services (collapsible groups) ───────────────────────────────────────────
-export const SERVICES: ServiceGroup[] = [
-  {
-    id: "cleaning",
-    label: "Cleaning",
-    icon: SparklesIcon,
-    color: "bg-blue-500",
-    rootPath: adminRoutes.superAdminCleaning,
-    items: [
-      { label: "Plans",         path: adminRoutes.superAdminCleaningPlans, icon: CreditCard   },
-      { label: "Subscriptions", path: adminRoutes.superAdminSubscriptions, icon: ClipboardList },
-      { label: "Operations",    path: adminRoutes.superAdminCleaning,      icon: Wrench        },
-    ],
-  },
-  {
-    id: "car-rentals",
-    label: "Car Rentals",
-    icon: Car,
-    color: "bg-orange-500",
-    rootPath: adminRoutes.superAdminCarRentalsAnalytics,
-    items: [
-      { label: "Analytics",     path: adminRoutes.superAdminCarRentalsAnalytics,    icon: BarChart3    },
-      { label: "Vehicles",      path: adminRoutes.superAdminCarRentals,             icon: Car          },
-      { label: "Reservations",  path: adminRoutes.superAdminCarRentalsReservations, icon: ClipboardList },
-      { label: "Customers",     path: adminRoutes.superAdminCarRentalsCustomers,    icon: UserCheck    },
-      { label: "Providers",     path: adminRoutes.superAdminCarRentalsProviders,   icon: Building2    },
-    ],
-  },
-  {
-    id: "food",
-    label: "Food",
-    icon: UtensilsCrossed,
-    color: "bg-orange-500",
-    rootPath: adminRoutes.superAdminFoodAnalytics,
-    items: [
-      { label: "Analytics",      path: adminRoutes.superAdminFoodAnalytics,      icon: BarChart3     },
-      { label: "Restaurants",    path: adminRoutes.superAdminFoodProviders,      icon: ChefHat       },
-    ],
-  },
-  {
-    id: "beach-club",
-    label: "Beach Club",
-    icon: Waves,
-    color: "bg-cyan-500",
-    rootPath: adminRoutes.superAdminBeachClubAnalytics,
-    items: [
-      { label: "Analytics",     path: adminRoutes.superAdminBeachClubAnalytics,     icon: BarChart3    },
-      { label: "Plans",         path: adminRoutes.superAdminBeachClubPlans,         icon: CreditCard   },
-      { label: "Subscriptions", path: adminRoutes.superAdminBeachClubSubscriptions, icon: ClipboardList },
-    ],
-  },
-];
+// ─── MARKETPLACE — the model itself ─────────────────────────────────────
+export const MARKETPLACE_SECTION: NavSection = {
+  title: "Marketplace",
+  items: [
+    { label: "Categories",    path: adminRoutes.superAdminCategories,                icon: Store         },
+    { label: "Providers",     path: adminRoutes.superAdminMarketplaceProviders,      icon: Building2     },
+    { label: "Plans",         path: adminRoutes.superAdminMarketplacePlans,          icon: CreditCard    },
+    { label: "Customers",     path: adminRoutes.superAdminMarketplaceSubscriptions,  icon: ClipboardList },
+    { label: "Applications",  path: adminRoutes.superAdminProviderApplications,      icon: ClipboardList },
+  ],
+};
 
-// ─── Settings (flat links) ────────────────────────────────────────────────────
+// ─── PEOPLE ─────────────────────────────────────────────────────────────
+export const PEOPLE_SECTION: NavSection = {
+  title: "People",
+  items: [
+    { label: "Users",   path: adminRoutes.superAdminUsers,   icon: Users     },
+    { label: "Clients", path: adminRoutes.superAdminClients, icon: UserCheck },
+  ],
+};
+
+// ─── OPERATIONS — physical scheduling, cannot be abstracted ─────────────
+// These carry domain-specific constraints (slot capacity, court availability,
+// therapist calendars) that don't fit a "list all rows" view.
+export const OPERATIONS_SECTION: NavSection = {
+  title: "Operations",
+  items: [
+    { label: "Cleaning slots", path: adminRoutes.superAdminCleaning,        icon: Wrench       },
+    { label: "Massage cal.",   path: adminRoutes.superAdminMassageCalendar, icon: CalendarDays },
+    { label: "Beach courts",   path: adminRoutes.superAdminBeachClubCourts, icon: LandPlot     },
+  ],
+};
+
+// ─── SETTINGS ───────────────────────────────────────────────────────────
 export const SETTINGS_SECTION: NavSection = {
   title: "Settings",
   items: [
+    { label: "Locations",  path: adminRoutes.superAdminLocations, icon: MapPin      },
     { label: "Ads",        path: adminRoutes.superAdminAds,       icon: Megaphone   },
     { label: "Roles",      path: adminRoutes.superAdminRoles,     icon: ShieldCheck },
     { label: "Audit Logs", path: adminRoutes.superAdminAuditLogs, icon: FileText    },
@@ -128,15 +83,18 @@ export const SETTINGS_SECTION: NavSection = {
   ],
 };
 
-/** Returns true if the current pathname is inside a service group */
-export function getActiveService(pathname: string): string | null {
-  for (const service of SERVICES) {
-    if (
-      pathname === service.rootPath ||
-      service.items.some((item) => pathname === item.path || pathname.startsWith(item.path + "/"))
-    ) {
-      return service.id;
-    }
-  }
-  return null;
-}
+/** Ordered list rendered top-to-bottom in the sidebar. */
+export const NAV_SECTIONS: NavSection[] = [
+  OVERVIEW_SECTION,
+  MARKETPLACE_SECTION,
+  PEOPLE_SECTION,
+  OPERATIONS_SECTION,
+  SETTINGS_SECTION,
+];
+
+// ── Legacy exports so old imports keep compiling ───────────────────────
+export const PLATFORM_SECTION: NavSection = OVERVIEW_SECTION;
+export const NAV_SECTIONS_BELOW: NavSection[] = [];
+export interface ServiceGroup { id: string; label: string; icon: LucideIcon; color: string; rootPath: string; items: NavItem[]; }
+export const SERVICES: ServiceGroup[] = [];
+export function getActiveService(_pathname: string): string | null { return null; }

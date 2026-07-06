@@ -3,6 +3,8 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { PageLoader, Spinner } from "@/components/ui/spinner";
 import { Badge } from "@/components/ui/badge";
+import { CleaningRateAndTip } from "@/components/cleaning/CleaningRateAndTip";
+import { MassageRateAndTip } from "@/components/massage/MassageRateAndTip";
 import { PaymentMethodBadge } from "@/components/admin/PaymentMethodBadge";
 import {
   Dialog,
@@ -21,7 +23,14 @@ import {
   Car,
   ChefHat,
   ArrowRight,
+  RefreshCw,
   X,
+  Eye,
+  CalendarClock,
+  Waves,
+  LandPlot,
+  HeartPulse,
+  Star,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -30,6 +39,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { accountApi, supabase, supabaseDb } from "@/integrations/supabase/client";
 import { useUserUuid } from "@/hooks/useUserUuid";
 import { format, isPast, addWeeks, parseISO } from "date-fns";
+import { todayHN } from "@/lib/timezone";
 import { UserLayout } from "@/components/layout/UserLayout";
 import { TodaysMeals } from "@/components/food/TodaysMeals";
 import { PullToRefresh } from "@/components/PullToRefresh";
@@ -75,11 +85,15 @@ function CleaningBookingRow({
   upcoming,
   onCancel,
   cancelling,
+  onView,
+  onReschedule,
 }: {
   booking: any;
   upcoming: boolean;
   onCancel?: () => void;
   cancelling?: boolean;
+  onView?: () => void;
+  onReschedule?: () => void;
 }) {
   const slot = booking.cleaning_available_slots;
   const dateStr = slot?.date
@@ -119,32 +133,55 @@ function CleaningBookingRow({
       </div>
 
       {/* Right side */}
-      {upcoming && onCancel ? (
-        <button
-          type="button"
-          onClick={onCancel}
-          disabled={cancelling}
-          aria-label="Cancel booking"
-          className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
-        >
-          {cancelling ? (
-            <Spinner size="sm" />
-          ) : (
-            <X className="h-4 w-4" />
-          )}
-        </button>
-      ) : (
-        <Badge variant={cleaningStatusColor(booking.status) as any} className="text-xs capitalize">
-          {booking.status}
-        </Badge>
-      )}
+      <div className="flex shrink-0 items-center gap-1">
+        {onView && (
+          <button
+            type="button"
+            onClick={onView}
+            aria-label="View cleaning details"
+            title="View details"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <Eye className="h-4 w-4" />
+          </button>
+        )}
+        {upcoming && onReschedule && (
+          <button
+            type="button"
+            onClick={onReschedule}
+            aria-label="Reschedule cleaning"
+            title="Reschedule"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+          >
+            <CalendarClock className="h-4 w-4" />
+          </button>
+        )}
+        {upcoming && onCancel ? (
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={cancelling}
+            aria-label="Cancel booking"
+            title="Cancel"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
+          >
+            {cancelling ? <Spinner size="sm" /> : <X className="h-4 w-4" />}
+          </button>
+        ) : (
+          !upcoming && (
+            <Badge variant={cleaningStatusColor(booking.status) as any} className="text-xs capitalize">
+              {booking.status}
+            </Badge>
+          )
+        )}
+      </div>
     </div>
   );
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-type ServiceTab = "cleaning" | "food" | "cars";
+type ServiceTab = "cleaning" | "food" | "cars" | "beach" | "massage";
 
 const MySubscriptions = () => {
   const { isAuthenticated, isLoading: authLoading, userData } = useAuth();
@@ -158,7 +195,7 @@ const MySubscriptions = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = (searchParams.get("tab") as ServiceTab) || "cleaning";
   const [activeTab, setActiveTab] = useState<ServiceTab>(
-    ["cleaning", "food", "cars"].includes(initialTab) ? initialTab : "cleaning",
+    ["cleaning", "food", "cars", "beach", "massage"].includes(initialTab) ? initialTab : "cleaning",
   );
   const changeTab = (t: ServiceTab) => {
     setActiveTab(t);
@@ -203,6 +240,45 @@ const MySubscriptions = () => {
       return data ?? [];
     },
     enabled: !!userUuid && activeTab === "cars",
+  });
+
+  // ── Beach Club memberships for the current user ─────────────────────────
+  const { data: beachSubs = [], isLoading: beachSubsLoading } = useQuery({
+    queryKey: ["my-beach-subs", userUuid, userData?.id],
+    queryFn: async () => {
+      const ids = [userUuid, userData?.id].filter(Boolean) as string[];
+      if (!ids.length) return [];
+      const { data, error } = await supabaseDb
+        .from("beach_club_subscriptions")
+        .select("*")
+        .in("user_id", ids)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: (!!userUuid || !!userData?.id) && activeTab === "beach",
+  });
+
+  // ── Massage subscriptions + bookings ───────────────────────────────────────
+  const { data: massageSubs = [], isLoading: massageLoading } = useQuery({
+    queryKey: ["my-massage-subscriptions", userUuid, userData?.id],
+    queryFn: async () => {
+      const ids = [userUuid, userData?.id].filter(Boolean) as string[];
+      if (!ids.length) return [];
+      const { data } = await supabaseDb.from("massage_subscriptions").select("*, massage_providers(name), massage_plans(name)").in("user_id", ids).order("created_at", { ascending: false });
+      return data ?? [];
+    },
+    enabled: (!!userUuid || !!userData?.id) && activeTab === "massage",
+  });
+  const { data: massageBookings = [] } = useQuery({
+    queryKey: ["my-massage-bookings", userUuid, userData?.id],
+    queryFn: async () => {
+      const ids = [userUuid, userData?.id].filter(Boolean) as string[];
+      if (!ids.length) return [];
+      const { data } = await supabaseDb.from("massage_bookings").select("*, massage_providers(name), massage_slots(date, start_time, end_time)").in("user_id", ids).order("created_at", { ascending: false });
+      return data ?? [];
+    },
+    enabled: (!!userUuid || !!userData?.id) && activeTab === "massage",
   });
 
   // ── Queries ──────────────────────────────────────────────────────────────
@@ -383,6 +459,62 @@ const MySubscriptions = () => {
     onError: (error: Error) => toast.error(error.message),
   });
 
+  // ── View / reschedule a single cleaning session ───────────────────────────
+  const [viewBooking, setViewBooking] = useState<any | null>(null);
+  const [massageRate, setMassageRate] = useState<string | null>(null);
+  const [rescheduleBooking, setRescheduleBooking] = useState<any | null>(null);
+  const [rescheduleDate, setRescheduleDate] = useState("");
+  const [rescheduleSlotId, setRescheduleSlotId] = useState("");
+
+  const openReschedule = (booking: any) => {
+    setRescheduleBooking(booking);
+    setRescheduleDate(booking.cleaning_available_slots?.date ?? "");
+    setRescheduleSlotId("");
+  };
+
+  // Active, non-full slots for the chosen date (excluding the booking's current slot).
+  const { data: rescheduleSlots = [], isLoading: rescheduleSlotsLoading } = useQuery({
+    queryKey: ["reschedule-slots", rescheduleDate],
+    queryFn: async () => {
+      if (!rescheduleDate) return [];
+      const { data, error } = await supabaseDb
+        .from("cleaning_available_slots")
+        .select("id, date, start_time, end_time, current_bookings, max_bookings, is_active")
+        .eq("date", rescheduleDate)
+        .eq("is_active", true)
+        .order("start_time", { ascending: true });
+      if (error) throw error;
+      return (data ?? []).filter((s: any) => (s.current_bookings ?? 0) < (s.max_bookings ?? 0));
+    },
+    enabled: !!rescheduleDate && !!rescheduleBooking,
+  });
+
+  const rescheduleMutation = useMutation({
+    mutationFn: async () => {
+      if (!rescheduleBooking || !rescheduleSlotId) throw new Error("Pick a new time slot.");
+      const { error } = await accountApi(
+        `/account/cleaning/bookings/${rescheduleBooking.id}/reschedule`,
+        { method: "POST", body: JSON.stringify({ slot_id: rescheduleSlotId }) },
+      );
+      if (error) throw new Error(error.message || "Could not reschedule");
+    },
+    onSuccess: () => {
+      toast.success("Cleaning rescheduled");
+      setRescheduleBooking(null);
+      setRescheduleSlotId("");
+      queryClient.invalidateQueries({ queryKey: ["my-cleaning-bookings"] });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const fmtTime = (t?: string) => {
+    if (!t) return "";
+    const [h, m] = t.slice(0, 5).split(":").map(Number);
+    const suffix = h >= 12 ? "PM" : "AM";
+    const hour = h === 0 ? 12 : h > 12 ? h - 12 : h;
+    return `${hour}:${String(m).padStart(2, "0")} ${suffix}`;
+  };
+
   const payMutation = useMutation({
     mutationFn: async (subscriptionId: string) => {
       const { data, error } = await accountApi(`/account/subscriptions/${subscriptionId}/invoice`, { method: "POST" });
@@ -402,13 +534,42 @@ const MySubscriptions = () => {
     onError: (e: Error) => toast.error(e.message || "Failed to generate payment"),
   });
 
+  // ── Food renewal ───────────────────────────────────────────────────────────
+  const foodEnd = (s: any): Date =>
+    s.end_date ? new Date(`${s.end_date}T00:00:00`) : addWeeks(parseISO(s.started_at), s.commitment_weeks || 1);
+
+  const foodCanRenew = (s: any): boolean => {
+    if (["cancelled"].includes(s.status)) return false;
+    if (s.status === "expired") return true;
+    const days = Math.ceil((foodEnd(s).getTime() - Date.now()) / 86_400_000);
+    return days <= 2; // expiring soon (or already past)
+  };
+
   // ── Derived data ─────────────────────────────────────────────────────────
 
   const pendingScheduleCleaningSubs = cleaningSubscriptions?.filter(
     (s) => s.payment_status === "paid" && s.subscription_status === "pending_schedule",
   ) || [];
+  // One-time cleanings (no package/plan) should drop off the active list once the
+  // single cleaning is done — its booking is completed/cancelled or the date passed.
+  const oneTimeDoneSubIds = new Set(
+    (cleaningBookings ?? [])
+      .filter((b: any) => {
+        const past = isPast(new Date(((b as any).cleaning_available_slots?.date ?? "9999") + "T23:59:59"));
+        return b.status === "completed" || b.status === "cancelled" || past;
+      })
+      .map((b: any) => b.cleaning_subscription_id || b.subscription_id)
+      .filter(Boolean),
+  );
+  const isOneTimeComplete = (s: any) =>
+    !s.package_id && (
+      (Number(s.cleanings_remaining) || 0) <= 0 ||
+      oneTimeDoneSubIds.has(s.id) ||
+      (s.end_date && s.end_date < todayHN())
+    );
+
   const activeCleaningSubs = cleaningSubscriptions?.filter(
-    (s) => s.payment_status === "paid" && s.subscription_status === "active" && s.is_active,
+    (s) => s.payment_status === "paid" && s.subscription_status === "active" && s.is_active && !isOneTimeComplete(s),
   ) || [];
 
   const byDateTime = (a: any, b: any) => {
@@ -479,11 +640,13 @@ const MySubscriptions = () => {
         </div>
 
         {/* ── Service tabs ────────────────────────────────────────── */}
-        <div className="mb-5 flex gap-1 rounded-2xl bg-muted/50 p-1">
+        <div className="mb-5 flex gap-1 overflow-x-auto rounded-2xl bg-muted/50 p-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           {([
-            { id: "cleaning" as const, label: "Cleaning",   icon: SparklesIcon },
-            { id: "food"     as const, label: "Food",       icon: UtensilsCrossed },
-            { id: "cars"     as const, label: "Car Rental", icon: Car },
+            { id: "cleaning" as const, label: "Cleaning", icon: SparklesIcon },
+            { id: "food"     as const, label: "Food",     icon: UtensilsCrossed },
+            { id: "cars"     as const, label: "Cars",     icon: Car },
+            { id: "beach"    as const, label: "Beach",    icon: Waves },
+            { id: "massage"  as const, label: "Massage",  icon: HeartPulse },
           ]).map(({ id, label, icon: Icon }) => {
             const active = activeTab === id;
             return (
@@ -491,14 +654,14 @@ const MySubscriptions = () => {
                 key={id}
                 type="button"
                 onClick={() => changeTab(id)}
-                className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl py-2.5 text-sm font-bold transition-colors ${
+                className={`flex shrink-0 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-2 text-xs font-bold transition-colors sm:py-2.5 sm:text-sm ${
                   active
                     ? "bg-foreground text-background"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                <Icon className="h-4 w-4" />
-                <span className="truncate">{label}</span>
+                <Icon className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
+                <span>{label}</span>
               </button>
             );
           })}
@@ -539,11 +702,13 @@ const MySubscriptions = () => {
             ) : (
               <div className="overflow-hidden rounded-3xl bg-card divide-y divide-border/60">
                 {foodSubscriptions.map((s: any) => (
-                  <button
+                  <div
                     key={s.id}
-                    type="button"
+                    role="button"
+                    tabIndex={0}
                     onClick={() => navigate(`/food/subscription/${s.id}`)}
-                    className="flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-muted/30"
+                    onKeyDown={(e) => { if (e.key === "Enter") navigate(`/food/subscription/${s.id}`); }}
+                    className="flex w-full cursor-pointer items-center gap-3 p-4 text-left transition-colors hover:bg-muted/30"
                   >
                     <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15">
                       <UtensilsCrossed className="h-5 w-5 text-emerald-600" />
@@ -555,11 +720,28 @@ const MySubscriptions = () => {
                       </p>
                       <p className="mt-0.5 text-xs text-muted-foreground">
                         Started {new Date(s.started_at).toLocaleDateString()}
-                        {s.started_at && ` · Until ${addWeeks(parseISO(s.started_at), s.commitment_weeks || 1).toLocaleDateString()}`}
+                        {s.started_at && ` · Until ${foodEnd(s).toLocaleDateString()}`}
                       </p>
                     </div>
+                    {foodCanRenew(s) && (
+                      <Button
+                        size="sm"
+                        className="shrink-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (s.provider_id && s.meal_plan_id) {
+                            navigate(`/food/${s.provider_id}/plans/${s.meal_plan_id}?renew=${s.id}`);
+                          } else {
+                            navigate(`/food/subscription/${s.id}`);
+                          }
+                        }}
+                      >
+                        <RefreshCw className="h-3.5 w-3.5" />
+                        Renew
+                      </Button>
+                    )}
                     <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  </button>
+                  </div>
                 ))}
               </div>
             )}
@@ -614,12 +796,85 @@ const MySubscriptions = () => {
           </div>
         )}
 
+        {/* ─── BEACH CLUB tab content ──────────────────────────── */}
+        {activeTab === "beach" && (() => {
+          const today = new Date().toISOString().slice(0, 10);
+          const hasActive = beachSubs.some((s: any) =>
+            String(s.status).toLowerCase() === "active" && (!s.end_date || s.end_date >= today));
+          return (
+            <div className="space-y-3">
+              <div className={cn("grid gap-2", hasActive ? "grid-cols-2" : "grid-cols-1")}>
+                <button
+                  type="button"
+                  onClick={() => navigate("/beach-club")}
+                  className="flex items-center justify-center gap-2 rounded-2xl bg-card py-3 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
+                >
+                  <Waves className="h-4 w-4" />
+                  Browse Plans
+                </button>
+                {hasActive && (
+                  <button
+                    type="button"
+                    onClick={() => navigate("/beach-club/courts")}
+                    className="flex items-center justify-center gap-2 rounded-2xl bg-foreground py-3 text-sm font-bold text-background transition-colors hover:bg-foreground/90"
+                  >
+                    <LandPlot className="h-4 w-4" />
+                    Book a court
+                  </button>
+                )}
+              </div>
+
+              {beachSubsLoading ? (
+                <Skeleton rows={3} />
+              ) : beachSubs.length === 0 ? (
+                <div className="flex flex-col items-center justify-center rounded-3xl bg-card py-14 text-center">
+                  <Waves className="mb-3 h-10 w-10 text-muted-foreground/40" />
+                  <p className="font-semibold text-foreground">No memberships yet</p>
+                  <p className="mt-1 max-w-xs text-sm text-muted-foreground">
+                    Subscribe to the Beach Club to access the gym, pools and courts.
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-hidden rounded-3xl bg-card divide-y divide-border/60">
+                  {beachSubs.map((s: any) => {
+                    const expired = s.end_date && s.end_date < today;
+                    const st = String(s.status).toLowerCase();
+                    const label = st === "active" && !expired ? "active" : expired ? "expired" : st;
+                    return (
+                      <div key={s.id} className="flex items-center gap-3 p-4">
+                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-cyan-500/15">
+                          <Waves className="h-5 w-5 text-cyan-400" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-bold leading-tight text-foreground">
+                            {s.plan_name || "Beach Club Membership"}
+                          </p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            {s.people || 1} {(s.people || 1) === 1 ? "person" : "people"}
+                            {s.start_date && ` · ${new Date(`${s.start_date}T00:00:00`).toLocaleDateString()} → ${new Date(`${s.end_date}T00:00:00`).toLocaleDateString()}`}
+                          </p>
+                          <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">
+                            ${((s.total_cents || 0) / 100).toFixed(2)}
+                          </p>
+                        </div>
+                        <Badge variant={cleaningStatusColor(label) as any} className="shrink-0 text-xs capitalize">
+                          {label}
+                        </Badge>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
         {/* ─── CLEANING tab content (existing) ─────────────────── */}
         {activeTab === "cleaning" && (
         <div className="mt-5 space-y-5">
 
-            {/* Browse + schedule CTAs */}
-            <div className="grid grid-cols-2 gap-2">
+            {/* Browse + (pending) set-schedule CTAs. Edit Schedule now lives in the active plan card. */}
+            <div className={cn("grid gap-2", pendingScheduleCleaningSubs.length > 0 ? "grid-cols-2" : "grid-cols-1")}>
               <button
                 type="button"
                 onClick={() => navigate("/cleaning")}
@@ -629,7 +884,7 @@ const MySubscriptions = () => {
                 Browse Plans
               </button>
 
-              {pendingScheduleCleaningSubs.length > 0 ? (
+              {pendingScheduleCleaningSubs.length > 0 && (
                 <button
                   type="button"
                   onClick={() => navigate(`/cleaning/book?subscriptionId=${pendingScheduleCleaningSubs[0].id}`)}
@@ -637,22 +892,6 @@ const MySubscriptions = () => {
                 >
                   <CalendarDays className="h-4 w-4" />
                   Set Schedule
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() =>
-                    navigate(
-                      activeCleaningSubs[0]
-                        ? `/cleaning/book?subscriptionId=${activeCleaningSubs[0].id}`
-                        : "/cleaning/book",
-                    )
-                  }
-                  disabled={activeCleaningSubs.length === 0 && linkedClientPlans.length === 0 && linkedClientSubscriptions.length === 0}
-                  className="flex items-center justify-center gap-2 rounded-2xl bg-foreground py-3 text-sm font-bold text-background transition-colors hover:bg-foreground/90 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <CalendarDays className="h-4 w-4" />
-                  Edit Schedule
                 </button>
               )}
             </div>
@@ -699,26 +938,48 @@ const MySubscriptions = () => {
                     {activeCleaningSubs.map((sub) => (
                       <div
                         key={sub.id}
-                        className="flex items-center justify-between gap-4 rounded-2xl border border-border bg-card px-4 py-3"
+                        className="rounded-2xl border border-border bg-card px-4 py-3"
                       >
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-                            <SparklesIcon className="h-5 w-5 text-primary" />
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+                              <SparklesIcon className="h-5 w-5 text-primary" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-bold text-foreground">
+                                {(sub as any).cleaning_packages?.name}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {(sub as any).recurring_day_of_week != null
+                                  ? "Weekly schedule active"
+                                  : `${sub.cleanings_remaining ?? 0} cleanings remaining`}
+                              </p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-sm font-bold text-foreground">
-                              {(sub as any).cleaning_packages?.name}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {(sub as any).recurring_day_of_week != null
-                                ? "Weekly schedule active"
-                                : `${sub.cleanings_remaining ?? 0} cleanings remaining`}
-                            </p>
-                          </div>
+                          {(sub as any).payment_method && (
+                            <PaymentMethodBadge method={(sub as any).payment_method} />
+                          )}
                         </div>
-                        {(sub as any).payment_method && (
-                          <PaymentMethodBadge method={(sub as any).payment_method} />
-                        )}
+                        <div className={`mt-3 grid gap-2 ${sub.package_id ? "grid-cols-2" : "grid-cols-1"}`}>
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/cleaning/book?subscriptionId=${sub.id}`)}
+                            className="flex items-center justify-center gap-2 rounded-xl bg-foreground py-2.5 text-sm font-bold text-background transition-colors hover:bg-foreground/90"
+                          >
+                            <CalendarDays className="h-4 w-4" />
+                            Edit Schedule
+                          </button>
+                          {sub.package_id && (
+                            <button
+                              type="button"
+                              onClick={() => navigate(`/cleaning/checkout/${sub.package_id}?renew=${sub.id}`)}
+                              className="flex items-center justify-center gap-2 rounded-xl border border-border bg-card py-2.5 text-sm font-bold text-foreground transition-colors hover:bg-muted"
+                            >
+                              <RefreshCw className="h-4 w-4" />
+                              Renew
+                            </button>
+                          )}
+                        </div>
                       </div>
                     ))}
                     {linkedClientPlans.map((plan: any) => {
@@ -848,6 +1109,8 @@ const MySubscriptions = () => {
                           key={booking.id}
                           booking={booking}
                           upcoming
+                          onView={() => setViewBooking(booking)}
+                          onReschedule={booking.client_id ? undefined : () => openReschedule(booking)}
                           onCancel={() => cancelCleaningMutation.mutate(booking.id)}
                           cancelling={cancelCleaningMutation.isPending}
                         />
@@ -868,6 +1131,7 @@ const MySubscriptions = () => {
                           key={booking.id}
                           booking={booking}
                           upcoming={false}
+                          onView={() => setViewBooking(booking)}
                         />
                       ))}
                       {pastCleaningBookings.length > 5 && (
@@ -882,7 +1146,209 @@ const MySubscriptions = () => {
             )}
           </div>
         )}
+
+        {/* ─── MASSAGE tab content ─────────────────────────────── */}
+        {activeTab === "massage" && (
+          <div className="space-y-4">
+            <button
+              type="button"
+              onClick={() => navigate("/massage")}
+              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-card py-3 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
+            >
+              <HeartPulse className="h-4 w-4" /> Browse Massage
+            </button>
+
+            {massageLoading ? (
+              <Skeleton rows={2} />
+            ) : (
+              <>
+                <section className="space-y-2">
+                  <p className="type-overline text-muted-foreground">Subscriptions · {massageSubs.length}</p>
+                  {massageSubs.length === 0 ? (
+                    <div className="rounded-2xl border border-border bg-card px-4 py-5 text-center text-sm text-muted-foreground">No massage subscriptions yet</div>
+                  ) : massageSubs.map((s: any) => (
+                    <div key={s.id} className="rounded-2xl border border-border bg-card px-4 py-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-500/10"><HeartPulse className="h-5 w-5 text-rose-400" /></div>
+                          <div>
+                            <p className="text-sm font-bold text-foreground">{s.massage_plans?.name ?? "Massage plan"}</p>
+                            <p className="text-xs text-muted-foreground">{s.massage_providers?.name ?? ""}</p>
+                          </div>
+                        </div>
+                        <Badge variant={cleaningStatusColor(s.status) as any} className="shrink-0 text-xs capitalize">{s.status === "pending" ? "pending" : s.status}</Badge>
+                      </div>
+                    </div>
+                  ))}
+                </section>
+
+                <section className="space-y-2">
+                  <p className="type-overline text-muted-foreground">Sessions · {massageBookings.length}</p>
+                  {massageBookings.length === 0 ? (
+                    <div className="rounded-2xl border border-border bg-card px-4 py-5 text-center text-sm text-muted-foreground">No booked sessions</div>
+                  ) : massageBookings.map((b: any) => {
+                    const sessionDate = b.massage_slots?.date ? new Date(b.massage_slots.date + "T23:59:59") : null;
+                    const canRate = b.status === "completed" || (sessionDate && isPast(sessionDate));
+                    return (
+                    <div key={b.id} className="rounded-2xl border border-border bg-card px-4 py-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-500/10"><CalendarDays className="h-4 w-4 text-rose-400" /></div>
+                          <div>
+                            <p className="text-sm font-bold text-foreground">
+                              {b.massage_slots?.date ? format(new Date(b.massage_slots.date + "T00:00:00"), "EEE, MMM d") : "—"}
+                              {b.massage_slots?.start_time ? ` · ${fmtTime(b.massage_slots.start_time)}–${fmtTime(b.massage_slots.end_time)}` : ""}
+                            </p>
+                            <p className="text-xs text-muted-foreground">{b.massage_providers?.name ?? ""}</p>
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <Badge variant={cleaningStatusColor(canRate ? "completed" : b.status) as any} className="text-xs capitalize">{canRate ? "completed" : b.status}</Badge>
+                          {canRate && (
+                            <Button size="sm" variant="outline" className="gap-1.5 rounded-full" onClick={() => setMassageRate(massageRate === b.id ? null : b.id)}>
+                              <Star className="h-3.5 w-3.5" /> Rate & tip
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                      {canRate && massageRate === b.id && (
+                        <MassageRateAndTip bookingId={b.id} providerId={b.provider_id} customerName={userData?.name ?? userData?.display_name} />
+                      )}
+                    </div>
+                    );
+                  })}
+                </section>
+              </>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* ── View cleaning session ── */}
+      <Dialog open={!!viewBooking} onOpenChange={(open) => !open && setViewBooking(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarDays className="h-5 w-5 text-primary" />
+              Cleaning session
+            </DialogTitle>
+          </DialogHeader>
+          {viewBooking && (
+            <div className="space-y-3 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Date</span>
+                <span className="font-semibold text-foreground">
+                  {viewBooking.cleaning_available_slots?.date
+                    ? format(new Date(viewBooking.cleaning_available_slots.date + "T00:00:00"), "EEEE, MMM d, yyyy")
+                    : "—"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Time</span>
+                <span className="font-semibold text-foreground">
+                  {viewBooking.cleaning_available_slots?.start_time
+                    ? `${fmtTime(viewBooking.cleaning_available_slots.start_time)} – ${fmtTime(viewBooking.cleaning_available_slots.end_time)}`
+                    : "—"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Status</span>
+                <Badge variant={cleaningStatusColor(viewBooking.status) as any} className="text-xs capitalize">
+                  {viewBooking.status}
+                </Badge>
+              </div>
+              {viewBooking.notes && (
+                <div className="rounded-xl bg-muted/40 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Notes</p>
+                  <p className="mt-1 whitespace-pre-wrap text-foreground">{viewBooking.notes}</p>
+                </div>
+              )}
+              {viewBooking.status === "booked" && !isPast(new Date(viewBooking.cleaning_available_slots?.date + "T23:59:59")) && (
+                <Button
+                  className="w-full"
+                  onClick={() => { const b = viewBooking; setViewBooking(null); openReschedule(b); }}
+                >
+                  <CalendarClock className="h-4 w-4" />
+                  Reschedule this cleaning
+                </Button>
+              )}
+              {viewBooking.status === "completed" && (
+                <CleaningRateAndTip bookingId={viewBooking.id} customerName={userData?.name ?? userData?.display_name} />
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Reschedule cleaning session ── */}
+      <Dialog open={!!rescheduleBooking} onOpenChange={(open) => { if (!open) { setRescheduleBooking(null); setRescheduleSlotId(""); } }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarClock className="h-5 w-5 text-primary" />
+              Reschedule cleaning
+            </DialogTitle>
+            <DialogDescription>
+              Pick a new date and an available time slot. Your cleaning credit and calendar update automatically.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground">Date</label>
+              <input
+                type="date"
+                value={rescheduleDate}
+                min={format(new Date(), "yyyy-MM-dd")}
+                onChange={(e) => { setRescheduleDate(e.target.value); setRescheduleSlotId(""); }}
+                className="mt-1 w-full rounded-xl border border-border bg-card px-3 py-2.5 text-sm text-foreground"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground">Available time slots</label>
+              {rescheduleSlotsLoading ? (
+                <div className="mt-2"><Spinner size="sm" /></div>
+              ) : rescheduleSlots.length === 0 ? (
+                <p className="mt-2 rounded-xl border border-border bg-card px-3 py-4 text-center text-sm text-muted-foreground">
+                  {rescheduleDate ? "No open slots on this date." : "Choose a date to see slots."}
+                </p>
+              ) : (
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  {rescheduleSlots.map((slot: any) => {
+                    const selected = rescheduleSlotId === slot.id;
+                    const current = slot.id === (rescheduleBooking?.slot_id);
+                    return (
+                      <button
+                        key={slot.id}
+                        type="button"
+                        disabled={current}
+                        onClick={() => setRescheduleSlotId(slot.id)}
+                        className={cn(
+                          "rounded-xl border px-3 py-2.5 text-sm font-semibold transition-colors disabled:opacity-40",
+                          selected
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "border-border bg-card text-foreground hover:bg-muted",
+                        )}
+                      >
+                        {fmtTime(slot.start_time)}
+                        {current && <span className="block text-[10px] font-normal text-muted-foreground">current</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            <Button
+              className="w-full"
+              disabled={!rescheduleSlotId || rescheduleMutation.isPending}
+              onClick={() => rescheduleMutation.mutate()}
+            >
+              {rescheduleMutation.isPending && <Spinner size="sm" className="mr-2" />}
+              Confirm reschedule
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* ── Lightning payment dialog ── */}
       <Dialog open={!!paymentDialog} onOpenChange={(open) => !open && setPaymentDialog(null)}>
         <DialogContent className="sm:max-w-sm">

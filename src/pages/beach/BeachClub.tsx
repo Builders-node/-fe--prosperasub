@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Waves, Check, ArrowRight } from "lucide-react";
+import { Waves, Check, ArrowRight, LandPlot } from "lucide-react";
 import { HomeHeader } from "@/components/HomeHeader";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
 import { BottomNav } from "@/components/BottomNav";
@@ -8,6 +8,9 @@ import { Button } from "@/components/ui/button";
 import { YdHero, YdIllustration, YdEmptyState } from "@/components/yd/YdPrimitives";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { formatUSD } from "@/lib/pricing";
+import { useAuth } from "@/contexts/AuthContext";
+import { useUserUuid } from "@/hooks/useUserUuid";
+import { todayHN } from "@/lib/timezone";
 
 interface BeachPlan {
   id: string;
@@ -20,6 +23,26 @@ interface BeachPlan {
 
 const BeachClub = () => {
   const navigate = useNavigate();
+  const { isAuthenticated, userData } = useAuth();
+  const userUuid = useUserUuid();
+
+  // Active membership → unlock court booking.
+  const { data: hasMembership } = useQuery({
+    queryKey: ["my-beach-membership", userUuid, userData?.id],
+    queryFn: async () => {
+      const ids = [userUuid, userData?.id].filter(Boolean) as string[];
+      if (!ids.length) return false;
+      const { data, error } = await supabaseDb
+        .from("beach_club_subscriptions")
+        .select("id, status, end_date")
+        .in("user_id", ids)
+        .eq("status", "active");
+      if (error) return false;
+      const today = todayHN();
+      return (data ?? []).some((s: any) => !s.end_date || s.end_date >= today);
+    },
+    enabled: isAuthenticated && (!!userUuid || !!userData?.id),
+  });
 
   const { data: plans = [], isLoading } = useQuery({
     queryKey: ["beach-club-plans-public"],
@@ -41,13 +64,30 @@ const BeachClub = () => {
 
       <main className="market-content py-space-4 md:py-space-8">
         <YdHero
-          accent="sky"
+          accent="amber"
           badge="Beach Club"
           badgeIcon={Waves}
           title="Membership at the Beach Club"
           subtitle="Monthly access to the gym, pools, water park and sports courts — per person, for you or your group."
-          illustration={<YdIllustration icon={Waves} accent="sky" size="lg" />}
+          illustration={<YdIllustration icon={Waves} accent="amber" size="lg" />}
         />
+
+        {hasMembership && (
+          <button
+            type="button"
+            onClick={() => navigate("/beach-club/courts")}
+            className="mb-6 flex w-full items-center gap-4 rounded-3xl border border-primary/40 bg-primary/10 p-5 text-left transition-transform active:scale-[0.99]"
+          >
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary text-black shadow-sm">
+              <LandPlot className="h-6 w-6" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[15px] font-bold text-foreground">Book a court</p>
+              <p className="mt-0.5 text-sm text-muted-foreground">You're a member — reserve a tennis or pickleball court any time.</p>
+            </div>
+            <ArrowRight className="h-5 w-5 shrink-0 text-primary" />
+          </button>
+        )}
 
         <h2 className="mb-4 text-xl font-black tracking-tight text-foreground">Plans</h2>
 
@@ -63,11 +103,11 @@ const BeachClub = () => {
               <article
                 key={plan.id}
                 className={`flex flex-col rounded-3xl border p-6 transition-colors ${
-                  plan.featured ? "border-sky-500/50" : "border-border bg-card"
+                  plan.featured ? "border-primary/50" : "border-border bg-card"
                 }`}
               >
                 {plan.featured && (
-                  <span className="mb-3 self-start rounded-full bg-sky-500 px-2.5 py-0.5 text-xs font-bold text-white">
+                  <span className="mb-3 self-start rounded-full bg-primary px-2.5 py-0.5 text-xs font-bold text-black">
                     Most Popular
                   </span>
                 )}
@@ -80,8 +120,8 @@ const BeachClub = () => {
                 <ul className="mt-4 space-y-2">
                   {(plan.amenities ?? []).map((a, i) => (
                     <li key={i} className="flex items-center gap-2.5 text-sm text-foreground">
-                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-sky-500/10">
-                        <Check className="h-3.5 w-3.5 text-sky-500" />
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                        <Check className="h-3.5 w-3.5 text-primary" />
                       </span>
                       {a}
                     </li>
@@ -96,7 +136,7 @@ const BeachClub = () => {
                 </div>
 
                 <Button
-                  className="mt-5 w-full rounded-full bg-sky-500 text-white hover:bg-sky-600"
+                  className="mt-5 w-full rounded-full bg-primary text-black hover:bg-[hsl(var(--brand-accent-hover))]"
                   onClick={() => navigate(`/beach-club/checkout/${plan.id}`)}
                 >
                   Subscribe

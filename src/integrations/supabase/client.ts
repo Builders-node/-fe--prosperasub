@@ -172,10 +172,26 @@ async function getValidStoredSession() {
   return refreshStoredSession();
 }
 
+// Some admin endpoints do a lot of server-side work (create dozens of bookings,
+// push events to Google Calendar, etc.) and comfortably exceed 10s. Give those
+// paths a longer budget so the client doesn't abort while the server is still
+// working.
+const LONG_RUNNING_PATTERNS = [
+  /\/subscriptions\/with-reservations$/,
+  /\/cleaning\/bookings\/sync-calendar$/,
+  /\/cleaning\/calendar\/reconcile$/,
+  /\/cleaning\/bookings\/.+\/sync-calendar$/,
+  /\/cleaning\/bookings\/.+\/sync-direct$/,
+  /\/payment-reminders\/remind-unpaid$/,
+];
+function timeoutForPath(path: string): number {
+  return LONG_RUNNING_PATTERNS.some((re) => re.test(path)) ? 60_000 : 20_000;
+}
+
 async function api(path: string, init?: RequestInit, retryOnUnauthorized = true) {
   const session = isAuthEndpoint(path) ? null : await getValidStoredSession();
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), 10000);
+  const timeout = window.setTimeout(() => controller.abort(), timeoutForPath(path));
 
   let response: Response;
   try {
@@ -428,7 +444,7 @@ async function ensureSlotsSeeded() {
   }
 }
 
-async function ensureCleaningSlot(
+export async function ensureCleaningSlot(
   date: string,
   startTime: string,
   endTime: string,
@@ -656,6 +672,7 @@ class OwnedQueryBuilder {
           payment_method: input.payment_method || null,
           payment_reference: input.payment_reference || null,
           apartment_note: input.apartment_note || null,
+          cleaner_hint: input.cleaner_hint || null,
           is_active: input.is_active ?? false,
         };
         const { data, error } = await db
@@ -1188,8 +1205,19 @@ export const supabase = {
 
   // ── CALENDAR AUTO-SYNC ────────────────────────────────────
   _syncBookingToCalendar(bookingId: string) {
-    // Fire-and-forget calendar sync via backend
-    api(`/admin/cleaning/bookings/${bookingId}/sync-calendar`, { method: "POST" }).catch(() => {});
+    // Fire-and-forget calendar sync via backend. Admins use the admin endpoint;
+    // regular clients (who can't call it) fall back to the account endpoint that
+    // syncs only their own booking — so the Google Calendar updates automatically
+    // for everyone, with no manual reconcile.
+    api(`/admin/cleaning/bookings/${bookingId}/sync-calendar`, { method: "POST" })
+      .then((res: any) => {
+        if (res?.error) {
+          return api(`/account/cleaning/bookings/${bookingId}/sync`, { method: "POST" });
+        }
+      })
+      .catch(() => {
+        api(`/account/cleaning/bookings/${bookingId}/sync`, { method: "POST" }).catch(() => {});
+      });
   },
 
   // ── RPC (business logic) ──────────────────────────────────
@@ -1695,7 +1723,9 @@ export const supabase = {
         const now = new Date().toISOString();
         await db
           .from("cleaning_bookings")
-          .update({ status: "cancelled", updated_at: now })
+          // Flag for calendar sync so the auto-sync cron cancels the Google event
+          // even when the canceller (a client) can't call the admin sync endpoint.
+          .update({ status: "cancelled", google_calendar_sync_status: "pending", updated_at: now })
           .eq("id", bookingId);
 
         if (booking.slot_id) {
@@ -1802,8 +1832,41 @@ export const supabase = {
           body: JSON.stringify(options?.body || {}),
         });
       }
+      if (name === "create-onchain-charge") {
+        return api("/payments/onchain/address", {
+          method: "POST",
+          body: JSON.stringify(options?.body || {}),
+        });
+      }
+      if (name === "verify-onchain-payment") {
+        return api("/payments/onchain/status", {
+          method: "POST",
+          body: JSON.stringify(options?.body || {}),
+        });
+      }
       if (name === "send-payment-confirmation-email") {
         return api("/mail/payment-confirmation", {
+          method: "POST",
+          body: JSON.stringify(options?.body || {}),
+        });
+      }
+      if (name === "create-simplefi-invoice") {
+        const b = options?.body || {};
+        const ref = b.reference || {};
+        return api("/payments/simplefi/invoice", {
+          method: "POST",
+          body: JSON.stringify({
+            amount_cents: b.amount_cents,
+            description: b.description,
+            context: ref.context,
+            service_name: ref.service_name,
+            client_name: ref.client_name,
+            client_phone: ref.client_phone,
+          }),
+        });
+      }
+      if (name === "verify-simplefi-payment") {
+        return api("/payments/simplefi/status", {
           method: "POST",
           body: JSON.stringify(options?.body || {}),
         });

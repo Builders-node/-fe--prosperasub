@@ -44,6 +44,47 @@ export function nowHN(): Date {
   );
 }
 
+// ── Timezone-safe date-only arithmetic ──────────────────────────────────────
+// These operate on "YYYY-MM-DD" strings using a fixed UTC anchor (noon) so the
+// result never depends on the admin's browser timezone. Use these instead of
+// `new Date(`${s}T00:00:00`)` + `.toISOString()`, which shift by a day for
+// admins in positive-offset timezones (e.g. Europe).
+
+function parseYmdUTC(value: string): Date {
+  const [y, m, d] = value.slice(0, 10).split("-").map(Number);
+  return new Date(Date.UTC(y, (m || 1) - 1, d || 1, 12, 0, 0));
+}
+
+/** Add N days to a YYYY-MM-DD string, returning a YYYY-MM-DD string. */
+export function addDaysISO(dateStr: string, days: number): string {
+  const d = parseYmdUTC(dateStr);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Add N weeks to a YYYY-MM-DD string. */
+export function addWeeksISO(dateStr: string, weeks: number): string {
+  return addDaysISO(dateStr, weeks * 7);
+}
+
+/** Add N calendar months to a YYYY-MM-DD string. */
+export function addMonthsISO(dateStr: string, months: number): string {
+  const d = parseYmdUTC(dateStr);
+  d.setUTCMonth(d.getUTCMonth() + months);
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Whole calendar days from today (Honduras) until the given date.
+ * Positive = in the future, 0 = today, negative = past.
+ */
+export function daysUntilHN(dateStr: string | null | undefined): number | null {
+  if (!dateStr) return null;
+  const today = parseYmdUTC(todayHN()).getTime();
+  const target = parseYmdUTC(dateStr).getTime();
+  return Math.round((target - today) / 86_400_000);
+}
+
 /**
  * Format a timestamp (string or Date) for display in Honduras timezone.
  * Returns something like "May 28, 2026, 3:45 PM"

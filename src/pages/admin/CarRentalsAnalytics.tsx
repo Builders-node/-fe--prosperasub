@@ -6,7 +6,9 @@ import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { formatUSD } from "@/lib/pricing";
 import type { RentalBooking, RentalVehicle } from "@/types/carRental";
 
-const CarRentalsAnalytics = () => {
+const CarRentalsAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
+  const Wrap = ({ children }: { children?: any }) =>
+    embedded ? <>{children}</> : <SuperAdminLayout title="Car Rental — Analytics">{children}</SuperAdminLayout>;
   const { data: bookings = [], isLoading: loadingBookings } = useQuery({
     queryKey: ["admin-rental-analytics-bookings"],
     queryFn: async () => {
@@ -84,7 +86,7 @@ const CarRentalsAnalytics = () => {
   const maxRev = Math.max(...last6.map((m) => m.rev), 1);
 
   return (
-    <SuperAdminLayout title="Car Rental — Analytics">
+    <Wrap>
       <div className="space-y-space-6">
         {/* KPI cards */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -160,7 +162,7 @@ const CarRentalsAnalytics = () => {
           </dl>
         </div>
       </div>
-    </SuperAdminLayout>
+    </Wrap>
   );
 };
 

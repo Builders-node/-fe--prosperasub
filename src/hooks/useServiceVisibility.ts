@@ -1,18 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabaseDb } from "@/integrations/supabase/client";
+import { ALL_SERVICES, SERVICE_KEYS, VISIBILITY_KEY_TO_SERVICE, type ServiceKey } from "@/lib/services/registry";
 
-export type ServiceCategory = "cleaning" | "cars" | "food" | "beach";
+/** Kept as a re-export so existing imports don't break. */
+export type ServiceCategory = ServiceKey;
 
-const KEY_BY_CATEGORY: Record<ServiceCategory, string> = {
-  cleaning: "category_cleaning_visible",
-  cars: "category_cars_visible",
-  food: "category_food_visible",
-  beach: "category_beach_visible",
-};
+export type ServiceVisibility = Record<ServiceKey, boolean>;
 
-export type ServiceVisibility = Record<ServiceCategory, boolean>;
-
-const ALL_VISIBLE: ServiceVisibility = { cleaning: true, cars: true, food: true, beach: true };
+const ALL_VISIBLE: ServiceVisibility = Object.fromEntries(
+  SERVICE_KEYS.map((k) => [k, true]),
+) as ServiceVisibility;
 
 /**
  * Reads which service categories are enabled for regular users, from the public
@@ -23,23 +20,20 @@ export function useServiceVisibility() {
   return useQuery<ServiceVisibility>({
     queryKey: ["service-visibility"],
     queryFn: async () => {
+      const keys = ALL_SERVICES.map((s) => s.visibilityKey);
       const { data, error } = await supabaseDb
         .from("global_settings")
         .select("key,value")
-        .in("key", Object.values(KEY_BY_CATEGORY));
+        .in("key", keys);
       if (error) return ALL_VISIBLE;
 
       const map = new Map((data ?? []).map((r: any) => [r.key, r.value]));
-      const visible = (key: string) => {
-        const v = map.get(key);
-        return v === undefined || v === null ? true : v === true || v === "true";
-      };
-      return {
-        cleaning: visible(KEY_BY_CATEGORY.cleaning),
-        cars: visible(KEY_BY_CATEGORY.cars),
-        food: visible(KEY_BY_CATEGORY.food),
-        beach: visible(KEY_BY_CATEGORY.beach),
-      };
+      const result = { ...ALL_VISIBLE };
+      for (const [visKey, srvKey] of Object.entries(VISIBILITY_KEY_TO_SERVICE)) {
+        const v = map.get(visKey);
+        result[srvKey] = v === undefined || v === null ? true : v === true || v === "true";
+      }
+      return result;
     },
     staleTime: 60_000,
     // No placeholder: callers wait for the real value so hidden categories never

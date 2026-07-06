@@ -23,6 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { usePagination, TablePagination } from "@/components/ui/table-pagination";
 
 const actionColor = (action: string) => {
   if (action === "create") return "default";
@@ -87,6 +88,8 @@ const AuditLogs = () => {
     }
     return result;
   }, [logs, entityFilter, actionFilter, search]);
+
+  const logsPager = usePagination(filtered, 25);
 
   const uniqueActions = useMemo(
     () => [...new Set(logs.map((l: any) => l.action))].sort(),
@@ -169,7 +172,7 @@ const AuditLogs = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.map((log: any) => (
+                  {logsPager.paged.map((log: any) => (
                     <TableRow key={log.id}>
                       <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
                         {log.created_at
@@ -207,6 +210,7 @@ const AuditLogs = () => {
                   ))}
                 </TableBody>
               </Table>
+              <TablePagination {...logsPager} onPage={logsPager.setPage} />
             </div>
           )}
         </CardContent>

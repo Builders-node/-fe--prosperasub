@@ -1,9 +1,12 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format, parseISO } from "date-fns";
 import { supabaseDb } from "@/integrations/supabase/client";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
+import { AdminListShell } from "@/components/admin/AdminListShell";
 import { Badge } from "@/components/ui/badge";
 import { formatUSD } from "@/lib/pricing";
+import { usePagination, TablePagination } from "@/components/ui/table-pagination";
 import type { RentalBooking } from "@/types/carRental";
 
 interface CustomerSummary {
@@ -68,18 +71,29 @@ const CarRentalsCustomers = () => {
     enabled: customers.length > 0,
   });
 
+  const [search, setSearch] = useState("");
+  const q = search.trim().toLowerCase();
+  const filteredCustomers = q
+    ? customers.filter((c) => {
+        const u = userMap[c.userId];
+        return [u?.name, u?.email, c.userId].some((v) => (v ?? "").toLowerCase().includes(q));
+      })
+    : customers;
+  const customersPager = usePagination(filteredCustomers, 20);
+
   return (
     <SuperAdminLayout title="Car Rental — Customers">
-      <div className="space-y-space-5">
-        {isLoading ? (
-          <div className="space-y-3">
-            {[1, 2, 3].map((i) => <div key={i} className="h-14 animate-pulse rounded-xl bg-muted" />)}
-          </div>
-        ) : customers.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-border p-10 text-center text-muted-foreground">
-            No customers yet.
-          </div>
-        ) : (
+      <AdminListShell
+        search={search} onSearch={setSearch}
+        searchPlaceholder="Search customers…"
+        isLoading={isLoading}
+        isEmpty={customers.length === 0}
+        isNoResults={customers.length > 0 && filteredCustomers.length === 0}
+        count={filteredCustomers.length}
+        emptyTitle="No customers yet"
+        emptySubtitle="Customers appear here after their first booking."
+        onClearFilters={() => setSearch("")}
+      >
           <div className="overflow-x-auto rounded-2xl border border-border">
             <table className="w-full text-sm">
               <thead className="border-b border-border bg-muted/40">
@@ -92,7 +106,7 @@ const CarRentalsCustomers = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {customers.map((c) => {
+                {customersPager.paged.map((c) => {
                   const user = userMap[c.userId];
                   return (
                     <tr key={c.userId} className="hover:bg-muted/20 transition-colors">
@@ -118,9 +132,9 @@ const CarRentalsCustomers = () => {
                 })}
               </tbody>
             </table>
+            <TablePagination {...customersPager} onPage={customersPager.setPage} />
           </div>
-        )}
-      </div>
+      </AdminListShell>
     </SuperAdminLayout>
   );
 };

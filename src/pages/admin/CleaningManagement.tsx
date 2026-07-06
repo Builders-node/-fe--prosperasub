@@ -13,12 +13,13 @@ import {
   RotateCcw,
   SparklesIcon,
   Trash2,
+  Wrench,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { EmptyState } from "@/components/EmptyState";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, adminApi } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -34,8 +35,10 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { usePagination, TablePagination } from "@/components/ui/table-pagination";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -223,6 +226,21 @@ const CleaningManagement = () => {
     onError: (error: Error) => toast.error(error.message || "Could not complete booking"),
   });
 
+  // Quick inline status change for a booking. Writes the status directly and
+  // flags the calendar for re-sync so the Google event updates automatically.
+  const setStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      const { error } = await supabase
+        .from("cleaning_bookings")
+        .update({ status, google_calendar_sync_status: "pending", updated_at: new Date().toISOString() })
+        .eq("id", id);
+      if (error) throw error;
+      supabase._syncBookingToCalendar(id);
+    },
+    onSuccess: () => { toast.success("Status updated"); invalidateCleaning(); },
+    onError: (error: Error) => toast.error(error.message || "Could not update status"),
+  });
+
   const deleteBookingMutation = useMutation({
     mutationFn: async (bookingId: string) => {
       const { error } = await supabase.admin.deleteCleaningBooking(bookingId);
@@ -264,8 +282,12 @@ const CleaningManagement = () => {
       if (!newSlot.is_active) throw new Error("That slot is not available");
       if ((newSlot.current_bookings ?? 0) >= (newSlot.max_bookings ?? 0)) throw new Error("That slot is full");
 
-      // Move the booking to the new slot.
-      const { error: upErr } = await supabase.admin.updateCleaningBooking(booking.id, { slot_id: newSlotId });
+      // Move the booking to the new slot (direct table write — the strict admin
+      // PATCH DTO doesn't accept slot_id / calendar columns).
+      const { error: upErr } = await supabase
+        .from("cleaning_bookings")
+        .update({ slot_id: newSlotId, google_calendar_sync_status: "pending" })
+        .eq("id", booking.id);
       if (upErr) throw upErr;
 
       // Free up the old slot's capacity, then take one on the new slot.
@@ -294,11 +316,14 @@ const CleaningManagement = () => {
           googleCalendarEventId: booking.google_calendar_event_id || undefined,
         });
         if (data?.ok && data?.googleCalendarEventId) {
-          await supabase.admin.updateCleaningBooking(booking.id, {
-            google_calendar_event_id: data.googleCalendarEventId,
-            google_calendar_event_link: data.googleCalendarEventLink ?? null,
-            google_calendar_sync_status: "synced",
-          });
+          await supabase
+            .from("cleaning_bookings")
+            .update({
+              google_calendar_event_id: data.googleCalendarEventId,
+              google_calendar_event_link: data.googleCalendarEventLink ?? null,
+              google_calendar_sync_status: "synced",
+            })
+            .eq("id", booking.id);
         }
       } catch { /* calendar sync is best-effort */ }
     },
@@ -391,11 +416,14 @@ const CleaningManagement = () => {
         }
 
         if (data?.ok && data?.googleCalendarEventId) {
-          await supabase.admin.updateCleaningBooking(booking.id, {
-            google_calendar_event_id: data.googleCalendarEventId,
-            google_calendar_event_link: data.googleCalendarEventLink ?? null,
-            google_calendar_sync_status: "synced",
-          });
+          await supabase
+            .from("cleaning_bookings")
+            .update({
+              google_calendar_event_id: data.googleCalendarEventId,
+              google_calendar_event_link: data.googleCalendarEventLink ?? null,
+              google_calendar_sync_status: "synced",
+            })
+            .eq("id", booking.id);
         }
 
         results.push({ ok: data?.ok ?? false, bookingId: booking.id, ...(data?.ok ? {} : { error: data?.error }) });
@@ -415,6 +443,28 @@ const CleaningManagement = () => {
       invalidateCleaning();
     },
     onError: (error: Error) => toast.error(error.message || "Google Calendar bulk sync failed"),
+  });
+
+  // Reconcile: remove orphaned/stale Google events + push any unsynced bookings.
+  const reconcileCalendarMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await adminApi("/admin/cleaning/calendar/reconcile", { method: "POST" });
+      if (error) throw error;
+      return data as {
+        ok: boolean; reason?: string;
+        orphansDeleted?: number; duplicatesDeleted?: number; skipped?: number;
+      };
+    },
+    onSuccess: (r) => {
+      if (r?.reason === "not_configured") {
+        toast.warning("Google Calendar is not configured.");
+      } else {
+        const removed = (r.orphansDeleted ?? 0) + (r.duplicatesDeleted ?? 0);
+        toast.success(`Calendar reconciled — ${removed} stale event${removed !== 1 ? "s" : ""} removed.`);
+      }
+      invalidateCleaning();
+    },
+    onError: (error: Error) => toast.error(error.message || "Calendar reconcile failed"),
   });
 
   const selectedDateKey = selectedDate ? format(selectedDate, "yyyy-MM-dd") : "";
@@ -467,6 +517,9 @@ const CleaningManagement = () => {
     () => (hideCompleted ? sortedBookings.filter((b: any) => b.status !== "completed") : sortedBookings),
     [sortedBookings, hideCompleted],
   );
+
+  const bookingsPager = usePagination(visibleBookings, 25);
+  const pagedBookings = bookingsPager.paged;
 
   const stats = useMemo(
     () => ({
@@ -550,6 +603,17 @@ const CleaningManagement = () => {
                 )}
                 <Button
                   type="button"
+                  variant="ghost"
+                  loading={reconcileCalendarMutation.isPending}
+                  disabled={reconcileCalendarMutation.isPending}
+                  onClick={() => reconcileCalendarMutation.mutate()}
+                  title="Remove orphaned/stale Google Calendar events and sync any pending bookings"
+                >
+                  <Wrench className="h-4 w-4" aria-hidden="true" />
+                  Reconcile
+                </Button>
+                <Button
+                  type="button"
                   variant="secondary"
                   loading={syncAllCalendarMutation.isPending}
                   disabled={bookings.length === 0 || syncAllCalendarMutation.isPending}
@@ -568,7 +632,7 @@ const CleaningManagement = () => {
               ) : (
                 <>
                   <div className="space-y-space-3 md:hidden">
-                    {visibleBookings.map((booking: any) => (
+                    {pagedBookings.map((booking: any) => (
                       <BookingCard
                         key={booking.id}
                         booking={booking}
@@ -594,7 +658,7 @@ const CleaningManagement = () => {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {visibleBookings.map((booking: any) => (
+                        {pagedBookings.map((booking: any) => (
                           <TableRow key={booking.id}>
                             <TableCell className="font-medium">{getBookingClientName(booking)}</TableCell>
                             <TableCell>
@@ -608,7 +672,19 @@ const CleaningManagement = () => {
                             <TableCell>
                               {to12h(booking.cleaning_available_slots?.start_time)} - {to12h(booking.cleaning_available_slots?.end_time)}
                             </TableCell>
-                            <TableCell><Badge variant={statusColor(booking.status) as any}>{booking.status || "unknown"}</Badge></TableCell>
+                            <TableCell>
+                              <Select
+                                value={["booked", "completed", "cancelled"].includes(booking.status) ? booking.status : "booked"}
+                                onValueChange={(v) => { if (v !== booking.status) setStatusMutation.mutate({ id: booking.id, status: v }); }}
+                              >
+                                <SelectTrigger className="h-8 w-[130px]"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="booked">Booked</SelectItem>
+                                  <SelectItem value="completed">Completed</SelectItem>
+                                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </TableCell>
                             <TableCell>
                               <div className="flex flex-col gap-space-1">
                                 <Badge className="w-fit" variant={statusColor(booking.google_calendar_sync_status) as any}>
@@ -637,7 +713,7 @@ const CleaningManagement = () => {
                                     Complete
                                   </Button>
                                 ) : null}
-                                {booking.status === "booked" ? (
+                                {booking.status !== "cancelled" ? (
                                   <Button type="button" size="sm" variant="secondary" onClick={() => openReschedule(booking)}>
                                     <CalendarClock className="h-3.5 w-3.5" aria-hidden="true" />
                                     Reschedule
@@ -667,6 +743,7 @@ const CleaningManagement = () => {
                       </TableBody>
                     </Table>
                   </div>
+                  <TablePagination {...bookingsPager} onPage={bookingsPager.setPage} />
                 </>
               )}
             </CardContent>

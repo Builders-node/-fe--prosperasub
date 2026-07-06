@@ -15,7 +15,9 @@ interface BeachSub {
   created_at: string;
 }
 
-export default function BeachClubAnalytics() {
+export default function BeachClubAnalytics({ embedded = false }: { embedded?: boolean }) {
+  const Wrap = ({ children }: { children?: any }) =>
+    embedded ? <>{children}</> : <SuperAdminLayout title="Beach Club — Analytics">{children}</SuperAdminLayout>;
   const { data: subs = [], isLoading } = useQuery({
     queryKey: ["admin-beach-club-analytics"],
     queryFn: async () => {
@@ -29,9 +31,9 @@ export default function BeachClubAnalytics() {
 
   if (isLoading) {
     return (
-      <SuperAdminLayout title="Beach Club — Analytics">
+      <Wrap>
         <PageLoader />
-      </SuperAdminLayout>
+      </Wrap>
     );
   }
 
@@ -62,7 +64,7 @@ export default function BeachClubAnalytics() {
   const planRows = Object.entries(planStats).sort((a, b) => b[1].revenue - a[1].revenue);
 
   return (
-    <SuperAdminLayout title="Beach Club — Analytics" subtitle="Membership performance and revenue">
+    <Wrap>
       <div className="space-y-6">
         {/* KPI cards */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -119,7 +121,7 @@ export default function BeachClubAnalytics() {
           </div>
         )}
       </div>
-    </SuperAdminLayout>
+    </Wrap>
   );
 }
 

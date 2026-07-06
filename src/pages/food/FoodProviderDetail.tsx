@@ -20,6 +20,8 @@ import { FoodReviews } from "@/components/food/FoodReviews";
 import { StarRating } from "@/components/food/StarRating";
 import { Button } from "@/components/ui/button";
 import { formatUSD } from "@/lib/pricing";
+import { useSelectedResidence } from "@/contexts/LocationContext";
+import { useResidences } from "@/hooks/useResidences";
 import type { FoodProvider, FoodMealPlan, FoodProviderImage, FoodReview } from "@/types/food";
 
 const FoodProviderDetail = () => {
@@ -51,10 +53,26 @@ const FoodProviderDetail = () => {
         .eq("status", "active")
         .order("sort_order", { ascending: true });
       if (error) throw error;
-      return (data ?? []) as FoodMealPlan[];
+      const list = (data ?? []) as FoodMealPlan[];
+      // Attach per-plan location availability (empty = everywhere).
+      const planIds = list.map((p) => p.id);
+      const { data: links } = planIds.length
+        ? await supabaseDb.from("food_meal_plan_residences").select("meal_plan_id, residence_id").in("meal_plan_id", planIds)
+        : { data: [] as any[] };
+      const byPlan: Record<string, string[]> = {};
+      (links ?? []).forEach((l: any) => { (byPlan[l.meal_plan_id] ??= []).push(l.residence_id); });
+      return list.map((p) => ({ ...p, residenceIds: byPlan[p.id] ?? [] })) as (FoodMealPlan & { residenceIds: string[] })[];
     },
     enabled: !!id,
   });
+
+  // Filter plans by the globally-selected location.
+  const { residence } = useSelectedResidence();
+  const { data: residences = [] } = useResidences();
+  const selectedResidenceId = residence ? (residences.find((r) => r.name === residence)?.id ?? null) : null;
+  const visiblePlans = plans.filter(
+    (p) => !selectedResidenceId || (p as any).residenceIds.length === 0 || (p as any).residenceIds.includes(selectedResidenceId),
+  );
 
   // Meal photos for each plan — pulled from this provider's weekly menus, keyed by plan id.
   const { data: planImages = {} } = useQuery({
@@ -146,11 +164,11 @@ const FoodProviderDetail = () => {
     );
   }
 
-  const fromPrice = plans.length
-    ? Math.min(...plans.map((p) => p.weekly_price_cents))
+  const fromPrice = visiblePlans.length
+    ? Math.min(...visiblePlans.map((p) => p.weekly_price_cents))
     : provider.weekly_price_cents;
-  const maxMeals = plans.length
-    ? Math.max(...plans.map((p) => p.meals_per_week))
+  const maxMeals = visiblePlans.length
+    ? Math.max(...visiblePlans.map((p) => p.meals_per_week))
     : provider.meals_per_week;
   const ratingCount = reviewStats?.count ?? 0;
   const ratingAvg = reviewStats?.avg ?? 0;
@@ -224,7 +242,7 @@ const FoodProviderDetail = () => {
             }
             sub={ratingCount ? <StarRating value={ratingAvg} size={11} /> : "No reviews"}
           />
-          <Stat label="Plans" value={String(plans.length || 0)} sub="Available" />
+          <Stat label="Plans" value={String(visiblePlans.length || 0)} sub="Available" />
           <Stat label="Per Week" value={String(maxMeals)} sub="Meals" />
           <Stat label="From" value={`$${Math.round(fromPrice / 100)}`} sub="/ week" />
         </section>
@@ -247,10 +265,15 @@ const FoodProviderDetail = () => {
 
         {/* ─── Meal Plans ──────────────────────────────────────────────────── */}
         <section id="meal-plans" className="scroll-mt-24">
-          <h2 className="mb-4 text-xl font-black tracking-tight">
+          <h2 className="mb-4 flex flex-wrap items-center gap-2 text-xl font-black tracking-tight">
             Meal Plans
-            {plans.length > 0 && (
-              <span className="ml-2 text-base font-normal text-muted-foreground">({plans.length})</span>
+            {visiblePlans.length > 0 && (
+              <span className="text-base font-normal text-muted-foreground">({visiblePlans.length})</span>
+            )}
+            {selectedResidenceId && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+                <MapPin className="h-3.5 w-3.5" /> {residence}
+              </span>
             )}
           </h2>
 
@@ -258,17 +281,21 @@ const FoodProviderDetail = () => {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {[1, 2, 3].map((i) => <div key={i} className="h-64 animate-pulse rounded-3xl bg-muted" />)}
             </div>
-          ) : plans.length === 0 ? (
+          ) : visiblePlans.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-3xl bg-card py-14 text-center">
               <CalendarDays className="mb-3 h-10 w-10 text-muted-foreground/40" />
-              <p className="font-semibold text-foreground">No plans available yet</p>
+              <p className="font-semibold text-foreground">
+                {selectedResidenceId && plans.length > 0 ? `No plans in ${residence}` : "No plans available yet"}
+              </p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Check back soon — meal plans are being configured.
+                {selectedResidenceId && plans.length > 0
+                  ? "This restaurant doesn't deliver these plans to your location."
+                  : "Check back soon — meal plans are being configured."}
               </p>
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {plans.map((plan, idx) => (
+              {visiblePlans.map((plan, idx) => (
                 <MealPlanCard key={plan.id} plan={plan} featured={idx === 1} providerId={id!} images={planImages[plan.id] ?? []} />
               ))}
             </div>

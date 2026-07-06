@@ -10,7 +10,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { Loader2, Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 
 import { useAuth } from "@/contexts/AuthContext";
@@ -222,7 +223,7 @@ function AuthForm({
               className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-[14px] text-[15px] font-bold transition hover:opacity-90 active:scale-[0.98] disabled:opacity-60"
               style={{ background: "hsl(var(--yd-cta-bg))", color: "hsl(var(--yd-cta-fg))" }}
             >
-              {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Send reset link"}
+              {isLoading ? <Spinner size="md" /> : "Send reset link"}
             </button>
           </form>
         )}
@@ -354,7 +355,7 @@ function AuthForm({
           style={{ background: "hsl(var(--yd-cta-bg))", color: "hsl(var(--yd-cta-fg))" }}
         >
           {isLoading ? (
-            <Loader2 className="h-5 w-5 animate-spin" />
+            <Spinner size="md" />
           ) : (
             view === "login" ? "Log in" : "Create account"
           )}

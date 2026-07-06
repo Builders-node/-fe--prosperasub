@@ -97,7 +97,7 @@ const PlatformSettings = () => {
   });
 
   // ── Service category visibility (shown/hidden from regular users) ───────────
-  const [catVis, setCatVis] = useState({ cleaning: true, cars: true, food: true, beach: true });
+  const [catVis, setCatVis] = useState({ cleaning: true, cars: true, food: true, beach: true, massage: true });
 
   useEffect(() => {
     if (settings) {
@@ -106,6 +106,7 @@ const PlatformSettings = () => {
         cars: settings.category_cars_visible !== false,
         food: settings.category_food_visible !== false,
         beach: settings.category_beach_visible !== false,
+        massage: settings.category_massage_visible !== false,
       });
     }
   }, [settings]);
@@ -119,6 +120,7 @@ const PlatformSettings = () => {
           category_cars_visible: catVis.cars,
           category_food_visible: catVis.food,
           category_beach_visible: catVis.beach,
+          category_massage_visible: catVis.massage,
         }),
       });
       if (error) throw error;
@@ -230,6 +232,7 @@ const PlatformSettings = () => {
                 { key: "cleaning", label: "Cleaning" },
                 { key: "cars", label: "Car Rental" },
                 { key: "food", label: "Food" },
+                { key: "massage", label: "Massage" },
                 { key: "beach", label: "Beach Club" },
               ] as const).map(({ key, label }) => (
                 <div key={key} className="flex items-center justify-between gap-space-3 rounded-radius-md border border-[hsl(var(--app-divider))] px-space-4 py-space-3">

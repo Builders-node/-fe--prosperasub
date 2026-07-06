@@ -4,6 +4,7 @@ import { Archive, Copy, Edit3, Package, Plus, RotateCcw, SparklesIcon } from "lu
 import { toast } from "sonner";
 
 import { MobileActionSheet } from "@/components/admin/MobileActionSheet";
+import { ServiceLocationsEditor } from "@/components/admin/ServiceLocationsEditor";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { logAuditEvent } from "@/lib/auditLog";
@@ -24,6 +25,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { usePagination, TablePagination } from "@/components/ui/table-pagination";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import {
@@ -287,6 +289,8 @@ const CleaningPlans = () => {
     return plans;
   }, [plans, filter]);
 
+  const plansPager = usePagination(filteredPlans, 20);
+
   const stats = useMemo(() => ({
     total: plans.length,
     public: plans.filter((p) => p.visibility === "public" && p.status === "active").length,
@@ -377,7 +381,7 @@ const CleaningPlans = () => {
           ) : (
             <>
               <div className="divide-y divide-border md:hidden">
-                {filteredPlans.map((plan) => (
+                {plansPager.paged.map((plan) => (
                   <div key={plan.id} className="flex items-center gap-3 px-space-4 py-space-3">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-baseline gap-2">
@@ -421,7 +425,7 @@ const CleaningPlans = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredPlans.map((plan) => (
+                    {plansPager.paged.map((plan) => (
                       <TableRow key={plan.id}>
                         <TableCell className="px-space-3 py-space-3">
                           <div>
@@ -459,6 +463,7 @@ const CleaningPlans = () => {
                   </TableBody>
                 </Table>
               </div>
+              <TablePagination {...plansPager} onPage={plansPager.setPage} />
             </>
           )}
         </CardContent>
@@ -827,6 +832,16 @@ function PlanFormSheet({
             <Label>Sort Order</Label>
             <Input type="number" value={form.sort_order} onChange={(e) => set("sort_order", e.target.value)} min={0} />
           </div>
+
+          {plan?.id && (
+            <div className="border-t border-border pt-4">
+              <ServiceLocationsEditor
+                table="cleaning_package_residences" itemColumn="package_id" itemId={plan.id}
+                title="Available in locations"
+                description="Pick where this plan is offered. Leave empty to offer it everywhere."
+              />
+            </div>
+          )}
 
           <Button className="w-full" size="xl" onClick={handleSave} loading={saving} disabled={!form.name?.trim()}>
             {plan ? "Save Changes" : "Create Plan"}

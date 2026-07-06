@@ -43,6 +43,12 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Table,
   TableBody,
   TableCell,
@@ -50,6 +56,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { usePagination, TablePagination } from "@/components/ui/table-pagination";
 import { Textarea } from "@/components/ui/textarea";
 
 const normalize = (value?: string | null) =>
@@ -70,6 +77,14 @@ const getClientType = (client: any, hasPublicSubscription: boolean) => {
 
 const getDisplayName = (user: any) =>
   user?.display_name || user?.name || user?.email || "Regular client";
+
+const SERVICE_META: Record<string, { label: string; className: string }> = {
+  cleaning: { label: "Cleaning", className: "bg-blue-500/15 text-blue-400" },
+  food: { label: "Food", className: "bg-orange-500/15 text-orange-400" },
+  beach: { label: "Beach Club", className: "bg-cyan-500/15 text-cyan-400" },
+  car: { label: "Car Rental", className: "bg-purple-500/15 text-purple-400" },
+};
+const SERVICE_ORDER = ["cleaning", "food", "beach", "car"];
 
 const emptyEditClient = {
   company_name: "",
@@ -112,7 +127,7 @@ const Clients = () => {
   const adminId = userData?.id || "admin";
 
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [serviceFilter, setServiceFilter] = useState("all");
   const [selectedClientId, setSelectedClientId] = useState("");
   const [editClient, setEditClient] = useState<any | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -213,6 +228,110 @@ const Clients = () => {
     },
   });
 
+  // ── Subscribers from the other services (Food / Beach Club / Car Rental) ──
+  const { data: foodSubs = [] } = useQuery({
+    queryKey: ["admin-clients-food-subs"],
+    queryFn: async () => {
+      const { data, error } = await supabaseDb
+        .from("food_subscriptions")
+        .select("id, user_id, status, customer_name");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const { data: beachSubs = [] } = useQuery({
+    queryKey: ["admin-clients-beach-subs"],
+    queryFn: async () => {
+      const { data, error } = await supabaseDb
+        .from("beach_club_subscriptions")
+        .select("id, user_id, status, payment_status, payment_method, customer_name, customer_email");
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const { data: rentalSubs = [] } = useQuery({
+    queryKey: ["admin-clients-rental-subs"],
+    queryFn: async () => {
+      const { data, error } = await supabaseDb
+        .from("rental_bookings")
+        .select("id, user_id, status, payment_status, payment_method")
+        .is("deleted_at", null);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  // Aggregate every subscriber across all services, keyed by lowercased email.
+  // Each entry tracks which services they use + a representative name/payment.
+  const serviceAggByEmail = useMemo(() => {
+    const usersById = new Map(
+      (allUsers as any[]).map((u: any) => [u.id, u]),
+    );
+    const map = new Map<
+      string,
+      { email: string; name: string; services: Set<string>; payment_method: string | null; hasActive: boolean }
+    >();
+
+    const add = (
+      email: string | null | undefined,
+      name: string | null | undefined,
+      service: string,
+      active: boolean,
+      paymentMethod?: string | null,
+    ) => {
+      const key = normalize(email);
+      if (!key) return;
+      const entry = map.get(key) ?? {
+        email: String(email),
+        name: name || String(email),
+        services: new Set<string>(),
+        payment_method: null,
+        hasActive: false,
+      };
+      entry.services.add(service);
+      if (active) entry.hasActive = true;
+      if (!entry.name || entry.name === entry.email) entry.name = name || entry.name;
+      if (!entry.payment_method && paymentMethod) entry.payment_method = paymentMethod;
+      map.set(key, entry);
+    };
+
+    // Cleaning
+    subscriptions.forEach((s: any) =>
+      add(s.users?.email, getDisplayName(s.users), "cleaning", Boolean(s.is_active), s.payment_method),
+    );
+    // Food
+    (foodSubs as any[]).forEach((s: any) => {
+      const u = usersById.get(s.user_id);
+      add(u?.email, u ? getDisplayName(u) : s.customer_name, "food", normalize(s.status) === "active", null);
+    });
+    // Beach Club
+    (beachSubs as any[]).forEach((s: any) => {
+      const u = usersById.get(s.user_id);
+      add(
+        u?.email || s.customer_email,
+        u ? getDisplayName(u) : s.customer_name,
+        "beach",
+        normalize(s.status) === "active" && s.payment_status === "paid",
+        s.payment_method,
+      );
+    });
+    // Car Rental
+    (rentalSubs as any[]).forEach((s: any) => {
+      const u = usersById.get(s.user_id);
+      add(
+        u?.email,
+        u ? getDisplayName(u) : null,
+        "car",
+        s.payment_status === "paid" && ["confirmed", "active", "in_progress"].includes(normalize(s.status)),
+        s.payment_method,
+      );
+    });
+
+    return map;
+  }, [allUsers, subscriptions, foodSubs, beachSubs, rentalSubs]);
+
   const clientRows = useMemo(() => {
     const storedClients = clients.map((client: any) => {
       const matchingPublicSubs = subscriptions.filter(
@@ -246,6 +365,12 @@ const Clients = () => {
       // Subscriptions are ordered newest-first, so [0] is the latest payment.
       const latestSub = matchingPublicSubs[0];
 
+      // A cleaning_clients record is always a cleaning client; union in any
+      // other services this person uses (matched by email).
+      const agg = serviceAggByEmail.get(normalize(client.email));
+      const services = new Set<string>(["cleaning"]);
+      agg?.services.forEach((s) => services.add(s));
+
       return {
         ...client,
         isDerived: false,
@@ -253,10 +378,11 @@ const Clients = () => {
           client,
           matchingPublicSubs.length > 0,
         ),
+        services: [...services],
         active_plans_count: activePlansCount,
         last_service_date: lastBooking?.cleaning_available_slots?.date || null,
         total_bookings: clientBookings.length,
-        payment_method: latestSub?.payment_method ?? null,
+        payment_method: latestSub?.payment_method ?? agg?.payment_method ?? null,
         payment_status: latestSub?.payment_status ?? null,
       };
     });
@@ -266,41 +392,42 @@ const Clients = () => {
         .map((client: any) => normalize(client.email))
         .filter(Boolean),
     );
-    const publicClients = subscriptions
-      .filter((subscription: any) => {
-        const email = normalize(subscription.users?.email);
-        return email && !storedEmails.has(email);
-      })
-      .map((subscription: any) => ({
-        id: `public-client-${subscription.user_id || subscription.id}`,
+
+    // Everyone with a subscription in ANY service who isn't already a stored
+    // cleaning client — read-only aggregated rows.
+    const derivedClients = [...serviceAggByEmail.values()]
+      .filter((entry) => !storedEmails.has(normalize(entry.email)))
+      .map((entry) => ({
+        id: `derived-client-${normalize(entry.email)}`,
         isDerived: true,
-        company_name: getDisplayName(subscription.users),
-        contact_person: getDisplayName(subscription.users),
-        email: subscription.users?.email || "",
+        company_name: entry.name,
+        contact_person: entry.name,
+        email: entry.email,
         phone: "",
         location: "Prospera Village",
         notes: "",
         internal_admin_notes: "",
-        status: subscription.is_active ? "active" : "inactive",
+        status: entry.hasActive ? "active" : "inactive",
         client_type: "regular_cleaning_client",
         client_type_label: "Regular",
+        services: [...entry.services],
         visibility: "admin_only",
         is_private: false,
-        user_id: subscription.user_id,
-        active_plans_count: subscription.is_active ? 1 : 0,
+        user_id: null,
+        active_plans_count: entry.hasActive ? 1 : 0,
         last_service_date: null,
         total_bookings: 0,
-        payment_method: subscription.payment_method ?? null,
-        payment_status: subscription.payment_status ?? null,
+        payment_method: entry.payment_method ?? null,
+        payment_status: null,
       }));
 
-    return [...storedClients, ...publicClients];
-  }, [clients, subscriptions, customPlans, bookings]);
+    return [...storedClients, ...derivedClients];
+  }, [clients, subscriptions, customPlans, bookings, serviceAggByEmail]);
 
   const filteredRows = useMemo(() => {
     let result = clientRows;
-    if (statusFilter !== "all") {
-      result = result.filter((c: any) => c.status === statusFilter);
+    if (serviceFilter !== "all") {
+      result = result.filter((c: any) => (c.services ?? []).includes(serviceFilter));
     }
     const term = normalize(search);
     if (term) {
@@ -318,7 +445,9 @@ const Clients = () => {
       );
     }
     return result;
-  }, [clientRows, search, statusFilter]);
+  }, [clientRows, search, serviceFilter]);
+
+  const clientsPager = usePagination(filteredRows, 20);
 
   const selectedClient =
     clientRows.find((client: any) => client.id === selectedClientId) ??
@@ -479,39 +608,39 @@ const Clients = () => {
   });
 
   const beginEdit = (client: any) => {
-    setSelectedClientId(client.id);
+    setSelectedClientId(""); // close the profile modal if open
     setEditClient({ ...emptyEditClient, ...client });
   };
 
   return (
     <SuperAdminLayout
-      title="Cleaning Clients"
-      subtitle="Manage regular and private cleaning clients"
+      title="Clients"
+      subtitle="All clients across every service"
     >
-      <div className="grid gap-space-5 2xl:grid-cols-[minmax(0,1fr)_420px]">
+      <div>
         <Card className="min-w-0">
           <CardHeader className="gap-space-4 xl:flex-row xl:items-start xl:justify-between">
             <div className="min-w-0">
               <CardTitle>All Clients</CardTitle>
               <p className="mt-space-2 max-w-2xl text-body text-muted-foreground">
-                Regular public clients and private custom-plan clients share
-                one reusable admin list.
+                Everyone with a subscription across Cleaning, Food, Beach Club,
+                and Car Rental — plus manually-added cleaning clients.
               </p>
             </div>
             <div className="flex w-full flex-col gap-space-3 sm:flex-row xl:w-auto xl:flex-wrap xl:justify-end">
               <Select
-                value={statusFilter}
-                onValueChange={setStatusFilter}
+                value={serviceFilter}
+                onValueChange={setServiceFilter}
               >
-                <SelectTrigger className="w-full sm:w-32">
+                <SelectTrigger className="w-full sm:w-40">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                  <SelectItem value="paused">Paused</SelectItem>
-                  <SelectItem value="archived">Archived</SelectItem>
+                  <SelectItem value="all">All services</SelectItem>
+                  <SelectItem value="cleaning">Cleaning</SelectItem>
+                  <SelectItem value="food">Food</SelectItem>
+                  <SelectItem value="beach">Beach Club</SelectItem>
+                  <SelectItem value="car">Car Rental</SelectItem>
                 </SelectContent>
               </Select>
               <Input
@@ -542,7 +671,7 @@ const Clients = () => {
                       <TableHead>Client / company</TableHead>
                       <TableHead>Contact</TableHead>
                       <TableHead className="hidden xl:table-cell">Location</TableHead>
-                      <TableHead>Type</TableHead>
+                      <TableHead>Services</TableHead>
                       <TableHead className="hidden 2xl:table-cell">Active plans</TableHead>
                       <TableHead className="hidden 2xl:table-cell">Last service</TableHead>
                       <TableHead>Status</TableHead>
@@ -550,7 +679,7 @@ const Clients = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredRows.map((client: any) => (
+                    {clientsPager.paged.map((client: any) => (
                       <TableRow
                         key={client.id}
                         className={
@@ -568,7 +697,7 @@ const Clients = () => {
                           >
                             <span className="block truncate">{client.company_name}</span>
                             <span className="block text-caption font-medium text-muted-foreground">
-                              {client.service_type || "Cleaning client"}
+                              {client.isDerived ? "Subscriber" : "Cleaning client"}
                             </span>
                           </button>
                         </TableCell>
@@ -585,9 +714,21 @@ const Clients = () => {
                         </TableCell>
                         <TableCell>
                           <div className="flex flex-wrap items-center gap-1.5">
-                            <Badge variant="secondary">
-                              {client.client_type_label}
-                            </Badge>
+                            {(client.services ?? [])
+                              .slice()
+                              .sort((a: string, b: string) => SERVICE_ORDER.indexOf(a) - SERVICE_ORDER.indexOf(b))
+                              .map((svc: string) => (
+                                <Badge
+                                  key={svc}
+                                  variant="secondary"
+                                  className={SERVICE_META[svc]?.className}
+                                >
+                                  {SERVICE_META[svc]?.label ?? svc}
+                                </Badge>
+                              ))}
+                            {(!client.services || client.services.length === 0) && (
+                              <span className="text-caption text-muted-foreground">—</span>
+                            )}
                             {client.payment_method && (
                               <PaymentMethodBadge method={client.payment_method} />
                             )}
@@ -610,49 +751,53 @@ const Clients = () => {
                         </TableCell>
                         <TableCell className="min-w-[120px]">
                           <div className="flex justify-end gap-space-1">
-                            <Button
-                              variant="tertiary"
-                              size="iconSm"
-                              onClick={() => beginEdit(client)}
-                              aria-label={`Edit ${client.company_name}`}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="tertiary"
-                              size="iconSm"
-                              onClick={() =>
-                                statusMutation.mutate({
-                                  client,
-                                  status:
+                            {client.isDerived ? (
+                              <span className="text-caption text-muted-foreground/70">View only</span>
+                            ) : (
+                              <>
+                                <Button
+                                  variant="tertiary"
+                                  size="iconSm"
+                                  onClick={() => beginEdit(client)}
+                                  aria-label={`Edit ${client.company_name}`}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="tertiary"
+                                  size="iconSm"
+                                  onClick={() =>
+                                    statusMutation.mutate({
+                                      client,
+                                      status:
+                                        client.status === "active"
+                                          ? "inactive"
+                                          : "active",
+                                    })
+                                  }
+                                  aria-label={
                                     client.status === "active"
-                                      ? "inactive"
-                                      : "active",
-                                })
-                              }
-                              aria-label={
-                                client.status === "active"
-                                  ? "Deactivate client"
-                                  : "Reactivate client"
-                              }
-                            >
-                              {client.status === "active" ? (
-                                <Archive className="h-4 w-4" />
-                              ) : (
-                                <CheckCircle2 className="h-4 w-4" />
-                              )}
-                            </Button>
-                            {!client.isDerived && (
-                              <Button
-                                variant="tertiary"
-                                size="iconSm"
-                                onClick={() =>
-                                  softDeleteMutation.mutate(client.id)
-                                }
-                                aria-label="Soft-delete client"
-                              >
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
+                                      ? "Deactivate client"
+                                      : "Reactivate client"
+                                  }
+                                >
+                                  {client.status === "active" ? (
+                                    <Archive className="h-4 w-4" />
+                                  ) : (
+                                    <CheckCircle2 className="h-4 w-4" />
+                                  )}
+                                </Button>
+                                <Button
+                                  variant="tertiary"
+                                  size="iconSm"
+                                  onClick={() =>
+                                    softDeleteMutation.mutate(client.id)
+                                  }
+                                  aria-label="Soft-delete client"
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </>
                             )}
                           </div>
                         </TableCell>
@@ -660,24 +805,22 @@ const Clients = () => {
                     ))}
                   </TableBody>
                 </Table>
+                <TablePagination {...clientsPager} onPage={clientsPager.setPage} />
               </div>
             )}
           </CardContent>
         </Card>
 
-        <Card className="min-w-0 2xl:sticky 2xl:top-[92px] 2xl:self-start">
-          <CardHeader>
-            <CardTitle>Client Profile</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {!selectedClient ? (
-              <EmptyState
-                title="Select a client"
-                description="Contact details, plans, schedules, and notes will appear here."
-                compact
-              />
-            ) : (
-              <div className="space-y-space-5">
+      </div>
+
+      {/* Client Profile modal */}
+      <Dialog open={!!selectedClientId && !!selectedClient} onOpenChange={(o) => !o && setSelectedClientId("")}>
+        <DialogContent className="flex max-h-[90vh] flex-col overflow-hidden sm:max-w-lg">
+          <DialogHeader className="shrink-0">
+            <DialogTitle>Client Profile</DialogTitle>
+          </DialogHeader>
+          {selectedClient && (
+              <div className="-mr-2 flex-1 space-y-space-5 overflow-y-auto pr-2">
                 <div>
                   <h3 className="text-panel-title">
                     {selectedClient.company_name}
@@ -833,10 +976,9 @@ const Clients = () => {
                   </p>
                 </section>
               </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Client Sheet */}
       <Sheet

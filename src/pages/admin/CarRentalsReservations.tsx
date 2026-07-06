@@ -25,6 +25,7 @@ import { formatUSD } from "@/lib/pricing";
 import { calcRentalPrice } from "@/types/carRental";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { usePagination, TablePagination } from "@/components/ui/table-pagination";
 import { CheckCircle2 } from "lucide-react";
 import type { RentalBooking, RentalVehicle, RentalBookingStatus, RentalInsuranceTier, RentalDeliveryZone, RentalExtra } from "@/types/carRental";
 
@@ -277,6 +278,8 @@ const CarRentalsReservations = () => {
     return true;
   });
 
+  const resvPager = usePagination(filtered, 20);
+
   /* ── Render ──────────────────────────────────────────────── */
   return (
     <SuperAdminLayout title="Car Rental — Reservations">
@@ -331,7 +334,7 @@ const CarRentalsReservations = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {filtered.map((b) => {
+                {resvPager.paged.map((b) => {
                   const customerNote = (b.admin_notes ?? "").match(/Customer: ([^.]+)/)?.[1];
                   const isManual = (b.admin_notes ?? "").startsWith("[Admin created]");
                   return (
@@ -380,6 +383,7 @@ const CarRentalsReservations = () => {
                 })}
               </tbody>
             </table>
+            <TablePagination {...resvPager} onPage={resvPager.setPage} />
           </div>
         )}
       </div>

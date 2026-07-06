@@ -39,19 +39,33 @@ export interface RentalCalendarProps {
   maxDays?: number;
   /** When true, the calendar is shown inline (desktop). Otherwise only the chip is shown. */
   inline?: boolean;
+  /** Optional pickup / drop-off time pickers — renders inside the modal & inline panel. */
+  pickupTime?: string;
+  dropoffTime?: string;
+  timeOptions?: string[];
+  onPickupTimeChange?: (t: string) => void;
+  onDropoffTimeChange?: (t: string) => void;
 }
+
+const formatTime12 = (t: string) => {
+  if (!t) return "";
+  const [h, m] = t.split(":").map(Number);
+  const ampm = h >= 12 ? "PM" : "AM";
+  return `${h % 12 || 12}:${m.toString().padStart(2, "0")} ${ampm}`;
+};
 
 type Phase = "start" | "end";
 
-const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+const WEEKDAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 const TODAY = format(new Date(), "yyyy-MM-dd");
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/** Build the flat day array for a month grid (with null padding). */
+/** Build the flat day array for a month grid (Monday-first, with null padding). */
 function buildMonthGrid(year: number, month: number): Array<Date | null> {
   const firstDay = new Date(year, month, 1);
-  const offset   = getDay(firstDay);          // 0=Sun
+  // Monday-first: Mon=0, Tue=1, ..., Sun=6
+  const offset   = (getDay(firstDay) + 6) % 7;
   const daysInMo = getDaysInMonth(firstDay);
   const result: Array<Date | null> = [];
   for (let i = 0; i < offset; i++) result.push(null);
@@ -151,77 +165,97 @@ interface DayCellProps {
   onLeave: () => void;
 }
 
+/**
+ * Yandex Прокат-style day cell:
+ *  – Endpoints (start / end) = solid orange tile, rounded on the outer side only,
+ *    flat on the side that joins the range
+ *  – In-range dates = continuous lighter peach bar (full width, no rounding)
+ *  – Cell takes full grid column width (no centered circle)
+ */
 const DayCell = ({ date, role, isFirstInRow, isLastInRow, onClick, onHover, onLeave }: DayCellProps) => {
   const day = date.getDate();
 
-  const isSelected      = role === "sel-start" || role === "sel-end" || role === "sel-single";
-  const isHoverTarget   = role === "hover-end";
-  const isInRange       = role === "sel-range";
-  const isHoverRange    = role === "hover-range";
-  const isBooked        = role === "booked" || role === "booking-start" || role === "booking-end";
-  const isPast          = role === "past";
-  const isBookingEdge   = role === "booking-start" || role === "booking-end";
-  const isDisabled      = isPast || isBooked;
-  const isInteractive   = !isDisabled;
+  const isStart        = role === "sel-start" || role === "sel-single";
+  const isEnd          = role === "sel-end"   || role === "sel-single";
+  const isSelected     = isStart || isEnd;
+  const isHoverTarget  = role === "hover-end";
+  const isInRange      = role === "sel-range";
+  const isHoverRange   = role === "hover-range";
+  const isBooked       = role === "booked" || role === "booking-start" || role === "booking-end";
+  const isPast         = role === "past";
+  const isInteractive  = !(isPast || isBooked);
 
-  // Strip (background connecting range)
-  const showLeftStrip  = (isInRange || isHoverRange || role === "sel-end") && !isFirstInRow;
-  const showRightStrip = (isInRange || isHoverRange || role === "sel-start") && !isLastInRow;
-  const stripColor     = isInRange ? "bg-primary/20" : "bg-primary/12";
-
-  // Circle style
-  const circleClass = cn(
-    "relative z-10 mx-auto flex h-9 w-9 items-center justify-center rounded-full text-sm font-medium transition-all duration-150",
-    // Selected start / end
-    isSelected    && "bg-primary text-primary-foreground font-bold shadow-lg shadow-primary/30 scale-105",
-    // Hover target
-    isHoverTarget && "bg-primary/50 text-foreground font-semibold ring-2 ring-primary/40",
-    // Today (unselected)
-    role === "today" && "ring-2 ring-primary/60 text-primary font-bold",
-    // In-range / hover-range
-    (isInRange || isHoverRange) && "text-foreground/80 hover:bg-primary/30",
-    // Booked
-    isBookingEdge && "bg-destructive/20 text-destructive/70 line-through decoration-destructive/50",
-    role === "booked" && "text-muted-foreground/25 line-through",
-    // Past
-    isPast && "text-muted-foreground/20",
-    // Available
-    role === "available" && "text-foreground/80 hover:bg-white/10 hover:text-foreground hover:scale-105",
-    role === "today" && !isSelected && "hover:bg-primary/20 hover:scale-105",
-    // Cursor
-    isInteractive ? "cursor-pointer" : "cursor-not-allowed",
-  );
+  // Continuous range bar (lighter peach) — applied to in-range and to the
+  // inner half of the start / end tiles so the bar visually joins to the endpoint.
+  const showLeftBar  = isInRange || isHoverRange || isEnd || (isHoverTarget);
+  const showRightBar = isInRange || isHoverRange || isStart;
 
   return (
     <div
-      className="relative flex h-10 w-full select-none items-center justify-center"
+      className={cn(
+        "relative h-11 w-full select-none",
+        isInteractive ? "cursor-pointer" : "cursor-not-allowed",
+      )}
       onClick={isInteractive ? onClick : undefined}
       onMouseEnter={isInteractive ? onHover : undefined}
       onMouseLeave={onLeave}
     >
-      {/* Left strip */}
-      {showLeftStrip && (
-        <div className={cn("absolute inset-y-[6px] left-0 w-1/2", stripColor)} />
+      {/* ─── Lighter peach connecting bar (full row coverage) ─────────── */}
+      {showLeftBar && (
+        <div className={cn(
+          "absolute inset-y-1 left-0 w-1/2",
+          isInRange || isEnd ? "bg-primary/40" : "bg-primary/25",
+          isFirstInRow && "rounded-l-2xl",
+        )} />
       )}
-      {/* Right strip */}
-      {showRightStrip && (
-        <div className={cn("absolute inset-y-[6px] right-0 w-1/2", stripColor)} />
-      )}
-      {/* Booking-start right partial strip */}
-      {role === "booking-start" && (
-        <div className="absolute inset-y-[6px] right-0 w-1/2 bg-destructive/10" />
-      )}
-      {/* Booking-end left partial strip */}
-      {role === "booking-end" && (
-        <div className="absolute inset-y-[6px] left-0 w-1/2 bg-destructive/10" />
+      {showRightBar && (
+        <div className={cn(
+          "absolute inset-y-1 right-0 w-1/2",
+          isInRange || isStart ? "bg-primary/40" : "bg-primary/25",
+          isLastInRow && "rounded-r-2xl",
+        )} />
       )}
 
-      <div className={circleClass}>
+      {/* ─── Booked range (lighter destructive bar) ──────────────────── */}
+      {role === "booking-start" && (
+        <div className="absolute inset-y-1 right-0 w-1/2 bg-destructive/15" />
+      )}
+      {role === "booking-end" && (
+        <div className="absolute inset-y-1 left-0 w-1/2 bg-destructive/15" />
+      )}
+
+      {/* ─── Solid endpoint tile (start / end / single) ──────────────── */}
+      {isSelected && (
+        <div className={cn(
+          "absolute inset-y-1 inset-x-1 z-10 bg-primary  shadow-primary/40",
+          isStart && isEnd && "rounded-2xl",      // single-day pick
+          isStart && !isEnd && "rounded-l-2xl",   // start
+          !isStart && isEnd && "rounded-r-2xl",   // end
+        )} />
+      )}
+
+      {/* ─── Hover target preview (lighter highlight) ────────────────── */}
+      {isHoverTarget && !isSelected && (
+        <div className="absolute inset-y-1 inset-x-1 z-10 rounded-2xl bg-primary/60 ring-2 ring-primary" />
+      )}
+
+      {/* ─── Today ring (subtle) ─────────────────────────────────────── */}
+      {role === "today" && !isSelected && (
+        <div className="absolute inset-y-1 inset-x-1 z-10 rounded-2xl ring-2 ring-primary/40" />
+      )}
+
+      {/* ─── Day number ──────────────────────────────────────────────── */}
+      <div className={cn(
+        "relative z-20 flex h-full w-full items-center justify-center text-sm transition-colors",
+        isSelected && "font-bold text-primary-foreground",
+        isHoverTarget && !isSelected && "font-bold text-foreground",
+        (isInRange || isHoverRange) && !isSelected && "font-semibold text-foreground",
+        role === "today" && !isSelected && "font-bold text-primary",
+        role === "available" && "font-medium text-foreground hover:text-primary",
+        isPast && "text-muted-foreground/30",
+        isBooked && "text-muted-foreground/30 line-through",
+      )}>
         {day}
-        {/* Today dot */}
-        {role === "today" && (
-          <span className="absolute bottom-0.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-primary" />
-        )}
       </div>
     </div>
   );
@@ -252,10 +286,10 @@ const CalendarMonth = ({
 
   return (
     <div className="w-full">
-      {/* Weekday headers */}
-      <div className="mb-1 grid grid-cols-7">
+      {/* Weekday headers (Yandex Прокат style — sentence case, Monday first) */}
+      <div className="mb-2 grid grid-cols-7">
         {WEEKDAYS.map((wd) => (
-          <div key={wd} className="flex h-8 items-center justify-center text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/60">
+          <div key={wd} className="flex h-7 items-center justify-center text-sm font-medium text-muted-foreground">
             {wd}
           </div>
         ))}
@@ -309,7 +343,12 @@ const Legend = () => (
 
 export function RentalCalendar({
   vehicleId, startDate, endDate, onRangeChange, onError, maxDays = 30, inline = true,
+  pickupTime, dropoffTime, timeOptions,
+  onPickupTimeChange, onDropoffTimeChange,
 }: RentalCalendarProps) {
+  const showTimePickers =
+    !!pickupTime && !!dropoffTime &&
+    !!timeOptions && !!onPickupTimeChange && !!onDropoffTimeChange;
   const [viewMonth, setViewMonth]   = useState(() => startOfMonth(new Date()));
   const [hoverDate, setHoverDate]   = useState<string | null>(null);
   const [phase, setPhase]           = useState<Phase>("start");
@@ -502,6 +541,46 @@ export function RentalCalendar({
         ))}
       </div>
 
+      {/* Pickup / Drop-off time pickers (Yandex Прокат style — two side-by-side tiles) */}
+      {showTimePickers && (
+        <div className="mb-4 grid grid-cols-2 gap-2">
+          <label className="relative block rounded-2xl bg-muted/50 px-3 py-2.5 cursor-pointer hover:bg-muted transition-colors">
+            <span className="block text-xs text-muted-foreground">Pickup time</span>
+            <div className="mt-0.5 flex items-center justify-between gap-1">
+              <span className="text-base font-bold text-foreground">{formatTime12(pickupTime!)}</span>
+              <ChevronRight className="h-4 w-4 shrink-0 -rotate-90 text-muted-foreground" />
+            </div>
+            <select
+              value={pickupTime}
+              onChange={(e) => onPickupTimeChange!(e.target.value)}
+              className="sr-only absolute inset-0 cursor-pointer opacity-0"
+              aria-label="Pickup time"
+            >
+              {timeOptions!.map((t) => (
+                <option key={t} value={t}>{formatTime12(t)}</option>
+              ))}
+            </select>
+          </label>
+          <label className="relative block rounded-2xl bg-muted/50 px-3 py-2.5 cursor-pointer hover:bg-muted transition-colors">
+            <span className="block text-xs text-muted-foreground">Drop-off time</span>
+            <div className="mt-0.5 flex items-center justify-between gap-1">
+              <span className="text-base font-bold text-foreground">{formatTime12(dropoffTime!)}</span>
+              <ChevronRight className="h-4 w-4 shrink-0 -rotate-90 text-muted-foreground" />
+            </div>
+            <select
+              value={dropoffTime}
+              onChange={(e) => onDropoffTimeChange!(e.target.value)}
+              className="sr-only absolute inset-0 cursor-pointer opacity-0"
+              aria-label="Drop-off time"
+            >
+              {timeOptions!.map((t) => (
+                <option key={t} value={t}>{formatTime12(t)}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+      )}
+
       {isLoading ? (
         <div className="flex h-48 items-center justify-center">
           <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -513,15 +592,15 @@ export function RentalCalendar({
             <button type="button" onClick={prevMonth} className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition hover:bg-muted hover:text-foreground">
               <ChevronLeft className="h-4 w-4" />
             </button>
-            <p className="text-sm font-bold text-foreground">{format(viewMonth, "MMMM yyyy")}</p>
+            <p className="text-base font-bold text-foreground">{format(viewMonth, "MMMM yyyy")}</p>
             <button type="button" onClick={nextMonth} className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition hover:bg-muted hover:text-foreground">
               <ChevronRight className="h-4 w-4" />
             </button>
           </div>
-          {/* Weekday headers */}
-          <div className="mb-1 grid grid-cols-7">
+          {/* Weekday headers (Monday-first sentence-case) */}
+          <div className="mb-2 grid grid-cols-7">
             {WEEKDAYS.map(wd => (
-              <div key={wd} className="flex h-8 items-center justify-center text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/60">{wd}</div>
+              <div key={wd} className="flex h-7 items-center justify-center text-sm font-medium text-muted-foreground">{wd}</div>
             ))}
           </div>
           <div className="grid grid-cols-7">
@@ -552,7 +631,7 @@ export function RentalCalendar({
               <button type="button" onClick={prevMonth} aria-label="Previous month" className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground">
                 <ChevronLeft className="h-4 w-4" />
               </button>
-              <p className="flex-1 text-center text-sm font-bold text-foreground">{format(viewMonth, "MMMM yyyy")}</p>
+              <p className="flex-1 text-center text-base font-bold text-foreground">{format(viewMonth, "MMMM yyyy")}</p>
               <span className="h-8 w-8 shrink-0" aria-hidden />
             </div>
             <CalendarMonth viewMonth={viewMonth} {...calendarProps} />
@@ -561,7 +640,7 @@ export function RentalCalendar({
           <div>
             <div className="mb-3 flex items-center">
               <span className="h-8 w-8 shrink-0" aria-hidden />
-              <p className="flex-1 text-center text-sm font-bold text-foreground">{format(nextMo, "MMMM yyyy")}</p>
+              <p className="flex-1 text-center text-base font-bold text-foreground">{format(nextMo, "MMMM yyyy")}</p>
               <button type="button" onClick={nextMonth} aria-label="Next month" className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground">
                 <ChevronRight className="h-4 w-4" />
               </button>
@@ -577,6 +656,17 @@ export function RentalCalendar({
       </div>
     </div>
   );
+
+  // ── Inline mode: render the calendar panel directly with no chip/sheet wrappers
+  // (used when the parent already wraps it in a modal — e.g. CarDetail's date sheet)
+  if (inline) {
+    return (
+      <>
+        <div className="md:hidden">{calendarPanel(true)}</div>
+        <div className="hidden md:block">{calendarPanel(false)}</div>
+      </>
+    );
+  }
 
   return (
     <>
