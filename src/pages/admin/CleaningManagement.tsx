@@ -19,7 +19,7 @@ import {
 import { toast } from "sonner";
 
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
-import { TabEmptyState } from "@/components/subscriptions/MySubsPrimitives";
+import { TabEmptyState, SectionOverline } from "@/components/subscriptions/MySubsPrimitives";
 import { supabase, adminApi } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -563,34 +563,39 @@ const CleaningManagement = ({ embedded = false }: { embedded?: boolean } = {}) =
 
   const body = (
     <>
-      <div className="grid grid-cols-2 gap-space-2 md:grid-cols-4 md:gap-space-3">
-        {[
-          { label: "Upcoming", value: stats.upcoming, icon: CalendarDays },
-          { label: "Completed", value: stats.completed, icon: CheckCircle2 },
-          { label: "Total Bookings", value: stats.total, icon: ListChecks },
-          { label: "Reports", value: stats.reports, icon: SparklesIcon },
-        ].map((item) => (
-          <Card key={item.label}>
-            <CardContent className="px-space-4 py-space-3">
-              <p className="flex items-center gap-space-2 text-sm text-muted-foreground">
-                <item.icon className="h-4 w-4" />
-                {item.label}
-              </p>
-              <p className="mt-0.5 text-2xl font-extrabold">{item.value}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {/* KPI tiles + sub-tabs are for the admin-standalone view only. Inside the
+          provider workspace the analytics widget above the tabs already carries
+          the same numbers, and there's only one sub-tab (Reports) — so both are
+          pure noise there. */}
+      {!embedded && (
+        <div className="grid grid-cols-2 gap-space-2 md:grid-cols-4 md:gap-space-3">
+          {[
+            { label: "Upcoming", value: stats.upcoming, icon: CalendarDays },
+            { label: "Completed", value: stats.completed, icon: CheckCircle2 },
+            { label: "Total Bookings", value: stats.total, icon: ListChecks },
+            { label: "Reports", value: stats.reports, icon: SparklesIcon },
+          ].map((item) => (
+            <Card key={item.label}>
+              <CardContent className="px-space-4 py-space-3">
+                <p className="flex items-center gap-space-2 text-sm text-muted-foreground">
+                  <item.icon className="h-4 w-4" />
+                  {item.label}
+                </p>
+                <p className="mt-0.5 text-2xl font-extrabold">{item.value}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
-      {/* Inside the provider workspace the outer Calendar tab already covers
-          Bookings + Calendar, so we hide those sub-tabs and default to Reports.
-          Admin-standalone (embedded=false) still gets the full three. */}
-      <Tabs defaultValue={embedded ? "reports" : "bookings"} variant="pills" className="mt-space-4 w-full">
-        <TabsList className="mb-2">
-          {!embedded && <TabsTrigger value="bookings">Bookings</TabsTrigger>}
-          {!embedded && <TabsTrigger value="calendar">Calendar</TabsTrigger>}
-          <TabsTrigger value="reports">Completion Reports</TabsTrigger>
-        </TabsList>
+      <Tabs defaultValue={embedded ? "reports" : "bookings"} variant="pills" className={cn("w-full", !embedded && "mt-space-4")}>
+        {!embedded && (
+          <TabsList className="mb-2">
+            <TabsTrigger value="bookings">Bookings</TabsTrigger>
+            <TabsTrigger value="calendar">Calendar</TabsTrigger>
+            <TabsTrigger value="reports">Completion Reports</TabsTrigger>
+          </TabsList>
+        )}
 
         <TabsContent value="bookings">
           <Card>
@@ -819,46 +824,73 @@ const CleaningManagement = ({ embedded = false }: { embedded?: boolean } = {}) =
         </TabsContent>
 
         <TabsContent value="reports">
-          <Card>
-            <CardHeader>
-              <CardTitle>Completion Reports</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {completionReports.length === 0 ? (
-                <TabEmptyState icon={SparklesIcon} title="No completion reports yet" subtitle="Completed sessions will appear here with checklist, notes, and photo links." />
-              ) : (
-                <div className="grid gap-space-4 lg:grid-cols-2">
-                  {completionReports.map((report: any) => (
-                    <article key={report.id} className="rounded-radius-lg bg-secondary p-space-5">
-                      <div className="flex items-start justify-between gap-space-3">
-                        <div>
-                          <h3 className="text-card-title">{report.completed_by}</h3>
-                          <p className="mt-space-1 text-sm text-muted-foreground">
-                            {format(new Date(report.completed_at), "MMM d, yyyy HH:mm")}
-                          </p>
+          {/* Wrapper Card + duplicate "Completion Reports" title removed —
+              the surrounding tab already carries the label. Section overline
+              gives a scannable count. */}
+          <SectionOverline label="Completion reports" count={completionReports.length} className="mb-3" />
+          {completionReports.length === 0 ? (
+            <TabEmptyState
+              icon={SparklesIcon}
+              title="No completion reports yet"
+              subtitle="Completed sessions will appear here with checklist, notes, and photo links."
+            />
+          ) : (
+            <div className="overflow-hidden rounded-2xl bg-card">
+              <ul className="divide-y divide-border/40">
+                {completionReports.map((report: any) => {
+                  const hasNotes = !!(report.notes && report.notes.trim());
+                  const hasIssue = !!(report.issue_report && report.issue_report.trim());
+                  const hasPhoto = !!report.photo_url;
+                  const checklistCount = (report.checklist_completed || []).length;
+                  return (
+                    <li key={report.id} className="px-4 py-3">
+                      <div className="flex items-start gap-3">
+                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                            <p className="text-sm font-semibold text-foreground">
+                              {format(new Date(report.completed_at), "MMM d, yyyy · HH:mm")}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              by {report.completed_by || "—"}
+                            </p>
+                          </div>
+                          {/* Only surface the meta line when there's something worth
+                              seeing. Zero-info rows used to blast "No notes /
+                              Checklist items completed: 6" every time. */}
+                          {(hasNotes || hasIssue || checklistCount > 0) && (
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {checklistCount > 0 && <span>{checklistCount} checklist item{checklistCount === 1 ? "" : "s"}</span>}
+                              {hasNotes && <span> · has notes</span>}
+                              {hasIssue && <span className="text-amber-500"> · issue reported</span>}
+                            </p>
+                          )}
+                          {hasNotes && (
+                            <p className="mt-2 line-clamp-2 text-sm text-foreground/90">{report.notes}</p>
+                          )}
+                          {hasIssue && (
+                            <p className="mt-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-500">
+                              {report.issue_report}
+                            </p>
+                          )}
+                          {hasPhoto && (
+                            <a
+                              className="mt-2 inline-flex text-xs font-semibold text-primary hover:underline"
+                              href={report.photo_url}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              View photo
+                            </a>
+                          )}
                         </div>
-                        <Badge variant="default">Completed</Badge>
                       </div>
-                      <p className="mt-space-4 text-sm">{report.notes || "No notes"}</p>
-                      {report.issue_report ? (
-                        <p className="mt-space-3 rounded-radius-md bg-background p-space-3 text-sm text-muted-foreground">
-                          {report.issue_report}
-                        </p>
-                      ) : null}
-                      {report.photo_url ? (
-                        <a className="mt-space-3 inline-flex text-sm font-semibold text-primary" href={report.photo_url} target="_blank" rel="noreferrer">
-                          View photo
-                        </a>
-                      ) : null}
-                      <p className="mt-space-3 text-xs text-muted-foreground">
-                        Checklist items completed: {(report.checklist_completed || []).length}
-                      </p>
-                    </article>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
         </TabsContent>
       </Tabs>
 
