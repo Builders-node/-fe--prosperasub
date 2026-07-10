@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { ExternalLink, CalendarDays, SlidersHorizontal } from "lucide-react";
+import { ExternalLink, CalendarClock } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,9 +13,9 @@ import {
 } from "@/components/provider/capabilities";
 import { UniversalInfoTab, type UniversalProviderRow } from "@/components/provider/UniversalInfoTab";
 import { UniversalPlansTab } from "@/components/provider/UniversalPlansTab";
-import { BookingSettingsForm } from "@/components/provider/BookingSettingsForm";
-import { UnifiedBookingCalendar } from "@/components/provider/UnifiedBookingCalendar";
-import { LegacyOwnerPortal } from "@/components/provider/legacyPortalTabs";
+import { BookingsTab } from "@/components/provider/BookingsTab";
+import { ScheduleAccordion } from "@/components/provider/ScheduleAccordion";
+import { LegacyOwnerPortal, FOOD_SUBSCRIPTIONS_TAB_BODY, CLEANING_SUBSCRIPTIONS_TAB_BODY, BEACH_SUBSCRIPTIONS_TAB_BODY } from "@/components/provider/legacyPortalTabs";
 import { ProviderAnalyticsWidget } from "@/components/provider/ProviderAnalyticsWidget";
 import type { PortalTab } from "@/components/provider/ProviderPortalShell";
 import { isLegacySource, legacyIdOf } from "@/lib/services/providerBridge";
@@ -86,28 +86,43 @@ export function ProviderWorkspace({ providerId, publicHref = "/discovery", backH
   const legacyId = legacyIdOf(provider);
   const isLegacyPortal = isLegacySource(sourceKey);
 
-  // Unified booking calendar — one week/day view for every service, backed by
-  // useUnifiedBookings (reads cleaning_bookings / food_subscriptions /
-  // rental_bookings / beach_club_court_bookings + normalizes). Ships as an
-  // "extra tab" so every legacy portal gets it without touching per-service
-  // tab arrays.
-  const calendarTab: PortalTab<unknown> = {
-    value: "calendar",
-    label: "Calendar",
-    icon: CalendarDays,
-    render: () => <UnifiedBookingCalendar providerId={legacyId} sourceKey={sourceKey} />,
+  // Bookings tab — single answer to "who booked what?" backed by two views:
+  //   • By day       → week calendar (UnifiedBookingCalendar)
+  //   • By customer  → subscription list, service-specific body (undefined for
+  //     cars, where booking IS the subscription so the toggle would be nonsense)
+  const byCustomer = (() => {
+    if (sourceKey === "food") {
+      // FoodSubs component wants the MyRestaurant row shape — we pass legacyId
+      // which is the food_providers.id; it looks up the rest itself.
+      return FOOD_SUBSCRIPTIONS_TAB_BODY({ id: legacyId } as any);
+    }
+    if (sourceKey === "cleaning") {
+      return CLEANING_SUBSCRIPTIONS_TAB_BODY({ id: legacyId } as any);
+    }
+    if (sourceKey === "beach" || sourceKey === "beach_club") {
+      return BEACH_SUBSCRIPTIONS_TAB_BODY();
+    }
+    return undefined; // cars → calendar-only
+  })();
+
+  const bookingsTab: PortalTab<unknown> = {
+    value: "bookings",
+    label: "Bookings",
+    icon: CalendarClock,
+    render: () => <BookingsTab providerId={legacyId} sourceKey={sourceKey} byCustomer={byCustomer} />,
   };
 
-  const bookingSetupTab: PortalTab<unknown> = {
-    value: "booking-settings",
-    label: "Schedule",
-    mobileLabel: "Sched.",
-    icon: SlidersHorizontal,
-    render: () => <BookingSettingsForm provider={provider} />,
+  // Batches 3 + 4: dedicated Schedule tab and floating KPI strip both retired.
+  //   • ScheduleAccordion rides above Offerings — the rules apply to what's below.
+  //   • ProviderAnalyticsWidget rides above Overview — the KPIs are what "who I am" is measured by.
+  // One uniform tab-prefix mechanism in LegacyOwnerPortal/CapabilityPortal drives both.
+  const tabPrefixes: Record<string, React.ReactNode> = {
+    info: <ProviderAnalyticsWidget providerId={provider.id} legacyId={legacyId} sourceKey={sourceKey} />,
+    offerings: <ScheduleAccordion provider={provider} />,
   };
 
   const capabilityPortal = (
-    <CapabilityPortal provider={provider} capabilityTabs={capabilityTabs} calendarTab={calendarTab} />
+    <CapabilityPortal provider={provider} capabilityTabs={capabilityTabs} bookingsTab={bookingsTab} tabPrefixes={tabPrefixes} />
   );
 
   return (
@@ -152,30 +167,26 @@ export function ProviderWorkspace({ providerId, publicHref = "/discovery", backH
           </Button>
         </div>
 
-        {/* Business-at-a-glance strip — active / upcoming / MTD revenue / rating.
-            Mounted above the tabs so the owner sees KPIs before drilling in. */}
-        <ProviderAnalyticsWidget providerId={provider.id} legacyId={legacyId} sourceKey={sourceKey} />
-
         {isLegacyPortal
-          ? <LegacyOwnerPortal sourceKey={sourceKey} legacyId={legacyId} fallback={capabilityPortal} extraTabs={[calendarTab, bookingSetupTab]} />
+          ? <LegacyOwnerPortal sourceKey={sourceKey} legacyId={legacyId} fallback={capabilityPortal} bookingsTab={bookingsTab} tabPrefixes={tabPrefixes} />
           : capabilityPortal}
       </div>
     </>
   );
 }
 
-/** The universal capability-driven tab set (Info + per-capability + Calendar + Schedule).
- *  Bookings/Courts tabs retired — Calendar (shared unified view) + service-
- *  specific extras from LegacyOwnerPortal cover both concerns without
- *  duplicated per-service surfaces. Non-legacy universal providers get the
- *  same calendarTab injected from the parent. */
-function CapabilityPortal({ provider, capabilityTabs, calendarTab }: {
+/** Universal capability portal (non-legacy providers). Same five-slot shape as
+ *  LegacyOwnerPortal — Overview → capability tabs → Bookings. Tab prefixes
+ *  (analytics above Overview, schedule accordion above Offerings) come in as a
+ *  map so the source of truth stays in ProviderWorkspace. */
+function CapabilityPortal({ provider, capabilityTabs, bookingsTab, tabPrefixes = {} }: {
   provider: UniversalProviderRow;
   capabilityTabs: { key: CapabilityKey; meta: CapabilityMeta }[];
-  calendarTab: PortalTab<unknown>;
+  bookingsTab: PortalTab<unknown>;
+  tabPrefixes?: Record<string, React.ReactNode>;
 }) {
   const InfoIcon = INFO_TAB_META.icon;
-  const CalendarIcon = calendarTab.icon;
+  const BookingsIcon = bookingsTab.icon;
   return (
     <Tabs defaultValue={INFO_TAB_META.tabValue}>
       <TabsList equalWidth className="mb-6 w-full">
@@ -194,36 +205,30 @@ function CapabilityPortal({ provider, capabilityTabs, calendarTab }: {
             </TabsTrigger>
           );
         })}
-        <TabsTrigger value={calendarTab.value} equalWidth className="gap-2 px-2 sm:px-space-4">
-          <CalendarIcon className="hidden h-4 w-4 sm:block" />
-          <span className="hidden sm:inline">{calendarTab.label}</span>
-          <span className="sm:hidden">{calendarTab.mobileLabel ?? calendarTab.label}</span>
-        </TabsTrigger>
-        <TabsTrigger value="booking-settings" equalWidth className="gap-2 px-2 sm:px-space-4">
-          <SlidersHorizontal className="hidden h-4 w-4 sm:block" />
-          <span className="hidden sm:inline">Schedule</span>
-          <span className="sm:hidden">Sched.</span>
+        <TabsTrigger value={bookingsTab.value} equalWidth className="gap-2 px-2 sm:px-space-4">
+          <BookingsIcon className="hidden h-4 w-4 sm:block" />
+          <span className="hidden sm:inline">{bookingsTab.label}</span>
+          <span className="sm:hidden">{bookingsTab.mobileLabel ?? bookingsTab.label}</span>
         </TabsTrigger>
       </TabsList>
 
       <TabsContent value={INFO_TAB_META.tabValue}>
+        {tabPrefixes[INFO_TAB_META.tabValue]}
         <UniversalInfoTab provider={provider} />
       </TabsContent>
 
       {capabilityTabs.map(({ key, meta }) => (
         <TabsContent key={meta.tabValue} value={meta.tabValue}>
+          {/* Universal offerings-like capability tabs share the offerings-prefix slot. */}
+          {tabPrefixes.offerings}
           {key === "subscription_plans"
             ? <UniversalPlansTab providerId={provider.id} />
             : <ComingSoonTab capability={meta} />}
         </TabsContent>
       ))}
 
-      <TabsContent value={calendarTab.value}>
-        {calendarTab.render(null as never)}
-      </TabsContent>
-
-      <TabsContent value="booking-settings">
-        <BookingSettingsForm provider={provider} />
+      <TabsContent value={bookingsTab.value}>
+        {bookingsTab.render(null as never)}
       </TabsContent>
     </Tabs>
   );

@@ -313,37 +313,39 @@ function BookingRow({
   );
 }
 
-// Which status transitions to expose in the row menu — service-aware because
-// each legacy table has its own status vocabulary. Kept minimal: the most
-// common daily action per service. Rich flows (cleaning completion form,
-// google-cal sync, food batch delivery) still live on their dedicated tabs.
+// Row-action verbs are unified across all four services so the provider learns
+// four verbs total, not four vocabularies:
+//   Complete · Cancel · Pause · Resume.
+// The status the transition writes to the underlying table is service-specific
+// (cleaning: "completed"; rental: "completed" too; beach: "cancelled"; food:
+// "paused"/"active"), but the label the provider sees is the same everywhere.
 function rowActionsFor(row: UnifiedBookingRow): { status: string; label: string; icon: React.ComponentType<{ className?: string }>; destructive?: boolean }[] {
   const s = row.status.toLowerCase();
   if (row.sourceTable === "cleaning_bookings") {
     if (s === "booked") return [
-      { status: "completed", label: "Mark completed", icon: CheckCircle2 },
-      { status: "cancelled", label: "Cancel booking", icon: XCircle, destructive: true },
+      { status: "completed", label: "Complete", icon: CheckCircle2 },
+      { status: "cancelled", label: "Cancel",   icon: XCircle, destructive: true },
     ];
     return [];
   }
   if (row.sourceTable === "beach_club_court_bookings") {
     if (s !== "cancelled") return [
-      { status: "cancelled", label: "Cancel booking", icon: XCircle, destructive: true },
+      { status: "cancelled", label: "Cancel", icon: XCircle, destructive: true },
     ];
     return [];
   }
   if (row.sourceTable === "food_subscriptions") {
-    if (s === "active")  return [{ status: "paused", label: "Pause subscription", icon: PauseCircle }];
-    if (s === "paused")  return [{ status: "active", label: "Resume subscription", icon: PlayCircle }];
+    if (s === "active") return [{ status: "paused", label: "Pause",  icon: PauseCircle }];
+    if (s === "paused") return [{ status: "active", label: "Resume", icon: PlayCircle }];
     return [];
   }
   if (row.sourceTable === "rental_bookings") {
     if (s === "pending" || s === "held") return [
-      { status: "confirmed", label: "Confirm pickup", icon: CheckCircle2 },
-      { status: "cancelled", label: "Cancel booking", icon: XCircle, destructive: true },
+      { status: "confirmed", label: "Confirm", icon: CheckCircle2 },
+      { status: "cancelled", label: "Cancel",  icon: XCircle, destructive: true },
     ];
     if (s === "confirmed") return [
-      { status: "completed", label: "Mark returned", icon: CheckCircle2 },
+      { status: "completed", label: "Complete", icon: CheckCircle2 },
     ];
     return [];
   }

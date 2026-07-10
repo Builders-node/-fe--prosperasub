@@ -1,4 +1,4 @@
-import { BookOpen, Info, Package, Truck, type LucideIcon } from "lucide-react";
+import { BookOpen, LayoutDashboard, Package, Truck, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 /**
@@ -57,12 +57,14 @@ export const CAPABILITIES: Record<CapabilityKey, CapabilityMeta> = {
 
 export const ALL_CAPABILITIES: CapabilityMeta[] = Object.values(CAPABILITIES);
 
-/** The one universal tab every provider gets. */
+/** The one universal tab every provider gets. Named "Overview" everywhere for
+ * consistency with the legacy portal shape (Overview → Offerings → Bookings →
+ * Operations → Team). Batch 4 will fold the KPI widget in here as well. */
 export const INFO_TAB_META = {
   tabValue: "info",
-  tabLabel: "Information",
-  tabMobileLabel: "Info",
-  icon: Info,
+  tabLabel: "Overview",
+  tabMobileLabel: "Overview",
+  icon: LayoutDashboard,
 };
 
 /**
