@@ -11,6 +11,8 @@ import {
 } from "@/components/ui/select";
 import { useFoodRestaurant } from "@/hooks/useFoodRestaurant";
 import { formatUSD } from "@/lib/pricing";
+import { effectiveFoodStatus } from "@/lib/subscriptionLifecycle";
+import { todayHN } from "@/lib/timezone";
 import type { FoodSubscription, FoodMealPlan, FoodProvider } from "@/types/food";
 
 const FoodAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
@@ -26,7 +28,13 @@ const FoodAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
       if (selectedId !== "all") q = q.eq("provider_id", selectedId);
       const { data, error } = await q;
       if (error) throw error;
-      return (data ?? []) as FoodSubscription[];
+      // Derive effective status so "active" excludes end_date-past rows even
+      // before the daily expire-sweep cron flips them.
+      const today = todayHN();
+      return (data ?? []).map((s: FoodSubscription) => ({
+        ...s,
+        status: effectiveFoodStatus(s, today) as FoodSubscription["status"],
+      })) as FoodSubscription[];
     },
     enabled: true,
   });
@@ -186,15 +194,8 @@ const FoodAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
   return (
     <Wrap>
       <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-black tracking-tight">Food Analytics</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Performance and revenue across all restaurants
-            </p>
-          </div>
-          {restaurants.length > 1 && (
+        {restaurants.length > 1 && (
+          <div className="flex justify-end">
             <Select value={selectedId} onValueChange={select}>
               <SelectTrigger className="w-52">
                 <SelectValue placeholder="All Restaurants" />
@@ -206,8 +207,8 @@ const FoodAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
                 ))}
               </SelectContent>
             </Select>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* KPI cards */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

@@ -1,19 +1,17 @@
 import { useSearchParams } from "react-router-dom";
-import { SparklesIcon, Car, UtensilsCrossed, Waves, HeartPulse } from "lucide-react";
+import { SparklesIcon, Car, UtensilsCrossed, Waves } from "lucide-react";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { cn } from "@/lib/utils";
 import CleaningAnalytics from "./CleaningAnalytics";
 import CarRentalsAnalytics from "./CarRentalsAnalytics";
 import FoodAnalytics from "./FoodAnalytics";
 import BeachClubAnalytics from "./BeachClubAnalytics";
-import MassageAnalytics from "./MassageAnalytics";
 import { DomainEventBusPanel } from "@/components/admin/DomainEventBusPanel";
 
 const SERVICES = [
   { id: "cleaning", label: "Cleaning", icon: SparklesIcon, color: "text-blue-400" },
-  { id: "cars", label: "Car Rental", icon: Car, color: "text-orange-400" },
+  { id: "cars", label: "Rental", icon: Car, color: "text-orange-400" },
   { id: "food", label: "Food", icon: UtensilsCrossed, color: "text-orange-400" },
-  { id: "massage", label: "Massage", icon: HeartPulse, color: "text-rose-400" },
   { id: "beach", label: "Beach Club", icon: Waves, color: "text-cyan-400" },
 ] as const;
 type ServiceId = (typeof SERVICES)[number]["id"];
@@ -31,7 +29,7 @@ const Analytics = () => {
     }, { replace: true });
 
   return (
-    <SuperAdminLayout title="Analytics">
+    <SuperAdminLayout title="Analytics" subtitle="Revenue, retention and volume — pick a service">
       {/* Service switcher */}
       <div className="mb-space-5 flex flex-wrap gap-space-2">
         {SERVICES.map((s) => {
@@ -59,7 +57,6 @@ const Analytics = () => {
       {service === "cleaning" && <CleaningAnalytics embedded />}
       {service === "cars" && <CarRentalsAnalytics embedded />}
       {service === "food" && <FoodAnalytics embedded />}
-      {service === "massage" && <MassageAnalytics embedded />}
       {service === "beach" && <BeachClubAnalytics embedded />}
 
       <DomainEventBusPanel />

@@ -16,9 +16,9 @@ interface PaidArgs { method: string; paymentRef: string; pending: boolean }
 
 interface Props {
   amountCents: number;
-  serviceName: string;        // "Massage Subscription"
-  context: string;            // "massage_subscription"
-  externalIdPrefix: string;   // "massage-sub-<id>"
+  serviceName: string;
+  context: string;
+  externalIdPrefix: string;
   adminUrl: string;
   clientName?: string;
   clientPhone?: string;

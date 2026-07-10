@@ -114,11 +114,8 @@ export default function RoleManagement() {
   const inactiveRoles = roles.filter((role) => role.status !== "active");
 
   return (
-    <SuperAdminLayout title="Role Management">
-      <div className="mb-space-4 flex flex-wrap items-center justify-between gap-space-3">
-        <div>
-          <p className="text-muted-foreground">Create roles, assign permissions, and control admin access from the database-backed RBAC layer.</p>
-        </div>
+    <SuperAdminLayout title="Roles" subtitle="Define who can access which admin surfaces">
+      <div className="mb-space-4 flex justify-end">
         <Button onClick={() => setCreating(true)}><Plus className="h-4 w-4" />New Role</Button>
       </div>
 

@@ -1,7 +1,12 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Trash2, Waves, Plus, Search, RefreshCcw, Bell } from "lucide-react";
+import { Trash2, Waves, Plus, Search, RefreshCcw, Bell, MoreHorizontal } from "lucide-react";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
+  DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { todayHN, addDaysISO, addMonthsISO } from "@/lib/timezone";
+import { effectiveBeachStatus } from "@/lib/subscriptionLifecycle";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { PageLoader, Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
@@ -66,7 +71,7 @@ const emptyForm = {
   status: "active" as string,
 };
 
-export default function BeachClubSubscriptions() {
+export default function BeachClubSubscriptions({ embedded = false }: { embedded?: boolean } = {}) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
@@ -126,7 +131,13 @@ export default function BeachClubSubscriptions() {
         .select("*")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as BeachSub[];
+      // Derive lifecycle from end_date so a lingering "active" past its end
+      // renders as expired without waiting for the daily cron.
+      const today = todayHN();
+      return (data ?? []).map((s: BeachSub) => ({
+        ...s,
+        status: effectiveBeachStatus(s, today),
+      })) as BeachSub[];
     },
   });
 
@@ -212,14 +223,15 @@ export default function BeachClubSubscriptions() {
   });
 
   if (isLoading) {
+    if (embedded) return <PageLoader />;
     return <SuperAdminLayout title="Beach Club Subscriptions"><PageLoader /></SuperAdminLayout>;
   }
 
   const activeCount = subs.filter((s) => s.status === "active").length;
   const unpaidCount = subs.filter((s) => s.payment_status !== "paid" && s.status !== "cancelled").length;
 
-  return (
-    <SuperAdminLayout title="Beach Club Subscriptions" subtitle="Paid memberships from the Beach Club page">
+  const body = (
+    <>
       <div className="mb-space-4 flex flex-wrap items-center justify-between gap-space-3">
         <div className="flex items-center gap-space-3">
           <div className="relative w-[220px]">
@@ -300,21 +312,34 @@ export default function BeachClubSubscriptions() {
                   </Select>
                 </TableCell>
                 <TableCell className="text-right">
-                  <div className="flex items-center justify-end gap-1">
-                    {s.payment_status !== "paid" && s.status !== "cancelled" && (
-                      <Button size="iconSm" variant="ghost" className="rounded-full text-amber-500 hover:bg-amber-500/10 hover:text-amber-500"
-                        title="Send payment reminder" onClick={() => reminderMutation.mutate(s.id)} disabled={reminderMutation.isPending}>
-                        <Bell />
-                      </Button>
-                    )}
-                    <Button size="iconSm" variant="ghost" className="rounded-full text-green-500 hover:bg-green-500/10 hover:text-green-500"
-                      title="Renew (payment received)" onClick={() => renewMutation.mutate(s)}>
-                      <RefreshCcw />
-                    </Button>
-                    <Button size="iconSm" variant="ghost" className="rounded-full text-destructive hover:bg-destructive/10 hover:text-destructive"
-                      title="Delete" onClick={() => deleteMutation.mutate(s.id)}>
-                      <Trash2 />
-                    </Button>
+                  <div className="flex items-center justify-end">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button size="iconSm" variant="ghost" aria-label="More actions">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-56">
+                        {s.payment_status !== "paid" && s.status !== "cancelled" && (
+                          <DropdownMenuItem
+                            onSelect={() => reminderMutation.mutate(s.id)}
+                            disabled={reminderMutation.isPending}
+                          >
+                            <Bell className="h-4 w-4" /> Send reminder
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuItem onSelect={() => renewMutation.mutate(s)}>
+                          <RefreshCcw className="h-4 w-4" /> Renew (payment received)
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onSelect={() => deleteMutation.mutate(s.id)}
+                          className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" /> Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </TableCell>
               </TableRow>
@@ -422,6 +447,13 @@ export default function BeachClubSubscriptions() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </>
+  );
+
+  if (embedded) return body;
+  return (
+    <SuperAdminLayout title="Beach Club Subscriptions" subtitle="Paid memberships from the Beach Club page">
+      {body}
     </SuperAdminLayout>
   );
 }

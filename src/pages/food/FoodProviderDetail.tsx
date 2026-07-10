@@ -138,7 +138,7 @@ const FoodProviderDetail = () => {
   if (loadingProvider) {
     return (
       <div className="min-h-screen bg-background pb-24 md:pb-0">
-        <HomeHeader title="Food" showBackButton onBack={() => navigate("/food")} />
+        <HomeHeader title="Food" showBackButton onBack={() => navigate("/services/food")} />
         <DesktopHeader />
         <main className="market-content py-space-6 space-y-4">
           <div className="h-48 animate-pulse rounded-3xl bg-muted" />
@@ -153,7 +153,7 @@ const FoodProviderDetail = () => {
   if (!provider) {
     return (
       <div className="min-h-screen bg-background pb-24 md:pb-0">
-        <HomeHeader title="Food" showBackButton onBack={() => navigate("/food")} />
+        <HomeHeader title="Food" showBackButton onBack={() => navigate("/services/food")} />
         <DesktopHeader />
         <main className="market-content flex flex-col items-center justify-center py-16">
           <ChefHat className="mb-4 h-12 w-12 text-muted-foreground/40" />
@@ -175,11 +175,11 @@ const FoodProviderDetail = () => {
 
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-0">
-      <HomeHeader title={provider.name} showBackButton onBack={() => navigate("/food")} />
+      <HomeHeader title={provider.name} showBackButton onBack={() => navigate("/services/food")} />
       <DesktopHeader />
 
       {/* ─── Full-width banner ───────────────────────────────────────────── */}
-      <div className="relative h-52 w-full overflow-hidden bg-gradient-to-br from-orange-500/25 via-amber-500/10 to-transparent md:h-72">
+      <div className="relative h-52 w-full overflow-hidden bg-muted/30 md:h-72">
         {provider.banner_url ? (
           <img src={provider.banner_url} alt="" className="h-full w-full object-cover" />
         ) : (
@@ -205,8 +205,8 @@ const FoodProviderDetail = () => {
                   className="h-full w-full object-cover"
                 />
               ) : (
-                <div className="flex h-full items-center justify-center bg-orange-500/10">
-                  <ChefHat className="h-9 w-9 text-orange-400" />
+                <div className="flex h-full items-center justify-center bg-primary/10">
+                  <ChefHat className="h-9 w-9 text-primary" />
                 </div>
               )}
             </div>
@@ -285,12 +285,12 @@ const FoodProviderDetail = () => {
             <div className="flex flex-col items-center justify-center rounded-3xl bg-card py-14 text-center">
               <CalendarDays className="mb-3 h-10 w-10 text-muted-foreground/40" />
               <p className="font-semibold text-foreground">
-                {selectedResidenceId && plans.length > 0 ? `No plans in ${residence}` : "No plans available yet"}
+                {selectedResidenceId && plans.length > 0 ? `No plans in ${residence}` : "No plans yet"}
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
                 {selectedResidenceId && plans.length > 0
                   ? "This restaurant doesn't deliver these plans to your location."
-                  : "Check back soon — meal plans are being configured."}
+                  : "We're setting things up. Check back soon."}
               </p>
             </div>
           ) : (
@@ -368,7 +368,7 @@ function Stat({
 function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
     <div className="flex items-start gap-3 px-5 py-4">
-      <span className="mt-0.5 shrink-0 text-orange-400">{icon}</span>
+      <span className="mt-0.5 shrink-0 text-primary">{icon}</span>
       <div className="min-w-0">
         <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
         <p className="mt-0.5 text-sm text-foreground whitespace-pre-line">{value}</p>
@@ -395,17 +395,17 @@ function MealPlanCard({
     <article
       role="button"
       tabIndex={0}
-      onClick={() => navigate(`/food/${providerId}/plans/${plan.id}`)}
+      onClick={() => navigate(`/services/food/${providerId}/plans/${plan.id}`)}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          navigate(`/food/${providerId}/plans/${plan.id}`);
+          navigate(`/services/food/${providerId}/plans/${plan.id}`);
         }
       }}
-      className={`group flex cursor-pointer flex-col rounded-3xl border p-6 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 ${
+      className={`group flex cursor-pointer flex-col rounded-3xl p-6 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
         featured
-          ? "border-orange-500/50    hover:border-orange-500"
-          : "bg-card hover:border-orange-500/40 hover: hover:shadow-black/20"
+          ? "bg-primary/10 hover:bg-primary/15"
+          : "bg-card hover:bg-muted/40"
       }`}
     >
       {/* Meal photos */}
@@ -428,7 +428,7 @@ function MealPlanCard({
       )}
 
       {featured && (
-        <span className="mb-3 self-start rounded-full bg-orange-500 px-2.5 py-0.5 text-xs font-bold text-white">
+        <span className="mb-3 self-start rounded-full bg-primary px-2.5 py-0.5 text-xs font-bold text-primary-foreground">
           Most Popular
         </span>
       )}
@@ -456,7 +456,7 @@ function MealPlanCard({
         <ul className="mt-4 space-y-1.5">
           {plan.highlights.map((h, i) => (
             <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
-              <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-orange-400" />
+              <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
               {h}
             </li>
           ))}
@@ -476,7 +476,7 @@ function MealPlanCard({
         <Button
           size="sm"
           className="w-full rounded-full"
-          onClick={() => navigate(`/food/${providerId}/plans/${plan.id}`)}
+          onClick={() => navigate(`/services/food/${providerId}/plans/${plan.id}`)}
         >
           View Menu
           <ArrowRight className="ml-2 h-4 w-4" />

@@ -103,7 +103,7 @@ export function RestaurantInfoTab({ restaurant }: Props) {
 
       {/* Banner (when set) */}
       {restaurant.banner_url && (
-        <section className="overflow-hidden rounded-2xl border border-border bg-card">
+        <section className="overflow-hidden rounded-2xl bg-card">
           <div className="h-32 w-full overflow-hidden">
             <img src={restaurant.banner_url} alt="" className="h-full w-full object-cover" />
           </div>
@@ -111,7 +111,7 @@ export function RestaurantInfoTab({ restaurant }: Props) {
       )}
 
       {/* Operating Hours */}
-      <section className="rounded-2xl border border-border bg-card p-5">
+      <section className="rounded-2xl bg-card p-5">
         <div className="mb-3 flex items-center gap-2">
           <Clock className="h-4 w-4 text-orange-400" />
           <h3 className="font-bold uppercase text-xs tracking-wider text-muted-foreground">
@@ -126,7 +126,7 @@ export function RestaurantInfoTab({ restaurant }: Props) {
       </section>
 
       {/* Delivery Settings */}
-      <section className="rounded-2xl border border-border bg-card p-5">
+      <section className="rounded-2xl bg-card p-5">
         <div className="mb-3 flex items-center gap-2">
           <Truck className="h-4 w-4 text-orange-400" />
           <h3 className="font-bold uppercase text-xs tracking-wider text-muted-foreground">
@@ -141,7 +141,7 @@ export function RestaurantInfoTab({ restaurant }: Props) {
       </section>
 
       {/* Location */}
-      <section className="rounded-2xl border border-border bg-card p-5">
+      <section className="rounded-2xl bg-card p-5">
         <div className="mb-3 flex items-center gap-2">
           <MapPin className="h-4 w-4 text-orange-400" />
           <h3 className="font-bold uppercase text-xs tracking-wider text-muted-foreground">
@@ -296,7 +296,7 @@ function ServiceLocationsSection({ providerId }: { providerId: string }) {
   });
 
   return (
-    <section className="rounded-2xl border border-border bg-card p-5">
+    <section className="rounded-2xl bg-card p-5">
       <div className="mb-1 flex items-center gap-2">
         <MapPin className="h-4 w-4 text-orange-400" />
         <h3 className="font-bold uppercase text-xs tracking-wider text-muted-foreground">

@@ -138,7 +138,7 @@ export function ProviderPortalShell<T extends BaseProvider>({
         )}
 
         {/* Header */}
-        <div className="flex flex-wrap items-start gap-3 rounded-2xl border border-border bg-card p-4 sm:gap-4">
+        <div className="flex flex-wrap items-start gap-3 rounded-2xl bg-card p-4 sm:gap-4">
           <div className="h-12 w-12 shrink-0 overflow-hidden rounded-2xl border border-border bg-muted sm:h-14 sm:w-14">
             {avatarUrl ? (
               <img src={avatarUrl} alt={selected.name} className="h-full w-full object-cover" />

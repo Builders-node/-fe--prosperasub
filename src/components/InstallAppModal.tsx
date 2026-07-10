@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { Share, SquarePlus, Plus, MoreVertical } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -7,6 +8,13 @@ import { useI18n } from "@/i18n";
 
 const DISMISS_FOREVER_KEY = "prospera_install_prompt_dismissed";
 const DISMISS_SESSION_KEY = "prospera_install_prompt_session";
+
+/**
+ * URL prefixes where the install prompt should NEVER appear. These are one-off
+ * landing pages people arrive at from a QR code, an email link, or an OAuth
+ * hand-off — asking them to install the app there is jarring and off-context.
+ */
+const SUPPRESS_ON_PATHS = ["/verify", "/reset-password", "/oauth/callback", "/auth"];
 
 type Platform = "ios" | "android" | "other";
 
@@ -64,14 +72,22 @@ const COPY = {
 
 export default function InstallAppModal() {
   const isMobile = useIsMobile();
+  const location = useLocation();
   const { language } = useI18n();
   const [open, setOpen] = useState(false);
   const [platform, setPlatform] = useState<Platform>("other");
 
+  const isSuppressedPath = SUPPRESS_ON_PATHS.some(
+    (p) => location.pathname === p || location.pathname.startsWith(`${p}/`),
+  );
+
   useEffect(() => {
-    // Never prompt when already installed, on desktop, or after the user dismissed it.
+    // Never prompt when already installed, on desktop, on a suppressed landing
+    // surface (QR verify / password reset / OAuth callback), or after the user
+    // dismissed it.
     if (isStandalone()) return;
     if (!isMobile) return;
+    if (isSuppressedPath) return;
     if (localStorage.getItem(DISMISS_FOREVER_KEY)) return;
     if (sessionStorage.getItem(DISMISS_SESSION_KEY)) return;
 
@@ -81,7 +97,13 @@ export default function InstallAppModal() {
     setPlatform(p);
     const timer = window.setTimeout(() => setOpen(true), 2500);
     return () => window.clearTimeout(timer);
-  }, [isMobile]);
+  }, [isMobile, isSuppressedPath]);
+
+  // If the user navigates onto a suppressed surface while the modal is open,
+  // dismiss it immediately (still transient — no dismiss key written).
+  useEffect(() => {
+    if (isSuppressedPath && open) setOpen(false);
+  }, [isSuppressedPath, open]);
 
   const handleClose = () => {
     // "Close" hides it for this browser session only — it may reappear on a later visit.

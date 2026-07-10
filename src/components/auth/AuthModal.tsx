@@ -1,8 +1,10 @@
 /**
  * AuthModal — Login / Register
  *
- * Mobile  (<md): bottom Sheet that slides up from the bottom
- * Desktop (≥md): centered Dialog
+ * One centered Dialog for every viewport. The shared `DialogContent` primitive
+ * already flips to a bottom sheet on mobile via CSS media queries, so we don't
+ * split by JS-detected viewport (that flashed the wrong layout on first paint
+ * and misfired on narrow desktop windows).
  *
  * All business logic lives in this file; the /auth page only handles
  * the Google OAuth callback redirect (code + state params).
@@ -16,19 +18,12 @@ import { toast } from "sonner";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { useIsMobile } from "@/hooks/use-mobile";
 import {
   Dialog,
   DialogContent,
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import {
-  Sheet,
-  SheetContent,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -73,7 +68,7 @@ function PasswordInput({
         placeholder={placeholder}
         required={required}
         minLength={minLength}
-        className="h-12 w-full rounded-[14px] border-0 px-4 pr-12 text-[15px] outline-none focus:ring-2 focus:ring-[#F8A31A]/40 yd-input"
+        className="h-12 w-full rounded-2xl border-0 px-4 pr-12 text-[15px] outline-none focus:ring-2 focus:ring-ring/60 yd-input"
         style={{ WebkitAppearance: "none" }}
       />
       <button
@@ -188,13 +183,13 @@ function AuthForm({
 
         {resetEmailSent ? (
           <div className="space-y-5">
-            <div className="flex items-center gap-3 rounded-[14px] p-4 text-[14px] font-semibold" style={{ background: "hsl(var(--yd-input))", color: "hsl(var(--yd-text))" }}>
+            <div className="flex items-center gap-3 rounded-2xl p-4 text-[14px] font-semibold" style={{ background: "hsl(var(--yd-input))", color: "hsl(var(--yd-text))" }}>
               ✓ Check your email for the password reset link.
             </div>
             <button
               type="button"
               onClick={() => setView("login")}
-              className="flex h-12 w-full items-center justify-center rounded-[14px] text-[15px] font-bold transition hover:opacity-90 active:scale-[0.98]"
+              className="flex h-12 w-full items-center justify-center rounded-2xl text-[15px] font-bold transition hover:opacity-90 active:scale-[0.98]"
               style={{ background: "hsl(var(--yd-cta-bg))", color: "hsl(var(--yd-cta-fg))" }}
             >
               Back to login
@@ -213,14 +208,14 @@ function AuthForm({
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 required
-                className="h-12 w-full rounded-[14px] border-0 px-4 text-[15px] outline-none focus:ring-2 focus:ring-[#F8A31A]/40 yd-input"
+                className="h-12 w-full rounded-2xl border-0 px-4 text-[15px] outline-none focus:ring-2 focus:ring-ring/60 yd-input"
                 style={{ WebkitAppearance: "none" }}
               />
             </div>
             <button
               type="submit"
               disabled={isLoading}
-              className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-[14px] text-[15px] font-bold transition hover:opacity-90 active:scale-[0.98] disabled:opacity-60"
+              className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-2xl text-[15px] font-bold transition hover:opacity-90 active:scale-[0.98] disabled:opacity-60"
               style={{ background: "hsl(var(--yd-cta-bg))", color: "hsl(var(--yd-cta-fg))" }}
             >
               {isLoading ? <Spinner size="md" /> : "Send reset link"}
@@ -255,7 +250,7 @@ function AuthForm({
       </div>
 
       {/* View toggle pill */}
-      <div className="mb-6 grid grid-cols-2 gap-1 rounded-[14px] p-1" style={{ background: "hsl(var(--yd-input))" }}>
+      <div className="mb-6 grid grid-cols-2 gap-1 rounded-2xl p-1" style={{ background: "hsl(var(--yd-input))" }}>
         <button
           type="button"
           onClick={() => setView("login")}
@@ -296,7 +291,7 @@ function AuthForm({
               onChange={(e) => setName(e.target.value)}
               placeholder="Your name"
               required
-              className="h-12 w-full rounded-[14px] border-0 px-4 text-[15px] outline-none focus:ring-2 focus:ring-[#F8A31A]/40 yd-input"
+              className="h-12 w-full rounded-2xl border-0 px-4 text-[15px] outline-none focus:ring-2 focus:ring-ring/60 yd-input"
               style={{ WebkitAppearance: "none" }}
             />
           </div>
@@ -313,7 +308,7 @@ function AuthForm({
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@example.com"
             required
-            className="h-12 w-full rounded-[14px] border-0 px-4 text-[15px] outline-none focus:ring-2 focus:ring-[#F8A31A]/40 yd-input"
+            className="h-12 w-full rounded-2xl border-0 px-4 text-[15px] outline-none focus:ring-2 focus:ring-ring/60 yd-input"
             style={{ WebkitAppearance: "none" }}
           />
         </div>
@@ -351,7 +346,7 @@ function AuthForm({
         <button
           type="submit"
           disabled={isLoading}
-          className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-[14px] text-[15px] font-bold transition hover:opacity-90 active:scale-[0.98] disabled:opacity-60"
+          className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-2xl text-[15px] font-bold transition hover:opacity-90 active:scale-[0.98] disabled:opacity-60"
           style={{ background: "hsl(var(--yd-cta-bg))", color: "hsl(var(--yd-cta-fg))" }}
         >
           {isLoading ? (
@@ -379,7 +374,7 @@ function AuthForm({
         type="button"
         onClick={handleGoogle}
         disabled={isLoading}
-        className="flex h-12 w-full items-center justify-center gap-3 rounded-[14px] border text-[14px] font-semibold transition active:scale-[0.98] disabled:opacity-50"
+        className="flex h-12 w-full items-center justify-center gap-3 rounded-2xl border text-[14px] font-semibold transition active:scale-[0.98] disabled:opacity-50"
         style={{ borderColor: "hsl(var(--yd-input-border))", color: "hsl(var(--yd-text))" }}
       >
         <GoogleIcon />
@@ -397,11 +392,13 @@ function AuthForm({
   );
 }
 
-// ─── Modal (Dialog on desktop, Sheet on mobile) ───────────────────────────────
+// ─── Modal ────────────────────────────────────────────────────────────────────
+// One Dialog for both viewports. The shared `DialogContent` already handles
+// responsive layout (bottom sheet on mobile, centered card on ≥sm) via CSS
+// media queries, so we don't branch on `useIsMobile()` — that hook flashes the
+// wrong layout on first paint and can misfire on narrow desktop windows.
 
 export function AuthModal({ open, onClose, defaultView = "login", redirectTo = "/" }: AuthModalProps) {
-  const isMobile = useIsMobile();
-
   const formContent = (
     <AuthForm
       defaultView={defaultView}
@@ -410,50 +407,19 @@ export function AuthModal({ open, onClose, defaultView = "login", redirectTo = "
     />
   );
 
-  if (isMobile) {
-    return (
-      <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
-        <SheetContent
-          side="bottom"
-          className="flex flex-col border-0 px-5 pb-0 pt-5 outline-none focus:outline-none"
-          style={{
-            borderRadius: "24px 24px 0 0",
-            maxHeight: "90dvh",
-            background: "hsl(var(--yd-card))",
-            color: "hsl(var(--yd-text))",
-            overflowY: "auto",
-            paddingBottom: "max(env(safe-area-inset-bottom, 0px), 24px)",
-          }}
-        >
-          {/* Drag handle */}
-          <div className="mx-auto mb-5 h-1 w-10 rounded-full" style={{ background: "hsl(var(--yd-input-border))" }} />
-
-          {/* Visually hidden accessible title */}
-          <SheetTitle className="sr-only">
-            {defaultView === "forgot_password" ? "Reset your password" : defaultView === "login" ? "Log in to ProsperaSub" : "Create a ProsperaSub account"}
-          </SheetTitle>
-          <SheetDescription className="sr-only">
-            Enter your credentials to continue.
-          </SheetDescription>
-
-          {formContent}
-        </SheetContent>
-      </Sheet>
-    );
-  }
-
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent
-        className="border-0 p-8 outline-none focus:outline-none"
+        className="border-0 outline-none focus:outline-none sm:max-w-[420px]"
         style={{
-          borderRadius: 24,
           background: "hsl(var(--yd-card))",
           color: "hsl(var(--yd-text))",
-          boxShadow: "0 20px 60px rgba(0,0,0,0.15)",
-          maxWidth: 420,
-          width: "calc(100% - 32px)",
         }}
+        // Clicking outside the auth form shouldn't lose whatever the user just
+        // typed. Same for Escape. Close via the built-in X in the top-right.
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
       >
         <DialogTitle className="sr-only">
           {defaultView === "forgot_password" ? "Reset your password" : defaultView === "login" ? "Log in to ProsperaSub" : "Create a ProsperaSub account"}
@@ -462,6 +428,7 @@ export function AuthModal({ open, onClose, defaultView = "login", redirectTo = "
           Enter your credentials to continue.
         </DialogDescription>
 
+        {/* DialogContent already renders a Close button in the top-right corner. */}
         {formContent}
       </DialogContent>
     </Dialog>

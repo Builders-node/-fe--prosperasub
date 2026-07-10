@@ -10,6 +10,7 @@ import {
   EyeOff,
   ExternalLink,
   ListChecks,
+  MoreHorizontal,
   RotateCcw,
   SparklesIcon,
   Trash2,
@@ -18,7 +19,7 @@ import {
 import { toast } from "sonner";
 
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
-import { EmptyState } from "@/components/EmptyState";
+import { TabEmptyState } from "@/components/subscriptions/MySubsPrimitives";
 import { supabase, adminApi } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,13 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { usePagination, TablePagination } from "@/components/ui/table-pagination";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -120,7 +128,7 @@ const getBookingClientName = (booking: any) =>
 
 const getBookingDate = (booking: any) => booking.cleaning_available_slots?.date ?? "";
 
-const CleaningManagement = () => {
+const CleaningManagement = ({ embedded = false }: { embedded?: boolean } = {}) => {
   const queryClient = useQueryClient();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [completionBookingId, setCompletionBookingId] = useState<string>("");
@@ -553,8 +561,8 @@ const CleaningManagement = () => {
     reader.readAsDataURL(file);
   };
 
-  return (
-    <SuperAdminLayout title="Cleaning Operations" subtitle="Operational booking calendar and cleaning completion reports">
+  const body = (
+    <>
       <div className="grid grid-cols-2 gap-space-2 md:grid-cols-4 md:gap-space-3">
         {[
           { label: "Upcoming", value: stats.upcoming, icon: CalendarDays },
@@ -574,10 +582,13 @@ const CleaningManagement = () => {
         ))}
       </div>
 
-      <Tabs defaultValue="bookings" variant="pills" className="mt-space-4 w-full">
+      {/* Inside the provider workspace the outer Calendar tab already covers
+          Bookings + Calendar, so we hide those sub-tabs and default to Reports.
+          Admin-standalone (embedded=false) still gets the full three. */}
+      <Tabs defaultValue={embedded ? "reports" : "bookings"} variant="pills" className="mt-space-4 w-full">
         <TabsList className="mb-2">
-          <TabsTrigger value="bookings">Bookings</TabsTrigger>
-          <TabsTrigger value="calendar">Calendar</TabsTrigger>
+          {!embedded && <TabsTrigger value="bookings">Bookings</TabsTrigger>}
+          {!embedded && <TabsTrigger value="calendar">Calendar</TabsTrigger>}
           <TabsTrigger value="reports">Completion Reports</TabsTrigger>
         </TabsList>
 
@@ -628,7 +639,7 @@ const CleaningManagement = () => {
               {bookingsLoading ? (
                 <p className="py-space-8 text-center text-muted-foreground">Loading bookings...</p>
               ) : bookings.length === 0 ? (
-                <EmptyState title="No cleaning bookings" description="Bookings created from subscriptions or assigned plans will appear here." compact />
+                <TabEmptyState icon={CalendarDays} title="No cleaning bookings" subtitle="Bookings created from subscriptions or assigned plans will appear here." />
               ) : (
                 <>
                   <div className="space-y-space-3 md:hidden">
@@ -696,46 +707,15 @@ const CleaningManagement = () => {
                               </div>
                             </TableCell>
                             <TableCell>
-                              <div className="flex justify-end gap-space-2">
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="secondary"
-                                  loading={syncCalendarMutation.isPending && syncCalendarMutation.variables === booking.id}
-                                  onClick={() => syncCalendarMutation.mutate(booking.id)}
-                                >
-                                  <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
-                                  Sync
-                                </Button>
-                                {booking.status !== "completed" ? (
-                                  <Button type="button" size="sm" variant="secondary" onClick={() => setCompletionBookingId(booking.id)}>
-                                    <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
-                                    Complete
-                                  </Button>
-                                ) : null}
-                                {booking.status !== "cancelled" ? (
-                                  <Button type="button" size="sm" variant="secondary" onClick={() => openReschedule(booking)}>
-                                    <CalendarClock className="h-3.5 w-3.5" aria-hidden="true" />
-                                    Reschedule
-                                  </Button>
-                                ) : null}
-                                {booking.google_calendar_event_link ? (
-                                  <Button type="button" size="iconSm" variant="tertiary" asChild aria-label="Open Calendar Event">
-                                    <a href={booking.google_calendar_event_link} target="_blank" rel="noreferrer">
-                                      <ExternalLink className="h-4 w-4" aria-hidden="true" />
-                                    </a>
-                                  </Button>
-                                ) : null}
-                                <Button
-                                  type="button"
-                                  size="iconSm"
-                                  variant="tertiary"
-                                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                  aria-label="Delete booking"
-                                  onClick={() => setDeleteBooking(booking)}
-                                >
-                                  <Trash2 className="h-4 w-4" aria-hidden="true" />
-                                </Button>
+                              <div className="flex justify-end">
+                                <BookingActionsMenu
+                                  booking={booking}
+                                  syncing={syncCalendarMutation.isPending && syncCalendarMutation.variables === booking.id}
+                                  onSync={() => syncCalendarMutation.mutate(booking.id)}
+                                  onComplete={() => setCompletionBookingId(booking.id)}
+                                  onReschedule={() => openReschedule(booking)}
+                                  onDelete={() => setDeleteBooking(booking)}
+                                />
                               </div>
                             </TableCell>
                           </TableRow>
@@ -790,7 +770,7 @@ const CleaningManagement = () => {
                     <Badge variant="secondary">{bookingsForSelectedDate.length}</Badge>
                   </div>
                   {bookingsForSelectedDate.length === 0 ? (
-                    <EmptyState title="No bookings for this day" description="Booked cleanings will appear here." compact />
+                    <TabEmptyState icon={CalendarDays} title="No bookings for this day" subtitle="Booked cleanings will appear here." />
                   ) : (
                     <div className="space-y-space-3">
                       {bookingsForSelectedDate.map((booking: any) => (
@@ -815,7 +795,7 @@ const CleaningManagement = () => {
                     <Badge variant="secondary">{slotsForSelectedDate.length}</Badge>
                   </div>
                   {slotsForSelectedDate.length === 0 ? (
-                    <EmptyState title="No available slots" description="Available cleaning slots for this day will appear here." compact />
+                    <TabEmptyState icon={Clock} title="No available slots" subtitle="Available cleaning slots for this day will appear here." />
                   ) : (
                     <div className="grid gap-space-3 sm:grid-cols-2">
                       {slotsForSelectedDate.map((slot: any) => {
@@ -845,7 +825,7 @@ const CleaningManagement = () => {
             </CardHeader>
             <CardContent>
               {completionReports.length === 0 ? (
-                <EmptyState title="No completion reports yet" description="Completed sessions will appear here with checklist, notes, and photo links." compact />
+                <TabEmptyState icon={SparklesIcon} title="No completion reports yet" subtitle="Completed sessions will appear here with checklist, notes, and photo links." />
               ) : (
                 <div className="grid gap-space-4 lg:grid-cols-2">
                   {completionReports.map((report: any) => (
@@ -1030,6 +1010,13 @@ const CleaningManagement = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </>
+  );
+
+  if (embedded) return body;
+  return (
+    <SuperAdminLayout title="Cleaning Operations" subtitle="Operational booking calendar and cleaning completion reports">
+      {body}
     </SuperAdminLayout>
   );
 };
@@ -1072,43 +1059,88 @@ function BookingCard({
         </Badge>
       </div>
 
-      <div className="mt-space-3 flex flex-wrap gap-space-2">
-        <Button type="button" size="sm" variant="secondary" loading={syncing} onClick={onSync}>
-          <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
-          Sync
-        </Button>
+      <div className="mt-space-3 flex items-center gap-space-2">
         {booking.status !== "completed" ? (
-          <Button type="button" size="sm" variant="secondary" onClick={onComplete}>
+          <Button type="button" size="sm" variant="secondary" className="flex-1" onClick={onComplete}>
             <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
-            Complete
+            Mark complete
           </Button>
-        ) : null}
-        {booking.status === "booked" ? (
-          <Button type="button" size="sm" variant="secondary" onClick={onReschedule}>
+        ) : booking.status === "booked" ? (
+          <Button type="button" size="sm" variant="secondary" className="flex-1" onClick={onReschedule}>
             <CalendarClock className="h-3.5 w-3.5" aria-hidden="true" />
             Reschedule
           </Button>
         ) : null}
-        {booking.google_calendar_event_link ? (
-          <Button type="button" size="sm" variant="tertiary" asChild>
-            <a href={booking.google_calendar_event_link} target="_blank" rel="noreferrer">
-              <ExternalLink className="h-4 w-4" aria-hidden="true" />
-              Open
-            </a>
-          </Button>
-        ) : null}
-        <Button
-          type="button"
-          size="sm"
-          variant="tertiary"
-          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-          onClick={onDelete}
-        >
-          <Trash2 className="h-4 w-4" aria-hidden="true" />
-          Delete
-        </Button>
+        <BookingActionsMenu
+          booking={booking}
+          syncing={syncing}
+          onSync={onSync}
+          onComplete={onComplete}
+          onReschedule={onReschedule}
+          onDelete={onDelete}
+        />
       </div>
     </div>
+  );
+}
+
+// ─── Consolidated actions menu ─────────────────────────────────────────────
+// Every row has ~5 possible actions (Sync, Complete, Reschedule, Open in
+// Calendar, Delete). Putting them all inline created visual noise the user
+// called out. Collapsing to one ⋯ button per row keeps the row scannable and
+// still surfaces every action via the dropdown.
+function BookingActionsMenu({
+  booking,
+  syncing,
+  onSync,
+  onComplete,
+  onReschedule,
+  onDelete,
+}: {
+  booking: any;
+  syncing: boolean;
+  onSync: () => void;
+  onComplete: () => void;
+  onReschedule: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button type="button" size="iconSm" variant="tertiary" aria-label="More actions">
+          <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        {booking.status !== "completed" ? (
+          <DropdownMenuItem onSelect={onComplete}>
+            <CheckCircle2 className="h-4 w-4" /> Mark complete
+          </DropdownMenuItem>
+        ) : null}
+        {booking.status !== "cancelled" ? (
+          <DropdownMenuItem onSelect={onReschedule}>
+            <CalendarClock className="h-4 w-4" /> Reschedule
+          </DropdownMenuItem>
+        ) : null}
+        <DropdownMenuItem onSelect={onSync} disabled={syncing}>
+          <RotateCcw className="h-4 w-4" /> {syncing ? "Syncing…" : "Sync to Calendar"}
+        </DropdownMenuItem>
+        {booking.google_calendar_event_link ? (
+          <DropdownMenuItem asChild>
+            <a href={booking.google_calendar_event_link} target="_blank" rel="noreferrer">
+              <ExternalLink className="h-4 w-4" /> Open in Calendar
+            </a>
+          </DropdownMenuItem>
+        ) : null}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onSelect={onDelete}
+          className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+        >
+          <Trash2 className="h-4 w-4" /> Delete
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

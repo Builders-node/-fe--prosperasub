@@ -98,7 +98,7 @@ export function UniversalInfoTab({ provider }: { provider: UniversalProviderRow 
         </Button>
       </div>
 
-      <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
+      <div className="rounded-2xl bg-card p-5 space-y-4">
         <Row icon={<InfoIcon className="h-4 w-4 text-muted-foreground" />} label="Description">
           {provider.description || <em className="text-muted-foreground/70">No description</em>}
         </Row>

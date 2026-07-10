@@ -1,46 +1,23 @@
+/**
+ * Admin route constants used by the sidebar nav config (adminNav.ts).
+ *
+ * Only nav-referenced routes live here — per-service admin pages (BeachClub,
+ * Food, CarRentals, Cleaning legacy) are accessed via URL only or embedded
+ * inside provider workspaces, so their paths don't need central constants.
+ */
 export const adminRoutes = {
   superAdminDashboard: "/admin/dashboard",
+  superAdminAnalytics: "/admin/analytics",
   superAdminPayments: "/admin/payments",
-  superAdminProfit: "/admin/profit",
-  superAdminUsers: "/admin/users",
-  superAdminClients: "/admin/clients",
-  superAdminProviderApplications: "/admin/provider-applications",
-  superAdminCategories: "/admin/categories",
+  superAdminServices: "/admin/services",
   superAdminMarketplaceProviders: "/admin/marketplace/providers",
   superAdminMarketplacePlans: "/admin/marketplace/plans",
   superAdminMarketplaceSubscriptions: "/admin/marketplace/subscriptions",
-  superAdminAnalytics: "/admin/analytics",
-  superAdminCleaning: "/admin/cleaning/operations",
-  superAdminCleaningAnalytics: "/admin/cleaning/analytics",
-  superAdminCleaningPlans: "/admin/cleaning/plans",
-  superAdminCleaningProviders: "/admin/cleaning/providers",
-  superAdminSubscriptions: "/admin/cleaning/subscriptions",
+  superAdminUsers: "/admin/users",
+  superAdminLocations: "/admin/locations",
+  superAdminAds: "/admin/ads",
   superAdminRoles: "/admin/roles",
   superAdminAuditLogs: "/admin/audit-logs",
-  superAdminSettings: "/admin/settings",
-  superAdminAds: "/admin/ads",
-  // Car Rentals
-  superAdminCarRentals: "/admin/car-rentals",
-  superAdminCarRentalsReservations: "/admin/car-rentals/reservations",
-  superAdminCarRentalsCustomers: "/admin/car-rentals/customers",
-  superAdminCarRentalsAnalytics: "/admin/car-rentals/analytics",
-  superAdminCarRentalsProviders: "/admin/car-rentals/providers",
-  // Food
-  superAdminFoodAnalytics: "/admin/food/analytics",
-  superAdminFoodProviders: "/admin/food/providers",
-  superAdminFoodResidences: "/admin/food/residences",
-  superAdminLocations: "/admin/locations",
-  superAdminFoodSubscriptions: "/admin/food/subscriptions",
-  // Massage
-  superAdminMassageProviders: "/admin/massage/providers",
-  superAdminMassagePlans: "/admin/massage/plans",
-  superAdminMassageSubscriptions: "/admin/massage/subscriptions",
-  superAdminMassageCalendar: "/admin/massage/calendar",
-  // Beach Club
-  superAdminBeachClubAnalytics: "/admin/beach-club/analytics",
-  superAdminBeachClubPlans: "/admin/beach-club/plans",
-  superAdminBeachClubSubscriptions: "/admin/beach-club/subscriptions",
-  superAdminBeachClubCourts: "/admin/beach-club/courts",
 } as const;
 
 export const publicRoutes = {

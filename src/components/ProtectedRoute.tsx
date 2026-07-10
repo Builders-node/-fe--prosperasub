@@ -65,7 +65,7 @@ const ProtectedRoute = ({ children, allowedRoles, requiredRoles }: ProtectedRout
     }
 
     if (!hasRequiredRole) {
-      return <Navigate to="/cleaning" replace />;
+      return <Navigate to="/discovery" replace />;
     }
   }
 

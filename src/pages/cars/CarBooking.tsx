@@ -5,6 +5,7 @@ import { format, differenceInCalendarDays, parseISO } from "date-fns";
 import {
   Car, Zap, CheckCircle2, Copy, RefreshCw, Clock, AlertCircle, Bitcoin,
   CalendarDays, ChevronRight, Wallet, Shield, Plus, Check, Sparkles,
+  MapPin, MessageCircle, Truck,
 } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { supabaseDb } from "@/integrations/supabase/client";
@@ -21,6 +22,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { BottomSheetModal } from "@/components/patterns/BottomSheetModal";
+import { NotesField } from "@/components/patterns/NotesField";
+import { resolvePlanBookingSettings } from "@/lib/booking/resolvePlanSettings";
 import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
 import type { RentalVehicle, RentalVehicleImage, RentalInsuranceTier, RentalDeliveryZone, RentalExtra } from "@/types/carRental";
@@ -170,6 +173,57 @@ const CarBooking = () => {
   useEffect(() => {
     return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
   }, []);
+
+  // Parent rental provider — needed to fall through to provider-level
+  // booking_settings when the vehicle carries no override of its own.
+  const { data: rentalProvider } = useQuery({
+    queryKey: ["rental-provider-booking-settings", (vehicle as any)?.provider_id],
+    enabled: !!(vehicle as any)?.provider_id,
+    queryFn: async () => {
+      const { data } = await supabaseDb
+        .from("rental_providers")
+        .select("booking_settings")
+        .eq("id", (vehicle as any).provider_id)
+        .maybeSingle();
+      return data;
+    },
+  });
+
+  // Enforce vehicle/provider calendar (weekly hours, min notice, max advance,
+  // blocked dates). Runs whenever the picked date/time changes or the vehicle
+  // loads. Sets `calendarError` so the existing CTA-disabled + banner-render
+  // paths just work — no new UI plumbing needed.
+  useEffect(() => {
+    if (!vehicle || !startDate) { setCalendarError(null); return; }
+    const settings = resolvePlanBookingSettings(vehicle as any, rentalProvider ?? null);
+
+    // Full-day block on start OR end date?
+    if (settings.blockedDates.includes(startDate)) {
+      setCalendarError("Start date is closed for this vehicle."); return;
+    }
+    if (endDate && settings.blockedDates.includes(endDate)) {
+      setCalendarError("End date is closed for this vehicle."); return;
+    }
+
+    // Notice / advance cutoffs based on the pickup datetime.
+    const pickupMs = new Date(`${startDate}T${startTime || "09:00"}:00`).getTime();
+    if (!Number.isNaN(pickupMs)) {
+      const nowMs = Date.now();
+      const noticeMs = nowMs + settings.minNoticeHours * 3600_000;
+      const advanceMs = nowMs + settings.maxAdvanceDays * 86400_000;
+      if (pickupMs < noticeMs) {
+        const hrs = settings.minNoticeHours;
+        setCalendarError(`Pickup must be at least ${hrs} hour${hrs === 1 ? "" : "s"} from now.`);
+        return;
+      }
+      if (pickupMs > advanceMs) {
+        setCalendarError(`Bookings only open up to ${settings.maxAdvanceDays} days in advance.`);
+        return;
+      }
+    }
+
+    setCalendarError(null);
+  }, [vehicle, rentalProvider, startDate, endDate, startTime]);
 
   const rentalDays = (startDate && endDate)
     ? Math.max(1, differenceInCalendarDays(parseISO(endDate), parseISO(startDate)))
@@ -430,7 +484,7 @@ const CarBooking = () => {
 
   const handleProceed = () => {
     if (!isAuthenticated) {
-      openAuthModal("login", `/cars/${id}/book`);
+      openAuthModal("login", `/services/rental/${id}/book`);
       return;
     }
     setShowPayment(true);
@@ -448,7 +502,7 @@ const CarBooking = () => {
   if (!vehicle) {
     return (
       <div className="min-h-screen bg-background">
-        <HomeHeader title="Book Vehicle" showBackButton onBack={() => navigate(`/cars/${id ?? ""}`)} />
+        <HomeHeader title="Book Vehicle" showBackButton onBack={() => navigate(`/services/rental/${id ?? ""}`)} />
         <DesktopHeader />
         <main className="market-content py-space-10 flex items-center justify-center">
           <Spinner size="lg" className="text-muted-foreground" />
@@ -462,7 +516,7 @@ const CarBooking = () => {
 
   return (
     <div className="min-h-screen bg-background pb-36 md:pb-32">
-      <HomeHeader title="Book Vehicle" showBackButton onBack={() => navigate(`/cars/${id ?? ""}`)} />
+      <HomeHeader title="Book Vehicle" showBackButton onBack={() => navigate(`/services/rental/${id ?? ""}`)} />
       <DesktopHeader />
 
       <main className="market-content py-4 md:py-8">
@@ -772,64 +826,81 @@ const CarBooking = () => {
               </button>
             )}
 
-            {/* Delivery info */}
-            <div className="rounded-2xl bg-card p-5 space-y-4">
-              <h2 className="text-xl font-black tracking-tight text-foreground">Delivery Information</h2>
+            {/* Delivery info — unified card, iOS Settings / Yandex Lavka pattern */}
+            <section className="space-y-2">
+              <p className="px-1 text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">
+                Delivery details
+              </p>
+              <div className="overflow-hidden rounded-3xl bg-card divide-y divide-border/40">
+                {deliveryZones.length > 0 && (
+                  <div className="flex items-center gap-3 px-4">
+                    <Truck className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <div className="min-w-0 flex-1">
+                      <label className="block pt-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        Delivery zone
+                      </label>
+                      <select
+                        value={deliveryZoneId}
+                        onChange={(e) => setDeliveryZoneId(e.target.value)}
+                        className="w-full appearance-none border-0 bg-transparent px-0 pb-3 pt-0.5 text-base text-foreground outline-none"
+                      >
+                        <option value="">Pick up at office (free)</option>
+                        {deliveryZones.map((z) => (
+                          <option key={z.id} value={z.id}>
+                            {z.name} — {z.fee_cents === 0 ? "FREE" : formatUSD(z.fee_cents)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <ChevronRight className="h-4 w-4 shrink-0 rotate-90 text-muted-foreground/60" />
+                  </div>
+                )}
 
-              {deliveryZones.length > 0 && (
-                <div className="space-y-1.5">
-                  <Label>Delivery zone</Label>
-                  <select
-                    value={deliveryZoneId}
-                    onChange={(e) => setDeliveryZoneId(e.target.value)}
-                    className="flex h-10 w-full rounded-md  bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    <option value="">Pick up at office (free)</option>
-                    {deliveryZones.map((z) => (
-                      <option key={z.id} value={z.id}>
-                        {z.name} — {z.fee_cents === 0 ? "FREE" : formatUSD(z.fee_cents)}
-                      </option>
-                    ))}
-                  </select>
-                  {deliveryZone?.areas && (
-                    <p className="text-xs text-muted-foreground">Covers: {deliveryZone.areas}</p>
-                  )}
+                <div className="flex items-center gap-3 px-4">
+                  <MessageCircle className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <div className="min-w-0 flex-1">
+                    <label className="block pt-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      WhatsApp <span className="text-destructive">*</span>
+                    </label>
+                    <input
+                      type="tel"
+                      placeholder="+504 9370 6270"
+                      value={whatsApp}
+                      onChange={(e) => setWhatsApp(e.target.value)}
+                      className="w-full border-0 bg-transparent px-0 pb-3 pt-0.5 text-base text-foreground outline-none placeholder:text-muted-foreground/60"
+                    />
+                  </div>
                 </div>
-              )}
 
-              <div className="space-y-1.5">
-                <Label className="flex items-center gap-1.5">
-                  <svg viewBox="0 0 24 24" fill="currentColor" className="h-3.5 w-3.5 text-green-500" aria-hidden>
-                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-                  </svg>
-                  WhatsApp number <span className="text-primary">*</span>
-                </Label>
-                <Input
-                  type="tel"
-                  placeholder="+504 9370 6270"
-                  value={whatsApp}
-                  onChange={(e) => setWhatsApp(e.target.value)}
-                />
-                <p className="text-xs text-muted-foreground">We'll confirm your booking and delivery on WhatsApp.</p>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Delivery address (optional)</Label>
-                <Input
-                  placeholder="Your address or pickup location"
-                  value={deliveryAddress}
-                  onChange={(e) => setDeliveryAddress(e.target.value)}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Additional notes (optional)</Label>
-                <Textarea
-                  placeholder="Any special instructions…"
+                <div className="flex items-start gap-3 px-4">
+                  <MapPin className="mt-4 h-4 w-4 shrink-0 text-muted-foreground" />
+                  <div className="min-w-0 flex-1">
+                    <label className="block pt-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      Delivery address
+                    </label>
+                    <input
+                      placeholder="Your address or pickup location"
+                      value={deliveryAddress}
+                      onChange={(e) => setDeliveryAddress(e.target.value)}
+                      className="w-full border-0 bg-transparent px-0 pb-3 pt-0.5 text-base text-foreground outline-none placeholder:text-muted-foreground/60"
+                    />
+                  </div>
+                </div>
+
+                <NotesField
                   value={deliveryNotes}
-                  onChange={(e) => setDeliveryNotes(e.target.value)}
-                  rows={2}
+                  onChange={setDeliveryNotes}
+                  label="Notes"
+                  title="Comment"
+                  description="Any special instructions for delivery / pickup."
+                  placeholder="Any special instructions…"
                 />
               </div>
-            </div>
+              {deliveryZone?.areas && (
+                <p className="px-1 text-[11px] text-muted-foreground">Covers: {deliveryZone.areas}</p>
+              )}
+              <p className="px-1 text-[11px] text-muted-foreground">We'll confirm your booking and delivery on WhatsApp.</p>
+            </section>
           </div>
 
           {/* Right: Price summary */}

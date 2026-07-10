@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import { startOfWeek, endOfWeek, parseISO, isWithinInterval, format } from "date-fns";
 import { formatUSD } from "@/lib/pricing";
 import { nowHN, todayHN, addWeeksISO, addDaysISO, daysUntilHN, formatDateHN } from "@/lib/timezone";
+import { effectiveFoodStatus } from "@/lib/subscriptionLifecycle";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { UserPicker } from "@/components/UserPicker";
@@ -68,11 +69,12 @@ const STATUS_LABELS: Record<FoodSubscriptionStatus, string> = {
 
 type SubRow = FoodSubscription & { planName: string | null };
 
-// end_date is the authoritative period end (= started_at + commitment_weeks*7).
-// Persist it on manual create/edit so the lifecycle (active/expiring/expired) is
-// computed correctly instead of staying null until a lazy backend write.
+// Inclusive period end: "1 week" = 7 days counting the start_date. So buying
+// Mon for 1 week gives Mon–Sun; next Monday is expired. Formula: end = start +
+// (weeks*7) - 1 day. Matches food.service.ts endDateOf() on the backend.
 function computeEndDate(startedAt: string, weeks: number): string {
-  return addWeeksISO(startedAt, Math.max(weeks || 1, 1));
+  const w = Math.max(weeks || 1, 1);
+  return addDaysISO(startedAt, w * 7 - 1);
 }
 
 // Period history is recorded automatically by a Postgres trigger on
@@ -183,8 +185,14 @@ export function RestaurantSubscriptionsTab({ providerId }: Props) {
         .order("created_at", { ascending: false });
       if (error) throw error;
 
+      // Derive effective lifecycle client-side: end_date is authoritative and
+      // the daily cron only lags reality by up to 24h. A row still marked
+      // "active" but whose end_date has passed renders as expired everywhere —
+      // bucketing, badges, action menus, delivery manifests.
+      const today = todayHN();
       return (data ?? []).map((s: FoodSubscription) => ({
         ...s,
+        status: effectiveFoodStatus(s, today) as FoodSubscription["status"],
         planName: null,
       })) as SubRow[];
     },
@@ -300,7 +308,7 @@ export function RestaurantSubscriptionsTab({ providerId }: Props) {
         const nextStart = sub.end_date && sub.end_date >= today ? addDaysISO(sub.end_date, 1) : today;
         updates.status = "active";
         updates.started_at = nextStart;
-        updates.end_date = addWeeksISO(nextStart, weeks);
+        updates.end_date = computeEndDate(nextStart, weeks);
         updates.paused_at = null;
         updates.cancelled_at = null;
         updates.payment_status = "paid";
@@ -311,7 +319,7 @@ export function RestaurantSubscriptionsTab({ providerId }: Props) {
         const weeks = Math.max(sub.commitment_weeks || 1, 1);
         updates.status = "active";
         updates.started_at = today;
-        updates.end_date = addWeeksISO(today, weeks);
+        updates.end_date = computeEndDate(today, weeks);
         updates.paused_at = null;
         updates.cancelled_at = null;
         // A reactivated period hasn't been paid yet — mark unpaid until collected.
@@ -576,14 +584,14 @@ export function RestaurantSubscriptionsTab({ providerId }: Props) {
           ))}
         </div>
       ) : subs.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-border bg-card py-14 text-center">
+        <div className="flex flex-col items-center justify-center rounded-2xl bg-card py-14 text-center">
           <p className="font-semibold">No subscriptions yet</p>
           <p className="mt-1 text-sm text-muted-foreground">
             Create one manually or wait for customers to subscribe.
           </p>
         </div>
       ) : filteredSubs.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-border bg-card py-14 text-center">
+        <div className="flex flex-col items-center justify-center rounded-2xl bg-card py-14 text-center">
           <p className="font-semibold">No matching subscriptions</p>
           <p className="mt-1 text-sm text-muted-foreground">
             No subscriptions match the selected filters.

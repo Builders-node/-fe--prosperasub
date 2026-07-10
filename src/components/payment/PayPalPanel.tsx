@@ -7,6 +7,10 @@ const API_URL = (import.meta.env.VITE_API_URL as string) || "https://api.prosper
 interface Props {
   totalCents: number;
   onPaid: (captureId: string) => void;
+  /** Called as soon as PayPal returns an order id, before the user approves.
+   *  Lets consumers persist the reference on their pending row so the server
+   *  reconcile cron can still confirm capture if the browser dies. */
+  onOrderCreated?: (orderId: string) => void;
   /** Extra fields sent with the order (description, service_name, client_name, …) for admin notifications. */
   orderMeta?: Record<string, unknown>;
 }
@@ -69,11 +73,13 @@ function Notice({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function PayPalPanel({ totalCents, onPaid, orderMeta }: Props) {
+export function PayPalPanel({ totalCents, onPaid, onOrderCreated, orderMeta }: Props) {
   const [status, setStatus] = useState<"loading" | "ready" | "unconfigured" | "error">("loading");
   const containerRef = useRef<HTMLDivElement>(null);
   const onPaidRef = useRef(onPaid);
   onPaidRef.current = onPaid;
+  const onOrderCreatedRef = useRef(onOrderCreated);
+  onOrderCreatedRef.current = onOrderCreated;
   const totalRef = useRef(totalCents);
   totalRef.current = totalCents;
   const metaRef = useRef(orderMeta);
@@ -102,6 +108,7 @@ export function PayPalPanel({ totalCents, onPaid, orderMeta }: Props) {
                 body: JSON.stringify({ amount_cents: totalRef.current, ...(metaRef.current ?? {}) }),
               }).then((r) => r.json());
               if (!d.id) throw new Error(d.message || "Could not create PayPal order");
+              onOrderCreatedRef.current?.(d.id);
               return d.id;
             },
             // eslint-disable-next-line @typescript-eslint/no-explicit-any

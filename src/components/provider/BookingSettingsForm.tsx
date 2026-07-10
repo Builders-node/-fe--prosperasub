@@ -24,7 +24,7 @@ function Section({ icon: Icon, title, subtitle, children }: {
   icon: typeof Clock; title: string; subtitle?: string; children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-2xl border border-border bg-card p-4 sm:p-5">
+    <section className="rounded-2xl bg-card p-4 sm:p-5">
       <div className="mb-4 flex items-start gap-3">
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
           <Icon className="h-4 w-4" />
@@ -59,23 +59,24 @@ function NumberField({ label, suffix, value, min, max, onChange }: {
 }
 
 /**
- * Unified per-provider booking configuration form. Reusable across every
- * provider type — it edits the shared `BookingSettings` shape and persists it
- * to `providers.booking_settings`. Includes a live slot preview so the config
- * is verifiable before saving.
+ * Pure controlled editor for a `BookingSettings` value. Renders the whole UI
+ * (working hours + session/buffers + rules + blocked days/ranges + live
+ * preview) but delegates persistence to the caller — so it can be embedded
+ * anywhere a config lives (per-provider, per-plan, per-resource, …).
  */
-export function BookingSettingsForm({ provider }: { provider: UniversalProviderRow }) {
-  const qc = useQueryClient();
-  const saved = useMemo(() => normalizeBookingSettings(provider.booking_settings), [provider.booking_settings]);
-  const [s, setS] = useState<BookingSettings>(saved);
+export function BookingSettingsEditor({
+  value, onChange,
+}: {
+  value: BookingSettings;
+  onChange: (next: BookingSettings) => void;
+}) {
   const [previewDate, setPreviewDate] = useState<string>("");
   const [newBlockDate, setNewBlockDate] = useState<string>("");
 
-  const dirty = JSON.stringify(s) !== JSON.stringify(saved);
-
-  const patch = (p: Partial<BookingSettings>) => setS((prev) => ({ ...prev, ...p }));
+  const s = value;
+  const patch = (p: Partial<BookingSettings>) => onChange({ ...s, ...p });
   const setDay = (i: number, p: Partial<DayHours>) =>
-    setS((prev) => ({ ...prev, weekly: prev.weekly.map((w, j) => (j === i ? { ...w, ...p } : w)) }));
+    onChange({ ...s, weekly: s.weekly.map((w, j) => (j === i ? { ...w, ...p } : w)) });
 
   const addBlockedDate = () => {
     if (!newBlockDate || s.blockedDates.includes(newBlockDate)) return;
@@ -87,22 +88,10 @@ export function BookingSettingsForm({ provider }: { provider: UniversalProviderR
   const setRange = (id: string, p: Partial<BlockedRange>) =>
     patch({ blockedRanges: s.blockedRanges.map((r) => (r.id === id ? { ...r, ...p } : r)) });
 
-  const save = useMutation({
-    mutationFn: async () => {
-      const { error } = await supabaseDb.from("providers").update({ booking_settings: s }).eq("id", provider.id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("Booking settings saved");
-      qc.invalidateQueries({ queryKey: ["universal-provider", provider.id] });
-    },
-    onError: (e: any) => toast.error(e?.message || "Could not save settings"),
-  });
-
   const previewSlots = useMemo(() => (previewDate ? computeSlots(s, previewDate) : []), [s, previewDate]);
 
   return (
-    <div className="space-y-4 pb-24">
+    <div className="space-y-4">
       {/* Working hours */}
       <Section icon={CalendarClock} title="Working hours" subtitle="Set the days you're open and the From–To window for each.">
         <div className="space-y-2">
@@ -241,9 +230,37 @@ export function BookingSettingsForm({ provider }: { provider: UniversalProviderR
           )
         )}
       </Section>
+    </div>
+  );
+}
 
-      {/* Save bar */}
-      <div className="sticky bottom-4 z-10 flex items-center justify-between gap-3 rounded-2xl border border-border bg-card/95 p-3 backdrop-blur supports-[backdrop-filter]:bg-card/80">
+/**
+ * Provider-level wrapper — hooks the editor up to `providers.booking_settings`.
+ * Adds a sticky "Save" bar with dirty tracking so an admin can tweak and save
+ * from the provider workspace without leaving the tab.
+ */
+export function BookingSettingsForm({ provider }: { provider: UniversalProviderRow }) {
+  const qc = useQueryClient();
+  const saved = useMemo(() => normalizeBookingSettings(provider.booking_settings), [provider.booking_settings]);
+  const [s, setS] = useState<BookingSettings>(saved);
+  const dirty = JSON.stringify(s) !== JSON.stringify(saved);
+
+  const save = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabaseDb.from("providers").update({ booking_settings: s }).eq("id", provider.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Booking settings saved");
+      qc.invalidateQueries({ queryKey: ["universal-provider", provider.id] });
+    },
+    onError: (e: any) => toast.error(e?.message || "Could not save settings"),
+  });
+
+  return (
+    <div className="pb-24">
+      <BookingSettingsEditor value={s} onChange={setS} />
+      <div className="sticky bottom-4 z-10 mt-4 flex items-center justify-between gap-3 rounded-2xl bg-card/95 p-3 backdrop-blur supports-[backdrop-filter]:bg-card/80">
         <span className="text-sm text-muted-foreground">{dirty ? "Unsaved changes" : "All changes saved"}</span>
         <div className="flex gap-2">
           {dirty && (

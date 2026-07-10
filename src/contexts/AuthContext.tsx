@@ -73,12 +73,33 @@ const reportAuthError = (...args: unknown[]) => {
   }
 };
 
+// Cheap synchronous check for a persisted session so the initial render doesn't
+// have to guess between "loading" and "signed out" — if no marker exists in
+// storage, we can skip the loading state entirely and paint the correct UI
+// (Log in button) on first render. If a marker DOES exist, we stay in loading
+// until the async restore completes, and never flash the wrong state.
+function hasPersistedAuthMarker(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return !!(
+      localStorage.getItem("prospera_owned_session") ||
+      sessionStorage.getItem("prospera_owned_session") ||
+      localStorage.getItem("lightning_pubkey")
+    );
+  } catch {
+    return false;
+  }
+}
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
   const [roles, setRoles] = useState<AppRole[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  // Only enter the "loading" state if there's actually something to restore.
+  // Without this, cold anonymous visits render a skeleton for a beat before
+  // resolving to "Log in", which reads as a flash.
+  const [isLoading, setIsLoading] = useState(() => hasPersistedAuthMarker());
   const [isUserDataReady, setIsUserDataReady] = useState(false);
   // RBAC admin status (for users who are admins via RBAC roles, not the legacy
   // super_admin role). null = not yet checked.

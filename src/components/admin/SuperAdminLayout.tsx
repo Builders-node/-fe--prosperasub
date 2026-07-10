@@ -166,9 +166,17 @@ function NavSectionBlock({
       <h2 id={id} className="px-space-3 pb-space-1 text-caption font-bold uppercase tracking-[0.18em] text-muted-foreground/70">
         {section.title}
       </h2>
-      {section.items.map((item) => (
-        <FlatLink key={item.path} item={item} isActive={currentPath === item.path} wrap={wrap} />
-      ))}
+      {section.items.map((item) => {
+        // Active when the URL matches this item OR any nested child of it.
+        // A child path like /admin/marketplace/providers/applications activates
+        // the parent "Providers" item automatically. `alsoActiveOn` covers the
+        // rare case where a sub-page lives outside the item's URL tree.
+        const isActive =
+          currentPath === item.path ||
+          currentPath.startsWith(`${item.path}/`) ||
+          (item.alsoActiveOn?.some((prefix) => currentPath === prefix || currentPath.startsWith(`${prefix}/`)) ?? false);
+        return <FlatLink key={item.path} item={item} isActive={isActive} wrap={wrap} />;
+      })}
     </section>
   );
 }

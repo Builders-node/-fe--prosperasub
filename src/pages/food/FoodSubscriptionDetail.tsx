@@ -1,16 +1,18 @@
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   ChefHat, ExternalLink, CalendarDays, UtensilsCrossed, AlertTriangle, Lock, RefreshCw,
 } from "lucide-react";
-import { accountApi } from "@/integrations/supabase/client";
+import { accountApi, supabaseDb } from "@/integrations/supabase/client";
 import { UserLayout } from "@/components/layout/UserLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { WeeklyMenuDisplay } from "@/components/food/WeeklyMenuDisplay";
+import { MyRationView } from "@/components/food/MyRationView";
 import { getMealTypesForPlan, formatWeekLabel } from "@/lib/foodUtils";
 import { formatUSD } from "@/lib/pricing";
 import { RateAndTip } from "@/components/food/RateAndTip";
+import { RenewPreviewDialog } from "@/components/subscriptions/RenewPreviewDialog";
 import { toast } from "sonner";
 import type { FoodMenuMeal } from "@/types/food";
 
@@ -75,15 +77,40 @@ export default function FoodSubscriptionDetail() {
     },
   });
 
-  // Renew → go through the plan checkout (pay), which extends the period on success.
-  const goRenew = () => {
+  // Renew → open a preview dialog (dates + amount) → on confirm, verify the
+  // plan still exists then jump to checkout. Preview stops the "why did I get
+  // charged" support tickets that come from mis-taps.
+  const [renewChecking, setRenewChecking] = useState(false);
+  const [renewPreviewOpen, setRenewPreviewOpen] = useState(false);
+
+  const performRenewNavigation = async () => {
     const sub = data?.subscription;
     if (!sub?.provider_id || !sub?.meal_plan_id) {
       toast.error("This plan can't be renewed online. Please contact support.");
       return;
     }
-    navigate(`/food/${sub.provider_id}/plans/${sub.meal_plan_id}?renew=${sub.id}`);
+    setRenewChecking(true);
+    try {
+      const { data: plan, error } = await supabaseDb
+        .from("food_meal_plans")
+        .select("id, is_active")
+        .eq("id", sub.meal_plan_id)
+        .maybeSingle();
+      if (error) throw error;
+      if (!plan || plan.is_active === false) {
+        toast.error("This plan is no longer offered. Browse other plans to continue.");
+        navigate(`/services/food/${sub.provider_id}`);
+        return;
+      }
+      navigate(`/services/food/${sub.provider_id}/plans/${sub.meal_plan_id}?renew=${sub.id}`);
+    } catch {
+      navigate(`/services/food/${sub.provider_id}/plans/${sub.meal_plan_id}?renew=${sub.id}`);
+    } finally {
+      setRenewChecking(false);
+    }
   };
+
+  const goRenew = () => setRenewPreviewOpen(true);
 
   if (isLoading) {
     return (
@@ -115,10 +142,29 @@ export default function FoodSubscriptionDetail() {
   const totalCents = (sub.weekly_price_cents || 0) * (sub.commitment_weeks || 1);
   const badge = STATUS_BADGE[status];
 
+  // Client-side preview of the continuous period the server will assign after
+  // renewal. Mirrors backend logic: next_start = max(today, prev_end+1); the
+  // server is still authoritative — this is display-only.
+  const renewPreview = (() => {
+    if (!sub.end_date) return null;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const prevEnd = new Date(`${sub.end_date}T00:00:00`);
+    const prevEndPlus1 = new Date(prevEnd);
+    prevEndPlus1.setDate(prevEndPlus1.getDate() + 1);
+    const newStart = prevEndPlus1 > today ? prevEndPlus1 : today;
+    const newEnd = new Date(newStart);
+    newEnd.setDate(newEnd.getDate() + (sub.commitment_weeks || 1) * 7);
+    const iso = (d: Date) => d.toISOString().slice(0, 10);
+    return { newStart: iso(newStart), newEnd: iso(newEnd) };
+  })();
+
   const RenewButton = ({ block }: { block?: boolean }) => (
     <Button
       className={`gap-2 rounded-full ${block ? "w-full" : ""}`}
       onClick={goRenew}
+      loading={renewChecking}
+      loadingText="Checking plan…"
     >
       <RefreshCw className="h-4 w-4" />
       Renew subscription
@@ -128,25 +174,32 @@ export default function FoodSubscriptionDetail() {
   return (
     <UserLayout title="Subscription" showBackButton backTo="/my-subscriptions?tab=food">
       <div className="mx-auto max-w-xl space-y-4 px-4 py-4 md:py-8">
-        {/* Header */}
-        <div className="flex items-start gap-4 rounded-3xl bg-card p-4">
+        {/* Header — mobile-first: icon + stacked title/plan/status, external
+            link is an icon-only pill so the title never has to wrap around it. */}
+        <div className="flex items-start gap-3 rounded-3xl bg-card p-4">
           <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/15">
             <UtensilsCrossed className="h-6 w-6 text-primary" />
           </span>
           <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-xl font-black tracking-tight text-foreground">
-                {provider?.name ?? "Meal plan"}
-              </h1>
+            <h1 className="truncate text-xl font-black tracking-tight text-foreground">
+              {provider?.name ?? "Meal plan"}
+            </h1>
+            {plan?.name && (
+              <p className="mt-0.5 truncate text-sm text-muted-foreground">{plan.name}</p>
+            )}
+            <div className="mt-2">
               <Badge className={`rounded-full text-xs ${badge.className}`}>{badge.label}</Badge>
             </div>
-            {plan?.name && <p className="mt-0.5 text-sm text-muted-foreground">{plan.name}</p>}
           </div>
           {provider && (
-            <Button variant="outline" size="sm" className="gap-1.5 rounded-full"
-              onClick={() => window.open(`/food/${provider.id}`, "_blank")}>
-              <ExternalLink className="h-3.5 w-3.5" /> Restaurant
-            </Button>
+            <button
+              type="button"
+              aria-label="Open restaurant page"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted/50 text-foreground transition-colors hover:bg-muted"
+              onClick={() => window.open(`/services/food/${provider.id}`, "_blank")}
+            >
+              <ExternalLink className="h-4 w-4" />
+            </button>
           )}
         </div>
 
@@ -206,7 +259,7 @@ export default function FoodSubscriptionDetail() {
                   <RenewButton block />
                 </div>
               )}
-              <Button variant="ghost" className="rounded-full" onClick={() => navigate("/food")}>
+              <Button variant="ghost" className="rounded-full" onClick={() => navigate("/services/food")}>
                 Browse meal plans
               </Button>
             </div>
@@ -233,11 +286,27 @@ export default function FoodSubscriptionDetail() {
           </div>
         </section>
 
-        {/* This week's menu — only when access is granted */}
+        {/* Confirmation dialog — shown when the user taps Renew. Confirms
+            dates + amount before we start the checkout flow. */}
+        {renewPreview && (
+          <RenewPreviewDialog
+            open={renewPreviewOpen}
+            onOpenChange={setRenewPreviewOpen}
+            title={plan?.name ?? provider?.name ?? "Meal plan"}
+            currentEndDate={sub.end_date}
+            newStartDate={renewPreview.newStart}
+            newEndDate={renewPreview.newEnd}
+            amountCents={totalCents}
+            onConfirm={() => void performRenewNavigation()}
+          />
+        )}
+
+        {/* My ration — Yandex Lavka-style: day picker + meal cards for
+            the selected day, with kcal pill and dish thumbnails. */}
         {access && (
           <div>
             <div className="mb-3 flex items-center justify-between gap-2">
-              <h2 className="text-lg font-black tracking-tight text-foreground">This week's menu</h2>
+              <h2 className="text-lg font-black tracking-tight text-foreground">My ration</h2>
               {menu && (
                 <Badge variant="secondary" className="rounded-full text-xs">
                   <CalendarDays className="mr-1 h-3 w-3" />
@@ -245,7 +314,7 @@ export default function FoodSubscriptionDetail() {
                 </Badge>
               )}
             </div>
-            <WeeklyMenuDisplay
+            <MyRationView
               meals={menu?.meals ?? []}
               mealTypes={mealTypes}
               weekStartDate={menu?.week_start_date ?? ""}

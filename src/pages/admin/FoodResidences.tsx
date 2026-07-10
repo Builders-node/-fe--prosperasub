@@ -111,15 +111,9 @@ const FoodResidences = () => {
   });
 
   return (
-    <SuperAdminLayout title="Locations">
+    <SuperAdminLayout title="Locations" subtitle="Residences and delivery zones where the platform operates">
       <div className="space-y-6">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-black tracking-tight">Locations</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Residences / communities you operate in. Shared across all services — food, car rentals and cleaning (checkout, service areas, per-item availability).
-            </p>
-          </div>
+        <div className="flex justify-end">
           <Button onClick={openNew} className="gap-2 rounded-full">
             <Plus className="h-4 w-4" /> New Location
           </Button>

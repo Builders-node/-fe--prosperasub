@@ -1,19 +1,17 @@
 import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Store, CheckCircle2, Clock, XCircle } from "lucide-react";
+import { Store, CheckCircle2, Clock, XCircle, Building2, Mail, MessageCircle, MapPin, FileText } from "lucide-react";
 import { UserLayout } from "@/components/layout/UserLayout";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
+import { SectionOverline } from "@/components/subscriptions/MySubsPrimitives";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { toast } from "sonner";
 import { SERVICES as SERVICE_REGISTRY, type ServiceKey } from "@/lib/services/registry";
-import { useServiceCategories } from "@/hooks/useServiceCategories";
+import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
 
 const STATUS_META: Record<string, { label: string; className: string; Icon: typeof Clock }> = {
   pending:  { label: "Under review", className: "bg-amber-500/15 text-amber-400",   Icon: Clock },
@@ -26,19 +24,25 @@ export default function BecomeProvider() {
   const { openAuthModal } = useAuthModal();
   const qc = useQueryClient();
 
-  const { categories } = useServiceCategories(true);
-  // The selected category key — read live from the DB so admin edits in
-  // /admin/categories (adding a new domain, disabling one) are picked up
-  // without any code change here.
-  const [service, setService] = useState<string>("");
+  const { archetypes } = useServiceArchetypes(true);
+  // The applicant picks a SERVICE (archetype). At submit we derive the underlying
+  // `service` key expected by the approval flow: prefer the archetype's
+  // `source_service_key` (legacy dispatch), fall back to `category_key` (new
+  // universal-only archetypes).
+  const [archetypeKey, setArchetypeKey] = useState<string>("");
   useEffect(() => {
-    if (!service && categories.length > 0) setService(categories[0].key);
-  }, [categories, service]);
+    if (!archetypeKey && archetypes.length > 0) setArchetypeKey(archetypes[0].key);
+  }, [archetypes, archetypeKey]);
+  const selectedArchetype = archetypes.find((a) => a.key === archetypeKey);
+  const service = selectedArchetype?.source_service_key || selectedArchetype?.category_key || "";
   const [businessName, setBusinessName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [residence, setResidence] = useState("");
   const [description, setDescription] = useState("");
+  // Persistent post-submit confirmation banner — the plain toast disappears
+  // in 3s and users are often left wondering "did that actually go through?".
+  const [justSubmitted, setJustSubmitted] = useState(false);
 
   const { data: myApps = [], isLoading } = useQuery({
     queryKey: ["my-provider-applications", userData?.id],
@@ -60,6 +64,7 @@ export default function BecomeProvider() {
       const { error } = await supabaseDb.from("provider_applications").insert({
         user_id: userData!.id,
         service,
+        archetype_key: archetypeKey || null,
         business_name: businessName.trim(),
         contact_email: contactEmail.trim() || userData?.email || null,
         contact_phone: contactPhone.trim() || null,
@@ -70,8 +75,9 @@ export default function BecomeProvider() {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Application submitted! We'll review it shortly.");
+      toast.success("Application submitted!");
       setBusinessName(""); setContactPhone(""); setResidence(""); setDescription("");
+      setJustSubmitted(true);
       qc.invalidateQueries({ queryKey: ["my-provider-applications", userData?.id] });
     },
     onError: (e: any) => toast.error(e?.message || "Could not submit"),
@@ -97,19 +103,24 @@ export default function BecomeProvider() {
           <div className="rounded-2xl bg-card p-8 text-center">
             <p className="font-semibold">Sign in to apply</p>
             <p className="mt-1 text-sm text-muted-foreground">You need an account to submit a provider application.</p>
-            <Button className="mt-4" onClick={() => openAuthModal("login", "/become-a-provider")}>Sign in</Button>
+            <div className="mt-4 flex flex-col items-center justify-center gap-2 sm:flex-row">
+              <Button onClick={() => openAuthModal("login", "/become-a-provider")}>Sign in</Button>
+              <Button variant="outline" onClick={() => openAuthModal("signup", "/become-a-provider")}>
+                Create account
+              </Button>
+            </div>
           </div>
         ) : (
           <>
             {/* Existing applications */}
             {!isLoading && myApps.length > 0 && (
               <section className="space-y-2">
-                <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Your applications</h2>
+                <SectionOverline label="Your applications" count={myApps.length} />
                 {myApps.map((a) => {
                   const meta = STATUS_META[a.status] ?? STATUS_META.pending;
-                  const cat = categories.find((c) => c.key === a.service);
+                  const arche = a.archetype_key ? archetypes.find((x) => x.key === a.archetype_key) : undefined;
                   const svc = SERVICE_REGISTRY[a.service as ServiceKey];
-                  const label = cat?.label ?? svc?.label ?? a.service;
+                  const label = arche?.label ?? svc?.label ?? a.service;
                   return (
                     <div key={a.id} className="flex items-center justify-between gap-3 rounded-2xl bg-card p-4">
                       <div className="min-w-0">
@@ -128,59 +139,155 @@ export default function BecomeProvider() {
               </section>
             )}
 
+            {/* Persistent post-submit confirmation. Sits above the form so
+                the user sees the outcome even after scrolling down. */}
+            {justSubmitted && (
+              <section className="rounded-2xl bg-green-500/10 p-4">
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-500" />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold text-foreground">Application submitted</p>
+                    <p className="mt-0.5 text-sm text-muted-foreground">
+                      We usually review within 24 hours. You'll get an email when a decision is made — track status in the list above.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setJustSubmitted(false)}
+                    className="shrink-0 rounded-full p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    aria-label="Dismiss"
+                  >
+                    <XCircle className="h-4 w-4" />
+                  </button>
+                </div>
+              </section>
+            )}
+
             {/* Application form */}
             <section className="rounded-2xl bg-card p-5">
               <h2 className="mb-4 font-black">New application</h2>
 
-              <Label className="mb-2 block">Category</Label>
-              <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {categories.map((c) => {
-                  const Icon = c.Icon;
-                  const selected = service === c.key;
-                  // Prefer a legacy `singular` label from the code registry
-                  // if the DB category maps to one — otherwise fall back to
-                  // the category label itself.
-                  const singular = SERVICE_REGISTRY[c.key as ServiceKey]?.providers?.labels.singular;
+              <div className="mb-4 space-y-1">
+                <div className="mb-2 px-1">
+                  <SectionOverline label="Choose a service" />
+                </div>
+                {archetypes.map((a) => {
+                  const Icon = a.Icon;
+                  const selected = archetypeKey === a.key;
                   return (
                     <button
-                      key={c.key}
+                      key={a.key}
                       type="button"
-                      onClick={() => setService(c.key)}
-                      className={`flex flex-col items-start gap-1 rounded-xl border p-3 text-left transition-colors ${
-                        selected ? "border-primary bg-primary/10" : "border-border hover:bg-muted/40"
-                      }`}
+                      onClick={() => setArchetypeKey(a.key)}
+                      aria-pressed={selected}
+                      className="flex w-full items-center gap-3 rounded-2xl px-2 py-2.5 text-left transition-colors hover:bg-muted/40"
                     >
-                      <Icon className={`h-5 w-5 ${selected ? "text-primary" : "text-muted-foreground"}`} />
-                      <span className="text-sm font-semibold">{singular ?? c.label}</span>
-                      <span className="text-[11px] text-muted-foreground">{c.label}</span>
+                      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/15">
+                        <Icon className="h-6 w-6 text-primary" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[15px] font-bold text-foreground">{a.label}</span>
+                        {a.description && (
+                          <span className="mt-0.5 block truncate text-[13px] text-muted-foreground">{a.description}</span>
+                        )}
+                      </span>
+                      <span
+                        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition-colors ${
+                          selected ? "bg-foreground" : "border border-border bg-transparent"
+                        }`}
+                        aria-hidden
+                      >
+                        {selected && <CheckCircle2 className="h-5 w-5 text-background" strokeWidth={3} />}
+                      </span>
                     </button>
                   );
                 })}
               </div>
 
               <div className="space-y-4">
-                <div>
-                  <Label>Business name *</Label>
-                  <Input value={businessName} onChange={(e) => setBusinessName(e.target.value)} placeholder="e.g. Elias Cuisine" />
+                <div className="px-1">
+                  <SectionOverline label="About your business" />
                 </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <Label>Contact email</Label>
-                    <Input value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} placeholder="example@gmail.com" />
+                <div className="overflow-hidden rounded-3xl bg-card divide-y divide-border/40">
+                  <div className="flex items-center gap-3 px-4">
+                    <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <div className="min-w-0 flex-1">
+                      <label className="block pt-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        Business name <span className="text-destructive">*</span>
+                      </label>
+                      <input
+                        value={businessName}
+                        onChange={(e) => setBusinessName(e.target.value)}
+                        placeholder="e.g. Elias Cuisine"
+                        className="w-full border-0 bg-transparent px-0 pb-3 pt-0.5 text-base text-foreground outline-none placeholder:text-muted-foreground/60"
+                      />
+                    </div>
                   </div>
-                  <div>
-                    <Label>WhatsApp / phone</Label>
-                    <Input value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} placeholder="+504 …" />
+
+                  <div className="flex items-center gap-3 px-4">
+                    <Mail className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <div className="min-w-0 flex-1">
+                      <label className="block pt-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        Contact email
+                      </label>
+                      <input
+                        type="email"
+                        value={contactEmail}
+                        onChange={(e) => setContactEmail(e.target.value)}
+                        placeholder="example@gmail.com"
+                        className="w-full border-0 bg-transparent px-0 pb-3 pt-0.5 text-base text-foreground outline-none placeholder:text-muted-foreground/60"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 px-4">
+                    <MessageCircle className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <div className="min-w-0 flex-1">
+                      <label className="block pt-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        WhatsApp / phone
+                      </label>
+                      <input
+                        type="tel"
+                        value={contactPhone}
+                        onChange={(e) => setContactPhone(e.target.value)}
+                        placeholder="+504 …"
+                        className="w-full border-0 bg-transparent px-0 pb-3 pt-0.5 text-base text-foreground outline-none placeholder:text-muted-foreground/60"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 px-4">
+                    <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <div className="min-w-0 flex-1">
+                      <label className="block pt-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        Location / residence
+                      </label>
+                      <input
+                        value={residence}
+                        onChange={(e) => setResidence(e.target.value)}
+                        placeholder="Prospera Village…"
+                        className="w-full border-0 bg-transparent px-0 pb-3 pt-0.5 text-base text-foreground outline-none placeholder:text-muted-foreground/60"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3 px-4">
+                    <FileText className="mt-4 h-4 w-4 shrink-0 text-muted-foreground" />
+                    <div className="min-w-0 flex-1">
+                      <label className="block pt-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        Tell us about your business
+                      </label>
+                      <textarea
+                        rows={3}
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        placeholder="What you offer, experience, etc."
+                        className="w-full resize-none border-0 bg-transparent px-0 pb-3 pt-0.5 text-base text-foreground outline-none placeholder:text-muted-foreground/60"
+                      />
+                    </div>
                   </div>
                 </div>
-                <div>
-                  <Label>Location / residence</Label>
-                  <Input value={residence} onChange={(e) => setResidence(e.target.value)} placeholder="Prospera Village…" />
-                </div>
-                <div>
-                  <Label>Tell us about your business</Label>
-                  <Textarea rows={3} value={description} onChange={(e) => setDescription(e.target.value)} placeholder="What you offer, experience, etc." />
-                </div>
+
                 <Button className="w-full" size="lg" disabled={!businessName.trim() || submit.isPending} onClick={() => submit.mutate()}>
                   {submit.isPending && <Spinner size="sm" className="mr-2" />}
                   Submit application

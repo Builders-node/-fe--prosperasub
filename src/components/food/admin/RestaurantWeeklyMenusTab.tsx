@@ -350,7 +350,7 @@ export function RestaurantWeeklyMenusTab({ providerId, providerName }: Props) {
           {[1, 2].map((i) => <div key={i} className="h-20 animate-pulse rounded-2xl bg-muted" />)}
         </div>
       ) : menus.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-border bg-card py-14 text-center">
+        <div className="flex flex-col items-center justify-center rounded-2xl bg-card py-14 text-center">
           <UtensilsCrossed className="mb-3 h-10 w-10 text-muted-foreground/30" />
           <p className="font-semibold">No menus yet</p>
           <p className="mt-1 text-sm text-muted-foreground">Create a weekly menu to get started.</p>
@@ -366,7 +366,7 @@ export function RestaurantWeeklyMenusTab({ providerId, providerName }: Props) {
             ).length;
 
             return (
-              <div key={menu.id} className="overflow-hidden rounded-2xl border border-border bg-card">
+              <div key={menu.id} className="overflow-hidden rounded-2xl bg-card">
                 <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2">

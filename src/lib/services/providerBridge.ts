@@ -39,27 +39,55 @@ export interface LegacyServiceMeta {
 export const LEGACY_SERVICES: Record<LegacySourceKey, LegacyServiceMeta> = {
   cars: {
     sourceKey: "cars", legacyTable: "rental_providers", universalCategoryKey: "transport",
-    publicRoute: "/cars", legacyPortalRoute: (id) => `/my-car-rental?providerId=${id}`,
+    publicRoute: "/services/rental", legacyPortalRoute: (id) => `/my-car-rental?providerId=${id}`,
   },
   food: {
     sourceKey: "food", legacyTable: "food_providers", universalCategoryKey: "food",
-    publicRoute: "/food", legacyPortalRoute: (id) => `/my-restaurant?providerId=${id}`,
+    publicRoute: "/services/food", legacyPortalRoute: (id) => `/my-restaurant?providerId=${id}`,
   },
   cleaning: {
     sourceKey: "cleaning", legacyTable: "cleaning_providers", universalCategoryKey: "home",
-    publicRoute: "/cleaning", legacyPortalRoute: (id) => `/my-cleaning?providerId=${id}`,
+    publicRoute: "/services/cleaning", legacyPortalRoute: (id) => `/my-cleaning?providerId=${id}`,
   },
 };
 
-/** Source keys that have a rich legacy portal mounted inside /my-provider/:id. */
-export const LEGACY_PORTAL_SOURCE_KEYS = new Set<string>(Object.keys(LEGACY_SERVICES));
+/** Source keys that have a rich legacy portal mounted inside /my-provider/:id.
+ *  Beach isn't in LEGACY_SERVICES (no beach_providers table) but its owner
+ *  workspace mounts admin pages via BEACH_TABS, so it belongs here too. */
+export const LEGACY_PORTAL_SOURCE_KEYS = new Set<string>([
+  ...Object.keys(LEGACY_SERVICES),
+  "beach",
+  "beach_club",
+]);
+
+/**
+ * Public listing URL for a legacy-backed archetype. Short paths are canonical
+ * (users land here from tiles, back buttons, deep links). Beach club has no
+ * portal entry above but still uses a short public path.
+ */
+const PUBLIC_LISTING_HREF: Record<string, string> = {
+  cars: "/services/rental",
+  food: "/services/food",
+  cleaning: "/services/cleaning",
+  beach: "/services/beach-club",
+  beach_club: "/services/beach-club",
+};
+
+/** Resolve the short canonical public URL for a legacy source key, if any. */
+export function publicListingHref(sourceServiceKey?: string | null): string | null {
+  if (!sourceServiceKey) return null;
+  return PUBLIC_LISTING_HREF[sourceServiceKey] ?? null;
+}
 
 /**
  * Default universal capabilities to stamp on the mirror row when a legacy
  * provider is approved, so it shows up correctly in the unified marketplace.
  */
+// Booking-related caps (hourly_bookings / date_range_booking) were retired —
+// every provider now gets the shared UnifiedBookingCalendar regardless of
+// capability. Only real business-type caps stay here.
 export const DEFAULT_CAPABILITIES: Record<LegacySourceKey, string[]> = {
-  cars: ["date_range_booking", "catalog_items"],
+  cars: ["catalog_items"],
   food: ["subscription_plans", "catalog_items", "delivery"],
   cleaning: ["subscription_plans"],
 };

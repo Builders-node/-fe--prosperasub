@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Bitcoin, Copy, CreditCard, Loader2, Mail, MessageCircle, RefreshCw, Wallet, Zap } from "lucide-react";
+import { Bitcoin, Copy, CreditCard, ExternalLink, Loader2, Mail, MessageCircle, RefreshCw, Wallet, Zap } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -15,6 +15,16 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { adminApi, supabase, supabaseDb } from "@/integrations/supabase/client";
 import { FinanceBreakdown } from "@/components/admin/FinanceBreakdown";
 import { NetProfitPanel } from "@/components/admin/NetProfitPanel";
+import { PayPalPanel } from "@/components/payment/PayPalPanel";
+
+// Dashed placeholder shown before a test payment is generated.
+function TestPaymentPlaceholder({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="rounded-radius-lg border border-dashed border-[hsl(var(--app-divider))] p-space-8 text-center text-muted-foreground">
+      {children}
+    </div>
+  );
+}
 
 const PAYMENT_METHOD_META = [
   { method: "lightning", label: "Lightning", description: "Instant Bitcoin Lightning payments (Blink).", icon: Zap },
@@ -71,9 +81,31 @@ const notificationStatusClass = (status: string) => {
   return "bg-primary/15 text-primary";
 };
 
+// On-chain test payment shape returned by `create-onchain-charge`.
+type TestOnchainCharge = {
+  address: string;
+  amount_sats: number;
+  amount_cents: number;
+  paid?: boolean;
+  status?: string;
+  bip21?: string;   // some builds return a ready `bitcoin:...` URI
+};
+
+// SimpleFi/LIVES test payment shape.
+type TestSimpleFi = {
+  payment_id: string;
+  checkout_url: string;
+  amount_cents: number;
+  paid?: boolean;
+  status?: string;
+};
+
 const AdminPayments = () => {
   const queryClient = useQueryClient();
   const [testInvoice, setTestInvoice] = useState<TestInvoice | null>(null);
+  const [testOnchain, setTestOnchain] = useState<TestOnchainCharge | null>(null);
+  const [testSimpleFi, setTestSimpleFi] = useState<TestSimpleFi | null>(null);
+  const [testPayPalPaid, setTestPayPalPaid] = useState<string | null>(null);
 
   // All-time finance totals across EVERY service (cleaning, food, beach, car).
   const { data: paymentStats = { pending: 0, paid: 0, revenueCents: 0 } } = useQuery({
@@ -238,6 +270,88 @@ const AdminPayments = () => {
     onError: (error: Error) => toast.error(error.message || "Failed to check test payment"),
   });
 
+  // ─── On-chain test payment ────────────────────────────────────────────────
+  // Same $1 as Lightning; `create-onchain-charge` returns address + amount_sats
+  // and we poll `verify-onchain-payment` with those.
+  const testOnchainMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("create-onchain-charge", {
+        body: {
+          amount_cents: 100,
+          context: "admin_test_payment",
+          service_name: "Admin on-chain test",
+          plan_name: "Blink on-chain health check",
+          description: "ProsperaSub admin on-chain test - $1.00",
+          external_id: `admin-onchain-test-${Date.now()}`,
+        },
+      });
+      if (error) throw error;
+      return data as TestOnchainCharge;
+    },
+    onSuccess: (data) => {
+      setTestOnchain(data);
+      toast.success("Test on-chain address generated");
+    },
+    onError: (e: Error) => toast.error(e.message || "Failed to generate on-chain address"),
+  });
+
+  const testOnchainStatusMutation = useMutation({
+    mutationFn: async () => {
+      if (!testOnchain?.address) throw new Error("Generate an on-chain address first.");
+      const { data, error } = await supabase.functions.invoke("verify-onchain-payment", {
+        body: { address: testOnchain.address, amount_sats: testOnchain.amount_sats },
+      });
+      if (error) throw error;
+      return data as Partial<TestOnchainCharge>;
+    },
+    onSuccess: (status) => {
+      setTestOnchain((cur) => cur ? { ...cur, ...status, paid: status.paid ?? cur.paid } : cur);
+      if (status.paid) toast.success("On-chain payment confirmed");
+      else toast.info("On-chain payment still pending — wait for confirmations");
+    },
+    onError: (e: Error) => toast.error(e.message || "Failed to check on-chain payment"),
+  });
+
+  // ─── LIVES / SimpleFi test payment ────────────────────────────────────────
+  const testSimpleFiMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("create-simplefi-invoice", {
+        body: {
+          amount_cents: 100,
+          description: "ProsperaSub admin LIVES test - $1.00",
+          reference: { orderId: `admin-lives-test-${Date.now()}`, context: "admin_test_payment" },
+        },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      if (!data?.checkout_url || !data?.payment_id) throw new Error("SimpleFi did not return a checkout link.");
+      return { ...data, amount_cents: 100 } as TestSimpleFi;
+    },
+    onSuccess: (data) => {
+      setTestSimpleFi(data);
+      window.open(data.checkout_url, "_blank", "noopener,noreferrer");
+      toast.success("SimpleFi checkout opened in a new tab");
+    },
+    onError: (e: Error) => toast.error(e.message || "Failed to start LIVES test"),
+  });
+
+  const testSimpleFiStatusMutation = useMutation({
+    mutationFn: async () => {
+      if (!testSimpleFi?.payment_id) throw new Error("Start a LIVES test payment first.");
+      const { data, error } = await supabase.functions.invoke("verify-simplefi-payment", {
+        body: { payment_id: testSimpleFi.payment_id },
+      });
+      if (error) throw error;
+      return data as Partial<TestSimpleFi>;
+    },
+    onSuccess: (status) => {
+      setTestSimpleFi((cur) => cur ? { ...cur, ...status, paid: status.paid ?? cur.paid } : cur);
+      if (status.paid) toast.success("LIVES payment confirmed");
+      else toast.info("LIVES payment still pending");
+    },
+    onError: (e: Error) => toast.error(e.message || "Failed to check LIVES payment"),
+  });
+
   const resendNotificationMutation = useMutation({
     mutationFn: async (id: string) => {
       const { data, error } = await supabase.admin.resendPaymentNotification(id);
@@ -367,87 +481,271 @@ const AdminPayments = () => {
         </Card>
       </section>
 
-      <section className="mt-space-4 grid grid-cols-1 gap-space-4 md:mt-space-5 md:gap-space-5">
+      {/* ─── Test payments — one tab per active method ───────────────────────
+          Each tab generates a $1 test invoice via its own edge function so
+          admins can sanity-check every payment provider without touching a
+          real subscription flow. */}
+      <section className="mt-space-4 md:mt-space-5">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-space-2">
-              <Zap className="h-5 w-5 text-primary" />
-              Blink Test Payment
+              <CreditCard className="h-5 w-5 text-primary" />
+              Test Payments
             </CardTitle>
-            <CardDescription>Generate a $1.00 Lightning QR code to test the active Blink wallet.</CardDescription>
+            <CardDescription>
+              Generate a $1.00 test payment against each provider — Lightning, on-chain BTC, LIVES or PayPal — to confirm the wallet + notifications pipeline is healthy.
+            </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-space-5">
-            <Button
-              className="w-full"
-              onClick={() => testInvoiceMutation.mutate()}
-              loading={testInvoiceMutation.isPending}
-              loadingText="Generating..."
-            >
-              Generate $1 Test QR
-            </Button>
+          <CardContent>
+            <Tabs defaultValue="lightning" variant="pills">
+              <TabsList className="mb-space-4 flex flex-wrap gap-2">
+                <TabsTrigger value="lightning"><Zap className="mr-1 h-3.5 w-3.5" /> Lightning</TabsTrigger>
+                <TabsTrigger value="onchain"><Bitcoin className="mr-1 h-3.5 w-3.5" /> On-chain</TabsTrigger>
+                <TabsTrigger value="lives"><Wallet className="mr-1 h-3.5 w-3.5" /> LIVES</TabsTrigger>
+                <TabsTrigger value="paypal"><CreditCard className="mr-1 h-3.5 w-3.5" /> PayPal</TabsTrigger>
+              </TabsList>
 
-            {testInvoice ? (
-              <div className="space-y-space-4">
-                <div className="rounded-radius-lg bg-white p-space-5">
-                  <QRCodeSVG value={testInvoice.payment_request} size={240} level="M" className="mx-auto max-w-full" />
-                </div>
+              {/* ── Lightning ──────────────────────────────────────────── */}
+              <TabsContent value="lightning" className="space-y-space-5">
+                <Button
+                  className="w-full"
+                  onClick={() => testInvoiceMutation.mutate()}
+                  loading={testInvoiceMutation.isPending}
+                  loadingText="Generating..."
+                >
+                  Generate $1 Lightning QR
+                </Button>
 
+                {testInvoice ? (
+                  <div className="space-y-space-4">
+                    <div className="rounded-radius-lg bg-white p-space-5">
+                      <QRCodeSVG value={testInvoice.payment_request} size={240} level="M" className="mx-auto max-w-full" />
+                    </div>
+
+                    <div className="rounded-radius-lg bg-[hsl(var(--app-control))] p-space-4">
+                      <p className="text-label text-muted-foreground">Amount</p>
+                      <p className="text-section-title text-primary">
+                        {testInvoice.amount_sats ? `${testInvoice.amount_sats.toLocaleString()} sats` : "$1.00"}
+                      </p>
+                      <p className="text-sm text-muted-foreground">Status: {testInvoice.status}</p>
+                    </div>
+
+                    <div className="space-y-space-2">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className="w-full"
+                        onClick={() => testPaymentStatusMutation.mutate()}
+                        loading={testPaymentStatusMutation.isPending}
+                        loadingText="Checking..."
+                        disabled={testInvoice.paid || testInvoice.status === "paid"}
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                        Check payment and notify Telegram
+                      </Button>
+                      <p className="text-xs text-muted-foreground">
+                        Pay the QR first, then check status. Telegram sends only after Blink confirms payment.
+                      </p>
+                    </div>
+
+                    <div className="space-y-space-2">
+                      <Label>Lightning invoice</Label>
+                      <div className="flex gap-space-2">
+                        <code className="max-h-24 flex-1 overflow-y-auto break-all rounded-radius-lg bg-[hsl(var(--app-control))] p-space-3 text-xs">
+                          {testInvoice.payment_request}
+                        </code>
+                        <Button type="button" variant="secondary" size="icon" onClick={() => copyValue(testInvoice.payment_request, "Invoice")} aria-label="Copy test invoice">
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-space-2">
+                      <Label>Payment hash</Label>
+                      <div className="flex gap-space-2">
+                        <code className="flex-1 break-all rounded-radius-lg bg-[hsl(var(--app-control))] p-space-3 text-xs">{testInvoice.payment_hash}</code>
+                        <Button type="button" variant="secondary" size="icon" onClick={() => copyValue(testInvoice.payment_hash, "Payment hash")} aria-label="Copy payment hash">
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <TestPaymentPlaceholder>Generate a Lightning invoice to preview the QR here.</TestPaymentPlaceholder>
+                )}
+              </TabsContent>
+
+              {/* ── On-chain BTC ───────────────────────────────────────── */}
+              <TabsContent value="onchain" className="space-y-space-5">
+                <Button
+                  className="w-full"
+                  onClick={() => testOnchainMutation.mutate()}
+                  loading={testOnchainMutation.isPending}
+                  loadingText="Generating..."
+                >
+                  Generate $1 On-chain address
+                </Button>
+
+                {testOnchain ? (
+                  <div className="space-y-space-4">
+                    <div className="rounded-radius-lg bg-white p-space-5">
+                      <QRCodeSVG
+                        value={testOnchain.bip21 || `bitcoin:${testOnchain.address}?amount=${(testOnchain.amount_sats / 1e8).toFixed(8)}`}
+                        size={240}
+                        level="M"
+                        className="mx-auto max-w-full"
+                      />
+                    </div>
+
+                    <div className="rounded-radius-lg bg-[hsl(var(--app-control))] p-space-4">
+                      <p className="text-label text-muted-foreground">Amount</p>
+                      <p className="text-section-title text-primary">
+                        {testOnchain.amount_sats.toLocaleString()} sats
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        ${(testOnchain.amount_cents / 100).toFixed(2)} · Status: {testOnchain.paid ? "paid" : (testOnchain.status || "pending")}
+                      </p>
+                    </div>
+
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="w-full"
+                      onClick={() => testOnchainStatusMutation.mutate()}
+                      loading={testOnchainStatusMutation.isPending}
+                      loadingText="Checking..."
+                      disabled={testOnchain.paid}
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                      Check on-chain confirmation
+                    </Button>
+                    <p className="text-xs text-muted-foreground">
+                      Send BTC to the address, then check. Requires at least 1 confirmation.
+                    </p>
+
+                    <div className="space-y-space-2">
+                      <Label>Bitcoin address</Label>
+                      <div className="flex gap-space-2">
+                        <code className="flex-1 break-all rounded-radius-lg bg-[hsl(var(--app-control))] p-space-3 text-xs">{testOnchain.address}</code>
+                        <Button type="button" variant="secondary" size="icon" onClick={() => copyValue(testOnchain.address, "Address")} aria-label="Copy address">
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <TestPaymentPlaceholder>Generate an on-chain address to preview the QR here.</TestPaymentPlaceholder>
+                )}
+              </TabsContent>
+
+              {/* ── LIVES / SimpleFi ───────────────────────────────────── */}
+              <TabsContent value="lives" className="space-y-space-5">
+                <Button
+                  className="w-full"
+                  onClick={() => testSimpleFiMutation.mutate()}
+                  loading={testSimpleFiMutation.isPending}
+                  loadingText="Starting..."
+                >
+                  Start $1 LIVES test payment
+                </Button>
+
+                {testSimpleFi ? (
+                  <div className="space-y-space-4">
+                    <div className="rounded-radius-lg bg-[hsl(var(--app-control))] p-space-4">
+                      <p className="text-label text-muted-foreground">Amount</p>
+                      <p className="text-section-title text-primary">
+                        ${(testSimpleFi.amount_cents / 100).toFixed(2)}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        Status: {testSimpleFi.paid ? "paid" : (testSimpleFi.status || "pending")}
+                      </p>
+                    </div>
+
+                    <div className="flex gap-space-2">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className="flex-1"
+                        onClick={() => window.open(testSimpleFi.checkout_url, "_blank", "noopener,noreferrer")}
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                        Reopen SimpleFi checkout
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className="flex-1"
+                        onClick={() => testSimpleFiStatusMutation.mutate()}
+                        loading={testSimpleFiStatusMutation.isPending}
+                        loadingText="Checking..."
+                        disabled={testSimpleFi.paid}
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                        Check payment
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Complete the payment on SimpleFi, then check. The reconcile cron does NOT auto-confirm LIVES payments — this is the only way to test the end-to-end flow.
+                    </p>
+
+                    <div className="space-y-space-2">
+                      <Label>Payment ID</Label>
+                      <div className="flex gap-space-2">
+                        <code className="flex-1 break-all rounded-radius-lg bg-[hsl(var(--app-control))] p-space-3 text-xs">{testSimpleFi.payment_id}</code>
+                        <Button type="button" variant="secondary" size="icon" onClick={() => copyValue(testSimpleFi.payment_id, "Payment ID")} aria-label="Copy payment id">
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <TestPaymentPlaceholder>Start a LIVES test to open the SimpleFi checkout in a new tab.</TestPaymentPlaceholder>
+                )}
+              </TabsContent>
+
+              {/* ── PayPal ─────────────────────────────────────────────── */}
+              <TabsContent value="paypal" className="space-y-space-5">
                 <div className="rounded-radius-lg bg-[hsl(var(--app-control))] p-space-4">
                   <p className="text-label text-muted-foreground">Amount</p>
-                  <p className="text-section-title text-primary">
-                    {testInvoice.amount_sats ? `${testInvoice.amount_sats.toLocaleString()} sats` : "$1.00"}
-                  </p>
-                  <p className="text-sm text-muted-foreground">Status: {testInvoice.status}</p>
-                </div>
-
-                <div className="space-y-space-2">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    className="w-full"
-                    onClick={() => testPaymentStatusMutation.mutate()}
-                    loading={testPaymentStatusMutation.isPending}
-                    loadingText="Checking..."
-                    disabled={testInvoice.paid || testInvoice.status === "paid"}
-                  >
-                    <RefreshCw className="h-4 w-4" />
-                    Check payment and notify Telegram
-                  </Button>
-                  <p className="text-xs text-muted-foreground">
-                    Pay the QR first, then check status. Telegram sends only after Blink confirms payment.
+                  <p className="text-section-title text-primary">$1.00</p>
+                  <p className="text-sm text-muted-foreground">
+                    Uses the same PayPal panel as real checkouts. In {import.meta.env.PROD ? "production" : "sandbox"} mode.
                   </p>
                 </div>
 
-                <div className="space-y-space-2">
-                  <Label>Lightning invoice</Label>
-                  <div className="flex gap-space-2">
-                    <code className="max-h-24 flex-1 overflow-y-auto break-all rounded-radius-lg bg-[hsl(var(--app-control))] p-space-3 text-xs">
-                      {testInvoice.payment_request}
-                    </code>
-                    <Button type="button" variant="secondary" size="icon" onClick={() => copyValue(testInvoice.payment_request, "Invoice")} aria-label="Copy test invoice">
-                      <Copy className="h-4 w-4" />
+                {testPayPalPaid ? (
+                  <div className="rounded-radius-lg border border-green-500/40 bg-green-500/10 p-space-4 text-sm">
+                    <p className="font-semibold text-green-600 dark:text-green-400">Test payment captured ✓</p>
+                    <p className="mt-1 break-all text-xs text-muted-foreground">Capture id: {testPayPalPaid}</p>
+                    <Button
+                      className="mt-space-3"
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setTestPayPalPaid(null)}
+                    >
+                      Run another test
                     </Button>
                   </div>
-                </div>
-
-                <div className="space-y-space-2">
-                  <Label>Payment hash</Label>
-                  <div className="flex gap-space-2">
-                    <code className="flex-1 break-all rounded-radius-lg bg-[hsl(var(--app-control))] p-space-3 text-xs">{testInvoice.payment_hash}</code>
-                    <Button type="button" variant="secondary" size="icon" onClick={() => copyValue(testInvoice.payment_hash, "Payment hash")} aria-label="Copy payment hash">
-                      <Copy className="h-4 w-4" />
-                    </Button>
+                ) : (
+                  <div className="rounded-radius-lg border border-[hsl(var(--app-divider))] p-space-4">
+                    <PayPalPanel
+                      totalCents={100}
+                      onPaid={(captureId) => {
+                        setTestPayPalPaid(captureId);
+                        toast.success("PayPal test payment captured");
+                      }}
+                      orderMeta={{
+                        description: "ProsperaSub admin PayPal test - $1.00",
+                        service_name: "Admin PayPal test",
+                        context: "admin_test_payment",
+                      }}
+                    />
                   </div>
-                </div>
-              </div>
-            ) : (
-              <div className="rounded-radius-lg border border-dashed border-[hsl(var(--app-divider))] p-space-8 text-center text-muted-foreground">
-                Generate a test invoice to preview the QR code here.
-              </div>
-            )}
+                )}
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
-
       </section>
 
       <Card className="mt-space-5">

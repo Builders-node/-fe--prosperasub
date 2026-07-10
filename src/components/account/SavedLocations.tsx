@@ -163,8 +163,8 @@ export function SavedLocations({ userId }: { userId: string }) {
         <div className="py-6 text-center"><Spinner size="sm" /></div>
       ) : locations.length === 0 ? (
         <div className="rounded-2xl border border-border bg-card px-4 py-6 text-center">
-          <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-orange-500/10">
-            <MapPin className="h-5 w-5 text-orange-500" />
+          <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+            <MapPin className="h-5 w-5 text-primary" />
           </div>
           <p className="text-[13px] font-semibold text-foreground">No saved locations</p>
           <p className="mt-0.5 text-[12px] text-muted-foreground">Add one to reuse at checkout.</p>
@@ -174,8 +174,8 @@ export function SavedLocations({ userId }: { userId: string }) {
           {locations.map((loc) => (
             <div key={loc.id} className="rounded-2xl border border-border bg-card p-3">
               <div className="flex items-start gap-3">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-500/10">
-                  <MapPin className="h-4 w-4 text-orange-500" />
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                  <MapPin className="h-4 w-4 text-primary" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
@@ -218,33 +218,95 @@ export function SavedLocations({ userId }: { userId: string }) {
 }
 
 /**
- * Compact picker for checkout: lists saved locations as chips and calls
- * onPick with the composed line. Renders nothing when there are no locations.
+ * Yandex Eda-style saved-address picker for checkout.
+ *
+ *   ○ Home
+ *     123 Main St · Prospera Village
+ *
+ *   ● Office                                 ✓
+ *     456 Office Rd · Prospera Village
+ *
+ *   [ + Add new address ]
+ *
+ * - Each location is a full-width row (not a chip) so the address is legible.
+ * - The current selection is marked with a filled foreground circle + check.
+ * - Optional bottom action links back to the full manager (profile modal).
+ * - Renders nothing when the user has zero saved locations *and* no `onAddNew`
+ *   handler is provided — same low-noise behaviour as before.
  */
-export function LocationPicker({ userId, onPick }: { userId?: string | null; onPick: (line: string) => void }) {
+export function LocationPicker({
+  userId, onPick, value, onAddNew,
+}: {
+  userId?: string | null;
+  onPick: (line: string) => void;
+  /** The currently-picked address line — used to mark the matching row. */
+  value?: string;
+  /** Optional callback to add a new address (opens the manager). */
+  onAddNew?: () => void;
+}) {
   const { data: locations = [] } = useUserLocations(userId);
-  if (!locations.length) return null;
+  if (!locations.length && !onAddNew) return null;
   return (
-    <div className="mb-2">
-      <p className="mb-1.5 text-xs font-semibold text-muted-foreground">Use a saved location</p>
-      <div className="flex flex-wrap gap-2">
-        {locations.map((loc) => (
+    <div className="space-y-1">
+      {locations.length > 0 && (
+        <p className="mb-1 text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">
+          Saved addresses
+        </p>
+      )}
+      {locations.map((loc) => {
+        const selected = !!value && value === loc.line;
+        return (
           <button
             key={loc.id}
             type="button"
             onClick={() => onPick(loc.line)}
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors",
-              "border-border bg-card text-foreground hover:border-primary/40 hover:bg-primary/5",
-            )}
+            aria-pressed={selected}
             title={loc.line}
+            className={cn(
+              "flex w-full items-center gap-3 rounded-2xl px-2 py-2 text-left transition-colors",
+              "hover:bg-muted/40",
+            )}
           >
-            <MapPin className="h-3.5 w-3.5 text-orange-500" />
-            {loc.label || "Location"}
-            {loc.is_default && <Star className="h-3 w-3 fill-primary text-primary" />}
+            <span
+              className={cn(
+                "flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition-colors",
+                selected ? "bg-foreground" : "border border-border bg-transparent",
+              )}
+              aria-hidden
+            >
+              {selected && <Check className="h-3.5 w-3.5 text-background" strokeWidth={3} />}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="flex items-center gap-1.5">
+                <span className="truncate text-[14px] font-bold text-foreground">
+                  {loc.label || "Location"}
+                </span>
+                {loc.is_default && (
+                  <span className="inline-flex items-center gap-0.5 rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-primary">
+                    <Star className="h-2 w-2 fill-primary" /> Default
+                  </span>
+                )}
+              </span>
+              <span className="mt-0.5 block truncate text-[12px] text-muted-foreground">
+                {loc.line}
+              </span>
+            </span>
+            <MapPin className="h-4 w-4 shrink-0 text-muted-foreground/60" />
           </button>
-        ))}
-      </div>
+        );
+      })}
+      {onAddNew && (
+        <button
+          type="button"
+          onClick={onAddNew}
+          className="mt-1 flex w-full items-center gap-3 rounded-2xl px-2 py-2 text-left transition-colors hover:bg-muted/40"
+        >
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-dashed border-border">
+            <Plus className="h-3.5 w-3.5 text-muted-foreground" />
+          </span>
+          <span className="text-[14px] font-bold text-foreground">Add new address</span>
+        </button>
+      )}
     </div>
   );
 }

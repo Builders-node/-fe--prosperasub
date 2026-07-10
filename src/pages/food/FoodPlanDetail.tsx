@@ -14,6 +14,7 @@ import { InvoiceQrPanel } from "@/components/payment/InvoiceQrPanel";
 import { useInvoicePayment } from "@/hooks/useInvoicePayment";
 import { useAuth } from "@/contexts/AuthContext";
 import { LocationPicker } from "@/components/account/SavedLocations";
+import { NotesField } from "@/components/patterns/NotesField";
 import { useUserUuid } from "@/hooks/useUserUuid";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { HomeHeader } from "@/components/HomeHeader";
@@ -21,13 +22,13 @@ import { DesktopHeader } from "@/components/layout/DesktopHeader";
 import { BottomNav } from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { SectionOverline } from "@/components/subscriptions/MySubsPrimitives";
+import { ChevronRight as ChevronRightIcon } from "lucide-react";
 import { formatUSD, centsToDollars } from "@/lib/pricing";
 import { useBtcPrice } from "@/hooks/useBtcPrice";
 import { getMealTypesForPlan, formatWeekLabel } from "@/lib/foodUtils";
-import { WeeklyMenuDisplay } from "@/components/food/WeeklyMenuDisplay";
+import { MyRationView } from "@/components/food/MyRationView";
 import type { FoodProvider, FoodMealPlan, FoodWeeklyMenu, FoodMenuMeal } from "@/types/food";
 import { MEAL_TYPE_LABELS } from "@/types/food";
 import { toast } from "sonner";
@@ -52,6 +53,8 @@ function currentWeekMonday(): string {
 }
 
 // ─── Checkout state ───────────────────────────────────────────────────────────
+// start_date is the day meal deliveries kick off; end_date = start + weeks*7 - 1
+// (inclusive). Default is today ("start immediately").
 const EMPTY_CHECKOUT = {
   customer_name: "",
   customer_whatsapp: "",
@@ -59,7 +62,30 @@ const EMPTY_CHECKOUT = {
   delivery_address: "",
   notes: "",
   duration_weeks: 1,
+  start_date: "" as string, // ISO YYYY-MM-DD; filled in lazily to today's HN date
 };
+
+/** Add N days to an ISO date-only string. */
+function addDaysIso(iso: string, days: number): string {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Today in Honduras timezone as YYYY-MM-DD. */
+function todayHnIso(): string {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "America/Tegucigalpa" });
+}
+
+/** Next occurrence of the target weekday (0=Sun … 6=Sat) starting from `after`.
+ *  If today IS Monday, "next Monday" is 7 days from now — never today. */
+function nextWeekdayIso(after: string, targetDow: number): string {
+  const d = new Date(`${after}T00:00:00`);
+  const cur = d.getDay();
+  const delta = ((targetDow - cur + 7) % 7) || 7;
+  d.setDate(d.getDate() + delta);
+  return d.toISOString().slice(0, 10);
+}
 
 type CheckoutMode = "order" | "subscribe";
 type PaymentStep = "details" | "pay" | "success";
@@ -88,6 +114,9 @@ const FoodPlanDetail = () => {
   const { residence: globalResidence } = useSelectedResidence();
   const { addItem: addToCart } = useCart();
   const [cartDuration, setCartDuration] = useState(1);
+  // Button-level "Added ✓" confirmation that lives on the button itself, so
+  // even if the toast is missed the user sees clearly the tap succeeded.
+  const [justAdded, setJustAdded] = useState(false);
 
   const handleAddToCart = () => {
     if (!plan) return;
@@ -100,6 +129,8 @@ const FoodPlanDetail = () => {
       durationWeeks: cartDuration,
       mealsPerDay: plan.meals_per_day ?? 3,
     }, 1);
+    setJustAdded(true);
+    setTimeout(() => setJustAdded(false), 2000);
     toast.success(`Added to cart · ${durationLabel(cartDuration)}`, {
       action: { label: "View cart", onClick: () => navigate("/cart") },
     });
@@ -108,6 +139,9 @@ const FoodPlanDetail = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [createdId, setCreatedId] = useState<string | null>(null);
   const mutationCalledRef = useRef(false);
+  // Stable idempotency key for this checkout attempt — reused across polling
+  // retries so a duplicate call to /renew returns the same outcome.
+  const renewIdempotencyKeyRef = useRef<string | null>(null);
 
   // Unified Lightning + on-chain invoice generation + polling.
   const inv = useInvoicePayment({
@@ -117,6 +151,16 @@ const FoodPlanDetail = () => {
         mutationCalledRef.current = true;
         createRecordMutation.mutate({ paymentRef, satsAmount: inv.state.sats ?? 0 });
       }
+    },
+    // Persist the invoice ref onto the pending row the instant it exists.
+    // If the tab dies before onPaid, the server reconcile cron can still
+    // verify with Blink and mark the sub paid + active.
+    onInvoiceReady: (paymentRef, method) => {
+      const id = pendingRecordIdRef.current;
+      if (!id || checkoutMode !== "subscribe" || renewSubId) return;
+      void supabaseDb.from("food_subscriptions")
+        .update({ payment_reference: paymentRef, payment_method: method })
+        .eq("id", id);
     },
   });
 
@@ -264,12 +308,18 @@ const FoodPlanDetail = () => {
         pendingRecordIdRef.current = data.id as string;
         return data.id as string;
       }
+      // Resolve start date. Default = today HN. Inclusive semantics: end_date
+      // = start + weeks*7 - 1 (so 1 week = 7 days counting the start).
+      const startDate = checkout.start_date || todayHnIso();
+      const endDate = addDaysIso(startDate, checkout.duration_weeks * 7 - 1);
       const payload = {
         user_id: userUuid ?? user!.id,
         provider_id: plan.provider_id,
         meal_plan_id: planId,
         weekly_price_cents: plan.weekly_price_cents,
         commitment_weeks: checkout.duration_weeks,
+        started_at: startDate,
+        end_date: endDate,
         status: "pending",
         payment_status: "pending",
         payment_method: methodKey,
@@ -331,10 +381,26 @@ const FoodPlanDetail = () => {
         return data.id as string;
       } else if (renewSubId) {
         // Renewal: payment done → extend the existing subscription's period.
-        const { error } = await accountApi(`/account/food/subscriptions/${renewSubId}/renew`, { method: "POST" });
+        // Server verifies the payment_reference against the provider before
+        // extending — a stolen JWT alone can't renew for free. The idempotency
+        // key makes accidental double-taps safe.
+        const idempotencyKey = renewIdempotencyKeyRef.current || crypto.randomUUID();
+        renewIdempotencyKeyRef.current = idempotencyKey;
+        const { error } = await accountApi(`/account/food/subscriptions/${renewSubId}/renew`, {
+          method: "POST",
+          body: JSON.stringify({
+            payment_method: paymentMethod === "infinita" ? "crypto" : paymentMethod,
+            payment_reference: paymentRef,
+            amount_cents: totalCents,
+            idempotency_key: idempotencyKey,
+          }),
+        });
         if (error) throw error;
         return renewSubId;
       } else {
+        // Fallback insert (no pending row reserved). Same inclusive period math.
+        const startDate = checkout.start_date || todayHnIso();
+        const endDate = addDaysIso(startDate, checkout.duration_weeks * 7 - 1);
         const patch = {
           status: pending ? "pending" : "active",
           payment_status: pending ? "pending" : "paid",
@@ -355,6 +421,8 @@ const FoodPlanDetail = () => {
             meal_plan_id: planId,
             weekly_price_cents: plan!.weekly_price_cents,
             commitment_weeks: checkout.duration_weeks,
+            started_at: startDate,
+            end_date: endDate,
             customer_name: checkout.customer_name.trim(),
             customer_whatsapp: checkout.customer_whatsapp.trim(),
             residence: checkout.residence.trim() || null,
@@ -415,7 +483,7 @@ const FoodPlanDetail = () => {
           client_phone: checkout.customer_whatsapp.trim(),
           plan_name: plan.name,
           duration: `${checkout.duration_weeks} week${checkout.duration_weeks > 1 ? "s" : ""}`,
-          admin_url: `${window.location.origin}/admin/food/subscriptions`,
+          admin_url: `${window.location.origin}/admin/marketplace/subscriptions`,
         },
       });
     } finally {
@@ -469,7 +537,7 @@ const FoodPlanDetail = () => {
   if (loadingPlan) {
     return (
       <div className="min-h-screen bg-background pb-24 md:pb-0">
-        <HomeHeader title="Meal Plan" showBackButton onBack={() => navigate(`/food/${providerId}`)} />
+        <HomeHeader title="Meal Plan" showBackButton onBack={() => navigate(`/services/food/${providerId}`)} />
         <DesktopHeader />
         <main className="market-content py-space-6 space-y-4">
           {[1, 2, 3].map((i) => <div key={i} className="h-24 animate-pulse rounded-2xl bg-muted" />)}
@@ -482,7 +550,7 @@ const FoodPlanDetail = () => {
   if (!plan) {
     return (
       <div className="min-h-screen bg-background pb-24 md:pb-0">
-        <HomeHeader title="Meal Plan" showBackButton onBack={() => navigate(`/food/${providerId}`)} />
+        <HomeHeader title="Meal Plan" showBackButton onBack={() => navigate(`/services/food/${providerId}`)} />
         <DesktopHeader />
         <main className="market-content flex flex-col items-center justify-center py-16">
           <ChefHat className="mb-4 h-12 w-12 text-muted-foreground/40" />
@@ -496,7 +564,7 @@ const FoodPlanDetail = () => {
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background pb-36 md:pb-32">
-      <HomeHeader title={plan.name} showBackButton onBack={() => navigate(`/food/${providerId}`)} />
+      <HomeHeader title={plan.name} showBackButton onBack={() => navigate(`/services/food/${providerId}`)} />
       <DesktopHeader />
 
       <main className="market-content py-space-6 md:py-space-12">
@@ -506,7 +574,7 @@ const FoodPlanDetail = () => {
           <section className="lg:sticky lg:top-20 lg:self-start">
             <div className="overflow-hidden rounded-3xl bg-card">
               {/* Dish photo hero */}
-              <div className="relative h-44 w-full overflow-hidden bg-gradient-to-br from-orange-500/25 via-amber-500/10 to-transparent md:h-52">
+              <div className="relative h-44 w-full overflow-hidden bg-muted/30 md:h-52">
                 {mealPhotos.length > 0 ? (
                   <img src={mealPhotos[0]} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
                 ) : (
@@ -523,7 +591,7 @@ const FoodPlanDetail = () => {
 
               <div className="p-5 md:p-7">
                 {provider && (
-                  <p className="flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.16em] text-orange-300">
+                  <p className="flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.16em] text-primary">
                     <ChefHat className="h-3 w-3" /> {provider.name}
                   </p>
                 )}
@@ -542,7 +610,7 @@ const FoodPlanDetail = () => {
                     <CalendarDays className="h-3.5 w-3.5" /> {plan.days_per_week} days/week
                   </span>
                   {mealTypes.map((t) => (
-                    <span key={t} className="inline-flex items-center gap-1 rounded-full bg-orange-500/10 px-3 py-1 text-sm font-medium text-orange-400">
+                    <span key={t} className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
                       {MEAL_TYPE_LABELS[t]}
                     </span>
                   ))}
@@ -552,7 +620,7 @@ const FoodPlanDetail = () => {
                   <ul className="mt-4 flex flex-wrap gap-x-6 gap-y-1.5">
                     {plan.highlights.map((h, i) => (
                       <li key={i} className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Check className="h-3.5 w-3.5 shrink-0 text-orange-400" /> {h}
+                        <Check className="h-3.5 w-3.5 shrink-0 text-primary" /> {h}
                       </li>
                     ))}
                   </ul>
@@ -588,11 +656,10 @@ const FoodPlanDetail = () => {
                 {[1, 2, 3].map((i) => <div key={i} className="h-28 animate-pulse rounded-2xl bg-muted" />)}
               </div>
             ) : (
-              <WeeklyMenuDisplay
+              <MyRationView
                 meals={weeklyMenu?.meals ?? []}
                 mealTypes={mealTypes}
                 weekStartDate={weeklyMenu?.menu.week_start_date ?? ""}
-                showEmptyDays={false}
               />
             )}
           </section>
@@ -624,11 +691,13 @@ const FoodPlanDetail = () => {
             <Button
               size="lg"
               variant="outline"
-              className="h-14 shrink-0 rounded-2xl px-4 font-bold"
+              className={`h-14 shrink-0 rounded-2xl px-4 font-bold transition-colors ${
+                justAdded ? "border-green-500/50 bg-green-500/10 text-green-500" : ""
+              }`}
               onClick={handleAddToCart}
-              aria-label="Add to cart"
+              aria-label={justAdded ? "Added to cart" : "Add to cart"}
             >
-              <ShoppingCart className="h-5 w-5" />
+              {justAdded ? <Check className="h-5 w-5" /> : <ShoppingCart className="h-5 w-5" />}
             </Button>
             <Button
               size="lg"
@@ -666,7 +735,7 @@ const FoodPlanDetail = () => {
                 <Button
                   className="w-full h-14 rounded-2xl font-bold text-base"
                   onClick={generateInvoice}
-                  disabled={!checkoutValid || isGenerating}
+                  disabled={!checkoutValid || isGenerating || !enabledMethods.includes(paymentMethod)}
                 >
                   {isGenerating ? (
                     <><Spinner size="sm" className="mr-2" /> Creating…</>
@@ -678,7 +747,7 @@ const FoodPlanDetail = () => {
                 <Button
                   className="w-full h-14 rounded-2xl bg-[#0070ba] text-white hover:bg-[#0070ba]/90 font-bold text-base"
                   onClick={generateInvoice}
-                  disabled={!checkoutValid}
+                  disabled={!checkoutValid || !enabledMethods.includes(paymentMethod)}
                 >
                   Continue with PayPal
                 </Button>
@@ -686,7 +755,7 @@ const FoodPlanDetail = () => {
                 <Button
                   className="w-full h-14 rounded-2xl font-bold text-base"
                   onClick={generateInvoice}
-                  disabled={!checkoutValid || isGenerating || isPriceLoading || !btcPrice}
+                  disabled={!checkoutValid || isGenerating || isPriceLoading || !btcPrice || !enabledMethods.includes(paymentMethod)}
                 >
                   {isGenerating ? (
                     <><Spinner size="sm" className="mr-2" /> {paymentMethod === "onchain" ? "Generating address…" : "Generating…"}</>
@@ -707,124 +776,230 @@ const FoodPlanDetail = () => {
             <div className="space-y-5">
               {renewSubId ? (
                 /* Renewal: duration is fixed to the original subscription term. */
-                <div className="rounded-xl border border-orange-500/30 bg-orange-500/10 p-4 text-sm">
+                <div className="rounded-2xl bg-primary/10 p-4 text-sm">
                   <p className="font-bold text-foreground">Renewing your subscription</p>
                   <p className="mt-0.5 text-muted-foreground">
                     {checkout.duration_weeks} week{checkout.duration_weeks > 1 ? "s" : ""} · continues from your current period.
                   </p>
                 </div>
               ) : (
-                /* Duration selector */
-                <div>
-                  <Label className="mb-2 block">
-                    {checkoutMode === "order" ? "Duration" : "Subscription Period"}
-                  </Label>
-                  <div className="grid grid-cols-4 gap-2">
-                    {DURATION_OPTIONS.map(({ weeks, label }) => (
-                      <button key={weeks} type="button"
-                        onClick={() => setCheckout((f) => ({ ...f, duration_weeks: weeks }))}
-                        className={`rounded-xl border py-3 text-center text-sm font-bold transition-all ${
-                          checkout.duration_weeks === weeks
-                            ? "border-orange-500 bg-orange-500/15 text-orange-400"
-                            : "border-border bg-muted/30 text-muted-foreground hover:border-orange-500/50"
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    ))}
+                <>
+                  {/* Duration selector */}
+                  <div>
+                    <Label className="mb-2 block">
+                      {checkoutMode === "order" ? "Duration" : "Subscription Period"}
+                    </Label>
+                    <div className="grid grid-cols-4 gap-2">
+                      {DURATION_OPTIONS.map(({ weeks, label }) => (
+                        <button key={weeks} type="button"
+                          onClick={() => setCheckout((f) => ({ ...f, duration_weeks: weeks }))}
+                          className={`rounded-2xl py-3 text-center text-sm font-bold transition-colors ${
+                            checkout.duration_weeks === weeks
+                              ? "bg-primary/15 text-foreground ring-1 ring-primary"
+                              : "bg-muted/40 text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
+
+                  {/* Start-date picker (subscriptions only — orders start the same day).
+                      Inclusive 7-day math means "start today for 1 week" = Mon–Sun. */}
+                  {checkoutMode === "subscribe" && (() => {
+                    const today = todayHnIso();
+                    const tomorrow = addDaysIso(today, 1);
+                    const nextMonday = nextWeekdayIso(today, 1);
+                    const effectiveStart = checkout.start_date || today;
+                    const effectiveEnd = addDaysIso(effectiveStart, checkout.duration_weeks * 7 - 1);
+                    const isCustom = effectiveStart !== today && effectiveStart !== tomorrow && effectiveStart !== nextMonday;
+                    const fmt = (iso: string) =>
+                      new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, {
+                        weekday: "short", day: "numeric", month: "short",
+                      });
+                    const options: { key: string; label: string; sub: string; value: string }[] = [
+                      { key: "today", label: "Today", sub: fmt(today), value: today },
+                      { key: "tomorrow", label: "Tomorrow", sub: fmt(tomorrow), value: tomorrow },
+                      { key: "monday", label: "Next Monday", sub: fmt(nextMonday), value: nextMonday },
+                    ];
+                    return (
+                      <div>
+                        <Label className="mb-2 block">Start delivery</Label>
+                        <div className="grid grid-cols-3 gap-2">
+                          {options.map((o) => (
+                            <button
+                              key={o.key}
+                              type="button"
+                              onClick={() => setCheckout((f) => ({ ...f, start_date: o.value }))}
+                              className={`rounded-2xl py-2.5 text-center transition-colors ${
+                                effectiveStart === o.value && !isCustom
+                                  ? "bg-primary/15 text-foreground ring-1 ring-primary"
+                                  : "bg-muted/40 text-muted-foreground hover:text-foreground"
+                              }`}
+                            >
+                              <p className="text-sm font-bold">{o.label}</p>
+                              <p className="mt-0.5 text-[10px] uppercase tracking-wider opacity-80">{o.sub}</p>
+                            </button>
+                          ))}
+                        </div>
+                        <div className="mt-2 flex items-center gap-2">
+                          <Label className="shrink-0 text-xs text-muted-foreground">or pick a date</Label>
+                          <input
+                            type="date"
+                            min={today}
+                            value={isCustom ? effectiveStart : ""}
+                            onChange={(e) => setCheckout((f) => ({ ...f, start_date: e.target.value }))}
+                            className="flex-1 rounded-lg border border-border bg-background px-2 py-1.5 text-sm"
+                          />
+                        </div>
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          Deliveries {fmt(effectiveStart)} — {fmt(effectiveEnd)}{" "}
+                          ({checkout.duration_weeks * 7} days, incl. start day)
+                        </p>
+                      </div>
+                    );
+                  })()}
+                </>
               )}
 
-              {/* Summary */}
-              <div className="rounded-xl bg-muted/50 p-4 space-y-1 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Plan</span>
-                  <span className="font-semibold">{plan.name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Restaurant</span>
-                  <span>{provider?.name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">
-                    {formatUSD(plan.weekly_price_cents)} × {checkout.duration_weeks} week{checkout.duration_weeks > 1 ? "s" : ""}
-                  </span>
-                  <span>{formatUSD(totalCents)}</span>
-                </div>
-                <div className="flex justify-between border-t border-border pt-2 mt-2">
-                  <span className="font-bold">Total</span>
-                  <div className="text-right">
-                    <span className="font-black text-orange-400">{formatUSD(effectiveTotalCents)}</span>
-                    {feePct > 0 && (
-                      <p className="text-[10px] text-muted-foreground">Base {formatUSD(totalCents)} + {feePct}% fee</p>
-                    )}
-                    {btcPrice && (
-                      <p className="text-xs text-muted-foreground">
-                        ≈ {estimatedSats.toLocaleString()} sats
-                      </p>
-                    )}
+              {/* Summary — mobile-first: single card, subtle dividers between
+                  breakdown rows, clear total row with primary emphasis. */}
+              <section className="space-y-2">
+                <div className="px-1"><SectionOverline label="Order summary" /></div>
+                <div className="overflow-hidden rounded-3xl bg-card">
+                  <div className="divide-y divide-border/40 px-5">
+                    <div className="flex items-center justify-between py-3 text-sm">
+                      <span className="text-muted-foreground">Plan</span>
+                      <span className="font-semibold text-foreground">{plan.name}</span>
+                    </div>
+                    <div className="flex items-center justify-between py-3 text-sm">
+                      <span className="text-muted-foreground">Restaurant</span>
+                      <span className="text-foreground">{provider?.name}</span>
+                    </div>
+                    <div className="flex items-center justify-between py-3 text-sm">
+                      <span className="text-muted-foreground">
+                        {formatUSD(plan.weekly_price_cents)} × {checkout.duration_weeks} week{checkout.duration_weeks > 1 ? "s" : ""}
+                      </span>
+                      <span className="text-foreground">{formatUSD(totalCents)}</span>
+                    </div>
                   </div>
-                </div>
-              </div>
-
-              {/* Contact details — grouped (bordered section, matches admin forms) */}
-              <section className="space-y-4 rounded-2xl border border-border p-4">
-                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Delivery details</p>
-                <div>
-                  <Label className="mb-1.5 flex items-center gap-1.5">
-                    <UserIcon className="h-3.5 w-3.5" /> Full Name *
-                  </Label>
-                  <Input value={checkout.customer_name}
-                    onChange={(e) => setCheckout((f) => ({ ...f, customer_name: e.target.value }))}
-                    placeholder="Your full name" />
-                </div>
-                <div>
-                  <Label className="mb-1.5 flex items-center gap-1.5">
-                    <MessageCircle className="h-3.5 w-3.5" /> WhatsApp Number *
-                  </Label>
-                  <Input value={checkout.customer_whatsapp}
-                    onChange={(e) => setCheckout((f) => ({ ...f, customer_whatsapp: e.target.value }))}
-                    placeholder="+504 1234 5678" type="tel" />
-                </div>
-                {residences.length > 0 && (
-                  <div>
-                    <Label className="mb-1.5 flex items-center gap-1.5">
-                      <MapPin className="h-3.5 w-3.5" /> Residence
-                    </Label>
-                    <Select value={checkout.residence || "_none"}
-                      onValueChange={(v) => setCheckout((f) => ({ ...f, residence: v === "_none" ? "" : v }))}>
-                      <SelectTrigger><SelectValue placeholder="Select your residence" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="_none">Other / not listed</SelectItem>
-                        {residences.map((r) => (
-                          <SelectItem key={r.id} value={r.name}>{r.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                  <div className="flex items-center justify-between border-t border-border/60 px-5 py-4">
+                    <span className="text-base font-black text-foreground">Total</span>
+                    <div className="text-right">
+                      <p className="text-2xl font-black tabular-nums leading-none text-foreground">{formatUSD(effectiveTotalCents)}</p>
+                      {feePct > 0 && (
+                        <p className="mt-1 text-[11px] text-muted-foreground">Base {formatUSD(totalCents)} + {feePct}% fee</p>
+                      )}
+                      {btcPrice && (
+                        <p className="mt-1 text-xs text-muted-foreground">≈ {estimatedSats.toLocaleString()} sats</p>
+                      )}
+                    </div>
                   </div>
-                )}
-                <div>
-                  <Label className="mb-1.5 flex items-center gap-1.5">
-                    <MapPin className="h-3.5 w-3.5" /> Apartment / Address *
-                  </Label>
-                  <LocationPicker userId={userData?.id} onPick={(line) => setCheckout((f) => ({ ...f, delivery_address: line }))} />
-                  <Textarea value={checkout.delivery_address}
-                    onChange={(e) => setCheckout((f) => ({ ...f, delivery_address: e.target.value }))}
-                    rows={2} placeholder="Apartment / unit, building, details…" />
-                </div>
-                <div>
-                  <Label className="mb-1.5 block">Notes (optional)</Label>
-                  <Textarea value={checkout.notes}
-                    onChange={(e) => setCheckout((f) => ({ ...f, notes: e.target.value }))}
-                    rows={2} placeholder="Allergies, preferences…" />
                 </div>
               </section>
 
-              <div>
-                <h2 className="mb-2 text-xl font-black tracking-tight text-foreground">Payment method</h2>
+              {/* Delivery details — unified card, iOS Settings / Yandex Lavka
+                  pattern: icon + overline label + borderless input per row,
+                  hairline dividers between rows. Matches Cart. */}
+              <section className="space-y-2">
+                <div className="px-1"><SectionOverline label="Delivery details" /></div>
+                <div className="overflow-hidden rounded-3xl bg-card divide-y divide-border/40">
+                  <div className="flex items-center gap-3 px-4">
+                    <UserIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <div className="min-w-0 flex-1">
+                      <label className="block pt-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        Full name <span className="text-destructive">*</span>
+                      </label>
+                      <input
+                        value={checkout.customer_name}
+                        onChange={(e) => setCheckout((f) => ({ ...f, customer_name: e.target.value }))}
+                        placeholder="Your full name"
+                        className="w-full border-0 bg-transparent px-0 pb-3 pt-0.5 text-base text-foreground outline-none placeholder:text-muted-foreground/60"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 px-4">
+                    <MessageCircle className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <div className="min-w-0 flex-1">
+                      <label className="block pt-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        WhatsApp <span className="text-destructive">*</span>
+                      </label>
+                      <input
+                        type="tel"
+                        value={checkout.customer_whatsapp}
+                        onChange={(e) => setCheckout((f) => ({ ...f, customer_whatsapp: e.target.value }))}
+                        placeholder="+504 1234 5678"
+                        className="w-full border-0 bg-transparent px-0 pb-3 pt-0.5 text-base text-foreground outline-none placeholder:text-muted-foreground/60"
+                      />
+                    </div>
+                  </div>
+
+                  {residences.length > 0 && (
+                    <div className="flex items-center gap-3 px-4">
+                      <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <div className="min-w-0 flex-1">
+                        <label className="block pt-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                          Residence
+                        </label>
+                        <select
+                          value={checkout.residence || "_none"}
+                          onChange={(e) => setCheckout((f) => ({ ...f, residence: e.target.value === "_none" ? "" : e.target.value }))}
+                          className="w-full appearance-none border-0 bg-transparent px-0 pb-3 pt-0.5 text-base text-foreground outline-none"
+                        >
+                          <option value="_none">Other / not listed</option>
+                          {residences.map((r) => (
+                            <option key={r.id} value={r.name}>{r.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <ChevronRightIcon className="h-4 w-4 shrink-0 rotate-90 text-muted-foreground/60" />
+                    </div>
+                  )}
+
+                  <div className="flex items-start gap-3 px-4 py-3">
+                    <MapPin className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" />
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        Apartment / address <span className="text-destructive">*</span>
+                      </label>
+                      <LocationPicker
+                        userId={userData?.id}
+                        value={checkout.delivery_address}
+                        onPick={(line) => setCheckout((f) => ({ ...f, delivery_address: line }))}
+                      />
+                      <textarea
+                        value={checkout.delivery_address}
+                        onChange={(e) => setCheckout((f) => ({ ...f, delivery_address: e.target.value }))}
+                        rows={2}
+                        placeholder="Apartment / unit, building, details…"
+                        className="w-full resize-none border-0 bg-transparent px-0 pb-0 pt-0 text-base text-foreground outline-none placeholder:text-muted-foreground/60"
+                      />
+                    </div>
+                  </div>
+
+                  <NotesField
+                    value={checkout.notes}
+                    onChange={(next) => setCheckout((f) => ({ ...f, notes: next }))}
+                    label="Notes"
+                    title="Comment"
+                    description="Allergies, preferences, anything the kitchen should know."
+                    placeholder="What should we know?"
+                  />
+                </div>
+              </section>
+
+              {/* Payment */}
+              <section className="space-y-3">
+                <div className="px-1"><SectionOverline label="Payment" /></div>
                 <PaymentMethodSelector value={paymentMethod} onChange={setPaymentMethod} available={enabledMethods} />
-              </div>
+                {enabledMethods.length === 0 && (
+                  <p className="rounded-2xl bg-destructive/10 px-3 py-2 text-center text-xs text-destructive">
+                    Payments are temporarily unavailable. Try again in a few minutes.
+                  </p>
+                )}
+              </section>
 
               {(paymentMethod === "lightning" || paymentMethod === "onchain") && btcPrice && (
                 <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
@@ -846,6 +1021,13 @@ const FoodPlanDetail = () => {
             <InfinitaPaymentPanel
               totalCents={effectiveTotalCents}
               onPaid={handleInfinitaPaid}
+              onInvoiceReady={(paymentId) => {
+                const id = pendingRecordIdRef.current;
+                if (!id || checkoutMode !== "subscribe" || renewSubId) return;
+                void supabaseDb.from("food_subscriptions")
+                  .update({ payment_reference: paymentId, payment_method: "crypto" })
+                  .eq("id", id);
+              }}
               orderMeta={{
                 description: `Food ${checkoutMode === "order" ? "Order" : "Subscription"} - ${plan.name}`,
                 service_name: `Food ${checkoutMode === "order" ? "Order" : "Subscription"}`,
@@ -853,7 +1035,7 @@ const FoodPlanDetail = () => {
                 client_phone: checkout.customer_whatsapp.trim(),
                 plan_name: plan.name,
                 duration: `${checkout.duration_weeks} week${checkout.duration_weeks > 1 ? "s" : ""}`,
-                admin_url: `${window.location.origin}/admin/food/subscriptions`,
+                admin_url: `${window.location.origin}/admin/marketplace/subscriptions`,
               }}
             />
           )}
@@ -870,6 +1052,13 @@ const FoodPlanDetail = () => {
               <PayPalPanel
                 totalCents={effectiveTotalCents}
                 onPaid={handlePaypalPaid}
+                onOrderCreated={(orderId) => {
+                  const id = pendingRecordIdRef.current;
+                  if (!id || checkoutMode !== "subscribe" || renewSubId) return;
+                  void supabaseDb.from("food_subscriptions")
+                    .update({ payment_reference: orderId, payment_method: "paypal" })
+                    .eq("id", id);
+                }}
                 orderMeta={{
                   description: `Food ${checkoutMode === "order" ? "Order" : "Subscription"} - ${plan.name}`,
                   service_name: `Food ${checkoutMode === "order" ? "Order" : "Subscription"}`,
@@ -877,7 +1066,7 @@ const FoodPlanDetail = () => {
                   client_phone: checkout.customer_whatsapp.trim(),
                   plan_name: plan.name,
                   duration: `${checkout.duration_weeks} week${checkout.duration_weeks > 1 ? "s" : ""}`,
-                  admin_url: `${window.location.origin}/admin/food/subscriptions`,
+                  admin_url: `${window.location.origin}/admin/marketplace/subscriptions`,
                 }}
               />
             )

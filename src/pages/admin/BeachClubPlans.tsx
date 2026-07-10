@@ -44,7 +44,7 @@ const blankForm = {
   sort_order: 0,
 };
 
-export default function BeachClubPlans() {
+export default function BeachClubPlans({ embedded = false }: { embedded?: boolean } = {}) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<BeachPlan | null>(null);
@@ -129,11 +129,12 @@ export default function BeachClubPlans() {
   });
 
   if (isLoading) {
+    if (embedded) return <PageLoader />;
     return <SuperAdminLayout title="Beach Club Plans"><PageLoader /></SuperAdminLayout>;
   }
 
-  return (
-    <SuperAdminLayout title="Beach Club Plans" subtitle="Membership tiers shown on the public Beach Club page">
+  const body = (
+    <>
       <div className="mb-space-4 flex justify-end">
         <Button onClick={openCreate} className="gap-2"><Plus className="h-4 w-4" /> New Plan</Button>
       </div>
@@ -272,6 +273,13 @@ export default function BeachClubPlans() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </>
+  );
+
+  if (embedded) return body;
+  return (
+    <SuperAdminLayout title="Beach Club Plans" subtitle="Membership tiers shown on the public Beach Club page">
+      {body}
     </SuperAdminLayout>
   );
 }

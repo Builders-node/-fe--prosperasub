@@ -313,7 +313,7 @@ function RecurrenceScheduler({
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-const AdminSubscriptions = () => {
+const AdminSubscriptions = ({ embedded = false }: { embedded?: boolean } = {}) => {
   const queryClient = useQueryClient();
   const { userData } = useAuth();
 
@@ -600,8 +600,8 @@ const AdminSubscriptions = () => {
     { label: "Expired", value: "expired", count: stats.expired },
   ];
 
-  return (
-    <SuperAdminLayout title="Subscriptions" subtitle="Manage all cleaning subscriptions">
+  const body = (
+    <>
       {/* Stats */}
       <div className="grid grid-cols-2 gap-space-3 md:grid-cols-4">
         {[
@@ -1139,6 +1139,13 @@ const AdminSubscriptions = () => {
           )}
         </DialogContent>
       </Dialog>
+    </>
+  );
+
+  if (embedded) return body;
+  return (
+    <SuperAdminLayout title="Subscriptions" subtitle="Manage all cleaning subscriptions">
+      {body}
     </SuperAdminLayout>
   );
 };

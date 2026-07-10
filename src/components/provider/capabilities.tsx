@@ -1,4 +1,4 @@
-import { BookOpen, CalendarDays, ClipboardList, Info, Package, Truck, type LucideIcon } from "lucide-react";
+import { BookOpen, Info, Package, Truck, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 /**
@@ -7,14 +7,16 @@ import type { ReactNode } from "react";
  * of these keys. UI reads it to decide which tabs to render, which
  * checkout to allow, which admin sections to enable.
  *
+ * Booking-related caps (`hourly_bookings`, `date_range_booking`) were retired
+ * — every provider now gets the shared UnifiedBookingCalendar tab; the caps
+ * no longer gate any UI. Legacy DB values are harmlessly ignored on read.
+ *
  * Adding a new capability = add one entry here + wire a tab renderer.
  */
 export type CapabilityKey =
   | "subscription_plans"
-  | "hourly_bookings"
   | "catalog_items"
-  | "delivery"
-  | "date_range_booking";
+  | "delivery";
 
 export interface CapabilityMeta {
   key: CapabilityKey;
@@ -35,14 +37,6 @@ export const CAPABILITIES: Record<CapabilityKey, CapabilityMeta> = {
     tabValue: "plans",
     tabLabel: "Plans",
   },
-  hourly_bookings: {
-    key: "hourly_bookings",
-    label: "Hourly bookings",
-    description: "Time-slot reservations on courts / rooms / tables",
-    icon: CalendarDays,
-    tabValue: "slots",
-    tabLabel: "Slots",
-  },
   catalog_items: {
     key: "catalog_items",
     label: "Catalog",
@@ -58,15 +52,6 @@ export const CAPABILITIES: Record<CapabilityKey, CapabilityMeta> = {
     icon: Truck,
     tabValue: "delivery",
     tabLabel: "Delivery",
-  },
-  date_range_booking: {
-    key: "date_range_booking",
-    label: "Date-range booking",
-    description: "Multi-day reservations (rentals, stays)",
-    icon: ClipboardList,
-    tabValue: "reservations",
-    tabLabel: "Reservations",
-    tabMobileLabel: "Res.",
   },
 };
 

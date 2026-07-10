@@ -124,7 +124,7 @@ const CarDetail = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background">
-        <HomeHeader title="Car Details" showBackButton onBack={() => navigate("/cars")} />
+        <HomeHeader title="Car Details" showBackButton onBack={() => navigate("/services/rental")} />
         <DesktopHeader />
         <main className="market-content py-space-6">
           <div className="h-72 animate-pulse rounded-3xl bg-muted" />
@@ -138,13 +138,13 @@ const CarDetail = () => {
   if (!vehicle) {
     return (
       <div className="min-h-screen bg-background">
-        <HomeHeader title="Car Details" showBackButton onBack={() => navigate("/cars")} />
+        <HomeHeader title="Car Details" showBackButton onBack={() => navigate("/services/rental")} />
         <DesktopHeader />
         <main className="market-content py-space-10 text-center">
           <Car className="mx-auto mb-4 h-12 w-12 text-muted-foreground/40" />
           <p className="font-semibold">Vehicle not found</p>
           <Button asChild variant="secondary" className="mt-4">
-            <Link to="/cars">Back to fleet</Link>
+            <Link to="/services/rental">Back to fleet</Link>
           </Button>
         </main>
       </div>
@@ -155,7 +155,7 @@ const CarDetail = () => {
 
   return (
     <div className="min-h-screen bg-background pb-28 md:pb-32">
-      <HomeHeader title={vehicle.name} showBackButton onBack={() => navigate("/cars")} />
+      <HomeHeader title={vehicle.name} showBackButton onBack={() => navigate("/services/rental")} />
       <DesktopHeader />
 
       <main className="market-content py-4 md:py-8">
@@ -426,7 +426,7 @@ const CarDetail = () => {
                 startTime,
                 endTime,
               });
-              navigate(`/cars/${vehicle.id}/book?${params.toString()}`);
+              navigate(`/services/rental/${vehicle.id}/book?${params.toString()}`);
             }}
           >
             {startDate && endDate ? "Continue" : "Select dates"}

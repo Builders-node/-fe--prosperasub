@@ -2,11 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ShoppingCart, Trash2, Minus, Plus, MapPin, MessageCircle, User as UserIcon,
-  Check, CheckCircle2, Zap, Bitcoin,
+  Check, Zap, Bitcoin, UtensilsCrossed, X,
 } from "lucide-react";
 import { HomeHeader } from "@/components/HomeHeader";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
 import { BottomNav } from "@/components/BottomNav";
+import { CheckoutStickyFooter } from "@/components/patterns/CheckoutStickyFooter";
+import { CheckoutSuccessPanel } from "@/components/patterns/CheckoutSuccessPanel";
+import { NotesField } from "@/components/patterns/NotesField";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,6 +19,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { PaymentMethodSelector, type PaymentMethod } from "@/components/payment/PaymentMethodSelector";
+import { SectionOverline } from "@/components/subscriptions/MySubsPrimitives";
 import { InfinitaPaymentPanel } from "@/components/payment/InfinitaPaymentPanel";
 import { PayPalPanel } from "@/components/payment/PayPalPanel";
 import { InvoiceQrPanel } from "@/components/payment/InvoiceQrPanel";
@@ -56,13 +60,28 @@ export default function Cart() {
 
   const [step, setStep] = useState<Step>("cart");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("lightning");
-  const [form, setForm] = useState({
+
+  // Draft-form state is persisted so a login modal that pops mid-checkout
+  // doesn't wipe what the user has already typed. The key is device-local;
+  // Cart is single-user per browser so no cross-user contamination risk.
+  const DRAFT_KEY = "prospera_cart_checkout_draft";
+  const EMPTY_FORM = {
     customer_name: "",
     customer_whatsapp: "",
     residence: "",
     delivery_address: "",
     notes: "",
+  };
+  const [form, setForm] = useState(() => {
+    try {
+      const raw = typeof window !== "undefined" ? localStorage.getItem(DRAFT_KEY) : null;
+      if (raw) return { ...EMPTY_FORM, ...JSON.parse(raw) };
+    } catch { /* ignore corrupt draft */ }
+    return EMPTY_FORM;
   });
+  useEffect(() => {
+    try { localStorage.setItem(DRAFT_KEY, JSON.stringify(form)); } catch { /* quota / private mode */ }
+  }, [form]);
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPaid, setIsPaid] = useState(false);
@@ -129,6 +148,10 @@ export default function Cart() {
       await createRecords(paymentRef, pending);
       setIsPaid(true);
       clear();
+      // Cart succeeded — draft has served its purpose, wipe so a fresh cart
+      // starts with clean fields (name prefill still runs via useEffect).
+      try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
+      setForm(EMPTY_FORM);
       setStep("success");
     } catch (e: any) {
       createdRef.current = false;
@@ -165,7 +188,7 @@ export default function Cart() {
           service_name: "Food Cart",
           client_name: form.customer_name.trim(),
           client_phone: form.customer_whatsapp.trim(),
-          admin_url: `${window.location.origin}/admin/food/subscriptions`,
+          admin_url: `${window.location.origin}/admin/marketplace/subscriptions`,
         },
       });
     } finally {
@@ -186,75 +209,115 @@ export default function Cart() {
 
       <main className="market-content space-y-5 py-space-4 md:py-space-6">
         {step === "success" ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <CheckCircle2 className="mb-4 h-16 w-16 text-green-500" />
-            <h1 className="text-2xl font-black tracking-tight">Order placed!</h1>
-            <p className="mt-2 max-w-sm text-muted-foreground">
-              Your portions are confirmed. You can track them in My Subscriptions.
-            </p>
-            <div className="mt-6 flex gap-2">
-              <Button onClick={() => navigate("/my-subscriptions")} className="rounded-full">My Subscriptions</Button>
-              <Button variant="outline" onClick={() => navigate("/food")} className="rounded-full">Order more</Button>
-            </div>
-          </div>
+          <CheckoutSuccessPanel
+            icon={UtensilsCrossed}
+            eyebrow="Payment received"
+            amount={<>−{formatUSD(effectiveTotalCents)}</>}
+            subtitle={
+              <>
+                {count} portion{count > 1 ? "s" : ""} confirmed. Track them in My Subscriptions.
+              </>
+            }
+            ctaLabel="Great"
+            onCta={() => navigate("/my-subscriptions")}
+            secondary={{ label: "Order more", onClick: () => navigate("/services/food") }}
+          />
         ) : items.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <ShoppingCart className="mb-4 h-14 w-14 text-muted-foreground/30" />
             <h1 className="text-xl font-black tracking-tight">Your cart is empty</h1>
             <p className="mt-1 text-muted-foreground">Add meal portions and pay for them together.</p>
-            <Button onClick={() => navigate("/food")} className="mt-5 rounded-full">Browse food</Button>
+            <Button onClick={() => navigate("/services/food")} className="mt-5 rounded-full">Browse food</Button>
           </div>
         ) : (
           <>
             <h1 className="text-2xl font-black tracking-tight md:text-3xl">Your cart</h1>
 
-            {/* Items */}
-            <section className="space-y-3">
+            {/* Items — one card container with row dividers (Yandex Lavka pattern).
+                Left: 56px thumbnail tile · middle: name + provider + duration
+                chip + qty pill · right: total price + close X. */}
+            <section className="overflow-hidden rounded-3xl bg-card divide-y divide-border/60">
               {items.map((item) => (
-                <div key={item.key} className="flex items-center gap-3 rounded-2xl border border-border bg-card p-4">
+                <div key={item.key} className="flex items-start gap-3 p-4">
+                  {/* Thumbnail placeholder — 56×56 rounded-xl tile with the food
+                      icon on primary tint. Same visual weight as our
+                      SubscriptionCard icon-tiles. */}
+                  <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+                    <UtensilsCrossed className="h-6 w-6 text-primary" />
+                  </span>
+
+                  {/* Middle: name, provider, duration chip, qty pill */}
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-bold text-foreground">{item.planName}</p>
-                    <p className="truncate text-xs text-muted-foreground">{item.providerName}</p>
-                    <p className="mt-0.5 text-sm text-muted-foreground">
-                      {formatUSD(item.unitPriceCents)}/wk · per portion
-                    </p>
-                    <Select value={String(item.durationWeeks)} onValueChange={(v) => setDuration(item.key, parseInt(v))}>
-                      <SelectTrigger className="mt-1.5 h-8 w-[140px] rounded-full text-xs"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {DURATION_OPTIONS.map((d) => (
-                          <SelectItem key={d.weeks} value={String(d.weeks)}>{d.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-1.5">
-                    <Button size="icon" variant="outline" className="h-8 w-8 rounded-full"
-                      onClick={() => setQty(item.key, item.qty - 1)} aria-label="Decrease">
-                      <Minus className="h-3.5 w-3.5" />
-                    </Button>
-                    <span className="w-7 text-center text-sm font-bold tabular-nums">{item.qty}</span>
-                    <Button size="icon" variant="outline" className="h-8 w-8 rounded-full"
-                      onClick={() => setQty(item.key, item.qty + 1)} aria-label="Increase">
-                      <Plus className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                  <div className="w-20 shrink-0 text-right">
-                    <p className="font-mono font-bold tabular-nums text-foreground">{formatUSD(cartLineTotal(item))}</p>
-                    <button type="button" onClick={() => removeItem(item.key)}
-                      className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive">
-                      <Trash2 className="h-3 w-3" /> Remove
-                    </button>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-bold leading-tight text-foreground">{item.planName}</p>
+                        <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                          {item.providerName} · {formatUSD(item.unitPriceCents)}/wk
+                        </p>
+                      </div>
+                      {/* Close X on the right — mobile-first (Lavka pattern). */}
+                      <button
+                        type="button"
+                        onClick={() => removeItem(item.key)}
+                        aria-label="Remove item"
+                        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+
+                    {/* Duration chip — compact pill matching our chip language. */}
+                    <div className="mt-2">
+                      <Select value={String(item.durationWeeks)} onValueChange={(v) => setDuration(item.key, parseInt(v))}>
+                        <SelectTrigger className="h-7 w-auto min-w-[104px] rounded-full bg-muted/40 border-0 px-3 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {DURATION_OPTIONS.map((d) => (
+                            <SelectItem key={d.weeks} value={String(d.weeks)}>{d.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Bottom row: qty pill left, line total right. */}
+                    <div className="mt-3 flex items-center justify-between gap-2">
+                      <div className="inline-flex items-center rounded-full bg-muted/40">
+                        <button
+                          type="button"
+                          onClick={() => setQty(item.key, item.qty - 1)}
+                          aria-label="Decrease"
+                          className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground"
+                        >
+                          <Minus className="h-3.5 w-3.5" />
+                        </button>
+                        <span className="w-6 text-center text-sm font-bold tabular-nums text-foreground">{item.qty}</span>
+                        <button
+                          type="button"
+                          onClick={() => setQty(item.key, item.qty + 1)}
+                          aria-label="Increase"
+                          className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                      <p className="text-base font-black tabular-nums text-foreground">
+                        {formatUSD(cartLineTotal(item))}
+                      </p>
+                    </div>
                   </div>
                 </div>
               ))}
             </section>
 
             {/* Summary */}
-            <section className="rounded-2xl bg-muted/50 p-4">
-              <div className="flex items-center justify-between">
-                <span className="font-bold">Total ({count} portion{count > 1 ? "s" : ""})</span>
+            <section className="rounded-2xl bg-muted/40 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm font-bold text-foreground">
+                  Total ({count} portion{count > 1 ? "s" : ""})
+                </span>
                 <div className="text-right">
-                  <span className="text-xl font-black text-orange-400">{formatUSD(effectiveTotalCents)}</span>
+                  <span className="text-2xl font-black tabular-nums text-primary">{formatUSD(effectiveTotalCents)}</span>
                   {feePct > 0 && (
                     <p className="text-[10px] text-muted-foreground">Base {formatUSD(totalCents)} + {feePct}% fee</p>
                   )}
@@ -264,45 +327,107 @@ export default function Cart() {
 
             {step === "cart" && (
               <>
-                {/* Delivery details */}
-                <section className="space-y-3 rounded-2xl border border-border bg-card p-4">
-                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Delivery details</p>
-                  <div>
-                    <Label className="mb-1.5 flex items-center gap-1.5"><UserIcon className="h-3.5 w-3.5" /> Full name *</Label>
-                    <Input value={form.customer_name} onChange={(e) => setForm((f) => ({ ...f, customer_name: e.target.value }))} placeholder="Your full name" />
+                {/* Delivery details — mobile-first pattern: one card, rows
+                    separated by divide-y, borderless inputs. Icon + label
+                    left, input value fills the right. Matches iOS Settings /
+                    Yandex Lavka form aesthetic. */}
+                <section className="space-y-2">
+                  <div className="px-1">
+                    <SectionOverline label="Delivery details" />
                   </div>
-                  <div>
-                    <Label className="mb-1.5 flex items-center gap-1.5"><MessageCircle className="h-3.5 w-3.5" /> WhatsApp *</Label>
-                    <Input type="tel" value={form.customer_whatsapp} onChange={(e) => setForm((f) => ({ ...f, customer_whatsapp: e.target.value }))} placeholder="+504 1234 5678" />
-                  </div>
-                  {residences.length > 0 && (
-                    <div>
-                      <Label className="mb-1.5 flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /> Residence</Label>
-                      <Select value={form.residence || "_none"} onValueChange={(v) => setForm((f) => ({ ...f, residence: v === "_none" ? "" : v }))}>
-                        <SelectTrigger><SelectValue placeholder="Other / not listed" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="_none">Other / not listed</SelectItem>
-                          {residences.map((r) => <SelectItem key={r.id} value={r.name}>{r.name}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
+                  <div className="overflow-hidden rounded-3xl bg-card divide-y divide-border/40">
+                    {/* Full name */}
+                    <div className="flex items-center gap-3 px-4">
+                      <UserIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <div className="min-w-0 flex-1">
+                        <label className="block pt-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                          Full name <span className="text-destructive">*</span>
+                        </label>
+                        <input
+                          value={form.customer_name}
+                          onChange={(e) => setForm((f) => ({ ...f, customer_name: e.target.value }))}
+                          placeholder="Your full name"
+                          className="w-full border-0 bg-transparent px-0 pb-3 pt-0.5 text-base text-foreground outline-none placeholder:text-muted-foreground/60"
+                        />
+                      </div>
                     </div>
-                  )}
-                  <div>
-                    <Label className="mb-1.5 flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /> Delivery address *</Label>
-                    <LocationPicker userId={userData?.id} onPick={(line) => setForm((f) => ({ ...f, delivery_address: line }))} />
-                    <Textarea value={form.delivery_address}
-                      onChange={(e) => setForm((f) => ({ ...f, delivery_address: e.target.value }))}
-                      rows={2} placeholder="Apartment / unit, building, street…" />
-                  </div>
-                  <div>
-                    <Label className="mb-1.5">Notes</Label>
-                    <Textarea rows={2} value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} placeholder="Allergies, preferences…" />
+
+                    {/* WhatsApp */}
+                    <div className="flex items-center gap-3 px-4">
+                      <MessageCircle className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <div className="min-w-0 flex-1">
+                        <label className="block pt-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                          WhatsApp <span className="text-destructive">*</span>
+                        </label>
+                        <input
+                          type="tel"
+                          inputMode="tel"
+                          value={form.customer_whatsapp}
+                          onChange={(e) => setForm((f) => ({ ...f, customer_whatsapp: e.target.value }))}
+                          placeholder="+504 1234 5678"
+                          className="w-full border-0 bg-transparent px-0 pb-3 pt-0.5 text-base text-foreground outline-none placeholder:text-muted-foreground/60"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Residence */}
+                    {residences.length > 0 && (
+                      <div className="flex items-center gap-3 px-4">
+                        <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        <div className="min-w-0 flex-1">
+                          <label className="block pt-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                            Residence
+                          </label>
+                          <Select value={form.residence || "_none"} onValueChange={(v) => setForm((f) => ({ ...f, residence: v === "_none" ? "" : v }))}>
+                            <SelectTrigger className="h-auto w-full justify-between border-0 bg-transparent px-0 pb-3 pt-0.5 text-base text-foreground shadow-none focus:ring-0">
+                              <SelectValue placeholder="Other / not listed" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="_none">Other / not listed</SelectItem>
+                              {residences.map((r) => <SelectItem key={r.id} value={r.name}>{r.name}</SelectItem>)}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Delivery address — saved chips + textarea */}
+                    <div className="flex items-start gap-3 px-4 py-3">
+                      <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                      <div className="min-w-0 flex-1 space-y-2">
+                        <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                          Delivery address <span className="text-destructive">*</span>
+                        </label>
+                        <LocationPicker
+                          userId={userData?.id}
+                          value={form.delivery_address}
+                          onPick={(line) => setForm((f) => ({ ...f, delivery_address: line }))}
+                        />
+                        <textarea
+                          value={form.delivery_address}
+                          onChange={(e) => setForm((f) => ({ ...f, delivery_address: e.target.value }))}
+                          rows={2}
+                          placeholder="Apartment / unit, building, street…"
+                          className="w-full resize-none border-0 bg-transparent px-0 py-1 text-base text-foreground outline-none placeholder:text-muted-foreground/60"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Notes — Yandex Eda "Комментарий" pattern: row → sheet */}
+                    <NotesField
+                      value={form.notes}
+                      onChange={(next) => setForm((f) => ({ ...f, notes: next }))}
+                      label="Notes"
+                      title="Comment"
+                      description="Allergies, preferences, anything the kitchen should know."
+                      placeholder="What should we know?"
+                    />
                   </div>
                 </section>
 
                 {/* Payment method */}
                 <section className="space-y-3">
-                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Payment</p>
+                  <SectionOverline label="Payment" />
                   <PaymentMethodSelector value={paymentMethod} onChange={setPaymentMethod} available={enabledMethods} />
                 </section>
               </>
@@ -337,36 +462,44 @@ export default function Cart() {
 
       {/* Sticky checkout bar */}
       {step === "cart" && items.length > 0 && (
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border/40 bg-background md:left-[var(--sidebar-width,0px)]"
-          style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
-          <div className="market-content px-4 py-3">
-            <Button size="lg" className="h-14 w-full rounded-2xl text-base font-bold"
-              onClick={startCheckout}
-              disabled={!formValid || isGenerating || ((paymentMethod === "lightning" || paymentMethod === "onchain") && (isPriceLoading || !btcPrice))}>
-              {isGenerating ? (
-                <><Spinner size="sm" className="mr-2" /> Starting…</>
-              ) : !isAuthenticated ? (
-                "Log in to checkout"
-              ) : paymentMethod === "infinita" ? (
-                <>Pay {formatUSD(effectiveTotalCents)} with LIVES</>
-              ) : paymentMethod === "paypal" ? (
-                <>Continue with PayPal</>
-              ) : paymentMethod === "onchain" ? (
-                <><Bitcoin className="mr-2 h-5 w-5" /> Pay {estimatedSats.toLocaleString()} sats</>
-              ) : (
-                <><Zap className="mr-2 h-5 w-5" /> Pay {estimatedSats.toLocaleString()} sats</>
-              )}
-            </Button>
-            {!formValid && (
-              <p className="mt-1.5 flex items-center justify-center gap-1 text-center text-[11px] text-muted-foreground">
-                <Check className="h-3 w-3" /> Fill name, WhatsApp and delivery address to continue
-              </p>
+        <CheckoutStickyFooter>
+          {enabledMethods.length === 0 && (
+            <p className="mb-2 rounded-xl bg-amber-500/10 px-3 py-2 text-center text-xs text-amber-400">
+              Payments are temporarily unavailable. Try again in a few minutes.
+            </p>
+          )}
+          <Button size="lg" className="h-14 w-full rounded-2xl text-base font-bold"
+            onClick={startCheckout}
+            disabled={
+              !formValid ||
+              isGenerating ||
+              enabledMethods.length === 0 ||
+              !enabledMethods.includes(paymentMethod) ||
+              ((paymentMethod === "lightning" || paymentMethod === "onchain") && (isPriceLoading || !btcPrice))
+            }>
+            {isGenerating ? (
+              <><Spinner size="sm" className="mr-2" /> Starting…</>
+            ) : !isAuthenticated ? (
+              "Log in to checkout"
+            ) : paymentMethod === "infinita" ? (
+              <>Pay {formatUSD(effectiveTotalCents)} with LIVES</>
+            ) : paymentMethod === "paypal" ? (
+              <>Continue with PayPal</>
+            ) : paymentMethod === "onchain" ? (
+              <><Bitcoin className="mr-2 h-5 w-5" /> Pay {estimatedSats.toLocaleString()} sats</>
+            ) : (
+              <><Zap className="mr-2 h-5 w-5" /> Pay {estimatedSats.toLocaleString()} sats</>
             )}
-          </div>
-        </div>
+          </Button>
+          {!formValid && (
+            <p className="mt-1.5 flex items-center justify-center gap-1 text-center text-[11px] text-muted-foreground">
+              <Check className="h-3 w-3" /> Fill name, WhatsApp and delivery address to continue
+            </p>
+          )}
+        </CheckoutStickyFooter>
       )}
 
-      <BottomNav />
+      {!isAuthenticated && <BottomNav />}
     </div>
   );
 }

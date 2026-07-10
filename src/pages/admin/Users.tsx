@@ -1,19 +1,17 @@
 import { useEffect, useState, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Ban, Search, Trash2, UserCheck } from "lucide-react";
+import { Ban, Search, Trash2, UserCheck, Sparkles, UtensilsCrossed, Waves, Car } from "lucide-react";
 import { toast } from "sonner";
 
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { adminApi, supabaseDb } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { usePagination, TablePagination } from "@/components/ui/table-pagination";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { formatUSD } from "@/lib/pricing";
@@ -22,22 +20,52 @@ import { cn } from "@/lib/utils";
 import { useResidences } from "@/hooks/useResidences";
 import { addressFromProfile, addressPayload, EMPTY_ADDRESS } from "@/lib/address";
 
-type Filter = "all" | "user" | "super_admin" | "blocked";
+type Filter = "all" | "user" | "admin" | "blocked";
 const formatRole = (role: string) => role.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 const userRoles = (user: any) => Array.isArray(user?.roles) ? user.roles : [];
 const userSubscriptions = (user: any) => Array.isArray(user?.subscriptions) ? user.subscriptions : [];
 const userLinkedClients = (user: any) => Array.isArray(user?.linkedClients) ? user.linkedClients : [];
 
+const norm = (v?: string | null) => (v ?? "").trim().toLowerCase();
+
+const SERVICE_META: Record<string, { label: string; icon: React.ComponentType<any>; tint: string }> = {
+  cleaning: { label: "Cleaning", icon: Sparkles,         tint: "bg-blue-500/15 text-blue-400" },
+  food:     { label: "Food",     icon: UtensilsCrossed,  tint: "bg-orange-500/15 text-orange-400" },
+  beach:    { label: "Beach",    icon: Waves,            tint: "bg-cyan-500/15 text-cyan-400" },
+  rental:   { label: "Rental",   icon: Car,              tint: "bg-amber-500/15 text-amber-400" },
+};
+const SERVICE_ORDER = ["cleaning", "food", "beach", "rental"] as const;
+type ServiceKey = (typeof SERVICE_ORDER)[number];
+
+function initials(name?: string | null, email?: string | null) {
+  const src = (name || email || "?").trim();
+  const parts = src.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return src.slice(0, 2).toUpperCase();
+}
+
+interface Person {
+  id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  createdAt: string | null;
+  isBlocked: boolean;
+  services: Set<ServiceKey>;
+  raw: any;
+}
+
 const AdminUsers = () => {
   const queryClient = useQueryClient();
 
   const [filter, setFilter] = useState<Filter>("all");
+  const [serviceFilter, setServiceFilter] = useState<"all" | ServiceKey>("all");
   const [search, setSearch] = useState("");
   const [editUser, setEditUser] = useState<any>(null);
 
   // ── Queries ──────────────────────────────────────────────────────────────
 
-  const { data: users = [], isLoading, isError, error } = useQuery({
+  const { data: users = [], isLoading: usersLoading, isError, error } = useQuery({
     queryKey: ["admin-users-full"],
     queryFn: async () => {
       const { data, error } = await adminApi("/admin/users");
@@ -48,8 +76,6 @@ const AdminUsers = () => {
     staleTime: 15_000,
   });
 
-  // Which RBAC role slugs count as "admin" (so the Admins filter catches users
-  // who are admins via RBAC roles, not just the legacy super_admin role).
   const { data: adminSlugs = ["admin", "manager", "super_admin"] } = useQuery({
     queryKey: ["admin-rbac-admin-slugs"],
     queryFn: async () => {
@@ -64,41 +90,44 @@ const AdminUsers = () => {
     userRoles(u).includes("super_admin") ||
     ((u.rbacRoles ?? []) as string[]).some((s) => (adminSlugs as string[]).includes(s));
 
-  // Active food subscriptions per user (not included in the backend /admin/users payload)
-  const { data: foodSubsByUser = {} } = useQuery({
-    queryKey: ["admin-users-food-subs"],
+  // ── Cross-service subscription aggregation (id-space is mixed: some by user_id, some by email) ──
+  const { data: foodSubs = [] } = useQuery({
+    queryKey: ["admin-people-food-subs"],
     queryFn: async () => {
-      const { data: subs } = await supabaseDb
+      const { data, error } = await supabaseDb
         .from("food_subscriptions")
-        .select("id, user_id, status, meal_plan_id, provider_id")
-        .eq("status", "active");
-      const rows = subs ?? [];
-      if (rows.length === 0) return {} as Record<string, { id: string; label: string }[]>;
-
-      const planIds = [...new Set(rows.map((r) => r.meal_plan_id).filter(Boolean))];
-      const provIds = [...new Set(rows.map((r) => r.provider_id).filter(Boolean))];
-      const [{ data: plans }, { data: provs }] = await Promise.all([
-        planIds.length
-          ? supabaseDb.from("food_meal_plans").select("id, name").in("id", planIds)
-          : Promise.resolve({ data: [] as any[] }),
-        provIds.length
-          ? supabaseDb.from("food_providers").select("id, name").in("id", provIds)
-          : Promise.resolve({ data: [] as any[] }),
-      ]);
-      const planMap = new Map((plans ?? []).map((p: any) => [p.id, p.name]));
-      const provMap = new Map((provs ?? []).map((p: any) => [p.id, p.name]));
-
-      const map: Record<string, { id: string; label: string }[]> = {};
-      rows.forEach((r) => {
-        const label = planMap.get(r.meal_plan_id) || provMap.get(r.provider_id) || "Food plan";
-        (map[r.user_id] ??= []).push({ id: r.id, label });
-      });
-      return map;
+        .select("id, user_id, status, customer_name");
+      if (error) throw error;
+      return data ?? [];
     },
     staleTime: 15_000,
   });
 
-  // Load recent audit activity for selected user
+  const { data: beachSubs = [] } = useQuery({
+    queryKey: ["admin-people-beach-subs"],
+    queryFn: async () => {
+      const { data, error } = await supabaseDb
+        .from("beach_club_subscriptions")
+        .select("id, user_id, status, customer_email");
+      if (error) throw error;
+      return data ?? [];
+    },
+    staleTime: 15_000,
+  });
+
+  const { data: rentalBookings = [] } = useQuery({
+    queryKey: ["admin-people-rental-bookings"],
+    queryFn: async () => {
+      const { data, error } = await supabaseDb
+        .from("rental_bookings")
+        .select("id, user_id, status")
+        .is("deleted_at", null);
+      if (error) throw error;
+      return data ?? [];
+    },
+    staleTime: 15_000,
+  });
+
   const { data: userAuditLogs = [] } = useQuery({
     queryKey: ["admin-user-audit", editUser?.id],
     enabled: !!editUser?.id,
@@ -147,231 +176,273 @@ const AdminUsers = () => {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  // ── Filter / Search ──────────────────────────────────────────────────────
+  // ── Assemble the People list from auth users + cross-service subs ──────
 
-  const filteredUsers = useMemo(() => {
-    let result = users;
-    if (filter === "super_admin") result = result.filter((u: any) => isAdminUser(u));
-    else if (filter === "user") result = result.filter((u: any) => !isAdminUser(u));
-    else if (filter === "blocked") result = result.filter((u: any) => u.isBlocked);
+  const people: Person[] = useMemo(() => {
+    // Build service-usage maps keyed by user_id (auth users) and email fallback.
+    const serviceByUserId = new Map<string, Set<ServiceKey>>();
+    const serviceByEmail = new Map<string, Set<ServiceKey>>();
+    const addByUser = (uid: string | null | undefined, key: ServiceKey) => {
+      if (!uid) return;
+      const cur = serviceByUserId.get(uid) ?? new Set<ServiceKey>();
+      cur.add(key);
+      serviceByUserId.set(uid, cur);
+    };
+    const addByEmail = (email: string | null | undefined, key: ServiceKey) => {
+      const e = norm(email);
+      if (!e) return;
+      const cur = serviceByEmail.get(e) ?? new Set<ServiceKey>();
+      cur.add(key);
+      serviceByEmail.set(e, cur);
+    };
+
+    (users as any[]).forEach((u: any) => {
+      const subs = userSubscriptions(u);
+      if (subs.some((s: any) => s.is_active)) addByUser(u.id, "cleaning");
+    });
+    (foodSubs as any[]).forEach((s: any) => {
+      if (norm(s.status) === "active") addByUser(s.user_id, "food");
+    });
+    (beachSubs as any[]).forEach((s: any) => {
+      if (norm(s.status) === "active") { addByUser(s.user_id, "beach"); addByEmail(s.customer_email, "beach"); }
+    });
+    (rentalBookings as any[]).forEach((s: any) => {
+      if (["booked", "active", "confirmed"].includes(norm(s.status))) addByUser(s.user_id, "rental");
+    });
+
+    return (users as any[]).map((u: any) => {
+      const email = norm(u.email);
+      const services = new Set<ServiceKey>([
+        ...(serviceByUserId.get(u.id) ?? []),
+        ...(email ? (serviceByEmail.get(email) ?? []) : []),
+      ]);
+      return {
+        id: u.id,
+        name: u.display_name || u.name || u.email || "User",
+        email: u.email ?? null,
+        phone: (u.phone as string) ?? null,
+        createdAt: u.created_at ?? null,
+        isBlocked: !!u.isBlocked,
+        services,
+        raw: u,
+      };
+    }).sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+  }, [users, foodSubs, beachSubs, rentalBookings]);
+
+  const stats = useMemo(() => ({
+    total: people.length,
+    admins: people.filter((p) => isAdminUser(p.raw)).length,
+    blocked: people.filter((p) => p.isBlocked).length,
+  }), [people, adminSlugs]);
+
+  const filteredPeople = useMemo(() => {
+    let result = people;
+    if (filter === "user")    result = result.filter((p) => !isAdminUser(p.raw));
+    if (filter === "admin")   result = result.filter((p) => isAdminUser(p.raw));
+    if (filter === "blocked") result = result.filter((p) => p.isBlocked);
+
+    if (serviceFilter !== "all") result = result.filter((p) => p.services.has(serviceFilter));
 
     if (search.trim()) {
       const q = search.toLowerCase();
-      result = result.filter((u: any) =>
-        (u.name || "").toLowerCase().includes(q) ||
-        (u.display_name || "").toLowerCase().includes(q) ||
-        (u.email || "").toLowerCase().includes(q)
+      result = result.filter((p) =>
+        p.name.toLowerCase().includes(q) ||
+        (p.email ?? "").toLowerCase().includes(q) ||
+        (p.phone ?? "").toLowerCase().includes(q)
       );
     }
     return result;
-  }, [users, filter, search, adminSlugs]);
+  }, [people, filter, serviceFilter, search, adminSlugs]);
 
-  const usersPager = usePagination(filteredUsers, 20);
-  const pagedUsers = usersPager.paged;
+  const isLoading = usersLoading;
+  const pager = usePagination(filteredPeople, 20);
+  const paged = pager.paged;
 
-  const FILTERS: { label: string; value: Filter }[] = [
-    { label: "All", value: "all" },
-    { label: "Users", value: "user" },
-    { label: "Admins", value: "super_admin" },
-    { label: "Blocked", value: "blocked" },
+  const FILTERS: { label: string; value: Filter; count?: number }[] = [
+    { label: "All",     value: "all",     count: stats.total },
+    { label: "Users",   value: "user",    count: stats.total - stats.admins },
+    { label: "Admins",  value: "admin",   count: stats.admins },
+    { label: "Blocked", value: "blocked", count: stats.blocked },
   ];
 
   return (
-    <SuperAdminLayout title="Users">
+    <SuperAdminLayout title="People" subtitle="Everyone who has signed up to the platform.">
       {/* Toolbar */}
       <div className="mb-space-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex gap-space-2">
+        <div className="flex flex-wrap items-center gap-space-2">
           {FILTERS.map((f) => (
             <button key={f.value} type="button" onClick={() => setFilter(f.value)}
-              className={cn("rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors",
+              className={cn("group flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors",
                 filter === f.value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-muted"
-              )}>{f.label}</button>
+              )}>
+              {f.label}
+              {typeof f.count === "number" && (
+                <span className={cn("rounded-full px-1.5 text-xs tabular-nums",
+                  filter === f.value ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted-foreground/15 text-muted-foreground"
+                )}>{f.count}</span>
+              )}
+            </button>
           ))}
         </div>
-        <div className="relative w-64">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search users..." className="pl-9" />
+        <div className="flex items-center gap-space-2">
+          <Select value={serviceFilter} onValueChange={(v) => setServiceFilter(v as any)}>
+            <SelectTrigger className="w-40 rounded-full"><SelectValue placeholder="All services" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All services</SelectItem>
+              {SERVICE_ORDER.map((k) => <SelectItem key={k} value={k}>{SERVICE_META[k].label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <div className="relative w-64">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, email, phone…" className="rounded-full pl-9" />
+          </div>
         </div>
       </div>
 
+      {/* Result counter */}
+      <p className="mb-space-3 text-xs text-muted-foreground">
+        {isLoading ? "Loading…" : `${filteredPeople.length} ${filteredPeople.length === 1 ? "person" : "people"}`}
+      </p>
+
       {/* Table */}
-      <Card>
-        <CardContent className="p-0">
-          {isLoading ? (
-            <div className="py-12 text-center text-sm text-muted-foreground">Loading...</div>
-          ) : isError ? (
+      <div className="overflow-hidden rounded-2xl bg-card">
+        {isLoading ? (
+          <div className="divide-y divide-border/40">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-4 px-space-4 py-space-4">
+                <div className="h-10 w-10 shrink-0 animate-pulse rounded-full bg-muted" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-4 w-40 animate-pulse rounded bg-muted" />
+                  <div className="h-3 w-56 animate-pulse rounded bg-muted" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : isError ? (
             <div className="py-12 text-center text-sm text-muted-foreground">
               {(error as Error)?.message || "Could not load users. Please log out and sign in again."}
             </div>
-          ) : filteredUsers.length === 0 ? (
-            <div className="py-12 text-center text-sm text-muted-foreground">No users found</div>
+          ) : filteredPeople.length === 0 ? (
+            <div className="py-12 text-center text-sm text-muted-foreground">No people match these filters</div>
           ) : (
             <>
-              <div className="divide-y divide-border md:hidden">
-                {pagedUsers.map((user: any) => {
-                  const name = user.display_name || user.name || user.email || "User";
-                  const activeSubs = userSubscriptions(user).filter((s: any) => s.is_active);
-                  const linkedClients = userLinkedClients(user);
-                  const roles = userRoles(user);
+              {/* Header row (desktop) */}
+              <div className="hidden grid-cols-[minmax(0,3fr)_minmax(0,2fr)_minmax(0,1.5fr)_112px_100px_88px] items-center gap-4 border-b border-border/40 px-space-5 py-space-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground md:grid">
+                <div>Person</div>
+                <div>Services</div>
+                <div>Roles</div>
+                <div>Joined</div>
+                <div>Status</div>
+                <div className="text-right">Actions</div>
+              </div>
+
+              <div className="divide-y divide-border/40">
+                {paged.map((p) => {
+                  const roles = userRoles(p.raw);
+                  const rbac = ((p.raw as any).rbacRoles ?? []) as string[];
+                  const isAdmin = isAdminUser(p.raw);
+                  const svcArr = SERVICE_ORDER.filter((k) => p.services.has(k));
+
+                  const person = (
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-bold text-primary">
+                        {initials(p.name, p.email)}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-foreground">{p.name}</p>
+                        <p className="truncate text-xs text-muted-foreground">{p.email || p.phone || "—"}</p>
+                      </div>
+                    </div>
+                  );
+
+                  const svcChips = svcArr.length ? (
+                    <div className="flex flex-wrap gap-1">
+                      {svcArr.map((k) => {
+                        const meta = SERVICE_META[k]; const Icon = meta.icon;
+                        return (
+                          <span key={k} className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold", meta.tint)}>
+                            <Icon className="h-3 w-3" />{meta.label}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  ) : <span className="text-xs text-muted-foreground">—</span>;
+
+                  const roleChips = (
+                    <div className="flex flex-wrap gap-1">
+                      {isAdmin && <Badge variant="default" className="text-[10px]">Admin</Badge>}
+                      {rbac.map((slug: string) => (
+                        <Badge key={slug} variant="outline" className="text-[10px] capitalize">{slug}</Badge>
+                      ))}
+                      {roles.filter((r: string) => r !== "super_admin").map((r: string) => (
+                        <Badge key={r} variant="outline" className="text-[10px]">{formatRole(r)}</Badge>
+                      ))}
+                      {!isAdmin && rbac.length === 0 && roles.filter((r: string) => r !== "super_admin").length === 0 && (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </div>
+                  );
+
+                  const statusChip = p.isBlocked
+                    ? <Badge variant="destructive" className="text-[10px]">Blocked</Badge>
+                    : svcArr.length ? <Badge variant="default" className="text-[10px]">Active</Badge>
+                    : <Badge variant="outline" className="text-[10px]">Idle</Badge>;
+
+                  const actions = (
+                    <div className="flex justify-end gap-1">
+                      <Button variant="tertiary" size="sm" onClick={() => setEditUser(p.raw)}>Edit</Button>
+                      {p.isBlocked ? (
+                        <Button variant="tertiary" size="sm" onClick={() => blockMutation.mutate({ userId: p.id, block: false })}>
+                          <UserCheck className="h-3.5 w-3.5" />
+                        </Button>
+                      ) : (
+                        <Button variant="tertiary" size="sm" onClick={() => blockMutation.mutate({ userId: p.id, block: true })}>
+                          <Ban className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </div>
+                  );
+
                   return (
-                    <div key={user.id} className={cn("space-y-space-3 px-space-4 py-space-4", user.isBlocked && "opacity-60")}>
-                      <div className="flex items-start gap-space-3">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
-                          {name.slice(0, 1).toUpperCase()}
+                    <div key={p.id} className={cn("group px-space-5 py-space-3 transition-colors hover:bg-muted/30", p.isBlocked && "opacity-60")}>
+                      {/* Desktop grid */}
+                      <div className="hidden grid-cols-[minmax(0,3fr)_minmax(0,2fr)_minmax(0,1.5fr)_112px_100px_88px] items-center gap-4 md:grid">
+                        {person}
+                        {svcChips}
+                        {roleChips}
+                        <div className="text-xs text-muted-foreground">
+                          {p.createdAt ? format(new Date(p.createdAt), "MMM d, yyyy") : "—"}
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-semibold">{name}</p>
-                          <p className="truncate text-xs text-muted-foreground">{user.email || "—"}</p>
+                        <div>{statusChip}</div>
+                        {actions}
+                      </div>
+                      {/* Mobile card */}
+                      <div className="space-y-3 md:hidden">
+                        <div className="flex items-start justify-between gap-3">
+                          {person}
+                          {statusChip}
                         </div>
-                        {user.isBlocked ? (
-                          <Badge variant="destructive" className="text-xs">Blocked</Badge>
-                        ) : (
-                          <Badge variant="default" className="text-xs">Active</Badge>
+                        <div className="flex flex-wrap gap-1.5">
+                          {svcChips}
+                        </div>
+                        {(isAdmin || rbac.length > 0 || roles.length > 0) && (
+                          <div>{roleChips}</div>
                         )}
-                      </div>
-                      <div className="flex flex-wrap gap-space-2">
-                        {(roles.length ? roles : ["user"]).map((role: string) => (
-                          <Badge key={role} variant={role === "super_admin" ? "default" : "outline"} className="text-xs">
-                            {formatRole(role)}
-                          </Badge>
-                        ))}
-                        {((user as any).rbacRoles ?? []).map((slug: string) => (
-                          <Badge key={`rbac-${slug}`} variant="default" className="text-xs capitalize">
-                            {slug}
-                          </Badge>
-                        ))}
-                        <Badge variant="secondary" className="text-xs">{user.auth_provider || "email"}</Badge>
-                        {activeSubs.length > 0 ? <Badge variant="secondary" className="text-xs">{activeSubs.length} active subscriptions</Badge> : null}
-                        {linkedClients.length > 0 ? <Badge variant="secondary" className="text-xs">{linkedClients.length} client profiles</Badge> : null}
-                      </div>
-                      <div className="flex flex-wrap gap-space-2">
-                        <Button variant="secondary" size="sm" onClick={() => setEditUser(user)}>Edit</Button>
-                        {user.isBlocked ? (
-                          <Button variant="tertiary" size="sm" onClick={() => blockMutation.mutate({ userId: user.id, block: false })}>
-                            <UserCheck className="h-3.5 w-3.5" />
-                            Unblock
-                          </Button>
-                        ) : (
-                          <Button variant="tertiary" size="sm" onClick={() => blockMutation.mutate({ userId: user.id, block: true })}>
-                            <Ban className="h-3.5 w-3.5" />
-                            Block
-                          </Button>
-                        )}
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">
+                            {p.createdAt ? format(new Date(p.createdAt), "MMM d, yyyy") : "—"}
+                          </span>
+                          {actions}
+                        </div>
                       </div>
                     </div>
                   );
                 })}
               </div>
-
-              <div className="hidden overflow-x-auto md:block">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>User</TableHead>
-                      <TableHead>Joined</TableHead>
-                      <TableHead>Provider</TableHead>
-                      <TableHead>Subscriptions</TableHead>
-                      <TableHead>Client Profile</TableHead>
-                      <TableHead>Role</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {pagedUsers.map((user: any) => {
-                      const name = user.display_name || user.name || user.email || "User";
-                      const activeSubs = userSubscriptions(user).filter((s: any) => s.is_active);
-                      const linkedClients = userLinkedClients(user);
-                      const roles = userRoles(user);
-                      return (
-                        <TableRow key={user.id} className={user.isBlocked ? "opacity-50" : ""}>
-                          <TableCell>
-                            <div className="flex items-center gap-3">
-                              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-bold text-primary-foreground">
-                                {name.slice(0, 1).toUpperCase()}
-                              </div>
-                              <div className="min-w-0">
-                                <p className="truncate text-sm font-semibold">{name}</p>
-                                <p className="truncate text-xs text-muted-foreground">{user.email || "—"}</p>
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-sm text-muted-foreground">
-                            {user.created_at ? format(new Date(user.created_at), "MMM d, yyyy") : "—"}
-                          </TableCell>
-                          <TableCell><Badge variant="secondary" className="text-xs">{user.auth_provider || "email"}</Badge></TableCell>
-                          <TableCell>
-                            {(() => {
-                              const foodSubs = foodSubsByUser[user.id] ?? [];
-                              if (activeSubs.length === 0 && foodSubs.length === 0) {
-                                return <span className="text-xs text-muted-foreground">None</span>;
-                              }
-                              return (
-                                <div className="flex flex-wrap gap-1">
-                                  {activeSubs.map((s: any) => (
-                                    <Badge key={s.id} variant="default" className="text-xs">{s.package_name}</Badge>
-                                  ))}
-                                  {foodSubs.map((f) => (
-                                    <Badge key={f.id} className="text-xs bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/15">
-                                      🍽 {f.label}
-                                    </Badge>
-                                  ))}
-                                </div>
-                              );
-                            })()}
-                          </TableCell>
-                          <TableCell>
-                            {linkedClients.length > 0 ? (
-                              <div className="space-y-1">
-                                {linkedClients.map((c: any) => (
-                                  <Badge key={c.id} variant="outline" className="text-xs mr-1">{c.company_name}</Badge>
-                                ))}
-                              </div>
-                            ) : <span className="text-xs text-muted-foreground">—</span>}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex flex-wrap gap-1">
-                              {roles.map((r: string) => (
-                                <Badge key={r} variant={r === "super_admin" ? "default" : "outline"} className="text-xs">{formatRole(r)}</Badge>
-                              ))}
-                              {((user as any).rbacRoles ?? []).map((slug: string) => (
-                                <Badge key={`rbac-${slug}`} variant="default" className="text-xs capitalize">{slug}</Badge>
-                              ))}
-                              {roles.length === 0 && !((user as any).rbacRoles?.length) ? <Badge variant="outline" className="text-xs">User</Badge> : null}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            {user.isBlocked ? (
-                              <Badge variant="destructive" className="text-xs">Blocked</Badge>
-                            ) : (
-                              <Badge variant="default" className="text-xs">Active</Badge>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex justify-end gap-1">
-                              <Button variant="tertiary" size="sm" onClick={() => setEditUser(user)}>Edit</Button>
-                              {user.isBlocked ? (
-                                <Button variant="tertiary" size="sm" onClick={() => blockMutation.mutate({ userId: user.id, block: false })}>
-                                  <UserCheck className="h-3.5 w-3.5" />
-                                </Button>
-                              ) : (
-                                <Button variant="tertiary" size="sm" onClick={() => blockMutation.mutate({ userId: user.id, block: true })}>
-                                  <Ban className="h-3.5 w-3.5" />
-                                </Button>
-                              )}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
-              <TablePagination {...usersPager} onPage={usersPager.setPage} />
+              <TablePagination {...pager} onPage={pager.setPage} />
             </>
           )}
-        </CardContent>
-      </Card>
+      </div>
 
       {/* Edit User Sheet */}
       <Sheet open={!!editUser} onOpenChange={(o) => !o && setEditUser(null)}>

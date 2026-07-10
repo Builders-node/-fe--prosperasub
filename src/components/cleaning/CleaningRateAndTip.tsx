@@ -81,7 +81,7 @@ export function CleaningRateAndTip({ bookingId, customerName }: Props) {
         serviceName="Cleaning Tip"
         context="cleaning_tip"
         externalIdPrefix={`cleaning-tip-${bookingId}`}
-        adminUrl={`${window.location.origin}/admin/cleaning/subscriptions`}
+        adminUrl={`${window.location.origin}/admin/marketplace/subscriptions`}
         customerName={customerName}
         tippedCents={tippedCents}
         heading="Tip the cleaner"

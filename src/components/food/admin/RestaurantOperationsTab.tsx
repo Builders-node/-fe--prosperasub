@@ -23,6 +23,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { todayHN } from "@/lib/timezone";
+import { effectiveFoodStatus } from "@/lib/subscriptionLifecycle";
 import { useAuth } from "@/contexts/AuthContext";
 import { useResidences } from "@/hooks/useResidences";
 import { useSelectedResidence } from "@/contexts/LocationContext";
@@ -114,7 +115,14 @@ export function RestaurantOperationsTab({ providerId }: Props) {
         .in("status", ["active", "expired", "paused"])
         .order("delivery_address", { ascending: true });
       if (error) throw error;
-      return (data ?? []) as FoodSubscription[];
+      // Derive effective status so an active-in-DB but past-end_date sub is
+      // treated as expired here — otherwise today's manifest would still
+      // include it until the daily expire-sweep cron runs.
+      const today = todayHN();
+      return (data ?? []).map((s: FoodSubscription) => ({
+        ...s,
+        status: effectiveFoodStatus(s, today) as FoodSubscription["status"],
+      })) as FoodSubscription[];
     },
   });
 
@@ -338,7 +346,7 @@ export function RestaurantOperationsTab({ providerId }: Props) {
           {[1, 2, 3].map((i) => <div key={i} className="h-16 animate-pulse rounded-2xl bg-muted" />)}
         </div>
       ) : manifest.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-border bg-card py-14 text-center">
+        <div className="flex flex-col items-center justify-center rounded-2xl bg-card py-14 text-center">
           <CalendarDays className="mb-3 h-10 w-10 text-muted-foreground/30" />
           <p className="font-semibold">No deliveries for this date</p>
           <p className="mt-1 text-sm text-muted-foreground">

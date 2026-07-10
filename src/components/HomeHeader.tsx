@@ -35,10 +35,14 @@ export function HomeHeader({ title, showBackButton = false, onBack }: HomeHeader
           )}
         </div>
 
-        {/* Center */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none select-none">
-          <span className="text-[17px] font-black tracking-tight text-foreground leading-none">ProsperaSub</span>
-          {title && <span className="mt-0.5 text-xs font-medium text-muted-foreground">{title}</span>}
+        {/* Center — native mobile pattern: home shows the brand ("ProsperaSub"),
+            every other screen shows just the page title. Back button on the
+            left plus page title in the center = classic iOS / Material chrome.
+            Passing no `title` = home / brand mode. */}
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none">
+          <span className="max-w-[60vw] truncate text-[17px] font-black tracking-tight text-foreground">
+            {title ?? "ProsperaSub"}
+          </span>
         </div>
 
         {/* Right */}

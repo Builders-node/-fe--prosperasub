@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { CheckoutStickyFooter } from "@/components/patterns/CheckoutStickyFooter";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Zap, CheckCircle2, RefreshCw, Wallet, Bitcoin, Minus, Plus, CalendarDays } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabaseDb } from "@/integrations/supabase/client";
+import { accountApi, supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { addMonths, format } from "date-fns";
@@ -30,9 +31,13 @@ interface BeachPlan {
 
 const BeachClubCheckout = () => {
   const { planId } = useParams();
+  const [searchParams] = useSearchParams();
+  const renewFromSubId = searchParams.get("renew");
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { userData } = useAuth();
+  // Stable idempotency key per checkout attempt for the /renew endpoint.
+  const renewIdempotencyKeyRef = useRef<string | null>(null);
 
   const [showPayment, setShowPayment] = useState(false);
   const [isPaid, setIsPaid] = useState(false);
@@ -131,6 +136,26 @@ const BeachClubCheckout = () => {
   const createSubscriptionMutation = useMutation({
     mutationFn: async (options: { paymentRef: string; status: "paid" | "pending"; method: string }) => {
       if (!plan) throw new Error("Missing plan data");
+
+      // Renewal path: server verifies the payment ref against the provider,
+      // enforces idempotency, and extends the existing beach_club_subscriptions
+      // row (no duplicate created).
+      if (renewFromSubId && options.status === "paid") {
+        const idempotencyKey = renewIdempotencyKeyRef.current || crypto.randomUUID();
+        renewIdempotencyKeyRef.current = idempotencyKey;
+        const { error } = await accountApi(`/account/beach/subscriptions/${renewFromSubId}/renew`, {
+          method: "POST",
+          body: JSON.stringify({
+            payment_method: options.method === "fiat" ? "paypal" : options.method,
+            payment_reference: options.paymentRef,
+            amount_cents: totalCents,
+            idempotency_key: idempotencyKey,
+          }),
+        });
+        if (error) throw error;
+        return { id: renewFromSubId };
+      }
+
       const patch = {
         payment_status: options.status,
         payment_method: options.method,
@@ -253,7 +278,7 @@ const BeachClubCheckout = () => {
   };
 
   return (
-    <UserLayout title="Checkout" showBackButton backTo="/beach-club" showBottomNav={false}>
+    <UserLayout title="Checkout" showBackButton backTo="/services/beach-club" showBottomNav={false}>
       <Sheet open={showSuccess} onOpenChange={(open) => { if (!open) navigate("/my-subscriptions"); }}>
         <SheetContent side="bottom" className="rounded-t-3xl px-space-6 pb-space-8 pt-space-6">
           <SheetHeader className="items-center">
@@ -270,7 +295,7 @@ const BeachClubCheckout = () => {
           <Button className="mt-space-6 w-full" size="xl" onClick={() => navigate("/my-subscriptions")}>
             View My Subscriptions
           </Button>
-          <Button variant="ghost" className="mt-space-2 w-full" onClick={() => navigate("/beach-club")}>
+          <Button variant="ghost" className="mt-space-2 w-full" onClick={() => navigate("/services/beach-club")}>
             Back to Beach Club
           </Button>
         </SheetContent>
@@ -413,27 +438,34 @@ const BeachClubCheckout = () => {
         )}
       </div>
 
-      {/* Sticky Pay button */}
+      {/* Sticky Pay button — unified pattern across all checkouts */}
       {plan && !showPayment && (
-        <div className="fixed inset-x-0 bottom-0 z-40 bg-background/95 backdrop-blur md:left-[var(--sidebar-width,0px)]"
-          style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
-          <div className="market-content px-4 py-3">
-            <Button size="lg" className="h-14 w-full rounded-2xl bg-primary text-black hover:bg-[hsl(var(--brand-accent-hover))] text-base font-bold"
-              onClick={generateInvoice}
-              loading={isGenerating}
-              disabled={isGenerating || ((paymentMethod === "lightning" || paymentMethod === "onchain") && (isPriceLoading || !btcPrice))}>
-              {paymentMethod === "lightning" ? (
-                <>{!isGenerating && <Zap className="h-5 w-5" />}{isGenerating ? "Generating Invoice..." : isPriceLoading ? "Loading rate..." : `Pay ${estimatedSats.toLocaleString()} sats`}</>
-              ) : paymentMethod === "onchain" ? (
-                <>{!isGenerating && <Bitcoin className="h-5 w-5" />}{isGenerating ? "Generating address..." : isPriceLoading ? "Loading rate..." : `Pay ${estimatedSats.toLocaleString()} sats on-chain`}</>
-              ) : paymentMethod === "paypal" ? (
-                "Continue with PayPal"
-              ) : (
-                isGenerating ? "Creating Payment..." : `Pay ${formatUSD(effectiveTotalCents)} with LIVES`
-              )}
-            </Button>
-          </div>
-        </div>
+        <CheckoutStickyFooter>
+          {enabledMethods.length === 0 && (
+            <p className="mb-2 rounded-xl bg-amber-500/10 px-3 py-2 text-center text-xs text-amber-400">
+              Payments are temporarily unavailable. Try again in a few minutes.
+            </p>
+          )}
+          <Button size="lg" className="h-14 w-full rounded-2xl bg-primary text-black hover:bg-[hsl(var(--brand-accent-hover))] text-base font-bold"
+            onClick={generateInvoice}
+            loading={isGenerating}
+            disabled={
+              isGenerating ||
+              enabledMethods.length === 0 ||
+              !enabledMethods.includes(paymentMethod) ||
+              ((paymentMethod === "lightning" || paymentMethod === "onchain") && (isPriceLoading || !btcPrice))
+            }>
+            {paymentMethod === "lightning" ? (
+              <>{!isGenerating && <Zap className="h-5 w-5" />}{isGenerating ? "Generating Invoice..." : isPriceLoading ? "Loading rate..." : `Pay ${estimatedSats.toLocaleString()} sats`}</>
+            ) : paymentMethod === "onchain" ? (
+              <>{!isGenerating && <Bitcoin className="h-5 w-5" />}{isGenerating ? "Generating address..." : isPriceLoading ? "Loading rate..." : `Pay ${estimatedSats.toLocaleString()} sats on-chain`}</>
+            ) : paymentMethod === "paypal" ? (
+              "Continue with PayPal"
+            ) : (
+              isGenerating ? "Creating Payment..." : `Pay ${formatUSD(effectiveTotalCents)} with LIVES`
+            )}
+          </Button>
+        </CheckoutStickyFooter>
       )}
     </UserLayout>
   );

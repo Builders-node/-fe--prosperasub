@@ -32,7 +32,6 @@ const USER_NAV: NavItem[] = [
     icon: CalendarDays,
     label: "My Subs",
     path: "/my-subscriptions",
-    activePatterns: ["/cleaning/my-bookings"],
     requiresAuth: true,
   },
   {

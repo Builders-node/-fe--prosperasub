@@ -1,23 +1,45 @@
-import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Building2, ChevronsUpDown, ChevronUp, ChevronDown } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Building2, ChevronsUpDown, ChevronUp, ChevronDown, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { AdminListShell } from "@/components/admin/AdminListShell";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { supabaseDb } from "@/integrations/supabase/client";
-import { useServiceCategories } from "@/hooks/useServiceCategories";
+import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
+import { useAuth } from "@/contexts/AuthContext";
+import { logAuditEvent } from "@/lib/auditLog";
 import { cn } from "@/lib/utils";
 
-type SortKey = "name" | "date" | "category";
+type SortKey = "name" | "date" | "service";
 
-interface Provider { id: string; name: string; category_key: string; }
+interface Provider { id: string; name: string; archetype_key: string | null; }
 interface Plan { id: string; name: string; }
 interface UserRow { id: string; name: string | null; display_name: string | null; email: string | null; }
-interface Subscription {
+
+/**
+ * Union row that flattens `provider_subscriptions` and `provider_bookings`
+ * into the same shape. Subs use start_date/end_date (dates), bookings use
+ * start_at/end_at (timestamps). We normalize to ISO-day strings for display
+ * and carry a `kind` marker so admins can tell them apart at a glance.
+ */
+interface SaleRow {
   id: string;
+  kind: "subscription" | "booking";
   provider_id: string;
   plan_id: string | null;
   user_id: string | null;
@@ -40,7 +62,7 @@ interface Subscription {
  *   - paused | expired | cancelled: terminal or on-hold states
  *   - refunded:         money returned
  */
-function subscriptionStage(s: Subscription): { label: string; className: string } {
+function subscriptionStage(s: SaleRow): { label: string; className: string } {
   if (s.payment_status === "refunded") return { label: "Refunded",         className: "bg-purple-500/15 text-purple-400" };
   if (s.status === "cancelled")        return { label: "Cancelled",        className: "bg-red-500/15 text-red-400" };
   if (s.status === "expired")          return { label: "Expired",          className: "bg-red-500/15 text-red-400" };
@@ -54,13 +76,50 @@ function subscriptionStage(s: Subscription): { label: string; className: string 
  * `provider_subscriptions` and joins providers/plans by id.
  */
 const MarketplaceSubscriptions = () => {
-  const { categories } = useServiceCategories(false);
-  const [category, setCategory] = useState("all");
+  const qc = useQueryClient();
+  const { userData } = useAuth();
+  const { archetypes } = useServiceArchetypes(false);
+  const [service, setService] = useState("all");
   const [status, setStatus] = useState("all");
   const [payment, setPayment] = useState("all");
+  const [kind, setKind] = useState<"all" | "subscription" | "booking">("all");
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [editRow, setEditRow] = useState<SaleRow | null>(null);
+  const [deleteRow, setDeleteRow] = useState<SaleRow | null>(null);
+
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ["marketplace-subscriptions"] });
+    qc.invalidateQueries({ queryKey: ["marketplace-bookings"] });
+  };
+
+  /** Table + column name for the underlying row of a SaleRow. */
+  const backing = (s: SaleRow) => s.kind === "subscription"
+    ? { table: "provider_subscriptions", startCol: "start_date", endCol: "end_date",   priceCol: "price_cents"       }
+    : { table: "provider_bookings",      startCol: "start_at",   endCol: "end_at",     priceCol: "total_price_cents" };
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ row, patch }: { row: SaleRow; patch: Record<string, any> }) => {
+      const b = backing(row);
+      const { error } = await supabaseDb.from(b.table).update({ ...patch, updated_at: new Date().toISOString() }).eq("id", row.id);
+      if (error) throw error;
+      if (userData?.id) await logAuditEvent(userData.id, "edit", row.kind === "subscription" ? "provider_subscription" : "provider_booking", row.id, patch);
+    },
+    onSuccess: () => { toast.success("Saved"); invalidate(); setEditRow(null); },
+    onError: (e: any) => toast.error(e?.message || "Could not save"),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (row: SaleRow) => {
+      const b = backing(row);
+      const { error } = await supabaseDb.from(b.table).delete().eq("id", row.id);
+      if (error) throw error;
+      if (userData?.id) await logAuditEvent(userData.id, "delete", row.kind === "subscription" ? "provider_subscription" : "provider_booking", row.id, {});
+    },
+    onSuccess: () => { toast.success("Deleted"); invalidate(); setDeleteRow(null); },
+    onError: (e: any) => toast.error(e?.message || "Could not delete"),
+  });
 
   const toggleSort = (key: SortKey) => {
     if (sortBy === key) {
@@ -75,7 +134,7 @@ const MarketplaceSubscriptions = () => {
     queryKey: ["marketplace-providers-slim"],
     queryFn: async () => {
       const { data, error } = await supabaseDb.from("providers")
-        .select("id, name, category_key").order("name");
+        .select("id, name, archetype_key").order("name");
       if (error) throw error;
       return (data ?? []) as Provider[];
     },
@@ -92,17 +151,64 @@ const MarketplaceSubscriptions = () => {
   });
   const planById = useMemo(() => new Map(plans.map((p) => [p.id, p])), [plans]);
 
-  const { data: subs = [], isLoading } = useQuery({
+  const isoDay = (v?: string | null): string | null => v ? v.slice(0, 10) : null;
+
+  const { data: subs = [], isLoading: subsLoading } = useQuery({
     queryKey: ["marketplace-subscriptions"],
     queryFn: async () => {
       const { data, error } = await supabaseDb.from("provider_subscriptions")
         .select("*").order("created_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []) as Subscription[];
+      return ((data ?? []) as any[]).map<SaleRow>((r) => ({
+        id: r.id,
+        kind: "subscription",
+        provider_id: r.provider_id,
+        plan_id: r.plan_id ?? null,
+        user_id: r.user_id ?? null,
+        start_date: isoDay(r.start_date),
+        end_date: isoDay(r.end_date),
+        status: r.status,
+        payment_status: r.payment_status,
+        payment_method: r.payment_method ?? null,
+        price_cents: r.price_cents ?? null,
+        payment_reference: r.payment_reference ?? null,
+        source_service_key: r.source_service_key ?? null,
+        created_at: r.created_at,
+      }));
     },
   });
 
-  const userIds = useMemo(() => Array.from(new Set(subs.map((s) => s.user_id).filter((x): x is string => !!x))), [subs]);
+  const { data: bookings = [], isLoading: bookingsLoading } = useQuery({
+    queryKey: ["marketplace-bookings"],
+    queryFn: async () => {
+      // Rental (and any other archetype using the booking model) lives here.
+      // We surface it in the same view so admin sees the whole revenue stream.
+      const { data, error } = await supabaseDb.from("provider_bookings")
+        .select("*").order("created_at", { ascending: false });
+      if (error) throw error;
+      return ((data ?? []) as any[]).map<SaleRow>((r) => ({
+        id: r.id,
+        kind: "booking",
+        provider_id: r.provider_id,
+        plan_id: r.plan_id ?? null,
+        user_id: r.user_id ?? null,
+        start_date: isoDay(r.start_at),
+        end_date: isoDay(r.end_at),
+        status: r.status,
+        payment_status: r.payment_status ?? "paid",
+        payment_method: r.payment_method ?? null,
+        price_cents: r.total_price_cents ?? r.price_cents ?? null,
+        payment_reference: r.payment_reference ?? null,
+        source_service_key: r.source_service_key ?? null,
+        created_at: r.created_at,
+      }));
+    },
+  });
+
+  const isLoading = subsLoading || bookingsLoading;
+  const rows = useMemo(() => [...subs, ...bookings], [subs, bookings]);
+
+  const userIds = useMemo(() => Array.from(new Set(rows.map((s) => s.user_id).filter((x): x is string => !!x))), [rows]);
   const { data: users = [] } = useQuery({
     queryKey: ["marketplace-subs-users", userIds.join(",")],
     enabled: userIds.length > 0,
@@ -121,11 +227,12 @@ const MarketplaceSubscriptions = () => {
 
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return subs.filter((s) => {
+    return rows.filter((s) => {
       const prov = providerById.get(s.provider_id);
-      if (category !== "all" && prov?.category_key !== category) return false;
+      if (service !== "all" && prov?.archetype_key !== service) return false;
       if (status   !== "all" && s.status         !== status)     return false;
       if (payment  !== "all" && s.payment_status !== payment)    return false;
+      if (kind     !== "all" && s.kind           !== kind)       return false;
       if (q) {
         const plan = s.plan_id ? planById.get(s.plan_id) : undefined;
         const user = s.user_id ? userById.get(s.user_id) : undefined;
@@ -139,46 +246,39 @@ const MarketplaceSubscriptions = () => {
       }
       return true;
     });
-  }, [subs, category, status, payment, search, providerById, planById, userById]);
+  }, [rows, service, status, payment, kind, search, providerById, planById, userById]);
 
   const sorted = useMemo(() => {
-    const catLabel = (key?: string) => categories.find((c) => c.key === key)?.label ?? "";
+    const svcLabel = (key?: string | null) => archetypes.find((a) => a.key === key)?.label ?? "";
     const dir = sortDir === "asc" ? 1 : -1;
     return [...visible].sort((a, b) => {
       let cmp = 0;
       if (sortBy === "name") {
         cmp = userLabel(a.user_id).localeCompare(userLabel(b.user_id));
-      } else if (sortBy === "category") {
-        const prov = (s: Subscription) => providerById.get(s.provider_id)?.category_key;
-        cmp = catLabel(prov(a)).localeCompare(catLabel(prov(b)));
+      } else if (sortBy === "service") {
+        const prov = (s: SaleRow) => providerById.get(s.provider_id)?.archetype_key ?? null;
+        cmp = svcLabel(prov(a)).localeCompare(svcLabel(prov(b)));
       } else {
         // date — prefer start_date, fall back to created_at
-        const key = (s: Subscription) => s.start_date || s.created_at || "";
+        const key = (s: SaleRow) => s.start_date || s.created_at || "";
         cmp = key(a).localeCompare(key(b));
       }
       // stable tiebreak on created_at so equal keys keep a deterministic order
       if (cmp === 0) cmp = (a.created_at || "").localeCompare(b.created_at || "");
       return cmp * dir;
     });
-  }, [visible, sortBy, sortDir, categories, providerById, userById]);
+  }, [visible, sortBy, sortDir, archetypes, providerById, userById]);
 
   return (
-    <SuperAdminLayout title="Marketplace — Subscriptions">
+    <SuperAdminLayout title="Subscriptions" subtitle="Every recurring subscription and one-off booking across all services">
       <div className="space-y-5">
-        <div>
-          <h1 className="text-2xl font-black tracking-tight">Subscriptions</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Every recurring purchase across all categories and providers.
-          </p>
-        </div>
-
         <div className="flex flex-wrap items-end gap-3">
-          <FilterBlock label="Category">
-            <Select value={category} onValueChange={setCategory}>
+          <FilterBlock label="Service">
+            <Select value={service} onValueChange={setService}>
               <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All categories</SelectItem>
-                {categories.map((c) => <SelectItem key={c.key} value={c.key}>{c.label}</SelectItem>)}
+                <SelectItem value="all">All services</SelectItem>
+                {archetypes.map((a) => <SelectItem key={a.key} value={a.key}>{a.label}</SelectItem>)}
               </SelectContent>
             </Select>
           </FilterBlock>
@@ -207,34 +307,46 @@ const MarketplaceSubscriptions = () => {
               </SelectContent>
             </Select>
           </FilterBlock>
+          <FilterBlock label="Type">
+            <Select value={kind} onValueChange={(v) => setKind(v as typeof kind)}>
+              <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="subscription">Subscription</SelectItem>
+                <SelectItem value="booking">Booking</SelectItem>
+              </SelectContent>
+            </Select>
+          </FilterBlock>
         </div>
 
         <AdminListShell
           search={search} onSearch={setSearch} searchPlaceholder="Search by provider, plan, user, payment ref…"
-          isLoading={isLoading} isEmpty={subs.length === 0}
-          isNoResults={subs.length > 0 && visible.length === 0} count={visible.length}
-          emptyTitle="No subscriptions yet" emptySubtitle="Sales will show up here."
-          onClearFilters={() => { setSearch(""); setCategory("all"); setStatus("all"); setPayment("all"); }}
+          isLoading={isLoading} isEmpty={rows.length === 0}
+          isNoResults={rows.length > 0 && visible.length === 0} count={visible.length}
+          emptyTitle="No sales yet" emptySubtitle="Subscriptions and bookings will appear here."
+          onClearFilters={() => { setSearch(""); setService("all"); setStatus("all"); setPayment("all"); setKind("all"); }}
         >
           <div className="overflow-x-auto rounded-2xl border border-border">
-            <table className="w-full min-w-[820px] text-sm">
+            <table className="w-full min-w-[900px] text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/40 text-left">
                   <SortHeader label="Customer" sortKey="name" active={sortBy} dir={sortDir} onSort={toggleSort} />
                   <th className="px-4 py-3 font-bold text-muted-foreground">Plan</th>
                   <th className="px-4 py-3 font-bold text-muted-foreground">Provider</th>
-                  <SortHeader label="Category" sortKey="category" active={sortBy} dir={sortDir} onSort={toggleSort} />
+                  <SortHeader label="Service" sortKey="service" active={sortBy} dir={sortDir} onSort={toggleSort} />
+                  <th className="px-4 py-3 font-bold text-muted-foreground">Type</th>
                   <SortHeader label="Period" sortKey="date" active={sortBy} dir={sortDir} onSort={toggleSort} />
                   <th className="px-4 py-3 font-bold text-muted-foreground">Stage</th>
                   <th className="px-4 py-3 text-right font-bold text-muted-foreground">Amount</th>
+                  <th className="w-10 px-2 py-3" aria-label="Actions" />
                 </tr>
               </thead>
               <tbody>
                 {sorted.map((s) => {
                   const prov = providerById.get(s.provider_id);
                   const plan = s.plan_id ? planById.get(s.plan_id) : undefined;
-                  const cat = prov ? categories.find((c) => c.key === prov.category_key) : undefined;
-                  const CatIcon = cat?.Icon ?? Building2;
+                  const arche = prov ? archetypes.find((a) => a.key === prov.archetype_key) : undefined;
+                  const AIcon = arche?.Icon ?? Building2;
                   const stage = subscriptionStage(s);
                   return (
                     <tr key={s.id} className="border-b border-border/60 last:border-0 hover:bg-muted/30">
@@ -245,11 +357,17 @@ const MarketplaceSubscriptions = () => {
                       <td className="px-4 py-3 text-muted-foreground">{prov?.name ?? "—"}</td>
                       <td className="px-4 py-3">
                         <span className="inline-flex items-center gap-1.5">
-                          <span className={cn("flex h-5 w-5 shrink-0 items-center justify-center rounded-md", cat?.accent ?? "bg-muted")}>
-                            <CatIcon className="h-3 w-3 text-white" />
+                          <span className={cn("flex h-5 w-5 shrink-0 items-center justify-center rounded-md", arche?.accent ?? "bg-muted")}>
+                            <AIcon className="h-3 w-3 text-white" />
                           </span>
-                          <span className="text-muted-foreground">{cat?.label ?? "?"}</span>
+                          <span className="text-muted-foreground">{arche?.label ?? "—"}</span>
                         </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={cn(
+                          "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider",
+                          s.kind === "booking" ? "bg-amber-500/15 text-amber-400" : "bg-sky-500/15 text-sky-400",
+                        )}>{s.kind === "booking" ? "Booking" : "Sub"}</span>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-xs text-muted-foreground">
                         {s.start_date ? `${s.start_date}${s.end_date ? " → " + s.end_date : ""}` : "—"}
@@ -265,6 +383,27 @@ const MarketplaceSubscriptions = () => {
                       <td className="px-4 py-3 text-right font-black text-foreground whitespace-nowrap">
                         {typeof s.price_cents === "number" ? `$${(s.price_cents / 100).toFixed(2)}` : "—"}
                       </td>
+                      <td className="px-2 py-3">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              type="button"
+                              className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                              aria-label="Row actions"
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onSelect={() => setEditRow(s)}>
+                              <Pencil className="mr-2 h-3.5 w-3.5" /> Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onSelect={() => setDeleteRow(s)} className="text-red-400 focus:text-red-400">
+                              <Trash2 className="mr-2 h-3.5 w-3.5" /> Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </td>
                     </tr>
                   );
                 })}
@@ -273,9 +412,170 @@ const MarketplaceSubscriptions = () => {
           </div>
         </AdminListShell>
       </div>
+
+      {/* Edit sheet — mutates the underlying provider_subscriptions / provider_bookings row directly. */}
+      <Sheet open={!!editRow} onOpenChange={(o) => !o && setEditRow(null)}>
+        <SheetContent side="right" className="w-full max-w-md overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>{editRow?.kind === "booking" ? "Edit booking" : "Edit subscription"}</SheetTitle>
+            <SheetDescription>
+              {editRow ? `${userLabel(editRow.user_id)} · ${providerById.get(editRow.provider_id)?.name ?? "—"}` : ""}
+            </SheetDescription>
+          </SheetHeader>
+          {editRow && (
+            <EditForm
+              key={editRow.id}
+              row={editRow}
+              onSave={(patch) => updateMutation.mutate({ row: editRow, patch })}
+              saving={updateMutation.isPending}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
+
+      {/* Delete confirmation — hard-deletes the row. */}
+      <AlertDialog open={!!deleteRow} onOpenChange={(o) => !o && setDeleteRow(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this {deleteRow?.kind ?? "row"}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This permanently removes the row from the database. If you just want to end access,
+              set the status to <strong>cancelled</strong> via Edit instead — it keeps history intact
+              for the audit trail.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteRow && deleteMutation.mutate(deleteRow)}
+              className="bg-red-600 text-white hover:bg-red-600/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </SuperAdminLayout>
   );
 };
+
+function EditForm({
+  row, onSave, saving,
+}: {
+  row: SaleRow;
+  onSave: (patch: Record<string, any>) => void;
+  saving: boolean;
+}) {
+  const isBooking = row.kind === "booking";
+  const [statusV, setStatusV] = useState(row.status);
+  const [paymentV, setPaymentV] = useState(row.payment_status);
+  const [methodV, setMethodV] = useState(row.payment_method ?? "");
+  const [start, setStart] = useState(row.start_date ?? "");
+  const [end, setEnd] = useState(row.end_date ?? "");
+  const [priceDollars, setPriceDollars] = useState(
+    typeof row.price_cents === "number" ? (row.price_cents / 100).toFixed(2) : "",
+  );
+
+  useEffect(() => {
+    setStatusV(row.status);
+    setPaymentV(row.payment_status);
+    setMethodV(row.payment_method ?? "");
+    setStart(row.start_date ?? "");
+    setEnd(row.end_date ?? "");
+    setPriceDollars(typeof row.price_cents === "number" ? (row.price_cents / 100).toFixed(2) : "");
+  }, [row.id]);
+
+  const submit = () => {
+    const patch: Record<string, any> = {
+      status: statusV,
+      payment_status: paymentV,
+      payment_method: methodV || null,
+    };
+    // Bookings use start_at/end_at timestamps; subs use start_date/end_date.
+    // Only touch date columns when the value actually changed to avoid rewriting
+    // the timestamp-side of the row on a plain date-only edit.
+    if (isBooking) {
+      if (start && start !== row.start_date) patch.start_at = new Date(`${start}T00:00:00`).toISOString();
+      if (end   && end   !== row.end_date)   patch.end_at   = new Date(`${end}T23:59:59`).toISOString();
+    } else {
+      if (start !== (row.start_date ?? "")) patch.start_date = start || null;
+      if (end   !== (row.end_date   ?? "")) patch.end_date   = end   || null;
+    }
+    const cents = Math.round(parseFloat(priceDollars || "0") * 100);
+    if (!Number.isNaN(cents)) {
+      patch[isBooking ? "total_price_cents" : "price_cents"] = cents;
+    }
+    onSave(patch);
+  };
+
+  return (
+    <div className="mt-6 space-y-4">
+      <div>
+        <Label>Status</Label>
+        <Select value={statusV} onValueChange={setStatusV}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="pending">Pending</SelectItem>
+            <SelectItem value="paused">Paused</SelectItem>
+            <SelectItem value="cancelled">Cancelled</SelectItem>
+            <SelectItem value="expired">Expired</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div>
+        <Label>Payment status</Label>
+        <Select value={paymentV} onValueChange={setPaymentV}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="paid">Paid</SelectItem>
+            <SelectItem value="pending">Pending</SelectItem>
+            <SelectItem value="failed">Failed</SelectItem>
+            <SelectItem value="refunded">Refunded</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div>
+        <Label>Payment method</Label>
+        <Select value={methodV || "none"} onValueChange={(v) => setMethodV(v === "none" ? "" : v)}>
+          <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">—</SelectItem>
+            <SelectItem value="lightning">Lightning</SelectItem>
+            <SelectItem value="onchain">On-chain BTC</SelectItem>
+            <SelectItem value="crypto">LIVES</SelectItem>
+            <SelectItem value="paypal">PayPal</SelectItem>
+            <SelectItem value="cash">Cash</SelectItem>
+            <SelectItem value="manual">Manual</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label>Start</Label>
+          <Input type="date" value={start} onChange={(e) => setStart(e.target.value)} />
+        </div>
+        <div>
+          <Label>End</Label>
+          <Input type="date" value={end} onChange={(e) => setEnd(e.target.value)} />
+        </div>
+      </div>
+      <div>
+        <Label>Amount ($)</Label>
+        <Input
+          type="number"
+          step="0.01"
+          min="0"
+          value={priceDollars}
+          onChange={(e) => setPriceDollars(e.target.value)}
+        />
+      </div>
+      <SheetFooter className="mt-4">
+        <Button onClick={submit} disabled={saving} loading={saving} loadingText="Saving…">Save</Button>
+      </SheetFooter>
+    </div>
+  );
+}
 
 function SortHeader({
   label, sortKey, active, dir, onSort,

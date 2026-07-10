@@ -126,7 +126,7 @@ export function UniversalPlansTab({ providerId }: { providerId: string }) {
       ) : (
         <div className="space-y-3">
           {plans.map((p) => (
-            <div key={p.id} className="flex items-center gap-4 rounded-2xl border border-border bg-card p-4">
+            <div key={p.id} className="flex items-center gap-4 rounded-2xl bg-card p-4">
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-bold text-foreground">{p.name}</span>

@@ -6,16 +6,17 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabaseDb } from "@/integrations/supabase/client";
-import { useServiceCategories } from "@/hooks/useServiceCategories";
+import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
 import {
   ALL_CAPABILITIES, CAPABILITIES, ComingSoonTab, INFO_TAB_META,
   type CapabilityKey, type CapabilityMeta,
 } from "@/components/provider/capabilities";
 import { UniversalInfoTab, type UniversalProviderRow } from "@/components/provider/UniversalInfoTab";
 import { UniversalPlansTab } from "@/components/provider/UniversalPlansTab";
-import { ProviderBookingsTab } from "@/components/provider/ProviderBookingsTab";
 import { BookingSettingsForm } from "@/components/provider/BookingSettingsForm";
+import { UnifiedBookingCalendar } from "@/components/provider/UnifiedBookingCalendar";
 import { LegacyOwnerPortal } from "@/components/provider/legacyPortalTabs";
+import { ProviderAnalyticsWidget } from "@/components/provider/ProviderAnalyticsWidget";
 import type { PortalTab } from "@/components/provider/ProviderPortalShell";
 import { isLegacySource, legacyIdOf } from "@/lib/services/providerBridge";
 
@@ -30,13 +31,13 @@ const STATUS_COLORS: Record<string, string> = {
  * page wraps it in SuperAdminLayout. For legacy-backed providers it mounts the
  * rich per-service tabs (admins get them too via the admin fallback in
  * legacyPortalTabs); otherwise it shows the universal capability tabs. Every
- * provider gets a Booking setup tab.
+ * provider gets a Schedule tab.
  */
 export function ProviderWorkspace({ providerId, publicHref = "/discovery", backHref = "/my-business" }: {
   providerId: string; publicHref?: string; backHref?: string;
 }) {
   const navigate = useNavigate();
-  const { categories } = useServiceCategories(false);
+  const { archetypes } = useServiceArchetypes(false);
 
   const { data: provider, isLoading } = useQuery({
     queryKey: ["universal-provider", providerId],
@@ -51,18 +52,16 @@ export function ProviderWorkspace({ providerId, publicHref = "/discovery", backH
 
   const capabilityTabs = useMemo(() => {
     if (!provider?.capabilities) return [];
+    // Any capabilities not in ALL_CAPABILITIES (e.g. retired `hourly_bookings`
+    // / `date_range_booking` still living in old DB rows) get silently skipped.
     return ALL_CAPABILITIES
       .filter((c) => provider.capabilities!.includes(c.key))
-      .filter((c) => c.key !== "hourly_bookings" && c.key !== "date_range_booking")
       .map((c) => ({ key: c.key as CapabilityKey, meta: c }));
   }, [provider]);
 
-  const showBookings = useMemo(() => {
-    if (!provider) return false;
-    const caps = provider.capabilities ?? [];
-    if (caps.includes("hourly_bookings") || caps.includes("date_range_booking")) return true;
-    return ["cleaning", "cars", "beach"].includes(provider.source_service_key ?? "");
-  }, [provider]);
+  // `showBookings` retired — the unified Calendar tab covers every service.
+  // Kept the memo signature-hole out so the CapabilityPortal prop drop below
+  // is a compile error if anyone re-adds a per-tab bookings view.
 
   if (isLoading) {
     return (
@@ -82,21 +81,33 @@ export function ProviderWorkspace({ providerId, publicHref = "/discovery", backH
     );
   }
 
-  const category = categories.find((c) => c.key === provider.category_key);
+  const archetype = archetypes.find((a) => a.key === provider.archetype_key);
   const sourceKey = provider.source_service_key ?? "";
   const legacyId = legacyIdOf(provider);
   const isLegacyPortal = isLegacySource(sourceKey);
 
+  // Unified booking calendar — one week/day view for every service, backed by
+  // useUnifiedBookings (reads cleaning_bookings / food_subscriptions /
+  // rental_bookings / beach_club_court_bookings + normalizes). Ships as an
+  // "extra tab" so every legacy portal gets it without touching per-service
+  // tab arrays.
+  const calendarTab: PortalTab<unknown> = {
+    value: "calendar",
+    label: "Calendar",
+    icon: CalendarDays,
+    render: () => <UnifiedBookingCalendar providerId={legacyId} sourceKey={sourceKey} />,
+  };
+
   const bookingSetupTab: PortalTab<unknown> = {
     value: "booking-settings",
-    label: "Booking setup",
-    mobileLabel: "Setup",
+    label: "Schedule",
+    mobileLabel: "Sched.",
     icon: SlidersHorizontal,
     render: () => <BookingSettingsForm provider={provider} />,
   };
 
   const capabilityPortal = (
-    <CapabilityPortal provider={provider} capabilityTabs={capabilityTabs} showBookings={showBookings} />
+    <CapabilityPortal provider={provider} capabilityTabs={capabilityTabs} calendarTab={calendarTab} />
   );
 
   return (
@@ -108,12 +119,12 @@ export function ProviderWorkspace({ providerId, publicHref = "/discovery", backH
       )}
 
       <div className="app-container space-y-6 py-6">
-        <div className="flex flex-wrap items-start gap-3 rounded-2xl border border-border bg-card p-4 sm:gap-4">
+        <div className="flex flex-wrap items-start gap-3 rounded-2xl bg-card p-4 sm:gap-4">
           <div className="h-12 w-12 shrink-0 overflow-hidden rounded-2xl border border-border bg-muted sm:h-14 sm:w-14">
             {provider.avatar_url ? (
               <img src={provider.avatar_url} alt={provider.name} className="h-full w-full object-cover" />
-            ) : category ? (
-              <div className="flex h-full items-center justify-center"><category.Icon className="h-6 w-6 text-muted-foreground/40" /></div>
+            ) : archetype ? (
+              <div className="flex h-full items-center justify-center"><archetype.Icon className="h-6 w-6 text-muted-foreground/40" /></div>
             ) : null}
           </div>
           <div className="min-w-0 flex-1">
@@ -122,8 +133,8 @@ export function ProviderWorkspace({ providerId, publicHref = "/discovery", backH
               {provider.status && (
                 <Badge className={`rounded-full text-xs ${STATUS_COLORS[provider.status] ?? ""}`}>{provider.status}</Badge>
               )}
-              {category && (
-                <Badge variant="secondary" className="rounded-full text-xs capitalize">{category.label}</Badge>
+              {archetype && (
+                <Badge className={`rounded-full text-xs ${archetype.accent} text-white`}>{archetype.label}</Badge>
               )}
               {provider.capabilities?.map((cap) => {
                 const meta = CAPABILITIES[cap as CapabilityKey];
@@ -141,21 +152,30 @@ export function ProviderWorkspace({ providerId, publicHref = "/discovery", backH
           </Button>
         </div>
 
+        {/* Business-at-a-glance strip — active / upcoming / MTD revenue / rating.
+            Mounted above the tabs so the owner sees KPIs before drilling in. */}
+        <ProviderAnalyticsWidget providerId={provider.id} legacyId={legacyId} sourceKey={sourceKey} />
+
         {isLegacyPortal
-          ? <LegacyOwnerPortal sourceKey={sourceKey} legacyId={legacyId} fallback={capabilityPortal} extraTabs={[bookingSetupTab]} />
+          ? <LegacyOwnerPortal sourceKey={sourceKey} legacyId={legacyId} fallback={capabilityPortal} extraTabs={[calendarTab, bookingSetupTab]} />
           : capabilityPortal}
       </div>
     </>
   );
 }
 
-/** The universal capability-driven tab set (Info + per-capability + Bookings + Booking setup). */
-function CapabilityPortal({ provider, capabilityTabs, showBookings }: {
+/** The universal capability-driven tab set (Info + per-capability + Calendar + Schedule).
+ *  Bookings/Courts tabs retired — Calendar (shared unified view) + service-
+ *  specific extras from LegacyOwnerPortal cover both concerns without
+ *  duplicated per-service surfaces. Non-legacy universal providers get the
+ *  same calendarTab injected from the parent. */
+function CapabilityPortal({ provider, capabilityTabs, calendarTab }: {
   provider: UniversalProviderRow;
   capabilityTabs: { key: CapabilityKey; meta: CapabilityMeta }[];
-  showBookings: boolean;
+  calendarTab: PortalTab<unknown>;
 }) {
   const InfoIcon = INFO_TAB_META.icon;
+  const CalendarIcon = calendarTab.icon;
   return (
     <Tabs defaultValue={INFO_TAB_META.tabValue}>
       <TabsList equalWidth className="mb-6 w-full">
@@ -174,17 +194,15 @@ function CapabilityPortal({ provider, capabilityTabs, showBookings }: {
             </TabsTrigger>
           );
         })}
-        {showBookings && (
-          <TabsTrigger value="bookings" equalWidth className="gap-2 px-2 sm:px-space-4">
-            <CalendarDays className="hidden h-4 w-4 sm:block" />
-            <span className="hidden sm:inline">Bookings</span>
-            <span className="sm:hidden">Book.</span>
-          </TabsTrigger>
-        )}
+        <TabsTrigger value={calendarTab.value} equalWidth className="gap-2 px-2 sm:px-space-4">
+          <CalendarIcon className="hidden h-4 w-4 sm:block" />
+          <span className="hidden sm:inline">{calendarTab.label}</span>
+          <span className="sm:hidden">{calendarTab.mobileLabel ?? calendarTab.label}</span>
+        </TabsTrigger>
         <TabsTrigger value="booking-settings" equalWidth className="gap-2 px-2 sm:px-space-4">
           <SlidersHorizontal className="hidden h-4 w-4 sm:block" />
-          <span className="hidden sm:inline">Booking setup</span>
-          <span className="sm:hidden">Setup</span>
+          <span className="hidden sm:inline">Schedule</span>
+          <span className="sm:hidden">Sched.</span>
         </TabsTrigger>
       </TabsList>
 
@@ -200,11 +218,9 @@ function CapabilityPortal({ provider, capabilityTabs, showBookings }: {
         </TabsContent>
       ))}
 
-      {showBookings && (
-        <TabsContent value="bookings">
-          <ProviderBookingsTab provider={provider} />
-        </TabsContent>
-      )}
+      <TabsContent value={calendarTab.value}>
+        {calendarTab.render(null as never)}
+      </TabsContent>
 
       <TabsContent value="booking-settings">
         <BookingSettingsForm provider={provider} />

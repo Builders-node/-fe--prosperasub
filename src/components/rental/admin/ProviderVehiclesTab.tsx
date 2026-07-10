@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Edit, Archive, RotateCcw, Trash2, Eye, EyeOff, X, Upload, Link2, ImagePlus } from "lucide-react";
 import { ServiceLocationsEditor } from "@/components/admin/ServiceLocationsEditor";
+import { BookingCalendarOverride } from "@/components/provider/BookingCalendarOverride";
 import { Spinner } from "@/components/ui/spinner";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -40,6 +41,8 @@ const EMPTY_FORM = {
   daily_price_cents: 0, weekly_price_cents: 0, biweekly_price_cents: 0,
   monthly_price_cents: 0, monthly_discount_pct: 0,
   status: "private" as const, sort_order: 0,
+  // Per-vehicle booking calendar override. NULL = inherit from provider.
+  booking_settings: null as unknown | null,
 };
 
 interface Props { providerId: string; }
@@ -97,6 +100,7 @@ export function ProviderVehiclesTab({ providerId }: Props) {
         biweekly_price_cents: form.biweekly_price_cents, monthly_price_cents: form.monthly_price_cents,
         monthly_discount_pct: form.monthly_discount_pct,
         provider_id: providerId, status: form.status, sort_order: form.sort_order,
+        booking_settings: form.booking_settings,
       };
       let vehicleId = editVehicle?.id ?? "";
       if (isNew) {
@@ -154,6 +158,7 @@ export function ProviderVehiclesTab({ providerId }: Props) {
       daily_price_cents: v.daily_price_cents, weekly_price_cents: v.weekly_price_cents ?? 0,
       biweekly_price_cents: v.biweekly_price_cents ?? 0, monthly_price_cents: v.monthly_price_cents ?? 0,
       monthly_discount_pct: Number(v.monthly_discount_pct), status: v.status as any, sort_order: v.sort_order,
+      booking_settings: (v as any).booking_settings ?? null,
     });
     setImageUrls(v.images.map((i) => i.url));
   };
@@ -207,7 +212,7 @@ export function ProviderVehiclesTab({ providerId }: Props) {
             {filtered.map((v) => {
               const thumb = v.images[0]?.url;
               return (
-                <div key={v.id} className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-3 sm:flex-row sm:items-center">
+                <div key={v.id} className="flex flex-col gap-3 rounded-2xl bg-card p-3 sm:flex-row sm:items-center">
                   <div className="flex min-w-0 flex-1 items-center gap-3">
                   <div className="h-14 w-20 shrink-0 overflow-hidden rounded-xl bg-muted">
                     {thumb ? <img src={thumb} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-muted-foreground/30 text-xs">No img</div>}
@@ -356,6 +361,16 @@ export function ProviderVehiclesTab({ providerId }: Props) {
                 />
               </div>
             )}
+
+            {/* Per-vehicle booking calendar override. NULL = the vehicle
+                inherits the rental provider's calendar. Same shared
+                primitive as CleaningPlans → single UX across services. */}
+            <BookingCalendarOverride
+              value={form.booking_settings}
+              onChange={(next) => setForm((f) => ({ ...f, booking_settings: next }))}
+              entityLabel="This vehicle"
+              parentLabel="the rental provider's calendar"
+            />
           </div>
           <DialogFooter>
             <Button variant="secondary" onClick={closeDialog}>Cancel</Button>

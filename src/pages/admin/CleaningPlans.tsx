@@ -11,7 +11,6 @@ import { logAuditEvent } from "@/lib/auditLog";
 import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -24,7 +23,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { usePagination, TablePagination } from "@/components/ui/table-pagination";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -37,6 +35,7 @@ import {
   resolveMonthlyPriceCents,
   validateCleaningPlanPricing,
 } from "@/lib/cleaningPlanPricing";
+import { BookingCalendarOverride } from "@/components/provider/BookingCalendarOverride";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -63,6 +62,8 @@ type Plan = {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  /** Per-plan booking calendar override. NULL = inherit from provider. */
+  booking_settings: unknown | null;
 };
 
 const EMPTY_PLAN: Partial<Plan> = {
@@ -82,21 +83,16 @@ const EMPTY_PLAN: Partial<Plan> = {
   status: "active",
   service_frequency: "weekly",
   sort_order: 0,
+  booking_settings: null,
 };
 
 const formatCents = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 const formatMonthly = (plan: Plan) => formatCents(resolveMonthlyPriceCents(plan));
 
-const visibilityColor = (v: string) => v === "public" ? "default" : "secondary";
-const statusColor = (s: string) => {
-  if (s === "active") return "default";
-  if (s === "draft") return "outline";
-  return "secondary";
-};
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
-const CleaningPlans = () => {
+const CleaningPlans = ({ embedded = false }: { embedded?: boolean } = {}) => {
   const queryClient = useQueryClient();
   const { userData } = useAuth();
   const adminId = userData?.id || "admin";
@@ -325,176 +321,136 @@ const CleaningPlans = () => {
 
   // ── Render ───────────────────────────────────────────────────────────────
 
-  return (
-    <SuperAdminLayout title="Cleaning Plans">
-      {/* Stats */}
-      <div className="grid grid-cols-2 gap-space-2 md:grid-cols-4 md:gap-space-3">
+  const body = (
+    <div className="space-y-4">
+      {/* Stats — flat cards, primary-tint plaque, matches ProviderAnalyticsWidget */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {[
-          { label: "Total Plans", value: stats.total, icon: Package },
-          { label: "Public", value: stats.public, icon: SparklesIcon },
-          { label: "Private", value: stats.private, icon: Package },
-          { label: "Draft", value: stats.draft, icon: Package },
+          { label: "Total Plans", value: stats.total,   icon: Package,      tint: "bg-primary/15 text-primary" },
+          { label: "Public",      value: stats.public,  icon: SparklesIcon, tint: "bg-primary/15 text-primary" },
+          { label: "Private",     value: stats.private, icon: Package,      tint: "bg-muted text-muted-foreground" },
+          { label: "Draft",       value: stats.draft,   icon: Package,      tint: "bg-muted text-muted-foreground" },
         ].map((s) => (
-          <Card key={s.label}>
-            <CardContent className="px-space-4 py-space-3">
-              <p className="flex items-center gap-2 text-sm text-muted-foreground">
-                <s.icon className="h-4 w-4" />{s.label}
-              </p>
-              <p className="mt-0.5 text-2xl font-extrabold">{s.value}</p>
-            </CardContent>
-          </Card>
+          <div key={s.label} className="flex items-center gap-3 rounded-2xl bg-card p-4">
+            <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl", s.tint)}>
+              <s.icon className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">{s.label}</p>
+              <p className="mt-0.5 text-lg font-black leading-tight tabular-nums text-foreground">{s.value}</p>
+            </div>
+          </div>
         ))}
       </div>
 
-      {/* Actions bar */}
-      <div className="mt-space-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex gap-space-2">
-          {FILTERS.map((f) => (
-            <button
-              key={f.value}
-              type="button"
-              onClick={() => setFilter(f.value)}
-              className={cn(
-                "rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors",
-                filter === f.value
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted",
-              )}
-            >
-              {f.label} {f.count > 0 && <span className="ml-1 opacity-60">{f.count}</span>}
-            </button>
-          ))}
+      {/* Filter chips + primary actions */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap gap-1.5">
+          {FILTERS.map((f) => {
+            const on = filter === f.value;
+            return (
+              <button
+                key={f.value}
+                type="button"
+                onClick={() => setFilter(f.value)}
+                className={cn(
+                  "rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wider transition-colors",
+                  on
+                    ? "bg-primary/15 text-primary ring-1 ring-primary"
+                    : "bg-muted/40 text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {f.label}{f.count > 0 && <span className="ml-1 opacity-70">· {f.count}</span>}
+              </button>
+            );
+          })}
         </div>
-        <div className="flex gap-space-2">
-          <Button variant="secondary" onClick={() => setAssignOpen(true)}>Assign to Client</Button>
-          <Button onClick={openCreate}><Plus className="h-4 w-4" />New Plan</Button>
+        <div className="flex gap-2">
+          <Button variant="ghost" size="sm" onClick={() => setAssignOpen(true)}>Assign to client</Button>
+          <Button size="sm" onClick={openCreate}><Plus className="h-4 w-4" />New plan</Button>
         </div>
       </div>
 
-      {/* Plans table */}
-      <Card className="mt-space-3">
-        <CardContent className="p-0">
-          {isLoading ? (
-            <div className="py-12 text-center text-sm text-muted-foreground">Loading plans...</div>
-          ) : filteredPlans.length === 0 ? (
-            <div className="py-12 text-center text-sm text-muted-foreground">No plans match this filter</div>
-          ) : (
-            <>
-              <div className="divide-y divide-border md:hidden">
-                {plansPager.paged.map((plan) => (
-                  <div key={plan.id} className="flex items-center gap-3 px-space-4 py-space-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-baseline gap-2">
-                        <p className="font-semibold text-foreground truncate">{plan.name}</p>
-                        <p className="shrink-0 font-mono text-sm font-semibold text-muted-foreground">{formatMonthly(plan)}</p>
-                      </div>
-                      <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                        <Badge variant={visibilityColor(plan.visibility)} className="text-[10px] px-1.5 py-0">{plan.visibility}</Badge>
-                        <Badge variant={statusColor(plan.status)} className="text-[10px] px-1.5 py-0">{plan.status}</Badge>
-                        <span className="text-[11px] text-muted-foreground">{formatFrequencyLabel(plan)} · {subscriberCounts[plan.id] || 0} subs</span>
-                      </div>
-                    </div>
-                    <MobileActionSheet
-                      title={plan.name}
-                      actions={[
-                        { label: "Edit", icon: <Edit3 className="h-4 w-4" />, onClick: () => openEdit(plan) },
-                        { label: "Duplicate", icon: <Copy className="h-4 w-4" />, onClick: () => duplicatePlanMutation.mutate(plan) },
-                        {
-                          label: plan.status !== "archived" ? "Archive" : "Reactivate",
-                          icon: plan.status !== "archived" ? <Archive className="h-4 w-4" /> : <RotateCcw className="h-4 w-4" />,
-                          onClick: () => setArchiveTarget({ id: plan.id, name: plan.name, status: plan.status === "archived" ? "active" : "archived" }),
-                          danger: plan.status !== "archived",
-                        },
-                      ]}
-                    />
-                  </div>
-                ))}
-              </div>
-
-              <div className="hidden overflow-x-auto md:block">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="h-10 px-space-3">Plan</TableHead>
-                      <TableHead className="h-10 px-space-3">Price / mo</TableHead>
-                      <TableHead className="h-10 px-space-3">Frequency</TableHead>
-                      <TableHead className="h-10 px-space-3">Visibility</TableHead>
-                      <TableHead className="h-10 px-space-3">Status</TableHead>
-                      <TableHead className="h-10 px-space-3">Subscribers</TableHead>
-                      <TableHead className="h-10 px-space-3 text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {plansPager.paged.map((plan) => (
-                      <TableRow key={plan.id}>
-                        <TableCell className="px-space-3 py-space-3">
-                          <div>
-                            <p className="font-semibold text-foreground">{plan.name}</p>
-                            <p className="text-xs text-muted-foreground">{plan.apartment_type === "any" ? "All types" : plan.apartment_type}</p>
-                          </div>
-                        </TableCell>
-                        <TableCell className="px-space-3 py-space-3">
-                          <p className="font-mono font-semibold">{formatMonthly(plan)}</p>
-                          <p className="text-xs text-muted-foreground">{formatPricingLabel(plan)}</p>
-                        </TableCell>
-                        <TableCell className="px-space-3 py-space-3 text-sm">{formatFrequencyLabel(plan)}</TableCell>
-                        <TableCell className="px-space-3 py-space-3"><Badge variant={visibilityColor(plan.visibility)}>{plan.visibility}</Badge></TableCell>
-                        <TableCell className="px-space-3 py-space-3"><Badge variant={statusColor(plan.status)}>{plan.status}</Badge></TableCell>
-                        <TableCell className="px-space-3 py-space-3 text-center">{subscriberCounts[plan.id] || 0}</TableCell>
-                        <TableCell className="px-space-3 py-space-3">
-                          <div className="flex justify-end gap-1">
-                            <Button variant="tertiary" size="sm" onClick={() => openEdit(plan)}>Edit</Button>
-                            <Button variant="tertiary" size="sm" onClick={() => duplicatePlanMutation.mutate(plan)}>
-                              <Copy className="h-3.5 w-3.5" />
-                            </Button>
-                            {plan.status !== "archived" ? (
-                              <Button variant="tertiary" size="sm" onClick={() => setArchiveTarget({ id: plan.id, name: plan.name, status: "archived" })}>
-                                Archive
-                              </Button>
-                            ) : (
-                              <Button variant="tertiary" size="sm" onClick={() => setArchiveTarget({ id: plan.id, name: plan.name, status: "active" })}>
-                                Reactivate
-                              </Button>
-                            )}
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-              <TablePagination {...plansPager} onPage={plansPager.setPage} />
-            </>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Client Assignments */}
-      {visibleAssignments.length > 0 && (
-        <Card className="mt-space-4">
-          <CardContent className="px-space-4 py-space-3">
-            <h3 className="mb-space-2 text-lg font-bold">Client Assignments</h3>
-            <div className="divide-y divide-border">
-              {visibleAssignments.map((assignment: any) => (
-                <div key={assignment.id} className="flex items-center justify-between gap-3 py-space-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold">{assignment.client.company_name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {assignment.plan.name}
-                      {assignment.custom_price_cents ? ` · Custom: ${formatCents(assignment.custom_price_cents)}/mo` : ""}
-                    </p>
-                    {assignment.notes && <p className="text-xs text-muted-foreground">{assignment.notes}</p>}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant={assignment.status === "active" ? "default" : "secondary"}>{assignment.status}</Badge>
-                    <Button size="sm" variant="ghost" onClick={() => setEditingAssignment({ ...assignment })}>Edit</Button>
-                    <Button size="sm" variant="ghost" className="text-destructive" onClick={() => { if (confirm("Remove this assignment?")) deleteAssignmentMutation.mutate(assignment.id); }}>Remove</Button>
-                  </div>
+      {/* Plans list — single card list on every viewport (kills the desktop
+          Table so mobile-first stays consistent). Each row: plan name +
+          visibility/status chips + freq/price/subs meta + ⋯ menu. */}
+      {isLoading ? (
+        <div className="py-12 text-center text-sm text-muted-foreground">Loading plans…</div>
+      ) : filteredPlans.length === 0 ? (
+        <div className="rounded-3xl bg-card py-12 text-center text-sm text-muted-foreground">No plans match this filter</div>
+      ) : (
+        <div className="space-y-2">
+          {plansPager.paged.map((plan) => (
+            <div key={plan.id} className="flex items-center gap-3 rounded-2xl bg-card p-4">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary">
+                <SparklesIcon className="h-5 w-5" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <p className="truncate text-sm font-bold text-foreground">{plan.name}</p>
+                  <Badge className={cn("rounded-full text-[10px] capitalize", visibilityTone(plan.visibility))}>{plan.visibility}</Badge>
+                  <Badge className={cn("rounded-full text-[10px] capitalize", statusTone(plan.status))}>{plan.status}</Badge>
                 </div>
-              ))}
+                <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                  {formatMonthly(plan)} · {formatFrequencyLabel(plan)} · {subscriberCounts[plan.id] || 0} subs
+                </p>
+              </div>
+              <MobileActionSheet
+                title={plan.name}
+                actions={[
+                  { label: "Edit", icon: <Edit3 className="h-4 w-4" />, onClick: () => openEdit(plan) },
+                  { label: "Duplicate", icon: <Copy className="h-4 w-4" />, onClick: () => duplicatePlanMutation.mutate(plan) },
+                  {
+                    label: plan.status !== "archived" ? "Archive" : "Reactivate",
+                    icon: plan.status !== "archived" ? <Archive className="h-4 w-4" /> : <RotateCcw className="h-4 w-4" />,
+                    onClick: () => setArchiveTarget({ id: plan.id, name: plan.name, status: plan.status === "archived" ? "active" : "archived" }),
+                    danger: plan.status !== "archived",
+                  },
+                ]}
+              />
             </div>
-          </CardContent>
-        </Card>
+          ))}
+          <TablePagination {...plansPager} onPage={plansPager.setPage} />
+        </div>
+      )}
+
+      {/* Client Assignments — matching row style */}
+      {visibleAssignments.length > 0 && (
+        <section className="space-y-2">
+          <div className="px-1">
+            <p className="text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">
+              Client assignments · <span className="tabular-nums">{visibleAssignments.length}</span>
+            </p>
+          </div>
+          <div className="space-y-2">
+            {visibleAssignments.map((assignment: any) => (
+              <div key={assignment.id} className="flex items-center gap-3 rounded-2xl bg-card p-4">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="truncate text-sm font-bold text-foreground">{assignment.client.company_name}</p>
+                    <Badge className={cn("rounded-full text-[10px] capitalize", statusTone(assignment.status))}>
+                      {assignment.status}
+                    </Badge>
+                  </div>
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                    {assignment.plan.name}
+                    {assignment.custom_price_cents ? ` · Custom: ${formatCents(assignment.custom_price_cents)}/mo` : ""}
+                  </p>
+                  {assignment.notes && <p className="mt-1 truncate text-xs text-muted-foreground">{assignment.notes}</p>}
+                </div>
+                <Button size="sm" variant="ghost" onClick={() => setEditingAssignment({ ...assignment })}>Edit</Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  onClick={() => { if (confirm("Remove this assignment?")) deleteAssignmentMutation.mutate(assignment.id); }}
+                >
+                  Remove
+                </Button>
+              </div>
+            ))}
+          </div>
+        </section>
       )}
 
       {/* Plan Form Sheet */}
@@ -603,9 +559,27 @@ const CleaningPlans = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </SuperAdminLayout>
+    </div>
   );
+
+  if (embedded) return body;
+  return <SuperAdminLayout title="Cleaning Plans">{body}</SuperAdminLayout>;
 };
+
+// Tone helpers — pill background/text per visibility & status. Keeps the
+// unified admin-plans list on the same palette as the rest of the app.
+function statusTone(status: string): string {
+  const s = String(status || "").toLowerCase();
+  if (s === "active")                       return "bg-emerald-500/15 text-emerald-500";
+  if (s === "draft" || s === "paused")      return "bg-amber-500/15 text-amber-500";
+  if (s === "archived" || s === "cancelled") return "bg-muted text-muted-foreground";
+  return "bg-muted text-muted-foreground";
+}
+function visibilityTone(v: string): string {
+  return v === "public"
+    ? "bg-primary/15 text-primary"
+    : "bg-muted text-muted-foreground";
+}
 
 // ─── Plan Form Sheet ─────────────────────────────────────────────────────────
 
@@ -842,6 +816,16 @@ function PlanFormSheet({
               />
             </div>
           )}
+
+          {/* Per-plan booking calendar override — shared primitive. NULL means
+              the plan inherits the provider's calendar; flipping the switch
+              on gives this plan its own schedule (great for premium/deep
+              plans with different working windows). */}
+          <BookingCalendarOverride
+            value={form.booking_settings ?? null}
+            onChange={(next) => set("booking_settings", next)}
+            entityLabel="This plan"
+          />
 
           <Button className="w-full" size="xl" onClick={handleSave} loading={saving} disabled={!form.name?.trim()}>
             {plan ? "Save Changes" : "Create Plan"}

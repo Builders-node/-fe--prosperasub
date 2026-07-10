@@ -1,25 +1,32 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Store, Check, X } from "lucide-react";
+import { format } from "date-fns";
+import { Store, Check, X, Mail, Phone, MapPin, Clock } from "lucide-react";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { AdminListShell } from "@/components/admin/AdminListShell";
+import { AdminPageTabs } from "@/components/admin/AdminPageTabs";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { LEGACY_SERVICES, DEFAULT_CAPABILITIES, type LegacySourceKey } from "@/lib/services/providerBridge";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAuditEvent } from "@/lib/auditLog";
 import { toast } from "sonner";
 import { SERVICES as SERVICE_REGISTRY, type ServiceKey } from "@/lib/services/registry";
-const STATUS_COLORS: Record<string, string> = {
-  pending: "bg-amber-500/15 text-amber-400",
+import { cn } from "@/lib/utils";
+
+type Filter = "pending" | "approved" | "rejected" | "all";
+
+const STATUS_COLOR: Record<string, string> = {
+  pending:  "bg-amber-500/15 text-amber-400",
   approved: "bg-green-500/15 text-green-400",
   rejected: "bg-red-500/15 text-red-400",
 };
+
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Resolve a possibly-Google sub to the canonical users.id UUID via email. */
@@ -35,8 +42,10 @@ async function resolveUserId(userId: string | null, email: string | null): Promi
 export default function ProviderApplications() {
   const qc = useQueryClient();
   const { userData } = useAuth();
-  const [filter, setFilter] = useState<"pending" | "all" | "approved" | "rejected">("pending");
+  const [filter, setFilter] = useState<Filter>("pending");
   const [search, setSearch] = useState("");
+  const [rejectTarget, setRejectTarget] = useState<any | null>(null);
+  const [rejectNotes, setRejectNotes] = useState("");
 
   const { data: apps = [], isLoading } = useQuery({
     queryKey: ["admin-provider-applications"],
@@ -54,8 +63,16 @@ export default function ProviderApplications() {
       const table = svc?.providers?.table ?? null;
       let createdProviderId: string | null = null;
 
+      let archetypeDefaultCaps: string[] = [];
+      if (app.archetype_key) {
+        const { data: a } = await supabaseDb
+          .from("service_archetypes").select("default_capabilities")
+          .eq("key", app.archetype_key).maybeSingle();
+        const raw = (a as { default_capabilities?: unknown } | null)?.default_capabilities;
+        if (Array.isArray(raw)) archetypeDefaultCaps = raw.filter((x): x is string => typeof x === "string");
+      }
+
       if (table) {
-        // Legacy path — service key maps to a per-service *_providers table.
         const adminUserId = await resolveUserId(app.user_id, app.contact_email);
         const { data, error } = await supabaseDb.from(table).insert({
           name: app.business_name,
@@ -66,11 +83,10 @@ export default function ProviderApplications() {
         if (error) throw error;
         createdProviderId = data.id as string;
 
-        // Also create the universal `providers` mirror so the provider shows up
-        // in the single /admin/marketplace/providers list and the unified
-        // portal (bridged by source_service_key + source_provider_id).
         const meta = LEGACY_SERVICES[app.service as LegacySourceKey];
         if (meta) {
+          const legacyCaps = DEFAULT_CAPABILITIES[app.service as LegacySourceKey] ?? [];
+          const mergedCaps = Array.from(new Set([...legacyCaps, ...archetypeDefaultCaps]));
           const { error: mErr } = await supabaseDb.from("providers").insert({
             category_key: meta.universalCategoryKey,
             name: app.business_name,
@@ -79,17 +95,14 @@ export default function ProviderApplications() {
             contact_phone: app.contact_phone ?? null,
             admin_user_id: adminUserId,
             status: "active",
-            capabilities: DEFAULT_CAPABILITIES[app.service as LegacySourceKey] ?? [],
+            capabilities: mergedCaps,
+            archetype_key: app.archetype_key ?? null,
             source_service_key: app.service,
             source_provider_id: createdProviderId,
           });
           if (mErr) throw mErr;
         }
       } else {
-        // New-schema path — service key is a DB category (home / activities /
-        // wellness / …). Create the provider directly in the universal
-        // `providers` table so no per-service scaffolding is needed to
-        // onboard a brand-new domain (e.g. Activities → tennis clubs).
         const adminUserId = await resolveUserId(app.user_id, app.contact_email);
         const { data, error } = await supabaseDb.from("providers").insert({
           category_key: app.service,
@@ -99,7 +112,8 @@ export default function ProviderApplications() {
           contact_phone: app.contact_phone ?? null,
           admin_user_id: adminUserId,
           status: "active",
-          capabilities: [],
+          capabilities: archetypeDefaultCaps,
+          archetype_key: app.archetype_key ?? null,
         }).select("id").single();
         if (error) throw error;
         createdProviderId = data.id as string;
@@ -135,33 +149,59 @@ export default function ProviderApplications() {
       if (error) throw error;
       await logAuditEvent(userData!.id, "reject", "provider_application", app.id, {});
     },
-    onSuccess: () => { toast.success("Application rejected"); qc.invalidateQueries({ queryKey: ["admin-provider-applications"] }); },
+    onSuccess: () => { toast.success("Application rejected"); qc.invalidateQueries({ queryKey: ["admin-provider-applications"] }); setRejectTarget(null); setRejectNotes(""); },
     onError: (e: any) => toast.error(e?.message || "Could not reject"),
   });
+
+  const counts = {
+    pending:  apps.filter((a) => a.status === "pending").length,
+    approved: apps.filter((a) => a.status === "approved").length,
+    rejected: apps.filter((a) => a.status === "rejected").length,
+    all:      apps.length,
+  };
 
   const q = search.trim().toLowerCase();
   const visible = apps
     .filter((a) => filter === "all" || a.status === filter)
     .filter((a) => !q || [a.business_name, a.contact_email, a.contact_phone, a.residence].some((v) => (v ?? "").toLowerCase().includes(q)));
-  const pendingCount = apps.filter((a) => a.status === "pending").length;
+
+  const FILTERS: { label: string; value: Filter; count: number }[] = [
+    { label: "Pending",  value: "pending",  count: counts.pending  },
+    { label: "Approved", value: "approved", count: counts.approved },
+    { label: "Rejected", value: "rejected", count: counts.rejected },
+    { label: "All",      value: "all",      count: counts.all      },
+  ];
 
   return (
-    <SuperAdminLayout title="Provider Applications">
+    <SuperAdminLayout title="Provider applications" subtitle="Pending sign-ups from businesses that want to join a service">
       <div className="space-y-5">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h1 className="flex items-center gap-2 text-2xl font-black tracking-tight"><Store className="h-6 w-6" /> Provider Applications</h1>
-            <p className="mt-1 text-sm text-muted-foreground">Review requests to become a provider. Approving creates the provider and links it to the applicant.</p>
-          </div>
-          <Select value={filter} onValueChange={(v) => setFilter(v as typeof filter)}>
-            <SelectTrigger className="h-9 w-[170px] rounded-full"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="pending">Pending{pendingCount ? ` (${pendingCount})` : ""}</SelectItem>
-              <SelectItem value="approved">Approved</SelectItem>
-              <SelectItem value="rejected">Rejected</SelectItem>
-              <SelectItem value="all">All</SelectItem>
-            </SelectContent>
-          </Select>
+        <AdminPageTabs tabs={[
+          { label: "Providers", to: "/admin/marketplace/providers" },
+          { label: "Applications", to: "/admin/marketplace/providers/applications", badge: counts.pending },
+        ]} />
+
+        <div className="flex flex-wrap items-center gap-2">
+          {FILTERS.map((f) => (
+            <button
+              key={f.value}
+              type="button"
+              onClick={() => setFilter(f.value)}
+              className={cn(
+                "flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors",
+                filter === f.value
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted",
+              )}
+            >
+              {f.label}
+              <span className={cn(
+                "rounded-full px-1.5 text-xs tabular-nums",
+                filter === f.value
+                  ? "bg-primary-foreground/20 text-primary-foreground"
+                  : "bg-muted-foreground/15 text-muted-foreground",
+              )}>{f.count}</span>
+            </button>
+          ))}
         </div>
 
         <AdminListShell
@@ -171,51 +211,142 @@ export default function ProviderApplications() {
           emptyTitle="No applications yet" emptySubtitle="Provider applications will appear here."
           onClearFilters={() => { setSearch(""); setFilter("all"); }}
         >
-          <div className="space-y-3">
+          <div className="grid gap-3 md:grid-cols-2">
             {visible.map((a) => {
               const svc = SERVICE_REGISTRY[a.service as ServiceKey];
               const Icon = svc?.icon ?? Store;
-              const serviceLabel = svc?.providers?.labels.singular ?? svc?.label ?? a.service;
+              const serviceLabel = svc?.label ?? a.service;
               const hasProviderTable = !!svc?.providers?.table;
+              const isPending = a.status === "pending";
+              const isApproved = a.status === "approved";
+              const isRejected = a.status === "rejected";
               return (
-                <div key={a.id} className="rounded-2xl border border-border bg-card p-4">
+                <div key={a.id} className={cn(
+                  "flex flex-col gap-4 rounded-2xl bg-card p-4 transition-colors",
+                  isPending && "ring-1 ring-amber-500/25",
+                )}>
+                  {/* ── Header ── */}
                   <div className="flex items-start gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted">
-                      <Icon className="h-5 w-5 text-muted-foreground" />
+                    <div className={cn(
+                      "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white",
+                      svc?.accent ?? "bg-muted",
+                    )}>
+                      <Icon className="h-5 w-5" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-bold text-foreground">{a.business_name}</span>
-                        <Badge variant="secondary" className="rounded-full text-xs">{serviceLabel}</Badge>
-                        <Badge className={`rounded-full text-xs ${STATUS_COLORS[a.status] ?? ""}`}>{a.status}</Badge>
-                        {!hasProviderTable && <Badge variant="outline" className="rounded-full text-[10px]">manual setup</Badge>}
+                      <div className="flex items-center gap-2">
+                        <p className="truncate font-bold text-foreground">{a.business_name}</p>
                       </div>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {[a.contact_email, a.contact_phone, a.residence].filter(Boolean).join(" · ") || "—"}
-                      </p>
-                      {a.description && <p className="mt-1 text-sm text-muted-foreground">{a.description}</p>}
-                      {a.status === "rejected" && a.review_notes && <p className="mt-1 text-xs text-red-400">Reason: {a.review_notes}</p>}
+                      <p className="mt-0.5 text-xs text-muted-foreground">{serviceLabel}</p>
                     </div>
-                    {a.status === "pending" && (
-                      <div className="flex shrink-0 gap-2">
-                        <Button size="sm" className="gap-1.5 rounded-full bg-green-600 text-white hover:bg-green-600/90"
-                          onClick={() => approve.mutate(a)} disabled={approve.isPending}>
-                          <Check className="h-3.5 w-3.5" /> Approve
-                        </Button>
-                        <Button size="sm" variant="outline" className="gap-1.5 rounded-full text-red-400 hover:text-red-400"
-                          onClick={() => { const notes = window.prompt("Reason for rejection (optional):") ?? ""; reject.mutate({ app: a, notes }); }}
-                          disabled={reject.isPending}>
-                          <X className="h-3.5 w-3.5" /> Reject
-                        </Button>
+                    <span className={cn(
+                      "inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider",
+                      STATUS_COLOR[a.status] ?? "bg-muted text-muted-foreground",
+                    )}>{a.status}</span>
+                  </div>
+
+                  {/* ── Contact grid ── */}
+                  <div className="grid gap-1.5 text-sm">
+                    {a.contact_email && (
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Mail className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate text-foreground">{a.contact_email}</span>
                       </div>
                     )}
+                    {a.contact_phone && (
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Phone className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate text-foreground">{a.contact_phone}</span>
+                      </div>
+                    )}
+                    {a.residence && (
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <MapPin className="h-3.5 w-3.5 shrink-0" />
+                        <span className="truncate text-foreground">{a.residence}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Clock className="h-3.5 w-3.5 shrink-0" />
+                      <span>
+                        Applied {a.created_at ? format(new Date(a.created_at), "MMM d, yyyy") : "—"}
+                        {a.reviewed_at && ` · Reviewed ${format(new Date(a.reviewed_at), "MMM d")}`}
+                      </span>
+                    </div>
                   </div>
+
+                  {a.description && (
+                    <p className="rounded-xl bg-muted/40 p-3 text-sm text-muted-foreground">{a.description}</p>
+                  )}
+
+                  {isRejected && a.review_notes && (
+                    <p className="rounded-xl bg-red-500/10 p-3 text-xs text-red-300">
+                      <span className="font-semibold">Rejection reason:</span> {a.review_notes}
+                    </p>
+                  )}
+
+                  {isApproved && !hasProviderTable && (
+                    <p className="text-[11px] text-muted-foreground">
+                      Auto-provider skipped for this service — set up manually in Providers.
+                    </p>
+                  )}
+
+                  {/* ── Actions ── */}
+                  {isPending && (
+                    <div className="flex gap-2 pt-1">
+                      <Button
+                        size="sm"
+                        className="flex-1 gap-1.5 rounded-full bg-green-600 text-white hover:bg-green-600/90"
+                        onClick={() => approve.mutate(a)}
+                        disabled={approve.isPending}
+                        loading={approve.isPending}
+                        loadingText="Approving…"
+                      >
+                        <Check className="h-3.5 w-3.5" /> Approve
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1 gap-1.5 rounded-full text-red-400 hover:text-red-400"
+                        onClick={() => { setRejectTarget(a); setRejectNotes(""); }}
+                        disabled={reject.isPending}
+                      >
+                        <X className="h-3.5 w-3.5" /> Reject
+                      </Button>
+                    </div>
+                  )}
                 </div>
               );
             })}
           </div>
         </AdminListShell>
       </div>
+
+      {/* Reject dialog — replaces the old window.prompt */}
+      <AlertDialog open={!!rejectTarget} onOpenChange={(o) => { if (!o) { setRejectTarget(null); setRejectNotes(""); } }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reject application?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will mark <strong>{rejectTarget?.business_name}</strong>'s application as rejected. You can leave an optional note explaining why — it's stored on the application for the audit trail.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Textarea
+            value={rejectNotes}
+            onChange={(e) => setRejectNotes(e.target.value)}
+            placeholder="Reason (optional)"
+            rows={3}
+          />
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => reject.mutate({ app: rejectTarget, notes: rejectNotes })}
+              className="bg-red-600 text-white hover:bg-red-600/90"
+            >
+              Reject
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </SuperAdminLayout>
   );
 }

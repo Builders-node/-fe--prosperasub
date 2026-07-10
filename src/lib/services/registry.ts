@@ -1,6 +1,5 @@
 import {
   Car,
-  HeartPulse,
   SparklesIcon,
   UtensilsCrossed,
   Waves,
@@ -22,14 +21,14 @@ import {
  * Discovery, MySubscriptions, and visibility gating pick it up automatically.
  */
 
-export type ServiceKey = "cleaning" | "cars" | "food" | "beach" | "massage";
+export type ServiceKey = "cleaning" | "cars" | "food" | "beach";
 
 /**
  * Optional provider-side configuration. Categories where the platform itself
  * *is* the operator (cleaning, beach club) omit this — they don't have
  * third-party providers to onboard.
  *
- * Categories with providers (food/cars/massage/...) share the same lifecycle:
+ * Categories with providers (food/cars/...) share the same lifecycle:
  * anyone applies through /become-a-provider → admin reviews the application
  * → on approval a row is created in the service's `*_providers` table.
  */
@@ -45,7 +44,7 @@ export interface ProviderConfig {
   /** Which sections a provider portal should render for this service. */
   features: Array<
     | "info"        // universal name/avatar/banner/location/hours
-    | "plans"       // meal plans, massage plans, vehicles, etc.
+    | "plans"       // meal plans, vehicles, etc.
     | "menu"        // weekly menu (food)
     | "vehicles"    // rental vehicles
     | "bookings"    // paid subscriptions / reservations
@@ -103,7 +102,7 @@ export const SERVICES: Record<ServiceKey, ServiceConfig> = {
     tint: "bg-sky-50 dark:bg-sky-950/40",
     chip: "bg-sky-500",
     accent: "bg-blue-500",
-    tileHref: "/cleaning",
+    tileHref: "/services/cleaning",
     adminRootHref: "/admin/cleaning/plans",
     visibilityKey: "category_cleaning_visible",
     subscriptionsTable: "cleaning_subscriptions",
@@ -128,7 +127,7 @@ export const SERVICES: Record<ServiceKey, ServiceConfig> = {
     tint: "bg-orange-50 dark:bg-orange-950/40",
     chip: "bg-orange-500",
     accent: "bg-orange-500",
-    tileHref: "/cars",
+    tileHref: "/services/rental",
     adminRootHref: "/admin/car-rentals/providers",
     visibilityKey: "category_cars_visible",
     subscriptionsTable: "rental_bookings",
@@ -153,7 +152,7 @@ export const SERVICES: Record<ServiceKey, ServiceConfig> = {
     tint: "bg-emerald-50 dark:bg-emerald-950/40",
     chip: "bg-emerald-500",
     accent: "bg-orange-500",
-    tileHref: "/food",
+    tileHref: "/services/food",
     adminRootHref: "/admin/food/providers",
     visibilityKey: "category_food_visible",
     subscriptionsTable: "food_subscriptions",
@@ -178,38 +177,11 @@ export const SERVICES: Record<ServiceKey, ServiceConfig> = {
     tint: "bg-cyan-50 dark:bg-cyan-950/40",
     chip: "bg-cyan-500",
     accent: "bg-cyan-500",
-    tileHref: "/beach-club",
+    tileHref: "/services/beach-club",
     adminRootHref: "/admin/beach-club/plans",
     visibilityKey: "category_beach_visible",
     subscriptionsTable: "beach_club_subscriptions",
     statusField: "status",
-  },
-  massage: {
-    key: "massage",
-    label: "Massage",
-    icon: HeartPulse,
-    tint: "bg-rose-50 dark:bg-rose-950/40",
-    chip: "bg-rose-500",
-    accent: "bg-rose-500",
-    tileHref: "/massage",
-    adminRootHref: "/admin/massage/providers",
-    visibilityKey: "category_massage_visible",
-    subscriptionsTable: "massage_subscriptions",
-    statusField: "status",
-    badge: "NEW",
-    providers: {
-      table: "massage_providers",
-      labels: {
-        singular: "Massage practice",
-        plural: "Massage practices",
-        apply: "Offer massage on ProsperaSub",
-      },
-      features: ["info", "plans", "bookings", "staff"],
-      adminListHref: "/admin/massage/providers",
-      // No portalRoute yet — massage-side owner portal not built. Providers
-      // still show up in listings; the row just won't link anywhere until
-      // /my-massage exists.
-    },
   },
 };
 
@@ -220,7 +192,7 @@ export const PROVIDER_SERVICES: ServiceConfig[] = Object.values(SERVICES).filter
 
 /** Stable iteration order for tiles / lists. */
 export const SERVICE_KEYS: ServiceKey[] = [
-  "cleaning", "cars", "food", "beach", "massage",
+  "cleaning", "cars", "food", "beach",
 ];
 
 /** All service configs in the registry's canonical order. */

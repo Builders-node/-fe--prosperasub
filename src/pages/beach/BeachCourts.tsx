@@ -167,7 +167,7 @@ const BeachCourts = () => {
           <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
             Court booking is included with an active Beach Club membership. Subscribe to reserve courts any time.
           </p>
-          <Button className="mt-5 rounded-full bg-primary text-black hover:bg-[hsl(var(--brand-accent-hover))]" onClick={() => navigate("/beach-club")}>
+          <Button className="mt-5 rounded-full bg-primary text-black hover:bg-[hsl(var(--brand-accent-hover))]" onClick={() => navigate("/services/beach-club")}>
             View membership plans
           </Button>
         </div>
@@ -254,7 +254,7 @@ const BeachCourts = () => {
 
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-12">
-      <HomeHeader title="Beach Club Courts" showBackButton onBack={() => navigate("/beach-club")} />
+      <HomeHeader title="Beach Club Courts" showBackButton onBack={() => navigate("/services/beach-club")} />
       <DesktopHeader />
       <main className="market-content py-space-4 md:py-space-8">
         <div className="mb-space-4">

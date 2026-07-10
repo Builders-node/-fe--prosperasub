@@ -82,7 +82,7 @@ export function ProviderInfoTab({ provider }: Props) {
       </div>
 
       {/* Description */}
-      <section className="rounded-2xl border border-border bg-card p-5">
+      <section className="rounded-2xl bg-card p-5">
         <div className="mb-3 flex items-center gap-2">
           <InfoIcon className="h-4 w-4 text-orange-400" />
           <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Description</h3>
@@ -95,7 +95,7 @@ export function ProviderInfoTab({ provider }: Props) {
       </section>
 
       {/* Contact */}
-      <section className="divide-y divide-border rounded-2xl border border-border bg-card">
+      <section className="divide-y divide-border/40 rounded-2xl bg-card">
         <InfoRow
           icon={<Phone className="h-4 w-4" />}
           label="Phone"

@@ -1,14 +1,15 @@
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Waves, Check, ArrowRight, LandPlot } from "lucide-react";
+import { Waves, ArrowRight, LandPlot } from "lucide-react";
 import { HomeHeader } from "@/components/HomeHeader";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
 import { BottomNav } from "@/components/BottomNav";
-import { Button } from "@/components/ui/button";
-import { YdHero, YdIllustration, YdEmptyState } from "@/components/yd/YdPrimitives";
+import { YdEmptyState } from "@/components/yd/YdPrimitives";
+import { QueryError } from "@/components/QueryError";
+import { EntertainmentPlanCard } from "@/components/patterns/EntertainmentPlanCard";
 import { supabaseDb } from "@/integrations/supabase/client";
-import { formatUSD } from "@/lib/pricing";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAuthModal } from "@/contexts/AuthModalContext";
 import { useUserUuid } from "@/hooks/useUserUuid";
 import { todayHN } from "@/lib/timezone";
 
@@ -21,10 +22,34 @@ interface BeachPlan {
   featured: boolean;
 }
 
+interface EntertainmentProvider {
+  id: string;
+  name: string;
+}
+
 const BeachClub = () => {
   const navigate = useNavigate();
   const { isAuthenticated, userData } = useAuth();
+  const { openAuthModal } = useAuthModal();
   const userUuid = useUserUuid();
+
+  // Providers under the Entertainment archetype. Right now there's one
+  // (Beach Club) but this is the multi-provider surface — the page mirrors
+  // Food (providers on top → plans below) so adding a second provider is a
+  // data-only change.
+  const providersQ = useQuery({
+    queryKey: ["entertainment-providers-public"],
+    queryFn: async () => {
+      const { data, error } = await supabaseDb
+        .from("providers")
+        .select("id, name")
+        .eq("archetype_key", "entertainment")
+        .eq("status", "active")
+        .order("sort_order", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as EntertainmentProvider[];
+    },
+  });
 
   // Active membership → unlock court booking.
   const { data: hasMembership } = useQuery({
@@ -44,8 +69,8 @@ const BeachClub = () => {
     enabled: isAuthenticated && (!!userUuid || !!userData?.id),
   });
 
-  const { data: plans = [], isLoading } = useQuery({
-    queryKey: ["beach-club-plans-public"],
+  const plansQ = useQuery({
+    queryKey: ["entertainment-plans-public"],
     queryFn: async () => {
       const { data, error } = await supabaseDb
         .from("beach_club_plans")
@@ -57,25 +82,22 @@ const BeachClub = () => {
     },
   });
 
+  const openProvider = (providerId: string) => {
+    navigate(`/services/entertainment/providers/${providerId}`);
+  };
+
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-12">
-      <HomeHeader title="Beach Club" showBackButton onBack={() => navigate("/discovery")} />
+      <HomeHeader title="Entertainment" showBackButton onBack={() => navigate("/discovery")} />
       <DesktopHeader />
 
       <main className="market-content py-space-4 md:py-space-8">
-        <YdHero
-          accent="amber"
-          badge="Beach Club"
-          badgeIcon={Waves}
-          title="Membership at the Beach Club"
-          subtitle="Monthly access to the gym, pools, water park and sports courts — per person, for you or your group."
-          illustration={<YdIllustration icon={Waves} accent="amber" size="lg" />}
-        />
-
+        {/* Court booking shortcut — visible only when the user has an active
+            beach-club membership. Kept at the top so members find it fast. */}
         {hasMembership && (
           <button
             type="button"
-            onClick={() => navigate("/beach-club/courts")}
+            onClick={() => navigate("/services/beach-club/courts")}
             className="mb-6 flex w-full items-center gap-4 rounded-3xl border border-primary/40 bg-primary/10 p-5 text-left transition-transform active:scale-[0.99]"
           >
             <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary text-black shadow-sm">
@@ -89,63 +111,75 @@ const BeachClub = () => {
           </button>
         )}
 
-        <h2 className="mb-4 text-xl font-black tracking-tight text-foreground">Plans</h2>
-
-        {isLoading ? (
-          <div className="grid gap-3 md:gap-4 md:grid-cols-2">
-            {[1, 2].map((i) => <div key={i} className="h-64 animate-pulse rounded-3xl bg-muted" />)}
-          </div>
-        ) : plans.length === 0 ? (
-          <YdEmptyState icon={Waves} title="No plans available" subtitle="Membership plans are being set up — check back soon." />
-        ) : (
-          <div className="grid gap-3 md:gap-4 md:grid-cols-2">
-            {plans.map((plan) => (
-              <article
-                key={plan.id}
-                className={`flex flex-col rounded-3xl border p-6 transition-colors ${
-                  plan.featured ? "border-primary/50" : "border-border bg-card"
-                }`}
-              >
-                {plan.featured && (
-                  <span className="mb-3 self-start rounded-full bg-primary px-2.5 py-0.5 text-xs font-bold text-black">
-                    Most Popular
-                  </span>
-                )}
-
-                <h3 className="text-lg font-black tracking-tight text-foreground">{plan.name}</h3>
-                {plan.tagline && (
-                  <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{plan.tagline}</p>
-                )}
-
-                <ul className="mt-4 space-y-2">
-                  {(plan.amenities ?? []).map((a, i) => (
-                    <li key={i} className="flex items-center gap-2.5 text-sm text-foreground">
-                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                        <Check className="h-3.5 w-3.5 text-primary" />
-                      </span>
-                      {a}
-                    </li>
-                  ))}
-                </ul>
-
-                <div className="mt-5 flex items-baseline gap-1">
-                  <span className="text-3xl font-black tabular-nums text-foreground">
-                    {formatUSD(plan.price_per_person_cents)}
-                  </span>
-                  <span className="text-sm text-muted-foreground">/ person · month</span>
-                </div>
-
-                <Button
-                  className="mt-5 w-full rounded-full bg-primary text-black hover:bg-[hsl(var(--brand-accent-hover))]"
-                  onClick={() => navigate(`/beach-club/checkout/${plan.id}`)}
+        {/* ─── Providers ──────────────────────────────────────────────
+            Same visual pattern as Food's Restaurants row: providers on top,
+            plans below. Tapping a provider scrolls to the plans section
+            (only one provider today; a future filter can key on providerId). */}
+        <section>
+          <h2 className="mb-4 text-xl font-black tracking-tight text-foreground">Venues</h2>
+          {providersQ.isLoading ? (
+            <div className="grid gap-3 md:gap-4 md:grid-cols-2">
+              {[1, 2].map((i) => <div key={i} className="h-72 animate-pulse rounded-3xl bg-muted" />)}
+            </div>
+          ) : providersQ.isError ? (
+            <QueryError
+              title="Couldn't load venues"
+              error={providersQ.error instanceof Error ? providersQ.error.message : undefined}
+              onRetry={() => providersQ.refetch()}
+              retrying={providersQ.isFetching}
+            />
+          ) : providersQ.data && providersQ.data.length > 0 ? (
+            <div className="grid gap-3 md:gap-4 md:grid-cols-2">
+              {providersQ.data.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => openProvider(p.id)}
+                  className="flex h-28 items-center justify-center rounded-3xl border border-border bg-card px-6 text-center transition-colors hover:border-primary/40"
                 >
-                  Subscribe
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </article>
-            ))}
-          </div>
-        )}
+                  <span className="text-2xl font-black tracking-tight text-foreground">
+                    {p.name}
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <YdEmptyState icon={Waves} title="No venues yet" subtitle="We're setting things up. Check back soon." />
+          )}
+        </section>
+
+        {/* ─── Plans ──────────────────────────────────────────────── */}
+        <section id="entertainment-plans" className="mt-space-6 scroll-mt-4">
+          <h2 className="mb-4 text-xl font-black tracking-tight text-foreground">Plans</h2>
+
+          {plansQ.isLoading ? (
+            <div className="grid gap-3 md:gap-4 md:grid-cols-2">
+              {[1, 2].map((i) => <div key={i} className="h-64 animate-pulse rounded-3xl bg-muted" />)}
+            </div>
+          ) : plansQ.isError ? (
+            <QueryError
+              title="Couldn't load plans"
+              error={plansQ.error instanceof Error ? plansQ.error.message : undefined}
+              onRetry={() => plansQ.refetch()}
+              retrying={plansQ.isFetching}
+            />
+          ) : plansQ.data && plansQ.data.length > 0 ? (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {plansQ.data.map((plan) => (
+                <EntertainmentPlanCard
+                  key={plan.id}
+                  plan={plan}
+                  onSubscribe={(id) => {
+                    if (!isAuthenticated) openAuthModal("login", `/services/beach-club/checkout/${id}`);
+                    else navigate(`/services/beach-club/checkout/${id}`);
+                  }}
+                />
+              ))}
+            </div>
+          ) : (
+            <YdEmptyState icon={Waves} title="No plans yet" subtitle="We're setting things up. Check back soon." />
+          )}
+        </section>
 
         <section className="mt-space-6 rounded-3xl bg-muted/40 p-5">
           <p className="font-bold text-foreground">How memberships work</p>

@@ -34,6 +34,11 @@ interface StartArgs {
 
 interface Options {
   onPaid: (paymentRef: string, method: "lightning" | "onchain") => void;
+  /** Fires as soon as the invoice/address is created, before the user pays.
+   *  Lets consumers persist payment_reference on the reservation row so the
+   *  server-side reconcile cron can still confirm payment if the browser dies
+   *  between invoice creation and confirmation. */
+  onInvoiceReady?: (paymentRef: string, method: "lightning" | "onchain") => void;
   lightningPollMs?: number;
   onchainPollMs?: number;
 }
@@ -48,7 +53,7 @@ const INITIAL: InvoicePaymentState = {
   isGenerating: false,
 };
 
-export function useInvoicePayment({ onPaid, lightningPollMs = 3000, onchainPollMs = 5000 }: Options) {
+export function useInvoicePayment({ onPaid, onInvoiceReady, lightningPollMs = 3000, onchainPollMs = 5000 }: Options) {
   const [state, setState] = useState<InvoicePaymentState>(INITIAL);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const paidRef = useRef(false);
@@ -76,6 +81,7 @@ export function useInvoicePayment({ onPaid, lightningPollMs = 3000, onchainPollM
         if (!data?.address) throw new Error("Could not generate a Bitcoin address.");
         const uri = `bitcoin:${data.address}?amount=${(amountSats / 1e8).toFixed(8)}&label=ProsperaSub&message=${encodeURIComponent(description)}`;
         setState((s) => ({ ...s, address: data.address, uri, isGenerating: false }));
+        onInvoiceReady?.(data.address, "onchain");
         startOnchainPolling(data.address, amountSats);
       } else {
         const { data, error } = await supabase.functions.invoke("create-invoice", {
@@ -91,6 +97,7 @@ export function useInvoicePayment({ onPaid, lightningPollMs = 3000, onchainPollM
         if (error) throw error;
         if (data?.error) throw new Error(data.error);
         setState((s) => ({ ...s, invoice: data.payment_request, paymentHash: data.payment_hash, isGenerating: false }));
+        onInvoiceReady?.(data.payment_hash, "lightning");
         startLightningPolling(data.payment_hash);
       }
     } catch (e: any) {

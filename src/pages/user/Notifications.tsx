@@ -16,7 +16,8 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { UserLayout } from "@/components/layout/UserLayout";
-import { EmptyState } from "@/components/EmptyState";
+import { TabEmptyState } from "@/components/subscriptions/MySubsPrimitives";
+import { QueryError } from "@/components/QueryError";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
@@ -86,58 +87,58 @@ function NotificationRow({
   return (
     <div
       className={cn(
-        "group relative flex items-start gap-4 rounded-2xl border border-border bg-card px-4 py-4 transition-colors",
-        !notification.isRead && "border-primary/20 bg-primary/[0.03]",
+        "group relative flex items-start gap-3 py-3 transition-colors",
+        !notification.isRead && "bg-primary/[0.02]",
       )}
     >
-      {/* Unread dot */}
-      {!notification.isRead && (
-        <span className="absolute left-4 top-4 mt-0.5 h-2 w-2 shrink-0 rounded-full bg-primary" />
-      )}
-
-      {/* Category icon */}
+      {/* Category icon — smaller than the old card variant to compact the row */}
       <div
         className={cn(
-          "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
+          "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
           iconClass,
-          !notification.isRead && "ml-4",
         )}
       >
-        <Icon className="h-5 w-5" />
+        <Icon className="h-4 w-4" />
       </div>
 
       {/* Content */}
       <div
-        className={cn("min-w-0 flex-1 cursor-pointer", notification.actionUrl && "hover:opacity-80")}
+        className={cn("min-w-0 flex-1 cursor-pointer pr-2", notification.actionUrl && "hover:opacity-80")}
         onClick={handleOpen}
         role={notification.actionUrl ? "button" : undefined}
       >
-        <p className={cn("text-sm leading-snug text-foreground", !notification.isRead && "font-bold")}>
-          {notification.title}
-        </p>
-        <p className="mt-0.5 text-xs text-muted-foreground">{notification.body}</p>
-        <p className="mt-1.5 text-[11px] text-muted-foreground/60">{timeAgo}</p>
+        <div className="flex items-baseline gap-2">
+          <p className={cn("text-sm leading-snug text-foreground", !notification.isRead && "font-bold")}>
+            {notification.title}
+          </p>
+          {/* Unread dot inline with the title so we don't reserve a column for it */}
+          {!notification.isRead && (
+            <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+          )}
+        </div>
+        <p className="mt-0.5 text-xs leading-snug text-muted-foreground">{notification.body}</p>
+        <p className="mt-1 text-[11px] text-muted-foreground/60">{timeAgo}</p>
       </div>
 
       {/* Actions — visible on hover */}
-      <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+      <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
         {!notification.isRead && (
           <button
             type="button"
             title="Mark as read"
             onClick={() => onRead(notification.id)}
-            className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
-            <CheckCheck className="h-4 w-4" />
+            <CheckCheck className="h-3.5 w-3.5" />
           </button>
         )}
         <button
           type="button"
           title="Archive"
           onClick={() => onArchive(notification.id)}
-          className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
-          <Archive className="h-4 w-4" />
+          <Archive className="h-3.5 w-3.5" />
         </button>
       </div>
     </div>
@@ -148,15 +149,15 @@ function NotificationRow({
 
 function Skeleton() {
   return (
-    <div className="space-y-3">
-      {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="animate-pulse rounded-2xl border border-border bg-card px-4 py-4">
-          <div className="flex items-start gap-4">
-            <div className="h-10 w-10 shrink-0 rounded-xl bg-muted" />
+    <div className="divide-y divide-border/60">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <div key={i} className="animate-pulse py-3">
+          <div className="flex items-start gap-3">
+            <div className="h-8 w-8 shrink-0 rounded-lg bg-muted" />
             <div className="flex-1 space-y-2">
-              <div className="h-3.5 w-48 rounded bg-muted" />
-              <div className="h-3 w-72 rounded bg-muted" />
-              <div className="h-2.5 w-20 rounded bg-muted" />
+              <div className="h-3 w-48 rounded bg-muted" />
+              <div className="h-2.5 w-72 rounded bg-muted" />
+              <div className="h-2 w-20 rounded bg-muted" />
             </div>
           </div>
         </div>
@@ -175,7 +176,7 @@ const Notifications = () => {
   const isUnreadTab = activeTab === "unread";
   const categoryFilter = isUnreadTab ? undefined : activeTab === "all" ? undefined : activeTab;
 
-  const { data: notifications = [], isLoading } = useNotifications({
+  const { data: notifications = [], isLoading, isError, error, refetch, isFetching } = useNotifications({
     category: categoryFilter,
     unreadOnly: isUnreadTab,
   });
@@ -239,15 +240,10 @@ const Notifications = () => {
     <UserLayout title="Notifications">
       <div className="app-container pb-28 pt-5">
 
-        {/* Header */}
-        <div className="mb-5 flex items-center justify-between gap-4">
-          <div>
-            <p className="type-overline text-primary">Account</p>
-            <h1 className="mt-1 text-2xl font-black tracking-tight text-foreground sm:text-3xl">
-              Notifications
-            </h1>
-          </div>
-          {unreadCount > 0 && (
+        {/* Header action row — page title lives in the mobile header, so we
+            only need the mark-all-read action here. */}
+        {unreadCount > 0 && (
+          <div className="mb-4 flex justify-end">
             <Button
               variant="secondary"
               size="sm"
@@ -258,8 +254,8 @@ const Notifications = () => {
               <CheckCheck className="h-4 w-4" />
               Mark all read
             </Button>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Tabs */}
         <div className="mb-5 flex gap-2 overflow-x-auto pb-1">
@@ -288,20 +284,23 @@ const Notifications = () => {
         {/* List */}
         {isLoading ? (
           <Skeleton />
+        ) : isError ? (
+          <QueryError
+            title="Couldn't load notifications"
+            error={error instanceof Error ? error.message : undefined}
+            onRetry={() => refetch()}
+            retrying={isFetching}
+          />
         ) : notifications.length === 0 ? (
-          <div className="rounded-2xl border border-border bg-card p-10 text-center">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
-              <Bell className="h-6 w-6 text-muted-foreground" />
-            </div>
-            <p className="text-base font-bold text-foreground">No notifications</p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {activeTab === "unread"
-                ? "You're all caught up!"
-                : "Activity on your account will appear here."}
-            </p>
-          </div>
+          <TabEmptyState
+            icon={Bell}
+            title="No notifications"
+            subtitle={activeTab === "unread"
+              ? "You're all caught up!"
+              : "Activity on your account will appear here."}
+          />
         ) : (
-          <div className="space-y-2">
+          <div className="divide-y divide-border/60">
             {notifications.map((n) => (
               <NotificationRow
                 key={n.id}

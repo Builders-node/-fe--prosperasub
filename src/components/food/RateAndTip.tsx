@@ -3,11 +3,11 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Star } from "lucide-react";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { Spinner } from "@/components/ui/spinner";
 import { StarRating } from "@/components/food/StarRating";
 import { TipPayment } from "@/components/payment/TipPayment";
 import { useUserUuid } from "@/hooks/useUserUuid";
+import { SectionOverline } from "@/components/subscriptions/MySubsPrimitives";
 import { toast } from "sonner";
 
 interface Props {
@@ -17,7 +17,13 @@ interface Props {
   customerName?: string | null;
 }
 
-export function RateAndTip({ providerId, providerName, subscriptionId, customerName }: Props) {
+/**
+ * Post-purchase "leave a review + tip your restaurant" panel shown on the
+ * food subscription screen. Layout matches the rest of the mobile-first
+ * language on this screen: one card per concern (review, tip), borderless
+ * inputs, section overline instead of an inline heading.
+ */
+export function RateAndTip({ providerId, subscriptionId, customerName }: Props) {
   const qc = useQueryClient();
   const userUuid = useUserUuid();
 
@@ -65,42 +71,56 @@ export function RateAndTip({ providerId, providerName, subscriptionId, customerN
   const tippedCents = tips.reduce((s, t) => s + (t.amount_cents || 0), 0);
 
   return (
-    <section className="space-y-4 rounded-3xl bg-card p-4">
-      <h2 className="flex items-center gap-2 text-lg font-black tracking-tight">
-        <Star className="h-5 w-5 text-amber-400" /> Rate & tip
-      </h2>
+    <section className="space-y-3">
+      <div className="flex items-center gap-2 px-1">
+        <Star className="h-4 w-4 text-amber-400" fill="currentColor" />
+        <SectionOverline label={myReview ? "Your review" : "Rate & tip"} />
+      </div>
 
-      {/* Review */}
-      <div className="space-y-2">
-        <p className="text-sm font-semibold text-foreground">{myReview ? "Your review" : "How was your experience?"}</p>
-        <StarRating value={rating} onChange={setRating} size={28} />
-        <Textarea value={comment} onChange={(e) => setComment(e.target.value)} rows={2} placeholder="Tell others about the food, delivery, etc. (optional)" />
-        <Button onClick={() => saveReview.mutate()} disabled={!rating || saveReview.isPending} className="rounded-full">
+      {/* Review — one card, star row + borderless textarea + full-width CTA */}
+      <div className="space-y-3 rounded-3xl bg-card p-5">
+        <p className="text-[15px] font-bold text-foreground">
+          {myReview ? "Your review" : "How was your experience?"}
+        </p>
+        <StarRating value={rating} onChange={setRating} size={32} />
+        <textarea
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+          rows={3}
+          placeholder="Tell others about the food, delivery, etc. (optional)"
+          className="w-full resize-none rounded-2xl bg-muted/40 px-4 py-3 text-[15px] text-foreground outline-none placeholder:text-muted-foreground/60 focus:bg-muted/60"
+        />
+        <Button
+          onClick={() => saveReview.mutate()}
+          disabled={!rating || saveReview.isPending}
+          className="w-full rounded-2xl"
+          size="lg"
+        >
           {saveReview.isPending && <Spinner size="sm" className="mr-2" />}
           {myReview ? "Update review" : "Save review"}
         </Button>
       </div>
 
-      <div className="border-t border-border/60" />
-
-      {/* Tip */}
-      <TipPayment
-        serviceName="Food Tip"
-        context="food_tip"
-        externalIdPrefix={`food-tip-${subscriptionId}`}
-        adminUrl={`${window.location.origin}/admin/food/subscriptions`}
-        customerName={customerName}
-        tippedCents={tippedCents}
-        onRecord={async ({ amountCents, method, paymentRef, pending }) => {
-          const { error } = await supabaseDb.from("food_tips").insert({
-            user_id: userUuid, provider_id: providerId, subscription_id: subscriptionId,
-            customer_name: customerName ?? null, amount_cents: amountCents,
-            payment_status: pending ? "pending" : "paid", payment_method: method, payment_reference: paymentRef || null,
-          });
-          if (error) throw new Error(error.message);
-        }}
-        onDone={() => qc.invalidateQueries({ queryKey: ["food-tips", subscriptionId] })}
-      />
+      {/* Tip — separate card so the two concerns are visually distinct */}
+      <div className="rounded-3xl bg-card p-5">
+        <TipPayment
+          serviceName="Food Tip"
+          context="food_tip"
+          externalIdPrefix={`food-tip-${subscriptionId}`}
+          adminUrl={`${window.location.origin}/admin/marketplace/subscriptions`}
+          customerName={customerName}
+          tippedCents={tippedCents}
+          onRecord={async ({ amountCents, method, paymentRef, pending }) => {
+            const { error } = await supabaseDb.from("food_tips").insert({
+              user_id: userUuid, provider_id: providerId, subscription_id: subscriptionId,
+              customer_name: customerName ?? null, amount_cents: amountCents,
+              payment_status: pending ? "pending" : "paid", payment_method: method, payment_reference: paymentRef || null,
+            });
+            if (error) throw new Error(error.message);
+          }}
+          onDone={() => qc.invalidateQueries({ queryKey: ["food-tips", subscriptionId] })}
+        />
+      </div>
     </section>
   );
 }

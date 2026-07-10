@@ -6,6 +6,7 @@ import {
   Settings, Trash2, Eye, EyeOff, Pencil, Copy, Link as LinkIcon, ExternalLink, RefreshCw,
 } from "lucide-react";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
+import { BookingCalendarOverride } from "@/components/provider/BookingCalendarOverride";
 import { PageLoader, Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -76,9 +77,11 @@ const EMPTY_FORM = {
   sort_order: 0,
   external_ics_url: "",
   google_calendar_id: "",
+  // Per-court booking calendar override. NULL = inherit from provider.
+  booking_settings: null as unknown | null,
 };
 
-export default function BeachClubCourts() {
+export default function BeachClubCourts({ embedded = false }: { embedded?: boolean } = {}) {
   const qc = useQueryClient();
   const [courtId, setCourtId] = useState<string>("");
   const [date, setDate] = useState<string>(todayHN());
@@ -237,6 +240,7 @@ export default function BeachClubCourts() {
       sort_order: c.sort_order,
       external_ics_url: c.external_ics_url ?? "",
       google_calendar_id: c.google_calendar_id ?? "",
+      booking_settings: (c as any).booking_settings ?? null,
     });
   };
 
@@ -260,6 +264,7 @@ export default function BeachClubCourts() {
         sort_order: form.sort_order,
         external_ics_url: extUrl || null,
         google_calendar_id: form.google_calendar_id.trim() || null,
+        booking_settings: form.booking_settings,
       };
       if (editing === "new") {
         const { error } = await supabaseDb.from("beach_club_courts").insert(payload);
@@ -332,14 +337,12 @@ export default function BeachClubCourts() {
   const bookedCount = bookings.length;
 
   if (courtsLoading) {
+    if (embedded) return <PageLoader />;
     return <SuperAdminLayout title="Beach Club Courts"><PageLoader /></SuperAdminLayout>;
   }
 
-  return (
-    <SuperAdminLayout
-      title="Beach Club Courts"
-      subtitle={`Book courts by the hour — ${activeCourts.length} active court${activeCourts.length === 1 ? "" : "s"}`}
-    >
+  const bodyContent = (
+    <>
       {/* Header: tabs + manage */}
       <div className="mb-space-4 flex flex-wrap items-center gap-2">
         {activeCourts.map((c) => (
@@ -728,6 +731,18 @@ export default function BeachClubCourts() {
                 </Select>
               </div>
             </div>
+
+            {/* Per-court booking calendar override — same shared primitive
+                that cleaning plans and rental vehicles use. NULL = inherit
+                the beach club provider's default calendar. Flip on to give
+                one court its own hours / blocks (e.g. tennis court open
+                nights, paddle court closed Sundays). */}
+            <BookingCalendarOverride
+              value={form.booking_settings}
+              onChange={(next) => setForm((f) => ({ ...f, booking_settings: next }))}
+              entityLabel="This court"
+              parentLabel="the beach club's calendar"
+            />
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setEditing(null)}>Cancel</Button>
@@ -763,6 +778,16 @@ export default function BeachClubCourts() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </>
+  );
+
+  if (embedded) return bodyContent;
+  return (
+    <SuperAdminLayout
+      title="Beach Club Courts"
+      subtitle={`Book courts by the hour — ${activeCourts.length} active court${activeCourts.length === 1 ? "" : "s"}`}
+    >
+      {bodyContent}
     </SuperAdminLayout>
   );
 }

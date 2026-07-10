@@ -113,18 +113,18 @@ const AdminDashboard = () => {
         id: `csub-${s.id}`, service: "cleaning", tone: s.payment_status === "paid" ? "paid" : "pending",
         text: `${nameOf(s.user_id)} — Cleaning subscription`,
         detail: s.payment_status === "paid" ? formatCents(s.total_price_cents || s.monthly_price_cents || 0) : "Pending",
-        date: s.created_at, href: "/admin/cleaning/subscriptions",
+        date: s.created_at, href: "/admin/marketplace/subscriptions",
       }));
       (cleaningBookings.data ?? []).forEach((b: any) => out.push({
         id: `cbook-${b.id}`, service: "cleaning", tone: "neutral",
         text: `${nameOf(b.user_id)} — Cleaning session ${fmtDate(b.cleaning_available_slots?.date)}`,
-        detail: b.status === "booked" ? "Upcoming" : b.status, date: b.created_at, href: "/admin/cleaning/operations",
+        detail: b.status === "booked" ? "Upcoming" : b.status, date: b.created_at, href: "/admin/marketplace/providers",
       }));
       (foodSubs.data ?? []).forEach((s: any) => out.push({
         id: `fsub-${s.id}`, service: "food", tone: s.status === "active" ? "paid" : s.status === "pending" ? "pending" : "neutral",
         text: `${nameOf(s.user_id, s.customer_name)} — Food subscription`,
         detail: ["active", "paused", "expired"].includes(String(s.status)) ? formatCents((s.weekly_price_cents || 0) * (s.commitment_weeks || 1)) : String(s.status),
-        date: s.created_at, href: "/admin/food/subscriptions",
+        date: s.created_at, href: "/admin/marketplace/subscriptions",
       }));
       (beachSubs.data ?? []).forEach((s: any) => out.push({
         id: `bsub-${s.id}`, service: "beach", tone: s.payment_status === "paid" ? "paid" : "pending",
@@ -148,8 +148,8 @@ const AdminDashboard = () => {
 
   const STATS = [
     { label: "Users", value: String(stats?.users ?? 0), icon: Users, href: "/admin/users" },
-    { label: "Active subscriptions", value: String(stats?.activeSubs ?? 0), icon: SparklesIcon, href: "/admin/cleaning/subscriptions" },
-    { label: "Pending payments", value: String(stats?.pending ?? 0), icon: Loader2, href: "/admin/cleaning/subscriptions" },
+    { label: "Active subscriptions", value: String(stats?.activeSubs ?? 0), icon: SparklesIcon, href: "/admin/marketplace/subscriptions" },
+    { label: "Pending payments", value: String(stats?.pending ?? 0), icon: Loader2, href: "/admin/marketplace/subscriptions" },
     { label: "Revenue", value: formatCents(stats?.revenueCents ?? 0), icon: DollarSign, href: "/admin/payments", accent: true },
   ];
 
@@ -157,7 +157,7 @@ const AdminDashboard = () => {
     tone === "paid" ? "bg-green-500/15 text-green-500" : tone === "pending" ? "bg-yellow-500/15 text-yellow-500" : "bg-primary/15 text-primary";
 
   return (
-    <SuperAdminLayout title="Overview">
+    <SuperAdminLayout title="Overview" subtitle="What happened across the platform today">
       {/* ── KPI stats ── */}
       <div className="grid grid-cols-2 gap-space-3 xl:grid-cols-4">
         {STATS.map((stat) => (

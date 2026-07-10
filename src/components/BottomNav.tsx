@@ -13,13 +13,14 @@ export function BottomNav() {
   const navItems = getNavigationForRoles(roles);
   const visibleNavItems = navItems.filter((item) => !(!isAuthenticated && item.requiresAuth));
 
+  // Public browsing surfaces where bottom nav must stay reachable — otherwise
+  // an unauthenticated user who taps a service tile gets stranded with no way
+  // back to Discovery / My Subscriptions without the browser back button.
   const isPublicBottomNavRoute =
     location.pathname === "/" ||
     location.pathname === "/discovery" ||
-    location.pathname === "/cleaning" ||
-    location.pathname.startsWith("/cleaning/") ||
-    location.pathname === "/cars" ||
-    location.pathname.startsWith("/cars/");
+    location.pathname.startsWith("/services/") ||
+    location.pathname === "/cart";
 
   if (!isAuthenticated && !isPublicBottomNavRoute) {
     return null;

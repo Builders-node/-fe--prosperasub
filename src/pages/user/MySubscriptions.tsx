@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { PageLoader, Spinner } from "@/components/ui/spinner";
 import { Badge } from "@/components/ui/badge";
 import { CleaningRateAndTip } from "@/components/cleaning/CleaningRateAndTip";
-import { MassageRateAndTip } from "@/components/massage/MassageRateAndTip";
 import { PaymentMethodBadge } from "@/components/admin/PaymentMethodBadge";
 import {
   Dialog,
@@ -13,6 +12,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { ResponsiveDialog } from "@/components/patterns/ResponsiveDialog";
 import {
   CalendarDays,
   Clock,
@@ -29,8 +29,6 @@ import {
   CalendarClock,
   Waves,
   LandPlot,
-  HeartPulse,
-  Star,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -43,9 +41,46 @@ import { todayHN } from "@/lib/timezone";
 import { UserLayout } from "@/components/layout/UserLayout";
 import { TodaysMeals } from "@/components/food/TodaysMeals";
 import { PullToRefresh } from "@/components/PullToRefresh";
-import { EmptyState } from "@/components/EmptyState";
+import { RenewPreviewDialog } from "@/components/subscriptions/RenewPreviewDialog";
+import { SubscriptionCard } from "@/components/subscriptions/SubscriptionCard";
+import {
+  TabHeaderCTA, SectionGroup, TabEmptyState, SectionOverline,
+} from "@/components/subscriptions/MySubsPrimitives";
+import { RateProviderButton } from "@/components/reviews/RateProviderButton";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+
+/**
+ * Compute what the server-side renewal will land on: continuous period,
+ * next_start = max(today, prev_end + 1). Client-side preview only — server is
+ * authoritative and will overwrite by ±1 day if the user opens the dialog on
+ * one date and confirms after midnight.
+ */
+type RenewExtend = { weeks?: number; months?: number; days?: number };
+function computeRenewPreview(currentEnd: string | null | undefined, extend: RenewExtend) {
+  if (!currentEnd) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const prevEnd = new Date(`${currentEnd}T00:00:00`);
+  const prevEndPlus1 = new Date(prevEnd);
+  prevEndPlus1.setDate(prevEndPlus1.getDate() + 1);
+  const newStart = prevEndPlus1 > today ? prevEndPlus1 : today;
+  const newEnd = new Date(newStart);
+  if (extend.months) newEnd.setMonth(newEnd.getMonth() + extend.months);
+  if (extend.weeks) newEnd.setDate(newEnd.getDate() + extend.weeks * 7);
+  if (extend.days) newEnd.setDate(newEnd.getDate() + extend.days);
+  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  return { newStart: iso(newStart), newEnd: iso(newEnd) };
+}
+
+interface PendingRenewal {
+  title: string;
+  currentEndDate: string | null;
+  newStartDate: string;
+  newEndDate: string;
+  amountCents: number;
+  targetUrl: string;
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -64,7 +99,7 @@ function Skeleton({ rows = 2 }: { rows?: number }) {
   return (
     <div className="space-y-3">
       {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="animate-pulse rounded-2xl border border-border bg-card p-4">
+        <div key={i} className="animate-pulse rounded-2xl bg-card p-4">
           <div className="flex gap-4">
             <div className="h-12 w-12 rounded-xl bg-muted" />
             <div className="flex-1 space-y-2 py-1">
@@ -112,18 +147,20 @@ function CleaningBookingRow({
   return (
     <div
       className={cn(
-        "flex items-center gap-4 rounded-2xl border border-border bg-card px-4 py-3",
-        !upcoming && "opacity-60",
+        // Same shape/spacing language as SubscriptionCard: rounded-2xl bg-card
+        // p-4, no border. Icon tile matches h-11 w-11 rounded-xl bg-primary/10.
+        "flex items-center gap-3 rounded-2xl bg-card p-4",
+        !upcoming && "opacity-70",
       )}
     >
       {/* Icon */}
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10">
         <CalendarDays className="h-5 w-5 text-primary" />
-      </div>
+      </span>
 
       {/* Info */}
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-bold text-foreground">{dateStr}</p>
+        <p className="text-sm font-bold leading-tight text-foreground">{dateStr}</p>
         {timeStr && (
           <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
             <Clock className="h-3 w-3" />
@@ -181,11 +218,15 @@ function CleaningBookingRow({
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-type ServiceTab = "cleaning" | "food" | "cars" | "beach" | "massage";
+type ServiceTab = "cleaning" | "food" | "cars" | "beach";
 
 const MySubscriptions = () => {
   const { isAuthenticated, isLoading: authLoading, userData } = useAuth();
   const [paymentDialog, setPaymentDialog] = useState<any>(null);
+  // One shared preview dialog for all three services' Renew buttons — click a
+  // Renew → we set this state → dialog opens with dates + amount → on confirm
+  // we navigate to the corresponding checkout URL with ?renew=<subId>.
+  const [pendingRenewal, setPendingRenewal] = useState<PendingRenewal | null>(null);
   const userUuid = useUserUuid();
   const { openAuthModal } = useAuthModal();
   const queryClient = useQueryClient();
@@ -195,7 +236,7 @@ const MySubscriptions = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = (searchParams.get("tab") as ServiceTab) || "cleaning";
   const [activeTab, setActiveTab] = useState<ServiceTab>(
-    ["cleaning", "food", "cars", "beach", "massage"].includes(initialTab) ? initialTab : "cleaning",
+    ["cleaning", "food", "cars", "beach"].includes(initialTab) ? initialTab : "cleaning",
   );
   const changeTab = (t: ServiceTab) => {
     setActiveTab(t);
@@ -257,28 +298,6 @@ const MySubscriptions = () => {
       return data ?? [];
     },
     enabled: (!!userUuid || !!userData?.id) && activeTab === "beach",
-  });
-
-  // ── Massage subscriptions + bookings ───────────────────────────────────────
-  const { data: massageSubs = [], isLoading: massageLoading } = useQuery({
-    queryKey: ["my-massage-subscriptions", userUuid, userData?.id],
-    queryFn: async () => {
-      const ids = [userUuid, userData?.id].filter(Boolean) as string[];
-      if (!ids.length) return [];
-      const { data } = await supabaseDb.from("massage_subscriptions").select("*, massage_providers(name), massage_plans(name)").in("user_id", ids).order("created_at", { ascending: false });
-      return data ?? [];
-    },
-    enabled: (!!userUuid || !!userData?.id) && activeTab === "massage",
-  });
-  const { data: massageBookings = [] } = useQuery({
-    queryKey: ["my-massage-bookings", userUuid, userData?.id],
-    queryFn: async () => {
-      const ids = [userUuid, userData?.id].filter(Boolean) as string[];
-      if (!ids.length) return [];
-      const { data } = await supabaseDb.from("massage_bookings").select("*, massage_providers(name), massage_slots(date, start_time, end_time)").in("user_id", ids).order("created_at", { ascending: false });
-      return data ?? [];
-    },
-    enabled: (!!userUuid || !!userData?.id) && activeTab === "massage",
   });
 
   // ── Queries ──────────────────────────────────────────────────────────────
@@ -461,7 +480,6 @@ const MySubscriptions = () => {
 
   // ── View / reschedule a single cleaning session ───────────────────────────
   const [viewBooking, setViewBooking] = useState<any | null>(null);
-  const [massageRate, setMassageRate] = useState<string | null>(null);
   const [rescheduleBooking, setRescheduleBooking] = useState<any | null>(null);
   const [rescheduleDate, setRescheduleDate] = useState("");
   const [rescheduleSlotId, setRescheduleSlotId] = useState("");
@@ -601,16 +619,12 @@ const MySubscriptions = () => {
   if (!isAuthenticated) {
     return (
       <UserLayout title="My Subs">
-        <div className="flex items-center justify-center py-20">
-          <EmptyState
+        <div className="app-container py-8">
+          <TabEmptyState
+            icon={CalendarDays}
             title="Sign in to view bookings"
-            description="Track your cleaning plans and bookings."
-            className="mx-4 max-w-sm"
-            action={
-              <Button onClick={() => openAuthModal("login", "/my-subscriptions")}>
-                Sign In
-              </Button>
-            }
+            subtitle="Track your subscriptions, bookings and payments."
+            action={{ label: "Sign In", onClick: () => openAuthModal("login", "/my-subscriptions") }}
           />
         </div>
       </UserLayout>
@@ -632,12 +646,7 @@ const MySubscriptions = () => {
       }}>
       <div className="app-container pb-28 pt-5">
 
-        {/* ── Page header ── */}
-        <div className="mb-5">
-          <h1 className="text-2xl font-black tracking-tight text-foreground sm:text-3xl">
-            My Subs
-          </h1>
-        </div>
+        {/* Page title lives in the mobile header — no inline H1 needed. */}
 
         {/* ── Service tabs ────────────────────────────────────────── */}
         <div className="mb-5 flex gap-1 overflow-x-auto rounded-2xl bg-muted/50 p-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
@@ -646,7 +655,6 @@ const MySubscriptions = () => {
             { id: "food"     as const, label: "Food",     icon: UtensilsCrossed },
             { id: "cars"     as const, label: "Cars",     icon: Car },
             { id: "beach"    as const, label: "Beach",    icon: Waves },
-            { id: "massage"  as const, label: "Massage",  icon: HeartPulse },
           ]).map(({ id, label, icon: Icon }) => {
             const active = activeTab === id;
             return (
@@ -669,15 +677,10 @@ const MySubscriptions = () => {
 
         {/* ─── FOOD tab content ──────────────────────────────────── */}
         {activeTab === "food" && (
-          <div className="space-y-3">
-            <button
-              type="button"
-              onClick={() => navigate("/food")}
-              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-card py-3 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
-            >
-              <UtensilsCrossed className="h-4 w-4" />
-              Browse Restaurants
-            </button>
+          <div className="space-y-5">
+            <TabHeaderCTA
+              primary={{ label: "Browse Restaurants", icon: UtensilsCrossed, onClick: () => navigate("/services/food") }}
+            />
 
             {foodSubscriptions
               .filter((s: any) => s.status === "active")
@@ -692,106 +695,100 @@ const MySubscriptions = () => {
             {foodSubsLoading ? (
               <Skeleton rows={3} />
             ) : foodSubscriptions.length === 0 ? (
-              <div className="flex flex-col items-center justify-center rounded-3xl bg-card py-14 text-center">
-                <ChefHat className="mb-3 h-10 w-10 text-muted-foreground/40" />
-                <p className="font-semibold text-foreground">No food subscriptions yet</p>
-                <p className="mt-1 text-sm text-muted-foreground max-w-xs">
-                  Subscribe to a weekly meal plan to see it here.
-                </p>
-              </div>
+              <TabEmptyState
+                icon={ChefHat}
+                title="No food subscriptions yet"
+                subtitle="Subscribe to a weekly meal plan to see it here."
+                action={{ label: "Browse Restaurants", onClick: () => navigate("/services/food") }}
+              />
             ) : (
-              <div className="overflow-hidden rounded-3xl bg-card divide-y divide-border/60">
-                {foodSubscriptions.map((s: any) => (
-                  <div
-                    key={s.id}
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => navigate(`/food/subscription/${s.id}`)}
-                    onKeyDown={(e) => { if (e.key === "Enter") navigate(`/food/subscription/${s.id}`); }}
-                    className="flex w-full cursor-pointer items-center gap-3 p-4 text-left transition-colors hover:bg-muted/30"
-                  >
-                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15">
-                      <UtensilsCrossed className="h-5 w-5 text-emerald-600" />
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs text-muted-foreground capitalize">{s.status}</p>
-                      <p className="font-bold text-foreground leading-tight truncate">
-                        {s.customer_name ?? "Weekly meal plan"}
-                      </p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        Started {new Date(s.started_at).toLocaleDateString()}
-                        {s.started_at && ` · Until ${foodEnd(s).toLocaleDateString()}`}
-                      </p>
-                    </div>
-                    {foodCanRenew(s) && (
-                      <Button
-                        size="sm"
-                        className="shrink-0"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (s.provider_id && s.meal_plan_id) {
-                            navigate(`/food/${s.provider_id}/plans/${s.meal_plan_id}?renew=${s.id}`);
-                          } else {
-                            navigate(`/food/subscription/${s.id}`);
-                          }
-                        }}
-                      >
-                        <RefreshCw className="h-3.5 w-3.5" />
-                        Renew
-                      </Button>
-                    )}
-                    <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  </div>
-                ))}
-              </div>
+              <SectionGroup label="Meal plans" count={foodSubscriptions.length}>
+                {foodSubscriptions.map((s: any) => {
+                  const endDate = foodEnd(s)?.toISOString().slice(0, 10) ?? null;
+                  const openRenewDialog = () => {
+                    if (!s.provider_id || !s.meal_plan_id) {
+                      navigate(`/services/food/subscription/${s.id}`);
+                      return;
+                    }
+                    const preview = computeRenewPreview(endDate, { weeks: s.commitment_weeks || 1 });
+                    if (preview) {
+                      setPendingRenewal({
+                        title: `${s.customer_name ?? "Meal plan"} · ${s.commitment_weeks || 1} week${(s.commitment_weeks || 1) > 1 ? "s" : ""}`,
+                        currentEndDate: endDate,
+                        newStartDate: preview.newStart,
+                        newEndDate: preview.newEnd,
+                        amountCents: (s.weekly_price_cents || 0) * (s.commitment_weeks || 1),
+                        targetUrl: `/services/food/${s.provider_id}/plans/${s.meal_plan_id}?renew=${s.id}`,
+                      });
+                    } else {
+                      navigate(`/services/food/${s.provider_id}/plans/${s.meal_plan_id}?renew=${s.id}`);
+                    }
+                  };
+                  return (
+                    <SubscriptionCard
+                      key={s.id}
+                      icon={UtensilsCrossed}
+                      iconTint="bg-emerald-500/15"
+                      iconColor="text-emerald-600"
+                      title={s.customer_name ?? "Weekly meal plan"}
+                      subtitle={<span className="capitalize">{s.status}</span>}
+                      metadata={s.started_at
+                        ? `Started ${new Date(s.started_at).toLocaleDateString()} · Until ${foodEnd(s).toLocaleDateString()}`
+                        : undefined}
+                      onClick={() => navigate(`/services/food/subscription/${s.id}`)}
+                      actions={foodCanRenew(s) ? [
+                        { key: "renew", label: "Renew", icon: RefreshCw, onClick: openRenewDialog, variant: "secondary" },
+                      ] : []}
+                    />
+                  );
+                })}
+              </SectionGroup>
             )}
           </div>
         )}
 
         {/* ─── CARS tab content ─────────────────────────────────── */}
         {activeTab === "cars" && (
-          <div className="space-y-3">
-            <button
-              type="button"
-              onClick={() => navigate("/cars")}
-              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-card py-3 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
-            >
-              <Car className="h-4 w-4" />
-              Browse Vehicles
-            </button>
+          <div className="space-y-5">
+            <TabHeaderCTA
+              primary={{ label: "Browse Vehicles", icon: Car, onClick: () => navigate("/services/rental") }}
+            />
 
             {rentalBookingsLoading ? (
               <Skeleton rows={3} />
             ) : rentalBookings.length === 0 ? (
-              <div className="flex flex-col items-center justify-center rounded-3xl bg-card py-14 text-center">
-                <Car className="mb-3 h-10 w-10 text-muted-foreground/40" />
-                <p className="font-semibold text-foreground">No car rentals yet</p>
-                <p className="mt-1 text-sm text-muted-foreground max-w-xs">
-                  Book a vehicle to see your rental history here.
-                </p>
-              </div>
+              <TabEmptyState
+                icon={Car}
+                title="No car rentals yet"
+                subtitle="Book a vehicle to see your rental history here."
+                action={{ label: "Browse Vehicles", onClick: () => navigate("/services/rental") }}
+              />
             ) : (
-              <div className="overflow-hidden rounded-3xl bg-card divide-y divide-border/60">
-                {rentalBookings.map((b: any) => (
-                  <div key={b.id} className="flex items-center gap-3 p-4">
-                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-orange-500/15">
-                      <Car className="h-5 w-5 text-orange-600" />
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs text-muted-foreground capitalize">
-                        {b.status} · {b.rental_days} day{b.rental_days !== 1 ? "s" : ""}
-                      </p>
-                      <p className="font-bold text-foreground leading-tight truncate">
-                        {new Date(b.start_date).toLocaleDateString()} → {new Date(b.end_date).toLocaleDateString()}
-                      </p>
-                      <p className="mt-0.5 text-xs text-muted-foreground tabular-nums">
-                        ${(b.total_cents / 100).toFixed(2)}
-                      </p>
-                    </div>
-                    <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  </div>
-                ))}
-              </div>
+              <SectionGroup label="Rentals" count={rentalBookings.length}>
+                {rentalBookings.map((b: any) => {
+                  const canRate = ["completed", "paid", "confirmed"].includes(String(b.status).toLowerCase())
+                    && b.end_date && b.end_date < new Date().toISOString().slice(0, 10);
+                  return (
+                    <SubscriptionCard
+                      key={b.id}
+                      icon={Car}
+                      iconTint="bg-orange-500/15"
+                      iconColor="text-orange-600"
+                      title={`${new Date(b.start_date).toLocaleDateString()} → ${new Date(b.end_date).toLocaleDateString()}`}
+                      subtitle={<span className="capitalize">{b.status} · {b.rental_days} day{b.rental_days !== 1 ? "s" : ""}</span>}
+                      metadata={<span className="tabular-nums">${(b.total_cents / 100).toFixed(2)}</span>}
+                      rate={canRate ? (
+                        <RateProviderButton
+                          service="rental"
+                          itemId={b.vehicle_id}
+                          subscriptionId={b.id}
+                          customerName={userData?.name || userData?.display_name}
+                        />
+                      ) : undefined}
+                    />
+                  );
+                })}
+              </SectionGroup>
             )}
           </div>
         )}
@@ -802,68 +799,83 @@ const MySubscriptions = () => {
           const hasActive = beachSubs.some((s: any) =>
             String(s.status).toLowerCase() === "active" && (!s.end_date || s.end_date >= today));
           return (
-            <div className="space-y-3">
-              <div className={cn("grid gap-2", hasActive ? "grid-cols-2" : "grid-cols-1")}>
-                <button
-                  type="button"
-                  onClick={() => navigate("/beach-club")}
-                  className="flex items-center justify-center gap-2 rounded-2xl bg-card py-3 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
-                >
-                  <Waves className="h-4 w-4" />
-                  Browse Plans
-                </button>
-                {hasActive && (
-                  <button
-                    type="button"
-                    onClick={() => navigate("/beach-club/courts")}
-                    className="flex items-center justify-center gap-2 rounded-2xl bg-foreground py-3 text-sm font-bold text-background transition-colors hover:bg-foreground/90"
-                  >
-                    <LandPlot className="h-4 w-4" />
-                    Book a court
-                  </button>
-                )}
-              </div>
+            <div className="space-y-5">
+              <TabHeaderCTA
+                primary={{ label: "Browse Plans", icon: Waves, onClick: () => navigate("/services/beach-club") }}
+                secondary={hasActive ? { label: "Book a court", icon: LandPlot, onClick: () => navigate("/services/beach-club/courts") } : undefined}
+              />
 
               {beachSubsLoading ? (
                 <Skeleton rows={3} />
               ) : beachSubs.length === 0 ? (
-                <div className="flex flex-col items-center justify-center rounded-3xl bg-card py-14 text-center">
-                  <Waves className="mb-3 h-10 w-10 text-muted-foreground/40" />
-                  <p className="font-semibold text-foreground">No memberships yet</p>
-                  <p className="mt-1 max-w-xs text-sm text-muted-foreground">
-                    Subscribe to the Beach Club to access the gym, pools and courts.
-                  </p>
-                </div>
+                <TabEmptyState
+                  icon={Waves}
+                  title="No memberships yet"
+                  subtitle="Subscribe to the Beach Club to access the gym, pools and courts."
+                  action={{ label: "Browse Plans", onClick: () => navigate("/services/beach-club") }}
+                />
               ) : (
-                <div className="overflow-hidden rounded-3xl bg-card divide-y divide-border/60">
+                <SectionGroup label="Memberships" count={beachSubs.length}>
                   {beachSubs.map((s: any) => {
                     const expired = s.end_date && s.end_date < today;
                     const st = String(s.status).toLowerCase();
                     const label = st === "active" && !expired ? "active" : expired ? "expired" : st;
+                    const canRenew = st !== "cancelled" && !!s.plan_id;
+                    const canRate = (st === "active" || expired) && !!s.plan_id;
+
+                    const openRenewDialog = () => {
+                      const startIso = s.start_date;
+                      const endIso = s.end_date;
+                      const durationDays = startIso && endIso
+                        ? Math.max(Math.round((Date.parse(`${endIso}T00:00:00Z`) - Date.parse(`${startIso}T00:00:00Z`)) / 86400000), 1)
+                        : 30;
+                      const preview = computeRenewPreview(endIso, { days: durationDays });
+                      if (preview) {
+                        setPendingRenewal({
+                          title: `${s.plan_name || "Beach Club Membership"} · ${s.people || 1} ${(s.people || 1) === 1 ? "person" : "people"}`,
+                          currentEndDate: endIso,
+                          newStartDate: preview.newStart,
+                          newEndDate: preview.newEnd,
+                          amountCents: s.total_cents || 0,
+                          targetUrl: `/services/beach-club/checkout/${s.plan_id}?renew=${s.id}`,
+                        });
+                      } else {
+                        navigate(`/services/beach-club/checkout/${s.plan_id}?renew=${s.id}`);
+                      }
+                    };
+
                     return (
-                      <div key={s.id} className="flex items-center gap-3 p-4">
-                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-cyan-500/15">
-                          <Waves className="h-5 w-5 text-cyan-400" />
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate font-bold leading-tight text-foreground">
-                            {s.plan_name || "Beach Club Membership"}
-                          </p>
-                          <p className="mt-0.5 text-xs text-muted-foreground">
-                            {s.people || 1} {(s.people || 1) === 1 ? "person" : "people"}
-                            {s.start_date && ` · ${new Date(`${s.start_date}T00:00:00`).toLocaleDateString()} → ${new Date(`${s.end_date}T00:00:00`).toLocaleDateString()}`}
-                          </p>
-                          <p className="mt-0.5 text-xs tabular-nums text-muted-foreground">
-                            ${((s.total_cents || 0) / 100).toFixed(2)}
-                          </p>
-                        </div>
-                        <Badge variant={cleaningStatusColor(label) as any} className="shrink-0 text-xs capitalize">
-                          {label}
-                        </Badge>
-                      </div>
+                      <SubscriptionCard
+                        key={s.id}
+                        icon={Waves}
+                        iconTint="bg-cyan-500/15"
+                        iconColor="text-cyan-400"
+                        title={s.plan_name || "Beach Club Membership"}
+                        subtitle={<>
+                          {s.people || 1} {(s.people || 1) === 1 ? "person" : "people"}
+                          {s.start_date && ` · ${new Date(`${s.start_date}T00:00:00`).toLocaleDateString()} → ${new Date(`${s.end_date}T00:00:00`).toLocaleDateString()}`}
+                        </>}
+                        metadata={<span className="tabular-nums">${((s.total_cents || 0) / 100).toFixed(2)}</span>}
+                        statusBadge={
+                          <Badge variant={cleaningStatusColor(label) as any} className="text-xs capitalize">
+                            {label}
+                          </Badge>
+                        }
+                        actions={canRenew ? [
+                          { key: "renew", label: "Renew", icon: RefreshCw, onClick: openRenewDialog, variant: "secondary" },
+                        ] : []}
+                        rate={canRate ? (
+                          <RateProviderButton
+                            service="beach"
+                            itemId={s.plan_id}
+                            subscriptionId={s.id}
+                            customerName={userData?.name || userData?.display_name}
+                          />
+                        ) : undefined}
+                      />
                     );
                   })}
-                </div>
+                </SectionGroup>
               )}
             </div>
           );
@@ -871,30 +883,15 @@ const MySubscriptions = () => {
 
         {/* ─── CLEANING tab content (existing) ─────────────────── */}
         {activeTab === "cleaning" && (
-        <div className="mt-5 space-y-5">
-
-            {/* Browse + (pending) set-schedule CTAs. Edit Schedule now lives in the active plan card. */}
-            <div className={cn("grid gap-2", pendingScheduleCleaningSubs.length > 0 ? "grid-cols-2" : "grid-cols-1")}>
-              <button
-                type="button"
-                onClick={() => navigate("/cleaning")}
-                className="flex items-center justify-center gap-2 rounded-2xl border border-border bg-card py-3 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
-              >
-                <SparklesIcon className="h-4 w-4" />
-                Browse Plans
-              </button>
-
-              {pendingScheduleCleaningSubs.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => navigate(`/cleaning/book?subscriptionId=${pendingScheduleCleaningSubs[0].id}`)}
-                  className="flex items-center justify-center gap-2 rounded-2xl bg-foreground py-3 text-sm font-bold text-background transition-colors hover:bg-foreground/90"
-                >
-                  <CalendarDays className="h-4 w-4" />
-                  Set Schedule
-                </button>
-              )}
-            </div>
+        <div className="space-y-5">
+            <TabHeaderCTA
+              primary={{ label: "Browse Plans", icon: SparklesIcon, onClick: () => navigate("/services/cleaning") }}
+              secondary={pendingScheduleCleaningSubs.length > 0 ? {
+                label: "Set Schedule",
+                icon: CalendarDays,
+                onClick: () => navigate(`/services/cleaning/book?subscriptionId=${pendingScheduleCleaningSubs[0].id}`),
+              } : undefined}
+            />
 
             {cleaningSubsLoading || cleaningBookingsLoading || linkedPlansLoading ? (
               <Skeleton rows={3} />
@@ -903,7 +900,7 @@ const MySubscriptions = () => {
                 {/* ── Pending schedule alert ── */}
                 {pendingScheduleCleaningSubs.length > 0 && (
                   <section className="space-y-2">
-                    <p className="type-overline text-warning">Action needed</p>
+                    <SectionOverline label="Action needed" tone="warning" />
                     {pendingScheduleCleaningSubs.map((sub) => (
                       <div
                         key={sub.id}
@@ -919,7 +916,7 @@ const MySubscriptions = () => {
                         </div>
                         <button
                           type="button"
-                          onClick={() => navigate(`/cleaning/book?subscriptionId=${sub.id}`)}
+                          onClick={() => navigate(`/services/cleaning/book?subscriptionId=${sub.id}`)}
                           className="shrink-0 rounded-full bg-foreground px-4 py-1.5 text-xs font-bold text-background"
                         >
                           Set schedule
@@ -932,56 +929,69 @@ const MySubscriptions = () => {
                 {/* ── Active plan ── */}
                 {(activeCleaningSubs.length > 0 || linkedClientPlans.length > 0 || linkedClientSubscriptions.length > 0) && (
                   <section className="space-y-2">
-                    <p className="type-overline text-muted-foreground">
-                      Active plan · {activeCleaningSubs.length + linkedClientPlans.length + linkedClientSubscriptions.length}
-                    </p>
-                    {activeCleaningSubs.map((sub) => (
-                      <div
-                        key={sub.id}
-                        className="rounded-2xl border border-border bg-card px-4 py-3"
-                      >
-                        <div className="flex items-center justify-between gap-4">
-                          <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-                              <SparklesIcon className="h-5 w-5 text-primary" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-bold text-foreground">
-                                {(sub as any).cleaning_packages?.name}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {(sub as any).recurring_day_of_week != null
-                                  ? "Weekly schedule active"
-                                  : `${sub.cleanings_remaining ?? 0} cleanings remaining`}
-                              </p>
-                            </div>
-                          </div>
-                          {(sub as any).payment_method && (
-                            <PaymentMethodBadge method={(sub as any).payment_method} />
-                          )}
-                        </div>
-                        <div className={`mt-3 grid gap-2 ${sub.package_id ? "grid-cols-2" : "grid-cols-1"}`}>
-                          <button
-                            type="button"
-                            onClick={() => navigate(`/cleaning/book?subscriptionId=${sub.id}`)}
-                            className="flex items-center justify-center gap-2 rounded-xl bg-foreground py-2.5 text-sm font-bold text-background transition-colors hover:bg-foreground/90"
-                          >
-                            <CalendarDays className="h-4 w-4" />
-                            Edit Schedule
-                          </button>
-                          {sub.package_id && (
-                            <button
-                              type="button"
-                              onClick={() => navigate(`/cleaning/checkout/${sub.package_id}?renew=${sub.id}`)}
-                              className="flex items-center justify-center gap-2 rounded-xl border border-border bg-card py-2.5 text-sm font-bold text-foreground transition-colors hover:bg-muted"
-                            >
-                              <RefreshCw className="h-4 w-4" />
-                              Renew
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+                    <SectionOverline
+                      label="Active plan"
+                      count={activeCleaningSubs.length + linkedClientPlans.length + linkedClientSubscriptions.length}
+                    />
+                    {activeCleaningSubs.map((sub) => {
+                      const openRenewDialog = () => {
+                        const preview = computeRenewPreview(sub.end_date, {
+                          months: sub.billing_period_months || 1,
+                        });
+                        if (preview) {
+                          setPendingRenewal({
+                            title: `Cleaning plan · ${sub.billing_period_months || 1} month${(sub.billing_period_months || 1) > 1 ? "s" : ""}`,
+                            currentEndDate: sub.end_date,
+                            newStartDate: preview.newStart,
+                            newEndDate: preview.newEnd,
+                            amountCents: (sub.monthly_price_cents || 0) * (sub.billing_period_months || 1),
+                            targetUrl: `/services/cleaning/checkout/${sub.package_id}?renew=${sub.id}`,
+                          });
+                        } else {
+                          navigate(`/services/cleaning/checkout/${sub.package_id}?renew=${sub.id}`);
+                        }
+                      };
+                      const actions: any[] = [
+                        {
+                          key: "edit",
+                          label: "Edit Schedule",
+                          icon: CalendarDays,
+                          variant: "primary" as const,
+                          onClick: () => navigate(`/services/cleaning/book?subscriptionId=${sub.id}`),
+                        },
+                      ];
+                      if (sub.package_id) actions.push({
+                        key: "renew",
+                        label: "Renew",
+                        icon: RefreshCw,
+                        variant: "secondary" as const,
+                        onClick: openRenewDialog,
+                      });
+                      return (
+                        <SubscriptionCard
+                          key={sub.id}
+                          icon={SparklesIcon}
+                          iconTint="bg-primary/10"
+                          iconColor="text-primary"
+                          title={(sub as any).cleaning_packages?.name}
+                          subtitle={(sub as any).recurring_day_of_week != null
+                            ? "Weekly schedule active"
+                            : `${sub.cleanings_remaining ?? 0} cleanings remaining`}
+                          statusBadge={(sub as any).payment_method
+                            ? <PaymentMethodBadge method={(sub as any).payment_method} />
+                            : undefined}
+                          actions={actions}
+                          rate={sub.package_id ? (
+                            <RateProviderButton
+                              service="cleaning"
+                              itemId={sub.package_id}
+                              subscriptionId={sub.id}
+                              customerName={userData?.name || userData?.display_name}
+                            />
+                          ) : undefined}
+                        />
+                      );
+                    })}
                     {linkedClientPlans.map((plan: any) => {
                       const hasWeeklySchedule =
                         plan.frequency_unit === "week" ||
@@ -989,58 +999,43 @@ const MySubscriptions = () => {
                         (plan.days_of_week && plan.days_of_week.length > 0) ||
                         (plan.service_frequency ?? "").toLowerCase().includes("week");
                       return (
-                        <div key={plan.id} className="flex items-center justify-between gap-4 rounded-2xl border border-border bg-card px-4 py-3">
-                          <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-                              <SparklesIcon className="h-5 w-5 text-primary" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-bold text-foreground">{plan.plan_name}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {hasWeeklySchedule ? "Weekly schedule active" : plan.custom_frequency_label || "Active plan"}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
+                        <SubscriptionCard
+                          key={plan.id}
+                          icon={SparklesIcon}
+                          iconTint="bg-primary/10"
+                          iconColor="text-primary"
+                          title={plan.plan_name}
+                          subtitle={hasWeeklySchedule ? "Weekly schedule active" : plan.custom_frequency_label || "Active plan"}
+                        />
                       );
                     })}
                     {linkedClientSubscriptions.map((sub: any) => {
                       const isPending = sub.payment_status !== "paid";
                       return (
-                        <div key={sub.id} className="rounded-2xl border border-border bg-card px-4 py-3">
-                          <div className="flex items-center justify-between gap-4">
-                            <div className="flex items-center gap-3">
-                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-                                <SparklesIcon className="h-5 w-5 text-primary" />
-                              </div>
-                              <div>
-                                <p className="text-sm font-bold text-foreground">
-                                  {sub.cleaning_packages?.name ?? "Cleaning plan"}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  {sub.recurring_day_of_week != null
-                                    ? "Weekly schedule active"
-                                    : isPending
-                                      ? "Payment pending"
-                                      : sub.cleanings_remaining != null
-                                        ? `${sub.cleanings_remaining} cleanings remaining`
-                                        : "Active plan"}
-                                </p>
-                              </div>
-                            </div>
-                            {isPending && (
-                              <Button
-                                size="sm"
-                                onClick={() => payMutation.mutate(sub.id)}
-                                loading={payMutation.isPending && payMutation.variables === sub.id}
-                                className="shrink-0"
-                              >
-                                <CreditCard className="h-3.5 w-3.5" />
-                                Pay now
-                              </Button>
-                            )}
-                          </div>
-                        </div>
+                        <SubscriptionCard
+                          key={sub.id}
+                          icon={SparklesIcon}
+                          iconTint="bg-primary/10"
+                          iconColor="text-primary"
+                          title={sub.cleaning_packages?.name ?? "Cleaning plan"}
+                          subtitle={sub.recurring_day_of_week != null
+                            ? "Weekly schedule active"
+                            : isPending
+                              ? "Payment pending"
+                              : sub.cleanings_remaining != null
+                                ? `${sub.cleanings_remaining} cleanings remaining`
+                                : "Active plan"}
+                          statusBadge={isPending ? (
+                            <Button
+                              size="sm"
+                              onClick={() => payMutation.mutate(sub.id)}
+                              loading={payMutation.isPending && payMutation.variables === sub.id}
+                            >
+                              <CreditCard className="h-3.5 w-3.5" />
+                              Pay now
+                            </Button>
+                          ) : undefined}
+                        />
                       );
                     })}
                   </section>
@@ -1048,7 +1043,7 @@ const MySubscriptions = () => {
 
                 {/* ── Door-access reminder alert ── */}
                 {(activeCleaningSubs.length > 0 || linkedClientPlans.length > 0 || linkedClientSubscriptions.length > 0) && (
-                  <div className="flex items-start gap-3 rounded-2xl border border-primary/20 bg-primary/5 px-4 py-3.5">
+                  <div className="flex items-start gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-4">
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/15">
                       <DoorOpen className="h-5 w-5 text-primary" />
                     </div>
@@ -1075,35 +1070,23 @@ const MySubscriptions = () => {
 
                 {/* ── No plan empty state ── */}
                 {activeCleaningSubs.length === 0 && pendingScheduleCleaningSubs.length === 0 && linkedClientPlans.length === 0 && linkedClientSubscriptions.length === 0 && (
-                  <div className="rounded-2xl border border-border bg-card p-8 text-center">
-                    <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
-                      <SparklesIcon className="h-6 w-6 text-muted-foreground" />
-                    </div>
-                    <p className="text-base font-bold text-foreground">No active cleaning plan</p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Choose a cleaning plan to start booking weekly sessions.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => navigate("/cleaning")}
-                      className="mt-5 inline-flex h-11 items-center justify-center rounded-full bg-foreground px-8 text-sm font-bold text-background transition-colors hover:bg-foreground/90"
-                    >
-                      View Cleaning Plans
-                    </button>
-                  </div>
+                  <TabEmptyState
+                    icon={SparklesIcon}
+                    title="No active cleaning plan"
+                    subtitle="Choose a cleaning plan to start booking weekly sessions."
+                    action={{ label: "View Cleaning Plans", onClick: () => navigate("/services/cleaning") }}
+                  />
                 )}
 
                 {/* ── Upcoming bookings ── */}
                 <section className="space-y-2">
-                  <p className="type-overline text-muted-foreground">
-                    Upcoming · {upcomingCleaningBookings.length}
-                  </p>
+                  <SectionOverline label="Upcoming" count={upcomingCleaningBookings.length} />
                   {upcomingCleaningBookings.length === 0 ? (
-                    <div className="rounded-2xl border border-border bg-card px-4 py-5 text-center text-sm text-muted-foreground">
+                    <p className="rounded-2xl bg-card p-6 text-center text-sm text-muted-foreground">
                       No upcoming cleaning sessions
-                    </div>
+                    </p>
                   ) : (
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       {upcomingCleaningBookings.map((booking) => (
                         <CleaningBookingRow
                           key={booking.id}
@@ -1122,10 +1105,8 @@ const MySubscriptions = () => {
                 {/* ── History (collapsed if long) ── */}
                 {pastCleaningBookings.length > 0 && (
                   <section className="space-y-2">
-                    <p className="type-overline text-muted-foreground">
-                      History · {pastCleaningBookings.length}
-                    </p>
-                    <div className="space-y-2">
+                    <SectionOverline label="History" count={pastCleaningBookings.length} />
+                    <div className="space-y-3">
                       {pastCleaningBookings.slice(0, 5).map((booking) => (
                         <CleaningBookingRow
                           key={booking.id}
@@ -1147,207 +1128,124 @@ const MySubscriptions = () => {
           </div>
         )}
 
-        {/* ─── MASSAGE tab content ─────────────────────────────── */}
-        {activeTab === "massage" && (
-          <div className="space-y-4">
-            <button
-              type="button"
-              onClick={() => navigate("/massage")}
-              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-card py-3 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
-            >
-              <HeartPulse className="h-4 w-4" /> Browse Massage
-            </button>
-
-            {massageLoading ? (
-              <Skeleton rows={2} />
-            ) : (
-              <>
-                <section className="space-y-2">
-                  <p className="type-overline text-muted-foreground">Subscriptions · {massageSubs.length}</p>
-                  {massageSubs.length === 0 ? (
-                    <div className="rounded-2xl border border-border bg-card px-4 py-5 text-center text-sm text-muted-foreground">No massage subscriptions yet</div>
-                  ) : massageSubs.map((s: any) => (
-                    <div key={s.id} className="rounded-2xl border border-border bg-card px-4 py-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-500/10"><HeartPulse className="h-5 w-5 text-rose-400" /></div>
-                          <div>
-                            <p className="text-sm font-bold text-foreground">{s.massage_plans?.name ?? "Massage plan"}</p>
-                            <p className="text-xs text-muted-foreground">{s.massage_providers?.name ?? ""}</p>
-                          </div>
-                        </div>
-                        <Badge variant={cleaningStatusColor(s.status) as any} className="shrink-0 text-xs capitalize">{s.status === "pending" ? "pending" : s.status}</Badge>
-                      </div>
-                    </div>
-                  ))}
-                </section>
-
-                <section className="space-y-2">
-                  <p className="type-overline text-muted-foreground">Sessions · {massageBookings.length}</p>
-                  {massageBookings.length === 0 ? (
-                    <div className="rounded-2xl border border-border bg-card px-4 py-5 text-center text-sm text-muted-foreground">No booked sessions</div>
-                  ) : massageBookings.map((b: any) => {
-                    const sessionDate = b.massage_slots?.date ? new Date(b.massage_slots.date + "T23:59:59") : null;
-                    const canRate = b.status === "completed" || (sessionDate && isPast(sessionDate));
-                    return (
-                    <div key={b.id} className="rounded-2xl border border-border bg-card px-4 py-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-500/10"><CalendarDays className="h-4 w-4 text-rose-400" /></div>
-                          <div>
-                            <p className="text-sm font-bold text-foreground">
-                              {b.massage_slots?.date ? format(new Date(b.massage_slots.date + "T00:00:00"), "EEE, MMM d") : "—"}
-                              {b.massage_slots?.start_time ? ` · ${fmtTime(b.massage_slots.start_time)}–${fmtTime(b.massage_slots.end_time)}` : ""}
-                            </p>
-                            <p className="text-xs text-muted-foreground">{b.massage_providers?.name ?? ""}</p>
-                          </div>
-                        </div>
-                        <div className="flex shrink-0 items-center gap-2">
-                          <Badge variant={cleaningStatusColor(canRate ? "completed" : b.status) as any} className="text-xs capitalize">{canRate ? "completed" : b.status}</Badge>
-                          {canRate && (
-                            <Button size="sm" variant="outline" className="gap-1.5 rounded-full" onClick={() => setMassageRate(massageRate === b.id ? null : b.id)}>
-                              <Star className="h-3.5 w-3.5" /> Rate & tip
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                      {canRate && massageRate === b.id && (
-                        <MassageRateAndTip bookingId={b.id} providerId={b.provider_id} customerName={userData?.name ?? userData?.display_name} />
-                      )}
-                    </div>
-                    );
-                  })}
-                </section>
-              </>
-            )}
-          </div>
-        )}
       </div>
 
       {/* ── View cleaning session ── */}
-      <Dialog open={!!viewBooking} onOpenChange={(open) => !open && setViewBooking(null)}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <CalendarDays className="h-5 w-5 text-primary" />
-              Cleaning session
-            </DialogTitle>
-          </DialogHeader>
-          {viewBooking && (
-            <div className="space-y-3 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Date</span>
-                <span className="font-semibold text-foreground">
-                  {viewBooking.cleaning_available_slots?.date
-                    ? format(new Date(viewBooking.cleaning_available_slots.date + "T00:00:00"), "EEEE, MMM d, yyyy")
-                    : "—"}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Time</span>
-                <span className="font-semibold text-foreground">
-                  {viewBooking.cleaning_available_slots?.start_time
-                    ? `${fmtTime(viewBooking.cleaning_available_slots.start_time)} – ${fmtTime(viewBooking.cleaning_available_slots.end_time)}`
-                    : "—"}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Status</span>
-                <Badge variant={cleaningStatusColor(viewBooking.status) as any} className="text-xs capitalize">
-                  {viewBooking.status}
-                </Badge>
-              </div>
-              {viewBooking.notes && (
-                <div className="rounded-xl bg-muted/40 p-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Notes</p>
-                  <p className="mt-1 whitespace-pre-wrap text-foreground">{viewBooking.notes}</p>
-                </div>
-              )}
-              {viewBooking.status === "booked" && !isPast(new Date(viewBooking.cleaning_available_slots?.date + "T23:59:59")) && (
-                <Button
-                  className="w-full"
-                  onClick={() => { const b = viewBooking; setViewBooking(null); openReschedule(b); }}
-                >
-                  <CalendarClock className="h-4 w-4" />
-                  Reschedule this cleaning
-                </Button>
-              )}
-              {viewBooking.status === "completed" && (
-                <CleaningRateAndTip bookingId={viewBooking.id} customerName={userData?.name ?? userData?.display_name} />
-              )}
+      <ResponsiveDialog
+        open={!!viewBooking}
+        onOpenChange={(open) => !open && setViewBooking(null)}
+        title={<span className="flex items-center gap-2"><CalendarDays className="h-5 w-5 text-primary" />Cleaning session</span>}
+      >
+        {viewBooking && (
+          <div className="space-y-3 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Date</span>
+              <span className="font-semibold text-foreground">
+                {viewBooking.cleaning_available_slots?.date
+                  ? format(new Date(viewBooking.cleaning_available_slots.date + "T00:00:00"), "EEEE, MMM d, yyyy")
+                  : "—"}
+              </span>
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Time</span>
+              <span className="font-semibold text-foreground">
+                {viewBooking.cleaning_available_slots?.start_time
+                  ? `${fmtTime(viewBooking.cleaning_available_slots.start_time)} – ${fmtTime(viewBooking.cleaning_available_slots.end_time)}`
+                  : "—"}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Status</span>
+              <Badge variant={cleaningStatusColor(viewBooking.status) as any} className="text-xs capitalize">
+                {viewBooking.status}
+              </Badge>
+            </div>
+            {viewBooking.notes && (
+              <div className="rounded-xl bg-muted/40 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Notes</p>
+                <p className="mt-1 whitespace-pre-wrap text-foreground">{viewBooking.notes}</p>
+              </div>
+            )}
+            {viewBooking.status === "booked" && !isPast(new Date(viewBooking.cleaning_available_slots?.date + "T23:59:59")) && (
+              <Button
+                className="w-full"
+                onClick={() => { const b = viewBooking; setViewBooking(null); openReschedule(b); }}
+              >
+                <CalendarClock className="h-4 w-4" />
+                Reschedule this cleaning
+              </Button>
+            )}
+            {viewBooking.status === "completed" && (
+              <CleaningRateAndTip bookingId={viewBooking.id} customerName={userData?.name ?? userData?.display_name} />
+            )}
+          </div>
+        )}
+      </ResponsiveDialog>
 
       {/* ── Reschedule cleaning session ── */}
-      <Dialog open={!!rescheduleBooking} onOpenChange={(open) => { if (!open) { setRescheduleBooking(null); setRescheduleSlotId(""); } }}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <CalendarClock className="h-5 w-5 text-primary" />
-              Reschedule cleaning
-            </DialogTitle>
-            <DialogDescription>
-              Pick a new date and an available time slot. Your cleaning credit and calendar update automatically.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <label className="text-xs font-semibold text-muted-foreground">Date</label>
-              <input
-                type="date"
-                value={rescheduleDate}
-                min={format(new Date(), "yyyy-MM-dd")}
-                onChange={(e) => { setRescheduleDate(e.target.value); setRescheduleSlotId(""); }}
-                className="mt-1 w-full rounded-xl border border-border bg-card px-3 py-2.5 text-sm text-foreground"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-muted-foreground">Available time slots</label>
-              {rescheduleSlotsLoading ? (
-                <div className="mt-2"><Spinner size="sm" /></div>
-              ) : rescheduleSlots.length === 0 ? (
-                <p className="mt-2 rounded-xl border border-border bg-card px-3 py-4 text-center text-sm text-muted-foreground">
-                  {rescheduleDate ? "No open slots on this date." : "Choose a date to see slots."}
-                </p>
-              ) : (
-                <div className="mt-2 grid grid-cols-2 gap-2">
-                  {rescheduleSlots.map((slot: any) => {
-                    const selected = rescheduleSlotId === slot.id;
-                    const current = slot.id === (rescheduleBooking?.slot_id);
-                    return (
-                      <button
-                        key={slot.id}
-                        type="button"
-                        disabled={current}
-                        onClick={() => setRescheduleSlotId(slot.id)}
-                        className={cn(
-                          "rounded-xl border px-3 py-2.5 text-sm font-semibold transition-colors disabled:opacity-40",
-                          selected
-                            ? "border-primary bg-primary/10 text-primary"
-                            : "border-border bg-card text-foreground hover:bg-muted",
-                        )}
-                      >
-                        {fmtTime(slot.start_time)}
-                        {current && <span className="block text-[10px] font-normal text-muted-foreground">current</span>}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-            <Button
-              className="w-full"
-              disabled={!rescheduleSlotId || rescheduleMutation.isPending}
-              onClick={() => rescheduleMutation.mutate()}
-            >
-              {rescheduleMutation.isPending && <Spinner size="sm" className="mr-2" />}
-              Confirm reschedule
-            </Button>
+      <ResponsiveDialog
+        open={!!rescheduleBooking}
+        onOpenChange={(open) => { if (!open) { setRescheduleBooking(null); setRescheduleSlotId(""); } }}
+        title={<span className="flex items-center gap-2"><CalendarClock className="h-5 w-5 text-primary" />Reschedule cleaning</span>}
+        description="Pick a new date and an available time slot. Your cleaning credit and calendar update automatically."
+        footer={
+          <Button
+            className="w-full"
+            disabled={!rescheduleSlotId || rescheduleMutation.isPending}
+            onClick={() => rescheduleMutation.mutate()}
+          >
+            {rescheduleMutation.isPending && <Spinner size="sm" className="mr-2" />}
+            Confirm reschedule
+          </Button>
+        }
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="text-xs font-semibold text-muted-foreground">Date</label>
+            <input
+              type="date"
+              value={rescheduleDate}
+              min={format(new Date(), "yyyy-MM-dd")}
+              onChange={(e) => { setRescheduleDate(e.target.value); setRescheduleSlotId(""); }}
+              className="mt-1 w-full rounded-xl border border-border bg-card px-3 py-2.5 text-sm text-foreground"
+            />
           </div>
-        </DialogContent>
-      </Dialog>
+          <div>
+            <label className="text-xs font-semibold text-muted-foreground">Available time slots</label>
+            {rescheduleSlotsLoading ? (
+              <div className="mt-2"><Spinner size="sm" /></div>
+            ) : rescheduleSlots.length === 0 ? (
+              <p className="mt-2 rounded-xl border border-border bg-card px-3 py-4 text-center text-sm text-muted-foreground">
+                {rescheduleDate ? "No open slots on this date." : "Choose a date to see slots."}
+              </p>
+            ) : (
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                {rescheduleSlots.map((slot: any) => {
+                  const selected = rescheduleSlotId === slot.id;
+                  const current = slot.id === (rescheduleBooking?.slot_id);
+                  return (
+                    <button
+                      key={slot.id}
+                      type="button"
+                      disabled={current}
+                      onClick={() => setRescheduleSlotId(slot.id)}
+                      className={cn(
+                        "rounded-xl border px-3 py-2.5 text-sm font-semibold transition-colors disabled:opacity-40",
+                        selected
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border bg-card text-foreground hover:bg-muted",
+                      )}
+                    >
+                      {fmtTime(slot.start_time)}
+                      {current && <span className="block text-[10px] font-normal text-muted-foreground">current</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </ResponsiveDialog>
 
       {/* ── Lightning payment dialog ── */}
       <Dialog open={!!paymentDialog} onOpenChange={(open) => !open && setPaymentDialog(null)}>
@@ -1392,6 +1290,21 @@ const MySubscriptions = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Shared renewal confirmation dialog — shows current + new period + amount
+          before we push the user into any service's checkout. */}
+      {pendingRenewal && (
+        <RenewPreviewDialog
+          open={!!pendingRenewal}
+          onOpenChange={(o) => { if (!o) setPendingRenewal(null); }}
+          title={pendingRenewal.title}
+          currentEndDate={pendingRenewal.currentEndDate}
+          newStartDate={pendingRenewal.newStartDate}
+          newEndDate={pendingRenewal.newEndDate}
+          amountCents={pendingRenewal.amountCents}
+          onConfirm={() => navigate(pendingRenewal.targetUrl)}
+        />
+      )}
       </PullToRefresh>
     </UserLayout>
   );

@@ -1392,8 +1392,16 @@ export const supabase = {
           })
           .eq("id", subscriptionId);
 
-        // Auto-sync all created bookings to Google Calendar
-        api("/admin/cleaning/bookings/sync-calendar", { method: "POST" }).catch(() => {});
+        // Auto-sync all created bookings to Google Calendar. Uses the
+        // account-scoped endpoint so regular buyers (not just admins) trigger
+        // it — otherwise the admin route 401s silently and events only land on
+        // the next daily cron run.
+        if (generatedBookings.length > 0) {
+          api(
+            `/account/cleaning/subscriptions/${encodeURIComponent(subscriptionId)}/sync-bookings`,
+            { method: "POST" },
+          ).catch(() => {});
+        }
 
         return {
           data: {

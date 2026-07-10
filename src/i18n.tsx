@@ -49,6 +49,37 @@ const en = {
   "profile.updateFailed": "Failed to update profile",
   "profile.openProfile": "Open profile",
   "profile.viewAsUser": "View as user",
+
+  // ── Discovery
+  "discovery.village": "PROSPERA VILLAGE",
+  "discovery.greeting": "Hi, {name}",
+  "discovery.prompt": "What can we do for you?",
+  "discovery.services": "Services",
+  "discovery.mySubs": "My Subs",
+  "discovery.myBusiness": "My Business",
+  "discovery.manageBusinesses": "Manage your businesses",
+  "discovery.becomeProvider": "Become a provider",
+  "discovery.offerService": "Offer your service on ProsperaSub",
+
+  // ── Verify access
+  "verify.granted": "Access granted",
+  "verify.denied": "No access",
+  "verify.invalidTitle": "Invalid QR code",
+  "verify.invalidSubtitle": "This code is missing or expired.",
+  "verify.whatToDo": "What to do:",
+  "verify.hintRefresh": "Codes refresh every few minutes. Ask the customer to open My Subs and show a fresh one.",
+  "verify.hintSignIn": "If the customer isn't signed in, they need to sign in first to generate a QR.",
+  "verify.openApp": "Open ProsperaSub",
+  "verify.activeAccess": "Active access",
+  "verify.noActive": "No active subscriptions",
+
+  // ── Empty states (shared across services)
+  "empty.settingUp": "We're setting things up. Check back soon.",
+
+  // ── Query error
+  "error.couldntLoad": "Couldn't load this",
+  "error.retry": "Retry",
+  "error.retrying": "Retrying…",
 } as const;
 
 export type TranslationKey = keyof typeof en;
@@ -98,6 +129,37 @@ const es: Record<TranslationKey, string> = {
   "profile.updateFailed": "No se pudo actualizar el perfil",
   "profile.openProfile": "Abrir perfil",
   "profile.viewAsUser": "Ver como usuario",
+
+  // ── Discovery
+  "discovery.village": "PROSPERA VILLAGE",
+  "discovery.greeting": "Hola, {name}",
+  "discovery.prompt": "¿En qué podemos ayudarte?",
+  "discovery.services": "Servicios",
+  "discovery.mySubs": "Mis Subs",
+  "discovery.myBusiness": "Mi Negocio",
+  "discovery.manageBusinesses": "Gestiona tus negocios",
+  "discovery.becomeProvider": "Ser proveedor",
+  "discovery.offerService": "Ofrece tu servicio en ProsperaSub",
+
+  // ── Verify access
+  "verify.granted": "Acceso concedido",
+  "verify.denied": "Sin acceso",
+  "verify.invalidTitle": "Código QR inválido",
+  "verify.invalidSubtitle": "Este código no está disponible o ha expirado.",
+  "verify.whatToDo": "Qué hacer:",
+  "verify.hintRefresh": "Los códigos se renuevan cada pocos minutos. Pide al cliente que abra Mis Subs y muestre uno nuevo.",
+  "verify.hintSignIn": "Si el cliente no ha iniciado sesión, debe hacerlo antes para generar un QR.",
+  "verify.openApp": "Abrir ProsperaSub",
+  "verify.activeAccess": "Acceso activo",
+  "verify.noActive": "Sin suscripciones activas",
+
+  // ── Empty states
+  "empty.settingUp": "Estamos preparando todo. Vuelve pronto.",
+
+  // ── Query error
+  "error.couldntLoad": "No se pudo cargar",
+  "error.retry": "Reintentar",
+  "error.retrying": "Reintentando…",
 };
 
 const dictionaries: Record<LanguageCode, Record<TranslationKey, string>> = { en, es };

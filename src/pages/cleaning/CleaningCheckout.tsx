@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { CheckoutStickyFooter } from "@/components/patterns/CheckoutStickyFooter";
 import { Textarea } from "@/components/ui/textarea";
 
 import { Label } from "@/components/ui/label";
@@ -8,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Zap, CheckCircle2, RefreshCw, Wallet, Bitcoin } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase, supabaseDb } from "@/integrations/supabase/client";
+import { accountApi, supabase, supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { LocationPicker } from "@/components/account/SavedLocations";
 import { toast } from "sonner";
@@ -181,12 +182,36 @@ const CleaningCheckout = () => {
     }
   };
 
+  // Stable idempotency key per checkout attempt — reused across polling retries
+  // so a duplicate /renew call returns the same outcome (no double-extension).
+  const renewIdempotencyKeyRef = useRef<string | null>(null);
+
   const createSubscriptionMutation = useMutation({
     mutationFn: async (options: { paymentRef: string; status: "paid" | "pending"; method: "lightning" | "fiat" | "crypto" | "onchain" | "paypal"; satsAmount: number }) => {
       if (!pkg) throw new Error("Missing package data");
       if (!userData?.email) throw new Error("Not authenticated");
       const cleanedApartmentNote = apartmentNote.trim();
       if (!cleanedApartmentNote) throw new Error("Apartment number is required.");
+
+      // Renewal path: extend the existing sub via the backend renewal endpoint
+      // instead of inserting a duplicate row. Server verifies the payment with
+      // the actual provider (Blink / SimpleFi / PayPal) so a stolen JWT can't
+      // renew for free, and the idempotency key makes retries safe.
+      if (renewFromSubId && options.status === "paid") {
+        const idempotencyKey = renewIdempotencyKeyRef.current || crypto.randomUUID();
+        renewIdempotencyKeyRef.current = idempotencyKey;
+        const { error } = await accountApi(`/account/cleaning/subscriptions/${renewFromSubId}/renew`, {
+          method: "POST",
+          body: JSON.stringify({
+            payment_method: options.method === "fiat" ? "paypal" : options.method,
+            payment_reference: options.paymentRef,
+            amount_cents: totalCents,
+            idempotency_key: idempotencyKey,
+          }),
+        });
+        if (error) throw error;
+        return { id: renewFromSubId, service_start_date: null, service_end_date: null, paid_until: null, payment_reference: options.paymentRef };
+      }
 
       const patch = {
         payment_status: options.status,
@@ -414,10 +439,10 @@ const CleaningCheckout = () => {
   };
 
   return (
-    <UserLayout title="Checkout" showBackButton backTo="/cleaning" showBottomNav={false}>
+    <UserLayout title="Checkout" showBackButton backTo="/services/cleaning" showBottomNav={false}>
       <Sheet open={showSuccess} onOpenChange={(open) => {
         if (!open && createdSubscriptionId) {
-          navigate(`/cleaning/book?subscriptionId=${createdSubscriptionId}`);
+          navigate(`/services/cleaning/book?subscriptionId=${createdSubscriptionId}`);
         }
       }}>
         <SheetContent side="bottom" className="rounded-t-3xl px-space-6 pb-space-8 pt-space-6">
@@ -437,7 +462,7 @@ const CleaningCheckout = () => {
             size="xl"
             onClick={() => {
               if (createdSubscriptionId) {
-                navigate(`/cleaning/book?subscriptionId=${createdSubscriptionId}`);
+                navigate(`/services/cleaning/book?subscriptionId=${createdSubscriptionId}`);
               }
             }}
           >
@@ -538,10 +563,14 @@ const CleaningCheckout = () => {
                 <h2 className="text-xl font-black tracking-tight text-foreground">Apartment details</h2>
                 <p className="mt-0.5 text-sm text-muted-foreground">Required so the cleaning team can find your unit.</p>
                 <div className="mt-4">
-                  <LocationPicker userId={userData?.id} onPick={(line) => {
-                    setApartmentNote(line);
-                    if (apartmentNoteError && line.trim()) setApartmentNoteError("");
-                  }} />
+                  <LocationPicker
+                    userId={userData?.id}
+                    value={apartmentNote}
+                    onPick={(line) => {
+                      setApartmentNote(line);
+                      if (apartmentNoteError && line.trim()) setApartmentNoteError("");
+                    }}
+                  />
                   <Textarea
                     id="cleaning-apartment-note"
                     label="Apartment / unit number"
@@ -683,38 +712,43 @@ const CleaningCheckout = () => {
         )}
       </div>
 
-      {/* ─── Sticky bottom CTA (matches step 1) ─── */}
+      {/* ─── Sticky bottom CTA — unified pattern across all checkouts ─── */}
       {pkg && !showPayment && (
-        <div
-          className="fixed inset-x-0 bottom-0 z-40 bg-background/95 backdrop-blur md:left-[var(--sidebar-width,0px)]"
-          style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
-        >
-          <div className="market-content px-4 py-3">
-            <Button
-              size="lg"
-              className="w-full h-14 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-base"
-              onClick={generateInvoice}
-              loading={isGenerating}
-              disabled={isGenerating || ((paymentMethod === "lightning" || paymentMethod === "onchain") && (isPriceLoading || !btcPrice))}
-            >
-              {paymentMethod === "lightning" ? (
-                <>
-                  {!isGenerating && <Zap className="h-5 w-5" />}
-                  {isGenerating ? "Generating Invoice..." : isPriceLoading ? "Loading rate..." : `Pay ${estimatedSats.toLocaleString()} sats`}
-                </>
-              ) : paymentMethod === "onchain" ? (
-                <>
-                  {!isGenerating && <Bitcoin className="h-5 w-5" />}
-                  {isGenerating ? "Generating address..." : isPriceLoading ? "Loading rate..." : `Pay ${estimatedSats.toLocaleString()} sats on-chain`}
-                </>
-              ) : paymentMethod === "paypal" ? (
-                "Continue with PayPal"
-              ) : (
-                isGenerating ? "Creating Payment..." : `Pay ${formatUSD(effectiveTotalCents)} with LIVES`
-              )}
-            </Button>
-          </div>
-        </div>
+        <CheckoutStickyFooter>
+          {enabledMethods.length === 0 && (
+            <p className="mb-2 rounded-xl bg-amber-500/10 px-3 py-2 text-center text-xs text-amber-400">
+              Payments are temporarily unavailable. Try again in a few minutes.
+            </p>
+          )}
+          <Button
+            size="lg"
+            className="w-full h-14 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-base"
+            onClick={generateInvoice}
+            loading={isGenerating}
+            disabled={
+              isGenerating ||
+              enabledMethods.length === 0 ||
+              !enabledMethods.includes(paymentMethod) ||
+              ((paymentMethod === "lightning" || paymentMethod === "onchain") && (isPriceLoading || !btcPrice))
+            }
+          >
+            {paymentMethod === "lightning" ? (
+              <>
+                {!isGenerating && <Zap className="h-5 w-5" />}
+                {isGenerating ? "Generating Invoice..." : isPriceLoading ? "Loading rate..." : `Pay ${estimatedSats.toLocaleString()} sats`}
+              </>
+            ) : paymentMethod === "onchain" ? (
+              <>
+                {!isGenerating && <Bitcoin className="h-5 w-5" />}
+                {isGenerating ? "Generating address..." : isPriceLoading ? "Loading rate..." : `Pay ${estimatedSats.toLocaleString()} sats on-chain`}
+              </>
+            ) : paymentMethod === "paypal" ? (
+              "Continue with PayPal"
+            ) : (
+              isGenerating ? "Creating Payment..." : `Pay ${formatUSD(effectiveTotalCents)} with LIVES`
+            )}
+          </Button>
+        </CheckoutStickyFooter>
       )}
     </UserLayout>
   );

@@ -180,7 +180,7 @@ const AdsManagement = () => {
   const canSave = form.title.trim() && form.label.trim() && form.link_url.trim();
 
   return (
-    <SuperAdminLayout title="Ads">
+    <SuperAdminLayout title="Ads" subtitle="Home-page promo banners shown to users">
       <div className="max-w-3xl space-y-space-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-muted-foreground">Promotional banners shown across the site. Only the highest-priority active ad per placement is displayed.</p>

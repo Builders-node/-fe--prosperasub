@@ -15,6 +15,8 @@ import { supabase, supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserUuid } from "@/hooks/useUserUuid";
 import { cn } from "@/lib/utils";
+import { resolvePlanBookingSettings } from "@/lib/booking/resolvePlanSettings";
+import { mondayFirstIndex, toMinutes } from "@/lib/booking/bookingSettings";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -230,9 +232,12 @@ const CleaningBook = () => {
       if (!subs?.length) return [];
 
       const pkgIds = [...new Set(subs.map((s: any) => s.package_id).filter(Boolean))];
+      // `booking_settings` (nullable JSONB) is the per-plan calendar override.
+      // NULL = inherit provider calendar; when set, we filter slots below so
+      // the user only sees times allowed by this specific plan.
       const { data: pkgs } = await supabaseDb
         .from("cleaning_packages")
-        .select("id, name, cleanings_per_month, frequency_unit, frequency_count, custom_frequency_label")
+        .select("id, name, cleanings_per_month, frequency_unit, frequency_count, custom_frequency_label, booking_settings, provider_id")
         .in("id", pkgIds);
       const pkgMap = new Map((pkgs ?? []).map((p: any) => [p.id, p]));
 
@@ -244,7 +249,7 @@ const CleaningBook = () => {
     enabled: isAuthenticated && !!userUuid,
   });
 
-  const { data: slots, isLoading: slotsLoading } = useQuery({
+  const { data: rawSlots, isLoading: slotsLoading } = useQuery({
     queryKey: ["cleaning-slots-schedule"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -257,6 +262,70 @@ const CleaningBook = () => {
       return data || [];
     },
   });
+
+  // Fetch the parent provider's booking calendar so plans without an override
+  // fall through to the provider-level schedule when we filter slots below.
+  const { data: providerSettings } = useQuery({
+    queryKey: ["cleaning-provider-booking-settings"],
+    queryFn: async () => {
+      const { data } = await supabaseDb
+        .from("providers")
+        .select("booking_settings")
+        .eq("archetype_key", "cleaning")
+        .eq("status", "active")
+        .limit(1)
+        .maybeSingle();
+      return data?.booking_settings ?? null;
+    },
+  });
+
+  // Apply the effective plan/provider calendar as a *filter* on top of the
+  // pre-seeded `cleaning_available_slots` rows. Slots remain the source of
+  // truth for capacity — we just hide any that fall on a closed weekday,
+  // outside the plan's working window, inside the min-notice cutoff, or
+  // beyond the max-advance horizon.
+  const slots = useMemo(() => {
+    if (!rawSlots) return rawSlots;
+    const plan = subscriptions?.find((s: any) => s.id === selectedSubId)?.cleaning_packages;
+    if (!plan && !providerSettings) return rawSlots;
+    const settings = resolvePlanBookingSettings(plan, { booking_settings: providerSettings });
+
+    // Temporal cutoffs — always evaluated in Honduras time to match slot rows.
+    const now = todayHN() as unknown as Date; // nowHN not exported here; use current Date semantics for cutoffs
+    const currentMs = Date.now();
+    const noticeCutoffMs = currentMs + settings.minNoticeHours * 3600_000;
+    const advanceCutoffMs = currentMs + settings.maxAdvanceDays * 86400_000;
+    void now;
+
+    return rawSlots.filter((slot: any) => {
+      // Full-day block? Hide.
+      if (settings.blockedDates.includes(slot.date)) return false;
+      const [y, m, d] = String(slot.date).split("-").map(Number);
+      const day = settings.weekly[mondayFirstIndex(new Date(y, (m ?? 1) - 1, d ?? 1).getDay())];
+      if (!day?.enabled) return false;
+      const start = toMinutes(String(slot.start_time).slice(0, 5));
+      const end = toMinutes(String(slot.end_time).slice(0, 5));
+      const open = toMinutes(day.from);
+      const close = toMinutes(day.to);
+      if (Number.isNaN(start) || Number.isNaN(end)) return true; // keep on parse error
+      if (start < open || end > close) return false;
+      // Temporal cutoffs: minNoticeHours (can't book too soon) and
+      // maxAdvanceDays (can't book too far ahead).
+      const slotStartMs = new Date(`${slot.date}T${String(slot.start_time).slice(0, 5)}:00`).getTime();
+      if (!Number.isNaN(slotStartMs)) {
+        if (slotStartMs < noticeCutoffMs) return false;
+        if (slotStartMs > advanceCutoffMs) return false;
+      }
+      // Time-range block?
+      const blocked = settings.blockedRanges.some((r) => {
+        if (r.date !== slot.date) return false;
+        const bf = toMinutes(r.from);
+        const bt = toMinutes(r.to);
+        return !Number.isNaN(bf) && !Number.isNaN(bt) && start < bt && end > bf;
+      });
+      return !blocked;
+    });
+  }, [rawSlots, subscriptions, selectedSubId, providerSettings]);
 
   const { data: myBookings } = useQuery({
     queryKey: ["my-cleaning-bookings-schedule", selectedSubId],
@@ -444,7 +513,7 @@ const CleaningBook = () => {
                 Pay for a cleaning plan first. Scheduling opens after payment is confirmed.
               </p>
               <Button
-                onClick={() => navigate("/cleaning")}
+                onClick={() => navigate("/services/cleaning")}
                 className="w-full rounded-full bg-foreground text-background hover:bg-foreground/90"
               >
                 View cleaning plans
