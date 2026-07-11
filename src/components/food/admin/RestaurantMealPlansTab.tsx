@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Edit, Trash2, Eye, EyeOff, X } from "lucide-react";
 import { SectionOverline } from "@/components/subscriptions/MySubsPrimitives";
+import { DIETARY_TAG_KEYS, DIETARY_TAGS, type DietaryTag } from "@/lib/foodDietaryTags";
+import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -37,6 +39,7 @@ const EMPTY_FORM = {
   meals_per_week: 5,
   days_per_week: 5,
   highlights: ["", "", "", ""] as string[],
+  dietary_tags: [] as DietaryTag[],
   status: "active" as const,
   sort_order: 0,
 };
@@ -108,6 +111,9 @@ export function RestaurantMealPlansTab({ providerId }: Props) {
       meals_per_week: plan.meals_per_week,
       days_per_week: plan.days_per_week,
       highlights: [highlights[0] ?? "", highlights[1] ?? "", highlights[2] ?? "", highlights[3] ?? ""],
+      dietary_tags: ((plan as any).dietary_tags ?? []).filter(
+        (t: unknown): t is DietaryTag => typeof t === "string" && (DIETARY_TAG_KEYS as string[]).includes(t),
+      ),
       status: plan.status,
       sort_order: plan.sort_order,
     });
@@ -129,6 +135,7 @@ export function RestaurantMealPlansTab({ providerId }: Props) {
         meals_per_week: form.meals_per_week,
         days_per_week: form.days_per_week,
         highlights: highlights.length > 0 ? highlights : null,
+        dietary_tags: form.dietary_tags.length > 0 ? form.dietary_tags : null,
         status: form.status,
         sort_order: form.sort_order,
         updated_at: new Date().toISOString(),
@@ -327,6 +334,48 @@ export function RestaurantMealPlansTab({ providerId }: Props) {
                     ...f,
                     weekly_price_cents: Math.round(parseFloat(e.target.value || "0") * 100),
                   }))} />
+              </div>
+            </section>
+
+            {/* ── Dietary tags — multi-select chip picker. Fixed vocab lives
+                   in lib/foodDietaryTags.ts and mirrors the DB CHECK. */}
+            <section className="space-y-3">
+              <SectionOverline
+                label="Dietary type"
+                count={form.dietary_tags.length > 0 ? String(form.dietary_tags.length) : undefined}
+              />
+              <p className="text-xs text-muted-foreground">
+                Tag this plan so customers can filter by diet (Keto, Vegan, Gym, …). Pick zero or more.
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {DIETARY_TAG_KEYS.map((key) => {
+                  const meta = DIETARY_TAGS[key];
+                  const Icon = meta.icon;
+                  const on = form.dietary_tags.includes(key);
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() =>
+                        setForm((f) => ({
+                          ...f,
+                          dietary_tags: on
+                            ? f.dietary_tags.filter((t) => t !== key)
+                            : [...f.dietary_tags, key],
+                        }))
+                      }
+                      className={cn(
+                        "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
+                        on
+                          ? `${meta.tint} ring-1 ring-primary/40`
+                          : "bg-muted/40 text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                      {meta.label}
+                    </button>
+                  );
+                })}
               </div>
             </section>
 

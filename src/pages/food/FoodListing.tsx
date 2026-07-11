@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import {
@@ -16,6 +16,8 @@ import {
 import { useSelectedResidence } from "@/contexts/LocationContext";
 import { useResidences } from "@/hooks/useResidences";
 import type { FoodProvider, FoodMealPlan } from "@/types/food";
+import { DIETARY_TAGS, dietaryTagMeta, type DietaryTag } from "@/lib/foodDietaryTags";
+import { cn } from "@/lib/utils";
 
 type PlanWithResidences = FoodMealPlan & { residenceIds: string[] };
 type ProviderWithPlans = FoodProvider & {
@@ -107,6 +109,28 @@ const FoodListing = () => {
     p.plans.map((plan) => ({ plan, provider: p })),
   );
 
+  // Dietary filter — customer taps Keto → we hide plans without that tag.
+  // Only surface filter chips for tags at least one plan actually carries; a
+  // filter row filled with unavailable options is pure clutter.
+  const [dietaryFilter, setDietaryFilter] = useState<DietaryTag | null>(null);
+  const availableTags = useMemo<DietaryTag[]>(() => {
+    const seen = new Set<string>();
+    allPlans.forEach(({ plan }) => {
+      const tags = (plan as any).dietary_tags as string[] | null | undefined;
+      tags?.forEach((t) => { if (dietaryTagMeta(t)) seen.add(t); });
+    });
+    // Preserve canonical order from the registry so chips don't reshuffle when
+    // a provider adds a new plan.
+    return (Object.keys(DIETARY_TAGS) as DietaryTag[]).filter((k) => seen.has(k));
+  }, [allPlans]);
+
+  const filteredPlans = dietaryFilter
+    ? allPlans.filter(({ plan }) => {
+        const tags = ((plan as any).dietary_tags ?? []) as string[];
+        return tags.includes(dietaryFilter);
+      })
+    : allPlans;
+
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-12">
       <HomeHeader title="Food" showBackButton onBack={() => navigate("/discovery")} />
@@ -170,21 +194,75 @@ const FoodListing = () => {
         {/* ─── Meal Plans ──────────────────────────────────────────── */}
         {allPlans.length > 0 && (
           <>
-            <h2 className="mb-4 mt-space-8 text-xl font-black tracking-tight text-foreground">
+            <h2 className="mb-3 mt-space-8 text-xl font-black tracking-tight text-foreground">
               Meal Plans
-              <span className="ml-2 text-base font-normal text-muted-foreground">({allPlans.length})</span>
+              <span className="ml-2 text-base font-normal text-muted-foreground">
+                ({dietaryFilter ? filteredPlans.length : allPlans.length})
+              </span>
             </h2>
-            <div className="grid gap-3 md:gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {allPlans.map(({ plan, provider }) => (
-                <MealPlanCard
-                  key={plan.id}
-                  plan={plan}
-                  providerName={provider.name}
-                  images={planImages[plan.id] ?? []}
-                  onClick={() => navigate(`/services/food/${provider.id}/plans/${plan.id}`)}
-                />
-              ))}
-            </div>
+
+            {/* Dietary filter row — only shown when at least one plan carries
+                a tag. "All" resets. Horizontally scrollable on narrow screens
+                so long tag lists don't wrap into two rows. */}
+            {availableTags.length > 0 && (
+              <div className="mb-4 -mx-4 overflow-x-auto px-4">
+                <div className="flex gap-1.5 pb-1">
+                  <button
+                    type="button"
+                    onClick={() => setDietaryFilter(null)}
+                    className={cn(
+                      "shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
+                      dietaryFilter === null
+                        ? "bg-primary/15 text-primary ring-1 ring-primary/40"
+                        : "bg-muted/40 text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    All
+                  </button>
+                  {availableTags.map((key) => {
+                    const meta = DIETARY_TAGS[key];
+                    const Icon = meta.icon;
+                    const on = dietaryFilter === key;
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setDietaryFilter(on ? null : key)}
+                        className={cn(
+                          "inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
+                          on
+                            ? `${meta.tint} ring-1 ring-primary/40`
+                            : "bg-muted/40 text-muted-foreground hover:text-foreground",
+                        )}
+                      >
+                        <Icon className="h-3.5 w-3.5" />
+                        {meta.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {filteredPlans.length > 0 ? (
+              <div className="grid gap-3 md:gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {filteredPlans.map(({ plan, provider }) => (
+                  <MealPlanCard
+                    key={plan.id}
+                    plan={plan}
+                    providerName={provider.name}
+                    images={planImages[plan.id] ?? []}
+                    onClick={() => navigate(`/services/food/${provider.id}/plans/${plan.id}`)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-3xl bg-card p-8 text-center">
+                <p className="text-sm text-muted-foreground">
+                  No plans match this filter — try another diet.
+                </p>
+              </div>
+            )}
           </>
         )}
       </main>
@@ -270,6 +348,35 @@ function MealPlanCard({
       {plan.description && (
         <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{plan.description}</p>
       )}
+
+      {/* Dietary tags — colored soft pills, only rendered when present. Gives
+          the plan card an at-a-glance identity ("Keto", "Vegan") next to the
+          neutral quantity chips underneath. */}
+      {(() => {
+        const tags = ((plan as any).dietary_tags ?? []) as string[];
+        if (tags.length === 0) return null;
+        return (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {tags.map((t) => {
+              const meta = dietaryTagMeta(t);
+              if (!meta) return null;
+              const Icon = meta.icon;
+              return (
+                <span
+                  key={t}
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider",
+                    meta.tint,
+                  )}
+                >
+                  <Icon className="h-3 w-3" />
+                  {meta.label}
+                </span>
+              );
+            })}
+          </div>
+        );
+      })()}
 
       {/* Spec chips */}
       <div className="mt-3 flex flex-wrap gap-2">
