@@ -1,6 +1,7 @@
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import {
   DAY_CODES, DAY_LABELS, EMPTY_SCHEDULE,
   type DayCode, type HoursSchedule,
@@ -35,11 +36,14 @@ export function WorkingHoursEditor({ value, onChange }: Props) {
       {value.map((schedule, idx) => (
         <div
           key={idx}
-          className="rounded-xl border border-border bg-muted/30 p-3 space-y-3"
+          className="space-y-3 rounded-2xl bg-muted/40 p-3"
         >
-          {/* Day chips */}
+          {/* Day chips — tinted-primary for selected, muted for the rest.
+              Old vivid `bg-orange-500 text-white` clashed with the single-accent
+              palette used across the rest of the app; every provider modal
+              (cleaning / cars / beach / food) reads the same visual language now. */}
           <div>
-            <Label className="text-xs text-muted-foreground mb-1.5 block">Days</Label>
+            <Label className="mb-1.5 block text-xs text-muted-foreground">Days</Label>
             <div className="flex flex-wrap gap-1.5">
               {DAY_CODES.map((day) => {
                 const active = schedule.days.includes(day);
@@ -48,11 +52,12 @@ export function WorkingHoursEditor({ value, onChange }: Props) {
                     key={day}
                     type="button"
                     onClick={() => toggleDay(idx, day)}
-                    className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                    className={cn(
+                      "rounded-full px-3 py-1 text-xs font-semibold transition-colors",
                       active
-                        ? "bg-orange-500 text-white"
-                        : "bg-muted text-muted-foreground hover:bg-muted/80"
-                    }`}
+                        ? "bg-primary/15 text-primary ring-1 ring-primary/40"
+                        : "bg-muted text-muted-foreground hover:bg-muted/80",
+                    )}
                   >
                     {DAY_LABELS[day]}
                   </button>
