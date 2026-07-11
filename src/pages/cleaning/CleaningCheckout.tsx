@@ -8,7 +8,8 @@ import { SectionOverline } from "@/components/subscriptions/MySubsPrimitives";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { Zap, CheckCircle2, RefreshCw, Wallet, Bitcoin } from "lucide-react";
+import { Zap, CheckCircle2, RefreshCw, Wallet, Bitcoin, Sparkles } from "lucide-react";
+import { CheckoutSuccessPanel } from "@/components/patterns/CheckoutSuccessPanel";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { accountApi, supabase, supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -439,46 +440,40 @@ const CleaningCheckout = () => {
     }
   };
 
-  return (
-    <UserLayout title="Checkout" showBackButton backTo="/services/cleaning" showBottomNav={false}>
-      <Sheet open={showSuccess} onOpenChange={(open) => {
-        if (!open && createdSubscriptionId) {
-          navigate(`/services/cleaning/book?subscriptionId=${createdSubscriptionId}`);
-        }
-      }}>
-        <SheetContent side="bottom" className="rounded-t-3xl px-space-6 pb-space-8 pt-space-6">
-          <SheetHeader className="items-center">
-            <CheckCircle2 className="h-16 w-16 text-accent mb-space-2" />
-            <SheetTitle className="text-2xl">
-              {paymentMethod === "infinita" ? "Payment Submitted!" : "Payment Confirmed!"}
-            </SheetTitle>
-            <SheetDescription>
-              {paymentMethod === "infinita"
-                ? "An admin will verify your transaction and confirm your payment. Next, choose your recurring weekly cleaning schedule."
-                : "Next, choose your recurring weekly cleaning schedule."}
-            </SheetDescription>
-          </SheetHeader>
-          <Button
-            className="mt-space-6 w-full"
-            size="xl"
-            onClick={() => {
+  // Success — unified with Food + Cart via CheckoutSuccessPanel. Replaces the
+  // old bottom-sheet layout so every service ends checkout on the same big
+  // amount + green check screen instead of a bespoke modal per service.
+  if (showSuccess) {
+    return (
+      <UserLayout title="Checkout" showBackButton={false} showBottomNav={false}>
+        <div className="mx-auto max-w-xl px-4 py-6">
+          <CheckoutSuccessPanel
+            icon={Sparkles}
+            amount={formatUSD(effectiveTotalCents)}
+            eyebrow={paymentMethod === "infinita" ? "Payment submitted" : "Payment received"}
+            subtitle={
+              paymentMethod === "infinita"
+                ? "An admin will verify your LIVES transaction. Next: pick your weekly cleaning schedule."
+                : "Next: pick your weekly cleaning schedule."
+            }
+            ctaLabel="Choose schedule"
+            onCta={() => {
               if (createdSubscriptionId) {
                 navigate(`/services/cleaning/book?subscriptionId=${createdSubscriptionId}`);
               }
             }}
-          >
-            Choose Schedule
-          </Button>
-          <Button
-            variant="ghost"
-            className="mt-space-2 w-full"
-            onClick={() => navigate("/my-subscriptions")}
-          >
-            View My Bookings
-          </Button>
-        </SheetContent>
-      </Sheet>
+            secondary={{
+              label: "View my subscriptions",
+              onClick: () => navigate("/my-subscriptions"),
+            }}
+          />
+        </div>
+      </UserLayout>
+    );
+  }
 
+  return (
+    <UserLayout title="Checkout" showBackButton backTo="/services/cleaning" showBottomNav={false}>
       <div className="mx-auto max-w-xl px-4 py-4 md:py-8 space-y-4 pb-32">
         {pkg && (
           <>

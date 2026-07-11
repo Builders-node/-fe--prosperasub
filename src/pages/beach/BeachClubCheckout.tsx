@@ -5,7 +5,8 @@ import { CheckoutStickyFooter } from "@/components/patterns/CheckoutStickyFooter
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
-import { Zap, CheckCircle2, RefreshCw, Wallet, Bitcoin, Minus, Plus, CalendarDays } from "lucide-react";
+import { Zap, CheckCircle2, RefreshCw, Wallet, Bitcoin, Minus, Plus, CalendarDays, Waves } from "lucide-react";
+import { CheckoutSuccessPanel } from "@/components/patterns/CheckoutSuccessPanel";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { accountApi, supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -277,30 +278,35 @@ const BeachClubCheckout = () => {
     }
   };
 
+  // Unified success screen — same big-amount + green-check confirmation as
+  // the food and cart flows. Replaces the previous bespoke bottom-sheet.
+  if (showSuccess) {
+    return (
+      <UserLayout title="Checkout" showBackButton={false} showBottomNav={false}>
+        <div className="mx-auto max-w-xl px-4 py-6">
+          <CheckoutSuccessPanel
+            icon={Waves}
+            amount={formatUSD(effectiveTotalCents)}
+            eyebrow={paymentMethod === "infinita" ? "Payment submitted" : "Membership confirmed"}
+            subtitle={
+              paymentMethod === "infinita"
+                ? "An admin will verify your LIVES transaction and activate your Beach Club membership."
+                : "Your Beach Club membership is active. We'll be in touch with access details."
+            }
+            ctaLabel="View my subscriptions"
+            onCta={() => navigate("/my-subscriptions")}
+            secondary={{
+              label: "Back to Beach Club",
+              onClick: () => navigate("/services/beach-club"),
+            }}
+          />
+        </div>
+      </UserLayout>
+    );
+  }
+
   return (
     <UserLayout title="Checkout" showBackButton backTo="/services/beach-club" showBottomNav={false}>
-      <Sheet open={showSuccess} onOpenChange={(open) => { if (!open) navigate("/my-subscriptions"); }}>
-        <SheetContent side="bottom" className="rounded-t-3xl px-space-6 pb-space-8 pt-space-6">
-          <SheetHeader className="items-center">
-            <CheckCircle2 className="h-16 w-16 text-accent mb-space-2" />
-            <SheetTitle className="text-2xl">
-              {paymentMethod === "infinita" ? "Payment Submitted!" : "Membership Confirmed!"}
-            </SheetTitle>
-            <SheetDescription>
-              {paymentMethod === "infinita"
-                ? "An admin will verify your transaction and activate your Beach Club membership."
-                : "Your Beach Club membership is active. Our team will be in touch with access details."}
-            </SheetDescription>
-          </SheetHeader>
-          <Button className="mt-space-6 w-full" size="xl" onClick={() => navigate("/my-subscriptions")}>
-            View My Subscriptions
-          </Button>
-          <Button variant="ghost" className="mt-space-2 w-full" onClick={() => navigate("/services/beach-club")}>
-            Back to Beach Club
-          </Button>
-        </SheetContent>
-      </Sheet>
-
       <div className="mx-auto max-w-xl px-4 py-4 md:py-8 space-y-4 pb-32">
         {plan && (
           <>

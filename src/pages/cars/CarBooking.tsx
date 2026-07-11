@@ -13,9 +13,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { useBtcPrice } from "@/hooks/useBtcPrice";
 import { formatUSD, centsToDollars } from "@/lib/pricing";
-import { HomeHeader } from "@/components/HomeHeader";
-import { DesktopHeader } from "@/components/layout/DesktopHeader";
-import { BottomNav } from "@/components/BottomNav";
+import { UserLayout } from "@/components/layout/UserLayout";
+import { CheckoutSuccessPanel } from "@/components/patterns/CheckoutSuccessPanel";
+import { SectionOverline } from "@/components/subscriptions/MySubsPrimitives";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -501,25 +501,20 @@ const CarBooking = () => {
 
   if (!vehicle) {
     return (
-      <div className="min-h-screen bg-background">
-        <HomeHeader title="Book Vehicle" showBackButton onBack={() => navigate(`/services/rental/${id ?? ""}`)} />
-        <DesktopHeader />
+      <UserLayout title="Book vehicle" showBackButton backTo={`/services/rental/${id ?? ""}`} showBottomNav={false}>
         <main className="market-content py-space-10 flex items-center justify-center">
           <Spinner size="lg" className="text-muted-foreground" />
         </main>
-        <BottomNav />
-      </div>
+      </UserLayout>
     );
   }
 
   const thumb = vehicle.images?.[0]?.url;
 
   return (
-    <div className="min-h-screen bg-background pb-36 md:pb-32">
-      <HomeHeader title="Book Vehicle" showBackButton onBack={() => navigate(`/services/rental/${id ?? ""}`)} />
-      <DesktopHeader />
-
-      <main className="market-content py-4 md:py-8">
+    <UserLayout title="Book vehicle" showBackButton backTo={`/services/rental/${id ?? ""}`} showBottomNav={false}>
+      <div className="pb-36 md:pb-32">
+        <main className="market-content py-4 md:py-8">
 
         {/* ─── Step indicator + title (matches CarDetail Step 1) ────── */}
         <section className="mb-4">
@@ -906,7 +901,7 @@ const CarBooking = () => {
           {/* Right: Price summary */}
           <div className="lg:sticky lg:top-24 lg:self-start">
             <div className="rounded-3xl bg-card p-6 space-y-4">
-              <h2 className="text-xl font-black tracking-tight text-foreground">Booking Summary</h2>
+              <SectionOverline label="Booking summary" />
 
               <div className="space-y-2 text-sm">
                 <SummaryRow label="Vehicle" value={vehicle.name} />
@@ -1094,11 +1089,13 @@ const CarBooking = () => {
         <section ref={paymentRef} className="market-content scroll-mt-4 px-4 pb-32 pt-2">
           <div className="mx-auto w-full max-w-md">
             <div className="mb-4">
-              <h2 className="text-xl font-black tracking-tight text-foreground">
-                {isPaid
-                  ? paymentMethod === "infinita" ? "Payment Submitted" : "Payment Confirmed"
-                  : "Payment method"}
-              </h2>
+              <SectionOverline
+                label={
+                  isPaid
+                    ? paymentMethod === "infinita" ? "Payment submitted" : "Payment confirmed"
+                    : "Payment method"
+                }
+              />
               <p className="mt-1 text-xs text-muted-foreground">
                 {formatUSD(grandTotalCents)} · {pricing?.rentalDays ?? 0} day{pricing?.rentalDays !== 1 ? "s" : ""}
               </p>
@@ -1265,28 +1262,37 @@ const CarBooking = () => {
         </section>
       )}
 
-      {/* Success overlay */}
-      <Sheet open={showSuccess} onOpenChange={() => {}}>
-        <SheetContent side="bottom" className="h-[60vh] rounded-t-3xl">
-          <div className="flex flex-col items-center justify-center h-full gap-5 text-center">
-            <CheckCircle2 className="h-20 w-20 text-green-400" />
-            <div>
-              <p className="text-2xl font-black">Booking Confirmed!</p>
-              <p className="mt-2 text-muted-foreground">
-                {vehicle.name}
-                {startDate && endDate
-                  ? ` · ${format(parseISO(startDate), "MMM d")} – ${format(parseISO(endDate), "MMM d, yyyy")}`
-                  : ""}
-              </p>
-            </div>
-            <Button size="lg" className="rounded-full" onClick={() => navigate("/my-subscriptions")}>
-              View My Bookings
-            </Button>
+      {/* Success overlay — mounted over the checkout content so the booking
+          confirmation feels the same as food / cleaning / beach. Fixed inset
+          + backdrop so it eats the whole viewport instead of a bottom-sheet. */}
+      {showSuccess && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-background">
+          <div className="mx-auto max-w-xl px-4 py-6">
+            <CheckoutSuccessPanel
+              icon={Car}
+              amount={formatUSD(effectiveGrandTotalCents)}
+              eyebrow="Booking confirmed"
+              subtitle={
+                <>
+                  {vehicle.name}
+                  {startDate && endDate && (
+                    <> · {format(parseISO(startDate), "MMM d")} – {format(parseISO(endDate), "MMM d, yyyy")}</>
+                  )}
+                </>
+              }
+              ctaLabel="View my bookings"
+              onCta={() => navigate("/my-subscriptions")}
+              secondary={{
+                label: "Back to cars",
+                onClick: () => navigate("/services/cars"),
+              }}
+            />
           </div>
-        </SheetContent>
-      </Sheet>
+        </div>
+      )}
 
-    </div>
+      </div>
+    </UserLayout>
   );
 };
 
