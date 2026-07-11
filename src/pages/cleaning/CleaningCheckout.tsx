@@ -3,6 +3,7 @@ import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { CheckoutStickyFooter } from "@/components/patterns/CheckoutStickyFooter";
 import { Textarea } from "@/components/ui/textarea";
+import { SectionOverline } from "@/components/subscriptions/MySubsPrimitives";
 
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -559,48 +560,52 @@ const CleaningCheckout = () => {
             </section>
 
             {!showPayment && (
-              <section className="overflow-hidden rounded-3xl bg-card p-5">
-                <h2 className="text-xl font-black tracking-tight text-foreground">Apartment details</h2>
-                <p className="mt-0.5 text-sm text-muted-foreground">Required so the cleaning team can find your unit.</p>
-                <div className="mt-4">
-                  <LocationPicker
-                    userId={userData?.id}
-                    value={apartmentNote}
-                    onPick={(line) => {
-                      setApartmentNote(line);
-                      if (apartmentNoteError && line.trim()) setApartmentNoteError("");
-                    }}
-                  />
-                  <Textarea
-                    id="cleaning-apartment-note"
-                    label="Apartment / unit number"
-                    value={apartmentNote}
-                    onChange={(event) => {
-                      setApartmentNote(event.target.value);
-                      if (apartmentNoteError && event.target.value.trim()) {
-                        setApartmentNoteError("");
-                      }
-                    }}
-                    placeholder="Example: Duna Tower, Apt 1204"
-                    helperText="Add tower, apartment number, or access notes."
-                    errorText={apartmentNoteError}
-                    required
-                    maxLength={180}
-                    showCount
-                  />
+              /* Apartment details — mobile-first: SectionOverline instead of an
+                 h2, tighter card padding on phone, textareas rely on the new
+                 compact mobile min-height (80px). Saved addresses come first,
+                 then the two free-form fields. */
+              <section className="space-y-4 rounded-3xl bg-card p-4 sm:p-5">
+                <div>
+                  <SectionOverline label="Apartment details" />
+                  <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
+                    Required so the cleaning team can find your unit.
+                  </p>
                 </div>
-                <div className="mt-4">
-                  <Textarea
-                    id="cleaning-cleaner-hint"
-                    label="Hints for cleaners (optional)"
-                    value={cleanerHint}
-                    onChange={(event) => setCleanerHint(event.target.value)}
-                    placeholder="Example: Key under the mat, please water the plants, careful with the cat."
-                    helperText="Anything that helps the cleaning team — access, pets, fragile items, preferences."
-                    maxLength={500}
-                    showCount
-                  />
-                </div>
+                <LocationPicker
+                  userId={userData?.id}
+                  value={apartmentNote}
+                  onPick={(line) => {
+                    setApartmentNote(line);
+                    if (apartmentNoteError && line.trim()) setApartmentNoteError("");
+                  }}
+                />
+                <Textarea
+                  id="cleaning-apartment-note"
+                  label="Apartment / unit number"
+                  value={apartmentNote}
+                  onChange={(event) => {
+                    setApartmentNote(event.target.value);
+                    if (apartmentNoteError && event.target.value.trim()) {
+                      setApartmentNoteError("");
+                    }
+                  }}
+                  placeholder="Duna Tower, Apt 1204"
+                  helperText="Tower, apartment number, or access notes."
+                  errorText={apartmentNoteError}
+                  required
+                  maxLength={180}
+                  showCount
+                />
+                <Textarea
+                  id="cleaning-cleaner-hint"
+                  label="Hints for cleaners (optional)"
+                  value={cleanerHint}
+                  onChange={(event) => setCleanerHint(event.target.value)}
+                  placeholder="Key under the mat, water the plants…"
+                  helperText="Access, pets, fragile items, preferences."
+                  maxLength={500}
+                  showCount
+                />
               </section>
             )}
 
