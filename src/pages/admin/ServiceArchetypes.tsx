@@ -1,13 +1,15 @@
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Eye, EyeOff, Layers } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, EyeOff, MoreHorizontal } from "lucide-react";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { AdminListShell } from "@/components/admin/AdminListShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -165,43 +167,71 @@ export default function ServiceArchetypes() {
             {filtered.map((a) => {
               const Icon = resolveCategoryIcon(a.icon);
               const count = providerCounts[a.key] ?? 0;
+              const inactive = !a.is_active;
               return (
-                <div key={a.key} className="rounded-2xl border border-border bg-card p-4">
+                <div
+                  key={a.key}
+                  className={cn(
+                    "flex flex-col gap-3 rounded-2xl bg-card p-4 transition-colors",
+                    inactive && "opacity-60",
+                  )}
+                >
                   <div className="flex items-start gap-3">
-                    <div className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-xl", a.accent)}>
-                      <Icon className="h-5 w-5 text-white" />
+                    {/* Icon plaque tinted with the archetype's accent — same
+                        hue as before but at low alpha so it reads as a chip,
+                        not a vivid button. Kills the "colored disc chaos" from
+                        the old design. */}
+                    <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl", a.accent, "bg-opacity-15")}>
+                      <Icon className="h-5 w-5 text-foreground" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="truncate font-bold text-foreground">{a.label}</p>
-                        <Badge className={a.is_active ? "bg-green-500/15 text-green-400" : "bg-muted text-muted-foreground"}>
-                          {a.is_active ? "active" : "inactive"}
-                        </Badge>
-                        <Badge variant="outline" className="text-[10px] tabular-nums">
-                          {count} {count === 1 ? "provider" : "providers"}
-                        </Badge>
-                      </div>
-                      <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground">{a.key}</p>
-                      {a.description && <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{a.description}</p>}
-                      <div className="mt-2 flex flex-wrap gap-1">
-                        {a.default_capabilities?.map((c) => (
-                          <Badge key={c} variant="outline" className="text-[10px]">{c}</Badge>
-                        ))}
-                      </div>
-                      <div className="mt-1 flex flex-wrap gap-3 text-[11px] text-muted-foreground">
-                        {a.default_resource_type && <span>Resource: <b>{a.default_resource_type}</b></span>}
-                        {a.default_booking_model && <span>Model: <b>{a.default_booking_model}</b></span>}
-                      </div>
+                      <p className="truncate text-sm font-bold text-foreground">{a.label}</p>
+                      <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                        {inactive ? "Inactive" : "Active"}
+                        {" · "}
+                        <span className="tabular-nums">{count}</span> {count === 1 ? "provider" : "providers"}
+                      </p>
                     </div>
-                    <div className="flex shrink-0 gap-1">
-                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => toggleActive.mutate(a)}
-                        title={a.is_active ? "Hide" : "Show"}>
-                        {a.is_active ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </Button>
-                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => openEdit(a)} title="Edit"><Pencil className="h-4 w-4" /></Button>
-                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive" onClick={() => setDeleteTarget(a)} title="Delete"><Trash2 className="h-4 w-4" /></Button>
-                    </div>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button size="iconSm" variant="ghost" aria-label="Service actions">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-44">
+                        <DropdownMenuItem onSelect={() => openEdit(a)}>
+                          <Pencil className="h-4 w-4" /> Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => toggleActive.mutate(a)}>
+                          {a.is_active
+                            ? <><EyeOff className="h-4 w-4" /> Hide from Discovery</>
+                            : <><Eye className="h-4 w-4" /> Show on Discovery</>}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onSelect={() => setDeleteTarget(a)}
+                          className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" /> Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
+                  {a.description && (
+                    <p className="line-clamp-2 text-sm text-muted-foreground">{a.description}</p>
+                  )}
+                  {a.default_capabilities?.length ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {a.default_capabilities.map((c) => (
+                        <span
+                          key={c}
+                          className="rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
+                        >
+                          {(CAPABILITIES[c as CapabilityKey]?.label ?? c).replace(/_/g, " ")}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               );
             })}
