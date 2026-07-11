@@ -438,6 +438,22 @@
     box-shadow: none !important;
     text-shadow: none !important;
   }
+
+  /* iOS Safari auto-zooms the viewport when a form field with font-size < 16px
+     receives focus. Our design tokens use 13-15px on controls to keep the
+     desktop look tight, so on the phone every tap on an Input / Textarea /
+     Select was triggering that unwanted "интерфейс приближается" behaviour.
+     Force ≥ 16px on all form controls below the tablet breakpoint (this
+     preserves the 15px look at ≥sm, but kills the zoom on mobile). !important
+     is required to beat both Tailwind's utility classes and shadcn variants. */
+  @media (max-width: 640px) {
+    input,
+    textarea,
+    select,
+    [contenteditable="true"] {
+      font-size: 16px !important;
+    }
+  }
 }
 
 @layer components {
