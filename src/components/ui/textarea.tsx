@@ -5,7 +5,12 @@ import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const textareaVariants = cva(
-  "peer flex min-h-[132px] w-full resize-y rounded-radius-md border bg-[hsl(var(--app-control))] px-space-5 py-space-4 text-body text-foreground transition-colors placeholder:text-muted-foreground hover:border-foreground/25 focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25 disabled:cursor-not-allowed disabled:opacity-50 read-only:cursor-default read-only:bg-muted/60",
+  // Mobile-first sizing — on ≤sm the base row is compact (min-h 80px, tighter
+  // padding) so a checkout screen doesn't blow up into a 600px input box. On
+  // ≥sm we go back to the original spacious feel for desktop editing.
+  // Font-size is left to the global iOS-zoom rule (16px on mobile, tokens on
+  // desktop) so no `text-*` utility fights with it here.
+  "peer flex min-h-[80px] w-full resize-y rounded-radius-md border bg-[hsl(var(--app-control))] px-4 py-3 text-foreground transition-colors placeholder:text-muted-foreground hover:border-foreground/25 focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25 disabled:cursor-not-allowed disabled:opacity-50 read-only:cursor-default read-only:bg-muted/60 sm:min-h-[132px] sm:px-space-5 sm:py-space-4 sm:text-body",
   {
     variants: {
       state: {

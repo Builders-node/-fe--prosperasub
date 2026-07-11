@@ -375,6 +375,15 @@
     border-color: transparent !important;
   }
 
+  html {
+    /* Kills the horizontal scrollbar the user reported after tapping into a
+       control. Nothing in the layout should be wider than 100vw; when it is
+       (e.g. a wide input or a placeholder with `nowrap`), Safari would offer a
+       horizontal scroll. Clip is preferred over `hidden` — it still allows
+       `position: sticky` to work; `hidden` breaks sticky in some browsers. */
+    overflow-x: clip;
+  }
+
   body {
     @apply bg-background text-foreground antialiased;
     font-family: var(--font-inter);
@@ -382,6 +391,7 @@
     font-weight: var(--fw-regular);
     line-height: var(--lh-normal);
     letter-spacing: var(--ls-normal);
+    overflow-x: clip;
     font-feature-settings: var(--font-features-body);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
