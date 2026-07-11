@@ -380,45 +380,16 @@ const AdminPayments = () => {
         </TabsList>
 
         <TabsContent value="payments">
-      <section className="grid grid-cols-2 gap-space-3 md:gap-space-4 xl:grid-cols-12">
-        <Card className="xl:col-span-4">
-          <CardHeader className="pb-space-2">
-            <CardTitle className="flex items-center gap-space-2 text-label text-muted-foreground">
-              <CreditCard className="h-4 w-4" />
-              Paid subscriptions
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-section-title">{paymentStats?.paid ?? 0}</div>
-            <p className="mt-1 text-xs text-muted-foreground">All-time · all services</p>
-          </CardContent>
-        </Card>
-
-        <Card className="xl:col-span-4">
-          <CardHeader className="pb-space-2">
-            <CardTitle className="flex items-center gap-space-2 text-label text-muted-foreground">
-              <Loader2 className="h-4 w-4" />
-              Pending payments
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-section-title">{paymentStats?.pending ?? 0}</div>
-            <p className="mt-1 text-xs text-muted-foreground">All-time · all services</p>
-          </CardContent>
-        </Card>
-
-        <Card className="col-span-2 bg-primary/10 xl:col-span-4">
-          <CardHeader className="pb-space-2">
-            <CardTitle className="flex items-center gap-space-2 text-label text-muted-foreground">
-              <Zap className="h-4 w-4 text-primary" />
-              Revenue
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-section-title text-primary">${((paymentStats?.revenueCents ?? 0) / 100).toFixed(2)}</div>
-            <p className="mt-1 text-xs text-muted-foreground">All-time · all services (the breakdown below is per period)</p>
-          </CardContent>
-        </Card>
+      {/* Three headline tiles — same flat pattern as the Dashboard so a
+          navigation switch between /admin/dashboard and /admin/payments doesn't
+          feel like two different apps. Revenue keeps its primary accent only
+          on the number itself; the tile background stays neutral. */}
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-3">
+        <FinanceTile label="Paid subscriptions" value={String(paymentStats?.paid ?? 0)} hint="All-time · all services" />
+        <FinanceTile label="Awaiting payment"    value={String(paymentStats?.pending ?? 0)} hint="All-time · all services"
+          warning={(paymentStats?.pending ?? 0) > 0} className="col-span-1" />
+        <FinanceTile label="Revenue"             value={`$${((paymentStats?.revenueCents ?? 0) / 100).toFixed(2)}`}
+          hint="All-time — breakdown below is per period" accent className="col-span-2 md:col-span-1" />
       </section>
 
       {/* Cross-category finance breakdown */}
@@ -881,6 +852,38 @@ const AdminPayments = () => {
 };
 
 export default AdminPayments;
+
+/** Flat headline tile shared by the finance page. Mirrors the Dashboard's
+ *  MetricTile shape so both admin surfaces feel the same. */
+function FinanceTile({
+  label, value, hint, accent, warning, className,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  accent?: boolean;
+  warning?: boolean;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`flex flex-col gap-2 rounded-2xl bg-card p-4 ${warning ? "bg-amber-500/10" : ""} ${className ?? ""}`}
+    >
+      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+        {label}
+      </span>
+      <p
+        className={
+          "text-2xl font-black tabular-nums tracking-tight md:text-3xl " +
+          (accent ? "text-primary" : warning ? "text-amber-500" : "text-foreground")
+        }
+      >
+        {value}
+      </p>
+      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+    </div>
+  );
+}
 
 /** Small local input for the per-method processing-fee surcharge (percent). */
 function SurchargeInput({

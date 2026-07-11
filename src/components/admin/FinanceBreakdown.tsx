@@ -23,11 +23,14 @@ const METHODS = [
 ] as const;
 type MethodKey = (typeof METHODS)[number]["key"];
 
+// Icons stay neutral (`text-muted-foreground`) rather than each service getting
+// its own vivid tint. Same call as the rest of the admin: one accent (primary)
+// across the whole app; per-category color was decoration only.
 const CATEGORIES = [
-  { key: "cleaning", label: "Cleaning", icon: Sparkles, color: "text-blue-400" },
-  { key: "food", label: "Food", icon: UtensilsCrossed, color: "text-orange-400" },
-  { key: "cars", label: "Car Rental", icon: Car, color: "text-purple-400" },
-  { key: "beach", label: "Beach Club", icon: Waves, color: "text-cyan-400" },
+  { key: "cleaning", label: "Cleaning", icon: Sparkles, color: "text-muted-foreground" },
+  { key: "food", label: "Food", icon: UtensilsCrossed, color: "text-muted-foreground" },
+  { key: "cars", label: "Car Rental", icon: Car, color: "text-muted-foreground" },
+  { key: "beach", label: "Beach Club", icon: Waves, color: "text-muted-foreground" },
 ] as const;
 type CategoryKey = (typeof CATEGORIES)[number]["key"];
 
@@ -358,11 +361,11 @@ export function FinanceBreakdown() {
       <CardHeader className="gap-space-3 md:flex-row md:items-start md:justify-between">
         <div>
           <CardTitle className="flex items-center gap-space-2">
-            <TrendingUp className="h-5 w-5 text-primary" />
+            <TrendingUp className="h-5 w-5 text-muted-foreground" />
             Finance breakdown
           </CardTitle>
           <CardDescription>
-            Revenue by service and payment method, recognized straight-line across each subscription's service period — a 3-month plan books ~⅓ in each month it covers. Payments with no recorded method appear under "Other".
+            Revenue by service × payment method, recognized straight-line across each subscription's service period.
           </CardDescription>
         </div>
         <div className="flex flex-col items-stretch gap-space-2 sm:flex-row sm:items-center">
@@ -456,13 +459,15 @@ export function FinanceBreakdown() {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="mb-space-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-primary/10 px-5 py-4">
+        {/* Period + total strip — neutral card background, primary accent lives
+            on the total number only. Matches the Dashboard's headline tiles. */}
+        <div className="mb-space-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-muted/40 px-5 py-4">
           <span className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
             <CalendarRange className="h-4 w-4" />
             {format(start, "MMM d, yyyy")} — {format(end, "MMM d, yyyy")}
           </span>
           <div className="text-right">
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total revenue</p>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Total revenue</p>
             <p className="text-2xl font-black tabular-nums text-primary">{formatUSD(grandTotal)}</p>
           </div>
         </div>
@@ -490,11 +495,11 @@ export function FinanceBreakdown() {
                       </span>
                     </td>
                     {METHODS.map((m) => (
-                      <td key={m.key} className={cn("px-3 py-2.5 text-right font-mono tabular-nums", matrix[c.key][m.key] ? "text-foreground" : "text-muted-foreground/40")}>
+                      <td key={m.key} className={cn("px-3 py-2.5 text-right tabular-nums", matrix[c.key][m.key] ? "text-foreground" : "text-muted-foreground/40")}>
                         {matrix[c.key][m.key] ? formatUSD(matrix[c.key][m.key]) : "—"}
                       </td>
                     ))}
-                    <td className="pl-3 py-2.5 text-right font-mono font-bold tabular-nums text-foreground">
+                    <td className="pl-3 py-2.5 text-right font-bold tabular-nums text-foreground">
                       {categoryTotal(c.key) ? formatUSD(categoryTotal(c.key)) : "—"}
                     </td>
                   </tr>
@@ -505,11 +510,11 @@ export function FinanceBreakdown() {
               <tr className="border-t border-border text-foreground">
                 <td className="py-2.5 pr-4 font-bold">Total</td>
                 {METHODS.map((m) => (
-                  <td key={m.key} className="px-3 py-2.5 text-right font-mono font-bold tabular-nums">
+                  <td key={m.key} className="px-3 py-2.5 text-right font-bold tabular-nums">
                     {methodTotals(m.key) ? formatUSD(methodTotals(m.key)) : "—"}
                   </td>
                 ))}
-                <td className="pl-3 py-2.5 text-right font-mono font-black tabular-nums text-primary">
+                <td className="pl-3 py-2.5 text-right font-black tabular-nums text-primary">
                   {formatUSD(grandTotal)}
                 </td>
               </tr>
