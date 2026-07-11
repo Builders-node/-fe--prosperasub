@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Edit, MapPin, Clock, Truck, Check } from "lucide-react";
+import { Edit, MapPin, Clock, Truck, Check, Info as InfoIcon } from "lucide-react";
 import { useResidences } from "@/hooks/useResidences";
 import { Spinner } from "@/components/ui/spinner";
 import { supabaseDb } from "@/integrations/supabase/client";
@@ -110,50 +110,29 @@ export function RestaurantInfoTab({ restaurant }: Props) {
         </section>
       )}
 
-      {/* Operating Hours */}
-      <section className="rounded-2xl bg-card p-5">
-        <div className="mb-3 flex items-center gap-2">
-          <Clock className="h-4 w-4 text-orange-400" />
-          <h3 className="font-bold uppercase text-xs tracking-wider text-muted-foreground">
-            Operating Hours
-          </h3>
-        </div>
-        {restaurant.working_hours ? (
-          <p className="text-sm text-foreground">{formatWorkingHours(restaurant.working_hours)}</p>
-        ) : (
-          <p className="text-sm text-muted-foreground italic">No hours set</p>
-        )}
-      </section>
-
-      {/* Delivery Settings */}
-      <section className="rounded-2xl bg-card p-5">
-        <div className="mb-3 flex items-center gap-2">
-          <Truck className="h-4 w-4 text-orange-400" />
-          <h3 className="font-bold uppercase text-xs tracking-wider text-muted-foreground">
-            Delivery Settings
-          </h3>
-        </div>
-        {restaurant.delivery_info ? (
-          <p className="text-sm text-foreground whitespace-pre-line">{restaurant.delivery_info}</p>
-        ) : (
-          <p className="text-sm text-muted-foreground italic">No delivery info set</p>
-        )}
-      </section>
-
-      {/* Location */}
-      <section className="rounded-2xl bg-card p-5">
-        <div className="mb-3 flex items-center gap-2">
-          <MapPin className="h-4 w-4 text-orange-400" />
-          <h3 className="font-bold uppercase text-xs tracking-wider text-muted-foreground">
-            Location
-          </h3>
-        </div>
-        {restaurant.location ? (
-          <p className="text-sm text-foreground">{restaurant.location}</p>
-        ) : (
-          <p className="text-sm text-muted-foreground italic">No location set</p>
-        )}
-      </section>
+      {/* Info rows — unified with CleaningInfoTab / UniversalInfoTab */}
+      <div className="rounded-2xl bg-card p-5 space-y-4">
+        <Row icon={<InfoIcon className="h-4 w-4 text-muted-foreground" />} label="Description">
+          {restaurant.description
+            ? <span className="whitespace-pre-line">{restaurant.description}</span>
+            : <em className="text-muted-foreground/70">No description</em>}
+        </Row>
+        <Row icon={<Clock className="h-4 w-4 text-muted-foreground" />} label="Operating hours">
+          {restaurant.working_hours
+            ? formatWorkingHours(restaurant.working_hours)
+            : <em className="text-muted-foreground/70">Not set</em>}
+        </Row>
+        <Row icon={<Truck className="h-4 w-4 text-muted-foreground" />} label="Delivery settings">
+          {restaurant.delivery_info
+            ? <span className="whitespace-pre-line">{restaurant.delivery_info}</span>
+            : <em className="text-muted-foreground/70">Not set</em>}
+        </Row>
+        <Row icon={<MapPin className="h-4 w-4 text-muted-foreground" />} label="Location">
+          {restaurant.location
+            ? restaurant.location
+            : <em className="text-muted-foreground/70">Not set</em>}
+        </Row>
+      </div>
 
       {/* Service Locations (residences this restaurant delivers to) */}
       <ServiceLocationsSection providerId={restaurant.id} />
@@ -297,15 +276,20 @@ function ServiceLocationsSection({ providerId }: { providerId: string }) {
 
   return (
     <section className="rounded-2xl bg-card p-5">
-      <div className="mb-1 flex items-center gap-2">
-        <MapPin className="h-4 w-4 text-orange-400" />
-        <h3 className="font-bold uppercase text-xs tracking-wider text-muted-foreground">
-          Service Locations
-        </h3>
+      <div className="flex items-start gap-3">
+        <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted">
+          <MapPin className="h-4 w-4 text-muted-foreground" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            Service locations
+          </p>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            Pick the residences this restaurant delivers to. Customers in other locations won't see it.
+          </p>
+        </div>
       </div>
-      <p className="mb-3 text-sm text-muted-foreground">
-        Pick the residences this restaurant delivers to. Customers in other locations won't see it.
-      </p>
+      <div className="mt-4">
 
       {resLoading || linksLoading ? (
         <div className="flex gap-2">
@@ -345,6 +329,19 @@ function ServiceLocationsSection({ providerId }: { providerId: string }) {
           })}
         </div>
       )}
+      </div>
     </section>
+  );
+}
+
+function Row({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-start gap-3">
+      <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted">{icon}</span>
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{label}</p>
+        <div className="mt-0.5 text-sm text-foreground">{children}</div>
+      </div>
+    </div>
   );
 }
