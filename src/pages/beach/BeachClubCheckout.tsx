@@ -466,9 +466,9 @@ const BeachClubCheckout = () => {
             ) : paymentMethod === "onchain" ? (
               <>{!isGenerating && <Bitcoin className="h-5 w-5" />}{isGenerating ? "Generating address..." : isPriceLoading ? "Loading rate..." : `Pay ${estimatedSats.toLocaleString()} sats on-chain`}</>
             ) : paymentMethod === "paypal" ? (
-              "Continue with PayPal"
+              `Pay ${formatUSD(effectiveTotalCents)} · PayPal`
             ) : (
-              isGenerating ? "Creating Payment..." : `Pay ${formatUSD(effectiveTotalCents)} with LIVES`
+              isGenerating ? "Creating Payment..." : `Pay ${formatUSD(effectiveTotalCents)} · LIVES`
             )}
           </Button>
         </CheckoutStickyFooter>

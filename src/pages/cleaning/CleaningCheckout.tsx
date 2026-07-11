@@ -3,6 +3,8 @@ import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { CheckoutStickyFooter } from "@/components/patterns/CheckoutStickyFooter";
 import { Textarea } from "@/components/ui/textarea";
+import { NotesField } from "@/components/patterns/NotesField";
+import { Home as HomeIcon, Sparkles as SparklesIcon } from "lucide-react";
 import { SectionOverline } from "@/components/subscriptions/MySubsPrimitives";
 
 import { Label } from "@/components/ui/label";
@@ -574,32 +576,34 @@ const CleaningCheckout = () => {
                     if (apartmentNoteError && line.trim()) setApartmentNoteError("");
                   }}
                 />
-                <Textarea
-                  id="cleaning-apartment-note"
-                  label="Apartment / unit number"
+                {/* NotesField pattern (Yandex Eda "Комментарий") — same UX
+                    as food + cars. Row preview here; tap opens a distraction-
+                    free bottom-sheet with a big autofocused textarea. */}
+                <NotesField
                   value={apartmentNote}
-                  onChange={(event) => {
-                    setApartmentNote(event.target.value);
-                    if (apartmentNoteError && event.target.value.trim()) {
-                      setApartmentNoteError("");
-                    }
+                  onChange={(next) => {
+                    setApartmentNote(next);
+                    if (apartmentNoteError && next.trim()) setApartmentNoteError("");
                   }}
+                  label="Apartment / unit"
+                  title="Apartment / unit number"
+                  description="Tower, apartment number, or access notes so the cleaning team can find your unit."
                   placeholder="Duna Tower, Apt 1204"
-                  helperText="Tower, apartment number, or access notes."
-                  errorText={apartmentNoteError}
-                  required
+                  icon={HomeIcon}
                   maxLength={180}
-                  showCount
                 />
-                <Textarea
-                  id="cleaning-cleaner-hint"
-                  label="Hints for cleaners (optional)"
+                {apartmentNoteError && (
+                  <p className="text-xs text-destructive">{apartmentNoteError}</p>
+                )}
+                <NotesField
                   value={cleanerHint}
-                  onChange={(event) => setCleanerHint(event.target.value)}
+                  onChange={setCleanerHint}
+                  label="Hints for cleaners"
+                  title="Hints for cleaners"
+                  description="Access, pets, fragile items, preferences — anything that helps."
                   placeholder="Key under the mat, water the plants…"
-                  helperText="Access, pets, fragile items, preferences."
+                  icon={SparklesIcon}
                   maxLength={500}
-                  showCount
                 />
               </section>
             )}
@@ -743,9 +747,9 @@ const CleaningCheckout = () => {
                 {isGenerating ? "Generating address..." : isPriceLoading ? "Loading rate..." : `Pay ${estimatedSats.toLocaleString()} sats on-chain`}
               </>
             ) : paymentMethod === "paypal" ? (
-              "Continue with PayPal"
+              `Pay ${formatUSD(effectiveTotalCents)} · PayPal`
             ) : (
-              isGenerating ? "Creating Payment..." : `Pay ${formatUSD(effectiveTotalCents)} with LIVES`
+              isGenerating ? "Creating Payment..." : `Pay ${formatUSD(effectiveTotalCents)} · LIVES`
             )}
           </Button>
         </CheckoutStickyFooter>

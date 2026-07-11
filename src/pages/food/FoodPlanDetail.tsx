@@ -766,7 +766,7 @@ const FoodPlanDetail = () => {
                   {isGenerating ? (
                     <><Spinner size="sm" className="mr-2" /> Creating…</>
                   ) : (
-                    <>Pay {formatUSD(effectiveTotalCents)} with LIVES</>
+                    <>Pay {formatUSD(effectiveTotalCents)} · LIVES</>
                   )}
                 </Button>
               ) : paymentMethod === "paypal" ? (
@@ -775,7 +775,7 @@ const FoodPlanDetail = () => {
                   onClick={generateInvoice}
                   disabled={!checkoutValid || !enabledMethods.includes(paymentMethod)}
                 >
-                  Continue with PayPal
+                  Pay {formatUSD(effectiveTotalCents)} · PayPal
                 </Button>
               ) : (
                 <Button

@@ -16,6 +16,7 @@ import { formatUSD, centsToDollars } from "@/lib/pricing";
 import { UserLayout } from "@/components/layout/UserLayout";
 import { CheckoutSuccessPanel } from "@/components/patterns/CheckoutSuccessPanel";
 import { SectionOverline } from "@/components/subscriptions/MySubsPrimitives";
+import { LocationPicker } from "@/components/account/SavedLocations";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -867,19 +868,15 @@ const CarBooking = () => {
                   </div>
                 </div>
 
-                <div className="flex items-start gap-3 px-4">
-                  <MapPin className="mt-4 h-4 w-4 shrink-0 text-muted-foreground" />
-                  <div className="min-w-0 flex-1">
-                    <label className="block pt-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                      Delivery address
-                    </label>
-                    <input
-                      placeholder="Your address or pickup location"
-                      value={deliveryAddress}
-                      onChange={(e) => setDeliveryAddress(e.target.value)}
-                      className="w-full border-0 bg-transparent px-0 pb-3 pt-0.5 text-base text-foreground outline-none placeholder:text-muted-foreground/60"
-                    />
-                  </div>
+                {/* Saved-addresses row (same LocationPicker as cleaning + food).
+                    Falls back to free-text — customer can tap a saved chip or
+                    just type a pickup point. */}
+                <div className="px-4 pt-3 pb-1">
+                  <LocationPicker
+                    userId={userData?.id}
+                    value={deliveryAddress}
+                    onPick={(line) => setDeliveryAddress(line)}
+                  />
                 </div>
 
                 <NotesField
@@ -1051,7 +1048,7 @@ const CarBooking = () => {
               ? "Select at least one add-on"
               : startDate && endDate && whatsAppMissing
               ? "Enter your WhatsApp number"
-              : "Pay with Bitcoin Lightning"}
+              : `Pay ${formatUSD(effectiveGrandTotalCents)} · Lightning`}
           </p>
         </div>
       </div>
