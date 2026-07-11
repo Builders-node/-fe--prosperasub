@@ -17,9 +17,9 @@ import { useMyCarRentals, type MyCarRental } from "@/hooks/useMyCarRentals";
 import { RestaurantInfoTab } from "@/components/food/admin/RestaurantInfoTab";
 import { RestaurantMealPlansTab } from "@/components/food/admin/RestaurantMealPlansTab";
 import { RestaurantWeeklyMenusTab } from "@/components/food/admin/RestaurantWeeklyMenusTab";
-import { RestaurantSubscriptionsTab } from "@/components/food/admin/RestaurantSubscriptionsTab";
 import { RestaurantOperationsTab } from "@/components/food/admin/RestaurantOperationsTab";
 import { RestaurantStaffTab } from "@/components/food/admin/RestaurantStaffTab";
+import { FoodSubscriptionsList } from "@/components/food/FoodSubscriptionsList";
 import { useMyRestaurants, type MyRestaurant } from "@/hooks/useMyRestaurants";
 
 import { CleaningInfoTab, type CleaningProviderRow } from "@/components/cleaning/CleaningInfoTab";
@@ -75,7 +75,10 @@ export const CAR_TABS: PortalTab<MyCarRental>[] = [
 // customer" view) so a provider clicks Bookings once and toggles between the
 // week calendar and the customer list. Bodies of the old subscription tabs are
 // still rendered — just from a different mount point.
-export const FOOD_SUBSCRIPTIONS_TAB_BODY = (r: MyRestaurant) => <RestaurantSubscriptionsTab providerId={r.id} />;
+// Owner-facing subscription list — same compact grouped shape as the Cleaning
+// provider workspace so a provider switching services keeps the same UI grammar.
+// The full admin editor still lives at /admin/marketplace/subscriptions.
+export const FOOD_SUBSCRIPTIONS_TAB_BODY = (r: MyRestaurant) => <FoodSubscriptionsList providerId={r.id} />;
 export const CLEANING_SUBSCRIPTIONS_TAB_BODY = (p: CleaningProviderRow) => <CleaningSubscriptionsList providerId={p.id} />;
 
 export const FOOD_TABS: PortalTab<MyRestaurant>[] = [
