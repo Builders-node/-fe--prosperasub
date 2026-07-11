@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Edit, Trash2, Eye, EyeOff, X } from "lucide-react";
+import { SectionOverline } from "@/components/subscriptions/MySubsPrimitives";
 import { Spinner } from "@/components/ui/spinner";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -267,106 +268,135 @@ export function RestaurantMealPlansTab({ providerId }: Props) {
         </div>
       )}
 
-      {/* Create / Edit dialog */}
+      {/* Create / Edit dialog — mobile-first: single-column stacking, section
+          overlines to break the wall of inputs, highlights collapse into a
+          compact live list (empty rows hidden, "Add highlight" until 4). */}
       <Dialog open={isOpen} onOpenChange={(o) => { if (!o) closeDialog(); }}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto p-5 sm:p-6">
+          <DialogHeader className="pb-1">
             <DialogTitle>{isNew ? "New Meal Plan" : "Edit Meal Plan"}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Plan Name *</Label>
-              <Input value={form.name}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                placeholder="Standard Plan" />
-            </div>
-            <div>
-              <Label>Description</Label>
-              <Textarea value={form.description}
-                onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                rows={2} placeholder="Fresh meals Mon–Fri..." />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-6">
+            {/* ── Basic info ─────────────────────────────────────────────── */}
+            <section className="space-y-3">
+              <SectionOverline label="Basic info" />
               <div>
-                <Label>Meals / day</Label>
-                <Input type="number" min={1} max={10} value={form.meals_per_day}
-                  onChange={(e) => setForm((f) => ({ ...f, meals_per_day: parseInt(e.target.value || "3") }))} />
+                <Label>Plan Name *</Label>
+                <Input value={form.name}
+                  onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                  placeholder="Standard Plan" />
               </div>
               <div>
-                <Label>Days / week</Label>
-                <Input type="number" min={1} max={7} value={form.days_per_week}
-                  onChange={(e) => setForm((f) => ({ ...f, days_per_week: parseInt(e.target.value || "5") }))} />
+                <Label>Description</Label>
+                <Textarea value={form.description}
+                  onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                  rows={2} placeholder="Fresh meals Mon–Fri…" />
               </div>
-            </div>
+            </section>
 
-            <div className="grid grid-cols-2 gap-3">
+            {/* ── Sizing ─────────────────────────────────────────────────── */}
+            <section className="space-y-3">
+              <SectionOverline label="Sizing" />
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div>
+                  <Label>Meals / day</Label>
+                  <Input type="number" min={1} max={10} inputMode="numeric" value={form.meals_per_day}
+                    onChange={(e) => setForm((f) => ({ ...f, meals_per_day: parseInt(e.target.value || "3") }))} />
+                </div>
+                <div>
+                  <Label>Days / week</Label>
+                  <Input type="number" min={1} max={7} inputMode="numeric" value={form.days_per_week}
+                    onChange={(e) => setForm((f) => ({ ...f, days_per_week: parseInt(e.target.value || "5") }))} />
+                </div>
+                <div>
+                  <Label>Total / week</Label>
+                  <Input type="number" min={1} inputMode="numeric" value={form.meals_per_week}
+                    onChange={(e) => setForm((f) => ({ ...f, meals_per_week: parseInt(e.target.value || "1") }))} />
+                </div>
+              </div>
+            </section>
+
+            {/* ── Pricing ────────────────────────────────────────────────── */}
+            <section className="space-y-3">
+              <SectionOverline label="Pricing" />
               <div>
                 <Label>Price / week ($)</Label>
-                <Input type="number" min={0} step={0.01}
+                <Input type="number" min={0} step={0.01} inputMode="decimal"
                   value={(form.weekly_price_cents / 100).toFixed(2)}
                   onChange={(e) => setForm((f) => ({
                     ...f,
                     weekly_price_cents: Math.round(parseFloat(e.target.value || "0") * 100),
                   }))} />
               </div>
-              <div>
-                <Label>Total meals / week</Label>
-                <Input type="number" min={1} value={form.meals_per_week}
-                  onChange={(e) => setForm((f) => ({ ...f, meals_per_week: parseInt(e.target.value || "1") }))} />
-              </div>
-            </div>
+            </section>
 
-            <div>
-              <Label>Highlights (up to 4)</Label>
-              <div className="mt-1 space-y-2">
-                {form.highlights.map((h, i) => (
-                  <div key={i} className="flex gap-2">
-                    <Input value={h}
-                      onChange={(e) => {
-                        const next = [...form.highlights];
-                        next[i] = e.target.value;
-                        setForm((f) => ({ ...f, highlights: next }));
-                      }}
-                      placeholder={`Highlight ${i + 1}`} />
-                    {h && (
-                      <Button type="button" size="sm" variant="ghost"
-                        className="h-9 w-9 p-0 shrink-0"
-                        onClick={() => {
+            {/* ── Highlights — max 4, "Add" until we hit the cap ─────────── */}
+            <section className="space-y-3">
+              <SectionOverline
+                label="Highlights"
+                count={`${form.highlights.filter((h) => h.trim()).length}/4`}
+              />
+              <div className="space-y-2">
+                {form.highlights.map((h, i) => {
+                  // Show every non-empty row + a single trailing empty one for
+                  // in-place typing. Hidden trailing empties keep the modal
+                  // short until the provider actually starts writing.
+                  const nonEmptyCount = form.highlights.filter((x) => x.trim()).length;
+                  const firstEmptyIdx = form.highlights.findIndex((x) => !x.trim());
+                  if (!h.trim() && i !== firstEmptyIdx) return null;
+                  if (!h.trim() && nonEmptyCount >= 4) return null;
+                  return (
+                    <div key={i} className="flex gap-2">
+                      <Input value={h}
+                        onChange={(e) => {
                           const next = [...form.highlights];
-                          next[i] = "";
+                          next[i] = e.target.value;
                           setForm((f) => ({ ...f, highlights: next }));
-                        }}>
-                        <X className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                ))}
+                        }}
+                        placeholder="e.g. Fresh, home-style meals" />
+                      {h.trim() && (
+                        <Button type="button" size="sm" variant="ghost"
+                          className="h-9 w-9 shrink-0 p-0"
+                          onClick={() => {
+                            const next = [...form.highlights];
+                            next[i] = "";
+                            setForm((f) => ({ ...f, highlights: next }));
+                          }}>
+                          <X className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-            </div>
+            </section>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Status</Label>
-                <select
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  value={form.status}
-                  onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as "active" | "inactive" }))}>
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </select>
+            {/* ── Publishing ─────────────────────────────────────────────── */}
+            <section className="space-y-3">
+              <SectionOverline label="Publishing" />
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <Label>Status</Label>
+                  <select
+                    className="mt-1.5 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={form.status}
+                    onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as "active" | "inactive" }))}>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
+                </div>
+                <div>
+                  <Label>Sort order</Label>
+                  <Input type="number" inputMode="numeric" value={form.sort_order}
+                    onChange={(e) => setForm((f) => ({ ...f, sort_order: parseInt(e.target.value || "0") }))} />
+                </div>
               </div>
-              <div>
-                <Label>Sort Order</Label>
-                <Input type="number" value={form.sort_order}
-                  onChange={(e) => setForm((f) => ({ ...f, sort_order: parseInt(e.target.value || "0") }))} />
-              </div>
-            </div>
+            </section>
 
             {residences.length > 0 && (
-              <div>
-                <Label>Available in locations</Label>
-                <p className="mt-0.5 mb-2 text-xs text-muted-foreground">
+              <section className="space-y-3">
+                <SectionOverline label="Availability" />
+                <p className="text-xs text-muted-foreground">
                   Leave empty to offer this plan in <strong>all</strong> locations. Select specific residences to limit it.
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -383,10 +413,10 @@ export function RestaurantMealPlansTab({ providerId }: Props) {
                     );
                   })}
                 </div>
-                <p className="mt-1.5 text-xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   {planResidenceIds.length === 0 ? "Available everywhere" : `Limited to ${planResidenceIds.length} location${planResidenceIds.length > 1 ? "s" : ""}`}
                 </p>
-              </div>
+              </section>
             )}
           </div>
           <DialogFooter>
