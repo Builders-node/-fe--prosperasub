@@ -159,8 +159,16 @@ export function RestaurantOperationsTab({ providerId }: Props) {
         return true;
       })
       .forEach((sub) => {
-        const types = getMealTypesForPlan(sub.meal_plan_id ? planById[sub.meal_plan_id] : null);
-        types.forEach((mealType) => rows.push({ sub, mealType }));
+        // Prefer the subscription-level `selected_meals` (structured customer
+        // choice — no more free-form "2 lunch instead of dinner" notes). Fall
+        // back to the plan's default meal set for legacy rows written before
+        // the column existed. Filter to canonical meal types the ManifestRow
+        // union accepts.
+        const raw = (sub as any).selected_meals as unknown;
+        const chosen = Array.isArray(raw) && raw.length > 0
+          ? raw.filter((m): m is MealType => (["breakfast", "lunch", "dinner", "snack", "other", "meal"] as string[]).includes(m as string))
+          : getMealTypesForPlan(sub.meal_plan_id ? planById[sub.meal_plan_id] : null);
+        chosen.forEach((mealType) => rows.push({ sub, mealType }));
       });
     // Sort by meal type (so a courier can run "all breakfasts" together), then by
     // residence, then apartment — keeps each building's deliveries together.

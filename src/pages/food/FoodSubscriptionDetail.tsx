@@ -9,6 +9,8 @@ import { UserLayout } from "@/components/layout/UserLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MyRationView } from "@/components/food/MyRationView";
+import { MealSelectionPicker, defaultMealsForCount, formatMeals, type MealKey } from "@/components/food/MealSelectionPicker";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { getMealTypesForPlan, formatWeekLabel } from "@/lib/foodUtils";
 import { formatUSD } from "@/lib/pricing";
 import { RateAndTip } from "@/components/food/RateAndTip";
@@ -82,6 +84,42 @@ export default function FoodSubscriptionDetail() {
   // charged" support tickets that come from mis-taps.
   const [renewChecking, setRenewChecking] = useState(false);
   const [renewPreviewOpen, setRenewPreviewOpen] = useState(false);
+  const [mealsSheetOpen, setMealsSheetOpen] = useState(false);
+  const [draftMeals, setDraftMeals] = useState<MealKey[]>([]);
+
+  // Load the subscription's stored meal selection separately — the account
+  // API only returns the summary fields, and adding this to Prisma requires a
+  // schema sync we don't want to block the UI on.
+  const { data: mealsRow } = useQuery({
+    queryKey: ["food-subscription-meals", id],
+    enabled: !!id,
+    queryFn: async () => {
+      const { data, error } = await supabaseDb
+        .from("food_subscriptions")
+        .select("selected_meals")
+        .eq("id", id!)
+        .maybeSingle();
+      if (error) throw error;
+      return data as { selected_meals: string[] | null } | null;
+    },
+  });
+
+  const saveMeals = useMutation({
+    mutationFn: async (next: MealKey[]) => {
+      const { error } = await supabaseDb
+        .from("food_subscriptions")
+        .update({ selected_meals: next, updated_at: new Date().toISOString() })
+        .eq("id", id!);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Meals updated");
+      queryClient.invalidateQueries({ queryKey: ["food-subscription-meals", id] });
+      queryClient.invalidateQueries({ queryKey: ["food-subscription-access", id] });
+      setMealsSheetOpen(false);
+    },
+    onError: (e: Error) => toast.error(e.message || "Could not save"),
+  });
 
   const performRenewNavigation = async () => {
     const sub = data?.subscription;
@@ -273,6 +311,35 @@ export default function FoodSubscriptionDetail() {
           </div>
           <div className="divide-y divide-border/60 border-t border-border/60">
             {plan && <DetailRow label="Plan" value={`${plan.name} · ${plan.meals_per_day} meals/day`} />}
+            {/* Structured meal choice — tap to reopen the picker. Falls back
+                to the plan default when the row hasn't been saved yet (legacy). */}
+            <div className="flex items-center justify-between gap-4 px-5 py-3">
+              <span className="text-sm text-muted-foreground">Meals per day</span>
+              <div className="flex items-center gap-2">
+                <span className="text-right text-sm font-medium text-foreground">
+                  {formatMeals(
+                    (mealsRow?.selected_meals as MealKey[] | null) ??
+                    (plan ? defaultMealsForCount(plan.meals_per_day) : []),
+                  )}
+                </span>
+                {plan && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setDraftMeals(
+                        (mealsRow?.selected_meals as MealKey[] | null) ??
+                        defaultMealsForCount(plan.meals_per_day),
+                      );
+                      setMealsSheetOpen(true);
+                    }}
+                  >
+                    Change
+                  </Button>
+                )}
+              </div>
+            </div>
             <DetailRow label="Weekly price" value={formatUSD(sub.weekly_price_cents || 0)} />
             <DetailRow label="Duration" value={`${sub.commitment_weeks || 1} week${(sub.commitment_weeks || 1) > 1 ? "s" : ""}`} />
             <DetailRow label="Current period" value={`${fmtDate(sub.started_at)} → ${fmtDate(sub.end_date)}`} />
@@ -322,6 +389,57 @@ export default function FoodSubscriptionDetail() {
           </div>
         )}
       </div>
+
+      {/* Change-your-meals sheet — same picker used at checkout, in a bottom
+          sheet so it plays nicely with iOS one-hand. Save invalidates both
+          the local `selected_meals` query and the parent `access` query so
+          any dependent UI (MyRationView filters, admin manifest) refetches. */}
+      <Sheet open={mealsSheetOpen} onOpenChange={setMealsSheetOpen}>
+        <SheetContent
+          side="bottom"
+          className="max-h-[80vh] overflow-y-auto rounded-t-3xl border-0 pb-[env(safe-area-inset-bottom)]"
+        >
+          <SheetHeader className="px-1 pb-4">
+            <SheetTitle className="text-left">Change your meals</SheetTitle>
+          </SheetHeader>
+          {plan && (
+            <>
+              <MealSelectionPicker
+                value={draftMeals}
+                onChange={setDraftMeals}
+                mealsPerDay={plan.meals_per_day}
+              />
+              <div className="mt-6 flex gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="flex-1"
+                  onClick={() => setMealsSheetOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  className="flex-1"
+                  onClick={() => saveMeals.mutate(draftMeals)}
+                  disabled={
+                    draftMeals.length !== plan.meals_per_day
+                    || new Set(draftMeals).size !== draftMeals.length
+                    || saveMeals.isPending
+                  }
+                  loading={saveMeals.isPending}
+                  loadingText="Saving…"
+                >
+                  Save
+                </Button>
+              </div>
+              <p className="mt-3 text-xs text-muted-foreground">
+                Changes apply from the next delivery day.
+              </p>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
     </UserLayout>
   );
 }

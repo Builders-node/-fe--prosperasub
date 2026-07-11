@@ -29,6 +29,7 @@ import { formatUSD, centsToDollars } from "@/lib/pricing";
 import { useBtcPrice } from "@/hooks/useBtcPrice";
 import { getMealTypesForPlan, formatWeekLabel } from "@/lib/foodUtils";
 import { MyRationView } from "@/components/food/MyRationView";
+import { MealSelectionPicker, defaultMealsForCount, type MealKey } from "@/components/food/MealSelectionPicker";
 import type { FoodProvider, FoodMealPlan, FoodWeeklyMenu, FoodMenuMeal } from "@/types/food";
 import { MEAL_TYPE_LABELS } from "@/types/food";
 import { toast } from "sonner";
@@ -106,6 +107,11 @@ const FoodPlanDetail = () => {
   const [checkoutMode, setCheckoutMode] = useState<CheckoutMode>("order");
   const [paymentStep, setPaymentStep] = useState<PaymentStep>("details");
   const [checkout, setCheckout] = useState({ ...EMPTY_CHECKOUT });
+  // Meal selection lives outside the flat checkout object because its length
+  // is coupled to the plan (not user-editable text): easier to reset when the
+  // plan loads. Initialised empty so the customer must actively pick — unless
+  // the plan is 3-meal, in which case the picker auto-locks all three.
+  const [selectedMeals, setSelectedMeals] = useState<MealKey[]>([]);
 
   // ─── Payment state ────────────────────────────────────────────────────────
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("lightning");
@@ -219,6 +225,13 @@ const FoodPlanDetail = () => {
     });
     setCheckoutMode("subscribe");
     setPaymentStep("details");
+    // Renewal: carry the existing sub's meal selection forward. If the DB row
+    // is missing selected_meals (very old data), fall back to the plan default.
+    setSelectedMeals(
+      Array.isArray(renewSub.selected_meals) && renewSub.selected_meals.length > 0
+        ? (renewSub.selected_meals as MealKey[])
+        : defaultMealsForCount(plan.meals_per_day ?? 3),
+    );
     setDialogOpen(true);
   }, [renewSubId, renewSub, plan, userData]);
 
@@ -267,10 +280,14 @@ const FoodPlanDetail = () => {
   const mealPhotos = (weeklyMenu?.meals ?? [])
     .map((m) => m.image_url)
     .filter((u): u is string => !!u);
+  const requiredMeals = plan?.meals_per_day ?? 3;
+  const mealsValid = selectedMeals.length === Math.max(1, Math.min(requiredMeals, 3))
+    && new Set(selectedMeals).size === selectedMeals.length;
   const checkoutValid =
     checkout.customer_name.trim() &&
     checkout.customer_whatsapp.trim() &&
-    checkout.delivery_address.trim();
+    checkout.delivery_address.trim() &&
+    mealsValid;
 
   // ─── Create record after payment ──────────────────────────────────────────
   // Track the pending row so payment confirmation UPDATEs it in place. Keeps a
@@ -328,6 +345,9 @@ const FoodPlanDetail = () => {
         residence: checkout.residence.trim() || null,
         delivery_address: checkout.delivery_address.trim(),
         notes: checkout.notes.trim() || null,
+        // Structured meal preference — replaces the old "note the customer left"
+        // pattern. DB trigger rejects duplicates; `mealsValid` guards length.
+        selected_meals: selectedMeals,
       };
       if (pendingRecordIdRef.current) {
         await supabaseDb.from("food_subscriptions").update(payload).eq("id", pendingRecordIdRef.current);
@@ -428,6 +448,7 @@ const FoodPlanDetail = () => {
             residence: checkout.residence.trim() || null,
             delivery_address: checkout.delivery_address.trim(),
             notes: checkout.notes.trim() || null,
+            selected_meals: selectedMeals,
             ...patch,
           })
           .select("id")
@@ -525,6 +546,11 @@ const FoodPlanDetail = () => {
       notes: "",
       duration_weeks: mode === "subscribe" ? 4 : 1,
     });
+    // 3-meal plans have only one legal answer (all three), so we auto-lock it —
+    // the picker still shows for confirmation. Anything else starts empty so the
+    // customer explicitly chooses their two-of-three or one-of-three combo.
+    const perDay = plan?.meals_per_day ?? 3;
+    setSelectedMeals(perDay >= 3 ? defaultMealsForCount(perDay) : []);
     setDialogOpen(true);
   };
 
@@ -862,6 +888,22 @@ const FoodPlanDetail = () => {
                   })()}
                 </>
               )}
+
+              {/* Meal selection — structured replacement for free-form notes
+                  like "2 Lunch per day instead of dinner". Duplicates are not
+                  allowed (that's a separate plan); customer picks exactly
+                  meals_per_day unique meals. Gated Pay button reads the same
+                  `mealsValid` used for `checkoutValid`. */}
+              <section className="space-y-2">
+                <div className="px-1"><SectionOverline label="Your daily meals" /></div>
+                <div className="rounded-3xl bg-card p-5">
+                  <MealSelectionPicker
+                    value={selectedMeals}
+                    onChange={setSelectedMeals}
+                    mealsPerDay={requiredMeals}
+                  />
+                </div>
+              </section>
 
               {/* Summary — mobile-first: single card, subtle dividers between
                   breakdown rows, clear total row with primary emphasis. */}
