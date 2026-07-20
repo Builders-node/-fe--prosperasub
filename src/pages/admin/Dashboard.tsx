@@ -39,7 +39,7 @@ const AdminDashboard = () => {
         supabaseDb.from("cleaning_subscriptions").select("payment_status, subscription_status, is_active, total_price_cents, monthly_price_cents").is("deleted_at", null),
         supabaseDb.from("beach_club_subscriptions").select("payment_status, status, total_cents"),
         supabaseDb.from("rental_bookings").select("payment_status, status, total_cents").is("deleted_at", null),
-        supabaseDb.from("food_subscriptions").select("status, weekly_price_cents, commitment_weeks, periods_paid"),
+        supabaseDb.from("food_subscriptions").select("status, payment_status, weekly_price_cents, commitment_weeks, periods_paid"),
       ]);
 
       const byService: Record<ServiceKey, { active: number; revenueCents: number }> = {
@@ -55,11 +55,17 @@ const AdminDashboard = () => {
         if (r.payment_status === "paid" && r.is_active && r.subscription_status === "active") byService.cleaning.active++;
         if (r.payment_status !== "paid" && !["cancelled", "expired"].includes(r.subscription_status)) pending++;
       });
+      // Food revenue must gate on payment_status='paid' — same as cleaning/
+      // beach/cars. Otherwise Infinita/crypto subs that never reconciled inflate
+      // the per-service Revenue tile on this page.
       (food.data ?? []).forEach((r: any) => {
         const s = String(r.status ?? "").toLowerCase();
-        if (["active", "paused", "expired"].includes(s)) byService.food.revenueCents += (r.weekly_price_cents || 0) * (r.commitment_weeks || 1) * (r.periods_paid || 1);
-        if (s === "active") byService.food.active++;
-        if (s === "pending") pending++;
+        const isPaid = r.payment_status === "paid";
+        if (isPaid && ["active", "paused", "expired"].includes(s)) {
+          byService.food.revenueCents += (r.weekly_price_cents || 0) * (r.commitment_weeks || 1) * (r.periods_paid || 1);
+        }
+        if (isPaid && s === "active") byService.food.active++;
+        if (!isPaid && s !== "cancelled") pending++;
       });
       (beach.data ?? []).forEach((r: any) => {
         if (r.payment_status === "paid") byService.beach.revenueCents += r.total_cents || 0;

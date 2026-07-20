@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Activity, CalendarClock, DollarSign, Star } from "lucide-react";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { formatUSD } from "@/lib/pricing";
+import { todayHN, addDaysISO, monthStartHNiso } from "@/lib/timezone";
 import { cn } from "@/lib/utils";
 
 /**
@@ -55,18 +56,11 @@ function StatCard({ label, value, icon: Icon, tint = "primary" }: Stat) {
   );
 }
 
-const monthStartISO = () => {
-  const d = new Date();
-  d.setDate(1);
-  d.setHours(0, 0, 0, 0);
-  return d.toISOString();
-};
-const daysFromNowISO = (days: number) => {
-  const d = new Date();
-  d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
-};
-const todayISO = () => new Date().toISOString().slice(0, 10);
+// All date boundaries here are Honduras-local so KPIs match what appears on the
+// Finance page and don't drift for admins sitting in positive-offset TZs.
+const monthStartISO = () => monthStartHNiso();
+const daysFromNowISO = (days: number) => addDaysISO(todayHN(), days);
+const todayISO = () => todayHN();
 
 // ─── Service adapters ──────────────────────────────────────────────────────
 // Each adapter loads a { active, upcoming7d, revenueMtdCents } tuple. We do
@@ -109,11 +103,24 @@ async function fetchCleaningStats(legacyId: string) {
 }
 
 async function fetchFoodStats(legacyId: string) {
-  const [{ count: active }, { data: revRows }] = await Promise.all([
+  // Food column is `status` (not `subscription_status` — that's cleaning). And
+  // "upcoming 7d" for food = active + paid subscriptions whose delivery window
+  // overlaps the next 7 days (started_at <= today+7 AND end_date >= today).
+  const today = todayISO();
+  const in7 = daysFromNowISO(7);
+  const [{ count: active }, { count: upcoming }, { data: revRows }] = await Promise.all([
     supabaseDb.from("food_subscriptions")
       .select("id", { count: "exact", head: true })
       .eq("provider_id", legacyId)
-      .eq("subscription_status", "active"),
+      .eq("status", "active")
+      .eq("payment_status", "paid"),
+    supabaseDb.from("food_subscriptions")
+      .select("id", { count: "exact", head: true })
+      .eq("provider_id", legacyId)
+      .eq("status", "active")
+      .eq("payment_status", "paid")
+      .lte("started_at", in7)
+      .gte("end_date", today),
     supabaseDb.from("food_subscriptions")
       .select("weekly_price_cents,commitment_weeks,created_at")
       .eq("provider_id", legacyId)
@@ -122,7 +129,7 @@ async function fetchFoodStats(legacyId: string) {
   ]);
   const revenueCents = (revRows ?? []).reduce((s: number, r: any) =>
     s + Number(r.weekly_price_cents || 0) * Number(r.commitment_weeks || 1), 0);
-  return { active: active ?? 0, upcoming: active ?? 0, revenueCents };
+  return { active: active ?? 0, upcoming: upcoming ?? 0, revenueCents };
 }
 
 async function fetchCarsStats(legacyId: string) {
@@ -142,7 +149,8 @@ async function fetchCarsStats(legacyId: string) {
       .select("id", { count: "exact", head: true })
       .in("vehicle_id", vehicleIds)
       .gte("start_date", todayISO())
-      .lte("start_date", daysFromNowISO(7)),
+      .lte("start_date", daysFromNowISO(7))
+      .neq("status", "cancelled"),
     supabaseDb.from("rental_bookings")
       .select("total_price_cents,created_at")
       .in("vehicle_id", vehicleIds)
@@ -185,13 +193,21 @@ async function fetchStats(sourceKey: string, legacyId: string) {
 }
 
 async function fetchRating(universalProviderId: string) {
+  // Rating averages the numeric rating column. Exclude rows with NULL rating
+  // so a data-entry blank doesn't drag the mean to zero. Provider_reviews are
+  // hard-deleted, so no soft-delete filter needed.
   const { data } = await supabaseDb
     .from("provider_reviews")
     .select("rating")
-    .eq("provider_id", universalProviderId);
+    .eq("provider_id", universalProviderId)
+    .not("rating", "is", null);
   if (!data?.length) return { avg: null as number | null, count: 0 };
-  const sum = data.reduce((s: number, r: any) => s + Number(r.rating || 0), 0);
-  return { avg: sum / data.length, count: data.length };
+  const nums = data
+    .map((r: any) => Number(r.rating))
+    .filter((n) => Number.isFinite(n) && n > 0);
+  if (!nums.length) return { avg: null as number | null, count: 0 };
+  const sum = nums.reduce((s, n) => s + n, 0);
+  return { avg: sum / nums.length, count: nums.length };
 }
 
 export function ProviderAnalyticsWidget({ providerId, legacyId, sourceKey }: Props) {

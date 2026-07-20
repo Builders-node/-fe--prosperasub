@@ -16,6 +16,10 @@ const CarRentalsAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
         .from("rental_bookings")
         .select("*")
         .is("deleted_at", null)
+        // Same gate the other three services use — only paid bookings become
+        // revenue. LIVES/crypto bookings sit at payment_status='pending' until
+        // an admin confirms them; those must not appear in "Total Revenue".
+        .eq("payment_status", "paid")
         .in("status", ["paid", "confirmed", "active", "completed"]);
       if (error) throw error;
       return (data ?? []) as RentalBooking[];

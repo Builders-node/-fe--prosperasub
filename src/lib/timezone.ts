@@ -75,6 +75,30 @@ export function addMonthsISO(dateStr: string, months: number): string {
 }
 
 /**
+ * Full-ISO timestamp for the first instant of the current Honduras month.
+ * Use for `.gte("created_at", monthStartHNiso())`-style MTD queries so a row
+ * timestamped on the last day of the prior HN month doesn't leak into MTD for
+ * an admin sitting in a positive-offset TZ.
+ */
+export function monthStartHNiso(): string {
+  const today = todayHN();               // YYYY-MM-DD in HN
+  const firstDayHN = today.slice(0, 8) + "01";
+  // 00:00 HN == 06:00 UTC (HN is fixed UTC-6, no DST).
+  return `${firstDayHN}T06:00:00.000Z`;
+}
+
+/**
+ * Full-ISO timestamp for N days ahead of today in Honduras (23:59:59.999Z).
+ * Use for `.lte("created_at", daysAheadHNiso(7))`-style window queries.
+ */
+export function daysAheadHNiso(days: number): string {
+  const target = addDaysISO(todayHN(), days);
+  // End of that HN day = 23:59:59 HN = 05:59:59 UTC next day. Return the
+  // target-day's HN midnight-plus-24h anchor so `.lte` includes the whole day.
+  return `${addDaysISO(target, 1)}T05:59:59.999Z`;
+}
+
+/**
  * Whole calendar days from today (Honduras) until the given date.
  * Positive = in the future, 0 = today, negative = past.
  */

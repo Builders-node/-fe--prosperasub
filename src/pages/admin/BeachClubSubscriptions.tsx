@@ -35,6 +35,7 @@ interface BeachSub {
   plan_name: string | null;
   customer_name: string | null;
   customer_email: string | null;
+  customer_whatsapp?: string | null;
   people: number;
   start_date: string | null;
   end_date: string | null;
@@ -43,6 +44,8 @@ interface BeachSub {
   payment_method: string | null;
   payment_reference: string | null;
   status: string;
+  /** end-date-aware — "active" flips to "expired" without waiting for the daily cron */
+  effective_status?: string;
   created_at: string;
 }
 
@@ -131,12 +134,14 @@ export default function BeachClubSubscriptions({ embedded = false }: { embedded?
         .select("*")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      // Derive lifecycle from end_date so a lingering "active" past its end
-      // renders as expired without waiting for the daily cron.
+      // Keep raw DB `status` for the Select trigger — shadcn's Select shows a
+      // blank if `value` isn't in <SelectItem>s, and "expired" isn't a user-
+      // settable state. Effective status lives on `effective_status` for the
+      // display badge.
       const today = todayHN();
       return (data ?? []).map((s: BeachSub) => ({
         ...s,
-        status: effectiveBeachStatus(s, today),
+        effective_status: effectiveBeachStatus(s, today),
       })) as BeachSub[];
     },
   });
@@ -300,16 +305,21 @@ export default function BeachClubSubscriptions({ embedded = false }: { embedded?
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Select value={s.status} onValueChange={(status) => statusMutation.mutate({ id: s.id, status })}>
-                    <SelectTrigger className="h-8 w-[120px] text-xs font-semibold">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {STATUSES.map((st) => (
-                        <SelectItem key={st} value={st} className="capitalize">{st}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex flex-col items-start gap-1">
+                    <Select value={s.status} onValueChange={(status) => statusMutation.mutate({ id: s.id, status })}>
+                      <SelectTrigger className="h-8 w-[120px] text-xs font-semibold">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {STATUSES.map((st) => (
+                          <SelectItem key={st} value={st} className="capitalize">{st}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {s.effective_status === "expired" && (
+                      <Badge className="rounded-full text-[10px] bg-destructive/15 text-destructive">Expired</Badge>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end">

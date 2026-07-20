@@ -91,8 +91,11 @@ export function FinanceBreakdown() {
           .is("deleted_at", null),
         supabaseDb
           .from("food_subscriptions")
+          // Match the payment_status='paid' gate used for cleaning/beach/cars —
+          // unpaid food subs should never land in a revenue matrix.
           .select("weekly_price_cents, commitment_weeks, status, payment_method, periods_paid, created_at, started_at")
-          .in("status", ["active", "paused", "expired"]),
+          .in("status", ["active", "paused", "expired"])
+          .eq("payment_status", "paid"),
       ]);
 
       const matrix = emptyMatrix();
@@ -102,11 +105,17 @@ export function FinanceBreakdown() {
       };
 
       (cleaning.data ?? []).forEach((r: any) => {
+        // Derive multi-month span from total/monthly when service_end_date is
+        // blank so a 3-month plan recognises across ~90 days, not lumped into
+        // a single 30-day fallback (which starves the following months' cell).
+        const total = Number(r.total_price_cents || 0);
+        const monthly = Number(r.monthly_price_cents || 0);
+        const months = monthly > 0 && total >= monthly ? Math.max(1, Math.round(total / monthly)) : 1;
         add("cleaning", r.payment_method, recognizedCents({
-          totalCents: r.total_price_cents || r.monthly_price_cents || 0,
+          totalCents: total || monthly,
           serviceStart: r.service_start_date || r.start_date || r.created_at,
           serviceEnd: r.service_end_date || r.end_date,
-          fallbackDays: 30,
+          fallbackDays: months * 30,
         }, start, end));
       });
       (beach.data ?? []).forEach((r: any) => {
@@ -163,6 +172,7 @@ export function FinanceBreakdown() {
           .from("food_subscriptions")
           .select("id, user_id, provider_id, meal_plan_id, customer_name, weekly_price_cents, commitment_weeks, periods_paid, payment_method, payment_reference, payment_status, status, created_at, started_at, end_date")
           .in("status", ["active", "paused", "expired"])
+          .eq("payment_status", "paid")
           .gte("created_at", startISO).lte("created_at", endISO),
         supabaseDb
           .from("rental_bookings")

@@ -140,6 +140,11 @@ async function fetchFood(providerId: string, from: string, to: string): Promise<
     .eq("provider_id", providerId)
     .lte("started_at", to)
     .gte("end_date", from)
+    // Only surface subs that actually generate deliveries in this window.
+    // Cancelled/paused subs would otherwise occupy a calendar row on every
+    // day they overlap even though nothing gets delivered.
+    .in("status", ["active"])
+    .eq("payment_status", "paid")
     .order("started_at", { ascending: true });
 
   return (data ?? []).map((row: any) => ({

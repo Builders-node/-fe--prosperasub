@@ -115,7 +115,7 @@ const AdminPayments = () => {
         supabaseDb.from("cleaning_subscriptions").select("payment_status, subscription_status, total_price_cents, monthly_price_cents").is("deleted_at", null),
         supabaseDb.from("beach_club_subscriptions").select("payment_status, status, total_cents"),
         supabaseDb.from("rental_bookings").select("payment_status, status, total_cents").is("deleted_at", null),
-        supabaseDb.from("food_subscriptions").select("status, weekly_price_cents, commitment_weeks, periods_paid"),
+        supabaseDb.from("food_subscriptions").select("status, payment_status, weekly_price_cents, commitment_weeks, periods_paid"),
       ]);
       let paid = 0, pending = 0, revenueCents = 0;
       (cleaning.data ?? []).forEach((r: any) => {
@@ -130,10 +130,19 @@ const AdminPayments = () => {
         if (r.payment_status === "paid") { paid++; revenueCents += r.total_cents || 0; }
         else if (r.status !== "cancelled") pending++;
       });
+      // Food revenue counts ONLY paid subs — same discipline as the other three
+      // tables. `status` (active/paused/expired) is a lifecycle marker, not a
+      // payment marker; Infinita/crypto payments are not auto-reconciled and
+      // must not appear in the revenue tile until they actually settle.
       (food.data ?? []).forEach((r: any) => {
         const s = String(r.status ?? "").toLowerCase();
-        if (["active", "paused", "expired"].includes(s)) { paid++; revenueCents += (r.weekly_price_cents || 0) * (r.commitment_weeks || 1) * (r.periods_paid || 1); }
-        else if (s === "pending") pending++;
+        const isPaid = r.payment_status === "paid";
+        if (isPaid && ["active", "paused", "expired"].includes(s)) {
+          paid++;
+          revenueCents += (r.weekly_price_cents || 0) * (r.commitment_weeks || 1) * (r.periods_paid || 1);
+        } else if (!isPaid && s !== "cancelled") {
+          pending++;
+        }
       });
       return { paid, pending, revenueCents };
     },

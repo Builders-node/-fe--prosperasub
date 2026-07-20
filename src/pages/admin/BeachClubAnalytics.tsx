@@ -43,7 +43,12 @@ export default function BeachClubAnalytics({ embedded = false }: { embedded?: bo
   const cancelled = subs.filter((s) => s.status === "cancelled");
 
   const totalRevenueCents = paid.reduce((sum, s) => sum + (s.total_cents ?? 0), 0);
-  const totalMembers = subs.reduce((sum, s) => sum + (s.people ?? 0), 0);
+  // "Total People" is a live-membership headcount, so only paid + active
+  // members count. Including cancelled/pending rows inflated the number and
+  // disagreed with every other tile on this page.
+  const totalMembers = paid
+    .filter((s) => s.status === "active")
+    .reduce((sum, s) => sum + (s.people ?? 0), 0);
   const avgOrderCents = paid.length ? Math.round(totalRevenueCents / paid.length) : 0;
 
   // Revenue for the current month.

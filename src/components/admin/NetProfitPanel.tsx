@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { startOfMonth, endOfMonth, format, differenceInCalendarMonths } from "date-fns";
+import { startOfMonth, endOfMonth, format } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import {
   Sparkles, Car, UtensilsCrossed, Waves, Wallet, TrendingUp, TrendingDown,
@@ -67,8 +67,16 @@ export function NetProfitPanel() {
   const { start, end } = useMemo(() => rangeFor(range, customStart, customEnd), [range, customStart, customEnd]);
   const startISO = start.toISOString();
   const endISO = end.toISOString();
-  // "Fixed" amounts are per-month, so scale them by the months the range spans.
-  const monthsInRange = Math.max(1, differenceInCalendarMonths(end, start) + 1);
+  // "Fixed" amounts are quoted per-month. Pro-rate by the number of days the
+  // reporting window covers so a 12-day custom range charges ~0.4 months, not
+  // 2 (the old differenceInCalendarMonths+1 counted every calendar month the
+  // range touched, doubling short cross-month windows).
+  const rangeDays = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1);
+  const AVG_DAYS_PER_MONTH = 30.4375; // 365.25 / 12
+  const monthsInRange = rangeDays / AVG_DAYS_PER_MONTH;
+  // Whole-month copy label ("× 3 mo") — round for display but the math above
+  // uses the true fractional value.
+  const monthsInRangeLabel = Math.max(1, Math.round(monthsInRange));
 
   // ── Settings (read from backend, editable) ──────────────────────────────────
   const { data: settings } = useQuery({
@@ -138,8 +146,12 @@ export function NetProfitPanel() {
           .select("total_cents, created_at, start_date, end_date")
           .eq("payment_status", "paid").is("deleted_at", null),
         supabaseDb.from("food_subscriptions")
+          // Same discipline as the other three tables — a food sub with
+          // payment_status != 'paid' (Infinita/crypto that never reconciled) is
+          // NOT revenue. Without this filter, unpaid subs inflate Net Profit.
           .select("weekly_price_cents, commitment_weeks, periods_paid, created_at, started_at")
-          .in("status", ["active", "paused", "expired"]),
+          .in("status", ["active", "paused", "expired"])
+          .eq("payment_status", "paid"),
       ]);
 
       const acc = (rows: any[], toInput: (r: any) => Parameters<typeof recognizedCents>[0], unit?: (r: any) => number) => {
@@ -153,12 +165,21 @@ export function NetProfitPanel() {
       };
 
       return {
-        cleaning: acc(cleaning.data, (r) => ({
-          totalCents: r.total_price_cents || r.monthly_price_cents || 0,
-          serviceStart: r.service_start_date || r.start_date || r.created_at,
-          serviceEnd: r.service_end_date || r.end_date,
-          fallbackDays: 30,
-        })),
+        cleaning: acc(cleaning.data, (r) => {
+          // If service_end_date is missing (data-entry gap) derive the number
+          // of months from total/monthly so a 3-month plan recognises over
+          // ~90 days, not lumped into the 30-day fallback. Falls back to a
+          // single month only for truly one-off sales.
+          const total = Number(r.total_price_cents || 0);
+          const monthly = Number(r.monthly_price_cents || 0);
+          const months = monthly > 0 && total >= monthly ? Math.max(1, Math.round(total / monthly)) : 1;
+          return {
+            totalCents: total || monthly,
+            serviceStart: r.service_start_date || r.start_date || r.created_at,
+            serviceEnd: r.service_end_date || r.end_date,
+            fallbackDays: months * 30,
+          };
+        }),
         beach: acc(beach.data, (r) => ({
           totalCents: r.total_cents || 0,
           serviceStart: r.start_date || r.created_at,
@@ -195,7 +216,8 @@ export function NetProfitPanel() {
     const { type, raw } = cfg[key];
     const { revenue, count } = r[key];
     if (type === "percent") return Math.round(revenue * (raw / 100));
-    if (type === "fixed") return raw * monthsInRange;
+    // Fixed = per-month rate × the fractional month coverage of the range.
+    if (type === "fixed") return Math.round(raw * monthsInRange);
     return raw * count; // person / per-unit
   };
 
@@ -203,7 +225,7 @@ export function NetProfitPanel() {
     const { type, raw } = cfg[s.key];
     const { count } = r[s.key];
     if (type === "percent") return `${raw}% of revenue${s.kind === "cost" ? " (provider cost)" : " commission"}`;
-    if (type === "fixed") return `${formatUSD(raw)}/mo${monthsInRange > 1 ? ` × ${monthsInRange} mo` : ""}${s.kind === "cost" ? " fixed cost" : " fixed"}`;
+    if (type === "fixed") return `${formatUSD(raw)}/mo${monthsInRangeLabel > 1 ? ` × ${monthsInRangeLabel} mo` : ""}${s.kind === "cost" ? " fixed cost" : " fixed"}`;
     return `${formatUSD(raw)} × ${count} ${s.unit}${count === 1 ? "" : "s"}`;
   };
 

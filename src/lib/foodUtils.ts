@@ -1,4 +1,5 @@
 import type { MealType, FoodMealPlan } from "@/types/food";
+import { addDaysISO } from "@/lib/timezone";
 
 /**
  * Return the ordered meal-type columns to display for a given plan.
@@ -24,9 +25,13 @@ export function formatWeekLabel(dateStr: string): string {
   return d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
 }
 
-/** Add `days` days to a YYYY-MM-DD string and return YYYY-MM-DD */
+/**
+ * Add `days` days to a YYYY-MM-DD string and return YYYY-MM-DD.
+ * Thin re-export of `addDaysISO` from lib/timezone — the local-parse-then-
+ * .toISOString() version this used to be drifted by a day for admins in
+ * positive-offset TZs (e.g. Europe). Keep the same signature so existing
+ * callers don't have to change.
+ */
 export function addDaysToDate(dateStr: string, days: number): string {
-  const d = new Date(dateStr + "T00:00:00");
-  d.setDate(d.getDate() + days);
-  return d.toISOString().split("T")[0];
+  return addDaysISO(dateStr, days);
 }

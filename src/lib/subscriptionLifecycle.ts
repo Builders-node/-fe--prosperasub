@@ -22,12 +22,15 @@ export function effectiveFoodStatus(
   sub: { status?: string | null; end_date?: string | null } | null | undefined,
   today: string = todayHN(),
 ): FoodSubStatus {
-  const raw = (sub?.status ?? "").toLowerCase() as FoodSubStatus;
   if (!sub) return "cancelled";
+  const raw = (sub.status ?? "").toLowerCase() as FoodSubStatus;
   if (raw === "active" && sub.end_date && String(sub.end_date).slice(0, 10) < today) {
     return "expired";
   }
-  return (raw || "active") as FoodSubStatus;
+  // Default to `pending` (a discoverable, non-serviceable state) rather than
+  // `active` — a NULL status row should never quietly hit the delivery
+  // manifest. Cleaning/beach helpers use `cancelled` for the same reason.
+  return (raw || "pending") as FoodSubStatus;
 }
 
 /** True when today's / a future date's delivery manifest should include this sub. */

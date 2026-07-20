@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { UtensilsCrossed, MoreHorizontal, PauseCircle, PlayCircle, XCircle } from "lucide-react";
+import { UtensilsCrossed, MoreHorizontal, PauseCircle, PlayCircle, XCircle, RefreshCcw } from "lucide-react";
 import { format, isBefore } from "date-fns";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import {
 import { TabEmptyState, SectionGroup } from "@/components/subscriptions/MySubsPrimitives";
 import { formatUSD } from "@/lib/pricing";
 import { effectiveFoodStatus } from "@/lib/subscriptionLifecycle";
+import { todayHN, addDaysISO } from "@/lib/timezone";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -38,7 +39,7 @@ export function FoodSubscriptionsList({ providerId }: { providerId: string }) {
 
       const { data } = await supabaseDb
         .from("food_subscriptions")
-        .select("id,user_id,customer_name,meal_plan_id,status,started_at,end_date,commitment_weeks,weekly_price_cents,delivery_address")
+        .select("id,user_id,customer_name,meal_plan_id,status,payment_status,started_at,end_date,commitment_weeks,weekly_price_cents,delivery_address")
         .eq("provider_id", providerId)
         .order("started_at", { ascending: false });
       const today = new Date().toISOString().slice(0, 10);
@@ -80,6 +81,41 @@ export function FoodSubscriptionsList({ providerId }: { providerId: string }) {
     onSuccess: () => {
       toast.success("Subscription updated");
       qc.invalidateQueries({ queryKey: ["provider-food-subs", providerId] });
+      // The KPI strip + Bookings calendar sit on the same page — invalidate so
+      // Active/Upcoming counts and the calendar re-render without a full reload.
+      qc.invalidateQueries({ queryKey: ["provider-analytics"] });
+      qc.invalidateQueries({ queryKey: ["unified-bookings"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  // Off-platform paid renewal for a food sub — mirrors RestaurantSubscriptionsTab.
+  // Extends continuously (next_start = max(today, prev_end+1)), commits N more
+  // weeks, marks paid/manual, bumps periods_paid so revenue math stays honest.
+  const renew = useMutation({
+    mutationFn: async (sub: any) => {
+      const weeks = Math.max(Number(sub.commitment_weeks) || 1, 1);
+      const today = todayHN();
+      const prevEnd = (sub.end_date || "").slice(0, 10);
+      const nextStart = prevEnd && prevEnd >= today ? addDaysISO(prevEnd, 1) : today;
+      const nextEnd = addDaysISO(nextStart, weeks * 7);
+      const { error } = await supabaseDb
+        .from("food_subscriptions")
+        .update({
+          status: "active", paused_at: null, cancelled_at: null,
+          started_at: nextStart, end_date: nextEnd,
+          payment_status: "paid", payment_method: "manual",
+          periods_paid: (Number(sub.periods_paid) || 1) + 1,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", sub.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Renewed — payment recorded");
+      qc.invalidateQueries({ queryKey: ["provider-food-subs", providerId] });
+      qc.invalidateQueries({ queryKey: ["provider-analytics"] });
+      qc.invalidateQueries({ queryKey: ["unified-bookings"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -123,12 +159,18 @@ export function FoodSubscriptionsList({ providerId }: { providerId: string }) {
     const period = Math.max(Number(s.commitment_weeks) || 1, 1);
     const totalCents = Number(s.weekly_price_cents || 0) * period;
     const st = String(s.status || "").toLowerCase();
+    // A row can be status='active' but payment_status='pending' (e.g. Infinita
+    // paid, awaiting reconcile). Surface it so owners don't think it's revenue.
+    const isPendingPayment = s.payment_status && s.payment_status !== "paid" && st !== "cancelled";
     return (
       <div key={s.id} className="flex items-center gap-3 rounded-2xl bg-card p-4">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <p className="truncate text-sm font-bold text-foreground">{s.plan_name}</p>
             <Badge className={cn("rounded-full text-[10px] capitalize", statusTone(st))}>{st}</Badge>
+            {isPendingPayment && (
+              <Badge className="rounded-full text-[10px] bg-amber-500/15 text-amber-500">Awaiting payment</Badge>
+            )}
           </div>
           <p className="mt-0.5 truncate text-xs text-muted-foreground">
             {customer}
@@ -150,7 +192,7 @@ export function FoodSubscriptionsList({ providerId }: { providerId: string }) {
               <MoreHorizontal className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-52">
+          <DropdownMenuContent align="end" className="w-56">
             {st === "active" && (
               <DropdownMenuItem onSelect={() => setStatus.mutate({ id: s.id, next: "paused" })}>
                 <PauseCircle className="h-4 w-4" /> Pause
@@ -159,6 +201,11 @@ export function FoodSubscriptionsList({ providerId }: { providerId: string }) {
             {st === "paused" && (
               <DropdownMenuItem onSelect={() => setStatus.mutate({ id: s.id, next: "active" })}>
                 <PlayCircle className="h-4 w-4" /> Resume
+              </DropdownMenuItem>
+            )}
+            {(st === "active" || st === "expired" || st === "paused") && (
+              <DropdownMenuItem onSelect={() => renew.mutate(s)}>
+                <RefreshCcw className="h-4 w-4" /> Renew (payment received)
               </DropdownMenuItem>
             )}
             {st !== "cancelled" && (

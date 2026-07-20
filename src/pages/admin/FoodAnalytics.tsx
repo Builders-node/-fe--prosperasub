@@ -12,7 +12,7 @@ import {
 import { useFoodRestaurant } from "@/hooks/useFoodRestaurant";
 import { formatUSD } from "@/lib/pricing";
 import { effectiveFoodStatus } from "@/lib/subscriptionLifecycle";
-import { todayHN } from "@/lib/timezone";
+import { todayHN, nowHN } from "@/lib/timezone";
 import type { FoodSubscription, FoodMealPlan, FoodProvider } from "@/types/food";
 
 const FoodAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
@@ -70,7 +70,10 @@ const FoodAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
   });
 
   // ─── Derived stats ────────────────────────────────────────────────────────
-  const now = new Date();
+  // Anchor "now" to Honduras wall-clock — otherwise MTD boundaries shift for
+  // admins in positive-offset timezones and rows created late in the day HN
+  // leak into the next month.
+  const now = nowHN();
   const thisMonthStart = startOfMonth(now);
   const thisMonthEnd = endOfMonth(now);
 
