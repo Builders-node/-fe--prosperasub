@@ -70,11 +70,14 @@ SheetContent.displayName = SheetPrimitive.Content.displayName;
 const SheetHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      // Sticky header with a solid background. The `before` pseudo extends the
-      // background upward to cover the scroll-container's top padding so content
-      // never bleeds through the gap above the pinned header.
+      // Sticky header with a solid background. Cover the SheetContent's top
+      // padding (p-4 = 16px) with an upward-extending pseudo so scrolled body
+      // content doesn't bleed through the gap above the pinned header. Kept
+      // small on purpose — the old h-[100vh] painted the entire viewport, which
+      // in a bottom sheet stretched the sheet's visible dark area to fill the
+      // screen even when the actual content list was tiny.
       "sticky top-0 z-10 flex flex-col gap-space-2 bg-background pb-space-3 text-center sm:text-left",
-      "before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-[100vh] before:bg-background",
+      "before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-4 before:bg-background",
       className,
     )}
     {...props}
