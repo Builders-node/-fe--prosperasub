@@ -1,4 +1,6 @@
+import { useEffect } from "react";
 import { Navigate, useSearchParams } from "react-router-dom";
+import { toast } from "sonner";
 import { PageLoader } from "@/components/ui/spinner";
 import { useUniversalIdForLegacy, type LegacySourceKey } from "@/lib/services/providerBridge";
 
@@ -17,6 +19,13 @@ export default function LegacyPortalRedirect({ service }: { service: LegacySourc
   const [searchParams] = useSearchParams();
   const legacyId = searchParams.get("providerId");
   const { data: universalId, isLoading } = useUniversalIdForLegacy(service, legacyId);
+
+  // Explain the bounce so an owner tapping their card doesn't just get
+  // dumped back on /my-business with no idea why.
+  const willBounce = !isLoading && (!legacyId || (!universalId && legacyId));
+  useEffect(() => {
+    if (willBounce) toast.error("This business isn't linked to your account.");
+  }, [willBounce]);
 
   if (!legacyId) return <Navigate to="/my-business" replace />;
   if (isLoading) return <PageLoader />;

@@ -146,8 +146,12 @@ const AdsManagement = () => {
     mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
       const { error } = await supabaseDb.from("promo_banners").update({ is_active, updated_at: new Date().toISOString() }).eq("id", id);
       if (error) throw error;
+      return is_active;
     },
-    onSuccess: invalidate,
+    onSuccess: (is_active) => {
+      invalidate();
+      toast.success(is_active ? "Banner activated" : "Banner deactivated");
+    },
     onError: (err: Error) => toast.error(err.message),
   });
 

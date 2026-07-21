@@ -125,6 +125,8 @@ export function UniversalStaffTab({
     },
   });
 
+  const [confirmSelfLockout, setConfirmSelfLockout] = useState(false);
+
   const setOwnerMutation = useMutation({
     mutationFn: async () => {
       const nextOwner = ownerForm.user_id.trim() || null;
@@ -140,9 +142,24 @@ export function UniversalStaffTab({
       qc.invalidateQueries({ queryKey: OWNER_QK });
       invalidateKeysOnOwnerChange.forEach((k) => qc.invalidateQueries({ queryKey: k }));
       setOwnerDialog(false);
+      setConfirmSelfLockout(false);
     },
     onError: (e) => toast.error(String(e)),
   });
+
+  // Guard: if the current user is trying to remove themselves as the sole
+  // owner (nextOwner = null AND current admin is the existing owner), require
+  // an explicit second confirmation. Otherwise a misclick on "No owner" locks
+  // the owner out of their own workspace with no way back.
+  const trySaveOwner = () => {
+    const nextOwner = ownerForm.user_id.trim() || null;
+    const iAmCurrentOwner = !!ownerUserId && ownerUserId === userData?.id;
+    if (nextOwner === null && iAmCurrentOwner) {
+      setConfirmSelfLockout(true);
+      return;
+    }
+    setOwnerMutation.mutate();
+  };
 
   const addManagerMutation = useMutation({
     mutationFn: async () => {
@@ -318,13 +335,38 @@ export function UniversalStaffTab({
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setOwnerDialog(false)}>Cancel</Button>
-            <Button onClick={() => setOwnerMutation.mutate()} disabled={setOwnerMutation.isPending}>
+            <Button onClick={trySaveOwner} disabled={setOwnerMutation.isPending}>
               {setOwnerMutation.isPending && <Spinner size="sm" className="mr-2" />}
               Save
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Self-lockout confirm — sole owner removing themselves gets a second
+          chance before losing workspace access. */}
+      <AlertDialog open={confirmSelfLockout} onOpenChange={setConfirmSelfLockout}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove yourself as owner?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You're about to remove yourself as the owner of this {entityLabel}.
+              You will lose access to this workspace and won't be able to add
+              yourself back — only a platform admin can restore your access.
+              Continue?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => setOwnerMutation.mutate()}
+            >
+              Yes, remove me
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Add Manager dialog */}
       <Dialog open={managerDialog} onOpenChange={(o) => { if (!o) setManagerDialog(false); }}>

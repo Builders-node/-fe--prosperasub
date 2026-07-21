@@ -14,6 +14,10 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFo
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAuditEvent } from "@/lib/auditLog";
@@ -115,10 +119,18 @@ const MarketplaceProviders = () => {
       const { error } = await supabaseDb.from("providers").update({ status: next }).eq("id", p.id);
       if (error) throw error;
       if (userData?.id) await logAuditEvent(userData.id, "edit", AUDIT_ENTITY, p.id, { status: next });
+      return { name: p.name, next };
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: QUERY_KEY }),
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: QUERY_KEY });
+      toast.success(`${r.name} ${r.next === "active" ? "activated" : "deactivated"}`);
+    },
     onError: (e: any) => toast.error(e?.message || "Could not update status"),
   });
+
+  // Deactivation confirm — pulling a live provider offline shouldn't happen on
+  // a single dropdown tap. Activation stays one-click (harmless).
+  const [confirmDeactivate, setConfirmDeactivate] = useState<ProviderRow | null>(null);
 
   const saveEdit = useMutation({
     mutationFn: async ({ p, patch }: { p: ProviderRow; patch: Record<string, unknown> }) => {
@@ -336,7 +348,9 @@ const MarketplaceProviders = () => {
                           <Pencil className="mr-2 h-3.5 w-3.5" /> Edit service & capabilities
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onSelect={() => toggleStatus.mutate(p)}>
+                        <DropdownMenuItem
+                          onSelect={() => (p.status === "active" ? setConfirmDeactivate(p) : toggleStatus.mutate(p))}
+                        >
                           {p.status === "active"
                             ? (<><EyeOff className="mr-2 h-3.5 w-3.5" /> Deactivate</>)
                             : (<><Eye    className="mr-2 h-3.5 w-3.5" /> Activate</>)}
@@ -420,6 +434,31 @@ const MarketplaceProviders = () => {
           />
         </SheetContent>
       </Sheet>
+
+      <AlertDialog open={!!confirmDeactivate} onOpenChange={(o) => !o && setConfirmDeactivate(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Deactivate {confirmDeactivate?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will hide the business from Discovery, listings, and every checkout
+              on the platform immediately. Existing subscriptions keep running but
+              new sign-ups are blocked. You can activate it again anytime.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (confirmDeactivate) toggleStatus.mutate(confirmDeactivate);
+                setConfirmDeactivate(null);
+              }}
+            >
+              Deactivate
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </SuperAdminLayout>
   );
 };

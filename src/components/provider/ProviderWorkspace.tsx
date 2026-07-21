@@ -18,7 +18,7 @@ import { ScheduleAccordion } from "@/components/provider/ScheduleAccordion";
 import { LegacyOwnerPortal, FOOD_SUBSCRIPTIONS_TAB_BODY, CLEANING_SUBSCRIPTIONS_TAB_BODY, BEACH_SUBSCRIPTIONS_TAB_BODY } from "@/components/provider/legacyPortalTabs";
 import { ProviderAnalyticsWidget } from "@/components/provider/ProviderAnalyticsWidget";
 import type { PortalTab } from "@/components/provider/ProviderPortalShell";
-import { isLegacySource, legacyIdOf } from "@/lib/services/providerBridge";
+import { LEGACY_PORTAL_SOURCE_KEYS, legacyIdOf } from "@/lib/services/providerBridge";
 
 const STATUS_COLORS: Record<string, string> = {
   active: "bg-green-500/15 text-green-400",
@@ -84,7 +84,10 @@ export function ProviderWorkspace({ providerId, publicHref = "/discovery", backH
   const archetype = archetypes.find((a) => a.key === provider.archetype_key);
   const sourceKey = provider.source_service_key ?? "";
   const legacyId = legacyIdOf(provider);
-  const isLegacyPortal = isLegacySource(sourceKey);
+  // Use LEGACY_PORTAL_SOURCE_KEYS (includes beach/beach_club) so beach owners
+  // get BEACH_TABS. isLegacySource() only covers cars|food|cleaning; picking
+  // it here left the beach workspace on the empty CapabilityPortal.
+  const isLegacyPortal = LEGACY_PORTAL_SOURCE_KEYS.has(sourceKey);
 
   // Bookings tab — single answer to "who booked what?" backed by two views:
   //   • By day       → week calendar (UnifiedBookingCalendar)
@@ -151,7 +154,12 @@ export function ProviderWorkspace({ providerId, publicHref = "/discovery", backH
               {archetype && (
                 <Badge className={`rounded-full text-xs ${archetype.accent} text-white`}>{archetype.label}</Badge>
               )}
-              {provider.capabilities?.map((cap) => {
+              {/* Capability chips are meaningful only for universal-only providers
+                  (where they actually gate which tabs render). For legacy-backed
+                  providers the tab set comes from CAR_TABS/FOOD_TABS/CLEANING_TABS/
+                  BEACH_TABS — showing "Delivery / Catalog" chips there implies a
+                  toggle that has no effect. Hide them for legacy sources. */}
+              {!isLegacyPortal && provider.capabilities?.map((cap) => {
                 const meta = CAPABILITIES[cap as CapabilityKey];
                 if (!meta) return null;
                 return <Badge key={cap} variant="outline" className="rounded-full text-[10px]">{meta.label}</Badge>;

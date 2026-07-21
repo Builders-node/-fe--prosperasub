@@ -128,7 +128,15 @@ const getBookingClientName = (booking: any) =>
 
 const getBookingDate = (booking: any) => booking.cleaning_available_slots?.date ?? "";
 
-const CleaningManagement = ({ embedded = false }: { embedded?: boolean } = {}) => {
+const CleaningManagement = ({
+  embedded = false,
+  providerId,
+}: {
+  embedded?: boolean;
+  /** Scope bookings + reports to this provider's packages when embedded inside
+   *  a cleaning workspace. Unscoped without it (platform-wide admin view). */
+  providerId?: string;
+} = {}) => {
   const queryClient = useQueryClient();
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [completionBookingId, setCompletionBookingId] = useState<string>("");
@@ -154,14 +162,39 @@ const CleaningManagement = ({ embedded = false }: { embedded?: boolean } = {}) =
     ].forEach((key) => queryClient.invalidateQueries({ queryKey: [key] }));
   };
 
-  const { data: bookings = [], isLoading: bookingsLoading } = useQuery({
-    queryKey: ["admin-cleaning-bookings"],
+  // First-hop scope: which subscription ids belong to this provider's packages?
+  // Empty array when not embedded (skip scoping). Also empty when the provider
+  // has zero packages, in which case the bookings query short-circuits below.
+  const { data: scopeSubIds = null } = useQuery({
+    queryKey: ["admin-cleaning-scope-subs", providerId ?? "all"],
+    enabled: !!providerId,
     queryFn: async () => {
-      // Load bookings without relying on FK joins (TEXT vs UUID type mismatch breaks them)
-      const { data: rawBookings, error } = await supabase
+      const { data: pkgs } = await supabase
+        .from("cleaning_packages").select("id").eq("provider_id", providerId!);
+      const pkgIds = (pkgs ?? []).map((p: any) => p.id);
+      if (!pkgIds.length) return [] as string[];
+      const { data: subs } = await supabase
+        .from("cleaning_subscriptions").select("id").in("package_id", pkgIds);
+      return (subs ?? []).map((s: any) => s.id) as string[];
+    },
+  });
+
+  const { data: bookings = [], isLoading: bookingsLoading } = useQuery({
+    // Include providerId + resolved sub-id list in the key so admin view and
+    // per-provider embeds cache separately.
+    queryKey: ["admin-cleaning-bookings", providerId ?? "all", (scopeSubIds ?? []).join(",")],
+    // Wait for the sub-id lookup before firing when embedded — otherwise the
+    // first render sees no filter and leaks every provider's bookings.
+    enabled: !providerId || scopeSubIds !== null,
+    queryFn: async () => {
+      if (providerId && (scopeSubIds ?? []).length === 0) return [];
+      let bookingsQuery = supabase
         .from("cleaning_bookings")
         .select("*, cleaning_available_slots(id, date, start_time, end_time), cleaning_custom_plans(*), cleaning_completion_reports(*)")
         .order("created_at", { ascending: true });
+      if (providerId) bookingsQuery = bookingsQuery.in("subscription_id", scopeSubIds!);
+      // Load bookings without relying on FK joins (TEXT vs UUID type mismatch breaks them)
+      const { data: rawBookings, error } = await bookingsQuery;
       if (error) throw error;
       if (!rawBookings?.length) return [];
 
@@ -201,13 +234,21 @@ const CleaningManagement = ({ embedded = false }: { embedded?: boolean } = {}) =
     },
   });
 
+  const bookingIdsInScope = useMemo(
+    () => (bookings as any[]).map((b) => b.id).filter(Boolean) as string[],
+    [bookings],
+  );
   const { data: completionReports = [] } = useQuery({
-    queryKey: ["admin-cleaning-reports"],
+    queryKey: ["admin-cleaning-reports", providerId ?? "all", bookingIdsInScope.join(",")],
+    enabled: !providerId || bookingIdsInScope.length > 0,
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("cleaning_completion_reports")
         .select("*, cleaning_bookings(*)")
         .order("completed_at", { ascending: false });
+      // Only reports whose booking is in this provider's scope when embedded.
+      if (providerId) q = q.in("booking_id", bookingIdsInScope);
+      const { data, error } = await q;
       if (error) throw error;
       return data ?? [];
     },

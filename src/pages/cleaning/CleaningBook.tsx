@@ -265,15 +265,20 @@ const CleaningBook = () => {
 
   // Fetch the parent provider's booking calendar so plans without an override
   // fall through to the provider-level schedule when we filter slots below.
+  // Keyed on the SELECTED package's provider_id — the old query grabbed
+  // "first active cleaning provider" and applied its schedule to every plan,
+  // so owner-set minNotice/maxAdvance only worked by luck.
+  const selectedPackage = subscriptions?.find((s: any) => s.id === selectedSubId)?.cleaning_packages;
+  const packageProviderId: string | null = selectedPackage?.provider_id ?? null;
   const { data: providerSettings } = useQuery({
-    queryKey: ["cleaning-provider-booking-settings"],
+    queryKey: ["cleaning-provider-booking-settings", packageProviderId ?? "none"],
+    enabled: !!packageProviderId,
     queryFn: async () => {
       const { data } = await supabaseDb
         .from("providers")
         .select("booking_settings")
-        .eq("archetype_key", "cleaning")
-        .eq("status", "active")
-        .limit(1)
+        .eq("source_service_key", "cleaning")
+        .eq("source_provider_id", packageProviderId!)
         .maybeSingle();
       return data?.booking_settings ?? null;
     },

@@ -97,8 +97,12 @@ export const FOOD_TABS: PortalTab<MyRestaurant>[] = [
 
 export const CLEANING_TABS: PortalTab<CleaningProviderRow>[] = [
   { value: "info",          label: "Overview",   icon: LayoutDashboard, render: (p) => <CleaningInfoTab provider={p} /> },
-  { value: "offerings",     label: "Offerings",  icon: Package,         render: () => <CleaningPlansPage embedded /> },
-  { value: "operations",    label: "Operations", mobileLabel: "Ops.",   icon: Wrench,          render: () => <CleaningOperationsPage embedded /> },
+  // Pass providerId so the embedded admin pages scope every query + insert
+  // to THIS provider's packages/subscriptions/bookings. Without this, one
+  // cleaning owner's Offerings and Operations tabs displayed (and could edit)
+  // every other provider's data.
+  { value: "offerings",     label: "Offerings",  icon: Package,         render: (p) => <CleaningPlansPage embedded providerId={p.id} /> },
+  { value: "operations",    label: "Operations", mobileLabel: "Ops.",   icon: Wrench,          render: (p) => <CleaningOperationsPage embedded providerId={p.id} /> },
   { value: "team",          label: "Team",                               icon: Users, ownerOnly: true, render: (p) => <CleaningStaffTab provider={p} /> },
 ];
 
@@ -190,6 +194,21 @@ function assembleTabs<T>(
   return [...result, ...(extraTabs as PortalTab<T>[])];
 }
 
+// Access-revoked panel — shown to a non-admin whose owner/manager row was
+// removed while the workspace was open. Rendering the universal CapabilityPortal
+// (the old `fallback`) let them keep writing to `provider_plans` against a
+// business they no longer have any relationship to.
+function AccessRevokedPanel() {
+  return (
+    <div className="rounded-2xl bg-card p-8 text-center">
+      <p className="font-semibold text-foreground">Access to this workspace was removed</p>
+      <p className="mt-1 text-sm text-muted-foreground">
+        The owner may have revoked your manager role. Refresh or head back to My business.
+      </p>
+    </div>
+  );
+}
+
 function CarsOwnerTabs({ legacyId, fallback, bookingsTab, tabPrefixes, extraTabs }: OwnerTabsProps) {
   const { isAdmin } = useAuth();
   const { providers, isLoading } = useMyCarRentals();
@@ -198,7 +217,7 @@ function CarsOwnerTabs({ legacyId, fallback, bookingsTab, tabPrefixes, extraTabs
   const admin = useAdminLegacyRow<MyCarRental>("rental_providers", legacyId, needAdmin);
   if (isLoading || (needAdmin && admin.isLoading)) return <TabsSkeleton />;
   const row = owned ?? admin.data ?? null;
-  if (!row) return <>{fallback}</>;
+  if (!row) return isAdmin ? <>{fallback}</> : <AccessRevokedPanel />;
   return <PortalTabsView tabs={assembleTabs(CAR_TABS, bookingsTab, extraTabs, tabPrefixes)} provider={row} isOwner={owned ? owned.myRole === "owner" : true} />;
 }
 
@@ -210,7 +229,7 @@ function FoodOwnerTabs({ legacyId, fallback, bookingsTab, tabPrefixes, extraTabs
   const admin = useAdminLegacyRow<MyRestaurant>("food_providers", legacyId, needAdmin);
   if (isLoading || (needAdmin && admin.isLoading)) return <TabsSkeleton />;
   const row = owned ?? admin.data ?? null;
-  if (!row) return <>{fallback}</>;
+  if (!row) return isAdmin ? <>{fallback}</> : <AccessRevokedPanel />;
   return <PortalTabsView tabs={assembleTabs(FOOD_TABS, bookingsTab, extraTabs, tabPrefixes)} provider={row} isOwner={owned ? owned.myRole === "owner" : true} />;
 }
 
@@ -226,7 +245,7 @@ function CleaningOwnerTabs({ legacyId, fallback, bookingsTab, tabPrefixes, extra
   const admin = useAdminLegacyRow<CleaningProviderRow>("cleaning_providers", legacyId, needAdmin);
   if (isLoading || (needAdmin && admin.isLoading)) return <TabsSkeleton />;
   const row = owned ?? admin.data ?? null;
-  if (!row) return <>{fallback}</>;
+  if (!row) return isAdmin ? <>{fallback}</> : <AccessRevokedPanel />;
   return <PortalTabsView tabs={assembleTabs(CLEANING_TABS, bookingsTab, extraTabs, tabPrefixes)} provider={row} isOwner={owned ? (owned.myRole === "owner") : true} />;
 }
 

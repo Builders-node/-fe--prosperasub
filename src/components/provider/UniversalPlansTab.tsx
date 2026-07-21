@@ -14,6 +14,10 @@ import { Spinner } from "@/components/ui/spinner";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const AUDIT = "provider_plan";
 const PERIODS = ["one_time", "weekly", "monthly", "quarterly", "yearly"] as const;
@@ -41,6 +45,9 @@ export function UniversalPlansTab({ providerId }: { providerId: string }) {
   const { userData } = useAuth();
   const [editing, setEditing] = useState<Plan | "new" | null>(null);
   const [form, setForm] = useState({ ...EMPTY });
+  // Deletion confirm — a one-click Trash icon used to nuke a $199/mo plan +
+  // dangle every provider_plans-referencing subscription. Force a two-step.
+  const [deleteTarget, setDeleteTarget] = useState<Plan | null>(null);
 
   const KEY = ["universal-provider-plans", providerId] as const;
 
@@ -101,7 +108,7 @@ export function UniversalPlansTab({ providerId }: { providerId: string }) {
       if (error) throw error;
       if (userData?.id) await logAuditEvent(userData.id, "delete", AUDIT, p.id, { name: p.name });
     },
-    onSuccess: () => { toast.success("Deleted"); qc.invalidateQueries({ queryKey: KEY }); },
+    onSuccess: () => { toast.success("Deleted"); qc.invalidateQueries({ queryKey: KEY }); setDeleteTarget(null); },
     onError: (e: any) => toast.error(e?.message || "Could not delete"),
   });
 
@@ -139,7 +146,7 @@ export function UniversalPlansTab({ providerId }: { providerId: string }) {
               </div>
               <div className="flex shrink-0 gap-1">
                 <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => openEdit(p)}><Pencil className="h-4 w-4" /></Button>
-                <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive hover:text-destructive" onClick={() => del.mutate(p)}>
+                <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive hover:text-destructive" onClick={() => setDeleteTarget(p)}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
@@ -193,6 +200,32 @@ export function UniversalPlansTab({ providerId }: { providerId: string }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete plan?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget?.name && (
+                <>
+                  This deletes <strong className="text-foreground">{deleteTarget.name}</strong>.
+                  Any customer subscription linked to this plan will lose its plan reference.
+                  This can't be undone.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteTarget && del.mutate(deleteTarget)}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -88,7 +88,6 @@ const MyProvider = lazy(() => import("./pages/user/MyProvider"));
 const AuditLogs = lazy(() => import("./pages/admin/AuditLogs"));
 const RoleManagement = lazy(() => import("./pages/admin/RoleManagement"));
 const AdsManagement = lazy(() => import("./pages/admin/AdsManagement"));
-const CarRentalsCustomers = lazy(() => import("./pages/admin/CarRentalsCustomers"));
 
 // Admin Food
 const FoodResidences = lazy(() => import("./pages/admin/FoodResidences"));
@@ -308,9 +307,10 @@ const App = () => {
               {/* Admin Car Rentals — vehicles & reservations are managed per provider (Food-style) */}
               <Route path="/admin/car-rentals" element={<Navigate to="/admin/car-rentals/providers" replace />} />
               <Route path="/admin/car-rentals/reservations" element={<Navigate to="/admin/car-rentals/providers" replace />} />
-              <Route path="/admin/car-rentals/customers" element={
-                <ProtectedRoute allowedRoles={['super_admin']}><CarRentalsCustomers /></ProtectedRoute>
-              } />
+              {/* /admin/car-rentals/customers was orphaned — no sidebar entry, no
+                  page links to it. Customer/user management lives at /admin/users
+                  (unified People page, task #6). */}
+              <Route path="/admin/car-rentals/customers" element={<Navigate to="/admin/users" replace />} />
               <Route path="/admin/car-rentals/analytics" element={<Navigate to="/admin/analytics?service=cars" replace />} />
               <Route path="/admin/car-rentals/delivery" element={
                 <Navigate to="/admin/car-rentals/providers" replace />

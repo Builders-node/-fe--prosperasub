@@ -23,7 +23,6 @@ import {
 } from "@/components/ui/sheet";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserMode } from "@/contexts/UserModeContext";
-import { publicRoutes } from "@/config/adminRoutes";
 import {
   NAV_SECTIONS,
   NAV_SECTIONS_BELOW,
@@ -186,12 +185,15 @@ const SuperAdminLayout = ({ children, title, subtitle }: SuperAdminLayoutProps) 
   const location = useLocation();
   const navigate = useNavigate();
   const { logout } = useAuth();
-  const { isUserMode } = useUserMode();
+  const { isUserMode, enterUserMode } = useUserMode();
 
-  if (isUserMode) {
-    navigate("/", { replace: true });
-    return null;
-  }
+  // Redirect user-mode admins out of admin routes via effect (not during
+  // render — calling navigate() in the render body triggers React "cannot
+  // update during render" warnings and can double-fire under StrictMode).
+  useEffect(() => {
+    if (isUserMode) navigate("/", { replace: true });
+  }, [isUserMode, navigate]);
+  if (isUserMode) return null;
 
   const currentPath = location.pathname;
 
@@ -203,13 +205,16 @@ const SuperAdminLayout = ({ children, title, subtitle }: SuperAdminLayoutProps) 
   // Footer links (desktop + mobile)
   const SidebarFooter = () => (
     <div className="shrink-0 border-t border-[hsl(var(--app-divider))] px-space-3 py-space-3 space-y-space-1">
-      <Link
-        to={publicRoutes.userSite}
-        className={cn(linkBase, linkIdle, "text-sm")}
+      {/* View as user — routed through enterUserMode() so the exit banner
+          appears (a plain <Link> would just navigate away with no way back). */}
+      <button
+        type="button"
+        onClick={enterUserMode}
+        className={cn(linkBase, linkIdle, "w-full text-sm")}
       >
         <ExternalLink className="h-4 w-4 shrink-0" aria-hidden />
         View as user
-      </Link>
+      </button>
       <button
         type="button"
         onClick={() => void handleLogout()}

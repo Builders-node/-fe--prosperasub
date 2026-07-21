@@ -123,6 +123,30 @@ export function RestaurantMealPlansTab({ providerId }: Props) {
   const closeDialog = () => { setEditPlan(null); setIsNew(false); };
   const isOpen = isNew || editPlan !== null;
 
+  // Pre-save guard: when shrinking meals_per_day on an existing plan, warn if
+  // any live subscription's selected_meals count is still larger. Without this
+  // Ops keeps shipping the meals the customer originally picked (verbatim from
+  // selected_meals) even though the plan now advertises fewer.
+  const [shrinkConflict, setShrinkConflict] = useState<{ n: number; maxSelected: number } | null>(null);
+
+  const runSave = () => saveMutation.mutate();
+  const trySave = async () => {
+    if (!isNew && editPlan && form.meals_per_day < (editPlan.meals_per_day ?? 3)) {
+      const { data } = await supabaseDb
+        .from("food_subscriptions")
+        .select("selected_meals,status")
+        .eq("meal_plan_id", editPlan.id)
+        .in("status", ["active", "paused"]);
+      const rows = (data ?? []) as { selected_meals?: string[] | null }[];
+      const maxSelected = rows.reduce((m, r) => Math.max(m, Array.isArray(r.selected_meals) ? r.selected_meals.length : 0), 0);
+      if (maxSelected > form.meals_per_day) {
+        setShrinkConflict({ n: rows.length, maxSelected });
+        return;
+      }
+    }
+    runSave();
+  };
+
   const saveMutation = useMutation({
     mutationFn: async () => {
       const highlights = form.highlights.map((h) => h.trim()).filter(Boolean);
@@ -470,7 +494,7 @@ export function RestaurantMealPlansTab({ providerId }: Props) {
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={closeDialog}>Cancel</Button>
-            <Button onClick={() => saveMutation.mutate()}
+            <Button onClick={trySave}
               disabled={!form.name.trim() || saveMutation.isPending}>
               {saveMutation.isPending && <Spinner size="sm" className="mr-2" />}
               {isNew ? "Create" : "Save"}
@@ -478,6 +502,32 @@ export function RestaurantMealPlansTab({ providerId }: Props) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* meals_per_day-shrink guard: warn before customer/ops copy diverges. */}
+      <AlertDialog open={!!shrinkConflict} onOpenChange={(o) => !o && setShrinkConflict(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Shrink meals per day on live subscriptions?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {shrinkConflict && (
+                <>
+                  You're setting meals per day to <strong>{form.meals_per_day}</strong>, but
+                  {" "}<strong>{shrinkConflict.n}</strong> active subscription{shrinkConflict.n === 1 ? "" : "s"}
+                  {" "}on this plan already picked <strong>{shrinkConflict.maxSelected}</strong> meals.
+                  Operations will keep sending those meals until the customer re-picks in <em>My Ration</em>,
+                  so the customer-facing plan card and the delivery manifest will disagree. Continue anyway?
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setShrinkConflict(null); runSave(); }}>
+              Save anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Delete confirmation */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => { if (!o) setDeleteTarget(null); }}>

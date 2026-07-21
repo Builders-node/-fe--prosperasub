@@ -59,6 +59,18 @@ export default function ProviderApplications() {
 
   const approve = useMutation({
     mutationFn: async (app: any) => {
+      // ── Idempotency guard ──
+      // If a previous approve run half-completed (legacy insert ok, universal
+      // insert or status update failed) an admin retry could otherwise create
+      // a *second* legacy provider row. Re-read the application in this
+      // transaction and refuse to insert anything if it's already approved.
+      const { data: fresh } = await supabaseDb
+        .from("provider_applications").select("status, created_provider_id")
+        .eq("id", app.id).maybeSingle();
+      if (fresh?.status === "approved" || fresh?.created_provider_id) {
+        return { table: null, alreadyApproved: true } as const;
+      }
+
       const svc = SERVICE_REGISTRY[app.service as ServiceKey];
       const table = svc?.providers?.table ?? null;
       let createdProviderId: string | null = null;
@@ -72,8 +84,10 @@ export default function ProviderApplications() {
         if (Array.isArray(raw)) archetypeDefaultCaps = raw.filter((x): x is string => typeof x === "string");
       }
 
+      const adminUserId = await resolveUserId(app.user_id, app.contact_email);
+      let legacyProviderId: string | null = null;
+
       if (table) {
-        const adminUserId = await resolveUserId(app.user_id, app.contact_email);
         const { data, error } = await supabaseDb.from(table).insert({
           name: app.business_name,
           description: app.description ?? null,
@@ -81,43 +95,32 @@ export default function ProviderApplications() {
           status: "active",
         }).select("id").single();
         if (error) throw error;
-        createdProviderId = data.id as string;
-
-        const meta = LEGACY_SERVICES[app.service as LegacySourceKey];
-        if (meta) {
-          const legacyCaps = DEFAULT_CAPABILITIES[app.service as LegacySourceKey] ?? [];
-          const mergedCaps = Array.from(new Set([...legacyCaps, ...archetypeDefaultCaps]));
-          const { error: mErr } = await supabaseDb.from("providers").insert({
-            category_key: meta.universalCategoryKey,
-            name: app.business_name,
-            description: app.description ?? null,
-            contact_email: app.contact_email ?? null,
-            contact_phone: app.contact_phone ?? null,
-            admin_user_id: adminUserId,
-            status: "active",
-            capabilities: mergedCaps,
-            archetype_key: app.archetype_key ?? null,
-            source_service_key: app.service,
-            source_provider_id: createdProviderId,
-          });
-          if (mErr) throw mErr;
-        }
-      } else {
-        const adminUserId = await resolveUserId(app.user_id, app.contact_email);
-        const { data, error } = await supabaseDb.from("providers").insert({
-          category_key: app.service,
-          name: app.business_name,
-          description: app.description ?? null,
-          contact_email: app.contact_email ?? null,
-          contact_phone: app.contact_phone ?? null,
-          admin_user_id: adminUserId,
-          status: "active",
-          capabilities: archetypeDefaultCaps,
-          archetype_key: app.archetype_key ?? null,
-        }).select("id").single();
-        if (error) throw error;
-        createdProviderId = data.id as string;
+        legacyProviderId = data.id as string;
       }
+
+      // Always insert the universal `providers` mirror so the business shows
+      // up in /admin/marketplace/providers regardless of whether it's backed
+      // by a legacy table. Previously this insert was gated on the strict
+      // LEGACY_SERVICES lookup, which dropped services whose registry entry
+      // exists but whose key wasn't listed there (post-rename / new service).
+      const meta = LEGACY_SERVICES[app.service as LegacySourceKey];
+      const legacyCaps = DEFAULT_CAPABILITIES[app.service as LegacySourceKey] ?? [];
+      const mergedCaps = Array.from(new Set([...legacyCaps, ...archetypeDefaultCaps]));
+      const { data: uRow, error: mErr } = await supabaseDb.from("providers").insert({
+        category_key: meta?.universalCategoryKey ?? app.service,
+        name: app.business_name,
+        description: app.description ?? null,
+        contact_email: app.contact_email ?? null,
+        contact_phone: app.contact_phone ?? null,
+        admin_user_id: adminUserId,
+        status: "active",
+        capabilities: mergedCaps.length ? mergedCaps : archetypeDefaultCaps,
+        archetype_key: app.archetype_key ?? null,
+        source_service_key: legacyProviderId ? app.service : null,
+        source_provider_id: legacyProviderId,
+      }).select("id").single();
+      if (mErr) throw mErr;
+      createdProviderId = (uRow?.id as string) ?? legacyProviderId;
 
       const { error: uErr } = await supabaseDb.from("provider_applications").update({
         status: "approved",
@@ -128,10 +131,14 @@ export default function ProviderApplications() {
       }).eq("id", app.id);
       if (uErr) throw uErr;
       await logAuditEvent(userData!.id, "approve", "provider_application", app.id, { service: app.service, createdProviderId });
-      return { table };
+      return { table, alreadyApproved: false } as const;
     },
     onSuccess: (r) => {
-      toast.success(r.table ? "Approved — provider created. They can manage it from My Business." : "Approved (no auto-provider for this service — set up manually).");
+      if (r.alreadyApproved) {
+        toast.info("Already approved — refreshed list");
+      } else {
+        toast.success(r.table ? "Approved — provider created. They can manage it from My Business." : "Approved (no auto-provider for this service — set up manually).");
+      }
       qc.invalidateQueries({ queryKey: ["admin-provider-applications"] });
     },
     onError: (e: any) => toast.error(e?.message || "Could not approve"),

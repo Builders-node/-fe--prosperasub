@@ -9,6 +9,10 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { usePagination, TablePagination } from "@/components/ui/table-pagination";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -164,12 +168,23 @@ const AdminPayments = () => {
         .from("payment_method_settings")
         .upsert({ method, enabled, updated_at: new Date().toISOString() }, { onConflict: "method" });
       if (error) throw error;
+      return { method, enabled };
     },
-    onSuccess: () => {
+    onSuccess: (r) => {
       queryClient.invalidateQueries({ queryKey: ["payment-method-settings"] });
+      // Explicit confirmation — flipping a live payment method silently is scary.
+      toast.success(`${r.method} ${r.enabled ? "enabled" : "disabled"}`);
     },
     onError: (e: Error) => toast.error(e.message || "Failed to update payment method"),
   });
+
+  // OFF-confirm — turning a method off pulls it from every checkout mid-flow.
+  // Force an AlertDialog so an accidental tap doesn't take a live rail offline.
+  const [confirmDisable, setConfirmDisable] = useState<string | null>(null);
+  const handleToggleMethod = (method: string, next: boolean) => {
+    if (!next) { setConfirmDisable(method); return; }
+    toggleMethodMutation.mutate({ method, enabled: true });
+  };
 
   const setSurchargeMutation = useMutation({
     mutationFn: async ({ method, percent }: { method: string; percent: number }) => {
@@ -451,7 +466,7 @@ const AdminPayments = () => {
                     <Switch
                       checked={enabled}
                       disabled={toggleMethodMutation.isPending}
-                      onCheckedChange={(v) => toggleMethodMutation.mutate({ method, enabled: v })}
+                      onCheckedChange={(v) => handleToggleMethod(method, v)}
                     />
                   </div>
                 </div>
@@ -856,6 +871,31 @@ const AdminPayments = () => {
           <NetProfitPanel />
         </TabsContent>
       </Tabs>
+
+      <AlertDialog open={!!confirmDisable} onOpenChange={(o) => !o && setConfirmDisable(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Disable {confirmDisable}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Customers won't be able to pay with {confirmDisable} once this is off.
+              In-flight checkouts on this method will fail. You can turn it back
+              on at any time.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (confirmDisable) toggleMethodMutation.mutate({ method: confirmDisable, enabled: false });
+                setConfirmDisable(null);
+              }}
+            >
+              Disable
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </SuperAdminLayout>
   );
 };

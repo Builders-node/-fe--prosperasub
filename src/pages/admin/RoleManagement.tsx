@@ -299,9 +299,20 @@ function RoleSheet({
             ))}
           </div>
 
-          <Button className="w-full" size="xl" onClick={() => onSave(form)} disabled={!form.name?.trim()} loading={saving}>
+          {/* Empty-permissions guard — an assigned user with a zero-perm role
+              silently downgrades to nothing, which is almost always a mistake. */}
+          <Button
+            className="w-full"
+            size="xl"
+            onClick={() => onSave(form)}
+            disabled={!form.name?.trim() || (form.permissions?.length ?? 0) === 0}
+            loading={saving}
+          >
             <Save className="h-4 w-4" />Save Role
           </Button>
+          {(form.permissions?.length ?? 0) === 0 && (
+            <p className="text-xs text-amber-500">Select at least one permission — otherwise anyone assigned this role will have no access.</p>
+          )}
         </div>
       </SheetContent>
     </Sheet>

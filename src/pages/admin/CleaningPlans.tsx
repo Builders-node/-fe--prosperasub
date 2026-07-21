@@ -92,7 +92,15 @@ const formatMonthly = (plan: Plan) => formatCents(resolveMonthlyPriceCents(plan)
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
-const CleaningPlans = ({ embedded = false }: { embedded?: boolean } = {}) => {
+const CleaningPlans = ({
+  embedded = false,
+  providerId,
+}: {
+  embedded?: boolean;
+  /** When mounted inside a provider workspace, scopes every query + write to
+   *  this provider's cleaning_packages. Absent = platform-wide admin view. */
+  providerId?: string;
+} = {}) => {
   const queryClient = useQueryClient();
   const { userData } = useAuth();
   const adminId = userData?.id || "admin";
@@ -105,24 +113,35 @@ const CleaningPlans = ({ embedded = false }: { embedded?: boolean } = {}) => {
   // ── Queries ──────────────────────────────────────────────────────────────
 
   const { data: plans = [], isLoading } = useQuery({
-    queryKey: ["admin-cleaning-plans"],
+    // Cache-key includes providerId so admin (all plans) and each embedded
+    // provider mount don't share results.
+    queryKey: ["admin-cleaning-plans", providerId ?? "all"],
     queryFn: async () => {
-      const { data, error } = await supabaseDb
+      let q = supabaseDb
         .from("cleaning_packages")
         .select("*")
         .order("sort_order", { ascending: true });
+      if (providerId) q = q.eq("provider_id", providerId);
+      const { data, error } = await q;
       if (error) throw error;
       return (data ?? []) as Plan[];
     },
   });
 
+  // Subscriber counts scoped to just this provider's plans when embedded, so a
+  // cleaning owner opening Offerings doesn't see counts computed against other
+  // providers' packages.
+  const planIdsForCount = useMemo(() => plans.map((p) => p.id), [plans]);
   const { data: subscriberCounts = {} } = useQuery({
-    queryKey: ["admin-plan-subscriber-counts"],
+    queryKey: ["admin-plan-subscriber-counts", providerId ?? "all", planIdsForCount.join(",")],
+    enabled: !providerId || planIdsForCount.length > 0,
     queryFn: async () => {
-      const { data } = await supabaseDb
+      let q = supabaseDb
         .from("cleaning_subscriptions")
         .select("package_id")
         .eq("payment_status", "paid");
+      if (providerId) q = q.in("package_id", planIdsForCount);
+      const { data } = await q;
       const counts: Record<string, number> = {};
       for (const row of data || []) {
         counts[row.package_id] = (counts[row.package_id] || 0) + 1;
@@ -144,12 +163,16 @@ const CleaningPlans = ({ embedded = false }: { embedded?: boolean } = {}) => {
   });
 
   const { data: assignments = [] } = useQuery({
-    queryKey: ["admin-plan-assignments"],
+    queryKey: ["admin-plan-assignments", providerId ?? "all", planIdsForCount.join(",")],
+    enabled: !providerId || planIdsForCount.length > 0,
     queryFn: async () => {
-      const { data, error } = await supabaseDb
+      let q = supabaseDb
         .from("cleaning_plan_client_assignments")
         .select("*")
         .order("created_at", { ascending: false });
+      // Scope: only assignments for THIS provider's plans when embedded.
+      if (providerId) q = q.in("plan_id", planIdsForCount);
+      const { data, error } = await q;
       if (error) throw error;
       return data ?? [];
     },
@@ -160,6 +183,11 @@ const CleaningPlans = ({ embedded = false }: { embedded?: boolean } = {}) => {
   const savePlanMutation = useMutation({
     mutationFn: async (plan: Partial<Plan> & { id?: string }) => {
       const { id, created_at, updated_at, is_active, ...fields } = plan as any;
+      // When embedded inside a provider workspace, force provider_id onto every
+      // insert so a plan created there always belongs to the current provider.
+      // Absent this, EMPTY_PLAN had no provider_id → new rows landed NULL and
+      // were invisible in every provider-scoped catalog lookup.
+      if (providerId && !id) fields.provider_id = providerId;
       if (id) {
         const { error } = await supabaseDb
           .from("cleaning_packages")
@@ -190,9 +218,15 @@ const CleaningPlans = ({ embedded = false }: { embedded?: boolean } = {}) => {
   const duplicatePlanMutation = useMutation({
     mutationFn: async (plan: Plan) => {
       const { id, created_at, updated_at, is_active, ...fields } = plan as any;
+      const insertFields: Record<string, unknown> = {
+        ...fields, name: `${plan.name} (Copy)`, status: "draft", sort_order: plans.length,
+      };
+      // Preserve provider ownership on duplicate. If somehow the source plan
+      // has no provider_id (legacy row) and we're embedded, stamp it too.
+      if (providerId) insertFields.provider_id = providerId;
       const { data, error } = await supabaseDb
         .from("cleaning_packages")
-        .insert({ ...fields, name: `${plan.name} (Copy)`, status: "draft", sort_order: plans.length })
+        .insert(insertFields)
         .select()
         .single();
       if (error) throw error;

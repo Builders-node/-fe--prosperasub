@@ -77,20 +77,32 @@ async function fetchCleaningStats(legacyId: string) {
   const packageIds = (pkgs ?? []).map((p: any) => p.id);
   if (!packageIds.length) return { active: 0, upcoming: 0, revenueCents: 0 };
 
+  // Subscription ids scoped to this provider's packages — used to bound the
+  // "Upcoming 7d" bookings query. Without this scope, every cleaning owner
+  // saw the platform-wide upcoming count.
+  const { data: subs } = await supabaseDb
+    .from("cleaning_subscriptions")
+    .select("id")
+    .in("package_id", packageIds);
+  const subIds = (subs ?? []).map((s: any) => s.id);
+
   // Upcoming 7d for cleaning = booked cleaning_bookings whose slot.date lands
-  // in the next 7 days. `cleaning_bookings` has no date column — it joins to
-  // `cleaning_available_slots` via slot_id. Nested inner filter narrows via
-  // the slot's date range.
+  // in the next 7 days AND whose subscription belongs to this provider.
+  const upcomingQuery = subIds.length
+    ? supabaseDb.from("cleaning_bookings")
+        .select("id, cleaning_available_slots!inner(date)", { count: "exact", head: true })
+        .eq("status", "booked")
+        .in("subscription_id", subIds)
+        .gte("cleaning_available_slots.date", todayISO())
+        .lte("cleaning_available_slots.date", daysFromNowISO(7))
+    : Promise.resolve({ count: 0 } as any);
+
   const [{ count: active }, { count: upcoming }, { data: revRows }] = await Promise.all([
     supabaseDb.from("cleaning_subscriptions")
       .select("id", { count: "exact", head: true })
       .in("package_id", packageIds)
       .eq("subscription_status", "active"),
-    supabaseDb.from("cleaning_bookings")
-      .select("id, cleaning_available_slots!inner(date)", { count: "exact", head: true })
-      .eq("status", "booked")
-      .gte("cleaning_available_slots.date", todayISO())
-      .lte("cleaning_available_slots.date", daysFromNowISO(7)),
+    upcomingQuery,
     supabaseDb.from("cleaning_subscriptions")
       .select("total_price_cents,monthly_price_cents,created_at")
       .in("package_id", packageIds)
