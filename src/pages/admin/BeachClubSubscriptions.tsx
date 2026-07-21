@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Trash2, Waves, Plus, Search, RefreshCcw, Bell, MoreHorizontal } from "lucide-react";
+import { Trash2, Waves, Plus, Search, RefreshCcw, Bell, MoreHorizontal, CheckCircle2 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { approvePayment, isPendingPayment } from "@/lib/subscriptionApprove";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
@@ -76,6 +78,7 @@ const emptyForm = {
 
 export default function BeachClubSubscriptions({ embedded = false }: { embedded?: boolean } = {}) {
   const qc = useQueryClient();
+  const { userData } = useAuth();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
 
@@ -162,6 +165,21 @@ export default function BeachClubSubscriptions({ embedded = false }: { embedded?
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-beach-club-subscriptions"] }),
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  // Approve = record an off-platform paid capture WITHOUT sliding end_date.
+  // Renew (below) is a different verb — it approves AND extends the period.
+  const approveMutation = useMutation({
+    mutationFn: async (s: BeachSub) => {
+      await approvePayment("beach", s.id, { adminUserId: userData?.id });
+    },
+    onSuccess: () => {
+      toast.success("Payment approved");
+      qc.invalidateQueries({ queryKey: ["admin-beach-club-subscriptions"] });
+      qc.invalidateQueries({ queryKey: ["admin-beach-club-analytics"] });
+      qc.invalidateQueries({ queryKey: ["provider-analytics"] });
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -330,7 +348,15 @@ export default function BeachClubSubscriptions({ embedded = false }: { embedded?
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-56">
-                        {s.payment_status !== "paid" && s.status !== "cancelled" && (
+                        {isPendingPayment(s) && s.status !== "cancelled" && (
+                          <DropdownMenuItem
+                            onSelect={() => approveMutation.mutate(s)}
+                            disabled={approveMutation.isPending}
+                          >
+                            <CheckCircle2 className="h-4 w-4" /> Mark as paid
+                          </DropdownMenuItem>
+                        )}
+                        {isPendingPayment(s) && s.status !== "cancelled" && (
                           <DropdownMenuItem
                             onSelect={() => reminderMutation.mutate(s.id)}
                             disabled={reminderMutation.isPending}

@@ -298,7 +298,13 @@ export function RestaurantSubscriptionsTab({ providerId }: Props) {
     mutationFn: async ({ sub, action }: { sub: SubRow; action: "approve" | "pause" | "resume" | "cancel" | "reactivate" | "renew" }) => {
       const today = todayHN();
       const updates: Record<string, any> = { updated_at: new Date().toISOString() };
-      if (action === "approve") { updates.status = "active"; updates.payment_status = "paid"; }
+      if (action === "approve") {
+        updates.status = "active";
+        updates.payment_status = "paid";
+        // Stamp method="manual" if the row was created without one so
+        // Finance breakdown + PaymentMethodBadge don't render blank.
+        if (!(sub as any).payment_method) updates.payment_method = "manual";
+      }
       else if (action === "pause") { updates.status = "paused"; updates.paused_at = today; }
       else if (action === "resume") { updates.status = "active"; updates.paused_at = null; }
       else if (action === "renew") {

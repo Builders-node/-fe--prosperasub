@@ -422,6 +422,19 @@ const MarketplaceSubscriptions = () => {
               {editRow ? `${userLabel(editRow.user_id)} · ${providerById.get(editRow.provider_id)?.name ?? "—"}` : ""}
             </SheetDescription>
           </SheetHeader>
+          {/* Read-only-mirror warning: universal provider_subscriptions /
+              provider_bookings are populated from legacy tables (source_service_key
+              + source_*_id). Writes here don't back-sync — the legacy row (which
+              the reconcile cron, revenue math, and customer's My Subs all read)
+              stays whatever it was. Route admins to the correct edit surface. */}
+          <div className="mx-4 mt-4 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-500">
+            <p className="font-semibold text-foreground">Edits here don't sync to the source table</p>
+            <p className="mt-0.5">
+              This row mirrors a {editRow?.kind === "booking" ? "car rental" : "cleaning/food/beach"} record.
+              To change payment status or lifecycle, open the service-specific admin page
+              (Cleaning subs / Food workspace / Beach admin / Bookings calendar).
+            </p>
+          </div>
           {editRow && (
             <EditForm
               key={editRow.id}

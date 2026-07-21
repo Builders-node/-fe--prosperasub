@@ -21,6 +21,7 @@ import {
   Search,
   Trash2,
   XCircle,
+  CheckCircle2,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
@@ -69,6 +70,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { formatPricingLabel, monthlyCleaningEstimate, resolveMonthlyPriceCents } from "@/lib/cleaningPlanPricing";
+import { approvePayment, isPendingPayment } from "@/lib/subscriptionApprove";
 import { todayHN, addDaysISO, addMonthsISO } from "@/lib/timezone";
 
 type SubFilter = "all" | "active" | "pending" | "paused" | "cancelled" | "expired";
@@ -441,8 +443,17 @@ const AdminSubscriptions = ({ embedded = false }: { embedded?: boolean } = {}) =
       });
       if (error) throw error;
     },
-    onSuccess: () => {
-      toast.success("Subscription updated");
+    onSuccess: (_data, vars) => {
+      // Cleaning renew extends dates + marks paid, but does NOT auto-regenerate
+      // recurring cleaning_bookings for the new period. Surface that to the
+      // admin so they don't assume the calendar will auto-fill.
+      if (vars.action === "renew") {
+        toast.success("Renewed — payment recorded", {
+          description: "Add visits for the new period from the Cleaning ops calendar.",
+        });
+      } else {
+        toast.success("Subscription updated");
+      }
       invalidate();
       setEditSub(null);
     },
@@ -506,6 +517,23 @@ const AdminSubscriptions = ({ embedded = false }: { embedded?: boolean } = {}) =
       toast.success(bookings ? `Subscription created + ${bookings} slot reserved` : "Subscription created");
       invalidate();
       setCreateOpen(false);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  // "Mark paid" — records an off-platform payment WITHOUT sliding end_date.
+  // The old page only had "Pay" (opens a Lightning QR) or "Renew" (extends the
+  // period + marks paid). For cash / on-file payments the admin now has a
+  // straight approve action.
+  const approveCleaningMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await approvePayment("cleaning", id, { adminUserId: userData?.id });
+    },
+    onSuccess: () => {
+      toast.success("Payment approved");
+      queryClient.invalidateQueries({ queryKey: ["admin-subscriptions"] });
+      queryClient.invalidateQueries({ queryKey: ["provider-analytics"] });
+      queryClient.invalidateQueries({ queryKey: ["provider-cleaning-subs"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -803,6 +831,14 @@ const AdminSubscriptions = ({ embedded = false }: { embedded?: boolean } = {}) =
                               <DropdownMenuItem onClick={() => setEditSub(sub)}>
                                 <Pencil className="mr-2 h-4 w-4" /> Edit
                               </DropdownMenuItem>
+                              {isPendingPayment(sub) && (
+                                <DropdownMenuItem
+                                  onClick={() => approveCleaningMutation.mutate(sub.id)}
+                                  disabled={approveCleaningMutation.isPending}
+                                >
+                                  <CheckCircle2 className="mr-2 h-4 w-4 text-emerald-500" /> Mark as paid
+                                </DropdownMenuItem>
+                              )}
                               <DropdownMenuItem onClick={() => setRenewConfirmSub(sub)}>
                                 <RefreshCcw className="mr-2 h-4 w-4 text-green-500" /> Renew (payment received)
                               </DropdownMenuItem>

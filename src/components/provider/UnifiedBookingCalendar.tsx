@@ -13,6 +13,8 @@ import { cn } from "@/lib/utils";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useUnifiedBookings, type UnifiedBookingRow } from "@/hooks/useUnifiedBookings";
+import { useAuth } from "@/contexts/AuthContext";
+import { approvePayment, isPendingPayment, type ApproveService } from "@/lib/subscriptionApprove";
 
 interface Props {
   providerId: string;
@@ -82,6 +84,24 @@ export function UnifiedBookingCalendar({ providerId, sourceKey }: Props) {
       qc.invalidateQueries({ queryKey: ["unified-bookings", sourceKey, providerId] });
     },
     onError: (e: Error) => toast.error(e.message || "Could not update"),
+  });
+
+  const { userData } = useAuth();
+  // Off-platform / pending-cron payments. Cars in particular had NO approve
+  // action anywhere (audit P0 #1). Now every row with payment_status != paid
+  // gets a "Mark as paid" item in the ⋯ menu.
+  const approve = useMutation({
+    mutationFn: async (row: UnifiedBookingRow) => {
+      const service = approveServiceFor(row.sourceTable);
+      if (!service) throw new Error("Unsupported service");
+      await approvePayment(service, row.id, { adminUserId: userData?.id });
+    },
+    onSuccess: () => {
+      toast.success("Payment approved");
+      qc.invalidateQueries({ queryKey: ["unified-bookings", sourceKey, providerId] });
+      qc.invalidateQueries({ queryKey: ["provider-analytics"] });
+    },
+    onError: (e: Error) => toast.error(e.message || "Could not approve"),
   });
 
   const filtered = useMemo(
@@ -212,7 +232,8 @@ export function UnifiedBookingCalendar({ providerId, sourceKey }: Props) {
                       key={`${dayISO}-${b.id}`}
                       row={b}
                       onSetStatus={(next) => setStatus.mutate({ row: b, next })}
-                      pending={setStatus.isPending}
+                      onApprovePayment={() => approve.mutate(b)}
+                      pending={setStatus.isPending || approve.isPending}
                     />
                   ))}
                 </div>
@@ -227,14 +248,19 @@ export function UnifiedBookingCalendar({ providerId, sourceKey }: Props) {
 
 // ─── Booking row ───────────────────────────────────────────────────────────
 function BookingRow({
-  row, onSetStatus, pending,
+  row, onSetStatus, onApprovePayment, pending,
 }: {
   row: UnifiedBookingRow;
   onSetStatus: (next: string) => void;
+  onApprovePayment?: () => void;
   pending: boolean;
 }) {
   const statusTone = statusColor(row.status);
   const actions = rowActionsFor(row);
+  const canApprovePayment =
+    !!onApprovePayment &&
+    isPendingPayment({ payment_status: row.paymentStatus }) &&
+    row.status.toLowerCase() !== "cancelled";
   // What the user provided at booking time — surface it inline so the owner
   // sees address / access instructions / free-form notes without having to
   // click through to the source table.
@@ -287,7 +313,7 @@ function BookingRow({
           ${(row.priceCents / 100).toFixed(2)}
         </span>
       )}
-      {actions.length > 0 && (
+      {(actions.length > 0 || canApprovePayment) && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button size="iconSm" variant="ghost" aria-label="Row actions" disabled={pending}>
@@ -295,6 +321,12 @@ function BookingRow({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-52">
+            {canApprovePayment && (
+              <DropdownMenuItem onSelect={() => onApprovePayment?.()}>
+                <CheckCircle2 className="h-4 w-4 text-emerald-500" /> Mark as paid
+              </DropdownMenuItem>
+            )}
+            {canApprovePayment && actions.length > 0 && <DropdownMenuSeparator />}
             {actions.map((a, i) => (
               <div key={a.status}>
                 {a.destructive && i > 0 && <DropdownMenuSeparator />}
@@ -350,6 +382,15 @@ function rowActionsFor(row: UnifiedBookingRow): { status: string; label: string;
     return [];
   }
   return [];
+}
+
+// Map the row's source table to the ApproveService key our helper understands.
+function approveServiceFor(sourceTable: UnifiedBookingRow["sourceTable"]): ApproveService | null {
+  if (sourceTable === "cleaning_bookings") return null; // cleaning_bookings has no payment_status; the parent subscription does
+  if (sourceTable === "food_subscriptions") return "food";
+  if (sourceTable === "rental_bookings") return "cars";
+  if (sourceTable === "beach_club_court_bookings") return null; // court bookings are pay-on-arrival — no payment_status column
+  return null;
 }
 
 function statusColor(status: string): string {

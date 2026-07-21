@@ -1,6 +1,8 @@
 import { useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Sparkles, MoreHorizontal, PauseCircle, PlayCircle, XCircle, RefreshCcw } from "lucide-react";
+import { Sparkles, MoreHorizontal, PauseCircle, PlayCircle, XCircle, RefreshCcw, CheckCircle2 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { approvePayment, isPendingPayment } from "@/lib/subscriptionApprove";
 import { format, isBefore } from "date-fns";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -28,6 +30,7 @@ import { cn } from "@/lib/utils";
  */
 export function CleaningSubscriptionsList({ providerId }: { providerId: string }) {
   const qc = useQueryClient();
+  const { userData } = useAuth();
 
   // Fetch subs whose package belongs to this provider — cleaning packages
   // live in `cleaning_packages` and hang off the legacy provider row.
@@ -109,6 +112,19 @@ export function CleaningSubscriptionsList({ providerId }: { providerId: string }
     onError: (e: Error) => toast.error(e.message),
   });
 
+  // Mark paid without touching dates — companion to Renew (which extends).
+  const approve = useMutation({
+    mutationFn: async (sub: any) => {
+      await approvePayment("cleaning", sub.id, { adminUserId: userData?.id });
+    },
+    onSuccess: () => {
+      toast.success("Payment approved");
+      qc.invalidateQueries({ queryKey: ["provider-cleaning-subs", providerId] });
+      qc.invalidateQueries({ queryKey: ["provider-analytics"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   // Off-platform paid renewal — extend the sub continuously (next_start =
   // max(today, prev_end+1)) and mark it paid/manual. Mirrors the rich admin
   // Subscriptions page dialog so an owner isn't forced to jump to the admin
@@ -132,7 +148,14 @@ export function CleaningSubscriptionsList({ providerId }: { providerId: string }
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Renewed — payment recorded");
+      // Cleaning renew extends the sub's end_date but does NOT auto-regenerate
+      // recurring cleaning_bookings for the new period — the recurrence engine
+      // that seeds bookings on create isn't wired up for renew here. Surface a
+      // note so the owner knows to book the new visits from the Bookings tab
+      // rather than assuming the calendar auto-fills.
+      toast.success("Renewed — payment recorded", {
+        description: "Add visits for the new period from the Bookings tab.",
+      });
       qc.invalidateQueries({ queryKey: ["provider-cleaning-subs", providerId] });
       qc.invalidateQueries({ queryKey: ["provider-analytics"] });
       qc.invalidateQueries({ queryKey: ["unified-bookings"] });
@@ -217,6 +240,11 @@ export function CleaningSubscriptionsList({ providerId }: { providerId: string }
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
+            {isPendingPayment(s) && st !== "cancelled" && (
+              <DropdownMenuItem onSelect={() => approve.mutate(s)}>
+                <CheckCircle2 className="h-4 w-4 text-emerald-500" /> Mark as paid
+              </DropdownMenuItem>
+            )}
             {st === "active" && (
               <DropdownMenuItem onSelect={() => setStatus.mutate({ id: s.id, next: "paused" })}>
                 <PauseCircle className="h-4 w-4" /> Pause

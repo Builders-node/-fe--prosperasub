@@ -1,6 +1,8 @@
 import { useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { UtensilsCrossed, MoreHorizontal, PauseCircle, PlayCircle, XCircle, RefreshCcw } from "lucide-react";
+import { UtensilsCrossed, MoreHorizontal, PauseCircle, PlayCircle, XCircle, RefreshCcw, CheckCircle2 } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { approvePayment, isPendingPayment } from "@/lib/subscriptionApprove";
 import { format, isBefore } from "date-fns";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -27,6 +29,7 @@ import { cn } from "@/lib/utils";
  */
 export function FoodSubscriptionsList({ providerId }: { providerId: string }) {
   const qc = useQueryClient();
+  const { userData } = useAuth();
 
   const { data: subs = [], isLoading } = useQuery({
     queryKey: ["provider-food-subs", providerId],
@@ -85,6 +88,20 @@ export function FoodSubscriptionsList({ providerId }: { providerId: string }) {
       // Active/Upcoming counts and the calendar re-render without a full reload.
       qc.invalidateQueries({ queryKey: ["provider-analytics"] });
       qc.invalidateQueries({ queryKey: ["unified-bookings"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  // Mark payment received without touching end_date — for cash / off-platform
+  // captures the owner recorded manually. Renew (below) is separate.
+  const approve = useMutation({
+    mutationFn: async (sub: any) => {
+      await approvePayment("food", sub.id, { adminUserId: userData?.id });
+    },
+    onSuccess: () => {
+      toast.success("Payment approved");
+      qc.invalidateQueries({ queryKey: ["provider-food-subs", providerId] });
+      qc.invalidateQueries({ queryKey: ["provider-analytics"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -193,6 +210,11 @@ export function FoodSubscriptionsList({ providerId }: { providerId: string }) {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
+            {isPendingPayment(s) && st !== "cancelled" && (
+              <DropdownMenuItem onSelect={() => approve.mutate(s)}>
+                <CheckCircle2 className="h-4 w-4 text-emerald-500" /> Mark as paid
+              </DropdownMenuItem>
+            )}
             {st === "active" && (
               <DropdownMenuItem onSelect={() => setStatus.mutate({ id: s.id, next: "paused" })}>
                 <PauseCircle className="h-4 w-4" /> Pause
