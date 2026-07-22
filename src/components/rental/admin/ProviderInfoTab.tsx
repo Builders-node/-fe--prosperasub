@@ -1,55 +1,52 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Edit, Phone, Mail, Info as InfoIcon } from "lucide-react";
-import { Spinner } from "@/components/ui/spinner";
+import { Edit, Phone, Mail, Info as InfoIcon, MapPin, Clock } from "lucide-react";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAuditEvent } from "@/lib/auditLog";
+import { ProviderEditDialog, type ProviderEditFields } from "@/components/provider/ProviderEditDialog";
 import type { RentalProvider } from "@/types/carRental";
 
-interface Props {
-  provider: RentalProvider;
+interface RentalProviderExtended extends RentalProvider {
+  location?: string | null;
+  working_hours?: string | null;
+  avatar_url?: string | null;
+  banner_url?: string | null;
 }
 
-const emptyForm = (provider: RentalProvider) => ({
-  name: provider.name,
-  description: provider.description ?? "",
-  logo_url: provider.logo_url ?? "",
-  contact_phone: provider.contact_phone ?? "",
-  contact_email: provider.contact_email ?? "",
-  status: provider.status,
-  sort_order: provider.sort_order,
-});
+interface Props {
+  provider: RentalProviderExtended;
+}
 
+/** Owner + admin info tab for a rental provider. Uses the shared
+ *  ProviderEditDialog for a consistent look across all four services. */
 export function ProviderInfoTab({ provider }: Props) {
   const qc = useQueryClient();
   const { userData } = useAuth();
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState(emptyForm(provider));
+  const [form, setForm] = useState<ProviderEditFields>(() => hydrate(provider));
 
-  const openEdit = () => {
-    setForm(emptyForm(provider));
-    setOpen(true);
-  };
+  const openEdit = () => { setForm(hydrate(provider)); setOpen(true); };
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      const avatarUrl = form.avatar_url?.trim() || null;
       const payload = {
         name: form.name.trim(),
-        description: form.description.trim() || null,
-        logo_url: form.logo_url.trim() || null,
-        contact_phone: form.contact_phone.trim() || null,
-        contact_email: form.contact_email.trim() || null,
-        status: form.status,
-        sort_order: form.sort_order,
+        description: form.description?.trim() || null,
+        // Keep legacy logo_url in sync with avatar_url so older readers
+        // (public rental listing, admin table) still see the image.
+        logo_url: avatarUrl,
+        avatar_url: avatarUrl,
+        banner_url: form.banner_url?.trim() || null,
+        location: form.location?.trim() || null,
+        working_hours: form.working_hours?.trim() || null,
+        contact_phone: form.contact_phone?.trim() || null,
+        contact_email: form.contact_email?.trim() || null,
+        status: (form.status || "active") as "active" | "inactive",
+        sort_order: form.sort_order ?? 0,
         updated_at: new Date().toISOString(),
       };
       const { error } = await supabaseDb
@@ -63,6 +60,8 @@ export function ProviderInfoTab({ provider }: Props) {
       toast.success("Provider updated");
       qc.invalidateQueries({ queryKey: ["admin-rental-provider", provider.id] });
       qc.invalidateQueries({ queryKey: ["admin-rental-providers"] });
+      qc.invalidateQueries({ queryKey: ["admin-legacy-provider-row"] });
+      qc.invalidateQueries({ queryKey: ["my-providers"] });
       setOpen(false);
     },
     onError: (e) => toast.error(String(e)),
@@ -70,7 +69,6 @@ export function ProviderInfoTab({ provider }: Props) {
 
   return (
     <div className="space-y-6">
-      {/* Header with edit button */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h2 className="text-xl font-black tracking-tight">Provider Information</h2>
@@ -81,115 +79,61 @@ export function ProviderInfoTab({ provider }: Props) {
         </Button>
       </div>
 
-      {/* Description */}
-      <section className="rounded-2xl bg-card p-5">
-        <div className="mb-3 flex items-center gap-2">
-          <InfoIcon className="h-4 w-4 text-orange-400" />
-          <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Description</h3>
-        </div>
-        {provider.description ? (
-          <p className="text-sm text-foreground whitespace-pre-line">{provider.description}</p>
-        ) : (
-          <p className="text-sm italic text-muted-foreground">No description set</p>
-        )}
-      </section>
+      <div className="rounded-2xl bg-card p-5 space-y-4">
+        <Row icon={<InfoIcon className="h-4 w-4 text-muted-foreground" />} label="Description">
+          {provider.description ? provider.description : <em className="text-muted-foreground/70">No description</em>}
+        </Row>
+        <Row icon={<MapPin className="h-4 w-4 text-muted-foreground" />} label="Location">
+          {provider.location ? provider.location : <em className="text-muted-foreground/70">Not set</em>}
+        </Row>
+        <Row icon={<Clock className="h-4 w-4 text-muted-foreground" />} label="Working hours">
+          {provider.working_hours ? provider.working_hours : <em className="text-muted-foreground/70">Not set</em>}
+        </Row>
+        <Row icon={<Phone className="h-4 w-4 text-muted-foreground" />} label="Phone">
+          {provider.contact_phone ? provider.contact_phone : <em className="text-muted-foreground/70">Not set</em>}
+        </Row>
+        <Row icon={<Mail className="h-4 w-4 text-muted-foreground" />} label="Email">
+          {provider.contact_email ? provider.contact_email : <em className="text-muted-foreground/70">Not set</em>}
+        </Row>
+      </div>
 
-      {/* Contact */}
-      <section className="divide-y divide-border/40 rounded-2xl bg-card">
-        <InfoRow
-          icon={<Phone className="h-4 w-4" />}
-          label="Phone"
-          value={provider.contact_phone}
-        />
-        <InfoRow
-          icon={<Mail className="h-4 w-4" />}
-          label="Email"
-          value={provider.contact_email}
-        />
-      </section>
-
-      {/* ─── Edit dialog ──────────────────────────────────────────────────── */}
-      <Dialog open={open} onOpenChange={(o) => { if (!o) setOpen(false); }}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Provider</DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div>
-              <Label>Name *</Label>
-              <Input value={form.name}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                placeholder="Atlantis Rentals" />
-            </div>
-            <div>
-              <Label>Description</Label>
-              <Textarea value={form.description}
-                onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                rows={3} placeholder="About this rental company..." />
-            </div>
-            <div>
-              <Label>Logo URL</Label>
-              <Input value={form.logo_url}
-                onChange={(e) => setForm((f) => ({ ...f, logo_url: e.target.value }))}
-                placeholder="https://..." />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Phone</Label>
-                <Input value={form.contact_phone}
-                  onChange={(e) => setForm((f) => ({ ...f, contact_phone: e.target.value }))}
-                  placeholder="+504 ..." type="tel" />
-              </div>
-              <div>
-                <Label>Email</Label>
-                <Input value={form.contact_email}
-                  onChange={(e) => setForm((f) => ({ ...f, contact_email: e.target.value }))}
-                  placeholder="info@company.com" type="email" />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Status</Label>
-                <select
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  value={form.status}
-                  onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as "active" | "inactive" }))}>
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </select>
-              </div>
-              <div>
-                <Label>Sort Order</Label>
-                <Input type="number" value={form.sort_order}
-                  onChange={(e) => setForm((f) => ({ ...f, sort_order: parseInt(e.target.value || "0") }))} />
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={() => saveMutation.mutate()}
-              disabled={!form.name.trim() || saveMutation.isPending}>
-              {saveMutation.isPending && <Spinner size="sm" className="mr-2" />}
-              Save
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ProviderEditDialog
+        open={open}
+        onOpenChange={setOpen}
+        title="Edit provider"
+        values={form}
+        onChange={setForm}
+        onSave={() => saveMutation.mutate()}
+        saving={saveMutation.isPending}
+      />
     </div>
   );
 }
 
-function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string | null }) {
+function hydrate(p: RentalProviderExtended): ProviderEditFields {
+  return {
+    name: p.name,
+    description: p.description ?? "",
+    // Bind the shared "avatar" field to whichever column has a value —
+    // logo_url is the legacy column, avatar_url is what the shared shell reads.
+    avatar_url: p.avatar_url ?? p.logo_url ?? "",
+    banner_url: p.banner_url ?? "",
+    location: p.location ?? "",
+    working_hours: p.working_hours ?? "",
+    contact_phone: p.contact_phone ?? "",
+    contact_email: p.contact_email ?? "",
+    status: p.status ?? "active",
+    sort_order: p.sort_order ?? 0,
+  };
+}
+
+function Row({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
   return (
-    <div className="flex items-start gap-3 p-5">
-      <span className="mt-0.5 shrink-0 text-orange-400">{icon}</span>
-      <div className="min-w-0">
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
-        <p className="mt-0.5 text-sm text-foreground">
-          {value || <span className="italic text-muted-foreground">Not set</span>}
-        </p>
+    <div className="flex items-start gap-3">
+      <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted">{icon}</span>
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{label}</p>
+        <p className="mt-0.5 text-sm text-foreground">{children}</p>
       </div>
     </div>
   );

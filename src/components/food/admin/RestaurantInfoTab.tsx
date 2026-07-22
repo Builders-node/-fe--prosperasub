@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Edit, MapPin, Clock, Truck, Check, Info as InfoIcon } from "lucide-react";
+import { Edit, MapPin, Clock, Truck, Check, Info as InfoIcon, Phone, Mail } from "lucide-react";
 import { useResidences } from "@/hooks/useResidences";
 import { Spinner } from "@/components/ui/spinner";
 import { supabaseDb } from "@/integrations/supabase/client";
@@ -39,6 +39,8 @@ export function RestaurantInfoTab({ restaurant }: Props) {
     working_hours: parseWorkingHours(restaurant.working_hours),
     delivery_info: restaurant.delivery_info ?? "",
     location: restaurant.location ?? "",
+    contact_phone: restaurant.contact_phone ?? "",
+    contact_email: restaurant.contact_email ?? "",
     status: restaurant.status,
     sort_order: restaurant.sort_order,
   });
@@ -52,6 +54,8 @@ export function RestaurantInfoTab({ restaurant }: Props) {
       working_hours: parseWorkingHours(restaurant.working_hours),
       delivery_info: restaurant.delivery_info ?? "",
       location: restaurant.location ?? "",
+      contact_phone: restaurant.contact_phone ?? "",
+      contact_email: restaurant.contact_email ?? "",
       status: restaurant.status,
       sort_order: restaurant.sort_order,
     });
@@ -68,6 +72,8 @@ export function RestaurantInfoTab({ restaurant }: Props) {
         working_hours: serializeWorkingHours(form.working_hours) || null,
         delivery_info: form.delivery_info.trim() || null,
         location: form.location.trim() || null,
+        contact_phone: form.contact_phone.trim() || null,
+        contact_email: form.contact_email.trim() || null,
         status: form.status,
         sort_order: form.sort_order,
         updated_at: new Date().toISOString(),
@@ -132,6 +138,16 @@ export function RestaurantInfoTab({ restaurant }: Props) {
             ? restaurant.location
             : <em className="text-muted-foreground/70">Not set</em>}
         </Row>
+        <Row icon={<Phone className="h-4 w-4 text-muted-foreground" />} label="Phone">
+          {restaurant.contact_phone
+            ? restaurant.contact_phone
+            : <em className="text-muted-foreground/70">Not set</em>}
+        </Row>
+        <Row icon={<Mail className="h-4 w-4 text-muted-foreground" />} label="Email">
+          {restaurant.contact_email
+            ? restaurant.contact_email
+            : <em className="text-muted-foreground/70">Not set</em>}
+        </Row>
       </div>
 
       {/* Service Locations (residences this restaurant delivers to) */}
@@ -192,23 +208,44 @@ export function RestaurantInfoTab({ restaurant }: Props) {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Status</Label>
-                <select
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  value={form.status}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, status: e.target.value as "active" | "inactive" }))
-                  }>
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </select>
+            <div className="space-y-3">
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Contact</p>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <Label>Phone</Label>
+                  <Input type="tel" value={form.contact_phone}
+                    onChange={(e) => setForm((f) => ({ ...f, contact_phone: e.target.value }))}
+                    placeholder="+504 …" />
+                </div>
+                <div>
+                  <Label>Email</Label>
+                  <Input type="email" value={form.contact_email}
+                    onChange={(e) => setForm((f) => ({ ...f, contact_email: e.target.value }))}
+                    placeholder="hello@restaurant.com" />
+                </div>
               </div>
-              <div>
-                <Label>Sort Order</Label>
-                <Input type="number" value={form.sort_order}
-                  onChange={(e) => setForm((f) => ({ ...f, sort_order: parseInt(e.target.value || "0") }))} />
+            </div>
+
+            <div className="space-y-3">
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Admin</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Status</Label>
+                  <select
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    value={form.status}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, status: e.target.value as "active" | "inactive" }))
+                    }>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
+                </div>
+                <div>
+                  <Label>Sort Order</Label>
+                  <Input type="number" value={form.sort_order}
+                    onChange={(e) => setForm((f) => ({ ...f, sort_order: parseInt(e.target.value || "0") }))} />
+                </div>
               </div>
             </div>
           </div>

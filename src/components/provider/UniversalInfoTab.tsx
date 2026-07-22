@@ -6,13 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { logAuditEvent } from "@/lib/auditLog";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Spinner } from "@/components/ui/spinner";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from "@/components/ui/dialog";
+import { ProviderEditDialog, type ProviderEditFields } from "@/components/provider/ProviderEditDialog";
 
 export interface UniversalProviderRow {
   id: string;
@@ -41,36 +35,23 @@ export function UniversalInfoTab({ provider }: { provider: UniversalProviderRow 
   const qc = useQueryClient();
   const { userData } = useAuth();
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({
-    name: provider.name,
-    description: provider.description ?? "",
-    location: provider.location ?? "",
-    working_hours: provider.working_hours ?? "",
-    contact_phone: provider.contact_phone ?? "",
-    contact_email: provider.contact_email ?? "",
-  });
+  const [form, setForm] = useState<ProviderEditFields>(() => hydrate(provider));
 
-  const openEdit = () => {
-    setForm({
-      name: provider.name,
-      description: provider.description ?? "",
-      location: provider.location ?? "",
-      working_hours: provider.working_hours ?? "",
-      contact_phone: provider.contact_phone ?? "",
-      contact_email: provider.contact_email ?? "",
-    });
-    setOpen(true);
-  };
+  const openEdit = () => { setForm(hydrate(provider)); setOpen(true); };
 
   const save = useMutation({
     mutationFn: async () => {
       const payload = {
         name: form.name.trim(),
-        description: form.description.trim() || null,
-        location: form.location.trim() || null,
-        working_hours: form.working_hours.trim() || null,
-        contact_phone: form.contact_phone.trim() || null,
-        contact_email: form.contact_email.trim() || null,
+        description: form.description?.trim() || null,
+        avatar_url: form.avatar_url?.trim() || null,
+        banner_url: form.banner_url?.trim() || null,
+        location: form.location?.trim() || null,
+        working_hours: form.working_hours?.trim() || null,
+        contact_phone: form.contact_phone?.trim() || null,
+        contact_email: form.contact_email?.trim() || null,
+        status: form.status || "active",
+        sort_order: form.sort_order ?? 0,
         updated_at: new Date().toISOString(),
       };
       if (!payload.name) throw new Error("Name is required");
@@ -81,6 +62,7 @@ export function UniversalInfoTab({ provider }: { provider: UniversalProviderRow 
     onSuccess: () => {
       toast.success("Saved");
       qc.invalidateQueries({ queryKey: ["universal-provider", provider.id] });
+      qc.invalidateQueries({ queryKey: ["admin-legacy-provider-row"] });
       setOpen(false);
     },
     onError: (e: any) => toast.error(e?.message || "Could not save"),
@@ -116,29 +98,32 @@ export function UniversalInfoTab({ provider }: { provider: UniversalProviderRow 
         </Row>
       </div>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>Edit information</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <div><Label>Name *</Label><Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} /></div>
-            <div><Label>Description</Label><Textarea rows={3} value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} /></div>
-            <div><Label>Location</Label><Input value={form.location} onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))} placeholder="Prospera Village…" /></div>
-            <div><Label>Working hours</Label><Input value={form.working_hours} onChange={(e) => setForm((f) => ({ ...f, working_hours: e.target.value }))} placeholder="Mon–Sat 08:00–18:00" /></div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label>Phone</Label><Input value={form.contact_phone} onChange={(e) => setForm((f) => ({ ...f, contact_phone: e.target.value }))} placeholder="+504…" /></div>
-              <div><Label>Email</Label><Input value={form.contact_email} onChange={(e) => setForm((f) => ({ ...f, contact_email: e.target.value }))} placeholder="hello@…" /></div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={() => save.mutate()} disabled={!form.name.trim() || save.isPending}>
-              {save.isPending && <Spinner size="sm" className="mr-2" />} Save
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ProviderEditDialog
+        open={open}
+        onOpenChange={setOpen}
+        title="Edit provider"
+        values={form}
+        onChange={setForm}
+        onSave={() => save.mutate()}
+        saving={save.isPending}
+      />
     </div>
   );
+}
+
+function hydrate(p: UniversalProviderRow): ProviderEditFields {
+  return {
+    name: p.name,
+    description: p.description ?? "",
+    avatar_url: p.avatar_url ?? "",
+    banner_url: p.banner_url ?? "",
+    location: p.location ?? "",
+    working_hours: p.working_hours ?? "",
+    contact_phone: p.contact_phone ?? "",
+    contact_email: p.contact_email ?? "",
+    status: p.status ?? "active",
+    sort_order: 0,
+  };
 }
 
 function Row({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {

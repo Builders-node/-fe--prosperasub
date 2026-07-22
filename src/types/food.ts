@@ -24,6 +24,8 @@ export interface FoodProvider {
   working_hours: string | null;
   delivery_info: string | null;
   location: string | null;
+  contact_phone: string | null;
+  contact_email: string | null;
   admin_user_id: string | null;
   weekly_price_cents: number;
   meals_per_week: number;

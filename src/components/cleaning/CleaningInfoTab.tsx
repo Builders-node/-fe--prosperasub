@@ -1,58 +1,50 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Edit, MapPin, Clock, Info as InfoIcon } from "lucide-react";
+import { Edit, MapPin, Clock, Info as InfoIcon, Phone, Mail } from "lucide-react";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAuditEvent } from "@/lib/auditLog";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Spinner } from "@/components/ui/spinner";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from "@/components/ui/dialog";
+import { ProviderEditDialog, type ProviderEditFields } from "@/components/provider/ProviderEditDialog";
 import type { MyProviderRow } from "@/hooks/useMyProviders";
 
 export interface CleaningProviderRow extends MyProviderRow {
   location?: string | null;
   working_hours?: string | null;
   banner_url?: string | null;
+  contact_phone?: string | null;
+  contact_email?: string | null;
+  status?: string | null;
+  sort_order?: number | null;
 }
 
 const AUDIT_ENTITY = "cleaning_provider";
 const TABLE = "cleaning_providers";
 
-/** Basic info tab for the cleaning provider portal — mirrors the admin form. */
+/** Basic info tab for the cleaning provider portal — uses the shared
+ *  ProviderEditDialog so the modal looks the same across services. */
 export function CleaningInfoTab({ provider }: { provider: CleaningProviderRow }) {
   const qc = useQueryClient();
   const { userData } = useAuth();
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({
-    name: provider.name,
-    description: provider.description ?? "",
-    location: provider.location ?? "",
-    working_hours: provider.working_hours ?? "",
-  });
+  const [form, setForm] = useState<ProviderEditFields>(() => hydrate(provider));
 
-  const openEdit = () => {
-    setForm({
-      name: provider.name,
-      description: provider.description ?? "",
-      location: provider.location ?? "",
-      working_hours: provider.working_hours ?? "",
-    });
-    setOpen(true);
-  };
+  const openEdit = () => { setForm(hydrate(provider)); setOpen(true); };
 
   const save = useMutation({
     mutationFn: async () => {
       const payload = {
         name: form.name.trim(),
-        description: form.description.trim() || null,
-        location: form.location.trim() || null,
-        working_hours: form.working_hours.trim() || null,
+        description: form.description?.trim() || null,
+        avatar_url: form.avatar_url?.trim() || null,
+        banner_url: form.banner_url?.trim() || null,
+        location: form.location?.trim() || null,
+        working_hours: form.working_hours?.trim() || null,
+        contact_phone: form.contact_phone?.trim() || null,
+        contact_email: form.contact_email?.trim() || null,
+        status: form.status || "active",
+        sort_order: form.sort_order ?? 0,
         updated_at: new Date().toISOString(),
       };
       if (!payload.name) throw new Error("Name is required");
@@ -63,6 +55,7 @@ export function CleaningInfoTab({ provider }: { provider: CleaningProviderRow })
     onSuccess: () => {
       toast.success("Provider updated");
       qc.invalidateQueries({ queryKey: ["my-providers"] });
+      qc.invalidateQueries({ queryKey: ["admin-legacy-provider-row"] });
       setOpen(false);
     },
     onError: (e: any) => toast.error(e?.message || "Could not save"),
@@ -90,27 +83,40 @@ export function CleaningInfoTab({ provider }: { provider: CleaningProviderRow })
         <Row icon={<Clock className="h-4 w-4 text-muted-foreground" />} label="Working hours">
           {provider.working_hours ? provider.working_hours : <em className="text-muted-foreground/70">Not set</em>}
         </Row>
+        <Row icon={<Phone className="h-4 w-4 text-muted-foreground" />} label="Phone">
+          {provider.contact_phone ? provider.contact_phone : <em className="text-muted-foreground/70">Not set</em>}
+        </Row>
+        <Row icon={<Mail className="h-4 w-4 text-muted-foreground" />} label="Email">
+          {provider.contact_email ? provider.contact_email : <em className="text-muted-foreground/70">Not set</em>}
+        </Row>
       </div>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>Edit information</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <div><Label>Name *</Label><Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} /></div>
-            <div><Label>Description</Label><Textarea rows={3} value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} /></div>
-            <div><Label>Location</Label><Input value={form.location} onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))} placeholder="Prospera Village…" /></div>
-            <div><Label>Working hours</Label><Input value={form.working_hours} onChange={(e) => setForm((f) => ({ ...f, working_hours: e.target.value }))} placeholder="Mon–Sat 08:00–18:00" /></div>
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={() => save.mutate()} disabled={!form.name.trim() || save.isPending}>
-              {save.isPending && <Spinner size="sm" className="mr-2" />} Save
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ProviderEditDialog
+        open={open}
+        onOpenChange={setOpen}
+        title="Edit provider"
+        values={form}
+        onChange={setForm}
+        onSave={() => save.mutate()}
+        saving={save.isPending}
+      />
     </div>
   );
+}
+
+function hydrate(p: CleaningProviderRow): ProviderEditFields {
+  return {
+    name: p.name,
+    description: p.description ?? "",
+    avatar_url: p.avatar_url ?? "",
+    banner_url: p.banner_url ?? "",
+    location: p.location ?? "",
+    working_hours: p.working_hours ?? "",
+    contact_phone: p.contact_phone ?? "",
+    contact_email: p.contact_email ?? "",
+    status: p.status ?? "active",
+    sort_order: p.sort_order ?? 0,
+  };
 }
 
 function Row({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
