@@ -201,9 +201,11 @@ export function CleaningSubscriptionsList({ providerId }: { providerId: string }
     const price = Number(s.total_price_cents || s.monthly_price_cents || 0);
     // Effective status for the badge + action gates. A paid-but-unpaid sub gets
     // an extra "Awaiting payment" chip so the owner isn't tricked into treating
-    // it as revenue.
+    // it as revenue. Named `pendingPayment` (not `isPendingPayment`) to avoid
+    // shadowing the imported helper — the shadow crashed the whole tab with
+    // "isPendingPayment is not a function" the moment renderRow ran.
     const st = effectiveCleaningStatus(s, todayStr);
-    const isPendingPayment = s.payment_status && s.payment_status !== "paid" && st !== "cancelled";
+    const pendingPayment = s.payment_status && s.payment_status !== "paid" && st !== "cancelled";
     const end = s.paid_until || s.service_end_date || s.end_date;
     const start = s.service_start_date;
     return (
@@ -212,7 +214,7 @@ export function CleaningSubscriptionsList({ providerId }: { providerId: string }
           <div className="flex items-center gap-2">
             <p className="truncate text-sm font-bold text-foreground">{s.package_name}</p>
             <Badge className={cn("rounded-full text-[10px] capitalize", statusTone(st))}>{st}</Badge>
-            {isPendingPayment && (
+            {pendingPayment && (
               <Badge className="rounded-full text-[10px] bg-amber-500/15 text-amber-500">Awaiting payment</Badge>
             )}
           </div>

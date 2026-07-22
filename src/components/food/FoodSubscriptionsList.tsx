@@ -178,14 +178,17 @@ export function FoodSubscriptionsList({ providerId }: { providerId: string }) {
     const st = String(s.status || "").toLowerCase();
     // A row can be status='active' but payment_status='pending' (e.g. Infinita
     // paid, awaiting reconcile). Surface it so owners don't think it's revenue.
-    const isPendingPayment = s.payment_status && s.payment_status !== "paid" && st !== "cancelled";
+    // Named `pendingPayment` (not `isPendingPayment`) to avoid shadowing the
+    // imported helper — the shadow crashed the whole tab with
+    // "isPendingPayment is not a function" the moment renderRow ran.
+    const pendingPayment = s.payment_status && s.payment_status !== "paid" && st !== "cancelled";
     return (
       <div key={s.id} className="flex items-center gap-3 rounded-2xl bg-card p-4">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <p className="truncate text-sm font-bold text-foreground">{s.plan_name}</p>
             <Badge className={cn("rounded-full text-[10px] capitalize", statusTone(st))}>{st}</Badge>
-            {isPendingPayment && (
+            {pendingPayment && (
               <Badge className="rounded-full text-[10px] bg-amber-500/15 text-amber-500">Awaiting payment</Badge>
             )}
           </div>
