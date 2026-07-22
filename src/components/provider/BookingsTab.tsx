@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import { CalendarDays, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UnifiedBookingCalendar } from "@/components/provider/UnifiedBookingCalendar";
+import { NewCleaningBookingDialog } from "@/components/cleaning/NewCleaningBookingDialog";
 
 /**
  * The single Bookings tab that replaces the old per-service Subscriptions tab
@@ -29,32 +30,42 @@ export function BookingsTab({
   const [view, setView] = useState<"day" | "customer">(byCustomer ? "customer" : "day");
   const showToggle = !!byCustomer;
 
+  const isCleaning = sourceKey === "cleaning";
+
   return (
     <div className="space-y-4">
-      {showToggle && (
-        <div className="inline-flex rounded-full bg-muted/40 p-0.5 text-xs font-semibold">
-          <button
-            type="button"
-            onClick={() => setView("customer")}
-            className={cn(
-              "flex items-center gap-1.5 rounded-full px-3 py-1.5 transition-colors",
-              view === "customer" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            <Users className="h-3.5 w-3.5" /> By customer
-          </button>
-          <button
-            type="button"
-            onClick={() => setView("day")}
-            className={cn(
-              "flex items-center gap-1.5 rounded-full px-3 py-1.5 transition-colors",
-              view === "day" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            <CalendarDays className="h-3.5 w-3.5" /> By day
-          </button>
-        </div>
-      )}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        {showToggle ? (
+          <div className="inline-flex rounded-full bg-muted/40 p-0.5 text-xs font-semibold">
+            <button
+              type="button"
+              onClick={() => setView("customer")}
+              className={cn(
+                "flex items-center gap-1.5 rounded-full px-3 py-1.5 transition-colors",
+                view === "customer" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <Users className="h-3.5 w-3.5" /> By customer
+            </button>
+            <button
+              type="button"
+              onClick={() => setView("day")}
+              className={cn(
+                "flex items-center gap-1.5 rounded-full px-3 py-1.5 transition-colors",
+                view === "day" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <CalendarDays className="h-3.5 w-3.5" /> By day
+            </button>
+          </div>
+        ) : <span />}
+
+        {/* Cleaning-only: hand-schedule a one-off visit for an existing paid
+            subscription. Other services either don't have slot capacity to
+            manage (food auto-delivers on the sub's window) or use their own
+            booking flow (cars/beach). */}
+        {isCleaning && <NewCleaningBookingDialog providerId={providerId} />}
+      </div>
 
       {view === "day" || !byCustomer ? (
         <UnifiedBookingCalendar providerId={providerId} sourceKey={sourceKey} />
