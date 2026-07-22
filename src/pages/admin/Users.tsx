@@ -509,10 +509,14 @@ function EditUserForm({ user, auditLogs, onSave, onSoftDelete, saving, deleting 
   const saveLocationMutation = useMutation({
     mutationFn: async () => {
       const nextAddr = { ...address, area: residence.trim() };
-      const payload = { user_id: user.id, ...addressPayload(nextAddr), updated_at: new Date().toISOString() };
-      const { error } = await supabaseDb
-        .from("user_profiles")
-        .upsert(payload, { onConflict: "user_id" });
+      // Route through the admin backend — user_profiles RLS restricts writes
+      // to the row's owner, so an admin editing another user's profile via
+      // supabaseDb (anon key) silently no-ops. The service-role endpoint
+      // bypasses RLS + records an audit event.
+      const { error } = await adminApi(`/admin/users/${user.id}/profile`, {
+        method: "PATCH",
+        body: JSON.stringify(addressPayload(nextAddr)),
+      });
       if (error) throw error;
     },
     onSuccess: () => {
