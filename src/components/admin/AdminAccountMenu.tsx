@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { LogOut, UserRound, User } from "lucide-react";
+import { LogOut, UserRound } from "lucide-react";
 
 import {
   DropdownMenu,
@@ -14,12 +14,10 @@ import {
 } from "@/components/ui/app-dropdown";
 import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/i18n";
-import { useUserMode } from "@/contexts/UserModeContext";
 import { ProfileModal } from "@/components/account/ProfileModal";
 
 export function AdminAccountMenu() {
   const { userData, logout } = useAuth();
-  const { enterUserMode } = useUserMode();
   const navigate = useNavigate();
   const { t } = useI18n();
 
@@ -52,15 +50,6 @@ export function AdminAccountMenu() {
               icon={UserRound}
               title={t("profile.pageTitle")}
               onSelect={() => setShowProfileDialog(true)}
-            />
-            {/* Single "View as user" — flips the impersonation flag so the
-                banner + exit affordance appear. The earlier duplicate menu
-                item that only navigated (no flag) has been removed. */}
-            <AppDropdownItem
-              icon={User}
-              title="View as user"
-              subtitle="Switch to the standard user experience"
-              onSelect={enterUserMode}
             />
           </div>
 

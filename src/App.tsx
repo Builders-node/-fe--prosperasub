@@ -7,7 +7,6 @@ import { BrowserRouter, Navigate, Routes, Route, useLocation } from "react-route
 import { ThemeProvider } from "next-themes";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AuthModalProvider } from "@/contexts/AuthModalContext";
-import { UserModeProvider } from "@/contexts/UserModeContext";
 import { LocationProvider } from "@/contexts/LocationContext";
 import { CartProvider } from "@/contexts/CartContext";
 import { LanguageProvider } from "@/i18n";
@@ -135,7 +134,6 @@ const App = () => {
               <Sonner />
               <BrowserRouter>
                 <AuthModalProvider>
-                <UserModeProvider>
                 <LocationProvider>
                 <CartProvider>
                 <Suspense fallback={<PageFallback />}>
@@ -355,7 +353,6 @@ const App = () => {
                 <InstallAppModal />
                 </CartProvider>
                 </LocationProvider>
-                </UserModeProvider>
                 </AuthModalProvider>
               </BrowserRouter>
             </TooltipProvider>

@@ -48,7 +48,6 @@ const en = {
   "profile.updated": "Profile updated successfully!",
   "profile.updateFailed": "Failed to update profile",
   "profile.openProfile": "Open profile",
-  "profile.viewAsUser": "View as user",
 
   // ── Discovery
   "discovery.village": "PROSPERA VILLAGE",
@@ -128,7 +127,6 @@ const es: Record<TranslationKey, string> = {
   "profile.updated": "Perfil actualizado correctamente",
   "profile.updateFailed": "No se pudo actualizar el perfil",
   "profile.openProfile": "Abrir perfil",
-  "profile.viewAsUser": "Ver como usuario",
 
   // ── Discovery
   "discovery.village": "PROSPERA VILLAGE",

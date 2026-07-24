@@ -2,7 +2,6 @@ import { ReactNode, useEffect } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth, AppRole } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
-import { useUserMode } from "@/contexts/UserModeContext";
 import { PageLoader } from "@/components/ui/spinner";
 
 interface ProtectedRouteProps {
@@ -22,8 +21,6 @@ interface ProtectedRouteProps {
  */
 const ProtectedRoute = ({ children, allowedRoles, requiredRoles }: ProtectedRouteProps) => {
   const { isAuthenticated, isLoading, isUserDataReady, roles, isAdmin, isAdminResolved } = useAuth();
-  const { openAuthModal } = useAuthModal();
-  const { isUserMode } = useUserMode();
   const location = useLocation();
 
   const effectiveRoles = allowedRoles || requiredRoles;
@@ -40,19 +37,8 @@ const ProtectedRoute = ({ children, allowedRoles, requiredRoles }: ProtectedRout
     return <UnauthenticatedGate redirectTo={location.pathname + location.search} />;
   }
 
-  // Case 3: Admin is in "View as User" mode — block admin-only routes
-  if (isUserMode && effectiveRoles && effectiveRoles.length > 0) {
-    const isAdminOnlyRoute = effectiveRoles.every(
-      (r) => r === "super_admin",
-    );
-    if (isAdminOnlyRoute) {
-      // Treat them as a regular user — redirect to home
-      return <Navigate to="/" replace />;
-    }
-  }
-
-  // Case 4: Authenticated but missing required role (normal role check, skipped in user mode)
-  if (!isUserMode && effectiveRoles && effectiveRoles.length > 0) {
+  // Case 3: Authenticated but missing required role
+  if (effectiveRoles && effectiveRoles.length > 0) {
     let hasRequiredRole = effectiveRoles.some((role) => roles.includes(role));
 
     // Admin routes (require super_admin) are also open to RBAC admins. Wait for
