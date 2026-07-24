@@ -3,6 +3,7 @@ import { CalendarDays, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { UnifiedBookingCalendar } from "@/components/provider/UnifiedBookingCalendar";
 import { NewCleaningBookingDialog } from "@/components/cleaning/NewCleaningBookingDialog";
+import { NewFoodSubscriptionDialog } from "@/components/food/NewFoodSubscriptionDialog";
 
 /**
  * The single Bookings tab that replaces the old per-service Subscriptions tab
@@ -31,6 +32,7 @@ export function BookingsTab({
   const showToggle = !!byCustomer;
 
   const isCleaning = sourceKey === "cleaning";
+  const isFood = sourceKey === "food";
 
   return (
     <div className="space-y-4">
@@ -61,10 +63,11 @@ export function BookingsTab({
         ) : <span />}
 
         {/* Cleaning-only: hand-schedule a one-off visit for an existing paid
-            subscription. Other services either don't have slot capacity to
-            manage (food auto-delivers on the sub's window) or use their own
-            booking flow (cars/beach). */}
+            subscription. Food gets its own "New subscription" flow — an admin
+            adds a customer to a weekly meal plan for N weeks, marked paid.
+            Cars/beach have their own booking flows. */}
         {isCleaning && <NewCleaningBookingDialog providerId={providerId} />}
+        {isFood && <NewFoodSubscriptionDialog providerId={providerId} />}
       </div>
 
       {view === "day" || !byCustomer ? (
