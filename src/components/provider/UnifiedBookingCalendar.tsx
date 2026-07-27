@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, addDays, isSameDay } from "date-fns";
-import { ChevronLeft, ChevronRight, CalendarDays, MoreHorizontal, CheckCircle2, XCircle, PauseCircle, PlayCircle } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarDays, MoreHorizontal, CheckCircle2, XCircle, PauseCircle, PlayCircle, CalendarClock } from "lucide-react";
+import { RescheduleCleaningDialog } from "@/components/cleaning/RescheduleCleaningDialog";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Badge } from "@/components/ui/badge";
@@ -55,6 +56,7 @@ export function UnifiedBookingCalendar({ providerId, sourceKey }: Props) {
   const qc = useQueryClient();
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeekMonday(new Date()));
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [rescheduleRow, setRescheduleRow] = useState<UnifiedBookingRow | null>(null);
 
   const days = useMemo(
     () => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
@@ -233,6 +235,7 @@ export function UnifiedBookingCalendar({ providerId, sourceKey }: Props) {
                       row={b}
                       onSetStatus={(next) => setStatus.mutate({ row: b, next })}
                       onApprovePayment={() => approve.mutate(b)}
+                      onReschedule={() => setRescheduleRow(b)}
                       pending={setStatus.isPending || approve.isPending}
                     />
                   ))}
@@ -242,17 +245,39 @@ export function UnifiedBookingCalendar({ providerId, sourceKey }: Props) {
           })}
         </div>
       )}
+
+      {/* Cleaning-only reschedule dialog. `rescheduleRow` guards the mount so
+          other services can't accidentally open it. */}
+      {rescheduleRow?.sourceTable === "cleaning_bookings" && (
+        <RescheduleCleaningDialog
+          booking={{
+            id: rescheduleRow.id,
+            customerName: rescheduleRow.customerName,
+            planName: rescheduleRow.planName,
+            currentSlotId: (rescheduleRow.meta?.slot_id as string | null) ?? null,
+            currentDate: (rescheduleRow.meta?.slot_date as string | null) ?? null,
+            currentStartTime: (rescheduleRow.meta?.slot_start_time as string | null) ?? null,
+            currentEndTime: (rescheduleRow.meta?.slot_end_time as string | null) ?? null,
+            location: (rescheduleRow.meta?.location as string | null) ?? null,
+            notes: (rescheduleRow.meta?.notes as string | null) ?? null,
+            googleCalendarEventId: (rescheduleRow.meta?.google_calendar_event_id as string | null) ?? null,
+            status: rescheduleRow.status,
+          }}
+          onClose={() => setRescheduleRow(null)}
+        />
+      )}
     </div>
   );
 }
 
 // ─── Booking row ───────────────────────────────────────────────────────────
 function BookingRow({
-  row, onSetStatus, onApprovePayment, pending,
+  row, onSetStatus, onApprovePayment, onReschedule, pending,
 }: {
   row: UnifiedBookingRow;
   onSetStatus: (next: string) => void;
   onApprovePayment?: () => void;
+  onReschedule?: () => void;
   pending: boolean;
 }) {
   const statusTone = statusColor(row.status);
@@ -261,6 +286,12 @@ function BookingRow({
     !!onApprovePayment &&
     isPendingPayment({ payment_status: row.paymentStatus }) &&
     row.status.toLowerCase() !== "cancelled";
+  // Reschedule is cleaning-only for now — food is date-range, cars/beach have
+  // their own booking flows and don't share slot-capacity mechanics.
+  const canReschedule =
+    !!onReschedule &&
+    row.sourceTable === "cleaning_bookings" &&
+    !["cancelled", "completed"].includes(row.status.toLowerCase());
   // What the user provided at booking time — surface it inline so the owner
   // sees address / access instructions / free-form notes without having to
   // click through to the source table.
@@ -313,7 +344,7 @@ function BookingRow({
           ${(row.priceCents / 100).toFixed(2)}
         </span>
       )}
-      {(actions.length > 0 || canApprovePayment) && (
+      {(actions.length > 0 || canApprovePayment || canReschedule) && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button size="iconSm" variant="ghost" aria-label="Row actions" disabled={pending}>
@@ -326,7 +357,12 @@ function BookingRow({
                 <CheckCircle2 className="h-4 w-4 text-emerald-500" /> Mark as paid
               </DropdownMenuItem>
             )}
-            {canApprovePayment && actions.length > 0 && <DropdownMenuSeparator />}
+            {canReschedule && (
+              <DropdownMenuItem onSelect={() => onReschedule?.()}>
+                <CalendarClock className="h-4 w-4" /> Reschedule
+              </DropdownMenuItem>
+            )}
+            {(canApprovePayment || canReschedule) && actions.length > 0 && <DropdownMenuSeparator />}
             {actions.map((a, i) => (
               <div key={a.status}>
                 {a.destructive && i > 0 && <DropdownMenuSeparator />}

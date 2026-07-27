@@ -67,7 +67,7 @@ async function fetchCleaning(providerId: string, from: string, to: string): Prom
 
   const { data } = await supabaseDb
     .from("cleaning_bookings")
-    .select("id,subscription_id,status,notes,location,access_instructions,cleaning_available_slots!inner(date,start_time,end_time)")
+    .select("id,subscription_id,slot_id,status,notes,location,access_instructions,google_calendar_event_id,cleaning_available_slots!inner(id,date,start_time,end_time)")
     .in("subscription_id", subIds)
     .gte("cleaning_available_slots.date", from)
     .lte("cleaning_available_slots.date", to)
@@ -120,6 +120,13 @@ async function fetchCleaning(providerId: string, from: string, to: string): Prom
         access_instructions: row.access_instructions ?? null,
         cleaner_hint: meta?.cleanerHint ?? null,
         phone: user?.phone ?? client?.whatsapp ?? null,
+        // Slot context — the Reschedule dialog needs the current slot id (to
+        // free capacity on move) plus the date/times to preselect + render.
+        slot_id: row.slot_id ?? slot.id ?? null,
+        slot_date: slot.date ?? null,
+        slot_start_time: slot.start_time ?? null,
+        slot_end_time: slot.end_time ?? null,
+        google_calendar_event_id: row.google_calendar_event_id ?? null,
       },
     };
   });
