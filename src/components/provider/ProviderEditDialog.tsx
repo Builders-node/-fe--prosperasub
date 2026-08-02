@@ -7,6 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Spinner } from "@/components/ui/spinner";
+import { ImageField } from "@/components/food/ImageField";
+import { GalleryField } from "@/components/patterns/GalleryField";
 
 /**
  * Shared edit-provider modal — one visual grammar for cleaning / food / cars /
@@ -37,6 +39,8 @@ export interface ProviderEditFields {
   contact_email?: string;
   status?: string;
   sort_order?: number;
+  /** N-photo gallery shown on the provider's public page. */
+  gallery_urls?: string[];
 }
 
 interface Props {
@@ -91,25 +95,29 @@ export function ProviderEditDialog({
             </div>
           </section>
 
-          {/* Images */}
+          {/* Images — upload from file (Supabase Storage) or paste URL */}
           <section className="space-y-3">
             <SectionTitle>Images</SectionTitle>
-            <div>
-              <Label>Avatar URL</Label>
-              <Input
-                value={values.avatar_url ?? ""}
-                onChange={(e) => patch({ avatar_url: e.target.value })}
-                placeholder="https://…"
-              />
-            </div>
-            <div>
-              <Label>Banner URL</Label>
-              <Input
-                value={values.banner_url ?? ""}
-                onChange={(e) => patch({ banner_url: e.target.value })}
-                placeholder="https://…"
-              />
-            </div>
+            <ImageField
+              label="Avatar"
+              value={values.avatar_url ?? ""}
+              onChange={(url) => patch({ avatar_url: url })}
+              pathPrefix="providers/avatar"
+              variant="square"
+            />
+            <ImageField
+              label="Banner"
+              value={values.banner_url ?? ""}
+              onChange={(url) => patch({ banner_url: url })}
+              pathPrefix="providers/banner"
+              variant="banner"
+            />
+            <GalleryField
+              label="Gallery"
+              value={values.gallery_urls ?? []}
+              onChange={(urls) => patch({ gallery_urls: urls })}
+              pathPrefix="providers/gallery"
+            />
           </section>
 
           {/* Location & hours */}

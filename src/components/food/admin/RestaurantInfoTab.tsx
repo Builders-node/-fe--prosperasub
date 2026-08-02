@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAuditEvent } from "@/lib/auditLog";
 import { ImageField } from "@/components/food/ImageField";
+import { GalleryField } from "@/components/patterns/GalleryField";
 import { WorkingHoursEditor } from "@/components/food/WorkingHoursEditor";
 import {
   parseWorkingHours, serializeWorkingHours, formatWorkingHours,
@@ -43,6 +44,7 @@ export function RestaurantInfoTab({ restaurant }: Props) {
     contact_email: restaurant.contact_email ?? "",
     status: restaurant.status,
     sort_order: restaurant.sort_order,
+    gallery_urls: Array.isArray((restaurant as any).gallery_urls) ? (restaurant as any).gallery_urls as string[] : [],
   });
 
   const openEdit = () => {
@@ -76,6 +78,7 @@ export function RestaurantInfoTab({ restaurant }: Props) {
         contact_email: form.contact_email.trim() || null,
         status: form.status,
         sort_order: form.sort_order,
+        gallery_urls: form.gallery_urls ?? [],
         updated_at: new Date().toISOString(),
       };
       const { error } = await supabaseDb
@@ -184,6 +187,9 @@ export function RestaurantInfoTab({ restaurant }: Props) {
               <ImageField label="Banner" value={form.banner_url}
                 onChange={(url) => setForm((f) => ({ ...f, banner_url: url }))}
                 pathPrefix="food-providers/banners" variant="card" />
+              <GalleryField label="Gallery" value={form.gallery_urls}
+                onChange={(urls) => setForm((f) => ({ ...f, gallery_urls: urls }))}
+                pathPrefix="food-providers/gallery" />
             </div>
 
             <div className="space-y-3">

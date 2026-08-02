@@ -17,6 +17,7 @@ export interface CleaningProviderRow extends MyProviderRow {
   contact_email?: string | null;
   status?: string | null;
   sort_order?: number | null;
+  gallery_urls?: string[] | null;
 }
 
 const AUDIT_ENTITY = "cleaning_provider";
@@ -45,6 +46,7 @@ export function CleaningInfoTab({ provider }: { provider: CleaningProviderRow })
         contact_email: form.contact_email?.trim() || null,
         status: form.status || "active",
         sort_order: form.sort_order ?? 0,
+        gallery_urls: form.gallery_urls ?? [],
         updated_at: new Date().toISOString(),
       };
       if (!payload.name) throw new Error("Name is required");
@@ -116,6 +118,7 @@ function hydrate(p: CleaningProviderRow): ProviderEditFields {
     contact_email: p.contact_email ?? "",
     status: p.status ?? "active",
     sort_order: p.sort_order ?? 0,
+    gallery_urls: Array.isArray(p.gallery_urls) ? p.gallery_urls : [],
   };
 }
 

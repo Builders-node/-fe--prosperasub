@@ -24,6 +24,7 @@ export interface UniversalProviderRow {
   source_service_key?: string | null;
   source_provider_id?: string | null;
   booking_settings?: unknown;
+  gallery_urls?: string[] | null;
 }
 
 /**
@@ -52,6 +53,7 @@ export function UniversalInfoTab({ provider }: { provider: UniversalProviderRow 
         contact_email: form.contact_email?.trim() || null,
         status: form.status || "active",
         sort_order: form.sort_order ?? 0,
+        gallery_urls: form.gallery_urls ?? [],
         updated_at: new Date().toISOString(),
       };
       if (!payload.name) throw new Error("Name is required");
@@ -123,6 +125,7 @@ function hydrate(p: UniversalProviderRow): ProviderEditFields {
     contact_email: p.contact_email ?? "",
     status: p.status ?? "active",
     sort_order: 0,
+    gallery_urls: Array.isArray(p.gallery_urls) ? p.gallery_urls : [],
   };
 }
 

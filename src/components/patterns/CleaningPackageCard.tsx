@@ -9,34 +9,21 @@ import {
  * Cleaning package card — matches the borderless / single-accent aesthetic
  * used across the app (see FoodProviderDetail's MealPlanCard).
  *
- * - Featured = filled `bg-primary/10` background, not a border
  * - No border on the default state (canonical flat card)
- * - "Most Popular" is a small overline pill, not a bright chip
  * - Feature list capped at 3 to keep the card short on mobile
  * - CTA is `rounded-2xl` (not `rounded-full` pill) to match Cart / checkouts
  */
 export function CleaningPackageCard({
-  pkg, featured = false, onSubscribe,
+  pkg, onSubscribe,
 }: {
   pkg: any;
-  featured?: boolean;
   onSubscribe: (id: string) => void;
 }) {
   const features: string[] = Array.isArray(pkg.features) ? pkg.features : [];
   const monthlyCents = resolveMonthlyPriceCents(pkg);
 
   return (
-    <article
-      className={`group flex flex-col rounded-3xl p-5 transition-colors ${
-        featured ? "bg-primary/10 hover:bg-primary/15" : "bg-card hover:bg-muted/40"
-      }`}
-    >
-      {featured && (
-        <span className="mb-3 self-start rounded-full bg-primary/20 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-primary">
-          Most Popular
-        </span>
-      )}
-
+    <article className="group flex flex-col rounded-3xl bg-card p-5 transition-colors hover:bg-muted/40">
       <h3 className="text-lg font-black tracking-tight text-foreground">{pkg.name}</h3>
       {pkg.description && (
         <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{pkg.description}</p>

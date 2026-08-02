@@ -14,6 +14,7 @@ interface RentalProviderExtended extends RentalProvider {
   working_hours?: string | null;
   avatar_url?: string | null;
   banner_url?: string | null;
+  gallery_urls?: string[] | null;
 }
 
 interface Props {
@@ -47,6 +48,7 @@ export function ProviderInfoTab({ provider }: Props) {
         contact_email: form.contact_email?.trim() || null,
         status: (form.status || "active") as "active" | "inactive",
         sort_order: form.sort_order ?? 0,
+        gallery_urls: form.gallery_urls ?? [],
         updated_at: new Date().toISOString(),
       };
       const { error } = await supabaseDb
@@ -124,6 +126,7 @@ function hydrate(p: RentalProviderExtended): ProviderEditFields {
     contact_email: p.contact_email ?? "",
     status: p.status ?? "active",
     sort_order: p.sort_order ?? 0,
+    gallery_urls: Array.isArray(p.gallery_urls) ? p.gallery_urls : [],
   };
 }
 

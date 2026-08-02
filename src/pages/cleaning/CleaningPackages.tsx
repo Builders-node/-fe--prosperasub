@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { SparklesIcon, ShieldCheck } from "lucide-react";
@@ -17,6 +18,11 @@ import { CleaningPackageCard } from "@/components/patterns/CleaningPackageCard";
 interface CleaningProvider {
   id: string;
   name: string;
+  /** Bridge to `cleaning_packages.provider_id` (legacy id space). */
+  source_provider_id: string | null;
+  /** Hydrated from `cleaning_providers` via the bridge — writes go there. */
+  avatar_url?: string | null;
+  gallery_urls?: string[];
 }
 
 const CleaningPackages = () => {
@@ -32,12 +38,36 @@ const CleaningPackages = () => {
     queryFn: async () => {
       const { data, error } = await supabaseDb
         .from("providers")
-        .select("id, name")
+        .select("id, name, source_provider_id")
         .eq("archetype_key", "cleaning")
         .eq("status", "active")
         .order("sort_order", { ascending: true });
       if (error) throw error;
-      return (data ?? []) as CleaningProvider[];
+      const universal = (data ?? []) as CleaningProvider[];
+
+      // Hydrate avatar + gallery from the LEGACY table (that's where the
+      // admin's Info-tab edits land). The universal `providers` row is the
+      // stable listing entity; the legacy row is the source of truth for the
+      // images owner-portal writes to. Bridge via source_provider_id.
+      const legacyIds = universal
+        .map((p) => p.source_provider_id)
+        .filter((id): id is string => !!id);
+      if (legacyIds.length === 0) return universal;
+      const { data: legacy } = await supabaseDb
+        .from("cleaning_providers")
+        .select("id, avatar_url, gallery_urls")
+        .in("id", legacyIds);
+      const byId = new Map<string, { avatar_url: string | null; gallery_urls: string[] }>();
+      (legacy ?? []).forEach((r: any) => {
+        byId.set(String(r.id), {
+          avatar_url: r.avatar_url ?? null,
+          gallery_urls: Array.isArray(r.gallery_urls) ? r.gallery_urls.filter(Boolean) : [],
+        });
+      });
+      return universal.map((p) => {
+        const enriched = p.source_provider_id ? byId.get(p.source_provider_id) : null;
+        return { ...p, avatar_url: enriched?.avatar_url ?? null, gallery_urls: enriched?.gallery_urls ?? [] };
+      });
     },
   });
 
@@ -69,6 +99,42 @@ const CleaningPackages = () => {
   const visiblePackages = (packagesQ.data ?? []).filter(
     (p: any) => !selectedResidenceId || (p.residenceIds?.length ?? 0) === 0 || p.residenceIds.includes(selectedResidenceId),
   );
+
+  // Group plans by provider so a second provider (e.g. Car Wash) reads as
+  // its own offering — not mixed into the apartment-cleaning grid. Providers
+  // render in the order they appear in the top row (providersQ is already
+  // ordered by sort_order); packages with an unknown provider_id fall into
+  // an "Other" bucket at the end.
+  const packageGroups = useMemo(() => {
+    const providers = providersQ.data ?? [];
+    // Universal `providers.id` ≠ legacy `cleaning_packages.provider_id` —
+    // bridge via `source_provider_id`. Providers whose legacy row wasn't
+    // backfilled into the universal table won't have a group header, and
+    // their packages land in "Other".
+    const byLegacyId = new Map<string, { id: string; name: string }>();
+    providers.forEach((p) => {
+      if (p.source_provider_id) byLegacyId.set(p.source_provider_id, { id: p.id, name: p.name });
+    });
+
+    const groups = new Map<string, { key: string; name: string; packages: any[] }>();
+    visiblePackages.forEach((pkg) => {
+      const match = pkg.provider_id ? byLegacyId.get(pkg.provider_id) : null;
+      const key = match?.id ?? "__other__";
+      const name = match?.name ?? "Other";
+      if (!groups.has(key)) groups.set(key, { key, name, packages: [] });
+      groups.get(key)!.packages.push(pkg);
+    });
+
+    // Preserve providers-row order; append "Other" last if it has content.
+    const ordered: Array<{ key: string; name: string; packages: any[] }> = [];
+    providers.forEach((p) => {
+      const g = groups.get(p.id);
+      if (g && g.packages.length) ordered.push(g);
+    });
+    const other = groups.get("__other__");
+    if (other && other.packages.length) ordered.push(other);
+    return ordered;
+  }, [visiblePackages, providersQ.data]);
 
   const goToCheckout = (pkgId: string) => {
     if (!isAuthenticated) {
@@ -106,18 +172,43 @@ const CleaningPackages = () => {
             />
           ) : providersQ.data && providersQ.data.length > 0 ? (
             <div className="grid gap-3 md:gap-4 md:grid-cols-2">
-              {providersQ.data.map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => openProvider(p.id)}
-                  className="flex h-28 items-center justify-center rounded-3xl border border-border bg-card px-6 text-center transition-colors hover:border-primary/40"
-                >
-                  <span className="text-2xl font-black tracking-tight text-foreground">
-                    {p.name}
-                  </span>
-                </button>
-              ))}
+              {providersQ.data.map((p) => {
+                const gallery = (p.gallery_urls ?? []).slice(0, 3);
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => openProvider(p.id)}
+                    className="group flex flex-col overflow-hidden rounded-3xl border border-border bg-card text-left transition-colors hover:border-primary/40"
+                  >
+                    <div className="flex items-center gap-4 p-5">
+                      {p.avatar_url ? (
+                        <img
+                          src={p.avatar_url}
+                          alt=""
+                          className="h-14 w-14 shrink-0 rounded-2xl object-cover"
+                        />
+                      ) : (
+                        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-primary/10">
+                          <SparklesIcon className="h-6 w-6 text-primary" />
+                        </span>
+                      )}
+                      <span className="text-xl font-black tracking-tight text-foreground">
+                        {p.name}
+                      </span>
+                    </div>
+                    {gallery.length > 0 && (
+                      <div className="grid grid-cols-3 gap-0.5 bg-border/40">
+                        {gallery.map((url, i) => (
+                          <div key={i} className="aspect-video overflow-hidden bg-muted">
+                            <img src={url} alt="" className="h-full w-full object-cover" />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           ) : (
             <YdEmptyState icon={SparklesIcon} title="No providers yet" subtitle="We're setting things up. Check back soon." />
@@ -139,15 +230,33 @@ const CleaningPackages = () => {
               onRetry={() => packagesQ.refetch()}
               retrying={packagesQ.isFetching}
             />
-          ) : visiblePackages.length > 0 ? (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {visiblePackages.map((pkg: any, idx: number) => (
-                <CleaningPackageCard
-                  key={pkg.id}
-                  pkg={pkg}
-                  featured={idx === 1 && visiblePackages.length > 1}
-                  onSubscribe={goToCheckout}
-                />
+          ) : packageGroups.length > 0 ? (
+            <div className="space-y-8">
+              {packageGroups.map((group) => (
+                <div key={group.key} className="space-y-3">
+                  {/* One header per provider — the row of packages under
+                      it belongs together. Hidden when there's only one
+                      provider so a solo group doesn't add visual noise. */}
+                  {packageGroups.length > 1 && (
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-caption font-bold uppercase tracking-[0.16em] text-muted-foreground">
+                        {group.name}
+                      </h3>
+                      <span className="text-caption text-muted-foreground/60">
+                        · {group.packages.length}
+                      </span>
+                    </div>
+                  )}
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {group.packages.map((pkg: any) => (
+                      <CleaningPackageCard
+                        key={pkg.id}
+                        pkg={pkg}
+                        onSubscribe={goToCheckout}
+                      />
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
           ) : (
