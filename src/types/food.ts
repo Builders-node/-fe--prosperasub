@@ -31,6 +31,8 @@ export interface FoodProvider {
   meals_per_week: number;
   status: "active" | "inactive";
   sort_order: number;
+  /** Provider-page gallery — populated via the shared GalleryField editor. */
+  gallery_urls?: string[] | null;
   created_at: string;
   updated_at: string;
 }

@@ -247,21 +247,39 @@ const FoodProviderDetail = () => {
           <Stat label="From" value={`$${Math.round(fromPrice / 100)}`} sub="/ week" />
         </section>
 
-        {/* ─── Gallery carousel (App Store screenshots) ────────────────────── */}
-        {gallery.length > 0 && (
-          <section>
-            <div className="-mx-5 flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-2 [scrollbar-width:none] md:mx-0 md:px-0 [&::-webkit-scrollbar]:hidden">
-              {gallery.map((img) => (
-                <div
-                  key={img.id}
-                  className="aspect-[3/4] w-56 shrink-0 snap-start overflow-hidden rounded-3xl bg-muted md:w-64"
-                >
-                  <img src={img.url} alt="" loading="lazy" className="h-full w-full object-cover" />
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
+        {/* ─── Gallery carousel (App Store screenshots) ──────────────────────
+            Merges two sources: legacy `food_provider_images` rows (early food
+            uploads) + the new `food_providers.gallery_urls` array populated
+            via the shared GalleryField editor. Both paths keep working so we
+            don't have to migrate existing food_provider_images data. */}
+        {(() => {
+          const legacyUrls = gallery.map((img) => img.url).filter(Boolean);
+          const newUrls = Array.isArray(provider.gallery_urls)
+            ? provider.gallery_urls.filter(Boolean)
+            : [];
+          // Dedupe preserving order — legacy first (they were curated with
+          // sort_order), new appended.
+          const seen = new Set<string>();
+          const merged: string[] = [];
+          [...legacyUrls, ...newUrls].forEach((url) => {
+            if (!seen.has(url)) { seen.add(url); merged.push(url); }
+          });
+          if (merged.length === 0) return null;
+          return (
+            <section>
+              <div className="-mx-5 flex snap-x snap-mandatory gap-4 overflow-x-auto px-5 pb-2 [scrollbar-width:none] md:mx-0 md:px-0 [&::-webkit-scrollbar]:hidden">
+                {merged.map((url) => (
+                  <div
+                    key={url}
+                    className="aspect-[3/4] w-56 shrink-0 snap-start overflow-hidden rounded-3xl bg-muted md:w-64"
+                  >
+                    <img src={url} alt="" loading="lazy" className="h-full w-full object-cover" />
+                  </div>
+                ))}
+              </div>
+            </section>
+          );
+        })()}
 
         {/* ─── Meal Plans ──────────────────────────────────────────────────── */}
         <section id="meal-plans" className="scroll-mt-24">
