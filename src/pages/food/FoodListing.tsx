@@ -51,6 +51,42 @@ const FoodListing = () => {
   });
   const { isLoading, isError, error, refetch, isFetching } = catalog;
 
+  // Categories under the Food archetype — grouping restaurants under their
+  // category (Meal Subscription today; future: Catering, Grocery Delivery).
+  // Header hides when only one category is populated so the page stays clean.
+  const foodCategoriesQ = useQuery({
+    queryKey: ["food-categories-public"],
+    queryFn: async () => {
+      const { data, error } = await supabaseDb
+        .from("service_categories")
+        .select("key, label, sort_order")
+        .eq("archetype_key", "food")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as Array<{ key: string; label: string; sort_order: number }>;
+    },
+  });
+
+  // Bridge: get_food_catalog returns legacy food_providers.* (no category_key).
+  // Hydrate the category from the universal `providers` row via source_provider_id
+  // so category grouping works without touching the server-side RPC.
+  const foodProviderCategoriesQ = useQuery({
+    queryKey: ["food-provider-categories-map"],
+    queryFn: async () => {
+      const { data, error } = await supabaseDb
+        .from("providers")
+        .select("category_key, source_provider_id")
+        .eq("archetype_key", "food");
+      if (error) throw error;
+      const map: Record<string, string | null> = {};
+      (data ?? []).forEach((r: any) => {
+        if (r.source_provider_id) map[String(r.source_provider_id)] = r.category_key ?? null;
+      });
+      return map;
+    },
+  });
+
   // Reshape the flat RPC payload into the previous ProviderWithPlans[] contract
   // so the rest of the render code is unchanged.
   const providers = useMemo<ProviderWithPlans[] | undefined>(() => {
@@ -103,6 +139,29 @@ const FoodListing = () => {
     .filter((p) => p.plans.length > 0 || (providers ?? []).find((o) => o.id === p.id)!.plans.length === 0);
 
   const hiddenCount = (providers ?? []).length - visibleProviders.length;
+
+  // Group visible restaurants by category (Meal Subscription today; future:
+  // Catering, Grocery Delivery). If only one category has content, the header
+  // is hidden — page stays visually identical to before until an admin adds
+  // a second Food category.
+  const restaurantGroups = useMemo(() => {
+    const cats = foodCategoriesQ.data ?? [];
+    const catMap = foodProviderCategoriesQ.data ?? {};
+    const byCat = new Map<string, typeof visibleProviders>();
+    visibleProviders.forEach((p) => {
+      const key = catMap[p.id] || "__other__";
+      if (!byCat.has(key)) byCat.set(key, []);
+      byCat.get(key)!.push(p);
+    });
+    const ordered: Array<{ key: string; label: string; providers: typeof visibleProviders }> = [];
+    cats.forEach((c) => {
+      const list = byCat.get(c.key);
+      if (list && list.length) ordered.push({ key: c.key, label: c.label, providers: list });
+    });
+    const other = byCat.get("__other__");
+    if (other && other.length) ordered.push({ key: "__other__", label: "Other", providers: other });
+    return ordered;
+  }, [visibleProviders, foodCategoriesQ.data, foodProviderCategoriesQ.data]);
 
   // All meal plans across restaurants, flattened with their provider for context.
   const allPlans = visibleProviders.flatMap((p) =>
@@ -162,13 +221,26 @@ const FoodListing = () => {
           />
         ) : visibleProviders.length > 0 ? (
           <>
-          <div className="grid gap-3 md:gap-4 md:grid-cols-2">
-            {visibleProviders.map((p) => (
-              <RestaurantCard
-                key={p.id}
-                provider={p}
-                onClick={() => navigate(`/services/food/${p.id}`)}
-              />
+          {/* One block per category. Header hides when only one category
+              has restaurants — food today only has "Meal Subscription", so
+              the page reads visually identical to before while the data
+              layer aligns with the 3-level architecture. */}
+          <div className="space-y-6">
+            {restaurantGroups.map((group) => (
+              <div key={group.key}>
+                <h3 className="mb-3 text-caption font-bold uppercase tracking-[0.16em] text-muted-foreground">
+                  {group.label}
+                </h3>
+                <div className="grid gap-3 md:gap-4 md:grid-cols-2">
+                  {group.providers.map((p) => (
+                    <RestaurantCard
+                      key={p.id}
+                      provider={p}
+                      onClick={() => navigate(`/services/food/${p.id}`)}
+                    />
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
           {hiddenCount > 0 && (

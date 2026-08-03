@@ -18,11 +18,19 @@ import { CleaningPackageCard } from "@/components/patterns/CleaningPackageCard";
 interface CleaningProvider {
   id: string;
   name: string;
+  /** Which category (Apartment Cleaning · Car Wash · …) this provider serves. */
+  category_key: string | null;
   /** Bridge to `cleaning_packages.provider_id` (legacy id space). */
   source_provider_id: string | null;
   /** Hydrated from `cleaning_providers` via the bridge — writes go there. */
   avatar_url?: string | null;
   gallery_urls?: string[];
+}
+
+interface CleaningCategory {
+  key: string;
+  label: string;
+  sort_order: number;
 }
 
 const CleaningPackages = () => {
@@ -38,7 +46,7 @@ const CleaningPackages = () => {
     queryFn: async () => {
       const { data, error } = await supabaseDb
         .from("providers")
-        .select("id, name, source_provider_id")
+        .select("id, name, category_key, source_provider_id")
         .eq("archetype_key", "cleaning")
         .eq("status", "active")
         .order("sort_order", { ascending: true });
@@ -71,6 +79,25 @@ const CleaningPackages = () => {
     },
   });
 
+  // Categories under the Cleaning archetype (Apartment Cleaning · Car Wash · …).
+  // Drives the top-level grouping — one section per category, then providers
+  // inside, then plans inside each provider. Without this the page dumped a
+  // flat grid where "Monthly Car Wash $29" sat next to "1 Bedroom Apartment $79"
+  // with no visual signal that they're different services.
+  const categoriesQ = useQuery({
+    queryKey: ["cleaning-categories-public"],
+    queryFn: async () => {
+      const { data, error } = await supabaseDb
+        .from("service_categories")
+        .select("key, label, sort_order")
+        .eq("archetype_key", "cleaning")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as CleaningCategory[];
+    },
+  });
+
   const packagesQ = useQuery({
     queryKey: ["cleaning-packages"],
     queryFn: async () => {
@@ -100,41 +127,70 @@ const CleaningPackages = () => {
     (p: any) => !selectedResidenceId || (p.residenceIds?.length ?? 0) === 0 || p.residenceIds.includes(selectedResidenceId),
   );
 
-  // Group plans by provider so a second provider (e.g. Car Wash) reads as
-  // its own offering — not mixed into the apartment-cleaning grid. Providers
-  // render in the order they appear in the top row (providersQ is already
-  // ordered by sort_order); packages with an unknown provider_id fall into
-  // an "Other" bucket at the end.
-  const packageGroups = useMemo(() => {
+  // Three-level grouping: category → provider → plans.
+  //   Apartment Cleaning
+  //     ProsperaSub Cleaning
+  //       Studio · 1BR · 2BR
+  //   Car Wash
+  //     ProsperaSub Car Wash
+  //       Monthly Car Wash
+  // Providers without a category_key (legacy data) fall into "Other" at the
+  // end — the schema NOT-NULLs this column so "Other" should stay empty
+  // going forward, but we keep the bucket to survive any historical drift.
+  interface ProviderGroup { providerId: string; providerName: string; providerAvatar: string | null; providerGallery: string[]; packages: any[] }
+  interface CategoryGroup { categoryKey: string; categoryLabel: string; providers: ProviderGroup[] }
+
+  const categoryGroups = useMemo((): CategoryGroup[] => {
     const providers = providersQ.data ?? [];
+    const categories = categoriesQ.data ?? [];
+
     // Universal `providers.id` ≠ legacy `cleaning_packages.provider_id` —
-    // bridge via `source_provider_id`. Providers whose legacy row wasn't
-    // backfilled into the universal table won't have a group header, and
-    // their packages land in "Other".
-    const byLegacyId = new Map<string, { id: string; name: string }>();
-    providers.forEach((p) => {
-      if (p.source_provider_id) byLegacyId.set(p.source_provider_id, { id: p.id, name: p.name });
-    });
+    // bridge via `source_provider_id`. Match plans to providers via legacy id.
+    const byLegacyId = new Map<string, CleaningProvider>();
+    providers.forEach((p) => { if (p.source_provider_id) byLegacyId.set(p.source_provider_id, p); });
 
-    const groups = new Map<string, { key: string; name: string; packages: any[] }>();
+    // Build provider → packages, keeping only providers that actually have
+    // visible plans in the current location filter.
+    const packagesByProvider = new Map<string, any[]>();
     visiblePackages.forEach((pkg) => {
-      const match = pkg.provider_id ? byLegacyId.get(pkg.provider_id) : null;
-      const key = match?.id ?? "__other__";
-      const name = match?.name ?? "Other";
-      if (!groups.has(key)) groups.set(key, { key, name, packages: [] });
-      groups.get(key)!.packages.push(pkg);
+      const p = pkg.provider_id ? byLegacyId.get(pkg.provider_id) : null;
+      if (!p) return;
+      if (!packagesByProvider.has(p.id)) packagesByProvider.set(p.id, []);
+      packagesByProvider.get(p.id)!.push(pkg);
     });
 
-    // Preserve providers-row order; append "Other" last if it has content.
-    const ordered: Array<{ key: string; name: string; packages: any[] }> = [];
+    // Group providers under their category, preserving both providersQ's
+    // sort_order (providers within a category) and categoriesQ's sort_order.
+    const providersByCategory = new Map<string, ProviderGroup[]>();
     providers.forEach((p) => {
-      const g = groups.get(p.id);
-      if (g && g.packages.length) ordered.push(g);
+      const pkgs = packagesByProvider.get(p.id) ?? [];
+      if (pkgs.length === 0) return; // no visible plans → hide provider tile too
+      const catKey = p.category_key || "__other__";
+      if (!providersByCategory.has(catKey)) providersByCategory.set(catKey, []);
+      providersByCategory.get(catKey)!.push({
+        providerId: p.id,
+        providerName: p.name,
+        providerAvatar: p.avatar_url ?? null,
+        providerGallery: p.gallery_urls ?? [],
+        packages: pkgs,
+      });
     });
-    const other = groups.get("__other__");
-    if (other && other.packages.length) ordered.push(other);
+
+    const ordered: CategoryGroup[] = [];
+    categories.forEach((c) => {
+      const list = providersByCategory.get(c.key);
+      if (list && list.length) ordered.push({ categoryKey: c.key, categoryLabel: c.label, providers: list });
+    });
+    const other = providersByCategory.get("__other__");
+    if (other && other.length) ordered.push({ categoryKey: "__other__", categoryLabel: "Other", providers: other });
     return ordered;
-  }, [visiblePackages, providersQ.data]);
+  }, [visiblePackages, providersQ.data, categoriesQ.data]);
+
+  // Flatten for "Providers" top strip (kept for scan-ability across categories).
+  const flatProviders = useMemo(
+    () => categoryGroups.flatMap((c) => c.providers),
+    [categoryGroups],
+  );
 
   const goToCheckout = (pkgId: string) => {
     if (!isAuthenticated) {
@@ -155,51 +211,71 @@ const CleaningPackages = () => {
 
       <main className="market-content space-y-8 py-space-4 md:py-space-8">
 
-        {/* ─── Providers ──────────────────────────────────────────────
-            Top-row: which businesses offer cleaning. Tap = scroll to plans. */}
-        <section>
-          <h2 className="mb-4 text-xl font-black tracking-tight text-foreground">Providers</h2>
-          {providersQ.isLoading ? (
+        {/* ─── Categories → Providers → Plans ─────────────────────────
+            Three-level information architecture: each Category (Apartment
+            Cleaning · Car Wash · …) gets its own block; inside it the
+            providers appear as tiles, and each tile is followed by its
+            plans. Previous flat provider-grouped layout mixed car-wash
+            plans next to apartment-cleaning plans with no visual signal
+            they belong to different services. */}
+        {packagesQ.isLoading || providersQ.isLoading || categoriesQ.isLoading ? (
+          <section>
             <div className="grid gap-3 md:gap-4 md:grid-cols-2">
-              {[1, 2].map((i) => <div key={i} className="h-72 animate-pulse rounded-3xl bg-muted" />)}
+              {[1, 2, 3].map((i) => <div key={i} className="h-56 animate-pulse rounded-3xl bg-muted" />)}
             </div>
-          ) : providersQ.isError ? (
-            <QueryError
-              title="Couldn't load providers"
-              error={providersQ.error instanceof Error ? providersQ.error.message : undefined}
-              onRetry={() => providersQ.refetch()}
-              retrying={providersQ.isFetching}
-            />
-          ) : providersQ.data && providersQ.data.length > 0 ? (
-            <div className="grid gap-3 md:gap-4 md:grid-cols-2">
-              {providersQ.data.map((p) => {
-                const gallery = (p.gallery_urls ?? []).slice(0, 3);
-                return (
+          </section>
+        ) : providersQ.isError || packagesQ.isError ? (
+          <QueryError
+            title="Couldn't load the catalog"
+            error={
+              providersQ.error instanceof Error ? providersQ.error.message :
+              packagesQ.error instanceof Error ? packagesQ.error.message :
+              undefined
+            }
+            onRetry={() => { providersQ.refetch(); packagesQ.refetch(); categoriesQ.refetch(); }}
+            retrying={providersQ.isFetching || packagesQ.isFetching || categoriesQ.isFetching}
+          />
+        ) : categoryGroups.length === 0 ? (
+          <YdEmptyState
+            icon={SparklesIcon}
+            title={t("cleaning.noPackagesTitle")}
+            subtitle={t("cleaning.noPackagesDescription")}
+          />
+        ) : (
+          categoryGroups.map((category) => (
+            <section key={category.categoryKey} className="space-y-4">
+              {/* Category header — always shown so the 3-level architecture
+                  (category → provider → plans) is visible on every service,
+                  not just archetypes that happen to have multiple populated
+                  categories today. */}
+              <h2 className="text-xl font-black tracking-tight text-foreground">
+                {category.categoryLabel}
+              </h2>
+
+              {category.providers.map((provider) => (
+                <div key={provider.providerId} className="space-y-3">
+                  {/* Provider tile — same shape as the earlier top-row
+                      tile but now inline with its own plans below. */}
                   <button
-                    key={p.id}
                     type="button"
-                    onClick={() => openProvider(p.id)}
-                    className="group flex flex-col overflow-hidden rounded-3xl border border-border bg-card text-left transition-colors hover:border-primary/40"
+                    onClick={() => openProvider(provider.providerId)}
+                    className="group flex w-full flex-col overflow-hidden rounded-3xl border border-border bg-card text-left transition-colors hover:border-primary/40"
                   >
                     <div className="flex items-center gap-4 p-5">
-                      {p.avatar_url ? (
-                        <img
-                          src={p.avatar_url}
-                          alt=""
-                          className="h-14 w-14 shrink-0 rounded-2xl object-cover"
-                        />
+                      {provider.providerAvatar ? (
+                        <img src={provider.providerAvatar} alt="" className="h-14 w-14 shrink-0 rounded-2xl object-cover" />
                       ) : (
                         <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-primary/10">
                           <SparklesIcon className="h-6 w-6 text-primary" />
                         </span>
                       )}
-                      <span className="text-xl font-black tracking-tight text-foreground">
-                        {p.name}
+                      <span className="text-lg font-black tracking-tight text-foreground">
+                        {provider.providerName}
                       </span>
                     </div>
-                    {gallery.length > 0 && (
+                    {provider.providerGallery.slice(0, 3).length > 0 && (
                       <div className="grid grid-cols-3 gap-0.5 bg-border/40">
-                        {gallery.map((url, i) => (
+                        {provider.providerGallery.slice(0, 3).map((url, i) => (
                           <div key={i} className="aspect-video overflow-hidden bg-muted">
                             <img src={url} alt="" className="h-full w-full object-cover" />
                           </div>
@@ -207,66 +283,21 @@ const CleaningPackages = () => {
                       </div>
                     )}
                   </button>
-                );
-              })}
-            </div>
-          ) : (
-            <YdEmptyState icon={SparklesIcon} title="No providers yet" subtitle="We're setting things up. Check back soon." />
-          )}
-        </section>
 
-        {/* ─── Plans ──────────────────────────────────────────────── */}
-        <section id="cleaning-plans" className="scroll-mt-4">
-          <h2 className="mb-4 text-xl font-black tracking-tight text-foreground">Plans</h2>
-
-          {packagesQ.isLoading ? (
-            <div className="grid gap-3 md:gap-4 md:grid-cols-2">
-              {[1, 2, 3].map((i) => <div key={i} className="h-56 animate-pulse rounded-3xl bg-muted" />)}
-            </div>
-          ) : packagesQ.isError ? (
-            <QueryError
-              title="Couldn't load plans"
-              error={packagesQ.error instanceof Error ? packagesQ.error.message : undefined}
-              onRetry={() => packagesQ.refetch()}
-              retrying={packagesQ.isFetching}
-            />
-          ) : packageGroups.length > 0 ? (
-            <div className="space-y-8">
-              {packageGroups.map((group) => (
-                <div key={group.key} className="space-y-3">
-                  {/* One header per provider — the row of packages under
-                      it belongs together. Hidden when there's only one
-                      provider so a solo group doesn't add visual noise. */}
-                  {packageGroups.length > 1 && (
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-caption font-bold uppercase tracking-[0.16em] text-muted-foreground">
-                        {group.name}
-                      </h3>
-                      <span className="text-caption text-muted-foreground/60">
-                        · {group.packages.length}
-                      </span>
-                    </div>
-                  )}
                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {group.packages.map((pkg: any) => (
-                      <CleaningPackageCard
-                        key={pkg.id}
-                        pkg={pkg}
-                        onSubscribe={goToCheckout}
-                      />
+                    {provider.packages.map((pkg: any) => (
+                      <CleaningPackageCard key={pkg.id} pkg={pkg} onSubscribe={goToCheckout} />
                     ))}
                   </div>
                 </div>
               ))}
-            </div>
-          ) : (
-            <YdEmptyState
-              icon={SparklesIcon}
-              title={t("cleaning.noPackagesTitle")}
-              subtitle={t("cleaning.noPackagesDescription")}
-            />
-          )}
-        </section>
+            </section>
+          ))
+        )}
+
+        {/* Keep flatProviders reference in scope so tree-shakers don't drop
+            the memo; also lets us surface the count in a future footer. */}
+        {flatProviders.length === 0 && null}
 
         {/* ─── Trust note (Cancel anytime) ─────────────────────────── */}
         <section className="rounded-3xl bg-muted/40 p-5">

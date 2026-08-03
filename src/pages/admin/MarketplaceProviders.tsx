@@ -71,12 +71,31 @@ const MarketplaceProviders = () => {
   const { data: providers = [], isLoading } = useQuery({
     queryKey: QUERY_KEY,
     queryFn: async () => {
+      // Hard cap at 200 — pre-cap `.select("*")` returned unbounded, which
+       // rendered every row and pinned the browser on large tenants. Real
+       // pagination is on the roadmap; this is the safety floor until then.
       const { data, error } = await supabaseDb.from("providers").select("*")
         .order("sort_order", { ascending: true })
-        .order("name", { ascending: true });
+        .order("name", { ascending: true })
+        .range(0, 199);
       if (error) throw error;
       return (data ?? []) as ProviderRow[];
     },
+  });
+
+  // All active categories once — sub-forms filter by chosen archetype.
+  const { data: categories = [] } = useQuery({
+    queryKey: ["admin-service-categories-active"],
+    queryFn: async () => {
+      const { data, error } = await supabaseDb
+        .from("service_categories")
+        .select("key, label, archetype_key")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as Array<{ key: string; label: string; archetype_key: string }>;
+    },
+    staleTime: 60_000,
   });
 
   const { data: pendingApps = 0 } = useQuery({
@@ -413,6 +432,7 @@ const MarketplaceProviders = () => {
               key={editRow.id}
               provider={editRow}
               archetypes={archetypes}
+              categories={categories}
               saving={saveEdit.isPending}
               onSave={(patch) => saveEdit.mutate({ p: editRow, patch })}
             />
@@ -429,6 +449,7 @@ const MarketplaceProviders = () => {
           </SheetHeader>
           <CreateProviderForm
             archetypes={archetypes}
+            categories={categories}
             saving={createProvider.isPending}
             onCreate={(payload) => createProvider.mutate(payload)}
           />
@@ -464,18 +485,33 @@ const MarketplaceProviders = () => {
 };
 
 function EditProviderForm({
-  provider, archetypes, saving, onSave,
+  provider, archetypes, categories, saving, onSave,
 }: {
   provider: ProviderRow;
   archetypes: ReturnType<typeof useServiceArchetypes>["archetypes"];
+  categories: Array<{ key: string; label: string; archetype_key: string }>;
   saving: boolean;
   onSave: (patch: Record<string, unknown>) => void;
 }) {
   const [name, setName] = useState(provider.name);
   const [archetypeKey, setArchetypeKey] = useState(provider.archetype_key ?? "__none");
+  const [categoryKey, setCategoryKey] = useState(provider.category_key ?? "__none");
   const [caps, setCaps] = useState<Set<string>>(new Set(provider.capabilities ?? []));
   const [contactEmail, setContactEmail] = useState(provider.contact_email ?? "");
   const [contactPhone, setContactPhone] = useState(provider.contact_phone ?? "");
+
+  // Only offer categories that belong to the selected archetype.
+  const scopedCategories = archetypeKey === "__none"
+    ? []
+    : categories.filter((c) => c.archetype_key === archetypeKey);
+
+  // If admin switches archetype and the current category no longer fits,
+  // auto-pick the first available so we don't submit a mismatched pair.
+  const currentIsValid = scopedCategories.some((c) => c.key === categoryKey);
+  if (archetypeKey !== "__none" && !currentIsValid && scopedCategories.length > 0 && categoryKey !== scopedCategories[0].key) {
+    // Defer to next tick to avoid setState-in-render warnings.
+    queueMicrotask(() => setCategoryKey(scopedCategories[0].key));
+  }
 
   const toggleCap = (c: CapabilityKey) => {
     setCaps((prev) => {
@@ -493,9 +529,6 @@ function EditProviderForm({
       contact_phone: contactPhone.trim() || null,
       capabilities: Array.from(caps),
     };
-    // Only include archetype_key if it actually changed; the DB trigger
-    // recomputes category_key from archetype, so an unnecessary write would
-    // still cost a trigger fire.
     if (nextArchetype !== (provider.archetype_key ?? null)) {
       patch.archetype_key = nextArchetype;
       // Merge archetype defaults into the current cap set on switch — matches
@@ -505,6 +538,12 @@ function EditProviderForm({
         (a?.default_capabilities ?? []).forEach((c) => (patch.capabilities as string[]).push(c));
         patch.capabilities = Array.from(new Set(patch.capabilities as string[]));
       }
+    }
+    // Always write category_key when it changed (it no longer auto-derives
+    // from archetype_key — since one archetype can have many categories).
+    const nextCategory = categoryKey === "__none" ? null : categoryKey;
+    if (nextCategory !== (provider.category_key ?? null)) {
+      patch.category_key = nextCategory;
     }
     onSave(patch);
   };
@@ -527,6 +566,21 @@ function EditProviderForm({
         {archetypeKey !== (provider.archetype_key ?? "__none") && archetypeKey !== "__none" && (
           <p className="mt-1 text-xs text-amber-400">
             Changing service will merge archetype defaults into capabilities.
+          </p>
+        )}
+      </div>
+      <div>
+        <Label>Category</Label>
+        <Select value={categoryKey} onValueChange={setCategoryKey} disabled={archetypeKey === "__none" || scopedCategories.length === 0}>
+          <SelectTrigger><SelectValue placeholder={archetypeKey === "__none" ? "Pick a service first" : "—"} /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none">— none —</SelectItem>
+            {scopedCategories.map((c) => <SelectItem key={c.key} value={c.key}>{c.label}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        {archetypeKey !== "__none" && scopedCategories.length === 0 && (
+          <p className="mt-1 text-xs text-muted-foreground">
+            No categories under this service yet — add one in Settings → Services.
           </p>
         )}
       </div>
@@ -574,27 +628,36 @@ function EditProviderForm({
 
 // ─── Create form ────────────────────────────────────────────────────────────
 function CreateProviderForm({
-  archetypes, saving, onCreate,
+  archetypes, categories, saving, onCreate,
 }: {
   archetypes: ReturnType<typeof useServiceArchetypes>["archetypes"];
+  categories: Array<{ key: string; label: string; archetype_key: string }>;
   saving: boolean;
   onCreate: (payload: Record<string, unknown>) => void;
 }) {
   const [name, setName] = useState("");
   const [archetypeKey, setArchetypeKey] = useState<string>("__none");
+  const [categoryKey, setCategoryKey] = useState<string>("__none");
   const [description, setDescription] = useState("");
   const [location, setLocation] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [caps, setCaps] = useState<Set<string>>(new Set());
 
-  // When picking an archetype, seed capabilities from its defaults — same UX
-  // as the admin approve-application flow.
+  const scopedCategories = archetypeKey === "__none"
+    ? []
+    : categories.filter((c) => c.archetype_key === archetypeKey);
+
+  // When picking an archetype, seed capabilities from its defaults + auto-
+  // pick the first category so the admin doesn't have to make two picks in
+  // a row (they can still override).
   const onArchetypeChange = (key: string) => {
     setArchetypeKey(key);
-    if (key === "__none") { setCaps(new Set()); return; }
+    if (key === "__none") { setCaps(new Set()); setCategoryKey("__none"); return; }
     const a = archetypes.find((x) => x.key === key);
     setCaps(new Set(a?.default_capabilities ?? []));
+    const first = categories.find((c) => c.archetype_key === key);
+    setCategoryKey(first?.key ?? "__none");
   };
 
   const toggleCap = (c: CapabilityKey) => {
@@ -612,6 +675,7 @@ function CreateProviderForm({
     onCreate({
       name: name.trim(),
       archetype_key: archetypeKey === "__none" ? null : archetypeKey,
+      category_key: categoryKey === "__none" ? null : categoryKey,
       description: description.trim() || null,
       location: location.trim() || null,
       contact_email: contactEmail.trim() || null,
@@ -638,6 +702,21 @@ function CreateProviderForm({
         {archetypeKey !== "__none" && (
           <p className="mt-1 text-xs text-muted-foreground">
             Capabilities were pre-filled from archetype defaults — tweak below.
+          </p>
+        )}
+      </div>
+      <div>
+        <Label>Category</Label>
+        <Select value={categoryKey} onValueChange={setCategoryKey} disabled={archetypeKey === "__none" || scopedCategories.length === 0}>
+          <SelectTrigger><SelectValue placeholder={archetypeKey === "__none" ? "Pick a service first" : "—"} /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none">— none —</SelectItem>
+            {scopedCategories.map((c) => <SelectItem key={c.key} value={c.key}>{c.label}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        {archetypeKey !== "__none" && scopedCategories.length === 0 && (
+          <p className="mt-1 text-xs text-muted-foreground">
+            No categories under this service — add one in Settings → Services.
           </p>
         )}
       </div>

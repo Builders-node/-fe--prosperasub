@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Waves, ArrowRight, LandPlot } from "lucide-react";
@@ -25,6 +26,14 @@ interface BeachPlan {
 interface EntertainmentProvider {
   id: string;
   name: string;
+  /** Which category (Beach Membership · Court Bookings · …) this provider serves. */
+  category_key: string | null;
+}
+
+interface EntertainmentCategory {
+  key: string;
+  label: string;
+  sort_order: number;
 }
 
 const BeachClub = () => {
@@ -42,7 +51,7 @@ const BeachClub = () => {
     queryFn: async () => {
       const { data, error } = await supabaseDb
         .from("providers")
-        .select("id, name")
+        .select("id, name, category_key")
         .eq("archetype_key", "entertainment")
         .eq("status", "active")
         .order("sort_order", { ascending: true });
@@ -50,6 +59,45 @@ const BeachClub = () => {
       return (data ?? []) as EntertainmentProvider[];
     },
   });
+
+  // Categories under the Entertainment archetype. Drives the top-level
+  // grouping: one section per category (Beach Membership · Court Bookings)
+  // so a "gym" or "spa" provider added later automatically gets its own
+  // bucket instead of being smushed into the memberships grid.
+  const categoriesQ = useQuery({
+    queryKey: ["entertainment-categories-public"],
+    queryFn: async () => {
+      const { data, error } = await supabaseDb
+        .from("service_categories")
+        .select("key, label, sort_order")
+        .eq("archetype_key", "entertainment")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as EntertainmentCategory[];
+    },
+  });
+
+  // Group providers by category, keeping only categories that have at
+  // least one provider. Providers without category_key fall into "Other".
+  const providerGroups = useMemo(() => {
+    const providers = providersQ.data ?? [];
+    const cats = categoriesQ.data ?? [];
+    const byCat = new Map<string, EntertainmentProvider[]>();
+    providers.forEach((p) => {
+      const key = p.category_key || "__other__";
+      if (!byCat.has(key)) byCat.set(key, []);
+      byCat.get(key)!.push(p);
+    });
+    const ordered: Array<{ key: string; label: string; providers: EntertainmentProvider[] }> = [];
+    cats.forEach((c) => {
+      const list = byCat.get(c.key);
+      if (list && list.length) ordered.push({ key: c.key, label: c.label, providers: list });
+    });
+    const other = byCat.get("__other__");
+    if (other && other.length) ordered.push({ key: "__other__", label: "Other", providers: other });
+    return ordered;
+  }, [providersQ.data, categoriesQ.data]);
 
   // Active membership → unlock court booking.
   const { data: hasMembership } = useQuery({
@@ -111,42 +159,46 @@ const BeachClub = () => {
           </button>
         )}
 
-        {/* ─── Providers ──────────────────────────────────────────────
-            Same visual pattern as Food's Restaurants row: providers on top,
-            plans below. Tapping a provider scrolls to the plans section
-            (only one provider today; a future filter can key on providerId). */}
-        <section>
-          <h2 className="mb-4 text-xl font-black tracking-tight text-foreground">Venues</h2>
-          {providersQ.isLoading ? (
+        {/* ─── Providers grouped by category ──────────────────────────
+            "Beach Membership" providers on top, "Court Bookings" below, etc.
+            Header hidden when only one category is populated so single-
+            provider archetypes stay clean. Empty when no providers. */}
+        {providersQ.isLoading ? (
+          <section>
             <div className="grid gap-3 md:gap-4 md:grid-cols-2">
               {[1, 2].map((i) => <div key={i} className="h-72 animate-pulse rounded-3xl bg-muted" />)}
             </div>
-          ) : providersQ.isError ? (
-            <QueryError
-              title="Couldn't load venues"
-              error={providersQ.error instanceof Error ? providersQ.error.message : undefined}
-              onRetry={() => providersQ.refetch()}
-              retrying={providersQ.isFetching}
-            />
-          ) : providersQ.data && providersQ.data.length > 0 ? (
-            <div className="grid gap-3 md:gap-4 md:grid-cols-2">
-              {providersQ.data.map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => openProvider(p.id)}
-                  className="flex h-28 items-center justify-center rounded-3xl border border-border bg-card px-6 text-center transition-colors hover:border-primary/40"
-                >
-                  <span className="text-2xl font-black tracking-tight text-foreground">
-                    {p.name}
-                  </span>
-                </button>
-              ))}
-            </div>
-          ) : (
-            <YdEmptyState icon={Waves} title="No venues yet" subtitle="We're setting things up. Check back soon." />
-          )}
-        </section>
+          </section>
+        ) : providersQ.isError ? (
+          <QueryError
+            title="Couldn't load venues"
+            error={providersQ.error instanceof Error ? providersQ.error.message : undefined}
+            onRetry={() => providersQ.refetch()}
+            retrying={providersQ.isFetching}
+          />
+        ) : providerGroups.length === 0 ? (
+          <YdEmptyState icon={Waves} title="No venues yet" subtitle="We're setting things up. Check back soon." />
+        ) : (
+          providerGroups.map((group) => (
+            <section key={group.key} className="mb-6 last:mb-0">
+              <h2 className="mb-4 text-xl font-black tracking-tight text-foreground">{group.label}</h2>
+              <div className="grid gap-3 md:gap-4 md:grid-cols-2">
+                {group.providers.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => openProvider(p.id)}
+                    className="flex h-28 items-center justify-center rounded-3xl border border-border bg-card px-6 text-center transition-colors hover:border-primary/40"
+                  >
+                    <span className="text-2xl font-black tracking-tight text-foreground">
+                      {p.name}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          ))
+        )}
 
         {/* ─── Plans ──────────────────────────────────────────────── */}
         <section id="entertainment-plans" className="mt-space-6 scroll-mt-4">

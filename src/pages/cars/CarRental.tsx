@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Car, CalendarDays, Pencil } from "lucide-react";
@@ -67,14 +67,50 @@ const CarRental = () => {
     queryFn: async () => {
       const { data, error } = await supabaseDb
         .from("providers")
-        .select("id, name")
+        .select("id, name, category_key")
         .eq("archetype_key", "rental")
         .eq("status", "active")
         .order("sort_order", { ascending: true });
       if (error) throw error;
-      return (data ?? []) as { id: string; name: string; }[];
+      return (data ?? []) as { id: string; name: string; category_key: string | null }[];
     },
   });
+
+  // Categories under the Rental archetype — today just "Vehicle Rental", but
+  // grouping providers by category future-proofs the page for scooters, boats
+  // or bicycle rentals landing as their own category later.
+  const categoriesQ = useQuery({
+    queryKey: ["rental-categories-public"],
+    queryFn: async () => {
+      const { data, error } = await supabaseDb
+        .from("service_categories")
+        .select("key, label, sort_order")
+        .eq("archetype_key", "rental")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as Array<{ key: string; label: string; sort_order: number }>;
+    },
+  });
+
+  const providerGroups = useMemo(() => {
+    const providers = providersQ.data ?? [];
+    const cats = categoriesQ.data ?? [];
+    const byCat = new Map<string, typeof providers>();
+    providers.forEach((p) => {
+      const key = p.category_key || "__other__";
+      if (!byCat.has(key)) byCat.set(key, []);
+      byCat.get(key)!.push(p);
+    });
+    const ordered: Array<{ key: string; label: string; providers: typeof providers }> = [];
+    cats.forEach((c) => {
+      const list = byCat.get(c.key);
+      if (list && list.length) ordered.push({ key: c.key, label: c.label, providers: list });
+    });
+    const other = byCat.get("__other__");
+    if (other && other.length) ordered.push({ key: "__other__", label: "Other", providers: other });
+    return ordered;
+  }, [providersQ.data, categoriesQ.data]);
 
   const { data: vehicles, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ["rental-vehicles-public"],
@@ -156,39 +192,46 @@ const CarRental = () => {
           <Pencil className="h-4 w-4 shrink-0 text-muted-foreground" />
         </button>
 
-        {/* ─── Providers ──────────────────────────────────────────── */}
-        <section>
-          <h2 className="mb-4 text-xl font-black tracking-tight text-foreground">Providers</h2>
-          {providersQ.isLoading ? (
+        {/* ─── Providers grouped by category ──────────────────────────
+            One section per rental category (Vehicle Rental today; future:
+            Scooters, Boats, Bicycles). Header hides for single-category
+            archetypes so the page stays clean today. */}
+        {providersQ.isLoading ? (
+          <section>
             <div className="grid gap-3 md:gap-4 md:grid-cols-2">
               {[1, 2].map((i) => <div key={i} className="h-72 animate-pulse rounded-3xl bg-muted" />)}
             </div>
-          ) : providersQ.isError ? (
-            <QueryError
-              title="Couldn't load providers"
-              error={providersQ.error instanceof Error ? providersQ.error.message : undefined}
-              onRetry={() => providersQ.refetch()}
-              retrying={providersQ.isFetching}
-            />
-          ) : providersQ.data && providersQ.data.length > 0 ? (
-            <div className="grid gap-3 md:gap-4 md:grid-cols-2">
-              {providersQ.data.map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => openProvider(p.id)}
-                  className="flex h-28 items-center justify-center rounded-3xl border border-border bg-card px-6 text-center transition-colors hover:border-primary/40"
-                >
-                  <span className="text-2xl font-black tracking-tight text-foreground">
-                    {p.name}
-                  </span>
-                </button>
-              ))}
-            </div>
-          ) : (
-            <YdEmptyState icon={Car} title="No providers yet" subtitle="We're setting things up. Check back soon." />
-          )}
-        </section>
+          </section>
+        ) : providersQ.isError ? (
+          <QueryError
+            title="Couldn't load providers"
+            error={providersQ.error instanceof Error ? providersQ.error.message : undefined}
+            onRetry={() => providersQ.refetch()}
+            retrying={providersQ.isFetching}
+          />
+        ) : providerGroups.length === 0 ? (
+          <YdEmptyState icon={Car} title="No providers yet" subtitle="We're setting things up. Check back soon." />
+        ) : (
+          providerGroups.map((group) => (
+            <section key={group.key}>
+              <h2 className="mb-4 text-xl font-black tracking-tight text-foreground">{group.label}</h2>
+              <div className="grid gap-3 md:gap-4 md:grid-cols-2">
+                {group.providers.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => openProvider(p.id)}
+                    className="flex h-28 items-center justify-center rounded-3xl border border-border bg-card px-6 text-center transition-colors hover:border-primary/40"
+                  >
+                    <span className="text-2xl font-black tracking-tight text-foreground">
+                      {p.name}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          ))
+        )}
 
         {/* ─── Vehicles ──────────────────────────────────────────── */}
         <section id="rental-vehicles" className="scroll-mt-4">
