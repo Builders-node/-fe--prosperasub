@@ -311,13 +311,22 @@ const MarketplaceProviders = () => {
                   </div>
                 );
 
+                // Service + the category under it — the two upper layers of
+                // Service → Category → Provider, so the admin can see where a
+                // provider actually sits without opening the edit sheet.
+                const cat = categories.find((c) => c.key === p.category_key);
                 const serviceCell = arche ? (
-                  <span className="inline-flex items-center gap-1.5">
-                    <span className={cn("flex h-5 w-5 shrink-0 items-center justify-center rounded-md", arche.accent)}>
-                      <AIcon className="h-3 w-3 text-white" />
+                  <div className="min-w-0">
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className={cn("flex h-5 w-5 shrink-0 items-center justify-center rounded-md", arche.accent)}>
+                        <AIcon className="h-3 w-3 text-white" />
+                      </span>
+                      <span className="text-sm text-foreground">{arche.label}</span>
                     </span>
-                    <span className="text-sm text-foreground">{arche.label}</span>
-                  </span>
+                    <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                      {cat ? cat.label : <em className="italic opacity-70">no category</em>}
+                    </p>
+                  </div>
                 ) : <span className="text-xs text-muted-foreground">—</span>;
 
                 const contactCell = (

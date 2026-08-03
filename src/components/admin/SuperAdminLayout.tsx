@@ -1,8 +1,7 @@
-import { ReactNode, useEffect, useState, cloneElement } from "react";
+import { ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   BadgeDollarSign,
-  ChevronDown,
   ChevronRight,
   LogOut,
   Menu,
@@ -21,14 +20,11 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAdminPermissions } from "@/hooks/useAdminPermissions";
 import {
   NAV_SECTIONS,
-  NAV_SECTIONS_BELOW,
-  SERVICES,
-  getActiveService,
   type NavItem,
   type NavSection,
-  type ServiceGroup,
 } from "@/config/adminNav";
 import { cn } from "@/lib/utils";
 
@@ -72,64 +68,6 @@ function FlatLink({
   return wrap ? wrap(el) : el;
 }
 
-// ─── Collapsible service group ────────────────────────────────────────────────
-function ServiceDropdown({
-  service, currentPath, wrap,
-}: {
-  service: ServiceGroup;
-  currentPath: string;
-  wrap?: (el: React.ReactElement) => React.ReactElement;
-}) {
-  const isGroupActive = getActiveService(currentPath) === service.id;
-  const [open, setOpen] = useState(isGroupActive);
-  useEffect(() => { if (isGroupActive) setOpen(true); }, [isGroupActive]);
-
-  const Icon = service.icon;
-
-  return (
-    <div>
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className={cn(linkBase, "w-full justify-between", isGroupActive ? linkActive : linkIdle)}
-        aria-expanded={open}
-      >
-        <span className="flex min-w-0 items-center gap-space-3">
-          <span className={cn("flex h-5 w-5 shrink-0 items-center justify-center rounded-md", service.color)}>
-            <Icon className="h-3 w-3 text-white" aria-hidden />
-          </span>
-          <span className="truncate font-semibold">{service.label}</span>
-        </span>
-        <ChevronDown className={cn("h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200", open && "rotate-180")} aria-hidden />
-      </button>
-
-      <div className={cn("overflow-hidden transition-all duration-200 ease-in-out", open ? "max-h-96 opacity-100" : "max-h-0 opacity-0 pointer-events-none")}>
-        <div className="ml-[1.35rem] mt-0.5 space-y-0.5 border-l border-[hsl(var(--app-divider))] pl-3 pb-1">
-          {service.items.map((item) => {
-            const isActive = currentPath === item.path;
-            const el = (
-              <Link
-                key={item.path}
-                to={item.path}
-                aria-current={isActive ? "page" : undefined}
-                className={cn(
-                  "flex min-h-9 items-center gap-2.5 rounded-radius-md px-2.5 py-1.5 text-sm transition-colors",
-                  isActive ? "bg-[hsl(var(--app-control-muted))] text-foreground font-semibold" : "text-muted-foreground hover:bg-[hsl(var(--app-control-muted))] hover:text-foreground",
-                )}
-              >
-                <item.icon className={cn("h-3.5 w-3.5 shrink-0", isActive ? "text-primary" : "text-muted-foreground/70")} aria-hidden />
-                {item.label}
-              </Link>
-            );
-            const node = wrap ? wrap(el) : el;
-            return cloneElement(node, { key: item.path });
-          })}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ─── Sidebar nav (shared by desktop + mobile) ─────────────────────────────────
 function SidebarNav({
   currentPath,
@@ -138,12 +76,27 @@ function SidebarNav({
   currentPath: string;
   wrap?: (el: React.ReactElement) => React.ReactElement;
 }) {
+  const { canAny, isLoading } = useAdminPermissions();
+
+  // Hide items the admin can't use. While permissions are loading we render
+  // everything rather than nothing — a sidebar that pops items in one by one
+  // is worse than one that briefly shows a link the user can't open (the route
+  // guard still refuses it).
+  const visibleSections = NAV_SECTIONS
+    .map((section) => ({
+      ...section,
+      items: section.items.filter(
+        (item) => isLoading || !item.permissions?.length || canAny(item.permissions as never[]),
+      ),
+    }))
+    .filter((section) => section.items.length > 0);
+
   return (
     <nav
       className="flex-1 space-y-space-5 overflow-y-auto px-space-3 py-space-4"
       aria-label="Admin navigation"
     >
-      {NAV_SECTIONS.map((section) => (
+      {visibleSections.map((section) => (
         <NavSectionBlock key={section.title} section={section} currentPath={currentPath} wrap={wrap} />
       ))}
     </nav>

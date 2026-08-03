@@ -18,8 +18,8 @@ export const adminRoutes = {
   superAdminAds: "/admin/ads",
   superAdminRoles: "/admin/roles",
   superAdminAuditLogs: "/admin/audit-logs",
-  superAdminCleaningOps: "/admin/cleaning",
-  superAdminSettings: "/admin/settings",
+  // Not a nav destination — a tab inside Providers. Kept as a constant because
+  // the Providers nav item uses it for `alsoActiveOn` highlighting.
   superAdminProviderApplications: "/admin/marketplace/providers/applications",
 } as const;
 

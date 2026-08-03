@@ -629,14 +629,18 @@ const CleaningManagement = ({
         </div>
       )}
 
-      <Tabs defaultValue={embedded ? "reports" : "bookings"} variant="pills" className={cn("w-full", !embedded && "mt-space-4")}>
-        {!embedded && (
-          <TabsList className="mb-2">
-            <TabsTrigger value="bookings">Bookings</TabsTrigger>
-            <TabsTrigger value="calendar">Calendar</TabsTrigger>
-            <TabsTrigger value="reports">Completion Reports</TabsTrigger>
-          </TabsList>
-        )}
+      {/* The tab strip renders in BOTH modes.
+          It used to be hidden when `embedded`, which — once the standalone
+          /admin/cleaning route became a redirect — left the Bookings and
+          Calendar tabs with no way to reach them in production. That stranded
+          Sync-all, Calendar reconcile, Reschedule, per-booking delete and the
+          day calendar: mounted, working, unreachable. */}
+      <Tabs defaultValue="bookings" variant="pills" className={cn("w-full", !embedded && "mt-space-4")}>
+        <TabsList className="mb-2">
+          <TabsTrigger value="bookings">Bookings</TabsTrigger>
+          <TabsTrigger value="calendar">Calendar</TabsTrigger>
+          <TabsTrigger value="reports">Completion Reports</TabsTrigger>
+        </TabsList>
 
         <TabsContent value="bookings">
           <Card>
@@ -696,6 +700,7 @@ const CleaningManagement = ({
                         syncing={syncCalendarMutation.isPending && syncCalendarMutation.variables === booking.id}
                         onSync={() => syncCalendarMutation.mutate(booking.id)}
                         onComplete={() => setCompletionBookingId(booking.id)}
+                        onReschedule={() => openReschedule(booking)}
                         onDelete={() => setDeleteBooking(booking)}
                       />
                     ))}
@@ -1132,18 +1137,24 @@ function BookingCard({
         </Badge>
       </div>
 
+      {/* Two independent conditions, not a chained ternary. The old
+          `status !== "completed" ? … : status === "booked" ? …` put Reschedule
+          in the else-branch of "not completed", so it could only render when
+          the booking WAS completed — i.e. never. A booked visit needs both
+          actions. */}
       <div className="mt-space-3 flex items-center gap-space-2">
-        {booking.status !== "completed" ? (
+        {booking.status !== "completed" && (
           <Button type="button" size="sm" variant="secondary" className="flex-1" onClick={onComplete}>
             <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
             Mark complete
           </Button>
-        ) : booking.status === "booked" ? (
+        )}
+        {booking.status === "booked" && (
           <Button type="button" size="sm" variant="secondary" className="flex-1" onClick={onReschedule}>
             <CalendarClock className="h-3.5 w-3.5" aria-hidden="true" />
             Reschedule
           </Button>
-        ) : null}
+        )}
         <BookingActionsMenu
           booking={booking}
           syncing={syncing}

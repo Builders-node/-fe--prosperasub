@@ -2,6 +2,7 @@ import { ReactNode, useEffect } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth, AppRole } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
+import { useAdminPermissions } from "@/hooks/useAdminPermissions";
 import { PageLoader } from "@/components/ui/spinner";
 
 interface ProtectedRouteProps {
@@ -10,6 +11,12 @@ interface ProtectedRouteProps {
   allowedRoles?: AppRole[];
   /** @deprecated Use allowedRoles instead */
   requiredRoles?: AppRole[];
+  /**
+   * RBAC permission keys — the admin needs at least ONE. Mirrors the
+   * `permissions` field on the matching nav item so hiding a link and blocking
+   * its URL stay in sync. Owners hold "*" and always pass.
+   */
+  requiredPermissions?: string[];
 }
 
 /**
@@ -19,7 +26,7 @@ interface ProtectedRouteProps {
  * 3. Authenticated but wrong role — show Unauthorized page
  * 4. Authenticated with correct role — render children
  */
-const ProtectedRoute = ({ children, allowedRoles, requiredRoles }: ProtectedRouteProps) => {
+const ProtectedRoute = ({ children, allowedRoles, requiredRoles, requiredPermissions }: ProtectedRouteProps) => {
   const { isAuthenticated, isLoading, isUserDataReady, roles, isAdmin, isAdminResolved } = useAuth();
   const location = useLocation();
 
@@ -55,9 +62,41 @@ const ProtectedRoute = ({ children, allowedRoles, requiredRoles }: ProtectedRout
     }
   }
 
+  // Case 4: Holds an admin role, but does this specific page need a permission?
+  // Being *an* admin was previously enough for *every* admin route: a role with
+  // only `users.read` could open Finance, Roles and Ads, and the sole feedback
+  // was a 403 from whatever the page happened to fetch. Gate on the permission
+  // the sidebar already uses for the same path.
+  if (requiredPermissions && requiredPermissions.length > 0) {
+    return (
+      <PermissionGate permissions={requiredPermissions}>{children}</PermissionGate>
+    );
+  }
+
   // Case 5: Authorized — render
   return <>{children}</>;
 };
+
+/**
+ * Blocks a route until the admin's permissions are known, then allows or
+ * redirects. Split into its own component so the permissions query isn't
+ * fired on every non-admin route ProtectedRoute also guards.
+ */
+function PermissionGate({
+  permissions, children,
+}: {
+  permissions: string[];
+  children: ReactNode;
+}) {
+  const { canAny, isLoading } = useAdminPermissions();
+  // Never decide on an empty list mid-flight — that would bounce a legitimate
+  // admin on first paint.
+  if (isLoading) return <PageLoader className="min-h-screen bg-background" />;
+  if (!canAny(permissions as never[])) {
+    return <Navigate to="/admin/dashboard" replace />;
+  }
+  return <>{children}</>;
+}
 
 /**
  * Renders a minimal placeholder and immediately opens the auth modal.

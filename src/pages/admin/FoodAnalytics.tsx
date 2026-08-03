@@ -88,17 +88,28 @@ const FoodAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
   );
 
   // Total revenue = weekly_price × commitment_weeks × paid periods (renewals
-  // count too). Pending subscriptions are unconfirmed payments, so they don't count yet.
-  const countsAsRevenue = (status: string) => status !== "cancelled" && status !== "pending";
+  // count too).
+  //
+  // `payment_status === "paid"` is the ONLY gate that makes this page reconcile
+  // with Dashboard and Finance. Subscription status alone is not enough: an
+  // Infinita/crypto sub sits at status "active" while payment_status stays
+  // "pending" until it's manually confirmed (the reconcile cron only handles
+  // Blink lightning/onchain — see CLAUDE.md). Gating on status alone counted
+  // those as revenue here but not on the other two pages, so Analytics read
+  // higher than Finance for the same period.
+  const countsAsRevenue = (sub: any) =>
+    sub.payment_status === "paid" && sub.status !== "cancelled";
   const periodsOf = (sub: any) => (Number(sub.periods_paid) || 1);
   const revenueOf = (sub: any) => sub.weekly_price_cents * ((sub as any).commitment_weeks ?? 1) * periodsOf(sub);
 
-  const totalRevenueCents = subscriptions
-    .filter((s) => countsAsRevenue(s.status))
-    .reduce((s, sub) => s + revenueOf(sub), 0);
+  // One filtered list feeds every money figure on this page, so the total, the
+  // month tile and the 6-month chart can't drift apart again.
+  const revenueSubs = subscriptions.filter(countsAsRevenue);
+
+  const totalRevenueCents = revenueSubs.reduce((s, sub) => s + revenueOf(sub), 0);
 
   // This month's new subs
-  const monthSubs = subscriptions.filter((s) => {
+  const monthSubs = revenueSubs.filter((s) => {
     const d = parseISO(s.created_at);
     return d >= thisMonthStart && d <= thisMonthEnd;
   });
@@ -174,7 +185,7 @@ const FoodAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
     const label = format(d, "MMM");
     const start = startOfMonth(d);
     const end = endOfMonth(d);
-    const rev = subscriptions
+    const rev = revenueSubs
       .filter((s) => {
         const sd = parseISO(s.created_at);
         return sd >= start && sd <= end;

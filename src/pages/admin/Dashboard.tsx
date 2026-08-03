@@ -67,8 +67,18 @@ const AdminDashboard = () => {
       };
       let pending = 0;
 
+      // One revenue rule across every service and every admin page:
+      //   paid AND not cancelled.
+      // `payment_status === "paid"` alone counted cancelled bookings as
+      // revenue here while the per-service Analytics pages excluded them, so
+      // Dashboard always read higher than Analytics for the same period.
+      // (A genuine refund lands as payment_status='refunded', so it drops out
+      // of the "paid" side regardless.)
+      const isRevenue = (paymentStatus: unknown, lifecycle: unknown) =>
+        paymentStatus === "paid" && String(lifecycle ?? "").toLowerCase() !== "cancelled";
+
       (cleaning.data ?? []).forEach((r: any) => {
-        if (r.payment_status === "paid") byService.cleaning.revenueCents += r.total_price_cents || r.monthly_price_cents || 0;
+        if (isRevenue(r.payment_status, r.subscription_status)) byService.cleaning.revenueCents += r.total_price_cents || r.monthly_price_cents || 0;
         if (r.payment_status === "paid" && r.is_active && r.subscription_status === "active") byService.cleaning.active++;
         if (r.payment_status !== "paid" && !["cancelled", "expired"].includes(r.subscription_status)) pending++;
       });
@@ -85,12 +95,12 @@ const AdminDashboard = () => {
         if (!isPaid && s !== "cancelled") pending++;
       });
       (beach.data ?? []).forEach((r: any) => {
-        if (r.payment_status === "paid") byService.beach.revenueCents += r.total_cents || 0;
+        if (isRevenue(r.payment_status, r.status)) byService.beach.revenueCents += r.total_cents || 0;
         if (r.payment_status === "paid" && String(r.status).toLowerCase() === "active") byService.beach.active++;
         if (r.payment_status !== "paid" && r.status !== "cancelled") pending++;
       });
       (rental.data ?? []).forEach((r: any) => {
-        if (r.payment_status === "paid") byService.cars.revenueCents += r.total_cents || 0;
+        if (isRevenue(r.payment_status, r.status)) byService.cars.revenueCents += r.total_cents || 0;
         if (r.payment_status === "paid" && ["confirmed", "active", "in_progress"].includes(String(r.status).toLowerCase())) byService.cars.active++;
         if (r.payment_status !== "paid" && r.status !== "cancelled") pending++;
       });

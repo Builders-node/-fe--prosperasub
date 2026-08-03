@@ -38,7 +38,11 @@ export default function BeachClubAnalytics({ embedded = false }: { embedded?: bo
   }
 
   const paid = subs.filter((s) => s.payment_status === "paid");
-  const active = subs.filter((s) => s.status === "active");
+  // "Active" means paid AND active — same definition as "Total People" below
+  // and as Dashboard/Finance. Counting status alone let unpaid rows show up as
+  // active memberships here while the headcount tile beside it excluded them:
+  // two numbers, two definitions, 10px apart.
+  const active = paid.filter((s) => s.status === "active");
   const pending = subs.filter((s) => s.status === "pending");
   const cancelled = subs.filter((s) => s.status === "cancelled");
 
@@ -46,9 +50,7 @@ export default function BeachClubAnalytics({ embedded = false }: { embedded?: bo
   // "Total People" is a live-membership headcount, so only paid + active
   // members count. Including cancelled/pending rows inflated the number and
   // disagreed with every other tile on this page.
-  const totalMembers = paid
-    .filter((s) => s.status === "active")
-    .reduce((sum, s) => sum + (s.people ?? 0), 0);
+  const totalMembers = active.reduce((sum, s) => sum + (s.people ?? 0), 0);
   const avgOrderCents = paid.length ? Math.round(totalRevenueCents / paid.length) : 0;
 
   // Revenue for the current month.

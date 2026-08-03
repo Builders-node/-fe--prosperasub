@@ -78,6 +78,7 @@ const AdminPayments = lazy(() => import("./pages/admin/Payments"));
 const AdminUsers = lazy(() => import("./pages/admin/Users"));
 const CleaningPlans = lazy(() => import("./pages/admin/CleaningPlans"));
 const ServiceArchetypes = lazy(() => import("./pages/admin/ServiceArchetypes"));
+const ServiceCategories = lazy(() => import("./pages/admin/ServiceCategories"));
 const MarketplaceProviders = lazy(() => import("./pages/admin/MarketplaceProviders"));
 const MarketplaceProviderDetail = lazy(() => import("./pages/admin/MarketplaceProviderDetail"));
 const LegacyProviderRedirect = lazy(() => import("./pages/admin/LegacyProviderRedirect"));
@@ -253,6 +254,9 @@ const App = () => {
               <Route path="/admin/services" element={
                 <ProtectedRoute allowedRoles={['super_admin']}><ServiceArchetypes /></ProtectedRoute>
               } />
+              <Route path="/admin/services/categories" element={
+                <ProtectedRoute allowedRoles={['super_admin']}><ServiceCategories /></ProtectedRoute>
+              } />
               <Route path="/admin/marketplace/providers" element={
                 <ProtectedRoute allowedRoles={['super_admin']}><MarketplaceProviders /></ProtectedRoute>
               } />
@@ -281,26 +285,26 @@ const App = () => {
               <Route path="/admin/cleaning/subscriptions" element={<Navigate to="/admin/marketplace/subscriptions" replace />} />
               <Route path="/admin/subscriptions"          element={<Navigate to="/admin/marketplace/subscriptions" replace />} />
               <Route path="/admin/users" element={
-                <ProtectedRoute allowedRoles={['super_admin']}><AdminUsers /></ProtectedRoute>
+                <ProtectedRoute allowedRoles={['super_admin']} requiredPermissions={["users.read"]}><AdminUsers /></ProtectedRoute>
               } />
               <Route path="/admin/clients" element={<Navigate to="/admin/users" replace />} />
               <Route path="/admin/provider-applications" element={<Navigate to="/admin/marketplace/providers/applications" replace />} />
               <Route path="/admin/payments" element={
-                <ProtectedRoute allowedRoles={['super_admin']}><AdminPayments /></ProtectedRoute>
+                <ProtectedRoute allowedRoles={['super_admin']} requiredPermissions={["payments.read"]}><AdminPayments /></ProtectedRoute>
               } />
               <Route path="/admin/profit" element={<Navigate to="/admin/payments" replace />} />
               <Route path="/admin/roles" element={
-                <ProtectedRoute allowedRoles={['super_admin']}><RoleManagement /></ProtectedRoute>
+                <ProtectedRoute allowedRoles={['super_admin']} requiredPermissions={["role_management.read"]}><RoleManagement /></ProtectedRoute>
               } />
               <Route path="/admin/audit-logs" element={
-                <ProtectedRoute allowedRoles={['super_admin']}><AuditLogs /></ProtectedRoute>
+                <ProtectedRoute allowedRoles={['super_admin']} requiredPermissions={["admin_settings.read"]}><AuditLogs /></ProtectedRoute>
               } />
               {/* /admin/settings retired — platform_fee_percent moved into Finance
                   (NetProfitPanel); min/max subscription weeks were unused. Redirect
                   any stale bookmarks straight to Finance. */}
               <Route path="/admin/settings" element={<Navigate to="/admin/payments" replace />} />
               <Route path="/admin/ads" element={
-                <ProtectedRoute allowedRoles={['super_admin']}><AdsManagement /></ProtectedRoute>
+                <ProtectedRoute allowedRoles={['super_admin']} requiredPermissions={["admin_settings.read"]}><AdsManagement /></ProtectedRoute>
               } />
               {/* Admin Car Rentals — vehicles & reservations are managed per provider (Food-style) */}
               <Route path="/admin/car-rentals" element={<Navigate to="/admin/car-rentals/providers" replace />} />
@@ -331,7 +335,7 @@ const App = () => {
               } />
               <Route path="/admin/food/residences" element={<Navigate to="/admin/locations" replace />} />
               <Route path="/admin/locations" element={
-                <ProtectedRoute allowedRoles={['super_admin']}><FoodResidences /></ProtectedRoute>
+                <ProtectedRoute allowedRoles={['super_admin']} requiredPermissions={["admin_settings.read"]}><FoodResidences /></ProtectedRoute>
               } />
 
               <Route path="/admin/food/subscriptions" element={<Navigate to="/admin/marketplace/subscriptions" replace />} />

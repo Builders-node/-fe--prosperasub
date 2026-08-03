@@ -286,7 +286,9 @@ const AdminPayments = () => {
       if (status.paid) {
         toast.success("Test payment confirmed. Admin notifications updated.");
         queryClient.invalidateQueries({ queryKey: ["admin-payment-notifications"] });
-        queryClient.invalidateQueries({ queryKey: ["admin-payment-stats"] });
+        // Was ["admin-payment-stats"] — a key no query has ever used, so the
+        // money tiles above never refreshed after a confirmed payment.
+        queryClient.invalidateQueries({ queryKey: ["admin-finance-totals-all"] });
       } else {
         toast.info("Test payment is still pending");
       }

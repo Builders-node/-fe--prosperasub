@@ -1,8 +1,10 @@
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Pencil, Trash2, Eye, EyeOff, MoreHorizontal } from "lucide-react";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { AdminListShell } from "@/components/admin/AdminListShell";
+import { AdminPageTabs } from "@/components/admin/AdminPageTabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -92,6 +94,28 @@ export default function ServiceArchetypes() {
     staleTime: 30_000,
   });
 
+  // Categories per archetype — the middle layer of the model. Shown as chips
+  // on each service card so the admin can see the whole
+  // Service → Category → Provider shape without leaving this page.
+  const { data: categories = [] } = useQuery({
+    queryKey: ["admin-service-categories"],
+    queryFn: async () => {
+      const { data, error } = await supabaseDb
+        .from("service_categories").select("key, label, archetype_key, is_active")
+        .order("sort_order", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as Array<{ key: string; label: string; archetype_key: string; is_active: boolean }>;
+    },
+    staleTime: 30_000,
+  });
+  const categoriesByArchetype = useMemo(() => {
+    const m: Record<string, Array<{ key: string; label: string; is_active: boolean }>> = {};
+    categories.forEach((c) => {
+      (m[c.archetype_key] ??= []).push({ key: c.key, label: c.label, is_active: c.is_active });
+    });
+    return m;
+  }, [categories]);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return rows;
@@ -155,6 +179,11 @@ export default function ServiceArchetypes() {
   return (
     <SuperAdminLayout title="Services" subtitle="Business-unit templates that new providers plug into">
       <div className="space-y-5">
+        <AdminPageTabs tabs={[
+          { label: "Services", to: "/admin/services" },
+          { label: "Categories", to: "/admin/services/categories", badge: categories.length },
+        ]} />
+
         <AdminListShell
           actions={<Button onClick={openNew} className="gap-1.5"><Plus className="h-4 w-4" /> New service</Button>}
           search={search} onSearch={setSearch} searchPlaceholder="Search services…"
@@ -220,6 +249,29 @@ export default function ServiceArchetypes() {
                   {a.description && (
                     <p className="line-clamp-2 text-sm text-muted-foreground">{a.description}</p>
                   )}
+                  {/* Categories under this service — the layer between the
+                      service and its providers. Click-through to manage. */}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {(categoriesByArchetype[a.key] ?? []).map((c) => (
+                      <span
+                        key={c.key}
+                        className={cn(
+                          "rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                          c.is_active
+                            ? "bg-primary/10 text-primary"
+                            : "bg-muted/60 text-muted-foreground line-through",
+                        )}
+                      >
+                        {c.label}
+                      </span>
+                    ))}
+                    <Link
+                      to="/admin/services/categories"
+                      className="rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
+                    >
+                      {(categoriesByArchetype[a.key] ?? []).length === 0 ? "+ Add category" : "Manage"}
+                    </Link>
+                  </div>
                   {a.default_capabilities?.length ? (
                     <div className="flex flex-wrap gap-1.5">
                       {a.default_capabilities.map((c) => (

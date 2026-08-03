@@ -13,7 +13,7 @@
 import {
   BarChart3, CalendarDays, CreditCard, DollarSign,
   FileText, Layers, LayoutDashboard, MapPin, Megaphone,
-  ShieldCheck, Users, Building2, Sparkles, Settings, UserPlus,
+  ShieldCheck, Users, Building2,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { adminRoutes } from "./adminRoutes";
@@ -28,6 +28,13 @@ export interface NavItem {
    * this section (e.g. Provider applications belongs to Providers).
    */
   alsoActiveOn?: string[];
+  /**
+   * RBAC permission(s) that make this item usable. The sidebar hides the item
+   * unless the admin holds at least one; ProtectedRoute enforces the same list
+   * on the route so a pasted URL can't bypass it. Omit for pages every admin
+   * may see. Owners hold "*" and always pass.
+   */
+  permissions?: string[];
 }
 
 export interface NavSection {
@@ -39,9 +46,13 @@ export interface NavSection {
 export const OVERVIEW_SECTION: NavSection = {
   title: "Overview",
   items: [
+    // Dashboard is the landing page for every admin — no permission gate, or a
+    // limited role would log in to a redirect loop.
     { label: "Dashboard", path: adminRoutes.superAdminDashboard, icon: LayoutDashboard },
-    { label: "Analytics", path: adminRoutes.superAdminAnalytics, icon: BarChart3       },
-    { label: "Finance",   path: adminRoutes.superAdminPayments,  icon: DollarSign      },
+    { label: "Analytics", path: adminRoutes.superAdminAnalytics, icon: BarChart3,
+      permissions: ["subscriptions.read", "payments.read"] },
+    { label: "Finance",   path: adminRoutes.superAdminPayments,  icon: DollarSign,
+      permissions: ["payments.read"] },
   ],
 };
 
@@ -49,14 +60,18 @@ export const OVERVIEW_SECTION: NavSection = {
 export const MARKETPLACE_SECTION: NavSection = {
   title: "Marketplace",
   items: [
-    { label: "Services",      path: adminRoutes.superAdminServices,                 icon: Layers       },
+    { label: "Services",      path: adminRoutes.superAdminServices,                 icon: Layers,
+      permissions: ["admin_settings.read"] },
     { label: "Providers",     path: adminRoutes.superAdminMarketplaceProviders,     icon: Building2,
-      // Provider Applications lives at its own URL; keep the parent item
-      // highlighted when the admin is triaging pending applications.
-      alsoActiveOn: [adminRoutes.superAdminProviderApplications] },
-    { label: "Applications",  path: adminRoutes.superAdminProviderApplications,     icon: UserPlus     },
-    { label: "Plans",         path: adminRoutes.superAdminMarketplacePlans,         icon: CreditCard   },
-    { label: "Subscriptions", path: adminRoutes.superAdminMarketplaceSubscriptions, icon: CalendarDays },
+      // Applications is a TAB inside Providers, not its own nav item — a
+      // separate entry duplicated a surface that's one click away. Keep the
+      // parent highlighted while the admin is triaging there.
+      alsoActiveOn: [adminRoutes.superAdminProviderApplications],
+      permissions: ["admin_settings.read"] },
+    { label: "Plans",         path: adminRoutes.superAdminMarketplacePlans,         icon: CreditCard,
+      permissions: ["cleaning_plans.read"] },
+    { label: "Subscriptions", path: adminRoutes.superAdminMarketplaceSubscriptions, icon: CalendarDays,
+      permissions: ["subscriptions.read"] },
   ],
 };
 
@@ -64,42 +79,40 @@ export const MARKETPLACE_SECTION: NavSection = {
 export const PEOPLE_SECTION: NavSection = {
   title: "People",
   items: [
-    { label: "Users", path: adminRoutes.superAdminUsers, icon: Users },
-  ],
-};
-
-// ─── OPERATIONS — physical scheduling that doesn't fit a marketplace list ─
-export const OPERATIONS_SECTION: NavSection = {
-  title: "Operations",
-  items: [
-    { label: "Cleaning ops", path: adminRoutes.superAdminCleaningOps, icon: Sparkles },
+    { label: "Users", path: adminRoutes.superAdminUsers, icon: Users,
+      permissions: ["users.read"] },
   ],
 };
 
 // ─── SETTINGS ───────────────────────────────────────────────────────────
+// No "Platform config" entry: /admin/settings is a redirect to /admin/payments
+// (PlatformSettings.tsx was deleted when platform config moved into Finance).
+// A nav item that silently lands on another page — and highlights *that* page
+// in the sidebar — is worse than no item at all.
 export const SETTINGS_SECTION: NavSection = {
   title: "Settings",
   items: [
-    { label: "Locations",       path: adminRoutes.superAdminLocations, icon: MapPin      },
-    { label: "Ads",             path: adminRoutes.superAdminAds,       icon: Megaphone   },
-    { label: "Roles",           path: adminRoutes.superAdminRoles,     icon: ShieldCheck },
-    { label: "Audit Logs",      path: adminRoutes.superAdminAuditLogs, icon: FileText    },
-    { label: "Platform config", path: adminRoutes.superAdminSettings,  icon: Settings    },
+    { label: "Locations",  path: adminRoutes.superAdminLocations, icon: MapPin,
+      permissions: ["admin_settings.read"] },
+    { label: "Ads",        path: adminRoutes.superAdminAds,       icon: Megaphone,
+      permissions: ["admin_settings.read"] },
+    { label: "Roles",      path: adminRoutes.superAdminRoles,     icon: ShieldCheck,
+      permissions: ["role_management.read"] },
+    { label: "Audit Logs", path: adminRoutes.superAdminAuditLogs, icon: FileText,
+      permissions: ["admin_settings.read"] },
   ],
 };
 
-/** Ordered list rendered top-to-bottom in the sidebar. */
+/**
+ * Ordered list rendered top-to-bottom in the sidebar.
+ *
+ * No OPERATIONS section: /admin/cleaning is a redirect to the providers list —
+ * cleaning ops live inside the cleaning provider's workspace (Operations tab),
+ * reached by opening that provider from Marketplace → Providers.
+ */
 export const NAV_SECTIONS: NavSection[] = [
   OVERVIEW_SECTION,
   MARKETPLACE_SECTION,
   PEOPLE_SECTION,
-  OPERATIONS_SECTION,
   SETTINGS_SECTION,
 ];
-
-// ── Legacy exports so old imports keep compiling ───────────────────────
-export const PLATFORM_SECTION: NavSection = OVERVIEW_SECTION;
-export const NAV_SECTIONS_BELOW: NavSection[] = [];
-export interface ServiceGroup { id: string; label: string; icon: LucideIcon; color: string; rootPath: string; items: NavItem[]; }
-export const SERVICES: ServiceGroup[] = [];
-export function getActiveService(_pathname: string): string | null { return null; }
