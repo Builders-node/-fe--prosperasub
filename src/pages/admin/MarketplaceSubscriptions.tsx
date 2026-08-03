@@ -154,7 +154,7 @@ const MarketplaceSubscriptions = () => {
 
   const isoDay = (v?: string | null): string | null => v ? v.slice(0, 10) : null;
 
-  const { data: subs = [], isLoading: subsLoading } = useQuery({
+  const { data: subs = [], isLoading: subsLoading, isError: subsError, error: subsErrObj, refetch: refetchSubs } = useQuery({
     queryKey: ["marketplace-subscriptions"],
     queryFn: async () => {
       const { data, error } = await supabaseDb.from("provider_subscriptions")
@@ -179,7 +179,7 @@ const MarketplaceSubscriptions = () => {
     },
   });
 
-  const { data: bookings = [], isLoading: bookingsLoading } = useQuery({
+  const { data: bookings = [], isLoading: bookingsLoading, isError: bookingsError, refetch: refetchBookings } = useQuery({
     queryKey: ["marketplace-bookings"],
     queryFn: async () => {
       // Rental (and any other archetype using the booking model) lives here.
@@ -207,6 +207,7 @@ const MarketplaceSubscriptions = () => {
   });
 
   const isLoading = subsLoading || bookingsLoading;
+  const isError = subsError || bookingsError;
   const rows = useMemo(() => [...subs, ...bookings], [subs, bookings]);
 
   const userIds = useMemo(() => Array.from(new Set(rows.map((s) => s.user_id).filter((x): x is string => !!x))), [rows]);
@@ -322,7 +323,9 @@ const MarketplaceSubscriptions = () => {
 
         <AdminListShell
           search={search} onSearch={setSearch} searchPlaceholder="Search by provider, plan, user, payment ref…"
-          isLoading={isLoading} isEmpty={rows.length === 0}
+          isLoading={isLoading} isError={isError} error={subsErrObj}
+          onRetry={() => { refetchSubs(); refetchBookings(); }}
+          isEmpty={rows.length === 0}
           isNoResults={rows.length > 0 && visible.length === 0} count={visible.length}
           emptyTitle="No sales yet" emptySubtitle="Subscriptions and bookings will appear here."
           onClearFilters={() => { setSearch(""); setService("all"); setStatus("all"); setPayment("all"); setKind("all"); }}

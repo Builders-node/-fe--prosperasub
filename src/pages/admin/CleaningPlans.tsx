@@ -161,12 +161,41 @@ const CleaningPlans = ({
   });
 
   const { data: clients = [] } = useQuery({
-    queryKey: ["admin-cleaning-clients-for-assign"],
+    // providerId is part of the key: the unscoped list must not be served from
+    // cache to an embedded provider (or vice-versa).
+    queryKey: ["admin-cleaning-clients-for-assign", providerId ?? "all", planIdsForCount.join(",")],
+    enabled: !providerId || planIdsForCount.length > 0,
     queryFn: async () => {
-      const { data, error } = await supabaseDb
+      // `cleaning_clients` has no provider_id — a client belongs to a provider
+      // only by having a subscription to one of that provider's packages.
+      //
+      // Embedded in a provider workspace this list MUST be scoped: it was
+      // fetching every client on the platform, so one cleaning provider could
+      // read (and assign plans to) every other provider's customer list.
+      let clientIds: string[] | null = null;
+      if (providerId) {
+        const { data: subs, error: subErr } = await supabaseDb
+          .from("cleaning_subscriptions")
+          .select("client_id")
+          .in("package_id", planIdsForCount)
+          .not("client_id", "is", null);
+        if (subErr) throw subErr;
+        clientIds = Array.from(
+          new Set((subs ?? []).map((s: any) => String(s.client_id)).filter(Boolean)),
+        );
+        // No customers yet → nothing to assign. Returning early also avoids
+        // `.in("id", [])`, which PostgREST rejects.
+        if (clientIds.length === 0) return [];
+      }
+
+      let q = supabaseDb
         .from("cleaning_clients")
         .select("id, company_name, email")
+        .is("deleted_at", null)
         .order("company_name");
+      if (clientIds) q = q.in("id", clientIds);
+
+      const { data, error } = await q;
       if (error) throw error;
       return data ?? [];
     },
@@ -199,10 +228,12 @@ const CleaningPlans = ({
       // were invisible in every provider-scoped catalog lookup.
       if (providerId && !id) fields.provider_id = providerId;
       if (id) {
-        const { error } = await supabaseDb
-          .from("cleaning_packages")
-          .update(fields)
-          .eq("id", id);
+        let q = supabaseDb.from("cleaning_packages").update(fields).eq("id", id);
+        // Embedded: refuse to touch a row that isn't this provider's, even if
+        // an id from elsewhere reaches this mutation. `.eq("id", …)` alone
+        // trusted whatever id it was handed.
+        if (providerId) q = q.eq("provider_id", providerId);
+        const { error } = await q;
         if (error) throw error;
         await logAuditEvent(adminId, "edit", "plan", id, fields);
       } else {

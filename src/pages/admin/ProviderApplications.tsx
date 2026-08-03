@@ -47,7 +47,7 @@ export default function ProviderApplications() {
   const [rejectTarget, setRejectTarget] = useState<any | null>(null);
   const [rejectNotes, setRejectNotes] = useState("");
 
-  const { data: apps = [], isLoading } = useQuery({
+  const { data: apps = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: ["admin-provider-applications"],
     queryFn: async () => {
       const { data, error } = await supabaseDb
@@ -213,7 +213,8 @@ export default function ProviderApplications() {
 
         <AdminListShell
           search={search} onSearch={setSearch} searchPlaceholder="Search applications…"
-          isLoading={isLoading} isEmpty={apps.length === 0}
+          isLoading={isLoading} isError={isError} error={error} onRetry={refetch}
+          isEmpty={apps.length === 0}
           isNoResults={apps.length > 0 && visible.length === 0} count={visible.length}
           emptyTitle="No applications yet" emptySubtitle="Provider applications will appear here."
           onClearFilters={() => { setSearch(""); setFilter("all"); }}

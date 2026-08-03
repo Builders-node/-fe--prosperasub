@@ -7,6 +7,10 @@ import {
 } from "lucide-react";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { BookingCalendarOverride } from "@/components/provider/BookingCalendarOverride";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { PageLoader, Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -84,6 +88,7 @@ const EMPTY_FORM = {
 export default function BeachClubCourts({ embedded = false }: { embedded?: boolean } = {}) {
   const qc = useQueryClient();
   const [courtId, setCourtId] = useState<string>("");
+  const [cancelTarget, setCancelTarget] = useState<any | null>(null);
   const [date, setDate] = useState<string>(todayHN());
   const [bookSlot, setBookSlot] = useState<number | null>(null);
   const [memberName, setMemberName] = useState("");
@@ -309,7 +314,9 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
         r?.conflicts ? `${r.conflicts} conflict(s)` : "",
       ].filter(Boolean).join(", ");
       toast.success(parts ? `Synced from Google: ${parts}` : "Up to date");
-      qc.invalidateQueries({ queryKey: ["admin-bc-court-bookings"] });
+      // Was ["admin-bc-court-bookings"] — a key no query uses, so "Sync from
+      // Google" reported success while the grid kept showing stale slots.
+      qc.invalidateQueries({ queryKey: ["admin-bc-engine-bookings"] });
       qc.invalidateQueries({ queryKey: ["admin-bc-courts"] });
     },
     onError: (e: Error) => toast.error(e.message || "Sync failed"),
@@ -466,7 +473,7 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
                     {b ? (
                       <button
                         type="button"
-                        onClick={() => cancelBooking.mutate(b)}
+                        onClick={() => setCancelTarget(b)}
                         disabled={cancelBooking.isPending}
                         className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
                         aria-label="Cancel booking"
@@ -778,6 +785,34 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Cancelling a court booking was a single unconfirmed X — easy to hit
+          by accident on a dense hourly grid, and it destroys a member's
+          reservation. */}
+      <AlertDialog open={!!cancelTarget} onOpenChange={(o) => !o && setCancelTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel this booking?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {cancelTarget?.label ? `${cancelTarget.label} — ` : ""}
+              the slot is released immediately and the member loses the
+              reservation. The Google Calendar event is removed too.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep it</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (cancelTarget) cancelBooking.mutate(cancelTarget);
+                setCancelTarget(null);
+              }}
+            >
+              Cancel booking
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 

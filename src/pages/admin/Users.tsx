@@ -6,6 +6,10 @@ import { toast } from "sonner";
 
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { adminApi, supabaseDb } from "@/integrations/supabase/client";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -59,6 +63,7 @@ const AdminUsers = () => {
   const queryClient = useQueryClient();
 
   const [filter, setFilter] = useState<Filter>("all");
+  const [blockTarget, setBlockTarget] = useState<{ id: string; name: string } | null>(null);
   const [serviceFilter, setServiceFilter] = useState<"all" | ServiceKey>("all");
   const [search, setSearch] = useState("");
   const [editUser, setEditUser] = useState<any>(null);
@@ -392,11 +397,19 @@ const AdminUsers = () => {
                     <div className="flex justify-end gap-1">
                       <Button variant="tertiary" size="sm" onClick={() => setEditUser(p.raw)}>Edit</Button>
                       {p.isBlocked ? (
-                        <Button variant="tertiary" size="sm" onClick={() => blockMutation.mutate({ userId: p.id, block: false })}>
+                        <Button
+                          variant="tertiary" size="sm"
+                          aria-label={`Unblock ${p.name}`} title="Unblock"
+                          onClick={() => blockMutation.mutate({ userId: p.id, block: false })}
+                        >
                           <UserCheck className="h-3.5 w-3.5" />
                         </Button>
                       ) : (
-                        <Button variant="tertiary" size="sm" onClick={() => blockMutation.mutate({ userId: p.id, block: true })}>
+                        <Button
+                          variant="tertiary" size="sm"
+                          aria-label={`Block ${p.name}`} title="Block"
+                          onClick={() => setBlockTarget({ id: p.id, name: p.name })}
+                        >
                           <Ban className="h-3.5 w-3.5" />
                         </Button>
                       )}
@@ -463,6 +476,34 @@ const AdminUsers = () => {
           )}
         </SheetContent>
       </Sheet>
+
+      {/* Blocking locks a customer out of the platform — it was one
+          unconfirmed click on an unlabelled icon button. Unblocking stays
+          immediate: it's reversible and non-destructive. */}
+      <AlertDialog open={!!blockTarget} onOpenChange={(o) => !o && setBlockTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Block {blockTarget?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              They lose access to the platform immediately and can't sign in.
+              Active subscriptions keep running and are not refunded. You can
+              unblock them again at any time.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (blockTarget) blockMutation.mutate({ userId: blockTarget.id, block: true });
+                setBlockTarget(null);
+              }}
+            >
+              Block
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </SuperAdminLayout>
   );
 };

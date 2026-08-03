@@ -50,7 +50,7 @@ const MarketplacePlans = () => {
     service === "all" ? providers : providers.filter((p) => p.archetype_key === service)
   ), [providers, service]);
 
-  const { data: plans = [], isLoading } = useQuery({
+  const { data: plans = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: ["marketplace-plans"],
     queryFn: async () => {
       const { data, error } = await supabaseDb.from("provider_plans")
@@ -110,7 +110,8 @@ const MarketplacePlans = () => {
       <AdminListShell
         search={search} onSearch={setSearch} searchPlaceholder="Search plans, providers…"
         filters={filters}
-        isLoading={isLoading} isEmpty={plans.length === 0}
+        isLoading={isLoading} isError={isError} error={error} onRetry={refetch}
+        isEmpty={plans.length === 0}
         isNoResults={plans.length > 0 && visible.length === 0} count={visible.length}
         emptyTitle="No plans yet" emptySubtitle="Providers can create plans in their portal."
         onClearFilters={() => { setSearch(""); setService("all"); setProviderId("all"); setStatus("all"); }}

@@ -70,7 +70,7 @@ export default function ServiceArchetypes() {
   const [deleteTarget, setDeleteTarget] = useState<Archetype | null>(null);
   const [search, setSearch] = useState("");
 
-  const { data: rows = [], isLoading } = useQuery({
+  const { data: rows = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: QUERY_KEY,
     queryFn: async () => {
       const { data, error } = await supabaseDb.from(TABLE).select("*").order("sort_order");
@@ -187,7 +187,8 @@ export default function ServiceArchetypes() {
         <AdminListShell
           actions={<Button onClick={openNew} className="gap-1.5"><Plus className="h-4 w-4" /> New service</Button>}
           search={search} onSearch={setSearch} searchPlaceholder="Search services…"
-          isLoading={isLoading} isEmpty={rows.length === 0}
+          isLoading={isLoading} isError={isError} error={error} onRetry={refetch}
+          isEmpty={rows.length === 0}
           isNoResults={rows.length > 0 && filtered.length === 0} count={filtered.length}
           emptyTitle="No services yet" emptySubtitle="Create your first service archetype."
           onClearFilters={() => setSearch("")}

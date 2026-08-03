@@ -68,7 +68,7 @@ const MarketplaceProviders = () => {
   const [editRow, setEditRow] = useState<ProviderRow | null>(null);
   const [creating, setCreating] = useState<boolean>(false);
 
-  const { data: providers = [], isLoading } = useQuery({
+  const { data: providers = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: QUERY_KEY,
     queryFn: async () => {
       // Hard cap at 200 — pre-cap `.select("*")` returned unbounded, which
@@ -245,7 +245,8 @@ const MarketplaceProviders = () => {
 
         <AdminListShell
           search={search} onSearch={setSearch} searchPlaceholder="Search providers…"
-          isLoading={isLoading} isEmpty={providers.length === 0}
+          isLoading={isLoading} isError={isError} error={error} onRetry={refetch}
+          isEmpty={providers.length === 0}
           isNoResults={providers.length > 0 && visible.length === 0} count={visible.length}
           emptyTitle="No providers yet"
           emptySubtitle="Businesses appear here after they apply and are approved."

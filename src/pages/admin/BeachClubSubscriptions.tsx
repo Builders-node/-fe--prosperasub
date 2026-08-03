@@ -12,6 +12,10 @@ import { effectiveBeachStatus } from "@/lib/subscriptionLifecycle";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { PageLoader, Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { UserPicker } from "@/components/UserPicker";
@@ -80,6 +84,7 @@ export default function BeachClubSubscriptions({ embedded = false }: { embedded?
   const qc = useQueryClient();
   const { userData } = useAuth();
   const [open, setOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
   const [form, setForm] = useState(emptyForm);
 
   const { data: plans = [] } = useQuery({
@@ -369,7 +374,7 @@ export default function BeachClubSubscriptions({ embedded = false }: { embedded?
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
-                          onSelect={() => deleteMutation.mutate(s.id)}
+                          onSelect={() => setDeleteTarget(s)}
                           className="text-destructive focus:bg-destructive/10 focus:text-destructive"
                         >
                           <Trash2 className="h-4 w-4" /> Delete
@@ -483,6 +488,36 @@ export default function BeachClubSubscriptions({ embedded = false }: { embedded?
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Deleting a paid membership was a single unconfirmed click in the ⋯
+          menu — every sibling admin page confirms first. */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this membership?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget?.customer_name || "This member"}
+              {deleteTarget?.plan_name ? ` · ${deleteTarget.plan_name}` : ""}
+              {" — "}
+              this removes the subscription row permanently. Revenue already
+              recorded for it disappears from Finance. Cancel it instead if you
+              only want to end the membership.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (deleteTarget) deleteMutation.mutate(deleteTarget.id);
+                setDeleteTarget(null);
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 

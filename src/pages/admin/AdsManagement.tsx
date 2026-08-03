@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Edit, Trash2, Megaphone, ExternalLink, X } from "lucide-react";
-import { supabaseDb } from "@/integrations/supabase/client";
+import { adminApi } from "@/integrations/supabase/client";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,8 +17,6 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { useAuth } from "@/contexts/AuthContext";
-import { logAuditEvent } from "@/lib/auditLog";
 import { AD_PLACEMENTS, EMPTY_AD, type Ad } from "@/types/ad";
 
 const placementLabel = (value: string) =>
@@ -76,7 +74,6 @@ function ColorField({ label, value, onChange }: { label: string; value: string; 
 
 const AdsManagement = () => {
   const qc = useQueryClient();
-  const { userData } = useAuth();
   const [editItem, setEditItem] = useState<Ad | null>(null);
   const [isNew, setIsNew] = useState(false);
   const [form, setForm] = useState({ ...EMPTY_AD });
@@ -88,13 +85,15 @@ const AdsManagement = () => {
   const { data: ads = [], isLoading } = useQuery({
     queryKey: ["admin-ads"],
     queryFn: async () => {
-      const { data, error } = await supabaseDb
-        .from("promo_banners")
-        .select("*")
-        .order("placement", { ascending: true })
-        .order("sort_order", { ascending: true });
+      // Reads go through NestJS too, so RBAC applies uniformly and the page
+      // can't be driven with the anon key by a role that lacks the permission.
+      const { data, error } = await adminApi("/admin/ads");
       if (error) throw error;
-      return (data ?? []) as Ad[];
+      return ((data ?? []) as Ad[])
+        .slice()
+        .sort((a, b) =>
+          (a.placement ?? "").localeCompare(b.placement ?? "") ||
+          (a.sort_order ?? 0) - (b.sort_order ?? 0));
     },
   });
 
@@ -121,18 +120,15 @@ const AdsManagement = () => {
         is_active: form.is_active,
         dismissible: form.dismissible,
         sort_order: Number(form.sort_order) || 0,
-        updated_at: new Date().toISOString(),
       };
-      let id = editItem?.id ?? "";
-      if (isNew) {
-        const { data, error } = await supabaseDb.from("promo_banners").insert(payload).select("id").single();
-        if (error) throw error;
-        id = data.id;
-      } else {
-        const { error } = await supabaseDb.from("promo_banners").update(payload).eq("id", id);
-        if (error) throw error;
-      }
-      if (userData?.id) await logAuditEvent(userData.id, isNew ? "create" : "edit", "plan", id, { entity: "ad", name: form.title });
+      // The server audits every ad mutation under entity_type "ad" (this used
+      // to be logged client-side as "plan", so ad changes could never be
+      // isolated in Audit Logs) and validates link_url is http(s) before it
+      // reaches a live <a target="_blank"> on the public home page.
+      const { error } = isNew
+        ? await adminApi("/admin/ads", { method: "POST", body: JSON.stringify(payload) })
+        : await adminApi(`/admin/ads/${editItem!.id}`, { method: "PATCH", body: JSON.stringify(payload) });
+      if (error) throw error;
     },
     onSuccess: () => {
       invalidate();
@@ -144,7 +140,9 @@ const AdsManagement = () => {
 
   const toggleMutation = useMutation({
     mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
-      const { error } = await supabaseDb.from("promo_banners").update({ is_active, updated_at: new Date().toISOString() }).eq("id", id);
+      const { error } = await adminApi(`/admin/ads/${id}`, {
+        method: "PATCH", body: JSON.stringify({ is_active }),
+      });
       if (error) throw error;
       return is_active;
     },
@@ -157,7 +155,7 @@ const AdsManagement = () => {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabaseDb.from("promo_banners").delete().eq("id", id);
+      const { error } = await adminApi(`/admin/ads/${id}`, { method: "DELETE" });
       if (error) throw error;
     },
     onSuccess: () => {

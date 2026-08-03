@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import { Search, X, Inbox } from "lucide-react";
+import { Search, X, Inbox, AlertTriangle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -15,6 +15,15 @@ interface Props {
   actions?: ReactNode;
 
   isLoading?: boolean;
+  /**
+   * The query failed. Without this the shell rendered the *empty* state on a
+   * PostgREST 500 — "No providers yet" with a friendly CTA, indistinguishable
+   * from a genuinely empty table. Every consumer discarded useQuery's `error`.
+   */
+  isError?: boolean;
+  error?: unknown;
+  /** Retry handler shown on the error state (usually `refetch`). */
+  onRetry?: () => void;
   /** No records exist at all (before filtering). */
   isEmpty?: boolean;
   /** Records exist but the current search/filters match none. */
@@ -39,7 +48,7 @@ interface Props {
  */
 export function AdminListShell({
   search, onSearch, searchPlaceholder = "Search…",
-  filters, actions, isLoading, isEmpty, isNoResults, count,
+  filters, actions, isLoading, isError, error, onRetry, isEmpty, isNoResults, count,
   emptyTitle = "Nothing here yet", emptySubtitle = "Records will appear here.",
   skeleton = "rows", onClearFilters, children, className,
 }: Props) {
@@ -84,6 +93,19 @@ export function AdminListShell({
           {Array.from({ length: skeleton === "cards" ? 6 : 5 }).map((_, i) => (
             <div key={i} className={cn("animate-pulse rounded-2xl bg-muted", skeleton === "cards" ? "h-40" : "h-16")} />
           ))}
+        </div>
+      ) : isError ? (
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-destructive/30 bg-destructive/5 py-14 text-center">
+          <AlertTriangle className="mb-3 h-10 w-10 text-destructive/60" />
+          <p className="font-semibold text-foreground">Couldn't load this list</p>
+          <p className="mt-1 max-w-md px-6 text-sm text-muted-foreground">
+            {error instanceof Error ? error.message : "The server returned an error."}
+          </p>
+          {onRetry && (
+            <Button variant="outline" size="sm" className="mt-3 rounded-full" onClick={onRetry}>
+              Retry
+            </Button>
+          )}
         </div>
       ) : isEmpty ? (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-border bg-card py-14 text-center">

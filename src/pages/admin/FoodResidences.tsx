@@ -14,9 +14,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { supabaseDb } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
-import { logAuditEvent } from "@/lib/auditLog";
+import { adminApi, supabaseDb } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 interface Residence {
@@ -30,7 +28,6 @@ const EMPTY = { name: "", sort_order: 0, is_active: true };
 
 const FoodResidences = () => {
   const qc = useQueryClient();
-  const { userData } = useAuth();
   const [editing, setEditing] = useState<Residence | "new" | null>(null);
   const [form, setForm] = useState({ ...EMPTY });
   const [deleteTarget, setDeleteTarget] = useState<Residence | null>(null);
@@ -38,13 +35,13 @@ const FoodResidences = () => {
   const { data: residences = [], isLoading } = useQuery({
     queryKey: ["admin-food-residences-all"],
     queryFn: async () => {
-      const { data, error } = await supabaseDb
-        .from("food_residences")
-        .select("id, name, sort_order, is_active")
-        .order("sort_order", { ascending: true })
-        .order("name", { ascending: true });
+      // Through NestJS so RBAC applies — this table has permissive RLS and
+      // was previously written straight from the browser with the anon key.
+      const { data, error } = await adminApi("/admin/locations");
       if (error) throw error;
-      return (data ?? []) as Residence[];
+      return ((data ?? []) as Residence[])
+        .slice()
+        .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.name.localeCompare(b.name));
     },
   });
 
@@ -68,15 +65,12 @@ const FoodResidences = () => {
     mutationFn: async () => {
       const payload = { name: form.name.trim(), sort_order: form.sort_order, is_active: form.is_active };
       if (!payload.name) throw new Error("Name is required");
-      if (editing === "new") {
-        const { data, error } = await supabaseDb.from("food_residences").insert(payload).select("id").single();
-        if (error) throw error;
-        await logAuditEvent(userData!.id, "create", "food_residence", data.id, payload);
-      } else if (editing && editing !== "new") {
-        const { error } = await supabaseDb.from("food_residences").update(payload).eq("id", editing.id);
-        if (error) throw error;
-        await logAuditEvent(userData!.id, "edit", "food_residence", editing.id, payload);
-      }
+      const { error } = editing === "new"
+        ? await adminApi("/admin/locations", { method: "POST", body: JSON.stringify(payload) })
+        : await adminApi(`/admin/locations/${(editing as Residence).id}`, {
+            method: "PATCH", body: JSON.stringify(payload),
+          });
+      if (error) throw error;
     },
     onSuccess: () => {
       toast.success("Location saved");
@@ -87,19 +81,28 @@ const FoodResidences = () => {
     onError: (e: any) => toast.error(e?.message || "Could not save"),
   });
 
-  const toggleActive = async (r: Residence) => {
-    const { error } = await supabaseDb.from("food_residences").update({ is_active: !r.is_active }).eq("id", r.id);
-    if (error) { toast.error(error.message); return; }
-    toast.success(!r.is_active ? "Location enabled" : "Location hidden");
-    qc.invalidateQueries({ queryKey: ["admin-food-residences-all"] });
-    qc.invalidateQueries({ queryKey: ["food-residences"] });
-  };
+  // Was a bare `await` outside React Query: no pending state, no audit entry.
+  const toggleMutation = useMutation({
+    mutationFn: async (r: Residence) => {
+      const { error } = await adminApi(`/admin/locations/${r.id}`, {
+        method: "PATCH", body: JSON.stringify({ is_active: !r.is_active }),
+      });
+      if (error) throw error;
+      return !r.is_active;
+    },
+    onSuccess: (nowActive) => {
+      toast.success(nowActive ? "Location enabled" : "Location hidden");
+      qc.invalidateQueries({ queryKey: ["admin-food-residences-all"] });
+      qc.invalidateQueries({ queryKey: ["food-residences"] });
+    },
+    onError: (e: any) => toast.error(e?.message || "Could not update"),
+  });
+  const toggleActive = (r: Residence) => toggleMutation.mutate(r);
 
   const deleteMutation = useMutation({
     mutationFn: async (r: Residence) => {
-      const { error } = await supabaseDb.from("food_residences").delete().eq("id", r.id);
+      const { error } = await adminApi(`/admin/locations/${r.id}`, { method: "DELETE" });
       if (error) throw error;
-      await logAuditEvent(userData!.id, "delete", "food_residence", r.id, { name: r.name });
     },
     onSuccess: () => {
       toast.success("Location deleted");
