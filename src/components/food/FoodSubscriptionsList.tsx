@@ -185,20 +185,24 @@ export function FoodSubscriptionsList({ providerId }: { providerId: string }) {
     return (
       <div key={s.id} className="flex items-center gap-3 rounded-2xl bg-card p-4">
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <p className="truncate text-sm font-bold text-foreground">{s.plan_name}</p>
+          {/* flex-wrap so badges drop under the title on narrow screens
+              instead of squeezing the plan name into "Standar…" ellipsis. */}
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm font-bold text-foreground">{s.plan_name}</p>
             <Badge className={cn("rounded-full text-[10px] capitalize", statusTone(st))}>{st}</Badge>
             {pendingPayment && (
               <Badge className="rounded-full text-[10px] bg-amber-500/15 text-amber-500">Awaiting payment</Badge>
             )}
           </div>
-          <p className="mt-0.5 truncate text-xs text-muted-foreground">
+          {/* line-clamp-2 (not truncate) so the end date wraps to a second
+              line instead of being cut with "Ju…" on mobile. */}
+          <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
             {customer}
             {s.started_at && s.end_date &&
               ` · ${format(new Date(`${s.started_at}T00:00:00`), "MMM d")} → ${format(new Date(`${s.end_date}T00:00:00`), "MMM d, yyyy")}`}
           </p>
           {s.delivery_address && (
-            <p className="mt-1 truncate text-xs text-muted-foreground">{s.delivery_address}</p>
+            <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{s.delivery_address}</p>
           )}
         </div>
         {totalCents > 0 && (
