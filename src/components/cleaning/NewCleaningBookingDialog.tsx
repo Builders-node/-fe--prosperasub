@@ -50,11 +50,16 @@ interface SubOption {
   customer_name: string;
   /** cleanings_per_month × billing_period_months — a sensible default for bulk. */
   suggested_count: number;
+  /** Package's cleanings_per_month — drives the auto-selected cadence. */
+  per_month: number;
+  /** Billing_period_months on the subscription — used to compute total span. */
+  billing_months: number;
 }
 
-type Cadence = "once" | "weekly" | "biweekly" | "monthly";
+type Cadence = "once" | "daily" | "weekly" | "biweekly" | "monthly";
 
 const CADENCE_DAYS: Record<Exclude<Cadence, "once">, number> = {
+  daily:    1,
   weekly:   7,
   biweekly: 14,
   monthly:  30,
@@ -62,10 +67,28 @@ const CADENCE_DAYS: Record<Exclude<Cadence, "once">, number> = {
 
 const CADENCE_LABEL: Record<Cadence, string> = {
   once:     "Just this date",
+  daily:    "Daily",
   weekly:   "Weekly",
   biweekly: "Every 2 weeks",
   monthly:  "Monthly",
 };
+
+/**
+ * Pick the cadence that matches the plan's natural rhythm — so a
+ * "cleanings_per_month × billing_months" total visit count spans exactly
+ * the paid subscription period, not a random multiple of it.
+ *
+ *   ~26/month (daily plan) → daily,  count = per_month × months
+ *   ~4/month              → weekly
+ *   ~2/month              → biweekly
+ *   ~1/month              → monthly
+ */
+function suggestCadenceFor(perMonth: number): Exclude<Cadence, "once"> {
+  if (perMonth >= 12) return "daily";     // daily-ish plans (Cowork Daily = 26)
+  if (perMonth >= 3)  return "weekly";
+  if (perMonth === 2) return "biweekly";
+  return "monthly";
+}
 
 export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
   const qc = useQueryClient();
@@ -139,6 +162,8 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
           package_name: pkg?.name || "Cleaning plan",
           customer_name: customer,
           suggested_count: suggested,
+          per_month: pkg?.per_month || 0,
+          billing_months: Number(r.billing_period_months) || 1,
         };
       });
     },
@@ -152,8 +177,21 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
     if (selectedSub?.apartment_note && !notes) setNotes(selectedSub.apartment_note);
   }, [selectedSub, notes]);
 
-  // Bulk mode: default the visit count to the subscription's paid period
-  // (cleanings_per_month × billing_period_months). Once → 1. Admin can override.
+  // When the admin picks a subscription, auto-select the cadence that MATCHES
+  // that plan's natural rhythm (daily plan → daily; 4x/month → weekly; …).
+  // Before this, cadence stayed as whatever the admin last clicked, so a Daily
+  // plan with the default "weekly × 26 visits" spanned ~6 months instead of
+  // the intended 1-month subscription period.
+  useEffect(() => {
+    if (!selectedSub) return;
+    if (cadence === "once") { setCount(1); return; }
+    const natural = suggestCadenceFor(selectedSub.per_month);
+    if (cadence !== natural) setCadence(natural);
+    setCount(selectedSub.suggested_count);
+  }, [selectedSub]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Manual cadence flips still reset count sensibly (Once → 1, everything else
+  // → total visits for the subscription's paid period).
   useEffect(() => {
     if (cadence === "once") setCount(1);
     else if (selectedSub) setCount(selectedSub.suggested_count);
@@ -354,9 +392,20 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
                     className="h-8 w-20"
                   />
                   <span className="text-xs text-muted-foreground">
-                    {selectedSub && count === selectedSub.suggested_count
-                      ? "(matches subscription period)"
-                      : `first ${dates[0]} → last ${dates[dates.length - 1]}`}
+                    {(() => {
+                      // "matches subscription period" is only truthful when
+                      // BOTH the count is the suggested total AND the cadence
+                      // matches the plan's natural rhythm — otherwise we're
+                      // spanning way more (or fewer) days than the paid window.
+                      const isMatch =
+                        !!selectedSub &&
+                        count === selectedSub.suggested_count &&
+                        cadence !== "once" &&
+                        cadence === suggestCadenceFor(selectedSub.per_month);
+                      return isMatch
+                        ? "(matches subscription period)"
+                        : `first ${dates[0]} → last ${dates[dates.length - 1]}`;
+                    })()}
                   </span>
                 </div>
               )}
