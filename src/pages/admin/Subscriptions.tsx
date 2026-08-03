@@ -70,7 +70,10 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { formatPricingLabel, monthlyCleaningEstimate, resolveMonthlyPriceCents } from "@/lib/cleaningPlanPricing";
-import { approvePayment, isPendingPayment } from "@/lib/subscriptionApprove";
+// `isPendingPayment` is defined locally below with an extra lifecycle guard
+// (skip if cancelled/expired) — importing the base one would silently shadow
+// the local and drift over time.
+import { approvePayment } from "@/lib/subscriptionApprove";
 import { todayHN, addDaysISO, addMonthsISO } from "@/lib/timezone";
 
 type SubFilter = "all" | "active" | "pending" | "paused" | "cancelled" | "expired";

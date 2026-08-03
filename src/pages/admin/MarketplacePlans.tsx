@@ -54,7 +54,9 @@ const MarketplacePlans = () => {
     queryKey: ["marketplace-plans"],
     queryFn: async () => {
       const { data, error } = await supabaseDb.from("provider_plans")
-        .select("*").order("sort_order", { ascending: true }).order("name", { ascending: true });
+        // Hard cap at 200 rows — cheap safety net until real pagination lands.
+        .select("*").order("sort_order", { ascending: true }).order("name", { ascending: true })
+        .range(0, 199);
       if (error) throw error;
       return (data ?? []) as Plan[];
     },

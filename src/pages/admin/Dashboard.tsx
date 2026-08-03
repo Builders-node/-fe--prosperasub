@@ -1,10 +1,14 @@
 import { Link } from "react-router-dom";
-import { ArrowUpRight, Car, SparklesIcon, UtensilsCrossed, Waves } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { ArrowUpRight, Car, CheckCircle2, SparklesIcon, UtensilsCrossed, Waves } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
+import { toast } from "sonner";
 import { supabaseDb } from "@/integrations/supabase/client";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { SectionOverline } from "@/components/subscriptions/MySubsPrimitives";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/AuthContext";
+import { approvePayment, type ApproveService } from "@/lib/subscriptionApprove";
 import { cn } from "@/lib/utils";
 
 /**
@@ -30,7 +34,20 @@ const SERVICE_META: Record<ServiceKey, { label: string; icon: typeof SparklesIco
   cars:     { label: "Car Rental", icon: Car,              href: "/admin/analytics?service=cars" },
 };
 
+interface PendingRow {
+  id: string;
+  service: ApproveService;
+  serviceLabel: string;
+  ServiceIcon: typeof SparklesIcon;
+  userLabel: string;
+  amountCents: number;
+  createdAt: string;
+}
+
 const AdminDashboard = () => {
+  const qc = useQueryClient();
+  const { userData } = useAuth();
+
   const { data: stats } = useQuery({
     queryKey: ["super-admin-stats-all"],
     queryFn: async () => {
@@ -83,6 +100,98 @@ const AdminDashboard = () => {
 
       return { users: usersRes.count || 0, revenueCents, activeSubs, pending, byService };
     },
+  });
+
+  // Awaiting-payment queue — the top daily-friction workflow (admin approves
+  // manual-payment subs one by one). Ships as an inline mini-queue so the
+  // admin doesn't have to leave the dashboard, click into a filtered list, and
+  // navigate a table per approval.
+  const { data: pendingQueue = [] } = useQuery<PendingRow[]>({
+    queryKey: ["super-admin-pending-queue"],
+    queryFn: async () => {
+      const [cleaningSubs, foodSubs, beachSubs, rentalBookings] = await Promise.all([
+        supabaseDb.from("cleaning_subscriptions")
+          .select("id, user_id, total_price_cents, monthly_price_cents, created_at, payment_status, subscription_status")
+          .is("deleted_at", null).neq("payment_status", "paid").neq("payment_status", "refunded")
+          .not("subscription_status", "in", "(cancelled,expired)")
+          .order("created_at", { ascending: false }).limit(20),
+        supabaseDb.from("food_subscriptions")
+          .select("id, user_id, customer_name, weekly_price_cents, commitment_weeks, created_at, payment_status, status")
+          .neq("payment_status", "paid").neq("payment_status", "refunded")
+          .not("status", "in", "(cancelled,expired)")
+          .order("created_at", { ascending: false }).limit(20),
+        supabaseDb.from("beach_club_subscriptions")
+          .select("id, user_id, customer_name, total_cents, created_at, payment_status, status")
+          .neq("payment_status", "paid").neq("payment_status", "refunded")
+          .not("status", "in", "(cancelled,expired)")
+          .order("created_at", { ascending: false }).limit(20),
+        supabaseDb.from("rental_bookings")
+          .select("id, user_id, total_cents, created_at, payment_status, status")
+          .is("deleted_at", null).neq("payment_status", "paid").neq("payment_status", "refunded")
+          .not("status", "in", "(cancelled,expired)")
+          .order("created_at", { ascending: false }).limit(20),
+      ]);
+
+      const userIds = [...new Set([
+        ...(cleaningSubs.data ?? []).map((r: any) => r.user_id),
+        ...(foodSubs.data ?? []).map((r: any) => r.user_id),
+        ...(beachSubs.data ?? []).map((r: any) => r.user_id),
+        ...(rentalBookings.data ?? []).map((r: any) => r.user_id),
+      ].filter(Boolean))] as string[];
+      const usersRes = userIds.length
+        ? await supabaseDb.from("users").select("id, name, display_name, email").in("id", userIds)
+        : { data: [] as any[] };
+      const userMap = new Map((usersRes.data ?? []).map((u: any) => [String(u.id), u]));
+      const label = (userId: string | null, fallback?: string | null) => {
+        if (!userId) return fallback || "Customer";
+        const u = userMap.get(String(userId));
+        return u?.display_name || u?.name || u?.email || fallback || "Customer";
+      };
+
+      const rows: PendingRow[] = [];
+      (cleaningSubs.data ?? []).forEach((r: any) => rows.push({
+        id: r.id, service: "cleaning", serviceLabel: "Cleaning", ServiceIcon: SparklesIcon,
+        userLabel: label(r.user_id),
+        amountCents: Number(r.total_price_cents) || Number(r.monthly_price_cents) || 0,
+        createdAt: r.created_at,
+      }));
+      (foodSubs.data ?? []).forEach((r: any) => rows.push({
+        id: r.id, service: "food", serviceLabel: "Food", ServiceIcon: UtensilsCrossed,
+        userLabel: label(r.user_id, r.customer_name),
+        amountCents: (Number(r.weekly_price_cents) || 0) * (Number(r.commitment_weeks) || 1),
+        createdAt: r.created_at,
+      }));
+      (beachSubs.data ?? []).forEach((r: any) => rows.push({
+        id: r.id, service: "beach", serviceLabel: "Beach Club", ServiceIcon: Waves,
+        userLabel: label(r.user_id, r.customer_name),
+        amountCents: Number(r.total_cents) || 0,
+        createdAt: r.created_at,
+      }));
+      (rentalBookings.data ?? []).forEach((r: any) => rows.push({
+        id: r.id, service: "cars", serviceLabel: "Car Rental", ServiceIcon: Car,
+        userLabel: label(r.user_id),
+        amountCents: Number(r.total_cents) || 0,
+        createdAt: r.created_at,
+      }));
+
+      // Newest-first so a fresh pending sub jumps to the top of the queue
+      // — the admin's "just came in" is what they want to see first.
+      return rows.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 8);
+    },
+    staleTime: 30_000,
+  });
+
+  const approve = useMutation({
+    mutationFn: async (row: PendingRow) => {
+      await approvePayment(row.service, row.id, { adminUserId: userData?.id });
+    },
+    onSuccess: () => {
+      toast.success("Payment approved");
+      // Refresh EVERY dashboard block so metrics + queue update in one go.
+      qc.invalidateQueries({ predicate: (q) => String(q.queryKey[0] ?? "").startsWith("super-admin-") });
+      qc.invalidateQueries({ queryKey: ["admin-recent-activity-subscriptions"] });
+    },
+    onError: (e: Error) => toast.error(e.message || "Could not approve payment"),
   });
 
   // Subscription-level activity — one row per distinct customer sale, not one
@@ -176,6 +285,52 @@ const AdminDashboard = () => {
           className="col-span-2 md:col-span-1"
         />
       </div>
+
+      {/* Awaiting-payment mini-queue — the top daily admin workflow. Each row
+          has an inline Approve so the admin doesn't need to navigate into a
+          list, find the row, open ⋮, click "Mark as paid". Hidden when the
+          queue is empty so the dashboard stays clean on quiet days. */}
+      {pendingQueue.length > 0 && (
+        <section className="mt-6">
+          <SectionOverline label="Awaiting payment" count={pendingQueue.length} className="mb-3" />
+          <div className="overflow-hidden rounded-2xl bg-card">
+            <ul className="divide-y divide-border/40">
+              {pendingQueue.map((row) => {
+                const Icon = row.ServiceIcon;
+                return (
+                  <li
+                    key={`${row.service}-${row.id}`}
+                    className="flex items-center gap-3 px-4 py-3"
+                  >
+                    <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-foreground">
+                        {row.userLabel} · {row.serviceLabel}
+                      </p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {format(new Date(row.createdAt), "MMM d, yyyy · h:mm a")}
+                      </p>
+                    </div>
+                    <span className="shrink-0 text-sm font-bold tabular-nums text-amber-500">
+                      {formatCents(row.amountCents)}
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="ml-3 h-8 gap-1.5 rounded-full text-xs"
+                      disabled={approve.isPending}
+                      onClick={() => approve.mutate(row)}
+                    >
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                      Approve
+                    </Button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        </section>
+      )}
 
       {/* Per-service breakdown. Flat, no icon disc, revenue + active side by side. */}
       <section className="mt-6">

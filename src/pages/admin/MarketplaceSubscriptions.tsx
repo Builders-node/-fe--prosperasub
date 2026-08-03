@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Building2, ChevronsUpDown, ChevronUp, ChevronDown, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -350,11 +351,33 @@ const MarketplaceSubscriptions = () => {
                   const stage = subscriptionStage(s);
                   return (
                     <tr key={s.id} className="border-b border-border/60 last:border-0 hover:bg-muted/30">
-                      <td className="px-4 py-3 font-semibold text-foreground">{userLabel(s.user_id)}</td>
+                      <td className="px-4 py-3 font-semibold text-foreground">
+                        {s.user_id ? (
+                          <Link
+                            to={`/admin/users?userId=${encodeURIComponent(s.user_id)}`}
+                            className="hover:text-primary hover:underline"
+                          >
+                            {userLabel(s.user_id)}
+                          </Link>
+                        ) : (
+                          userLabel(s.user_id)
+                        )}
+                      </td>
                       <td className="px-4 py-3">
                         {plan?.name ?? <em className="italic text-muted-foreground/70">no plan</em>}
                       </td>
-                      <td className="px-4 py-3 text-muted-foreground">{prov?.name ?? "—"}</td>
+                      <td className="px-4 py-3 text-muted-foreground">
+                        {prov ? (
+                          <Link
+                            to={`/admin/marketplace/providers?id=${encodeURIComponent(prov.id)}`}
+                            className="hover:text-primary hover:underline"
+                          >
+                            {prov.name}
+                          </Link>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
                       <td className="px-4 py-3">
                         <span className="inline-flex items-center gap-1.5">
                           <span className={cn("flex h-5 w-5 shrink-0 items-center justify-center rounded-md", arche?.accent ?? "bg-muted")}>

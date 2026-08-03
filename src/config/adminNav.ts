@@ -13,7 +13,7 @@
 import {
   BarChart3, CalendarDays, CreditCard, DollarSign,
   FileText, Layers, LayoutDashboard, MapPin, Megaphone,
-  ShieldCheck, Users, Building2,
+  ShieldCheck, Users, Building2, Sparkles, Settings, UserPlus,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { adminRoutes } from "./adminRoutes";
@@ -50,7 +50,11 @@ export const MARKETPLACE_SECTION: NavSection = {
   title: "Marketplace",
   items: [
     { label: "Services",      path: adminRoutes.superAdminServices,                 icon: Layers       },
-    { label: "Providers",     path: adminRoutes.superAdminMarketplaceProviders,     icon: Building2    },
+    { label: "Providers",     path: adminRoutes.superAdminMarketplaceProviders,     icon: Building2,
+      // Provider Applications lives at its own URL; keep the parent item
+      // highlighted when the admin is triaging pending applications.
+      alsoActiveOn: [adminRoutes.superAdminProviderApplications] },
+    { label: "Applications",  path: adminRoutes.superAdminProviderApplications,     icon: UserPlus     },
     { label: "Plans",         path: adminRoutes.superAdminMarketplacePlans,         icon: CreditCard   },
     { label: "Subscriptions", path: adminRoutes.superAdminMarketplaceSubscriptions, icon: CalendarDays },
   ],
@@ -64,14 +68,23 @@ export const PEOPLE_SECTION: NavSection = {
   ],
 };
 
+// ─── OPERATIONS — physical scheduling that doesn't fit a marketplace list ─
+export const OPERATIONS_SECTION: NavSection = {
+  title: "Operations",
+  items: [
+    { label: "Cleaning ops", path: adminRoutes.superAdminCleaningOps, icon: Sparkles },
+  ],
+};
+
 // ─── SETTINGS ───────────────────────────────────────────────────────────
 export const SETTINGS_SECTION: NavSection = {
   title: "Settings",
   items: [
-    { label: "Locations",  path: adminRoutes.superAdminLocations, icon: MapPin      },
-    { label: "Ads",        path: adminRoutes.superAdminAds,       icon: Megaphone   },
-    { label: "Roles",      path: adminRoutes.superAdminRoles,     icon: ShieldCheck },
-    { label: "Audit Logs", path: adminRoutes.superAdminAuditLogs, icon: FileText    },
+    { label: "Locations",       path: adminRoutes.superAdminLocations, icon: MapPin      },
+    { label: "Ads",             path: adminRoutes.superAdminAds,       icon: Megaphone   },
+    { label: "Roles",           path: adminRoutes.superAdminRoles,     icon: ShieldCheck },
+    { label: "Audit Logs",      path: adminRoutes.superAdminAuditLogs, icon: FileText    },
+    { label: "Platform config", path: adminRoutes.superAdminSettings,  icon: Settings    },
   ],
 };
 
@@ -80,6 +93,7 @@ export const NAV_SECTIONS: NavSection[] = [
   OVERVIEW_SECTION,
   MARKETPLACE_SECTION,
   PEOPLE_SECTION,
+  OPERATIONS_SECTION,
   SETTINGS_SECTION,
 ];
 

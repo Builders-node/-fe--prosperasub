@@ -9,6 +9,16 @@ import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { logAuditEvent } from "@/lib/auditLog";
 import { useAuth } from "@/contexts/AuthContext";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -273,6 +283,7 @@ const CleaningPlans = ({
   });
 
   const [editingAssignment, setEditingAssignment] = useState<any | null>(null);
+  const [assignmentToDelete, setAssignmentToDelete] = useState<{ id: string; label: string } | null>(null);
 
   const updateAssignmentMutation = useMutation({
     mutationFn: async (data: { id: string; custom_price_cents?: number | null; notes?: string | null; status?: string }) => {
@@ -477,7 +488,7 @@ const CleaningPlans = ({
                   size="sm"
                   variant="ghost"
                   className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                  onClick={() => { if (confirm("Remove this assignment?")) deleteAssignmentMutation.mutate(assignment.id); }}
+                  onClick={() => setAssignmentToDelete({ id: assignment.id, label: assignment.plan?.name || "assignment" })}
                 >
                   Remove
                 </Button>
@@ -536,6 +547,35 @@ const CleaningPlans = ({
         </DialogContent>
       </Dialog>
       {/* Edit Assignment Dialog */}
+      {/* Confirm before deleting a plan assignment. Replaces `window.confirm`
+          — every other admin page uses AlertDialog, and native prompts are
+          too easy to muscle-memory through. */}
+      <AlertDialog
+        open={assignmentToDelete !== null}
+        onOpenChange={(open) => !open && setAssignmentToDelete(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove {assignmentToDelete?.label}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This unassigns the plan from this residence. Customers already subscribed keep their subscription; only new sign-ups are affected.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (assignmentToDelete) deleteAssignmentMutation.mutate(assignmentToDelete.id);
+                setAssignmentToDelete(null);
+              }}
+            >
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Dialog open={Boolean(editingAssignment)} onOpenChange={(open) => !open && setEditingAssignment(null)}>
         <DialogContent>
           <DialogHeader>

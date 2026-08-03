@@ -18,6 +18,9 @@ export const adminRoutes = {
   superAdminAds: "/admin/ads",
   superAdminRoles: "/admin/roles",
   superAdminAuditLogs: "/admin/audit-logs",
+  superAdminCleaningOps: "/admin/cleaning",
+  superAdminSettings: "/admin/settings",
+  superAdminProviderApplications: "/admin/marketplace/providers/applications",
 } as const;
 
 export const publicRoutes = {
