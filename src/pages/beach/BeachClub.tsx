@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Waves, ArrowRight, LandPlot } from "lucide-react";
+import { groupProvidersByCategory } from "@/lib/services/groupByCategory";
 import { HomeHeader } from "@/components/HomeHeader";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
 import { BottomNav } from "@/components/BottomNav";
@@ -80,24 +81,12 @@ const BeachClub = () => {
 
   // Group providers by category, keeping only categories that have at
   // least one provider. Providers without category_key fall into "Other".
-  const providerGroups = useMemo(() => {
-    const providers = providersQ.data ?? [];
-    const cats = categoriesQ.data ?? [];
-    const byCat = new Map<string, EntertainmentProvider[]>();
-    providers.forEach((p) => {
-      const key = p.category_key || "__other__";
-      if (!byCat.has(key)) byCat.set(key, []);
-      byCat.get(key)!.push(p);
-    });
-    const ordered: Array<{ key: string; label: string; providers: EntertainmentProvider[] }> = [];
-    cats.forEach((c) => {
-      const list = byCat.get(c.key);
-      if (list && list.length) ordered.push({ key: c.key, label: c.label, providers: list });
-    });
-    const other = byCat.get("__other__");
-    if (other && other.length) ordered.push({ key: "__other__", label: "Other", providers: other });
-    return ordered;
-  }, [providersQ.data, categoriesQ.data]);
+  const providerGroups = useMemo(
+    () => groupProvidersByCategory<EntertainmentProvider>(
+      providersQ.data ?? [], categoriesQ.data ?? [], (p) => p.category_key,
+    ),
+    [providersQ.data, categoriesQ.data],
+  );
 
   // Active membership → unlock court booking.
   const { data: hasMembership } = useQuery({

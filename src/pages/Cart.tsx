@@ -225,6 +225,9 @@ export default function Cart() {
     }
   };
 
+  /** The sticky bar and BottomNav share the bottom strip — never both. */
+  const showStickyCheckout = step === "cart" && items.length > 0;
+
   const startCheckout = async () => {
     if (!isAuthenticated) { openAuthModal("login", "/cart"); return; }
     if (!formValid || items.length === 0) return;
@@ -529,7 +532,7 @@ export default function Cart() {
       </main>
 
       {/* Sticky checkout bar */}
-      {step === "cart" && items.length > 0 && (
+      {showStickyCheckout && (
         <CheckoutStickyFooter>
           {enabledMethods.length === 0 && (
             <p className="mb-2 rounded-xl bg-amber-500/10 px-3 py-2 text-center text-xs text-amber-400">
@@ -567,7 +570,13 @@ export default function Cart() {
         </CheckoutStickyFooter>
       )}
 
-      {!isAuthenticated && <BottomNav />}
+      {/* The sticky checkout bar and the bottom nav occupy the same strip, so
+          only one may render. This used to test `!isAuthenticated`, which is
+          merely correlated with "no sticky bar" — a logged-out user can't
+          check out. The consequence was that a signed-in user lost the bottom
+          nav on /cart even with an empty basket, on the one page in the app
+          that hid it. Test the actual condition instead. */}
+      {!showStickyCheckout && <BottomNav />}
     </div>
   );
 }

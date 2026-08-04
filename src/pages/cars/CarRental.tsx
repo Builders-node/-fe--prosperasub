@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Car, CalendarDays, Pencil } from "lucide-react";
 import { format, parseISO } from "date-fns";
+import { groupProvidersByCategory } from "@/lib/services/groupByCategory";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { useSelectedResidence } from "@/contexts/LocationContext";
 import { useResidences } from "@/hooks/useResidences";
@@ -93,24 +94,10 @@ const CarRental = () => {
     },
   });
 
-  const providerGroups = useMemo(() => {
-    const providers = providersQ.data ?? [];
-    const cats = categoriesQ.data ?? [];
-    const byCat = new Map<string, typeof providers>();
-    providers.forEach((p) => {
-      const key = p.category_key || "__other__";
-      if (!byCat.has(key)) byCat.set(key, []);
-      byCat.get(key)!.push(p);
-    });
-    const ordered: Array<{ key: string; label: string; providers: typeof providers }> = [];
-    cats.forEach((c) => {
-      const list = byCat.get(c.key);
-      if (list && list.length) ordered.push({ key: c.key, label: c.label, providers: list });
-    });
-    const other = byCat.get("__other__");
-    if (other && other.length) ordered.push({ key: "__other__", label: "Other", providers: other });
-    return ordered;
-  }, [providersQ.data, categoriesQ.data]);
+  const providerGroups = useMemo(
+    () => groupProvidersByCategory(providersQ.data ?? [], categoriesQ.data ?? [], (p) => p.category_key),
+    [providersQ.data, categoriesQ.data],
+  );
 
   const { data: vehicles, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ["rental-vehicles-public"],

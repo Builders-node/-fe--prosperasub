@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import {
   UtensilsCrossed, ChefHat, MapPin, ArrowRight, CalendarDays,
 } from "lucide-react";
+import { groupProvidersByCategory } from "@/lib/services/groupByCategory";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { HomeHeader } from "@/components/HomeHeader";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
@@ -144,24 +145,15 @@ const FoodListing = () => {
   // Catering, Grocery Delivery). If only one category has content, the header
   // is hidden — page stays visually identical to before until an admin adds
   // a second Food category.
-  const restaurantGroups = useMemo(() => {
-    const cats = foodCategoriesQ.data ?? [];
-    const catMap = foodProviderCategoriesQ.data ?? {};
-    const byCat = new Map<string, typeof visibleProviders>();
-    visibleProviders.forEach((p) => {
-      const key = catMap[p.id] || "__other__";
-      if (!byCat.has(key)) byCat.set(key, []);
-      byCat.get(key)!.push(p);
-    });
-    const ordered: Array<{ key: string; label: string; providers: typeof visibleProviders }> = [];
-    cats.forEach((c) => {
-      const list = byCat.get(c.key);
-      if (list && list.length) ordered.push({ key: c.key, label: c.label, providers: list });
-    });
-    const other = byCat.get("__other__");
-    if (other && other.length) ordered.push({ key: "__other__", label: "Other", providers: other });
-    return ordered;
-  }, [visibleProviders, foodCategoriesQ.data, foodProviderCategoriesQ.data]);
+  const restaurantGroups = useMemo(
+    () => groupProvidersByCategory(
+      visibleProviders,
+      foodCategoriesQ.data ?? [],
+      // Food resolves the category through a join table, not a column.
+      (p) => (foodProviderCategoriesQ.data ?? {})[p.id],
+    ),
+    [visibleProviders, foodCategoriesQ.data, foodProviderCategoriesQ.data],
+  );
 
   // All meal plans across restaurants, flattened with their provider for context.
   const allPlans = visibleProviders.flatMap((p) =>

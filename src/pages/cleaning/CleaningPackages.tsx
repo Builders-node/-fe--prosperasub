@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { SparklesIcon, ShieldCheck } from "lucide-react";
+import { groupProvidersByCategory } from "@/lib/services/groupByCategory";
 import { supabase, supabaseDb } from "@/integrations/supabase/client";
 import { useSelectedResidence } from "@/contexts/LocationContext";
 import { useResidences } from "@/hooks/useResidences";
@@ -161,29 +162,24 @@ const CleaningPackages = () => {
 
     // Group providers under their category, preserving both providersQ's
     // sort_order (providers within a category) and categoriesQ's sort_order.
-    const providersByCategory = new Map<string, ProviderGroup[]>();
-    providers.forEach((p) => {
-      const pkgs = packagesByProvider.get(p.id) ?? [];
-      if (pkgs.length === 0) return; // no visible plans → hide provider tile too
-      const catKey = p.category_key || "__other__";
-      if (!providersByCategory.has(catKey)) providersByCategory.set(catKey, []);
-      providersByCategory.get(catKey)!.push({
+    // Shared grouper so a category deactivated in admin drops its providers
+    // into "Other" instead of erasing them from the page.
+    const tiles = providers
+      .filter((p) => (packagesByProvider.get(p.id) ?? []).length > 0) // no visible plans → hide the tile
+      .map((p) => ({
+        categoryKey: p.category_key,
         providerId: p.id,
         providerName: p.name,
         providerAvatar: p.avatar_url ?? null,
         providerGallery: p.gallery_urls ?? [],
-        packages: pkgs,
-      });
-    });
+        packages: packagesByProvider.get(p.id)!,
+      }));
 
-    const ordered: CategoryGroup[] = [];
-    categories.forEach((c) => {
-      const list = providersByCategory.get(c.key);
-      if (list && list.length) ordered.push({ categoryKey: c.key, categoryLabel: c.label, providers: list });
-    });
-    const other = providersByCategory.get("__other__");
-    if (other && other.length) ordered.push({ categoryKey: "__other__", categoryLabel: "Other", providers: other });
-    return ordered;
+    return groupProvidersByCategory(tiles, categories, (t) => t.categoryKey).map((g) => ({
+      categoryKey: g.key,
+      categoryLabel: g.label,
+      providers: g.providers,
+    }));
   }, [visiblePackages, providersQ.data, categoriesQ.data]);
 
   // Flatten for "Providers" top strip (kept for scan-ability across categories).
