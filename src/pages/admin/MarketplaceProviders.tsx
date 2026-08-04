@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Eye, EyeOff, ExternalLink, Building2, Mail, Phone, ShieldCheck, MoreVertical, Pencil, Plus } from "lucide-react";
@@ -56,13 +56,27 @@ const AUDIT_ENTITY = "provider";
  * filter, Edit sheet for archetype + capabilities changes so those aren't
  * inline (misclick surface).
  */
-const MarketplaceProviders = () => {
+export interface MarketplaceProvidersProps {
+  /** Mounted as a tab inside the service detail page — skip the page chrome. */
+  embedded?: boolean;
+  /**
+   * Locks the list to one service. Pass `"unassigned"` for the providers whose
+   * `archetype_key` is null — the FK is ON DELETE SET NULL, so deleting an
+   * archetype orphans its providers and they'd be unreachable from a pure tree.
+   */
+  archetypeKey?: string;
+}
+
+const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplaceProvidersProps = {}) => {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const { userData } = useAuth();
   const { archetypes } = useServiceArchetypes(false);
 
-  const [service, setService] = useState<string>("all");
+  // Derived, not state, when the parent route owns the scope — see the note in
+  // MarketplacePlans.
+  const [serviceFilter, setServiceFilter] = useState<string>("all");
+  const service = archetypeKey ?? serviceFilter;
   const [status, setStatus] = useState<string>("all");
   const [search, setSearch] = useState<string>("");
   const [editRow, setEditRow] = useState<ProviderRow | null>(null);
@@ -112,7 +126,8 @@ const MarketplaceProviders = () => {
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
     return providers.filter((p) => {
-      if (service !== "all" && p.archetype_key !== service) return false;
+      if (service === "unassigned") { if (p.archetype_key) return false; }
+      else if (service !== "all" && p.archetype_key !== service) return false;
       if (status  !== "all" && p.status        !== status)  return false;
       if (q && !(
         p.name.toLowerCase().includes(q) ||
@@ -122,6 +137,14 @@ const MarketplaceProviders = () => {
       return true;
     });
   }, [providers, service, status, search]);
+
+  // Everything in the current service, before search/status narrowing — tells
+  // "this service has no providers" apart from "your filters matched nothing".
+  const inScope = useMemo(() => (
+    archetypeKey
+      ? providers.filter((p) => (archetypeKey === "unassigned" ? !p.archetype_key : p.archetype_key === archetypeKey))
+      : providers
+  ), [providers, archetypeKey]);
 
   const counts = useMemo(() => ({
     total: providers.length,
@@ -193,24 +216,27 @@ const MarketplaceProviders = () => {
     return name.slice(0, 2).toUpperCase();
   };
 
-  return (
-    <SuperAdminLayout title="Providers" subtitle="Every business on the platform, across all services">
+  const body = (
+    <>
       <div className="space-y-5">
-        <AdminPageTabs tabs={[
-          { label: "Providers", to: "/admin/marketplace/providers" },
-          { label: "Applications", to: "/admin/marketplace/providers/applications", badge: pendingApps },
-        ]} />
+        {!embedded && (
+          <AdminPageTabs tabs={[
+            { label: "Providers", to: "/admin/marketplace/providers" },
+            { label: "Applications", to: "/admin/marketplace/providers/applications", badge: pendingApps },
+          ]} />
+        )}
 
-        {/* Chip-row archetype filter: one click to jump between services. */}
+        {/* Chip-row archetype filter: one click to jump between services.
+            Hidden when the route already pins the service. */}
         <div className="flex flex-wrap items-center gap-2">
-          {([
+          {(archetypeKey ? [] : [
             { key: "all", label: "All", count: counts.total },
             ...archetypes.map((a) => ({ key: a.key, label: a.label, count: counts.perArchetype[a.key] ?? 0 })),
           ]).map((f) => (
             <button
               key={f.key}
               type="button"
-              onClick={() => setService(f.key)}
+              onClick={() => setServiceFilter(f.key)}
               className={cn(
                 "flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors",
                 service === f.key
@@ -246,14 +272,14 @@ const MarketplaceProviders = () => {
         <AdminListShell
           search={search} onSearch={setSearch} searchPlaceholder="Search providers…"
           isLoading={isLoading} isError={isError} error={error} onRetry={refetch}
-          isEmpty={providers.length === 0}
-          isNoResults={providers.length > 0 && visible.length === 0} count={visible.length}
+          isEmpty={inScope.length === 0}
+          isNoResults={inScope.length > 0 && visible.length === 0} count={visible.length}
           emptyTitle="No providers yet"
           emptySubtitle="Businesses appear here after they apply and are approved."
-          onClearFilters={() => { setSearch(""); setService("all"); setStatus("all"); }}
+          onClearFilters={() => { setSearch(""); setServiceFilter("all"); setStatus("all"); }}
         >
           {/* Empty state gets a direct CTA to Applications */}
-          {providers.length === 0 && (
+          {inScope.length === 0 && (
             <div className="flex justify-center pt-2">
               <Button asChild variant="outline" className="rounded-full">
                 <Link to="/admin/marketplace/providers/applications">Review applications</Link>
@@ -458,6 +484,7 @@ const MarketplaceProviders = () => {
             <SheetDescription>Create a platform-owned business on any archetype.</SheetDescription>
           </SheetHeader>
           <CreateProviderForm
+            defaultArchetype={archetypeKey && archetypeKey !== "unassigned" ? archetypeKey : undefined}
             archetypes={archetypes}
             categories={categories}
             saving={createProvider.isPending}
@@ -490,6 +517,13 @@ const MarketplaceProviders = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </>
+  );
+
+  if (embedded) return body;
+  return (
+    <SuperAdminLayout title="Providers" subtitle="Every business on the platform, across all services">
+      {body}
     </SuperAdminLayout>
   );
 };
@@ -638,12 +672,14 @@ function EditProviderForm({
 
 // ─── Create form ────────────────────────────────────────────────────────────
 function CreateProviderForm({
-  archetypes, categories, saving, onCreate,
+  archetypes, categories, saving, onCreate, defaultArchetype,
 }: {
   archetypes: ReturnType<typeof useServiceArchetypes>["archetypes"];
   categories: Array<{ key: string; label: string; archetype_key: string }>;
   saving: boolean;
   onCreate: (payload: Record<string, unknown>) => void;
+  /** Pre-selects the service when opened from inside that service's page. */
+  defaultArchetype?: string;
 }) {
   const [name, setName] = useState("");
   const [archetypeKey, setArchetypeKey] = useState<string>("__none");
@@ -669,6 +705,15 @@ function CreateProviderForm({
     const first = categories.find((c) => c.archetype_key === key);
     setCategoryKey(first?.key ?? "__none");
   };
+
+  // Seed from the pinned service, but only once the archetype list has loaded —
+  // it arrives async, so seeding on mount would silently select nothing.
+  useEffect(() => {
+    if (!defaultArchetype || archetypeKey !== "__none") return;
+    if (!archetypes.some((a) => a.key === defaultArchetype)) return;
+    onArchetypeChange(defaultArchetype);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultArchetype, archetypes, categories]);
 
   const toggleCap = (c: CapabilityKey) => {
     setCaps((prev) => {

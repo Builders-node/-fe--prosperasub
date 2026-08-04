@@ -83,6 +83,8 @@ const MarketplaceProviders = lazy(() => import("./pages/admin/MarketplaceProvide
 const MarketplaceProviderDetail = lazy(() => import("./pages/admin/MarketplaceProviderDetail"));
 const LegacyProviderRedirect = lazy(() => import("./pages/admin/LegacyProviderRedirect"));
 const MarketplacePlans = lazy(() => import("./pages/admin/MarketplacePlans"));
+const MarketplaceHub = lazy(() => import("./pages/admin/MarketplaceHub"));
+const MarketplaceServiceDetail = lazy(() => import("./pages/admin/MarketplaceServiceDetail"));
 const MarketplaceSubscriptions = lazy(() => import("./pages/admin/MarketplaceSubscriptions"));
 const MyProvider = lazy(() => import("./pages/user/MyProvider"));
 const AuditLogs = lazy(() => import("./pages/admin/AuditLogs"));
@@ -256,6 +258,15 @@ const App = () => {
               } />
               <Route path="/admin/services/categories" element={
                 <ProtectedRoute allowedRoles={['super_admin']}><ServiceCategories /></ProtectedRoute>
+              } />
+              {/* Drill-down entry point: Marketplace → service → its lists. The flat
+                  lists below stay routable — they're linked from the hub and are the
+                  only way to reach providers whose archetype_key went null. */}
+              <Route path="/admin/marketplace" element={
+                <ProtectedRoute allowedRoles={['super_admin']}><MarketplaceHub /></ProtectedRoute>
+              } />
+              <Route path="/admin/marketplace/service/:key" element={
+                <ProtectedRoute allowedRoles={['super_admin']}><MarketplaceServiceDetail /></ProtectedRoute>
               } />
               <Route path="/admin/marketplace/providers" element={
                 <ProtectedRoute allowedRoles={['super_admin']}><MarketplaceProviders /></ProtectedRoute>

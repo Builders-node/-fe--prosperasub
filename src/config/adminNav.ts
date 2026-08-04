@@ -2,16 +2,14 @@
  * Admin Panel navigation. Kept intentionally compact so the sidebar stays
  * scannable. Cross-cutting things collapse into ONE page with tabs, not a
  * separate nav entry:
- *   Marketplace → Services · Providers (with a Pending-applications tab) ·
- *                 Plans · Subscriptions
- *   People → Users (with a Cleaning-clients tab)
- * Categories were retired in favor of Services (archetypes).
- * OPERATIONS = physical scheduling (slots, courts, therapist calendars) that
- * doesn't fit a marketplace list.
+ *   Marketplace → hub of services; each opens Categories · Providers · Plans ·
+ *                 Applications, all scoped to that service
+ *   Providers   → the flat cross-service list (+ Applications tab)
+ *   People      → Users (with a Cleaning-clients tab)
  */
 
 import {
-  BarChart3, CalendarDays, CreditCard, DollarSign,
+  BarChart3, CalendarDays, DollarSign,
   FileText, Layers, LayoutDashboard, MapPin, Megaphone,
   ShieldCheck, Users, Building2,
 } from "lucide-react";
@@ -57,10 +55,21 @@ export const OVERVIEW_SECTION: NavSection = {
 };
 
 // ─── MARKETPLACE — the model itself ─────────────────────────────────────
+// Services / Plans / Applications are no longer separate entries. They were
+// four flat lists that each opened with the same archetype filter, so managing
+// one service meant visiting all four and re-filtering in each. They're now
+// tabs inside Marketplace → <service>. `Providers` keeps its own entry as the
+// cross-service list: `providers.archetype_key` is ON DELETE SET NULL, so a
+// deleted service leaves orphans that no per-service page can show.
 export const MARKETPLACE_SECTION: NavSection = {
   title: "Marketplace",
   items: [
-    { label: "Services",      path: adminRoutes.superAdminServices,                 icon: Layers,
+    { label: "Marketplace",   path: adminRoutes.superAdminMarketplace,              icon: Layers,
+      alsoActiveOn: [
+        "/admin/marketplace/service",
+        adminRoutes.superAdminServices,
+        adminRoutes.superAdminMarketplacePlans,
+      ],
       permissions: ["admin_settings.read"] },
     { label: "Providers",     path: adminRoutes.superAdminMarketplaceProviders,     icon: Building2,
       // Applications is a TAB inside Providers, not its own nav item — a
@@ -68,8 +77,6 @@ export const MARKETPLACE_SECTION: NavSection = {
       // parent highlighted while the admin is triaging there.
       alsoActiveOn: [adminRoutes.superAdminProviderApplications],
       permissions: ["admin_settings.read"] },
-    { label: "Plans",         path: adminRoutes.superAdminMarketplacePlans,         icon: CreditCard,
-      permissions: ["cleaning_plans.read"] },
     { label: "Subscriptions", path: adminRoutes.superAdminMarketplaceSubscriptions, icon: CalendarDays,
       permissions: ["subscriptions.read"] },
   ],

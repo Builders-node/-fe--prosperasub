@@ -62,7 +62,14 @@ const EMPTY: Category = {
  * Lives as a tab next to Services rather than its own sidebar entry — the two
  * are edited together and a separate nav item would just duplicate the surface.
  */
-export default function ServiceCategories() {
+export interface ServiceCategoriesProps {
+  /** Mounted as a tab inside the service detail page — skip the page chrome. */
+  embedded?: boolean;
+  /** Locks the list to one service; the chip-row filter is hidden when set. */
+  archetypeKey?: string;
+}
+
+export default function ServiceCategories({ embedded = false, archetypeKey }: ServiceCategoriesProps = {}) {
   const qc = useQueryClient();
   const { userData } = useAuth();
   const { archetypes } = useServiceArchetypes();
@@ -70,7 +77,9 @@ export default function ServiceCategories() {
   const [form, setForm] = useState<Category>({ ...EMPTY });
   const [deleteTarget, setDeleteTarget] = useState<Category | null>(null);
   const [search, setSearch] = useState("");
-  const [archetypeFilter, setArchetypeFilter] = useState<string>("all");
+  // Derived when the route pins the service — see the note in MarketplacePlans.
+  const [archetypeFilterState, setArchetypeFilterState] = useState<string>("all");
+  const archetypeFilter = archetypeKey ?? archetypeFilterState;
 
   const { data: rows = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: QUERY_KEY,
@@ -206,24 +215,31 @@ export default function ServiceCategories() {
 
   const scopedArchetypeCategories = rows.filter((r) => r.archetype_key === form.archetype_key);
 
-  return (
-    <SuperAdminLayout title="Categories" subtitle="Groups of providers inside a service — Cleaning → Apartment Cleaning · Car Wash">
-      <div className="space-y-5">
-        <AdminPageTabs tabs={[
-          { label: "Services", to: "/admin/services" },
-          { label: "Categories", to: "/admin/services/categories", badge: counts.total },
-        ]} />
+  // Scope-aware empty state: inside one service, other services' categories
+  // shouldn't make this look populated.
+  const inScope = archetypeKey ? rows.filter((r) => r.archetype_key === archetypeKey) : rows;
 
-        {/* Archetype filter — same chip row as the Providers page. */}
+  const body = (
+    <>
+      <div className="space-y-5">
+        {!embedded && (
+          <AdminPageTabs tabs={[
+            { label: "Services", to: "/admin/services" },
+            { label: "Categories", to: "/admin/services/categories", badge: counts.total },
+          ]} />
+        )}
+
+        {/* Archetype filter — same chip row as the Providers page.
+            Hidden when the route already pins the service. */}
         <div className="flex flex-wrap items-center gap-2">
-          {([
+          {(archetypeKey ? [] : [
             { key: "all", label: "All", count: counts.total },
             ...archetypes.map((a) => ({ key: a.key, label: a.label, count: counts.perArchetype[a.key] ?? 0 })),
           ]).map((f) => (
             <button
               key={f.key}
               type="button"
-              onClick={() => setArchetypeFilter(f.key)}
+              onClick={() => setArchetypeFilterState(f.key)}
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
                 archetypeFilter === f.key
@@ -241,11 +257,11 @@ export default function ServiceCategories() {
           actions={<Button onClick={openNew} className="gap-1.5"><Plus className="h-4 w-4" /> New category</Button>}
           search={search} onSearch={setSearch} searchPlaceholder="Search categories by name or key…"
           isLoading={isLoading} isError={isError} error={error} onRetry={refetch}
-          isEmpty={rows.length === 0}
-          isNoResults={rows.length > 0 && filtered.length === 0} count={filtered.length}
+          isEmpty={inScope.length === 0}
+          isNoResults={inScope.length > 0 && filtered.length === 0} count={filtered.length}
           emptyTitle="No categories yet"
           emptySubtitle="Categories group providers inside a service. Create one to split e.g. Cleaning into Apartment Cleaning and Car Wash."
-          onClearFilters={() => { setSearch(""); setArchetypeFilter("all"); }}
+          onClearFilters={() => { setSearch(""); setArchetypeFilterState("all"); }}
         >
           <div className="space-y-6">
             {grouped.map((group) => (
@@ -436,6 +452,13 @@ export default function ServiceCategories() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </>
+  );
+
+  if (embedded) return body;
+  return (
+    <SuperAdminLayout title="Categories" subtitle="Groups of providers inside a service — Cleaning → Apartment Cleaning · Car Wash">
+      {body}
     </SuperAdminLayout>
   );
 }

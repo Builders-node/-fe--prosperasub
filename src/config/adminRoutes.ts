@@ -10,6 +10,8 @@ export const adminRoutes = {
   superAdminAnalytics: "/admin/analytics",
   superAdminPayments: "/admin/payments",
   superAdminServices: "/admin/services",
+  /** Drill-down entry point — service cards, each opening its own detail page. */
+  superAdminMarketplace: "/admin/marketplace",
   superAdminMarketplaceProviders: "/admin/marketplace/providers",
   superAdminMarketplacePlans: "/admin/marketplace/plans",
   superAdminMarketplaceSubscriptions: "/admin/marketplace/subscriptions",

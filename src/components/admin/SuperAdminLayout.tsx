@@ -91,23 +91,33 @@ function SidebarNav({
     }))
     .filter((section) => section.items.length > 0);
 
+  // Longest match wins, across every section. `/admin/marketplace` is a prefix
+  // of `/admin/marketplace/providers`, so a plain prefix test lit up two items
+  // at once; the deepest matching path is the one the admin is actually on.
+  const activePath = visibleSections
+    .flatMap((section) => section.items)
+    .flatMap((item) => [item.path, ...(item.alsoActiveOn ?? [])].map((p) => ({ owner: item.path, match: p })))
+    .filter(({ match }) => currentPath === match || currentPath.startsWith(`${match}/`))
+    .sort((a, b) => b.match.length - a.match.length)[0]?.owner ?? null;
+
   return (
     <nav
       className="flex-1 space-y-space-5 overflow-y-auto px-space-3 py-space-4"
       aria-label="Admin navigation"
     >
       {visibleSections.map((section) => (
-        <NavSectionBlock key={section.title} section={section} currentPath={currentPath} wrap={wrap} />
+        <NavSectionBlock key={section.title} section={section} activePath={activePath} wrap={wrap} />
       ))}
     </nav>
   );
 }
 
 function NavSectionBlock({
-  section, currentPath, wrap,
+  section, activePath, wrap,
 }: {
   section: NavSection;
-  currentPath: string;
+  /** `path` of the single item that won the longest-match test, if any. */
+  activePath: string | null;
   wrap?: (el: React.ReactElement) => React.ReactElement;
 }) {
   const id = `nav-${section.title.toLowerCase().replace(/\s+/g, "-")}`;
@@ -116,17 +126,9 @@ function NavSectionBlock({
       <h2 id={id} className="px-space-3 pb-space-1 text-caption font-bold uppercase tracking-[0.18em] text-muted-foreground/70">
         {section.title}
       </h2>
-      {section.items.map((item) => {
-        // Active when the URL matches this item OR any nested child of it.
-        // A child path like /admin/marketplace/providers/applications activates
-        // the parent "Providers" item automatically. `alsoActiveOn` covers the
-        // rare case where a sub-page lives outside the item's URL tree.
-        const isActive =
-          currentPath === item.path ||
-          currentPath.startsWith(`${item.path}/`) ||
-          (item.alsoActiveOn?.some((prefix) => currentPath === prefix || currentPath.startsWith(`${prefix}/`)) ?? false);
-        return <FlatLink key={item.path} item={item} isActive={isActive} wrap={wrap} />;
-      })}
+      {section.items.map((item) => (
+        <FlatLink key={item.path} item={item} isActive={activePath === item.path} wrap={wrap} />
+      ))}
     </section>
   );
 }

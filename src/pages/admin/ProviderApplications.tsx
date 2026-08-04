@@ -39,7 +39,14 @@ async function resolveUserId(userId: string | null, email: string | null): Promi
   return userId;
 }
 
-export default function ProviderApplications() {
+export interface ProviderApplicationsProps {
+  /** Mounted as a tab inside the service detail page — skip the page chrome. */
+  embedded?: boolean;
+  /** Only show applications for this service. */
+  archetypeKey?: string;
+}
+
+export default function ProviderApplications({ embedded = false, archetypeKey }: ProviderApplicationsProps = {}) {
   const qc = useQueryClient();
   const { userData } = useAuth();
   const [filter, setFilter] = useState<Filter>("pending");
@@ -160,15 +167,20 @@ export default function ProviderApplications() {
     onError: (e: any) => toast.error(e?.message || "Could not reject"),
   });
 
+  // Applications carry the archetype the applicant picked in BecomeProvider.
+  // Rows written before archetype_key existed have null and only surface in the
+  // unscoped list — scoping them to an arbitrary service would be a lie.
+  const inScope = archetypeKey ? apps.filter((a) => a.archetype_key === archetypeKey) : apps;
+
   const counts = {
-    pending:  apps.filter((a) => a.status === "pending").length,
-    approved: apps.filter((a) => a.status === "approved").length,
-    rejected: apps.filter((a) => a.status === "rejected").length,
-    all:      apps.length,
+    pending:  inScope.filter((a) => a.status === "pending").length,
+    approved: inScope.filter((a) => a.status === "approved").length,
+    rejected: inScope.filter((a) => a.status === "rejected").length,
+    all:      inScope.length,
   };
 
   const q = search.trim().toLowerCase();
-  const visible = apps
+  const visible = inScope
     .filter((a) => filter === "all" || a.status === filter)
     .filter((a) => !q || [a.business_name, a.contact_email, a.contact_phone, a.residence].some((v) => (v ?? "").toLowerCase().includes(q)));
 
@@ -179,13 +191,15 @@ export default function ProviderApplications() {
     { label: "All",      value: "all",      count: counts.all      },
   ];
 
-  return (
-    <SuperAdminLayout title="Provider applications" subtitle="Pending sign-ups from businesses that want to join a service">
+  const body = (
+    <>
       <div className="space-y-5">
-        <AdminPageTabs tabs={[
-          { label: "Providers", to: "/admin/marketplace/providers" },
-          { label: "Applications", to: "/admin/marketplace/providers/applications", badge: counts.pending },
-        ]} />
+        {!embedded && (
+          <AdminPageTabs tabs={[
+            { label: "Providers", to: "/admin/marketplace/providers" },
+            { label: "Applications", to: "/admin/marketplace/providers/applications", badge: counts.pending },
+          ]} />
+        )}
 
         <div className="flex flex-wrap items-center gap-2">
           {FILTERS.map((f) => (
@@ -214,8 +228,8 @@ export default function ProviderApplications() {
         <AdminListShell
           search={search} onSearch={setSearch} searchPlaceholder="Search applications…"
           isLoading={isLoading} isError={isError} error={error} onRetry={refetch}
-          isEmpty={apps.length === 0}
-          isNoResults={apps.length > 0 && visible.length === 0} count={visible.length}
+          isEmpty={inScope.length === 0}
+          isNoResults={inScope.length > 0 && visible.length === 0} count={visible.length}
           emptyTitle="No applications yet" emptySubtitle="Provider applications will appear here."
           onClearFilters={() => { setSearch(""); setFilter("all"); }}
         >
@@ -355,6 +369,13 @@ export default function ProviderApplications() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </>
+  );
+
+  if (embedded) return body;
+  return (
+    <SuperAdminLayout title="Provider applications" subtitle="Pending sign-ups from businesses that want to join a service">
+      {body}
     </SuperAdminLayout>
   );
 }

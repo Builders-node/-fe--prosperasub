@@ -25,13 +25,24 @@ interface Plan {
   source_service_key: string | null;
 }
 
+export interface MarketplacePlansProps {
+  /** Mounted as a tab inside the service detail page — skip the page chrome. */
+  embedded?: boolean;
+  /** Locks the list to one service. The service filter is hidden when set. */
+  archetypeKey?: string;
+}
+
 /**
  * Universal admin list of every subscription/membership/meal plan. Filters by
  * SERVICE (the archetype) and provider — categories were retired.
  */
-const MarketplacePlans = () => {
+const MarketplacePlans = ({ embedded = false, archetypeKey }: MarketplacePlansProps = {}) => {
   const { archetypes } = useServiceArchetypes(false);
-  const [service, setService] = useState("all");
+  // When scoped by the parent route the archetype isn't the admin's to change,
+  // so it's derived rather than state — otherwise navigating between two
+  // services would keep showing the first one's plans.
+  const [serviceFilter, setServiceFilter] = useState("all");
+  const service = archetypeKey ?? serviceFilter;
   const [providerId, setProviderId] = useState("all");
   const [status, setStatus] = useState("all");
   const [search, setSearch] = useState("");
@@ -62,11 +73,20 @@ const MarketplacePlans = () => {
     },
   });
 
+  // `"unassigned"` = the plans of providers whose archetype_key went null when a
+  // service was deleted (FK is ON DELETE SET NULL). Matching it against
+  // archetype_key directly would never hit, hiding those plans entirely.
+  const matchesService = (prov: Provider | undefined) => (
+    service === "all" ? true
+      : service === "unassigned" ? !prov?.archetype_key
+      : prov?.archetype_key === service
+  );
+
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
     return plans.filter((p) => {
       const prov = providerById.get(p.provider_id);
-      if (service    !== "all" && prov?.archetype_key !== service)    return false;
+      if (!matchesService(prov)) return false;
       if (providerId !== "all" && p.provider_id       !== providerId) return false;
       if (status     !== "all" && p.status            !== status)     return false;
       if (q && !(p.name.toLowerCase().includes(q) || (p.description ?? "").toLowerCase().includes(q) || (prov?.name ?? "").toLowerCase().includes(q))) return false;
@@ -80,13 +100,15 @@ const MarketplacePlans = () => {
 
   const filters = (
     <>
-      <Select value={service} onValueChange={(v) => { setService(v); setProviderId("all"); }}>
-        <SelectTrigger className="w-40 rounded-full"><SelectValue placeholder="All services" /></SelectTrigger>
-        <SelectContent>
-          <SelectItem value="all">All services</SelectItem>
-          {archetypes.map((a) => <SelectItem key={a.key} value={a.key}>{a.label}</SelectItem>)}
-        </SelectContent>
-      </Select>
+      {!archetypeKey && (
+        <Select value={service} onValueChange={(v) => { setServiceFilter(v); setProviderId("all"); }}>
+          <SelectTrigger className="w-40 rounded-full"><SelectValue placeholder="All services" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All services</SelectItem>
+            {archetypes.map((a) => <SelectItem key={a.key} value={a.key}>{a.label}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      )}
       <Select value={providerId} onValueChange={setProviderId}>
         <SelectTrigger className="w-44 rounded-full"><SelectValue placeholder="All providers" /></SelectTrigger>
         <SelectContent>
@@ -105,16 +127,22 @@ const MarketplacePlans = () => {
     </>
   );
 
-  return (
-    <SuperAdminLayout title="Plans" subtitle="Every subscription plan offered by every provider">
+  // "No plans yet" vs "no results" is judged against the scope the admin is
+  // looking at — inside a service, the other services' plans aren't relevant.
+  const inScope = useMemo(() => (
+    archetypeKey ? plans.filter((p) => matchesService(providerById.get(p.provider_id))) : plans
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  ), [plans, archetypeKey, providerById, service]);
+
+  const body = (
       <AdminListShell
         search={search} onSearch={setSearch} searchPlaceholder="Search plans, providers…"
         filters={filters}
         isLoading={isLoading} isError={isError} error={error} onRetry={refetch}
-        isEmpty={plans.length === 0}
-        isNoResults={plans.length > 0 && visible.length === 0} count={visible.length}
+        isEmpty={inScope.length === 0}
+        isNoResults={inScope.length > 0 && visible.length === 0} count={visible.length}
         emptyTitle="No plans yet" emptySubtitle="Providers can create plans in their portal."
-        onClearFilters={() => { setSearch(""); setService("all"); setProviderId("all"); setStatus("all"); }}
+        onClearFilters={() => { setSearch(""); setServiceFilter("all"); setProviderId("all"); setStatus("all"); }}
       >
         <div className="overflow-hidden rounded-2xl bg-card">
           {/* Desktop header row */}
@@ -219,6 +247,12 @@ const MarketplacePlans = () => {
           </div>
         </div>
       </AdminListShell>
+  );
+
+  if (embedded) return body;
+  return (
+    <SuperAdminLayout title="Plans" subtitle="Every subscription plan offered by every provider">
+      {body}
     </SuperAdminLayout>
   );
 };
