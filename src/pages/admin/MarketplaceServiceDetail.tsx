@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, ArrowLeft, Pencil } from "lucide-react";
@@ -6,6 +6,7 @@ import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabaseDb } from "@/integrations/supabase/client";
+import { ServiceArchetypeDialog, type Archetype } from "@/components/admin/ServiceArchetypeDialog";
 import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
 import { cn } from "@/lib/utils";
 import ServiceCategories from "./ServiceCategories";
@@ -53,6 +54,8 @@ export default function MarketplaceServiceDetail() {
   const requested = params.get("tab") as Tab | null;
   const tab: Tab = requested && tabs.includes(requested) ? requested : tabs[0];
   const setTab = (t: Tab) => setParams(t === tabs[0] ? {} : { tab: t }, { replace: true });
+
+  const [editing, setEditing] = useState<Archetype | null>(null);
 
   const { data: pendingApps = 0 } = useQuery({
     queryKey: ["admin-provider-applications-pending-count", key],
@@ -105,10 +108,17 @@ export default function MarketplaceServiceDetail() {
                   Hidden from Discovery
                 </span>
               )}
-              <Button asChild variant="outline" size="sm" className="ml-auto rounded-full">
-                <Link to="/admin/services">
-                  <Pencil className="mr-1.5 h-3.5 w-3.5" /> Edit service
-                </Link>
+              {/* Edits THIS service in place. It used to link to
+                  /admin/services — the list of every service — which is the
+                  opposite of what the button says and dropped you out of the
+                  service you were working in. */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="ml-auto rounded-full"
+                onClick={() => setEditing(archetype as unknown as Archetype)}
+              >
+                <Pencil className="mr-1.5 h-3.5 w-3.5" /> Edit service
               </Button>
             </>
           )}
@@ -137,6 +147,13 @@ export default function MarketplaceServiceDetail() {
             </button>
           ))}
         </div>
+
+        <ServiceArchetypeDialog
+          open={editing !== null}
+          onOpenChange={(v) => !v && setEditing(null)}
+          archetype={editing}
+          invalidateKeys={[["service-archetypes", false], ["service-archetypes", true]]}
+        />
 
         {tab === "categories"   && <ServiceCategories     embedded archetypeKey={key} />}
         {tab === "providers"    && <MarketplaceProviders  embedded archetypeKey={isUnassigned ? "unassigned" : key} />}

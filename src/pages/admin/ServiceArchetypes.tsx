@@ -31,32 +31,10 @@ import { CATEGORY_ACCENTS, CATEGORY_ICONS, CATEGORY_ICON_KEYS, resolveCategoryIc
 import { CAPABILITIES, type CapabilityKey } from "@/components/provider/capabilities";
 
 const TABLE = "service_archetypes";
+import { ServiceArchetypeDialog, type Archetype } from "@/components/admin/ServiceArchetypeDialog";
+
 const QUERY_KEY = ["admin-service-archetypes"] as const;
 const AUDIT_ENTITY = "service_archetype";
-const BOOKING_MODELS = ["time_slot", "date_range", "capacity_seat"] as const;
-
-interface Archetype {
-  key: string;
-  label: string;
-  description: string | null;
-  category_key: string | null;
-  icon: string;
-  accent: string;
-  default_capabilities: string[];
-  default_resource_type: string | null;
-  default_booking_model: (typeof BOOKING_MODELS)[number] | null;
-  default_booking_settings: unknown;
-  is_active: boolean;
-  sort_order: number;
-}
-
-const EMPTY: Archetype = {
-  key: "", label: "", description: "",
-  category_key: null, icon: "store", accent: "bg-blue-500",
-  default_capabilities: [], default_resource_type: null, default_booking_model: null,
-  default_booking_settings: null, is_active: true, sort_order: 0,
-};
-
 /**
  * Service archetypes = business-unit templates. A provider inherits an
  * archetype's capabilities + resource type + booking model + settings as its
@@ -66,7 +44,6 @@ export default function ServiceArchetypes() {
   const qc = useQueryClient();
   const { userData } = useAuth();
   const [editing, setEditing] = useState<Archetype | "new" | null>(null);
-  const [form, setForm] = useState<Archetype>({ ...EMPTY });
   const [deleteTarget, setDeleteTarget] = useState<Archetype | null>(null);
   const [search, setSearch] = useState("");
 
@@ -122,34 +99,8 @@ export default function ServiceArchetypes() {
     return rows.filter((r) => r.key.includes(q) || r.label.toLowerCase().includes(q));
   }, [rows, search]);
 
-  const openNew = () => { setEditing("new"); setForm({ ...EMPTY, sort_order: rows.length }); };
-  const openEdit = (a: Archetype) => { setEditing(a); setForm({ ...a, description: a.description ?? "" }); };
-
-  const save = useMutation({
-    mutationFn: async () => {
-      const key = form.key.trim().toLowerCase().replace(/[^a-z0-9_]+/g, "_");
-      if (!key || !form.label.trim()) throw new Error("Key and label are required");
-      const payload = {
-        ...form,
-        key,
-        description: (form.description ?? "").trim() || null,
-        default_capabilities: form.default_capabilities ?? [],
-        default_resource_type: form.default_resource_type || null,
-        default_booking_model: form.default_booking_model || null,
-        default_booking_settings: form.default_booking_settings ?? null,
-      };
-      if (editing === "new") {
-        const { error } = await supabaseDb.from(TABLE).insert(payload);
-        if (error) throw error;
-      } else {
-        const { error } = await supabaseDb.from(TABLE).update(payload).eq("key", (editing as Archetype).key);
-        if (error) throw error;
-      }
-      if (userData?.id) await logAuditEvent(userData.id, editing === "new" ? "create" : "edit", AUDIT_ENTITY, key, {});
-    },
-    onSuccess: () => { toast.success("Saved"); setEditing(null); qc.invalidateQueries({ queryKey: QUERY_KEY }); },
-    onError: (e: Error) => toast.error(e.message),
-  });
+  const openNew = () => setEditing("new");
+  const openEdit = (a: Archetype) => setEditing(a);
 
   const toggleActive = useMutation({
     mutationFn: async (a: Archetype) => {
@@ -169,12 +120,6 @@ export default function ServiceArchetypes() {
     onSuccess: () => { toast.success("Deleted"); setDeleteTarget(null); qc.invalidateQueries({ queryKey: QUERY_KEY }); },
     onError: (e: Error) => toast.error(e.message),
   });
-
-  const toggleCap = (cap: CapabilityKey) => {
-    const set = new Set(form.default_capabilities);
-    if (set.has(cap)) set.delete(cap); else set.add(cap);
-    setForm({ ...form, default_capabilities: Array.from(set) });
-  };
 
   return (
     <SuperAdminLayout title="Services" subtitle="Business-unit templates that new providers plug into">
@@ -293,98 +238,12 @@ export default function ServiceArchetypes() {
       </div>
 
       {/* Editor dialog */}
-      <Dialog open={editing !== null} onOpenChange={(v) => !v && setEditing(null)}>
-        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
-          <DialogHeader><DialogTitle>{editing === "new" ? "New service" : "Edit service"}</DialogTitle></DialogHeader>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label>Key</Label>
-              <Input value={form.key} onChange={(e) => setForm({ ...form, key: e.target.value })} placeholder="car_rental" disabled={editing !== "new"} />
-            </div>
-            <div>
-              <Label>Label</Label>
-              <Input value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} placeholder="Car Rental" />
-            </div>
-            <div className="col-span-2">
-              <Label>Description</Label>
-              <Input value={form.description ?? ""} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="One-line description shown on Discovery" />
-            </div>
-            <div>
-              <Label>Sort order</Label>
-              <Input type="number" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: Number(e.target.value) || 0 })} />
-            </div>
-            <div>
-              <Label>Default resource type</Label>
-              <Input value={form.default_resource_type ?? ""} onChange={(e) => setForm({ ...form, default_resource_type: e.target.value || null })} placeholder="e.g. vehicle, tennis, desk" />
-            </div>
-            <div>
-              <Label>Default booking model</Label>
-              <Select value={form.default_booking_model ?? ""} onValueChange={(v) => setForm({ ...form, default_booking_model: (v || null) as Archetype["default_booking_model"] })}>
-                <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-                <SelectContent>
-                  {BOOKING_MODELS.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="col-span-2">
-              <Label>Default capabilities</Label>
-              <div className="mt-1.5 flex flex-wrap gap-1.5">
-                {(Object.keys(CAPABILITIES) as CapabilityKey[]).map((cap) => {
-                  const on = form.default_capabilities?.includes(cap);
-                  const meta = CAPABILITIES[cap];
-                  const I = meta.icon;
-                  return (
-                    <button key={cap} type="button" onClick={() => toggleCap(cap)}
-                      className={cn(
-                        "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition",
-                        on ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground",
-                      )}>
-                      <I className="h-3 w-3" /> {meta.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div>
-              <Label>Icon</Label>
-              <div className="mt-1.5 grid grid-cols-6 gap-1.5">
-                {CATEGORY_ICON_KEYS.map((k) => {
-                  const I = CATEGORY_ICONS[k];
-                  const on = form.icon === k;
-                  return (
-                    <button key={k} type="button" onClick={() => setForm({ ...form, icon: k })}
-                      className={cn(
-                        "flex h-9 w-9 items-center justify-center rounded-lg border",
-                        on ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground",
-                      )}>
-                      <I className="h-4 w-4" />
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-            <div>
-              <Label>Accent</Label>
-              <div className="mt-1.5 grid grid-cols-6 gap-1.5">
-                {CATEGORY_ACCENTS.map((a) => (
-                  <button key={a} type="button" onClick={() => setForm({ ...form, accent: a })}
-                    className={cn("h-9 rounded-lg", a, form.accent === a && "ring-2 ring-offset-2 ring-offset-background ring-foreground")}
-                    aria-label={a}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setEditing(null)}>Cancel</Button>
-            <Button onClick={() => save.mutate()} disabled={save.isPending}>
-              {save.isPending && <Spinner size="sm" className="mr-1" />} Save
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ServiceArchetypeDialog
+        open={editing !== null}
+        onOpenChange={(v) => !v && setEditing(null)}
+        archetype={editing}
+        invalidateKeys={[[...QUERY_KEY]]}
+      />
 
       {/* Delete confirm */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(v) => !v && setDeleteTarget(null)}>
