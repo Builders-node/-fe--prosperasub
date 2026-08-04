@@ -157,6 +157,9 @@ const CleaningCheckout = () => {
         billing_period_months: billingPeriodMonths,
         monthly_price_cents: monthlyPriceCents,
         total_price_cents: totalCents,
+        // Base stays the service price the provider is owed; the payment-method
+        // fee is recorded separately. Charged = total_price_cents + surcharge_cents.
+        surcharge_cents: effectiveTotalCents - totalCents,
         cleanings_remaining: cleaningsIncluded,
         payment_status: "pending",
         payment_method: method,
@@ -210,6 +213,7 @@ const CleaningCheckout = () => {
             payment_method: options.method === "fiat" ? "paypal" : options.method,
             payment_reference: options.paymentRef,
             amount_cents: totalCents,
+            surcharge_cents: effectiveTotalCents - totalCents,
             idempotency_key: idempotencyKey,
           }),
         });

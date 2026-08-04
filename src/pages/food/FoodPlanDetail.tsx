@@ -334,6 +334,9 @@ const FoodPlanDetail = () => {
         provider_id: plan.provider_id,
         meal_plan_id: planId,
         weekly_price_cents: plan.weekly_price_cents,
+        // Base stays the price the restaurant is owed; the payment-method fee
+        // is its own column. Charged = weekly*weeks + surcharge_cents.
+        surcharge_cents: effectiveTotalCents - totalCents,
         commitment_weeks: checkout.duration_weeks,
         started_at: startDate,
         end_date: endDate,
@@ -412,6 +415,7 @@ const FoodPlanDetail = () => {
             payment_method: paymentMethod === "infinita" ? "crypto" : paymentMethod,
             payment_reference: paymentRef,
             amount_cents: totalCents,
+            surcharge_cents: effectiveTotalCents - totalCents,
             idempotency_key: idempotencyKey,
           }),
         });
@@ -440,6 +444,7 @@ const FoodPlanDetail = () => {
             provider_id: plan!.provider_id,
             meal_plan_id: planId,
             weekly_price_cents: plan!.weekly_price_cents,
+            surcharge_cents: effectiveTotalCents - totalCents,
             commitment_weeks: checkout.duration_weeks,
             started_at: startDate,
             end_date: endDate,

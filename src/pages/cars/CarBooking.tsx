@@ -280,6 +280,7 @@ const CarBooking = () => {
           discount_pct: pricing.discountPct,
           discount_cents: pricing.discountCents,
           total_cents: grandTotalCents,
+          surcharge_cents: effectiveGrandTotalCents - grandTotalCents,
           status: opts.status === "paid" ? "paid" : "pending",
           payment_status: opts.status,
           payment_method: opts.method,
@@ -967,10 +968,20 @@ const CarBooking = () => {
                   <>
                     <div className="flex items-baseline justify-between">
                       <span className="text-sm font-bold text-muted-foreground">Total</span>
+                      {/* The effective amount, i.e. what the invoice is raised
+                          for. This printed the base while the mobile sticky bar
+                          printed the effective one, so with PayPal's 5% fee the
+                          same page showed two different totals and billed the
+                          larger. */}
                       <span className="text-2xl font-black tabular-nums text-foreground">
-                        {formatUSD(grandTotalCents)}
+                        {formatUSD(effectiveGrandTotalCents)}
                       </span>
                     </div>
+                    {feePct > 0 && (
+                      <p className="mt-1 text-right text-[10px] text-muted-foreground">
+                        Base {formatUSD(grandTotalCents)} + {feePct}% fee
+                      </p>
+                    )}
                     {btcPrice && (
                       <p className="mt-1 text-right text-xs text-muted-foreground">
                         ≈ {convertToSats(centsToDollars(effectiveGrandTotalCents)).toLocaleString()} sats
@@ -1094,7 +1105,7 @@ const CarBooking = () => {
                 }
               />
               <p className="mt-1 text-xs text-muted-foreground">
-                {formatUSD(grandTotalCents)} · {pricing?.rentalDays ?? 0} day{pricing?.rentalDays !== 1 ? "s" : ""}
+                {formatUSD(effectiveGrandTotalCents)} · {pricing?.rentalDays ?? 0} day{pricing?.rentalDays !== 1 ? "s" : ""}
               </p>
             </div>
 

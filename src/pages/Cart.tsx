@@ -36,15 +36,26 @@ import { usePaymentMethods } from "@/hooks/usePaymentMethods";
 import { useResidences } from "@/hooks/useResidences";
 import { useSelectedResidence } from "@/contexts/LocationContext";
 import { formatUSD, centsToDollars } from "@/lib/pricing";
-import { todayHN } from "@/lib/timezone";
+import { todayHN, addDaysISO } from "@/lib/timezone";
 import { DURATION_OPTIONS } from "@/lib/durations";
+import { MEAL_KEYS, type MealKey } from "@/components/food/MealSelectionPicker";
 
 type Step = "cart" | "pay" | "success";
 
+/**
+ * End date for a food subscription bought through the cart.
+ *
+ * `weeks*7 - 1` because the period is INCLUSIVE of the start day — a 1-week
+ * plan starting Monday ends the following Sunday, not the following Monday.
+ * FoodPlanDetail has always done it this way (addDaysIso(start, weeks*7 - 1));
+ * the cart's own `+ weeks*7` silently granted one extra delivery day per line
+ * for the identical product.
+ *
+ * Also routed through addDaysISO: the old local-midnight → toISOString() pair
+ * shifted the result a day for any browser east of UTC.
+ */
 function endDateFor(startISO: string, weeks: number): string {
-  const d = new Date(`${startISO}T00:00:00`);
-  d.setDate(d.getDate() + Math.max(weeks || 1, 1) * 7);
-  return d.toISOString().split("T")[0];
+  return addDaysISO(startISO, Math.max(weeks || 1, 1) * 7 - 1);
 }
 
 export default function Cart() {
@@ -113,13 +124,26 @@ export default function Cart() {
     const today = todayHN();
     const batchId = (crypto as any).randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
     const rows: any[] = [];
+    // The surcharge is charged once on the cart total but stored per row, so
+    // spread it in proportion to each row's price and put the rounding
+    // remainder on the last row — the sum then equals the fee actually charged.
+    const totalSurchargeCents = effectiveTotalCents - totalCents;
+    let surchargeAssigned = 0;
+    const rowCount = items.reduce((n, i) => n + i.qty, 0);
     items.forEach((item) => {
       for (let n = 0; n < item.qty; n++) {
+        const rowBaseCents = item.unitPriceCents * item.durationWeeks;
+        const isLastRow = rows.length === rowCount - 1;
+        const rowSurcharge = isLastRow
+          ? totalSurchargeCents - surchargeAssigned
+          : (totalCents > 0 ? Math.round((totalSurchargeCents * rowBaseCents) / totalCents) : 0);
+        surchargeAssigned += rowSurcharge;
         rows.push({
           user_id: userUuid ?? userData!.id,
           provider_id: item.providerId,
           meal_plan_id: item.planId,
           weekly_price_cents: item.unitPriceCents,
+          surcharge_cents: rowSurcharge,
           commitment_weeks: item.durationWeeks,
           started_at: today,
           end_date: endDateFor(today, item.durationWeeks),
@@ -134,6 +158,15 @@ export default function Cart() {
           residence: form.residence.trim() || null,
           delivery_address: form.delivery_address.trim() || null,
           notes: form.notes.trim() || null,
+          // FoodPlanDetail makes this a hard requirement and the kitchen reads
+          // it. The cart used to omit it entirely, so a cart-bought
+          // subscription arrived with no meal combo at all. The cart has no
+          // picker, so seed the plan's default: the first `mealsPerDay` meals
+          // in canonical day order. The customer can still change it later.
+          selected_meals: MEAL_KEYS.slice(
+            0,
+            Math.max(1, Math.min(item.mealsPerDay || 3, 3)),
+          ) as MealKey[],
         });
       }
     });

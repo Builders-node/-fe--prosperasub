@@ -666,6 +666,10 @@ class OwnedQueryBuilder {
           billing_period_months: input.billing_period_months || 1,
           monthly_price_cents: input.monthly_price_cents || 0,
           total_price_cents: input.total_price_cents || 0,
+          // This insert rebuilds the row field by field, so any column missing
+          // from this list is silently dropped — that is how surcharge_cents
+          // got lost on its first pass. Add new columns here too.
+          surcharge_cents: input.surcharge_cents || 0,
           cleanings_remaining: input.cleanings_remaining || 0,
           payment_status: input.payment_status || "pending",
           subscription_status: input.subscription_status || "pending_payment",

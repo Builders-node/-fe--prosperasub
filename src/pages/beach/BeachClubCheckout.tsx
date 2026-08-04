@@ -109,6 +109,8 @@ const BeachClubCheckout = () => {
       end_date: format(endDate, "yyyy-MM-dd"),
       price_per_person_cents: plan.price_per_person_cents,
       total_cents: totalCents,
+      // See CleaningCheckout — base is the service price, fee is its own column.
+      surcharge_cents: effectiveTotalCents - totalCents,
       payment_status: "pending",
       payment_method: method,
       status: "pending",
@@ -150,6 +152,7 @@ const BeachClubCheckout = () => {
             payment_method: options.method === "fiat" ? "paypal" : options.method,
             payment_reference: options.paymentRef,
             amount_cents: totalCents,
+            surcharge_cents: effectiveTotalCents - totalCents,
             idempotency_key: idempotencyKey,
           }),
         });
