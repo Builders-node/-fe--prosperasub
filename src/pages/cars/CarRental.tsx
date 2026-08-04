@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Car, CalendarDays, Pencil } from "lucide-react";
 import { format, parseISO } from "date-fns";
+import { providerHref } from "@/lib/services/serviceUrls";
 import { ProviderRail, CategoryChips, ALL_CATEGORIES } from "@/components/listing/ListingNav";
 import { groupProvidersByCategory } from "@/lib/services/groupByCategory";
 import { supabaseDb } from "@/integrations/supabase/client";
@@ -173,7 +174,7 @@ const CarRental = () => {
         })));
 
   const openProvider = (providerId: string) => {
-    navigate(`/services/rental/providers/${providerId}`);
+    navigate(providerHref("rental", providerId));
   };
 
   return (

@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { SparklesIcon, ShieldCheck, ChevronRight } from "lucide-react";
+import { providerHref } from "@/lib/services/serviceUrls";
 import { groupProvidersByCategory } from "@/lib/services/groupByCategory";
 import { ProviderRail, CategoryChips, ALL_CATEGORIES } from "@/components/listing/ListingNav";
 import { supabase, supabaseDb } from "@/integrations/supabase/client";
@@ -225,7 +226,7 @@ const CleaningPackages = () => {
     : categoryGroups.filter((c) => c.categoryKey === activeCategory);
 
   const openProvider = (providerId: string) => {
-    navigate(`/services/cleaning/providers/${providerId}`);
+    navigate(providerHref("cleaning", providerId));
   };
 
   return (

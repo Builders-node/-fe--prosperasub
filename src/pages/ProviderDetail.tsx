@@ -1,5 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
+import { archetypeFromSlug, serviceMetaFromSlug } from "@/lib/services/serviceUrls";
+import { Button } from "@/components/ui/button";
 import {
   SparklesIcon, Waves, Car,
   MapPin, Phone, Mail, Clock, Star,
@@ -46,12 +48,9 @@ type ArchetypeMeta = {
   listingRoute: string;
 };
 
-const ARCHETYPE_META: Record<string, ArchetypeMeta> = {
-  cleaning:      { offeringsHeading: "Plans",    icon: SparklesIcon, listingRoute: "/services/cleaning" },
-  entertainment: { offeringsHeading: "Plans",    icon: Waves,        listingRoute: "/services/beach-club" },
-  rental:        { offeringsHeading: "Vehicles", icon: Car,          listingRoute: "/services/rental" },
-};
-
+// Per-service metadata now lives in lib/services/serviceUrls.ts alongside the
+// URL vocabulary, so a service can't be spelled one way in a link and another
+// way in the lookup.
 const FALLBACK_META: ArchetypeMeta = {
   offeringsHeading: "Offerings",
   icon:             SparklesIcon,
@@ -161,7 +160,10 @@ function InfoRow({
 // ═══════════════════════════════════════════════════════════════════════════
 const ProviderDetail = () => {
   const navigate = useNavigate();
-  const { archetypeKey, providerId } = useParams<{ archetypeKey: string; providerId: string }>();
+  const { archetypeKey: serviceSegment, providerId } = useParams<{ archetypeKey: string; providerId: string }>();
+  // `beach-club` and `entertainment` are the same service; so are `cars` and
+  // `rental`. Resolve to the canonical key once, here.
+  const archetypeKey = archetypeFromSlug(serviceSegment);
   const { isAuthenticated } = useAuth();
   const { openAuthModal } = useAuthModal();
 
@@ -170,7 +172,9 @@ const ProviderDetail = () => {
     queryFn: async () => {
       const { data, error } = await supabaseDb
         .from("providers")
-        .select("id, name, description, avatar_url, banner_url, location, working_hours, contact_phone, contact_email, archetype_key")
+        // source_provider_id is needed to hand food off to its legacy page — see the
+        // redirect below.
+        .select("id, name, description, avatar_url, banner_url, location, working_hours, contact_phone, contact_email, archetype_key, source_provider_id")
         .eq("id", providerId!).single();
       if (error) throw error;
       return data as Provider;
@@ -178,7 +182,7 @@ const ProviderDetail = () => {
     enabled: !!providerId,
   });
 
-  const meta = ARCHETYPE_META[archetypeKey ?? ""] ?? FALLBACK_META;
+  const meta = serviceMetaFromSlug(serviceSegment) ?? FALLBACK_META;
   const Icon = meta.icon;
 
   // Offerings queries — always hooked (React rules); the caller only reads the
@@ -216,6 +220,29 @@ const ProviderDetail = () => {
   const onVehicleOpen = (id: string) => navigate(`/services/rental/${id}`);
 
   // ── Loading / not-found (mirror FoodProviderDetail) ──────────────────────
+  // An unknown service segment is a wrong URL, not an empty business. Saying so
+  // beats the old silent fallback, which rendered a bare "Offerings" heading
+  // over nothing and looked like the provider had simply stopped trading.
+  if (!archetypeKey) {
+    return (
+      <div className="min-h-screen bg-background pb-24 md:pb-0">
+        <HomeHeader title="Not found" showBackButton onBack={() => navigate("/discovery")} />
+        <DesktopHeader />
+        <main className="market-content flex flex-col items-center justify-center py-16 text-center">
+          <SparklesIcon className="mb-4 h-12 w-12 text-muted-foreground/40" />
+          <p className="font-semibold text-foreground">No such service</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            "{serviceSegment}" isn't a service on the platform.
+          </p>
+          <Button asChild variant="outline" className="mt-4 rounded-full">
+            <Link to="/discovery">Browse services</Link>
+          </Button>
+        </main>
+        <BottomNav />
+      </div>
+    );
+  }
+
   if (providerQ.isLoading) {
     return (
       <div className="min-h-screen bg-background pb-24 md:pb-0">
@@ -243,6 +270,19 @@ const ProviderDetail = () => {
         <BottomNav />
       </div>
     );
+  }
+
+  // Food has its own richer provider page (menus, gallery carousel, reviews),
+  // so /services/food/providers/:id hands off to it rather than rendering this
+  // generic shell with a "Plans" heading and no food block under it.
+  //
+  // The id has to be translated, not just the path: this route carries the
+  // UNIVERSAL providers.id while the food page reads the LEGACY
+  // food_providers.id. Redirecting the raw id landed on "Restaurant not
+  // found" — the id-space split CLAUDE.md calls the #1 source of bugs here.
+  if (archetypeKey === "food") {
+    const legacyId = (providerQ.data as { source_provider_id?: string | null }).source_provider_id;
+    return <Navigate to={legacyId ? `/services/food/${legacyId}` : "/services/food"} replace />;
   }
 
   const p = providerQ.data;

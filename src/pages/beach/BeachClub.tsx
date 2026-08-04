@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Waves, ArrowRight, LandPlot } from "lucide-react";
+import { providerHref } from "@/lib/services/serviceUrls";
 import { ProviderRail, CategoryChips, ALL_CATEGORIES } from "@/components/listing/ListingNav";
 import { groupProvidersByCategory } from "@/lib/services/groupByCategory";
 import { HomeHeader } from "@/components/HomeHeader";
@@ -148,7 +149,7 @@ const BeachClub = () => {
         })));
 
   const openProvider = (providerId: string) => {
-    navigate(`/services/entertainment/providers/${providerId}`);
+    navigate(providerHref("entertainment", providerId));
   };
 
   return (
