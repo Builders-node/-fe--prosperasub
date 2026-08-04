@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { StatusPill } from "@/components/patterns/StatusPill";
 import { Button } from "@/components/ui/button";
 import { PageLoader, Spinner } from "@/components/ui/spinner";
 import { Badge } from "@/components/ui/badge";
@@ -37,7 +38,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { accountApi, supabase, supabaseDb } from "@/integrations/supabase/client";
 import { useUserUuid } from "@/hooks/useUserUuid";
 import { format, isPast, addWeeks, parseISO } from "date-fns";
-import { todayHN } from "@/lib/timezone";
+import { addDaysISO, addMonthsISO, addWeeksISO, formatDateHN, todayHN } from "@/lib/timezone";
+import { formatUSD } from "@/lib/pricing";
 import { UserLayout } from "@/components/layout/UserLayout";
 import { TodaysMeals } from "@/components/food/TodaysMeals";
 import { PullToRefresh } from "@/components/PullToRefresh";
@@ -59,18 +61,18 @@ import { cn } from "@/lib/utils";
 type RenewExtend = { weeks?: number; months?: number; days?: number };
 function computeRenewPreview(currentEnd: string | null | undefined, extend: RenewExtend) {
   if (!currentEnd) return null;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const prevEnd = new Date(`${currentEnd}T00:00:00`);
-  const prevEndPlus1 = new Date(prevEnd);
-  prevEndPlus1.setDate(prevEndPlus1.getDate() + 1);
+  // All ISO-string arithmetic in Honduras terms. The previous version built
+  // local-midnight Dates and serialised with toISOString(), which shifts a day
+  // for any browser east of UTC — so the dialog promised a period the server
+  // would never write.
+  const today = todayHN();
+  const prevEndPlus1 = addDaysISO(currentEnd, 1);
   const newStart = prevEndPlus1 > today ? prevEndPlus1 : today;
-  const newEnd = new Date(newStart);
-  if (extend.months) newEnd.setMonth(newEnd.getMonth() + extend.months);
-  if (extend.weeks) newEnd.setDate(newEnd.getDate() + extend.weeks * 7);
-  if (extend.days) newEnd.setDate(newEnd.getDate() + extend.days);
-  const iso = (d: Date) => d.toISOString().slice(0, 10);
-  return { newStart: iso(newStart), newEnd: iso(newEnd) };
+  let newEnd = newStart;
+  if (extend.months) newEnd = addMonthsISO(newEnd, extend.months);
+  if (extend.weeks) newEnd = addWeeksISO(newEnd, extend.weeks);
+  if (extend.days) newEnd = addDaysISO(newEnd, extend.days);
+  return { newStart, newEnd };
 }
 
 interface PendingRenewal {
@@ -83,15 +85,6 @@ interface PendingRenewal {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-
-const cleaningStatusColor = (status: string) => {
-  switch (status) {
-    case "booked":    return "default";
-    case "completed": return "secondary";
-    case "cancelled": return "destructive";
-    default:          return "outline";
-  }
-};
 
 // ─── Section skeleton ─────────────────────────────────────────────────────────
 
@@ -206,9 +199,7 @@ function CleaningBookingRow({
           </button>
         ) : (
           !upcoming && (
-            <Badge variant={cleaningStatusColor(booking.status) as any} className="text-xs capitalize">
-              {booking.status}
-            </Badge>
+            <StatusPill status={booking.status} />
           )
         )}
       </div>
@@ -731,10 +722,11 @@ const MySubscriptions = () => {
                       iconTint="bg-emerald-500/15"
                       iconColor="text-emerald-600"
                       title={s.customer_name ?? "Weekly meal plan"}
-                      subtitle={<span className="capitalize">{s.status}</span>}
-                      metadata={s.started_at
-                        ? `Started ${new Date(s.started_at).toLocaleDateString()} · Until ${foodEnd(s).toLocaleDateString()}`
+                      subtitle={s.started_at
+                        ? `${formatDateHN(s.started_at)} → ${formatDateHN(foodEnd(s))}`
                         : undefined}
+                      statusBadge={<StatusPill status={s.status} />}
+                      metadata={<span className="tabular-nums">{formatUSD((s.weekly_price_cents || 0) * (s.commitment_weeks || 1))}</span>}
                       onClick={() => navigate(`/services/food/subscription/${s.id}`)}
                       actions={foodCanRenew(s) ? [
                         { key: "renew", label: "Renew", icon: RefreshCw, onClick: openRenewDialog, variant: "secondary" },
@@ -767,16 +759,17 @@ const MySubscriptions = () => {
               <SectionGroup label="Rentals" count={rentalBookings.length}>
                 {rentalBookings.map((b: any) => {
                   const canRate = ["completed", "paid", "confirmed"].includes(String(b.status).toLowerCase())
-                    && b.end_date && b.end_date < new Date().toISOString().slice(0, 10);
+                    && b.end_date && b.end_date < todayHN();
                   return (
                     <SubscriptionCard
                       key={b.id}
                       icon={Car}
                       iconTint="bg-orange-500/15"
                       iconColor="text-orange-600"
-                      title={`${new Date(b.start_date).toLocaleDateString()} → ${new Date(b.end_date).toLocaleDateString()}`}
-                      subtitle={<span className="capitalize">{b.status} · {b.rental_days} day{b.rental_days !== 1 ? "s" : ""}</span>}
-                      metadata={<span className="tabular-nums">${(b.total_cents / 100).toFixed(2)}</span>}
+                      title={`${formatDateHN(b.start_date)} → ${formatDateHN(b.end_date)}`}
+                      subtitle={`${b.rental_days} day${b.rental_days !== 1 ? "s" : ""}`}
+                      statusBadge={<StatusPill status={b.status} />}
+                      metadata={<span className="tabular-nums">{formatUSD(b.total_cents)}</span>}
                       rate={canRate ? (
                         <RateProviderButton
                           service="rental"
@@ -795,7 +788,7 @@ const MySubscriptions = () => {
 
         {/* ─── BEACH CLUB tab content ──────────────────────────── */}
         {activeTab === "beach" && (() => {
-          const today = new Date().toISOString().slice(0, 10);
+          const today = todayHN();
           const hasActive = beachSubs.some((s: any) =>
             String(s.status).toLowerCase() === "active" && (!s.end_date || s.end_date >= today));
           return (
@@ -853,13 +846,11 @@ const MySubscriptions = () => {
                         title={s.plan_name || "Beach Club Membership"}
                         subtitle={<>
                           {s.people || 1} {(s.people || 1) === 1 ? "person" : "people"}
-                          {s.start_date && ` · ${new Date(`${s.start_date}T00:00:00`).toLocaleDateString()} → ${new Date(`${s.end_date}T00:00:00`).toLocaleDateString()}`}
+                          {s.start_date && s.end_date && ` · ${formatDateHN(s.start_date)} → ${formatDateHN(s.end_date)}`}
                         </>}
-                        metadata={<span className="tabular-nums">${((s.total_cents || 0) / 100).toFixed(2)}</span>}
+                        metadata={<span className="tabular-nums">{formatUSD(s.total_cents || 0)}</span>}
                         statusBadge={
-                          <Badge variant={cleaningStatusColor(label) as any} className="text-xs capitalize">
-                            {label}
-                          </Badge>
+                          <StatusPill status={label} />
                         }
                         actions={canRenew ? [
                           { key: "renew", label: "Renew", icon: RefreshCw, onClick: openRenewDialog, variant: "secondary" },
@@ -1156,9 +1147,7 @@ const MySubscriptions = () => {
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Status</span>
-              <Badge variant={cleaningStatusColor(viewBooking.status) as any} className="text-xs capitalize">
-                {viewBooking.status}
-              </Badge>
+              <StatusPill status={viewBooking.status} />
             </div>
             {viewBooking.notes && (
               <div className="rounded-xl bg-muted/40 p-3">
@@ -1270,7 +1259,7 @@ const MySubscriptions = () => {
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {paymentDialog.amount_cents != null
-                    ? `$${(paymentDialog.amount_cents / 100).toFixed(2)}`
+                    ? formatUSD(paymentDialog.amount_cents)
                     : paymentDialog.amount_sats != null
                       ? `${paymentDialog.amount_sats.toLocaleString()} sats`
                       : ""}

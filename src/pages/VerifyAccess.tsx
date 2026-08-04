@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { CheckCircle2, XCircle, ShieldAlert, Sparkles, UtensilsCrossed, Car, Waves } from "lucide-react";
+import { statusMeta } from "@/components/patterns/StatusPill";
 import { PageLoader } from "@/components/ui/spinner";
 import { useI18n } from "@/i18n";
 import { cn } from "@/lib/utils";
@@ -39,13 +40,6 @@ const SERVICE_LABEL: Record<Subscription["service"], string> = {
   car_rental: "Car Rental",
 };
 
-const STATUS_STYLE: Record<AccessStatus, { dot: string; text: string; label: string }> = {
-  active: { dot: "bg-emerald-500", text: "text-emerald-600", label: "Active" },
-  trial: { dot: "bg-amber-500", text: "text-amber-600", label: "Trial" },
-  pending: { dot: "bg-sky-500", text: "text-sky-600", label: "Pending" },
-  expired: { dot: "bg-muted-foreground/40", text: "text-muted-foreground", label: "Expired" },
-  canceled: { dot: "bg-muted-foreground/40", text: "text-muted-foreground", label: "Canceled" },
-};
 
 export default function VerifyAccess() {
   const [searchParams] = useSearchParams();
@@ -177,7 +171,7 @@ function AccessBreakdown({ subscriptions }: { subscriptions: Subscription[] }) {
       <div className="overflow-hidden rounded-2xl border border-border bg-card divide-y divide-border/60">
         {rows.map((s) => {
           const Icon = SERVICE_ICON[s.service];
-          const style = STATUS_STYLE[s.status];
+          const style = statusMeta(s.status);
           return (
             <div key={s.service} className="flex items-center gap-3 px-4 py-3">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10">
@@ -190,8 +184,8 @@ function AccessBreakdown({ subscriptions }: { subscriptions: Subscription[] }) {
                   {s.expires_at && <> · Until {new Date(s.expires_at).toLocaleDateString()}</>}
                 </p>
               </div>
-              <span className={cn("flex shrink-0 items-center gap-1.5 text-xs font-bold", style.text)}>
-                <span className={cn("h-2 w-2 rounded-full", style.dot)} />
+              <span className={cn("flex shrink-0 items-center gap-1.5 text-xs font-bold", style.textClass)}>
+                <span className={cn("h-2 w-2 rounded-full", style.dotClass)} />
                 {style.label}
               </span>
             </div>

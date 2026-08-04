@@ -1,16 +1,12 @@
 import { useNavigate } from "react-router-dom";
 import { ChevronRight, Store } from "lucide-react";
+import { StatusPill } from "@/components/patterns/StatusPill";
 import { UserLayout } from "@/components/layout/UserLayout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useMyBusinesses } from "@/hooks/useMyBusinesses";
 import type { MyProviderRow } from "@/hooks/useMyProviders";
 import type { ServiceConfig, ProviderConfig } from "@/lib/services/registry";
-
-const STATUS_COLORS: Record<string, string> = {
-  active: "bg-green-500/15 text-green-400",
-  inactive: "bg-muted text-muted-foreground",
-};
 
 function BusinessRow({
   row, service, onClick,
@@ -35,7 +31,7 @@ function BusinessRow({
         <div className="flex flex-wrap items-center gap-2">
           <p className="truncate font-bold text-foreground">{row.name}</p>
           {row.status && (
-            <Badge className={`rounded-full text-xs capitalize ${STATUS_COLORS[row.status] ?? ""}`}>{row.status}</Badge>
+            <StatusPill status={row.status} />
           )}
           <Badge variant="secondary" className="rounded-full text-xs capitalize">{row.myRole}</Badge>
           {!clickable && (

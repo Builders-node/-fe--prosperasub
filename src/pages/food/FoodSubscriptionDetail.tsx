@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import {
   ChefHat, ExternalLink, CalendarDays, UtensilsCrossed, AlertTriangle, Lock, RefreshCw,
 } from "lucide-react";
+import { StatusPill, statusMeta } from "@/components/patterns/StatusPill";
 import { accountApi, supabaseDb } from "@/integrations/supabase/client";
 import { UserLayout } from "@/components/layout/UserLayout";
 import { Button } from "@/components/ui/button";
@@ -44,14 +45,6 @@ interface AccessResponse {
   menu: { week_start_date: string; meals: FoodMenuMeal[] } | null;
 }
 
-const STATUS_BADGE: Record<EffStatus, { label: string; className: string }> = {
-  active: { label: "Active", className: "bg-green-500/15 text-green-400" },
-  expiring_soon: { label: "Expiring soon", className: "bg-amber-500/15 text-amber-500" },
-  expired: { label: "Expired", className: "bg-red-500/15 text-red-400" },
-  paused: { label: "Paused", className: "bg-yellow-500/15 text-yellow-400" },
-  cancelled: { label: "Cancelled", className: "bg-muted text-muted-foreground" },
-  pending: { label: "Pending payment", className: "bg-orange-500/15 text-orange-400" },
-};
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
@@ -178,7 +171,7 @@ export default function FoodSubscriptionDetail() {
   const { access, status, reason, canRenew, subscription: sub, provider, plan, menu } = data;
   const mealTypes = getMealTypesForPlan((plan as any) ?? null);
   const totalCents = (sub.weekly_price_cents || 0) * (sub.commitment_weeks || 1);
-  const badge = STATUS_BADGE[status];
+  const badge = statusMeta(status);
 
   // Client-side preview of the continuous period the server will assign after
   // renewal. Mirrors backend logic: next_start = max(today, prev_end+1); the
@@ -226,7 +219,7 @@ export default function FoodSubscriptionDetail() {
               <p className="mt-0.5 truncate text-sm text-muted-foreground">{plan.name}</p>
             )}
             <div className="mt-2">
-              <Badge className={`rounded-full text-xs ${badge.className}`}>{badge.label}</Badge>
+              <StatusPill status={status} />
             </div>
           </div>
           {provider && (
@@ -271,7 +264,7 @@ export default function FoodSubscriptionDetail() {
         {!access && (
           <section className="overflow-hidden rounded-3xl border border-border bg-card">
             <div className="flex flex-col items-center gap-3 px-6 py-10 text-center">
-              <span className={`flex h-16 w-16 items-center justify-center rounded-full ${badge.className}`}>
+              <span className={`flex h-16 w-16 items-center justify-center rounded-full ${badge.pillClass}`}>
                 <Lock className="h-8 w-8" />
               </span>
               <h2 className="text-xl font-black text-foreground">

@@ -2,10 +2,11 @@ import { useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, addDays, isSameDay } from "date-fns";
 import { ChevronLeft, ChevronRight, CalendarDays, MoreHorizontal, CheckCircle2, XCircle, PauseCircle, PlayCircle, CalendarClock } from "lucide-react";
+import { formatUSD } from "@/lib/pricing";
+import { StatusPill } from "@/components/patterns/StatusPill";
 import { RescheduleCleaningDialog } from "@/components/cleaning/RescheduleCleaningDialog";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
-import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -280,7 +281,6 @@ function BookingRow({
   onReschedule?: () => void;
   pending: boolean;
 }) {
-  const statusTone = statusColor(row.status);
   const actions = rowActionsFor(row);
   const canApprovePayment =
     !!onApprovePayment &&
@@ -312,7 +312,7 @@ function BookingRow({
           <p className="truncate text-sm font-bold text-foreground">
             {row.planName ?? row.customerName ?? "Booking"}
           </p>
-          <Badge className={cn("rounded-full text-[10px] capitalize", statusTone)}>{row.status}</Badge>
+          <StatusPill status={row.status} />
         </div>
         <p className="truncate text-xs text-muted-foreground">
           {row.customerName ?? "—"}{" · "}{timeRange}
@@ -341,7 +341,7 @@ function BookingRow({
       </div>
       {row.priceCents != null && (
         <span className="shrink-0 text-sm font-bold tabular-nums text-foreground">
-          ${(row.priceCents / 100).toFixed(2)}
+          {formatUSD(row.priceCents)}
         </span>
       )}
       {(actions.length > 0 || canApprovePayment || canReschedule) && (
@@ -429,13 +429,3 @@ function approveServiceFor(sourceTable: UnifiedBookingRow["sourceTable"]): Appro
   return null;
 }
 
-function statusColor(status: string): string {
-  const s = status.toLowerCase();
-  if (["active", "confirmed", "booked", "paid", "completed"].includes(s))
-    return "bg-emerald-500/15 text-emerald-500";
-  if (["pending", "held", "pending_payment"].includes(s))
-    return "bg-amber-500/15 text-amber-500";
-  if (["cancelled", "failed", "refunded", "expired"].includes(s))
-    return "bg-destructive/15 text-destructive";
-  return "bg-muted text-muted-foreground";
-}

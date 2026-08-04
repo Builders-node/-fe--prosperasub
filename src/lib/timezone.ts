@@ -137,6 +137,9 @@ export function formatTimestampHN(
  * Format a date-only value (string or Date) in Honduras timezone.
  * Returns something like "May 28, 2026"
  */
+/** `YYYY-MM-DD` with nothing after it. */
+const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
+
 export function formatDateHN(
   value: string | Date | null | undefined,
   options: Intl.DateTimeFormatOptions = {
@@ -147,7 +150,17 @@ export function formatDateHN(
 ): string {
   if (!value) return "—";
   try {
-    const date = typeof value === "string" ? new Date(value) : value;
+    let date: Date;
+    if (typeof value === "string") {
+      // A bare `YYYY-MM-DD` is a CALENDAR DATE, not an instant. `new Date()`
+      // parses it as UTC midnight, which formatted in Honduras (UTC-6) lands
+      // on the previous day — that is how car rentals in My Subscriptions
+      // rendered a day early. Anchor to midday so every timezone from UTC-11
+      // to UTC+12 resolves to the same calendar day.
+      date = DATE_ONLY_RE.test(value) ? new Date(`${value}T12:00:00Z`) : new Date(value);
+    } else {
+      date = value;
+    }
     return new Intl.DateTimeFormat("en-US", { timeZone: HN_TZ, ...options }).format(date);
   } catch {
     return String(value);

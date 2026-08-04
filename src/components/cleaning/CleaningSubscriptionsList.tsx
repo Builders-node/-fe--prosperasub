@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Sparkles, MoreHorizontal, PauseCircle, PlayCircle, XCircle, RefreshCcw, CheckCircle2 } from "lucide-react";
+import { StatusPill } from "@/components/patterns/StatusPill";
 import { useAuth } from "@/contexts/AuthContext";
 import { approvePayment, isPendingPayment } from "@/lib/subscriptionApprove";
 import { format, isBefore } from "date-fns";
@@ -215,7 +216,7 @@ export function CleaningSubscriptionsList({ providerId }: { providerId: string }
               instead of squeezing the package name into an ellipsis. */}
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-sm font-bold text-foreground">{s.package_name}</p>
-            <Badge className={cn("rounded-full text-[10px] capitalize", statusTone(st))}>{st}</Badge>
+            <StatusPill status={st} />
             {pendingPayment && (
               <Badge className="rounded-full text-[10px] bg-amber-500/15 text-amber-500">Awaiting payment</Badge>
             )}
@@ -306,10 +307,3 @@ export function CleaningSubscriptionsList({ providerId }: { providerId: string }
   );
 }
 
-function statusTone(status: string): string {
-  const s = status.toLowerCase();
-  if (["active"].includes(s)) return "bg-emerald-500/15 text-emerald-500";
-  if (["paused", "pending", "pending_payment"].includes(s)) return "bg-amber-500/15 text-amber-500";
-  if (["cancelled", "expired"].includes(s)) return "bg-destructive/15 text-destructive";
-  return "bg-muted text-muted-foreground";
-}

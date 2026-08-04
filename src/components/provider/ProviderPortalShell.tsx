@@ -1,17 +1,13 @@
 import { useState, type ComponentType, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import { ExternalLink } from "lucide-react";
+import { StatusPill } from "@/components/patterns/StatusPill";
 import { UserLayout } from "@/components/layout/UserLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import type { ServiceConfig, ProviderConfig } from "@/lib/services/registry";
-
-const STATUS_COLORS: Record<string, string> = {
-  active: "bg-green-500/15 text-green-400",
-  inactive: "bg-muted text-muted-foreground",
-};
 
 interface BaseProvider {
   id: string;
@@ -152,9 +148,7 @@ export function ProviderPortalShell<T extends BaseProvider>({
             <h1 className="text-xl font-black leading-tight tracking-tight sm:text-2xl">{selected.name}</h1>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               {selected.status && (
-                <Badge className={`rounded-full text-xs ${STATUS_COLORS[selected.status] ?? ""}`}>
-                  {selected.status}
-                </Badge>
+                <StatusPill status={selected.status} />
               )}
               {selected.myRole && (
                 <Badge variant="secondary" className="rounded-full text-xs capitalize">{selected.myRole}</Badge>

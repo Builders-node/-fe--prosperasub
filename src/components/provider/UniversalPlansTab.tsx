@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Pencil, Plus, Trash2 } from "lucide-react";
+import { StatusPill } from "@/components/patterns/StatusPill";
+import { formatUSD } from "@/lib/pricing";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAuditEvent } from "@/lib/auditLog";
@@ -45,6 +47,11 @@ export function UniversalPlansTab({ providerId }: { providerId: string }) {
   const { userData } = useAuth();
   const [editing, setEditing] = useState<Plan | "new" | null>(null);
   const [form, setForm] = useState({ ...EMPTY });
+  /**
+   * The dollar text the provider is typing. Kept separate from `price_cents` so
+   * a half-typed "12." isn't destroyed by a round-trip through cents.
+   */
+  const [priceDollars, setPriceDollars] = useState("");
   // Deletion confirm — a one-click Trash icon used to nuke a $199/mo plan +
   // dangle every provider_plans-referencing subscription. Force a two-step.
   const [deleteTarget, setDeleteTarget] = useState<Plan | null>(null);
@@ -63,13 +70,14 @@ export function UniversalPlansTab({ providerId }: { providerId: string }) {
     },
   });
 
-  const openNew = () => { setEditing("new"); setForm({ ...EMPTY, sort_order: plans.length * 10 }); };
+  const openNew = () => { setEditing("new"); setForm({ ...EMPTY, sort_order: plans.length * 10 }); setPriceDollars(""); };
   const openEdit = (p: Plan) => {
     setEditing(p);
     setForm({
       name: p.name, description: p.description ?? "", price_cents: p.price_cents,
       currency: p.currency, period: p.period, status: p.status, sort_order: p.sort_order,
     });
+    setPriceDollars((p.price_cents / 100).toFixed(2));
   };
 
   const save = useMutation({
@@ -137,9 +145,9 @@ export function UniversalPlansTab({ providerId }: { providerId: string }) {
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-bold text-foreground">{p.name}</span>
-                  <Badge className={`rounded-full text-xs ${p.status === "active" ? "bg-green-500/15 text-green-400" : "bg-muted text-muted-foreground"}`}>{p.status}</Badge>
+                  <StatusPill status={p.status} />
                   <span className="text-xs text-muted-foreground">
-                    {(p.price_cents / 100).toLocaleString("en-US", { style: "currency", currency: p.currency })} · {p.period.replace("_", " ")}
+                    {formatUSD(p.price_cents)} · {p.period.replace("_", " ")}
                   </span>
                 </div>
                 {p.description && <p className="mt-1 text-sm text-muted-foreground">{p.description}</p>}
@@ -163,8 +171,23 @@ export function UniversalPlansTab({ providerId }: { providerId: string }) {
             <div><Label>Description</Label><Textarea rows={2} value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} /></div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label>Price (cents)</Label>
-                <Input type="number" min={0} value={form.price_cents} onChange={(e) => setForm((f) => ({ ...f, price_cents: parseInt(e.target.value || "0") }))} />
+                <Label>Price</Label>
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+                  <Input
+                    className="pl-6"
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    inputMode="decimal"
+                    value={priceDollars}
+                    onChange={(e) => {
+                      setPriceDollars(e.target.value);
+                      const n = Number.parseFloat(e.target.value);
+                      setForm((f) => ({ ...f, price_cents: Number.isFinite(n) ? Math.round(n * 100) : 0 }));
+                    }}
+                  />
+                </div>
               </div>
               <div>
                 <Label>Currency</Label>

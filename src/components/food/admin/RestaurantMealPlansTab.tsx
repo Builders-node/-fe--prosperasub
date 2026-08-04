@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Edit, Trash2, Eye, EyeOff, X } from "lucide-react";
+import { StatusPill } from "@/components/patterns/StatusPill";
 import { SectionOverline } from "@/components/subscriptions/MySubsPrimitives";
 import { DIETARY_TAG_KEYS, DIETARY_TAGS, type DietaryTag } from "@/lib/foodDietaryTags";
 import { cn } from "@/lib/utils";
@@ -25,11 +26,6 @@ import { logAuditEvent } from "@/lib/auditLog";
 import { useResidences } from "@/hooks/useResidences";
 import { MapPin } from "lucide-react";
 import type { FoodMealPlan } from "@/types/food";
-
-const STATUS_COLORS: Record<string, string> = {
-  active: "bg-green-500/15 text-green-400",
-  inactive: "bg-muted text-muted-foreground",
-};
 
 const EMPTY_FORM = {
   name: "",
@@ -258,9 +254,7 @@ export function RestaurantMealPlansTab({ providerId }: Props) {
               <div className="flex-1 min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-bold text-foreground">{plan.name}</span>
-                  <Badge className={`rounded-full text-xs ${STATUS_COLORS[plan.status]}`}>
-                    {plan.status}
-                  </Badge>
+                  <StatusPill status={plan.status} />
                 </div>
                 <p className="mt-0.5 text-sm text-muted-foreground">
                   {formatUSD(plan.weekly_price_cents)}/week · {plan.meals_per_day ?? 3} meals/day · {plan.days_per_week} days/week

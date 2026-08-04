@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Coffee, Sun, Moon, Apple, UtensilsCrossed, Flame } from "lucide-react";
+import { nowHN } from "@/lib/timezone";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { MEAL_TYPE_LABELS } from "@/types/food";
 import type { FoodMenuMeal, FoodWeeklyMenu, MealType, DayOfWeek } from "@/types/food";
@@ -34,7 +35,9 @@ interface Props {
 
 /** Today's dishes for an active food subscription, from the current published menu. */
 export function TodaysMeals({ providerId, mealPlanId }: Props) {
-  const todayKey = DAY_KEYS[new Date().getDay()];
+  // Honduras weekday, not the device's — a customer travelling east saw
+  // tomorrow's dishes, one west saw yesterday's.
+  const todayKey = DAY_KEYS[nowHN().getDay()];
 
   const { data } = useQuery({
     queryKey: ["todays-meals", providerId, mealPlanId, todayKey],

@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { ExternalLink, CalendarClock } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { StatusPill } from "@/components/patterns/StatusPill";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -19,11 +20,6 @@ import { LegacyOwnerPortal, FOOD_SUBSCRIPTIONS_TAB_BODY, CLEANING_SUBSCRIPTIONS_
 import { ProviderAnalyticsWidget } from "@/components/provider/ProviderAnalyticsWidget";
 import type { PortalTab } from "@/components/provider/ProviderPortalShell";
 import { LEGACY_PORTAL_SOURCE_KEYS, legacyIdOf } from "@/lib/services/providerBridge";
-
-const STATUS_COLORS: Record<string, string> = {
-  active: "bg-green-500/15 text-green-400",
-  inactive: "bg-muted text-muted-foreground",
-};
 
 /**
  * The single provider management view — banner + header + tab dispatch. Layout-
@@ -149,7 +145,7 @@ export function ProviderWorkspace({ providerId, publicHref = "/discovery", backH
             <h1 className="text-xl font-black leading-tight tracking-tight sm:text-2xl">{provider.name}</h1>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               {provider.status && (
-                <Badge className={`rounded-full text-xs ${STATUS_COLORS[provider.status] ?? ""}`}>{provider.status}</Badge>
+                <StatusPill status={provider.status} />
               )}
               {archetype && (
                 <Badge className={`rounded-full text-xs ${archetype.accent} text-white`}>{archetype.label}</Badge>

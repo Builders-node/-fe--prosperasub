@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Edit, Archive, RotateCcw, Trash2, Eye, EyeOff, X, Upload, Link2, ImagePlus } from "lucide-react";
+import { StatusPill } from "@/components/patterns/StatusPill";
 import { ServiceLocationsEditor } from "@/components/admin/ServiceLocationsEditor";
 import { BookingCalendarOverride } from "@/components/provider/BookingCalendarOverride";
 import { Spinner } from "@/components/ui/spinner";
@@ -26,12 +27,6 @@ import { logAuditEvent } from "@/lib/auditLog";
 import type { RentalVehicle, RentalVehicleImage } from "@/types/carRental";
 
 type VehicleWithImages = RentalVehicle & { images: RentalVehicleImage[] };
-
-const STATUS_COLORS: Record<string, string> = {
-  public: "bg-green-500/15 text-green-400",
-  private: "bg-yellow-500/15 text-yellow-400",
-  archived: "bg-muted text-muted-foreground",
-};
 
 const EMPTY_FORM = {
   name: "", description: "", brand: "", model: "",
@@ -220,7 +215,7 @@ export function ProviderVehiclesTab({ providerId }: Props) {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-foreground truncate">{v.name}</span>
-                      <Badge className={`shrink-0 text-xs ${STATUS_COLORS[v.status]}`}>{v.status}</Badge>
+                      <StatusPill status={v.status} />
                     </div>
                     <p className="text-xs text-muted-foreground">
                       {v.brand} {v.model} · {v.year} · {formatUSD(v.daily_price_cents)}/day

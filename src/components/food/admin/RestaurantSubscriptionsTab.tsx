@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { StatusPill } from "@/components/patterns/StatusPill";
 import { supabaseDb, adminApi } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -50,14 +51,6 @@ function errMessage(e: unknown): string {
   }
   return "Something went wrong. Please try again.";
 }
-
-const STATUS_COLORS: Record<FoodSubscriptionStatus, string> = {
-  pending: "bg-orange-500/15 text-orange-400",
-  active: "bg-green-500/15 text-green-400",
-  paused: "bg-yellow-500/15 text-yellow-400",
-  cancelled: "bg-muted text-muted-foreground",
-  expired: "bg-red-500/15 text-red-400",
-};
 
 const STATUS_LABELS: Record<FoodSubscriptionStatus, string> = {
   pending: "pending payment",
@@ -683,9 +676,7 @@ export function RestaurantSubscriptionsTab({ providerId }: Props) {
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col items-start gap-1">
-                        <Badge className={`rounded-full text-xs ${STATUS_COLORS[sub.status]}`}>
-                          {STATUS_LABELS[sub.status]}
-                        </Badge>
+                        <StatusPill status={sub.status} />
                         {expiringSoon && (
                           <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-400"
                             title="Renewal due soon">
