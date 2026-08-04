@@ -6,6 +6,8 @@ import type { LucideIcon } from "lucide-react";
 export interface ServiceCategoryRow {
   key: string;
   label: string;
+  /** Parent service. `select("*")` always returned it; it just wasn't typed. */
+  archetype_key: string;
   icon: string;      // raw icon key from DB
   accent: string;
   sort_order: number;

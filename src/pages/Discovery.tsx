@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Users, ChevronRight, ChefHat, QrCode, Store } from "lucide-react";
+import { useServiceCategories } from "@/hooks/useServiceCategories";
 import { HomeHeader } from "@/components/HomeHeader";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
 import { BottomNav } from "@/components/BottomNav";
@@ -36,6 +37,20 @@ const Discovery = () => {
   // never render a tile that leads nowhere.
   const archetypes = allArchetypes.filter((a) => publicListingHref(a.source_service_key));
   const { t } = useI18n();
+
+  // What's actually inside each service. A tile saying "Apartment Cleaning ·
+  // Car Wash" tells a customer more in four words than the archetype's prose
+  // blurb did in two truncated lines.
+  const { categories } = useServiceCategories(true);
+  const categoriesByArchetype = useMemo(() => {
+    const m = new Map<string, string[]>();
+    for (const c of categories) {
+      if (!c.archetype_key) continue;
+      if (!m.has(c.archetype_key)) m.set(c.archetype_key, []);
+      m.get(c.archetype_key)!.push(c.label);
+    }
+    return m;
+  }, [categories]);
 
   const firstName = userData?.name?.split(" ")[0] || userData?.display_name?.split(" ")[0];
 
@@ -131,7 +146,9 @@ const Discovery = () => {
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-              {archetypes.map((a) => <ArchetypeTile key={a.key} archetype={a} />)}
+              {archetypes.map((a) => (
+                <ArchetypeTile key={a.key} archetype={a} categories={categoriesByArchetype.get(a.key) ?? []} />
+              ))}
             </div>
           )}
         </section>
@@ -148,7 +165,13 @@ const Discovery = () => {
   );
 };
 
-function ArchetypeTile({ archetype }: { archetype: ServiceArchetype }) {
+function ArchetypeTile({
+  archetype, categories = [],
+}: {
+  archetype: ServiceArchetype;
+  /** Active category labels inside this service, in admin sort order. */
+  categories?: string[];
+}) {
   const Icon = archetype.Icon;
   return (
     <Link
@@ -161,9 +184,15 @@ function ArchetypeTile({ archetype }: { archetype: ServiceArchetype }) {
     >
       <div className="max-w-[85%]">
         <p className="text-[15px] font-bold leading-tight text-foreground">{archetype.label}</p>
-        {archetype.description && (
+        {categories.length > 0 ? (
+          <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-muted-foreground">
+            {categories.join(" · ")}
+          </p>
+        ) : archetype.description ? (
+          // Fall back to the blurb only when a service has no categories yet —
+          // better than an empty tile.
           <p className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">{archetype.description}</p>
-        )}
+        ) : null}
       </div>
       <div className="mt-3 flex items-end justify-end">
         <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/15 text-primary transition-transform group-hover:scale-110">
