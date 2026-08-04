@@ -43,11 +43,11 @@ const Discovery = () => {
   // blurb did in two truncated lines.
   const { categories } = useServiceCategories(true);
   const categoriesByArchetype = useMemo(() => {
-    const m = new Map<string, string[]>();
+    const m = new Map<string, TileCategory[]>();
     for (const c of categories) {
       if (!c.archetype_key) continue;
       if (!m.has(c.archetype_key)) m.set(c.archetype_key, []);
-      m.get(c.archetype_key)!.push(c.label);
+      m.get(c.archetype_key)!.push({ label: c.label, imageUrl: c.image_url ?? null });
     }
     return m;
   }, [categories]);
@@ -167,25 +167,33 @@ const Discovery = () => {
 
 /** Keeps a many-category service from stretching every tile in its row. */
 const MAX_TILE_CATEGORIES = 3;
+/**
+ * At most two cover photos per tile. Three would each be too narrow to read
+ * as anything, and the tile is a signpost, not a gallery.
+ */
+const MAX_TILE_IMAGES = 2;
+
+export interface TileCategory { label: string; imageUrl: string | null }
 
 function ArchetypeTile({
   archetype, categories = [],
 }: {
   archetype: ServiceArchetype;
-  /** Active category labels inside this service, in admin sort order. */
-  categories?: string[];
+  /** Active categories inside this service, in admin sort order. */
+  categories?: TileCategory[];
 }) {
   const Icon = archetype.Icon;
+  const images = categories.map((c) => c.imageUrl).filter(Boolean).slice(0, MAX_TILE_IMAGES) as string[];
   return (
     <Link
       to={publicListingHref(archetype.source_service_key) ?? "/discovery"}
       aria-label={archetype.label}
       className={cn(
-        "group relative flex min-h-[112px] flex-col justify-between overflow-hidden rounded-2xl p-4 transition-colors active:scale-[0.98] hover:bg-muted/40",
+        "group relative flex min-h-[112px] flex-col overflow-hidden rounded-2xl transition-colors active:scale-[0.98] hover:bg-muted/40",
         ARCHETYPE_TILE_BG,
       )}
     >
-      <div className="max-w-[85%]">
+      <div className="max-w-[85%] p-4 pb-3">
         <p className="text-[15px] font-bold leading-tight text-foreground">{archetype.label}</p>
         {categories.length > 0 ? (
           // One per line rather than a dot-separated run: at a glance the
@@ -194,7 +202,7 @@ function ArchetypeTile({
           // row — grid tiles share the tallest one's height.
           <ul className="mt-1 space-y-0.5">
             {categories.slice(0, MAX_TILE_CATEGORIES).map((c) => (
-              <li key={c} className="truncate text-[11px] leading-snug text-muted-foreground">{c}</li>
+              <li key={c.label} className="truncate text-[11px] leading-snug text-muted-foreground">{c.label}</li>
             ))}
             {categories.length > MAX_TILE_CATEGORIES && (
               <li className="text-[11px] leading-snug text-muted-foreground/70">
@@ -208,10 +216,42 @@ function ArchetypeTile({
           <p className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">{archetype.description}</p>
         ) : null}
       </div>
-      <div className="mt-3 flex items-end justify-end">
-        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/15 text-primary transition-transform group-hover:scale-110">
+
+      {/* Cover strip. One photo fills the width; two split it evenly, which is
+          what makes "Apartment Cleaning + Car Wash" legible as two things
+          without reading the labels. `mt-auto` pins it to the bottom so tiles
+          with and without photos still line up in the grid. */}
+      <div className="relative mt-auto">
+        {images.length > 0 && (
+          // Fixed height, not an aspect ratio: at 4/3 a half-width pane is half
+          // as tall as a full-width one, so a two-photo tile ended up with a
+          // short strip and a gap above it while the grid stretched every tile
+          // to the tallest.
+          <div className={cn("grid h-32 gap-0.5 md:h-36", images.length > 1 ? "grid-cols-2" : "grid-cols-1")}>
+            {images.map((url, i) => (
+              <div key={`${url}-${i}`} className="overflow-hidden bg-muted">
+                <img
+                  src={url}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  className="h-full w-full object-cover"
+                />
+              </div>
+            ))}
+          </div>
+        )}
+        <span
+          className={cn(
+            "absolute bottom-3 right-3 flex h-10 w-10 items-center justify-center rounded-xl text-primary transition-transform group-hover:scale-110",
+            // Over a photo the icon needs its own opaque chip; on a bare tile
+            // the usual tint is enough.
+            images.length > 0 ? "bg-background/90 backdrop-blur-sm" : "bg-primary/15",
+          )}
+        >
           <Icon className="h-5 w-5" />
         </span>
+        {images.length === 0 && <div className="h-16" />}
       </div>
     </Link>
   );

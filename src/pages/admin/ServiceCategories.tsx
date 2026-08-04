@@ -21,6 +21,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { ImageField } from "@/components/food/ImageField";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
@@ -41,12 +42,14 @@ interface Category {
   accent: string;
   is_active: boolean;
   sort_order: number;
+  /** Cover photo — Discovery shows up to two per service. */
+  image_url: string | null;
 }
 
 const EMPTY: Category = {
   key: "", label: "", archetype_key: "",
   icon: "store", accent: "bg-blue-500",
-  is_active: true, sort_order: 0,
+  is_active: true, sort_order: 0, image_url: null,
 };
 
 /**
@@ -376,6 +379,22 @@ export default function ServiceCategories({ embedded = false, archetypeKey }: Se
                   placeholder="Car Wash"
                 />
               </div>
+            </div>
+
+            <div>
+              {/* Cover photo. Two categories in one service render side by
+                  side on the Discovery tile, so landscape crops read best. */}
+              <ImageField
+                label="Cover photo"
+                value={form.image_url ?? ""}
+                onChange={(url) => setForm({ ...form, image_url: url || null })}
+                pathPrefix="categories"
+                variant="card"
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Shown on the home screen tile for this service. Up to two categories
+                per service get a photo there — the rest are listed by name.
+              </p>
             </div>
 
             <div>

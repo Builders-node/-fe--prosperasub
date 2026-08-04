@@ -8,6 +8,8 @@ export interface ServiceCategoryRow {
   label: string;
   /** Parent service. `select("*")` always returned it; it just wasn't typed. */
   archetype_key: string;
+  /** Cover photo shown on the Discovery service tile. */
+  image_url: string | null;
   icon: string;      // raw icon key from DB
   accent: string;
   sort_order: number;
