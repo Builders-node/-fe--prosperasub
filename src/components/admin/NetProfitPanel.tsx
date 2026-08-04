@@ -14,6 +14,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
+import { fetchAllRows } from "@/lib/supabasePaging";
 import { supabaseDb, adminApi } from "@/integrations/supabase/client";
 import { formatUSD } from "@/lib/pricing";
 import { recognizedCents, overlapDays, addDaysISO } from "@/lib/revenueRecognition";

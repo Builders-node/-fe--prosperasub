@@ -16,6 +16,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { usePagination, TablePagination } from "@/components/ui/table-pagination";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { fetchAllRows } from "@/lib/supabasePaging";
 import { adminApi, supabase, supabaseDb } from "@/integrations/supabase/client";
 import { FinanceBreakdown } from "@/components/admin/FinanceBreakdown";
 import { NetProfitPanel } from "@/components/admin/NetProfitPanel";

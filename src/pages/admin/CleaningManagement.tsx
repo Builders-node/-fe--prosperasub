@@ -20,7 +20,6 @@ import { toast } from "sonner";
 
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { TabEmptyState, SectionOverline } from "@/components/subscriptions/MySubsPrimitives";
-import { fetchAllRows } from "@/lib/supabasePaging";
 import { supabase, adminApi } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -174,11 +173,14 @@ const CleaningManagement = ({
         .from("cleaning_packages").select("id").eq("provider_id", providerId!);
       const pkgIds = (pkgs ?? []).map((p: any) => p.id);
       if (!pkgIds.length) return [] as string[];
-      // Paged: this id list is the provider scope for the bookings query below.
-      // A clipped page would silently hide that provider's later bookings.
-      const subs = await fetchAllRows<any>(() => supabase
-        .from("cleaning_subscriptions").select("id").in("package_id", pkgIds).order("id"));
-      return subs.map((s: any) => s.id) as string[];
+      // NOT paged, deliberately: this file talks to the `supabase` wrapper, whose
+      // OwnedQueryBuilder (integrations/supabase/client.ts) implements select/eq/
+      // in/order but NOT .range(), so fetchAllRows cannot drive it. Past 1000
+      // subscriptions for one provider this list clips and later bookings go
+      // missing — the real fix is to move this read onto supabaseDb.
+      const { data: subs } = await supabase
+        .from("cleaning_subscriptions").select("id").in("package_id", pkgIds);
+      return (subs ?? []).map((s: any) => s.id) as string[];
     },
   });
 
