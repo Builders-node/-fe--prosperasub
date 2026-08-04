@@ -165,6 +165,9 @@ const Discovery = () => {
   );
 };
 
+/** Keeps a many-category service from stretching every tile in its row. */
+const MAX_TILE_CATEGORIES = 3;
+
 function ArchetypeTile({
   archetype, categories = [],
 }: {
@@ -185,9 +188,20 @@ function ArchetypeTile({
       <div className="max-w-[85%]">
         <p className="text-[15px] font-bold leading-tight text-foreground">{archetype.label}</p>
         {categories.length > 0 ? (
-          <p className="mt-1 line-clamp-2 text-[11px] leading-snug text-muted-foreground">
-            {categories.join(" · ")}
-          </p>
+          // One per line rather than a dot-separated run: at a glance the
+          // customer counts what's inside instead of parsing a sentence.
+          // Capped so a service with many categories can't stretch the whole
+          // row — grid tiles share the tallest one's height.
+          <ul className="mt-1 space-y-0.5">
+            {categories.slice(0, MAX_TILE_CATEGORIES).map((c) => (
+              <li key={c} className="truncate text-[11px] leading-snug text-muted-foreground">{c}</li>
+            ))}
+            {categories.length > MAX_TILE_CATEGORIES && (
+              <li className="text-[11px] leading-snug text-muted-foreground/70">
+                +{categories.length - MAX_TILE_CATEGORIES} more
+              </li>
+            )}
+          </ul>
         ) : archetype.description ? (
           // Fall back to the blurb only when a service has no categories yet —
           // better than an empty tile.
