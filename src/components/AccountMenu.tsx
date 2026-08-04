@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, ChefHat, List, LogOut, Shield, Receipt } from "lucide-react";
+import { Bell, ChefHat, LifeBuoy, List, LogOut, Shield, Receipt } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import {
   DropdownMenu,
@@ -70,6 +70,7 @@ export function AccountMenu() {
             {managesBusiness && (
               <AppDropdownItem icon={ChefHat} title="My Business" to="/my-business" />
             )}
+            <AppDropdownItem icon={LifeBuoy} title="Support" to="/support" />
           </div>
           {isAdminUser && (
             <>

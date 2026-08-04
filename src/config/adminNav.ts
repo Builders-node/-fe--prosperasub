@@ -11,7 +11,7 @@
 import {
   BarChart3, CalendarDays, DollarSign,
   FileText, Layers, LayoutDashboard, MapPin, Megaphone,
-  ShieldCheck, Users,
+  LifeBuoy, ShieldCheck, Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { adminRoutes } from "./adminRoutes";
@@ -91,6 +91,8 @@ export const PEOPLE_SECTION: NavSection = {
   title: "People",
   items: [
     { label: "Users", path: adminRoutes.superAdminUsers, icon: Users,
+      permissions: ["users.read"] },
+    { label: "Support", path: adminRoutes.superAdminSupport, icon: LifeBuoy,
       permissions: ["users.read"] },
   ],
 };

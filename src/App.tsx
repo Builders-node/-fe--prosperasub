@@ -83,6 +83,8 @@ const MarketplaceProviders = lazy(() => import("./pages/admin/MarketplaceProvide
 const MarketplaceProviderDetail = lazy(() => import("./pages/admin/MarketplaceProviderDetail"));
 const LegacyProviderRedirect = lazy(() => import("./pages/admin/LegacyProviderRedirect"));
 const MarketplacePlans = lazy(() => import("./pages/admin/MarketplacePlans"));
+const Support = lazy(() => import("./pages/Support"));
+const AdminSupport = lazy(() => import("./pages/admin/Support"));
 const MarketplaceHub = lazy(() => import("./pages/admin/MarketplaceHub"));
 const MarketplaceServiceDetail = lazy(() => import("./pages/admin/MarketplaceServiceDetail"));
 const MarketplaceSubscriptions = lazy(() => import("./pages/admin/MarketplaceSubscriptions"));
@@ -236,6 +238,9 @@ const App = () => {
               <Route path="/my-car-rental"  element={<ProtectedRoute><LegacyPortalRedirect service="cars" /></ProtectedRoute>} />
               <Route path="/my-cleaning"    element={<ProtectedRoute><LegacyPortalRedirect service="cleaning" /></ProtectedRoute>} />
               <Route path="/become-a-provider" element={<BecomeProvider />} />
+              {/* Reachable signed out on purpose — someone who can't log in
+                  is exactly who needs to reach a human. */}
+              <Route path="/support" element={<Support />} />
               <Route path="/cleaning/my-bookings" element={<Navigate to="/my-subscriptions" replace />} />
 
               {/* Super Admin */}
@@ -295,6 +300,9 @@ const App = () => {
               <Route path="/admin/cleaning"               element={<Navigate to="/admin/marketplace/providers" replace />} />
               <Route path="/admin/cleaning/subscriptions" element={<Navigate to="/admin/marketplace/subscriptions" replace />} />
               <Route path="/admin/subscriptions"          element={<Navigate to="/admin/marketplace/subscriptions" replace />} />
+              <Route path="/admin/support" element={
+                <ProtectedRoute allowedRoles={['super_admin']}><AdminSupport /></ProtectedRoute>
+              } />
               <Route path="/admin/users" element={
                 <ProtectedRoute allowedRoles={['super_admin']} requiredPermissions={["users.read"]}><AdminUsers /></ProtectedRoute>
               } />
