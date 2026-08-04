@@ -130,8 +130,18 @@ const BeachCourts = () => {
   const bookingByStart = useMemo(() => {
     const m = new Map<string, EngineBooking>();
     for (const b of bookings) {
-      const d = new Date(b.start_at);
-      const key = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+      // `slot.from` is Honduras wall clock. Keying by the BROWSER's clock made
+      // a booking land on the wrong row for anyone not on UTC-6 — a traveller
+      // or anyone on a VPN saw their own reservation as "Available" and every
+      // taken slot as free. `slot_key` already carries the wall-clock time the
+      // engine assigned; fall back to converting the instant into Honduras.
+      const fromKey = String(b.slot_key ?? "").split("|")[2];
+      const key = /^\d{2}:\d{2}$/.test(fromKey ?? "")
+        ? fromKey
+        : new Intl.DateTimeFormat("en-GB", {
+            timeZone: "America/Tegucigalpa", hour12: false,
+            hour: "2-digit", minute: "2-digit",
+          }).format(new Date(b.start_at));
       m.set(key, b);
     }
     return m;
