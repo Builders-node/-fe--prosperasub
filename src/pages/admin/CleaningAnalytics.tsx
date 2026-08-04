@@ -2,9 +2,12 @@ import { useQuery } from "@tanstack/react-query";
 import { format, parseISO, startOfMonth, endOfMonth } from "date-fns";
 import { TrendingUp, Sparkles, CheckCircle2, BarChart3, ClipboardList } from "lucide-react";
 import { supabaseDb } from "@/integrations/supabase/client";
-import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { PageLoader } from "@/components/ui/spinner";
 import { formatUSD } from "@/lib/pricing";
+import { nowHN } from "@/lib/timezone";
+import {
+  AnalyticsShell, KpiCard, StatItem, MonthlyRevenueChart, RankedBarList,
+} from "@/components/admin/analytics/AnalyticsPrimitives";
 
 const isActiveSub = (s: any) =>
   s.payment_status === "paid" &&
@@ -12,8 +15,6 @@ const isActiveSub = (s: any) =>
     (s.is_active && !["paused", "cancelled", "expired"].includes(s.subscription_status)));
 
 const CleaningAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
-  const Wrap = ({ children }: { children?: any }) =>
-    embedded ? <>{children}</> : <SuperAdminLayout title="Cleaning — Analytics">{children}</SuperAdminLayout>;
   const { data: subscriptions = [], isLoading: loadingSubs } = useQuery({
     queryKey: ["admin-cleaning-analytics-subs"],
     queryFn: async () => {
@@ -69,7 +70,9 @@ const CleaningAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
     },
   });
 
-  const now = new Date();
+  // Month boundaries follow Honduras time — the browser's timezone would
+  // roll the month over at the wrong moment for an admin travelling.
+  const now = nowHN();
   const thisMonthStart = startOfMonth(now);
   const thisMonthEnd = endOfMonth(now);
 
@@ -111,7 +114,6 @@ const CleaningAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
     .map(([id, s]) => ({ id, ...s }))
     .filter((p) => p.subs > 0)
     .sort((a, b) => b.subs - a.subs);
-  const topPlanSubs = planList[0]?.subs || 1;
 
   // Monthly revenue for last 6 months
   const last6 = Array.from({ length: 6 }, (_, i) => {
@@ -126,18 +128,17 @@ const CleaningAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
       .reduce((sum: number, s: any) => sum + subValue(s), 0);
     return { label: format(d, "MMM"), rev };
   });
-  const maxRev = Math.max(...last6.map((m) => m.rev), 1);
 
   if (loadingSubs) {
     return (
-      <Wrap>
+      <AnalyticsShell embedded={embedded} title="Cleaning — Analytics">
         <PageLoader />
-      </Wrap>
+      </AnalyticsShell>
     );
   }
 
   return (
-    <Wrap>
+    <AnalyticsShell embedded={embedded} title="Cleaning — Analytics">
       <div className="space-y-space-6">
         {/* KPI cards */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -154,18 +155,7 @@ const CleaningAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
               <BarChart3 className="h-5 w-5 text-primary" />
               Monthly Revenue (last 6 months)
             </h2>
-            <div className="flex items-end gap-3 h-36">
-              {last6.map(({ label, rev }) => (
-                <div key={label} className="flex flex-1 flex-col items-center gap-1">
-                  <div
-                    className="w-full rounded-t-md bg-primary/60 transition-all"
-                    style={{ height: `${Math.max(4, (rev / maxRev) * 100)}%` }}
-                    title={formatUSD(rev)}
-                  />
-                  <span className="text-xs text-muted-foreground">{label}</span>
-                </div>
-              ))}
-            </div>
+            <MonthlyRevenueChart months={last6} barClass="bg-primary/60" formatValue={formatUSD} />
           </div>
 
           {/* Plan performance */}
@@ -174,29 +164,16 @@ const CleaningAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
               <Sparkles className="h-5 w-5 text-primary" />
               Plan Performance
             </h2>
-            {planList.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No data yet.</p>
-            ) : (
-              <div className="space-y-3">
-                {planList.map(({ id, name, revenue, subs }) => (
-                  <div key={id} className="flex items-center gap-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-foreground truncate">{name}</p>
-                      <div className="mt-1 h-1.5 w-full rounded-full bg-muted overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-primary transition-all"
-                          style={{ width: `${(subs / topPlanSubs) * 100}%` }}
-                        />
-                      </div>
-                    </div>
-                    <div className="shrink-0 text-right">
-                      <p className="text-sm font-bold text-foreground">{subs} sub{subs !== 1 ? "s" : ""}</p>
-                      <p className="text-xs text-muted-foreground">{formatUSD(revenue)}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <RankedBarList
+              rows={planList.map((p) => ({
+                key: p.id,
+                label: p.name,
+                sublabel: formatUSD(p.revenue),
+                value: p.subs,
+              }))}
+              formatValue={(v) => `${v} sub${v !== 1 ? "s" : ""}`}
+              emptyMessage="No subscriptions on any plan yet."
+            />
           </div>
         </div>
 
@@ -220,31 +197,8 @@ const CleaningAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
           </dl>
         </div>
       </div>
-    </Wrap>
+    </AnalyticsShell>
   );
 };
-
-function KpiCard({ icon: Icon, label, value, accent }: { icon: React.FC<{ className?: string }>; label: string; value: string; accent: string }) {
-  return (
-    <div className="flex items-start gap-4 rounded-2xl bg-card p-5">
-      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted ${accent}`}>
-        <Icon className="h-5 w-5" />
-      </div>
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
-        <p className="mt-1 text-2xl font-black tabular-nums text-foreground">{value}</p>
-      </div>
-    </div>
-  );
-}
-
-function StatItem({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl bg-[hsl(var(--app-rail))] p-3">
-      <dt className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</dt>
-      <dd className="mt-1 text-xl font-black text-foreground">{value}</dd>
-    </div>
-  );
-}
 
 export default CleaningAnalytics;

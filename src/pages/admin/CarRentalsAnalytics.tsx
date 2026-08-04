@@ -2,13 +2,15 @@ import { useQuery } from "@tanstack/react-query";
 import { format, parseISO, startOfMonth, endOfMonth } from "date-fns";
 import { TrendingUp, Car, CalendarDays, BarChart3 } from "lucide-react";
 import { supabaseDb } from "@/integrations/supabase/client";
-import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
+import { PageLoader } from "@/components/ui/spinner";
 import { formatUSD } from "@/lib/pricing";
+import { nowHN } from "@/lib/timezone";
+import {
+  AnalyticsShell, KpiCard, StatItem, MonthlyRevenueChart, RankedBarList,
+} from "@/components/admin/analytics/AnalyticsPrimitives";
 import type { RentalBooking, RentalVehicle } from "@/types/carRental";
 
 const CarRentalsAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
-  const Wrap = ({ children }: { children?: any }) =>
-    embedded ? <>{children}</> : <SuperAdminLayout title="Car Rental — Analytics">{children}</SuperAdminLayout>;
   const { data: bookings = [], isLoading: loadingBookings } = useQuery({
     queryKey: ["admin-rental-analytics-bookings"],
     queryFn: async () => {
@@ -31,14 +33,15 @@ const CarRentalsAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
     queryFn: async () => {
       const { data, error } = await supabaseDb
         .from("rental_vehicles")
-        .select("id, name, brand, model")
+        .select("id, name")
         .neq("status", "archived");
       if (error) throw error;
-      return (data ?? []) as Pick<RentalVehicle, "id" | "name" | "brand" | "model">[];
+      return (data ?? []) as Pick<RentalVehicle, "id" | "name">[];
     },
   });
 
-  const now = new Date();
+  // Honduras month boundaries — see CleaningAnalytics for why.
+  const now = nowHN();
   const thisMonthStart = startOfMonth(now);
   const thisMonthEnd = endOfMonth(now);
 
@@ -87,10 +90,17 @@ const CarRentalsAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
       .reduce((s, b) => s + b.total_cents, 0);
     return { label, rev };
   });
-  const maxRev = Math.max(...last6.map((m) => m.rev), 1);
+
+  if (loadingBookings) {
+    return (
+      <AnalyticsShell embedded={embedded} title="Car Rental — Analytics">
+        <PageLoader />
+      </AnalyticsShell>
+    );
+  }
 
   return (
-    <Wrap>
+    <AnalyticsShell embedded={embedded} title="Car Rental — Analytics">
       <div className="space-y-space-6">
         {/* KPI cards */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -107,18 +117,7 @@ const CarRentalsAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
               <BarChart3 className="h-5 w-5 text-primary" />
               Monthly Revenue (last 6 months)
             </h2>
-            <div className="flex items-end gap-3 h-36">
-              {last6.map(({ label, rev }) => (
-                <div key={label} className="flex flex-1 flex-col items-center gap-1">
-                  <div
-                    className="w-full rounded-t-md bg-primary/60 transition-all"
-                    style={{ height: `${Math.max(4, (rev / maxRev) * 100)}%` }}
-                    title={formatUSD(rev)}
-                  />
-                  <span className="text-xs text-muted-foreground">{label}</span>
-                </div>
-              ))}
-            </div>
+            <MonthlyRevenueChart months={last6} barClass="bg-primary/60" formatValue={formatUSD} />
           </div>
 
           {/* Fleet performance */}
@@ -127,29 +126,16 @@ const CarRentalsAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
               <Car className="h-5 w-5 text-primary" />
               Fleet Performance
             </h2>
-            {vehicleList.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No data yet.</p>
-            ) : (
-              <div className="space-y-3">
-                {vehicleList.map(({ id, name, revenue, rentals }) => (
-                  <div key={id} className="flex items-center gap-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-foreground truncate">{name}</p>
-                      <div className="mt-1 h-1.5 w-full rounded-full bg-muted overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-primary transition-all"
-                          style={{ width: `${vehicleList.length > 0 ? (rentals / vehicleList[0].rentals) * 100 : 0}%` }}
-                        />
-                      </div>
-                    </div>
-                    <div className="shrink-0 text-right">
-                      <p className="text-sm font-bold text-foreground">{rentals} rentals</p>
-                      <p className="text-xs text-muted-foreground">{formatUSD(revenue)}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <RankedBarList
+              rows={vehicleList.map((v) => ({
+                key: v.id,
+                label: v.name,
+                sublabel: formatUSD(v.revenue),
+                value: v.rentals,
+              }))}
+              formatValue={(v) => `${v} rental${v !== 1 ? "s" : ""}`}
+              emptyMessage="No vehicle has been rented yet."
+            />
           </div>
         </div>
 
@@ -166,31 +152,8 @@ const CarRentalsAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
           </dl>
         </div>
       </div>
-    </Wrap>
+    </AnalyticsShell>
   );
 };
-
-function KpiCard({ icon: Icon, label, value, accent }: { icon: React.FC<{ className?: string }>; label: string; value: string; accent: string }) {
-  return (
-    <div className="flex items-start gap-4 rounded-2xl bg-card p-5">
-      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted ${accent}`}>
-        <Icon className="h-5 w-5" />
-      </div>
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
-        <p className="mt-1 text-2xl font-black tabular-nums text-foreground">{value}</p>
-      </div>
-    </div>
-  );
-}
-
-function StatItem({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl bg-[hsl(var(--app-rail))] p-3">
-      <dt className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</dt>
-      <dd className="mt-1 text-xl font-black text-foreground">{value}</dd>
-    </div>
-  );
-}
 
 export default CarRentalsAnalytics;

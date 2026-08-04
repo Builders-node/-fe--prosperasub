@@ -1,7 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { TrendingUp, Users, Waves, CheckCircle2, Clock, XCircle } from "lucide-react";
 import { supabaseDb } from "@/integrations/supabase/client";
-import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
+import {
+  AnalyticsShell, KpiCard, StatusBar,
+} from "@/components/admin/analytics/AnalyticsPrimitives";
 import { PageLoader } from "@/components/ui/spinner";
 import { formatUSD } from "@/lib/pricing";
 
@@ -16,8 +18,6 @@ interface BeachSub {
 }
 
 export default function BeachClubAnalytics({ embedded = false }: { embedded?: boolean }) {
-  const Wrap = ({ children }: { children?: any }) =>
-    embedded ? <>{children}</> : <SuperAdminLayout title="Beach Club — Analytics">{children}</SuperAdminLayout>;
   const { data: subs = [], isLoading } = useQuery({
     queryKey: ["admin-beach-club-analytics"],
     queryFn: async () => {
@@ -31,9 +31,9 @@ export default function BeachClubAnalytics({ embedded = false }: { embedded?: bo
 
   if (isLoading) {
     return (
-      <Wrap>
+      <AnalyticsShell embedded={embedded} title="Beach Club — Analytics">
         <PageLoader />
-      </Wrap>
+      </AnalyticsShell>
     );
   }
 
@@ -70,8 +70,19 @@ export default function BeachClubAnalytics({ embedded = false }: { embedded?: bo
   }
   const planRows = Object.entries(planStats).sort((a, b) => b[1].revenue - a[1].revenue);
 
+  if (subs.length === 0) {
+    return (
+      <AnalyticsShell embedded={embedded} title="Beach Club — Analytics">
+        <div className="rounded-2xl bg-card p-10 text-center text-muted-foreground">
+          <Waves className="mx-auto mb-2 h-8 w-8 opacity-40" />
+          No memberships yet — analytics will populate as people subscribe.
+        </div>
+      </AnalyticsShell>
+    );
+  }
+
   return (
-    <Wrap>
+    <AnalyticsShell embedded={embedded} title="Beach Club — Analytics">
       <div className="space-y-6">
         {/* KPI cards */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -121,46 +132,7 @@ export default function BeachClubAnalytics({ embedded = false }: { embedded?: bo
           </div>
         </div>
 
-        {subs.length === 0 && (
-          <div className="rounded-2xl bg-card p-10 text-center text-muted-foreground">
-            <Waves className="mx-auto mb-2 h-8 w-8 opacity-40" />
-            No memberships yet — analytics will populate as people subscribe.
-          </div>
-        )}
       </div>
-    </Wrap>
-  );
-}
-
-function KpiCard({ icon: Icon, label, value, accent }: {
-  icon: React.FC<{ className?: string }>; label: string; value: string; accent: string;
-}) {
-  return (
-    <div className="flex items-start gap-4 rounded-2xl bg-card p-5">
-      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted ${accent}`}>
-        <Icon className="h-5 w-5" />
-      </div>
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
-        <p className="mt-1 text-2xl font-black tabular-nums text-foreground">{value}</p>
-      </div>
-    </div>
-  );
-}
-
-function StatusBar({ label, icon, count, total, color, textColor }: {
-  label: string; icon: React.ReactNode; count: number; total: number; color: string; textColor: string;
-}) {
-  const pct = total > 0 ? Math.round((count / total) * 100) : 0;
-  return (
-    <div>
-      <div className="mb-1 flex items-center justify-between text-sm">
-        <span className={`flex items-center gap-1.5 font-medium ${textColor}`}>{icon}{label}</span>
-        <span className="tabular-nums text-muted-foreground">{count} · {pct}%</span>
-      </div>
-      <div className="h-2 overflow-hidden rounded-full bg-muted">
-        <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
-      </div>
-    </div>
+    </AnalyticsShell>
   );
 }

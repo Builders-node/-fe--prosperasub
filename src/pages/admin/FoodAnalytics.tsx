@@ -5,7 +5,9 @@ import {
   RefreshCw, Pause, XCircle, BookOpen, MapPin,
 } from "lucide-react";
 import { supabaseDb } from "@/integrations/supabase/client";
-import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
+import {
+  AnalyticsShell, KpiCard, StatItem, StatusBar, MonthlyRevenueChart, RankedBarList,
+} from "@/components/admin/analytics/AnalyticsPrimitives";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -16,8 +18,6 @@ import { todayHN, nowHN } from "@/lib/timezone";
 import type { FoodSubscription, FoodMealPlan, FoodProvider } from "@/types/food";
 
 const FoodAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
-  const Wrap = ({ children }: { children?: any }) =>
-    embedded ? <>{children}</> : <SuperAdminLayout title="Food — Analytics">{children}</SuperAdminLayout>;
   const { restaurants, selectedId, select } = useFoodRestaurant();
 
   // ─── Queries ──────────────────────────────────────────────────────────────
@@ -135,7 +135,7 @@ const FoodAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
   subscriptions.forEach((s) => {
     if (s.meal_plan_id && planStats[s.meal_plan_id]) {
       planStats[s.meal_plan_id].subs++;
-      if (countsAsRevenue(s.status)) {
+      if (countsAsRevenue(s)) {
         planStats[s.meal_plan_id].revenue += revenueOf(s);
       }
     }
@@ -155,7 +155,7 @@ const FoodAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
       restaurantStats[s.provider_id] = { name: "Unknown", subs: 0, revenue: 0 };
     }
     restaurantStats[s.provider_id].subs++;
-    if (countsAsRevenue(s.status)) {
+    if (countsAsRevenue(s)) {
       restaurantStats[s.provider_id].revenue += revenueOf(s);
     }
   });
@@ -172,12 +172,11 @@ const FoodAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
     const a = (locationStats[key] ??= { subs: 0, active: 0, revenue: 0 });
     a.subs++;
     if (s.status === "active") a.active++;
-    if (countsAsRevenue(s.status)) a.revenue += revenueOf(s);
+    if (countsAsRevenue(s)) a.revenue += revenueOf(s);
   });
   const locationList = Object.entries(locationStats)
     .map(([name, v]) => ({ name, ...v }))
     .sort((a, b) => b.revenue - a.revenue);
-  const maxLocationRev = Math.max(...locationList.map((l) => l.revenue), 1);
 
   // ─── Monthly revenue (last 6 months) ──────────────────────────────────────
   const last6 = Array.from({ length: 6 }, (_, i) => {
@@ -193,20 +192,19 @@ const FoodAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
       .reduce((sum, s) => sum + revenueOf(s), 0);
     return { label, rev };
   });
-  const maxRev = Math.max(...last6.map((m) => m.rev), 1);
 
   if (isLoading) {
     return (
-      <Wrap>
+      <AnalyticsShell embedded={embedded} title="Food — Analytics">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[1, 2, 3, 4].map((i) => <div key={i} className="h-24 animate-pulse rounded-2xl bg-muted" />)}
         </div>
-      </Wrap>
+      </AnalyticsShell>
     );
   }
 
   return (
-    <Wrap>
+    <AnalyticsShell embedded={embedded} title="Food — Analytics">
       <div className="space-y-6">
         {restaurants.length > 1 && (
           <div className="flex justify-end">
@@ -278,18 +276,7 @@ const FoodAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
               <BarChart3 className="h-5 w-5 text-orange-400" />
               Revenue (last 6 months)
             </h2>
-            <div className="flex items-end gap-3 h-36">
-              {last6.map(({ label, rev }) => (
-                <div key={label} className="flex flex-1 flex-col items-center gap-1">
-                  <div
-                    className="w-full rounded-t-md bg-orange-500/60 transition-all hover:bg-orange-500"
-                    style={{ height: `${Math.max(4, (rev / maxRev) * 100)}%` }}
-                    title={formatUSD(rev)}
-                  />
-                  <span className="text-xs text-muted-foreground">{label}</span>
-                </div>
-              ))}
-            </div>
+            <MonthlyRevenueChart months={last6} barClass="bg-orange-500/60" formatValue={formatUSD} />
             <div className="border-t border-border pt-3 flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Total committed revenue</span>
               <span className="font-bold text-orange-400">{formatUSD(totalRevenueCents)}</span>
@@ -305,36 +292,17 @@ const FoodAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
               <BookOpen className="h-5 w-5 text-orange-400" />
               Top Meal Plans
             </h2>
-            {planList.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No subscriptions yet.</p>
-            ) : (
-              <div className="space-y-3">
-                {planList.slice(0, 6).map((p) => (
-                  <div key={p.id} className="flex items-center gap-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-foreground truncate">{p.name}</p>
-                      <p className="text-xs text-muted-foreground">{p.provider}</p>
-                      <div className="mt-1 h-1.5 w-full rounded-full bg-muted overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-orange-500 transition-all"
-                          style={{
-                            width: `${
-                              planList.length > 0 && planList[0].subs > 0
-                                ? (p.subs / planList[0].subs) * 100
-                                : 0
-                            }%`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                    <div className="shrink-0 text-right">
-                      <p className="text-sm font-bold text-foreground">{p.subs} sub{p.subs !== 1 ? "s" : ""}</p>
-                      <p className="text-xs text-muted-foreground">{formatUSD(p.revenue)}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <RankedBarList
+              rows={planList.slice(0, 6).map((p) => ({
+                key: p.id,
+                label: p.name,
+                sublabel: `${p.provider} · ${formatUSD(p.revenue)}`,
+                value: p.subs,
+              }))}
+              formatValue={(n) => `${n} sub${n !== 1 ? "s" : ""}`}
+              barClass="bg-orange-500"
+              emptyMessage="No subscriptions yet."
+            />
           </div>
 
           {/* Restaurant performance */}
@@ -343,35 +311,17 @@ const FoodAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
               <ChefHat className="h-5 w-5 text-orange-400" />
               Restaurants
             </h2>
-            {restaurantList.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No data yet.</p>
-            ) : (
-              <div className="space-y-3">
-                {restaurantList.map((r) => (
-                  <div key={r.id} className="flex items-center gap-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-foreground truncate">{r.name}</p>
-                      <div className="mt-1 h-1.5 w-full rounded-full bg-muted overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-orange-500 transition-all"
-                          style={{
-                            width: `${
-                              restaurantList.length > 0 && restaurantList[0].revenue > 0
-                                ? (r.revenue / restaurantList[0].revenue) * 100
-                                : 0
-                            }%`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                    <div className="shrink-0 text-right">
-                      <p className="text-sm font-bold text-foreground">{r.subs} sub{r.subs !== 1 ? "s" : ""}</p>
-                      <p className="text-xs text-muted-foreground">{formatUSD(r.revenue)}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <RankedBarList
+              rows={restaurantList.map((r) => ({
+                key: r.id,
+                label: r.name,
+                sublabel: `${r.subs} sub${r.subs !== 1 ? "s" : ""}`,
+                value: r.revenue,
+              }))}
+              formatValue={formatUSD}
+              barClass="bg-orange-500"
+              emptyMessage="No data yet."
+            />
           </div>
         </div>
 
@@ -384,23 +334,17 @@ const FoodAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
             <p className="mb-4 text-xs text-muted-foreground">
               Where subscriptions are delivered{selectedId !== "all" ? " (this restaurant)" : " (all restaurants)"}.
             </p>
-            <div className="space-y-3">
-              {locationList.map((l) => (
-                <div key={l.name} className="flex items-center gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-foreground">{l.name}</p>
-                    <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                      <div className="h-full rounded-full bg-orange-500 transition-all"
-                        style={{ width: `${(l.revenue / maxLocationRev) * 100}%` }} />
-                    </div>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <p className="text-sm font-bold text-foreground">{formatUSD(l.revenue)}</p>
-                    <p className="text-xs text-muted-foreground">{l.subs} sub{l.subs !== 1 ? "s" : ""} · {l.active} active</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <RankedBarList
+              rows={locationList.map((l) => ({
+                key: l.name,
+                label: l.name,
+                sublabel: `${l.subs} sub${l.subs !== 1 ? "s" : ""} · ${l.active} active`,
+                value: l.revenue,
+              }))}
+              formatValue={formatUSD}
+              barClass="bg-orange-500"
+              emptyMessage="No revenue by location yet."
+            />
           </div>
         )}
 
@@ -418,77 +362,8 @@ const FoodAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
           </dl>
         </div>
       </div>
-    </Wrap>
+    </AnalyticsShell>
   );
 };
-
-function KpiCard({
-  icon: Icon,
-  label,
-  value,
-  accent,
-}: {
-  icon: React.FC<{ className?: string }>;
-  label: string;
-  value: string;
-  accent: string;
-}) {
-  return (
-    <div className="flex items-start gap-4 rounded-2xl bg-card p-5">
-      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted ${accent}`}>
-        <Icon className="h-5 w-5" />
-      </div>
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
-        <p className="mt-1 text-2xl font-black tabular-nums text-foreground">{value}</p>
-      </div>
-    </div>
-  );
-}
-
-function StatusBar({
-  label,
-  icon,
-  count,
-  total,
-  color,
-  textColor,
-}: {
-  label: string;
-  icon: React.ReactNode;
-  count: number;
-  total: number;
-  color: string;
-  textColor: string;
-}) {
-  const pct = total > 0 ? (count / total) * 100 : 0;
-  return (
-    <div>
-      <div className="flex items-center justify-between text-sm mb-1.5">
-        <span className={`flex items-center gap-1.5 font-medium ${textColor}`}>
-          {icon} {label}
-        </span>
-        <span className="font-bold text-foreground">
-          {count} <span className="text-xs font-normal text-muted-foreground">({pct.toFixed(0)}%)</span>
-        </span>
-      </div>
-      <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-        <div
-          className={`h-full ${color} transition-all`}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
-    </div>
-  );
-}
-
-function StatItem({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-xl bg-[hsl(var(--app-rail))] p-3">
-      <dt className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</dt>
-      <dd className="mt-1 text-xl font-black text-foreground">{value}</dd>
-    </div>
-  );
-}
 
 export default FoodAnalytics;
