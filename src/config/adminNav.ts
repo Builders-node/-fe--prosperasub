@@ -3,15 +3,15 @@
  * scannable. Cross-cutting things collapse into ONE page with tabs, not a
  * separate nav entry:
  *   Marketplace → hub of services; each opens Categories · Providers · Plans ·
- *                 Applications, all scoped to that service
- *   Providers   → the flat cross-service list (+ Applications tab)
+ *                 Applications, all scoped to that service. Cross-service
+ *                 lists hang off the hub's footer, not the sidebar.
  *   People      → Users (with a Cleaning-clients tab)
  */
 
 import {
   BarChart3, CalendarDays, DollarSign,
   FileText, Layers, LayoutDashboard, MapPin, Megaphone,
-  ShieldCheck, Users, Building2,
+  ShieldCheck, Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { adminRoutes } from "./adminRoutes";
@@ -55,27 +55,31 @@ export const OVERVIEW_SECTION: NavSection = {
 };
 
 // ─── MARKETPLACE — the model itself ─────────────────────────────────────
-// Services / Plans / Applications are no longer separate entries. They were
-// four flat lists that each opened with the same archetype filter, so managing
-// one service meant visiting all four and re-filtering in each. They're now
-// tabs inside Marketplace → <service>. `Providers` keeps its own entry as the
-// cross-service list: `providers.archetype_key` is ON DELETE SET NULL, so a
-// deleted service leaves orphans that no per-service page can show.
+// Services / Categories / Providers / Plans / Applications are all reached
+// through the Marketplace hub — as per-service tabs, or via the hub's footer
+// links for the cross-service views. None of them gets a sidebar entry: an
+// entry that lands on a page already one click away is pure duplication.
+//
+// That includes the flat Providers list. It used to be kept as the only way to
+// see providers orphaned by a deleted service (`archetype_key` is ON DELETE SET
+// NULL) — the hub's "Unassigned" card covers that case now, so the nav entry
+// was doing nothing the hub didn't.
+//
+// Subscriptions stays: it's the transaction ledger, not part of the
+// Service → Category → Provider → Plan tree, and appears nowhere in the hub.
 export const MARKETPLACE_SECTION: NavSection = {
   title: "Marketplace",
   items: [
     { label: "Marketplace",   path: adminRoutes.superAdminMarketplace,              icon: Layers,
+      // Every flat list is still routable (old bookmarks, links from other
+      // pages) — keep the hub lit while the admin is on one of them.
       alsoActiveOn: [
         "/admin/marketplace/service",
         adminRoutes.superAdminServices,
         adminRoutes.superAdminMarketplacePlans,
+        adminRoutes.superAdminMarketplaceProviders,
+        adminRoutes.superAdminProviderApplications,
       ],
-      permissions: ["admin_settings.read"] },
-    { label: "Providers",     path: adminRoutes.superAdminMarketplaceProviders,     icon: Building2,
-      // Applications is a TAB inside Providers, not its own nav item — a
-      // separate entry duplicated a surface that's one click away. Keep the
-      // parent highlighted while the admin is triaging there.
-      alsoActiveOn: [adminRoutes.superAdminProviderApplications],
       permissions: ["admin_settings.read"] },
     { label: "Subscriptions", path: adminRoutes.superAdminMarketplaceSubscriptions, icon: CalendarDays,
       permissions: ["subscriptions.read"] },
@@ -115,7 +119,7 @@ export const SETTINGS_SECTION: NavSection = {
  *
  * No OPERATIONS section: /admin/cleaning is a redirect to the providers list —
  * cleaning ops live inside the cleaning provider's workspace (Operations tab),
- * reached by opening that provider from Marketplace → Providers.
+ * reached by opening that provider from Marketplace → Cleaning → Providers.
  */
 export const NAV_SECTIONS: NavSection[] = [
   OVERVIEW_SECTION,
