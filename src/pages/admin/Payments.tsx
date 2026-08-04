@@ -115,22 +115,29 @@ const AdminPayments = () => {
   const { data: paymentStats = { pending: 0, paid: 0, revenueCents: 0 } } = useQuery({
     queryKey: ["admin-finance-totals-all"],
     queryFn: async () => {
+      // Paged — these reduce to the all-time revenue figure, and a plain select
+      // stops at PostgREST's 1000-row cap without erroring.
       const [cleaning, beach, rental, food] = await Promise.all([
-        supabaseDb.from("cleaning_subscriptions").select("payment_status, subscription_status, total_price_cents, monthly_price_cents").is("deleted_at", null),
-        supabaseDb.from("beach_club_subscriptions").select("payment_status, status, total_cents"),
-        supabaseDb.from("rental_bookings").select("payment_status, status, total_cents").is("deleted_at", null),
-        supabaseDb.from("food_subscriptions").select("status, payment_status, weekly_price_cents, commitment_weeks, periods_paid"),
+        fetchAllRows<any>(() => supabaseDb.from("cleaning_subscriptions")
+          .select("payment_status, subscription_status, total_price_cents, monthly_price_cents")
+          .is("deleted_at", null).order("id")),
+        fetchAllRows<any>(() => supabaseDb.from("beach_club_subscriptions")
+          .select("payment_status, status, total_cents").order("id")),
+        fetchAllRows<any>(() => supabaseDb.from("rental_bookings")
+          .select("payment_status, status, total_cents").is("deleted_at", null).order("id")),
+        fetchAllRows<any>(() => supabaseDb.from("food_subscriptions")
+          .select("status, payment_status, weekly_price_cents, commitment_weeks, periods_paid").order("id")),
       ]);
       let paid = 0, pending = 0, revenueCents = 0;
-      (cleaning.data ?? []).forEach((r: any) => {
+      cleaning.forEach((r: any) => {
         if (r.payment_status === "paid") { paid++; revenueCents += r.total_price_cents || r.monthly_price_cents || 0; }
         else if (!["cancelled", "expired"].includes(r.subscription_status)) pending++;
       });
-      (beach.data ?? []).forEach((r: any) => {
+      beach.forEach((r: any) => {
         if (r.payment_status === "paid") { paid++; revenueCents += r.total_cents || 0; }
         else if (r.status !== "cancelled") pending++;
       });
-      (rental.data ?? []).forEach((r: any) => {
+      rental.forEach((r: any) => {
         if (r.payment_status === "paid") { paid++; revenueCents += r.total_cents || 0; }
         else if (r.status !== "cancelled") pending++;
       });
@@ -138,7 +145,7 @@ const AdminPayments = () => {
       // tables. `status` (active/paused/expired) is a lifecycle marker, not a
       // payment marker; Infinita/crypto payments are not auto-reconciled and
       // must not appear in the revenue tile until they actually settle.
-      (food.data ?? []).forEach((r: any) => {
+      food.forEach((r: any) => {
         const s = String(r.status ?? "").toLowerCase();
         const isPaid = r.payment_status === "paid";
         if (isPaid && ["active", "paused", "expired"].includes(s)) {

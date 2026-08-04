@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { format, parseISO, startOfMonth, endOfMonth } from "date-fns";
 import { TrendingUp, Car, CalendarDays, BarChart3 } from "lucide-react";
+import { fetchAllRows } from "@/lib/supabasePaging";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { PageLoader } from "@/components/ui/spinner";
 import { formatUSD } from "@/lib/pricing";
@@ -14,7 +15,9 @@ const CarRentalsAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
   const { data: bookings = [], isLoading: loadingBookings } = useQuery({
     queryKey: ["admin-rental-analytics-bookings"],
     queryFn: async () => {
-      const { data, error } = await supabaseDb
+      // Paged — these rows are reduced into revenue/count figures and
+      // PostgREST truncates a plain select at 1000 rows without erroring.
+      return await fetchAllRows<RentalBooking>(() => supabaseDb
         .from("rental_bookings")
         .select("*")
         .is("deleted_at", null)
@@ -22,9 +25,7 @@ const CarRentalsAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
         // revenue. LIVES/crypto bookings sit at payment_status='pending' until
         // an admin confirms them; those must not appear in "Total Revenue".
         .eq("payment_status", "paid")
-        .in("status", ["paid", "confirmed", "active", "completed"]);
-      if (error) throw error;
-      return (data ?? []) as RentalBooking[];
+        .in("status", ["paid", "confirmed", "active", "completed"]).order("id"));
     },
   });
 

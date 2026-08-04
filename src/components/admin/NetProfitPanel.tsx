@@ -135,23 +135,24 @@ export function NetProfitPanel() {
   const { data: rev, isLoading } = useQuery({
     queryKey: ["finance-profit-revenue", startISO, endISO],
     queryFn: async () => {
+      // Paged — see lib/supabasePaging.ts. These feed the Net Profit figure.
       const [cleaning, beach, rental, food] = await Promise.all([
-        supabaseDb.from("cleaning_subscriptions")
+        fetchAllRows<any>(() => supabaseDb.from("cleaning_subscriptions")
           .select("total_price_cents, monthly_price_cents, created_at, service_start_date, service_end_date, start_date, end_date")
-          .eq("payment_status", "paid").is("deleted_at", null),
-        supabaseDb.from("beach_club_subscriptions")
+          .eq("payment_status", "paid").is("deleted_at", null).order("id")),
+        fetchAllRows<any>(() => supabaseDb.from("beach_club_subscriptions")
           .select("total_cents, people, created_at, start_date, end_date")
-          .eq("payment_status", "paid"),
-        supabaseDb.from("rental_bookings")
+          .eq("payment_status", "paid").order("id")),
+        fetchAllRows<any>(() => supabaseDb.from("rental_bookings")
           .select("total_cents, created_at, start_date, end_date")
-          .eq("payment_status", "paid").is("deleted_at", null),
-        supabaseDb.from("food_subscriptions")
+          .eq("payment_status", "paid").is("deleted_at", null).order("id")),
+        fetchAllRows<any>(() => supabaseDb.from("food_subscriptions")
           // Same discipline as the other three tables — a food sub with
           // payment_status != 'paid' (Infinita/crypto that never reconciled) is
           // NOT revenue. Without this filter, unpaid subs inflate Net Profit.
           .select("weekly_price_cents, commitment_weeks, periods_paid, created_at, started_at")
           .in("status", ["active", "paused", "expired"])
-          .eq("payment_status", "paid"),
+          .eq("payment_status", "paid").order("id")),
       ]);
 
       const acc = (rows: any[], toInput: (r: any) => Parameters<typeof recognizedCents>[0], unit?: (r: any) => number) => {
@@ -165,7 +166,7 @@ export function NetProfitPanel() {
       };
 
       return {
-        cleaning: acc(cleaning.data, (r) => {
+        cleaning: acc(cleaning, (r) => {
           // If service_end_date is missing (data-entry gap) derive the number
           // of months from total/monthly so a 3-month plan recognises over
           // ~90 days, not lumped into the 30-day fallback. Falls back to a
@@ -180,19 +181,19 @@ export function NetProfitPanel() {
             fallbackDays: months * 30,
           };
         }),
-        beach: acc(beach.data, (r) => ({
+        beach: acc(beach, (r) => ({
           totalCents: r.total_cents || 0,
           serviceStart: r.start_date || r.created_at,
           serviceEnd: r.end_date,
           fallbackDays: 30,
         }), (r) => r.people || 0),
-        cars: acc(rental.data, (r) => ({
+        cars: acc(rental, (r) => ({
           totalCents: r.total_cents || 0,
           serviceStart: r.start_date || r.created_at,
           serviceEnd: r.end_date,
           fallbackDays: 1,
         })),
-        food: acc(food.data, (r) => {
+        food: acc(food, (r) => {
           const weeks = (r.commitment_weeks || 1) * (r.periods_paid || 1);
           const startDay = r.started_at || r.created_at;
           return {

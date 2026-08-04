@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, format } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { Sparkles, Car, UtensilsCrossed, Waves, TrendingUp, CalendarRange, Calendar as CalendarIcon, Download, FileSpreadsheet } from "lucide-react";
+import { fetchAllRows } from "@/lib/supabasePaging";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -59,6 +60,15 @@ const emptyMatrix = (): Record<CategoryKey, Record<MethodKey, number>> => ({
   beach: { lightning: 0, onchain: 0, lives: 0, paypal: 0, other: 0 },
 });
 
+/**
+ * `fetchAllRows` in the `{ data }` shape the rest of this file is written
+ * against. Every query here is reduced into money — the revenue matrix and the
+ * detailed CSV — so a plain `.select()` silently clipped at PostgREST's
+ * 1000-row cap would under-report without erroring.
+ */
+const pageAll = <T,>(makeQuery: () => any) =>
+  fetchAllRows<T>(makeQuery).then((data) => ({ data }));
+
 export function FinanceBreakdown() {
   const [range, setRange] = useState<RangeKey>("month");
   const [customStart, setCustomStart] = useState("");
@@ -75,27 +85,27 @@ export function FinanceBreakdown() {
     queryKey: ["admin-finance-breakdown", startISO, endISO],
     queryFn: async () => {
       const [cleaning, beach, rental, food] = await Promise.all([
-        supabaseDb
+        pageAll(() => supabaseDb
           .from("cleaning_subscriptions")
           .select("total_price_cents, monthly_price_cents, payment_method, created_at, service_start_date, service_end_date, start_date, end_date")
           .eq("payment_status", "paid")
-          .is("deleted_at", null),
-        supabaseDb
+          .is("deleted_at", null).order("id")),
+        pageAll(() => supabaseDb
           .from("beach_club_subscriptions")
           .select("total_cents, payment_method, created_at, start_date, end_date")
-          .eq("payment_status", "paid"),
-        supabaseDb
+          .eq("payment_status", "paid").order("id")),
+        pageAll(() => supabaseDb
           .from("rental_bookings")
           .select("total_cents, payment_method, created_at, start_date, end_date")
           .eq("payment_status", "paid")
-          .is("deleted_at", null),
-        supabaseDb
+          .is("deleted_at", null).order("id")),
+        pageAll(() => supabaseDb
           .from("food_subscriptions")
           // Match the payment_status='paid' gate used for cleaning/beach/cars —
           // unpaid food subs should never land in a revenue matrix.
           .select("weekly_price_cents, commitment_weeks, status, payment_method, periods_paid, created_at, started_at")
           .in("status", ["active", "paused", "expired"])
-          .eq("payment_status", "paid"),
+          .eq("payment_status", "paid").order("id")),
       ]);
 
       const matrix = emptyMatrix();
@@ -163,27 +173,27 @@ export function FinanceBreakdown() {
     setDetailedLoading(true);
     try {
       const [cleaning, food, cars, beach] = await Promise.all([
-        supabaseDb
+        pageAll(() => supabaseDb
           .from("cleaning_subscriptions")
           .select("id, user_id, client_id, package_id, total_price_cents, monthly_price_cents, payment_method, payment_reference, payment_status, subscription_status, created_at, service_start_date, service_end_date, apartment_note")
           .eq("payment_status", "paid").is("deleted_at", null)
-          .gte("created_at", startISO).lte("created_at", endISO),
-        supabaseDb
+          .gte("created_at", startISO).lte("created_at", endISO).order("id")),
+        pageAll(() => supabaseDb
           .from("food_subscriptions")
           .select("id, user_id, provider_id, meal_plan_id, customer_name, weekly_price_cents, commitment_weeks, periods_paid, payment_method, payment_reference, payment_status, status, created_at, started_at, end_date")
           .in("status", ["active", "paused", "expired"])
           .eq("payment_status", "paid")
-          .gte("created_at", startISO).lte("created_at", endISO),
-        supabaseDb
+          .gte("created_at", startISO).lte("created_at", endISO).order("id")),
+        pageAll(() => supabaseDb
           .from("rental_bookings")
           .select("id, user_id, vehicle_id, total_cents, payment_method, payment_reference, payment_status, status, created_at, start_date, end_date")
           .eq("payment_status", "paid").is("deleted_at", null)
-          .gte("created_at", startISO).lte("created_at", endISO),
-        supabaseDb
+          .gte("created_at", startISO).lte("created_at", endISO).order("id")),
+        pageAll(() => supabaseDb
           .from("beach_club_subscriptions")
           .select("id, user_id, customer_name, customer_email, plan_name, people, total_cents, payment_method, payment_reference, payment_status, status, created_at, start_date, end_date")
           .eq("payment_status", "paid")
-          .gte("created_at", startISO).lte("created_at", endISO),
+          .gte("created_at", startISO).lte("created_at", endISO).order("id")),
       ]);
 
       // Resolve names in bulk

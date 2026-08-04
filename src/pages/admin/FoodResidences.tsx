@@ -14,6 +14,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { fetchAllRows } from "@/lib/supabasePaging";
 import { adminApi, supabaseDb } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -49,11 +50,10 @@ const FoodResidences = () => {
   const { data: counts = {} } = useQuery({
     queryKey: ["admin-food-residence-counts"],
     queryFn: async () => {
-      const { data, error } = await supabaseDb
-        .from("food_subscriptions").select("residence").not("residence", "is", null);
-      if (error) throw error;
+      const data = await fetchAllRows<any>(() => supabaseDb
+        .from("food_subscriptions").select("residence").not("residence", "is", null).order("id"));
       const map: Record<string, number> = {};
-      (data ?? []).forEach((r: any) => { if (r.residence) map[r.residence] = (map[r.residence] ?? 0) + 1; });
+      data.forEach((r: any) => { if (r.residence) map[r.residence] = (map[r.residence] ?? 0) + 1; });
       return map;
     },
   });

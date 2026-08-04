@@ -5,6 +5,7 @@ import { AlertTriangle, ChevronRight, CreditCard, Inbox, Layers, Building2 } fro
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { fetchAllRows } from "@/lib/supabasePaging";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
 import { cn } from "@/lib/utils";
@@ -31,14 +32,18 @@ export default function MarketplaceHub() {
     queryKey: ["marketplace-hub-counts"],
     staleTime: 60_000,
     queryFn: async () => {
-      const [cats, provs, plans, apps] = await Promise.all([
-        supabaseDb.from("service_categories").select("archetype_key"),
-        supabaseDb.from("providers").select("id, archetype_key, status"),
-        supabaseDb.from("provider_plans").select("provider_id, status"),
-        supabaseDb.from("provider_applications").select("archetype_key").eq("status", "pending"),
+      // Paged — every one of these is tallied into a card count.
+      const [cats, providerRows, plans, apps] = await Promise.all([
+        fetchAllRows<{ archetype_key: string | null }>(() => supabaseDb
+          .from("service_categories").select("archetype_key").order("key")),
+        fetchAllRows<{ id: string; archetype_key: string | null; status: string }>(() => supabaseDb
+          .from("providers").select("id, archetype_key, status").order("id")),
+        fetchAllRows<{ provider_id: string }>(() => supabaseDb
+          .from("provider_plans").select("provider_id, status").order("id")),
+        fetchAllRows<{ archetype_key: string | null }>(() => supabaseDb
+          .from("provider_applications").select("archetype_key").eq("status", "pending").order("id")),
       ]);
 
-      const providerRows = (provs.data ?? []) as Array<{ id: string; archetype_key: string | null; status: string }>;
       const archetypeOfProvider = new Map(providerRows.map((p) => [p.id, p.archetype_key]));
 
       const tally = <T,>(rows: T[], keyOf: (r: T) => string | null) => {
@@ -51,14 +56,11 @@ export default function MarketplaceHub() {
       };
 
       return {
-        categories: tally((cats.data ?? []) as Array<{ archetype_key: string | null }>, (r) => r.archetype_key),
+        categories: tally(cats, (r) => r.archetype_key),
         providers: tally(providerRows, (r) => r.archetype_key),
         providersActive: tally(providerRows.filter((p) => p.status === "active"), (r) => r.archetype_key),
-        plans: tally(
-          (plans.data ?? []) as Array<{ provider_id: string }>,
-          (r) => archetypeOfProvider.get(r.provider_id) ?? null,
-        ),
-        pendingApps: tally((apps.data ?? []) as Array<{ archetype_key: string | null }>, (r) => r.archetype_key),
+        plans: tally(plans, (r) => archetypeOfProvider.get(r.provider_id) ?? null),
+        pendingApps: tally(apps, (r) => r.archetype_key),
       };
     },
   });

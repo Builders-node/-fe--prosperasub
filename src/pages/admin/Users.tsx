@@ -5,6 +5,7 @@ import { Ban, Search, Trash2, UserCheck, Sparkles, UtensilsCrossed, Waves, Car }
 import { toast } from "sonner";
 
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
+import { fetchAllRows } from "@/lib/supabasePaging";
 import { adminApi, supabaseDb } from "@/integrations/supabase/client";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -99,11 +100,11 @@ const AdminUsers = () => {
   const { data: foodSubs = [] } = useQuery({
     queryKey: ["admin-people-food-subs"],
     queryFn: async () => {
-      const { data, error } = await supabaseDb
+      // Paged: this whole table collapses to a per-user subscription count, so
+      // a silent 1000-row clip would just make some users look inactive.
+      return await fetchAllRows<any>(() => supabaseDb
         .from("food_subscriptions")
-        .select("id, user_id, status, customer_name");
-      if (error) throw error;
-      return data ?? [];
+        .select("id, user_id, status, customer_name").order("id"));
     },
     staleTime: 15_000,
   });
@@ -111,11 +112,9 @@ const AdminUsers = () => {
   const { data: beachSubs = [] } = useQuery({
     queryKey: ["admin-people-beach-subs"],
     queryFn: async () => {
-      const { data, error } = await supabaseDb
+      return await fetchAllRows<any>(() => supabaseDb
         .from("beach_club_subscriptions")
-        .select("id, user_id, status, customer_email");
-      if (error) throw error;
-      return data ?? [];
+        .select("id, user_id, status, customer_email").order("id"));
     },
     staleTime: 15_000,
   });
@@ -123,12 +122,10 @@ const AdminUsers = () => {
   const { data: rentalBookings = [] } = useQuery({
     queryKey: ["admin-people-rental-bookings"],
     queryFn: async () => {
-      const { data, error } = await supabaseDb
+      return await fetchAllRows<any>(() => supabaseDb
         .from("rental_bookings")
         .select("id, user_id, status")
-        .is("deleted_at", null);
-      if (error) throw error;
-      return data ?? [];
+        .is("deleted_at", null).order("id"));
     },
     staleTime: 15_000,
   });

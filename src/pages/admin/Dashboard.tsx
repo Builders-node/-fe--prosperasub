@@ -3,6 +3,7 @@ import { ArrowUpRight, Car, CheckCircle2, SparklesIcon, UtensilsCrossed, Waves }
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { fetchAllRows } from "@/lib/supabasePaging";
 import { supabaseDb } from "@/integrations/supabase/client";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { SectionOverline } from "@/components/subscriptions/MySubsPrimitives";
@@ -51,12 +52,20 @@ const AdminDashboard = () => {
   const { data: stats } = useQuery({
     queryKey: ["super-admin-stats-all"],
     queryFn: async () => {
+      // Paged, not plain selects: these rows are reduced into the revenue
+      // tiles, and PostgREST silently truncates at 1000 rows — past that the
+      // totals would just stop growing. See lib/supabasePaging.ts.
       const [usersRes, cleaning, beach, rental, food] = await Promise.all([
         supabaseDb.from("users").select("id", { count: "exact", head: true }).is("deleted_at", null),
-        supabaseDb.from("cleaning_subscriptions").select("payment_status, subscription_status, is_active, total_price_cents, monthly_price_cents").is("deleted_at", null),
-        supabaseDb.from("beach_club_subscriptions").select("payment_status, status, total_cents"),
-        supabaseDb.from("rental_bookings").select("payment_status, status, total_cents").is("deleted_at", null),
-        supabaseDb.from("food_subscriptions").select("status, payment_status, weekly_price_cents, commitment_weeks, periods_paid"),
+        fetchAllRows<any>(() => supabaseDb.from("cleaning_subscriptions")
+          .select("payment_status, subscription_status, is_active, total_price_cents, monthly_price_cents")
+          .is("deleted_at", null).order("id")),
+        fetchAllRows<any>(() => supabaseDb.from("beach_club_subscriptions")
+          .select("payment_status, status, total_cents").order("id")),
+        fetchAllRows<any>(() => supabaseDb.from("rental_bookings")
+          .select("payment_status, status, total_cents").is("deleted_at", null).order("id")),
+        fetchAllRows<any>(() => supabaseDb.from("food_subscriptions")
+          .select("status, payment_status, weekly_price_cents, commitment_weeks, periods_paid").order("id")),
       ]);
 
       const byService: Record<ServiceKey, { active: number; revenueCents: number }> = {
@@ -77,7 +86,7 @@ const AdminDashboard = () => {
       const isRevenue = (paymentStatus: unknown, lifecycle: unknown) =>
         paymentStatus === "paid" && String(lifecycle ?? "").toLowerCase() !== "cancelled";
 
-      (cleaning.data ?? []).forEach((r: any) => {
+      cleaning.forEach((r: any) => {
         if (isRevenue(r.payment_status, r.subscription_status)) byService.cleaning.revenueCents += r.total_price_cents || r.monthly_price_cents || 0;
         if (r.payment_status === "paid" && r.is_active && r.subscription_status === "active") byService.cleaning.active++;
         if (r.payment_status !== "paid" && !["cancelled", "expired"].includes(r.subscription_status)) pending++;
@@ -85,7 +94,7 @@ const AdminDashboard = () => {
       // Food revenue must gate on payment_status='paid' — same as cleaning/
       // beach/cars. Otherwise Infinita/crypto subs that never reconciled inflate
       // the per-service Revenue tile on this page.
-      (food.data ?? []).forEach((r: any) => {
+      food.forEach((r: any) => {
         const s = String(r.status ?? "").toLowerCase();
         const isPaid = r.payment_status === "paid";
         if (isPaid && ["active", "paused", "expired"].includes(s)) {
@@ -94,12 +103,12 @@ const AdminDashboard = () => {
         if (isPaid && s === "active") byService.food.active++;
         if (!isPaid && s !== "cancelled") pending++;
       });
-      (beach.data ?? []).forEach((r: any) => {
+      beach.forEach((r: any) => {
         if (isRevenue(r.payment_status, r.status)) byService.beach.revenueCents += r.total_cents || 0;
         if (r.payment_status === "paid" && String(r.status).toLowerCase() === "active") byService.beach.active++;
         if (r.payment_status !== "paid" && r.status !== "cancelled") pending++;
       });
-      (rental.data ?? []).forEach((r: any) => {
+      rental.forEach((r: any) => {
         if (isRevenue(r.payment_status, r.status)) byService.cars.revenueCents += r.total_cents || 0;
         if (r.payment_status === "paid" && ["confirmed", "active", "in_progress"].includes(String(r.status).toLowerCase())) byService.cars.active++;
         if (r.payment_status !== "paid" && r.status !== "cancelled") pending++;

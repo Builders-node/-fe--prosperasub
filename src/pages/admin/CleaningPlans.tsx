@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { MobileActionSheet } from "@/components/admin/MobileActionSheet";
 import { ServiceLocationsEditor } from "@/components/admin/ServiceLocationsEditor";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
+import { fetchAllRows } from "@/lib/supabasePaging";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { logAuditEvent } from "@/lib/auditLog";
 import { useAuth } from "@/contexts/AuthContext";
@@ -146,14 +147,17 @@ const CleaningPlans = ({
     queryKey: ["admin-plan-subscriber-counts", providerId ?? "all", planIdsForCount.join(",")],
     enabled: !providerId || planIdsForCount.length > 0,
     queryFn: async () => {
-      let q = supabaseDb
-        .from("cleaning_subscriptions")
-        .select("package_id")
-        .eq("payment_status", "paid");
-      if (providerId) q = q.in("package_id", planIdsForCount);
-      const { data } = await q;
+      // Paged — this reduces to a per-plan subscriber count.
+      const data = await fetchAllRows<any>(() => {
+        let q = supabaseDb
+          .from("cleaning_subscriptions")
+          .select("package_id")
+          .eq("payment_status", "paid").order("id");
+        if (providerId) q = q.in("package_id", planIdsForCount);
+        return q;
+      });
       const counts: Record<string, number> = {};
-      for (const row of data || []) {
+      for (const row of data) {
         counts[row.package_id] = (counts[row.package_id] || 0) + 1;
       }
       return counts;
@@ -174,14 +178,15 @@ const CleaningPlans = ({
       // read (and assign plans to) every other provider's customer list.
       let clientIds: string[] | null = null;
       if (providerId) {
-        const { data: subs, error: subErr } = await supabaseDb
+        // Paged: a clipped page here would silently drop customers from the
+        // provider's own assignable list.
+        const subs = await fetchAllRows<any>(() => supabaseDb
           .from("cleaning_subscriptions")
           .select("client_id")
           .in("package_id", planIdsForCount)
-          .not("client_id", "is", null);
-        if (subErr) throw subErr;
+          .not("client_id", "is", null).order("id"));
         clientIds = Array.from(
-          new Set((subs ?? []).map((s: any) => String(s.client_id)).filter(Boolean)),
+          new Set(subs.map((s: any) => String(s.client_id)).filter(Boolean)),
         );
         // No customers yet → nothing to assign. Returning early also avoids
         // `.in("id", [])`, which PostgREST rejects.

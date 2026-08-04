@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { format, parseISO, startOfMonth, endOfMonth } from "date-fns";
 import { TrendingUp, Sparkles, CheckCircle2, BarChart3, ClipboardList } from "lucide-react";
+import { fetchAllRows } from "@/lib/supabasePaging";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { PageLoader } from "@/components/ui/spinner";
 import { formatUSD } from "@/lib/pricing";
@@ -18,12 +19,12 @@ const CleaningAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
   const { data: subscriptions = [], isLoading: loadingSubs } = useQuery({
     queryKey: ["admin-cleaning-analytics-subs"],
     queryFn: async () => {
-      const { data, error } = await supabaseDb
+      // Paged — these rows are reduced into revenue/count figures and
+      // PostgREST truncates a plain select at 1000 rows without erroring.
+      return await fetchAllRows<any>(() => supabaseDb
         .from("cleaning_subscriptions")
         .select("id, package_id, total_price_cents, monthly_price_cents, payment_status, subscription_status, is_active, created_at")
-        .is("deleted_at", null);
-      if (error) throw error;
-      return data ?? [];
+        .is("deleted_at", null).order("id"));
     },
   });
 
@@ -41,11 +42,9 @@ const CleaningAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
   const { data: bookings = [] } = useQuery({
     queryKey: ["admin-cleaning-analytics-bookings"],
     queryFn: async () => {
-      const { data, error } = await supabaseDb
+      return await fetchAllRows<any>(() => supabaseDb
         .from("cleaning_bookings")
-        .select("id, status, created_at");
-      if (error) throw error;
-      return data ?? [];
+        .select("id, status, created_at").order("id"));
     },
   });
 
@@ -63,10 +62,9 @@ const CleaningAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
   const { data: tipsCents = 0 } = useQuery({
     queryKey: ["admin-cleaning-tips-total"],
     queryFn: async () => {
-      const { data, error } = await supabaseDb
-        .from("cleaning_tips").select("amount_cents").eq("payment_status", "paid");
-      if (error) throw error;
-      return (data ?? []).reduce((s: number, t: any) => s + (t.amount_cents || 0), 0);
+      const rows = await fetchAllRows<any>(() => supabaseDb
+        .from("cleaning_tips").select("amount_cents").eq("payment_status", "paid").order("id"));
+      return rows.reduce((s: number, t: any) => s + (t.amount_cents || 0), 0);
     },
   });
 

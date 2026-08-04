@@ -4,6 +4,7 @@ import {
   TrendingUp, Users, BarChart3, ChefHat,
   RefreshCw, Pause, XCircle, BookOpen, MapPin,
 } from "lucide-react";
+import { fetchAllRows } from "@/lib/supabasePaging";
 import { supabaseDb } from "@/integrations/supabase/client";
 import {
   AnalyticsShell, KpiCard, StatItem, StatusBar, MonthlyRevenueChart, RankedBarList,
@@ -24,14 +25,17 @@ const FoodAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
   const { data: subscriptions = [], isLoading } = useQuery({
     queryKey: ["admin-food-analytics-subscriptions", selectedId],
     queryFn: async () => {
-      let q = supabaseDb.from("food_subscriptions").select("*");
-      if (selectedId !== "all") q = q.eq("provider_id", selectedId);
-      const { data, error } = await q;
-      if (error) throw error;
+      // Paged — these rows are reduced into revenue/count figures and
+      // PostgREST truncates a plain select at 1000 rows without erroring.
+      const data = await fetchAllRows<FoodSubscription>(() => {
+        let q = supabaseDb.from("food_subscriptions").select("*").order("id");
+        if (selectedId !== "all") q = q.eq("provider_id", selectedId);
+        return q;
+      });
       // Derive effective status so "active" excludes end_date-past rows even
       // before the daily expire-sweep cron flips them.
       const today = todayHN();
-      return (data ?? []).map((s: FoodSubscription) => ({
+      return data.map((s: FoodSubscription) => ({
         ...s,
         status: effectiveFoodStatus(s, today) as FoodSubscription["status"],
       })) as FoodSubscription[];
@@ -61,11 +65,12 @@ const FoodAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
   const { data: tipsCents = 0 } = useQuery({
     queryKey: ["admin-food-tips-total", selectedId],
     queryFn: async () => {
-      let q = supabaseDb.from("food_tips").select("amount_cents").eq("payment_status", "paid");
-      if (selectedId !== "all") q = q.eq("provider_id", selectedId);
-      const { data, error } = await q;
-      if (error) throw error;
-      return (data ?? []).reduce((s: number, t: any) => s + (t.amount_cents || 0), 0);
+      const rows = await fetchAllRows<any>(() => {
+        let q = supabaseDb.from("food_tips").select("amount_cents").eq("payment_status", "paid").order("id");
+        if (selectedId !== "all") q = q.eq("provider_id", selectedId);
+        return q;
+      });
+      return rows.reduce((s: number, t: any) => s + (t.amount_cents || 0), 0);
     },
   });
 

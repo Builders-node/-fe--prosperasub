@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { TrendingUp, Users, Waves, CheckCircle2, Clock, XCircle } from "lucide-react";
+import { fetchAllRows } from "@/lib/supabasePaging";
 import { supabaseDb } from "@/integrations/supabase/client";
 import {
   AnalyticsShell, KpiCard, StatusBar,
@@ -21,11 +22,11 @@ export default function BeachClubAnalytics({ embedded = false }: { embedded?: bo
   const { data: subs = [], isLoading } = useQuery({
     queryKey: ["admin-beach-club-analytics"],
     queryFn: async () => {
-      const { data, error } = await supabaseDb
+      // Paged — these rows are reduced into revenue/count figures and
+      // PostgREST truncates a plain select at 1000 rows without erroring.
+      return await fetchAllRows<BeachSub>(() => supabaseDb
         .from("beach_club_subscriptions")
-        .select("id, plan_name, people, total_cents, payment_status, status, created_at");
-      if (error) throw error;
-      return (data ?? []) as BeachSub[];
+        .select("id, plan_name, people, total_cents, payment_status, status, created_at").order("id"));
     },
   });
 
