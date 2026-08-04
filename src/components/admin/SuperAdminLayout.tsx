@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   BadgeDollarSign,
+  Store,
   ChevronRight,
   LogOut,
   Menu,
@@ -26,6 +27,7 @@ import {
   type NavItem,
   type NavSection,
 } from "@/config/adminNav";
+import { publicRoutes } from "@/config/adminRoutes";
 import { cn } from "@/lib/utils";
 
 interface SuperAdminLayoutProps {
@@ -149,6 +151,16 @@ const SuperAdminLayout = ({ children, title, subtitle }: SuperAdminLayoutProps) 
   // Footer links (desktop + mobile)
   const SidebarFooter = () => (
     <div className="shrink-0 border-t border-[hsl(var(--app-divider))] px-space-3 py-space-3 space-y-space-1">
+      {/* Leaving the admin panel is not the same as leaving the account, but
+          only the second had a button — so seeing the storefront meant logging
+          out and back in. */}
+      <Link
+        to={publicRoutes.userSite}
+        className={cn(linkBase, "w-full text-sm text-muted-foreground hover:bg-muted hover:text-foreground")}
+      >
+        <Store className="h-4 w-4 shrink-0" aria-hidden />
+        Go to the site
+      </Link>
       <button
         type="button"
         onClick={() => void handleLogout()}

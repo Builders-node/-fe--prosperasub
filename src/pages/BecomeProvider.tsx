@@ -25,16 +25,20 @@ export default function BecomeProvider() {
   const qc = useQueryClient();
 
   const { archetypes } = useServiceArchetypes(true);
-  // The applicant picks a SERVICE (archetype). At submit we derive the underlying
-  // `service` key expected by the approval flow: prefer the archetype's
-  // `source_service_key` (legacy dispatch), fall back to `category_key` (new
-  // universal-only archetypes).
+  // The applicant picks a SERVICE (archetype). At submit we derive the `service`
+  // key the approval flow expects: the archetype's `source_service_key` when it
+  // maps onto a legacy service, otherwise the archetype's own key.
+  //
+  // This used to fall back to `category_key` — the retired "service belongs to
+  // a category" link. That pointed at one of the service's own hidden
+  // placeholder categories, so a universal-only archetype would have submitted
+  // an application tagged with a category name instead of the service.
   const [archetypeKey, setArchetypeKey] = useState<string>("");
   useEffect(() => {
     if (!archetypeKey && archetypes.length > 0) setArchetypeKey(archetypes[0].key);
   }, [archetypes, archetypeKey]);
   const selectedArchetype = archetypes.find((a) => a.key === archetypeKey);
-  const service = selectedArchetype?.source_service_key || selectedArchetype?.category_key || "";
+  const service = selectedArchetype?.source_service_key || selectedArchetype?.key || "";
   const [businessName, setBusinessName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [contactPhone, setContactPhone] = useState("");

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { LogOut, UserRound } from "lucide-react";
+import { LogOut, Store, UserRound } from "lucide-react";
 
 import {
   DropdownMenu,
@@ -12,6 +12,7 @@ import {
   AppDropdownSeparator,
   AppDropdownThemeItem,
 } from "@/components/ui/app-dropdown";
+import { publicRoutes } from "@/config/adminRoutes";
 import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/i18n";
 import { ProfileModal } from "@/components/account/ProfileModal";
@@ -50,6 +51,15 @@ export function AdminAccountMenu() {
               icon={UserRound}
               title={t("profile.pageTitle")}
               onSelect={() => setShowProfileDialog(true)}
+            />
+            {/* Leaving the admin panel and leaving the account are different
+                things. Only the second existed — so an admin who wanted to look
+                at the storefront had to log out and back in. */}
+            <AppDropdownItem
+              icon={Store}
+              title="Go to the site"
+              subtitle="Browse ProsperaSub as a customer"
+              onSelect={() => navigate(publicRoutes.userSite)}
             />
           </div>
 
