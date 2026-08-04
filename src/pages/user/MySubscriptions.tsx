@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { effectiveCleaningStatus, effectiveFoodStatus } from "@/lib/subscriptionLifecycle";
+import { QueryError } from "@/components/QueryError";
 import { StatusPill } from "@/components/patterns/StatusPill";
 import { Button } from "@/components/ui/button";
 import { PageLoader, Spinner } from "@/components/ui/spinner";
@@ -87,6 +89,40 @@ interface PendingRenewal {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 // ─── Section skeleton ─────────────────────────────────────────────────────────
+
+/**
+ * Active / Past segmented control.
+ *
+ * Same treatment as the service tab strip above it (DESIGN.md §7): a
+ * `bg-muted/50` track, the selected segment filled, inactive segments carrying
+ * no border and no fill.
+ */
+function ScopeToggle({
+  scope, onChange,
+}: {
+  scope: "active" | "past";
+  onChange: (s: "active" | "past") => void;
+}) {
+  return (
+    <div className="inline-flex gap-1 rounded-2xl bg-muted/50 p-1">
+      {([["active", "Active"], ["past", "Past"]] as const).map(([key, label]) => (
+        <button
+          key={key}
+          type="button"
+          aria-pressed={scope === key}
+          onClick={() => onChange(key)}
+          className={`rounded-xl px-4 py-1.5 text-sm font-semibold transition-colors ${
+            scope === key
+              ? "bg-foreground text-background"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 function Skeleton({ rows = 2 }: { rows?: number }) {
   return (
@@ -229,6 +265,15 @@ const MySubscriptions = () => {
   const [activeTab, setActiveTab] = useState<ServiceTab>(
     ["cleaning", "food", "cars", "beach"].includes(initialTab) ? initialTab : "cleaning",
   );
+  /**
+   * Active / Past. Food, Cars and Beach rendered one flat list each with live
+   * and long-dead rows intermixed and no way to separate them — a customer
+   * with a year of history scrolled past everything to find what's running.
+   * Cleaning already sectioned itself, so it keeps its own layout and ignores
+   * this.
+   */
+  const [scope, setScope] = useState<"active" | "past">("active");
+
   const changeTab = (t: ServiceTab) => {
     setActiveTab(t);
     setSearchParams((sp) => {
@@ -239,7 +284,10 @@ const MySubscriptions = () => {
   };
 
   // ── Food subscriptions for the current user ─────────────────────────────
-  const { data: foodSubscriptions = [], isLoading: foodSubsLoading } = useQuery({
+  const {
+    data: foodSubscriptions = [], isLoading: foodSubsLoading,
+    isError: foodError, refetch: refetchFood,
+  } = useQuery({
     queryKey: ["my-food-subscriptions", userUuid, userData?.id],
     queryFn: async () => {
       // Match both the canonical UUID and the raw auth id (Google logins were
@@ -258,24 +306,35 @@ const MySubscriptions = () => {
   });
 
   // ── Car rental bookings for the current user ────────────────────────────
-  const { data: rentalBookings = [], isLoading: rentalBookingsLoading } = useQuery({
-    queryKey: ["my-rental-bookings", userUuid],
+  const {
+    data: rentalBookings = [], isLoading: rentalBookingsLoading,
+    isError: rentalError, refetch: refetchRentals,
+  } = useQuery({
+    queryKey: ["my-rental-bookings", userUuid, userData?.id],
     queryFn: async () => {
-      if (!userUuid) return [];
+      // Match BOTH the canonical UUID and the raw auth id, the way food and
+      // beach already do. CarBooking writes `userRow?.id ?? userData.id`, so a
+      // Google login whose booking landed under the raw id saw an empty tab
+      // while its food and beach subscriptions showed up fine.
+      const ids = [userUuid, userData?.id].filter(Boolean) as string[];
+      if (!ids.length) return [];
       const { data, error } = await supabaseDb
         .from("rental_bookings")
         .select("*")
-        .eq("user_id", userUuid)
+        .in("user_id", ids)
         .is("deleted_at", null)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data ?? [];
     },
-    enabled: !!userUuid && activeTab === "cars",
+    enabled: (!!userUuid || !!userData?.id) && activeTab === "cars",
   });
 
   // ── Beach Club memberships for the current user ─────────────────────────
-  const { data: beachSubs = [], isLoading: beachSubsLoading } = useQuery({
+  const {
+    data: beachSubs = [], isLoading: beachSubsLoading,
+    isError: beachError, refetch: refetchBeach,
+  } = useQuery({
     queryKey: ["my-beach-subs", userUuid, userData?.id],
     queryFn: async () => {
       const ids = [userUuid, userData?.id].filter(Boolean) as string[];
@@ -293,7 +352,10 @@ const MySubscriptions = () => {
 
   // ── Queries ──────────────────────────────────────────────────────────────
 
-  const { data: cleaningSubscriptions, isLoading: cleaningSubsLoading } = useQuery({
+  const {
+    data: cleaningSubscriptions, isLoading: cleaningSubsLoading,
+    isError: cleaningError, refetch: refetchCleaning,
+  } = useQuery({
     queryKey: ["my-cleaning-subscriptions-all", userUuid],
     queryFn: async () => {
       if (!userUuid) return [];
@@ -577,9 +639,38 @@ const MySubscriptions = () => {
       (s.end_date && s.end_date < todayHN())
     );
 
-  const activeCleaningSubs = cleaningSubscriptions?.filter(
-    (s) => s.payment_status === "paid" && s.subscription_status === "active" && s.is_active && !isOneTimeComplete(s),
-  ) || [];
+  // `subscription_status` is a LAGGING indicator — a nightly cron flips it.
+  // Judging "active" by the raw column meant an expired package plan kept
+  // showing "Active plan" with an Edit Schedule button until the cron ran, and
+  // then vanished from the page completely the moment it did, taking the only
+  // route to renewing it with it. `effectiveCleaningStatus` compares the
+  // period end against Honduras today, which is what the admin surfaces
+  // already use.
+  const paidCleaningSubs = (cleaningSubscriptions ?? []).filter(
+    (s) => s.payment_status === "paid" && !isOneTimeComplete(s),
+  );
+  const activeCleaningSubs = paidCleaningSubs.filter(
+    (s) => s.is_active && effectiveCleaningStatus(s) === "active",
+  );
+  /** Ran their course but are still renewable — previously invisible. */
+  const expiredCleaningSubs = paidCleaningSubs.filter(
+    (s) => effectiveCleaningStatus(s) === "expired",
+  );
+
+  // "Running" per service. Anything else is history.
+  const isLiveFood = (s: any) => effectiveFoodStatus(s) === "active" || String(s.status).toLowerCase() === "paused";
+  const isLiveBeach = (s: any) =>
+    String(s.status).toLowerCase() === "active" && (!s.end_date || s.end_date >= todayHN());
+  const isLiveRental = (b: any) =>
+    !["cancelled", "completed", "refunded"].includes(String(b.status).toLowerCase()) &&
+    (!b.end_date || b.end_date >= todayHN());
+
+  const inScope = <T,>(rows: T[], isLive: (r: T) => boolean) =>
+    rows.filter((r) => (scope === "active" ? isLive(r) : !isLive(r)));
+
+  const visibleFood   = inScope(foodSubscriptions as any[], isLiveFood);
+  const visibleBeach  = inScope(beachSubs as any[], isLiveBeach);
+  const visibleRental = inScope(rentalBookings as any[], isLiveRental);
 
   const byDateTime = (a: any, b: any) => {
     const dtA = `${a.cleaning_available_slots?.date ?? "9999"}T${a.cleaning_available_slots?.start_time ?? "00:00:00"}`;
@@ -673,6 +764,9 @@ const MySubscriptions = () => {
               primary={{ label: "Browse Restaurants", icon: UtensilsCrossed, onClick: () => navigate("/services/food") }}
             />
 
+            {/* Active / Past — cleaning sections itself, so it opts out. */}
+            <ScopeToggle scope={scope} onChange={setScope} />
+
             {foodSubscriptions
               .filter((s: any) => s.status === "active")
               .map((s: any) => (
@@ -685,16 +779,20 @@ const MySubscriptions = () => {
 
             {foodSubsLoading ? (
               <Skeleton rows={3} />
-            ) : foodSubscriptions.length === 0 ? (
+            ) : foodError ? (
+              <QueryError title="Couldn't load your meal plans" onRetry={() => refetchFood()} />
+            ) : visibleFood.length === 0 ? (
               <TabEmptyState
                 icon={ChefHat}
-                title="No food subscriptions yet"
-                subtitle="Subscribe to a weekly meal plan to see it here."
+                title={scope === "active" ? "No active meal plans" : "No past meal plans"}
+                subtitle={scope === "active"
+                  ? "Subscribe to a weekly meal plan to see it here."
+                  : "Plans that end or are cancelled show up here."}
                 action={{ label: "Browse Restaurants", onClick: () => navigate("/services/food") }}
               />
             ) : (
-              <SectionGroup label="Meal plans" count={foodSubscriptions.length}>
-                {foodSubscriptions.map((s: any) => {
+              <SectionGroup label="Meal plans" count={visibleFood.length}>
+                {visibleFood.map((s: any) => {
                   const endDate = foodEnd(s)?.toISOString().slice(0, 10) ?? null;
                   const openRenewDialog = () => {
                     if (!s.provider_id || !s.meal_plan_id) {
@@ -746,18 +844,25 @@ const MySubscriptions = () => {
               primary={{ label: "Browse Vehicles", icon: Car, onClick: () => navigate("/services/rental") }}
             />
 
+            {/* Active / Past — cleaning sections itself, so it opts out. */}
+            <ScopeToggle scope={scope} onChange={setScope} />
+
             {rentalBookingsLoading ? (
               <Skeleton rows={3} />
-            ) : rentalBookings.length === 0 ? (
+            ) : rentalError ? (
+              <QueryError title="Couldn't load your rentals" onRetry={() => refetchRentals()} />
+            ) : visibleRental.length === 0 ? (
               <TabEmptyState
                 icon={Car}
-                title="No car rentals yet"
-                subtitle="Book a vehicle to see your rental history here."
+                title={scope === "active" ? "No current rentals" : "No past rentals"}
+                subtitle={scope === "active"
+                  ? "Book a vehicle and it'll appear here."
+                  : "Finished and cancelled rentals show up here."}
                 action={{ label: "Browse Vehicles", onClick: () => navigate("/services/rental") }}
               />
             ) : (
-              <SectionGroup label="Rentals" count={rentalBookings.length}>
-                {rentalBookings.map((b: any) => {
+              <SectionGroup label="Rentals" count={visibleRental.length}>
+                {visibleRental.map((b: any) => {
                   const canRate = ["completed", "paid", "confirmed"].includes(String(b.status).toLowerCase())
                     && b.end_date && b.end_date < todayHN();
                   return (
@@ -798,18 +903,25 @@ const MySubscriptions = () => {
                 secondary={hasActive ? { label: "Book a court", icon: LandPlot, onClick: () => navigate("/services/beach-club/courts") } : undefined}
               />
 
+              {/* Active / Past — cleaning sections itself, so it opts out. */}
+              <ScopeToggle scope={scope} onChange={setScope} />
+
               {beachSubsLoading ? (
                 <Skeleton rows={3} />
-              ) : beachSubs.length === 0 ? (
+              ) : beachError ? (
+                <QueryError title="Couldn't load your memberships" onRetry={() => refetchBeach()} />
+              ) : visibleBeach.length === 0 ? (
                 <TabEmptyState
                   icon={Waves}
-                  title="No memberships yet"
-                  subtitle="Subscribe to the Beach Club to access the gym, pools and courts."
+                  title={scope === "active" ? "No active memberships" : "No past memberships"}
+                  subtitle={scope === "active"
+                    ? "Subscribe to the Beach Club to access the gym, pools and courts."
+                    : "Memberships that end or are cancelled show up here."}
                   action={{ label: "Browse Plans", onClick: () => navigate("/services/beach-club") }}
                 />
               ) : (
-                <SectionGroup label="Memberships" count={beachSubs.length}>
-                  {beachSubs.map((s: any) => {
+                <SectionGroup label="Memberships" count={visibleBeach.length}>
+                  {visibleBeach.map((s: any) => {
                     const expired = s.end_date && s.end_date < today;
                     const st = String(s.status).toLowerCase();
                     const label = st === "active" && !expired ? "active" : expired ? "expired" : st;
@@ -886,6 +998,8 @@ const MySubscriptions = () => {
 
             {cleaningSubsLoading || cleaningBookingsLoading || linkedPlansLoading ? (
               <Skeleton rows={3} />
+            ) : cleaningError ? (
+              <QueryError title="Couldn't load your cleaning plans" onRetry={() => refetchCleaning()} />
             ) : (
               <>
                 {/* ── Pending schedule alert ── */}
@@ -1032,6 +1146,54 @@ const MySubscriptions = () => {
                   </section>
                 )}
 
+                {/* ── Expired plans ──
+                    Cleaning was the only tab that hid expired rows: once the
+                    nightly cron flipped the status they disappeared, and with
+                    them the only route to renewing. Food and Beach have always
+                    kept them visible with a Renew button. */}
+                {expiredCleaningSubs.length > 0 && (
+                  <section className="space-y-2">
+                    <SectionOverline label="Expired" count={expiredCleaningSubs.length} />
+                    {expiredCleaningSubs.map((sub) => {
+                      const openRenewDialog = () => {
+                        if (!sub.package_id) return;
+                        const preview = computeRenewPreview(sub.end_date, {
+                          months: sub.billing_period_months || 1,
+                        });
+                        if (preview) {
+                          setPendingRenewal({
+                            title: `Cleaning plan · ${sub.billing_period_months || 1} month${(sub.billing_period_months || 1) > 1 ? "s" : ""}`,
+                            currentEndDate: sub.end_date,
+                            newStartDate: preview.newStart,
+                            newEndDate: preview.newEnd,
+                            amountCents: (sub.monthly_price_cents || 0) * (sub.billing_period_months || 1),
+                            targetUrl: `/services/cleaning/checkout/${sub.package_id}?renew=${sub.id}`,
+                          });
+                        } else {
+                          navigate(`/services/cleaning/checkout/${sub.package_id}?renew=${sub.id}`);
+                        }
+                      };
+                      return (
+                        <SubscriptionCard
+                          key={sub.id}
+                          icon={SparklesIcon}
+                          iconTint="bg-muted"
+                          iconColor="text-muted-foreground"
+                          title={(sub as any).cleaning_packages?.name ?? "Cleaning plan"}
+                          subtitle={sub.service_start_date || sub.start_date
+                            ? `${formatDateHN(sub.service_start_date || sub.start_date)} → ${formatDateHN(sub.service_end_date || sub.end_date)}`
+                            : undefined}
+                          statusBadge={<StatusPill status="expired" />}
+                          metadata={<span className="tabular-nums">{formatUSD((sub.monthly_price_cents || 0) * (sub.billing_period_months || 1))}</span>}
+                          actions={sub.package_id ? [
+                            { key: "renew", label: "Renew", icon: RefreshCw, onClick: openRenewDialog, variant: "primary" as const },
+                          ] : []}
+                        />
+                      );
+                    })}
+                  </section>
+                )}
+
                 {/* ── Door-access reminder alert ── */}
                 {(activeCleaningSubs.length > 0 || linkedClientPlans.length > 0 || linkedClientSubscriptions.length > 0) && (
                   <div className="flex items-start gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-4">
@@ -1060,7 +1222,7 @@ const MySubscriptions = () => {
                 )}
 
                 {/* ── No plan empty state ── */}
-                {activeCleaningSubs.length === 0 && pendingScheduleCleaningSubs.length === 0 && linkedClientPlans.length === 0 && linkedClientSubscriptions.length === 0 && (
+                {activeCleaningSubs.length === 0 && expiredCleaningSubs.length === 0 && pendingScheduleCleaningSubs.length === 0 && linkedClientPlans.length === 0 && linkedClientSubscriptions.length === 0 && (
                   <TabEmptyState
                     icon={SparklesIcon}
                     title="No active cleaning plan"
