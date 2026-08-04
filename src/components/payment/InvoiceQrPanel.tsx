@@ -1,4 +1,4 @@
-import { Bitcoin, CheckCircle2, Copy, Zap } from "lucide-react";
+import { Bitcoin, CheckCircle2, Clock, Copy, Zap } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -16,6 +16,10 @@ interface Props {
   isPaid: boolean;
   successLabel?: string;     // e.g. "Activating membership…"
   waitingLabel?: string;     // override the default waiting text (on-chain uses a longer copy)
+  /** Polling gave up — show the QR as stale instead of a forever-spinner. */
+  isExpired?: boolean;
+  /** Optional "get a new invoice" action shown alongside the expiry notice. */
+  onRetry?: () => void;
 }
 
 /**
@@ -28,6 +32,8 @@ export function InvoiceQrPanel({
   mode, invoice, address, uri, sats, totalCents, isPaid,
   successLabel = "Activating…",
   waitingLabel,
+  isExpired = false,
+  onRetry,
 }: Props) {
   const qrValue = mode === "lightning" ? invoice : (uri ?? (address ? `bitcoin:${address}` : ""));
   const linkHref = mode === "lightning" ? `lightning:${invoice}` : (uri ?? `bitcoin:${address}`);
@@ -50,7 +56,14 @@ export function InvoiceQrPanel({
       </h2>
 
       {qrValue && (
-        <a href={linkHref} className="flex justify-center rounded-2xl bg-white p-4 cursor-pointer">
+        // A stale QR is dimmed and made unclickable: scanning it can no longer
+        // work, and presenting it as live is how someone ends up paying into a
+        // dead invoice.
+        <a
+          href={isExpired ? undefined : linkHref}
+          aria-disabled={isExpired || undefined}
+          className={`flex justify-center rounded-2xl bg-white p-4 ${isExpired ? "pointer-events-none opacity-40" : "cursor-pointer"}`}
+        >
           <QRCodeSVG value={qrValue} size={200} level="M" />
         </a>
       )}
@@ -73,8 +86,20 @@ export function InvoiceQrPanel({
         </div>
       </div>
 
-      <div className={`flex items-center justify-center gap-2 rounded-2xl p-4 ${isPaid ? "bg-green-500/10" : "bg-bitcoin/10"}`}>
-        {isPaid ? (
+      <div className={`flex flex-col items-center justify-center gap-2 rounded-2xl p-4 sm:flex-row ${isPaid ? "bg-green-500/10" : isExpired ? "bg-muted" : "bg-bitcoin/10"}`}>
+        {isExpired && !isPaid ? (
+          <>
+            <Clock className="h-5 w-5 shrink-0 text-muted-foreground" />
+            <span className="text-sm font-medium text-muted-foreground">
+              This {mode === "lightning" ? "invoice" : "address"} expired. Nothing was charged.
+            </span>
+            {onRetry && (
+              <Button variant="secondary" size="sm" className="rounded-full" onClick={onRetry}>
+                Get a new one
+              </Button>
+            )}
+          </>
+        ) : isPaid ? (
           <>
             <CheckCircle2 className="h-5 w-5 text-green-500" />
             <span className="text-sm font-medium text-green-500">

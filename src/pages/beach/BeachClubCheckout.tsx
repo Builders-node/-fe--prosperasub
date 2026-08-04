@@ -411,6 +411,8 @@ const BeachClubCheckout = () => {
                 sats={inv.state.sats ?? 0}
                 totalCents={effectiveTotalCents}
                 isPaid={isPaid}
+                isExpired={inv.state.isExpired}
+                onRetry={() => inv.reset()}
                 successLabel="Activating membership…"
               />
             ) : !showPayment ? (

@@ -20,6 +20,9 @@ export interface InvoicePaymentState {
   sats: number | null;
   isPaid: boolean;
   isGenerating: boolean;
+  /** Polling gave up — the invoice is stale and the QR must not be presented
+   *  as if it were still live. */
+  isExpired: boolean;
 }
 
 interface StartArgs {
@@ -41,6 +44,17 @@ interface Options {
   onInvoiceReady?: (paymentRef: string, method: "lightning" | "onchain") => void;
   lightningPollMs?: number;
   onchainPollMs?: number;
+  /**
+   * How long to keep polling before declaring the invoice dead. Without this
+   * the interval ran forever: an expired Lightning invoice sat on screen
+   * showing "Waiting for payment…" indefinitely, with no way for the customer
+   * to tell that scanning it could no longer work.
+   *
+   * Blink Lightning invoices expire well inside 15 minutes. On-chain gets
+   * longer — a mempool confirmation legitimately takes a while.
+   */
+  lightningTimeoutMs?: number;
+  onchainTimeoutMs?: number;
 }
 
 const INITIAL: InvoicePaymentState = {
@@ -51,20 +65,41 @@ const INITIAL: InvoicePaymentState = {
   sats: null,
   isPaid: false,
   isGenerating: false,
+  isExpired: false,
 };
 
-export function useInvoicePayment({ onPaid, onInvoiceReady, lightningPollMs = 3000, onchainPollMs = 5000 }: Options) {
+export function useInvoicePayment({
+  onPaid,
+  onInvoiceReady,
+  lightningPollMs = 3000,
+  onchainPollMs = 5000,
+  lightningTimeoutMs = 15 * 60_000,
+  onchainTimeoutMs = 60 * 60_000,
+}: Options) {
   const [state, setState] = useState<InvoicePaymentState>(INITIAL);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const paidRef = useRef(false);
 
   useEffect(() => () => {
     if (pollingRef.current) clearInterval(pollingRef.current);
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
   }, []);
 
   const cleanup = () => {
     if (pollingRef.current) clearInterval(pollingRef.current);
     pollingRef.current = null;
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    timeoutRef.current = null;
+  };
+
+  /** Stop polling and mark the invoice stale — unless it was already paid. */
+  const armTimeout = (ms: number) => {
+    timeoutRef.current = setTimeout(() => {
+      if (paidRef.current) return;
+      cleanup();
+      setState((s) => ({ ...s, isExpired: true }));
+    }, ms);
   };
 
   const start = async ({ method, amountCents, amountSats, description, context, externalId, meta }: StartArgs) => {
@@ -83,6 +118,7 @@ export function useInvoicePayment({ onPaid, onInvoiceReady, lightningPollMs = 30
         setState((s) => ({ ...s, address: data.address, uri, isGenerating: false }));
         onInvoiceReady?.(data.address, "onchain");
         startOnchainPolling(data.address, amountSats);
+        armTimeout(onchainTimeoutMs);
       } else {
         const { data, error } = await supabase.functions.invoke("create-invoice", {
           body: {
@@ -99,6 +135,7 @@ export function useInvoicePayment({ onPaid, onInvoiceReady, lightningPollMs = 30
         setState((s) => ({ ...s, invoice: data.payment_request, paymentHash: data.payment_hash, isGenerating: false }));
         onInvoiceReady?.(data.payment_hash, "lightning");
         startLightningPolling(data.payment_hash);
+        armTimeout(lightningTimeoutMs);
       }
     } catch (e: any) {
       setState((s) => ({ ...s, isGenerating: false }));

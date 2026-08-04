@@ -653,6 +653,8 @@ const CleaningCheckout = () => {
                 sats={inv.state.sats ?? 0}
                 totalCents={effectiveTotalCents}
                 isPaid={isPaid}
+                isExpired={inv.state.isExpired}
+                onRetry={() => inv.reset()}
                 successLabel="Creating subscription…"
               />
             ) : !showPayment ? (

@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format, differenceInCalendarDays, parseISO } from "date-fns";
 import {
-  Car, Zap, CheckCircle2, Copy, RefreshCw, Clock, AlertCircle, Bitcoin,
+  Car, Zap, CheckCircle2, RefreshCw, Clock, AlertCircle, Bitcoin,
   CalendarDays, ChevronRight, Wallet, Shield, Plus, Check, Sparkles,
   MapPin, MessageCircle, Truck,
 } from "lucide-react";
@@ -26,7 +26,7 @@ import { BottomSheetModal } from "@/components/patterns/BottomSheetModal";
 import { NotesField } from "@/components/patterns/NotesField";
 import { resolvePlanBookingSettings } from "@/lib/booking/resolvePlanSettings";
 import { toast } from "sonner";
-import { QRCodeSVG } from "qrcode.react";
+import { InvoiceQrPanel } from "@/components/payment/InvoiceQrPanel";
 import type { RentalVehicle, RentalVehicleImage, RentalInsuranceTier, RentalDeliveryZone, RentalExtra } from "@/types/carRental";
 import { calcRentalPrice } from "@/types/carRental";
 import { RentalCalendar } from "@/components/rental/RentalCalendar";
@@ -172,7 +172,10 @@ const CarBooking = () => {
   });
 
   useEffect(() => {
-    return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+      if (payTimeoutRef.current) clearTimeout(payTimeoutRef.current);
+    };
   }, []);
 
   // Parent rental provider — needed to fall through to provider-level
@@ -252,6 +255,26 @@ const CarBooking = () => {
     if (bookingReady) setShowPayment(true);
   }, [bookingReady]);
 
+  /** id of the booking reserved before payment, so it gets promoted not duplicated. */
+  const pendingBookingIdRef = useRef<string | null>(null);
+  /**
+   * This screen hand-rolls its own polling instead of using useInvoicePayment,
+   * and it polled forever: an expired invoice sat there showing a live QR and a
+   * spinner indefinitely. Matches the timeouts the shared hook now uses.
+   */
+  const payTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [payExpired, setPayExpired] = useState(false);
+
+  const armPayTimeout = (ms: number) => {
+    if (payTimeoutRef.current) clearTimeout(payTimeoutRef.current);
+    payTimeoutRef.current = setTimeout(() => {
+      if (mutationCalledRef.current) return;
+      if (pollingRef.current) clearInterval(pollingRef.current);
+      pollingRef.current = null;
+      setPayExpired(true);
+    }, ms);
+  };
+
   const createBookingMutation = useMutation({
     mutationFn: async (opts: { paymentRef: string; status: "paid" | "pending"; method: string; satsAmount: number }) => {
       if (!vehicle || !pricing) throw new Error("Missing data");
@@ -264,6 +287,24 @@ const CarBooking = () => {
         .maybeSingle();
       const userId = userRow?.id ?? userData.id;
       if (!userId) throw new Error("User not found");
+
+      // A row reserved before payment is promoted in place; only a first-time
+      // write inserts. Without this the reserve step would double-book.
+      if (pendingBookingIdRef.current) {
+        const { data: updated, error: updErr } = await supabaseDb
+          .from("rental_bookings")
+          .update({
+            status: opts.status === "paid" ? "paid" : "pending",
+            payment_status: opts.status,
+            payment_method: opts.method,
+            payment_reference: opts.paymentRef,
+          })
+          .eq("id", pendingBookingIdRef.current)
+          .select("id")
+          .single();
+        if (updErr) throw updErr;
+        return updated;
+      }
 
       const { data, error } = await supabaseDb
         .from("rental_bookings")
@@ -296,20 +337,53 @@ const CarBooking = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["my-rental-bookings"] });
+      // The pre-payment reservation runs through this same mutation. Showing
+      // the success screen and killing the poller on a *pending* write would
+      // tell the customer they were done before they had paid.
+      if (variables.status !== "paid") return;
       setCreatedBookingId(data.id);
       setShowSuccess(true);
       setShowPayment(false);
       if (pollingRef.current) clearInterval(pollingRef.current);
     },
-    onError: (err: Error) => {
+    onError: (err: Error, variables) => {
+      // A failed reservation is recoverable — reserveBooking falls back to the
+      // insert-on-confirm path — so don't alarm the customer mid-checkout.
+      if (variables.status !== "paid") return;
       toast.error(err.message);
     },
   });
 
+  /**
+   * Write the booking as pending the moment the invoice exists.
+   *
+   * Until now the ONLY insert happened after payment confirmed, so if it failed
+   * — RLS, a network blip, a closed tab — the customer had paid and no booking
+   * existed anywhere, with no payment_reference for the reconcile cron to match.
+   * Every other checkout on the platform reserves first. Best-effort: a failure
+   * here must not block paying, it just falls back to the old insert-on-confirm.
+   */
+  const reserveBooking = async (paymentRef: string, method: string) => {
+    if (pendingBookingIdRef.current || mutationCalledRef.current) return;
+    try {
+      const row = await createBookingMutation.mutateAsync({
+        paymentRef,
+        status: "pending",
+        method,
+        satsAmount: 0,
+      });
+      pendingBookingIdRef.current = (row as any)?.id ?? null;
+    } catch (e) {
+      console.error("CarBooking: could not reserve pending booking", e);
+      pendingBookingIdRef.current = null;
+    }
+  };
+
   const generateInvoice = async () => {
     if (!vehicle || !pricing) return;
+    setPayExpired(false);
     setIsGenerating(true);
     const description = `Car rental: ${vehicle.name} (${format(parseISO(startDate), "MMM d")}–${format(parseISO(endDate), "MMM d, yyyy")})`;
     const serviceName = "Car Rental";
@@ -355,7 +429,9 @@ const CarBooking = () => {
 
         setOnchainAddress(data.address);
         setOnchainUri(`bitcoin:${data.address}?amount=${(satsAmount / 1e8).toFixed(8)}&label=ProsperaSub&message=${encodeURIComponent(description)}`);
+        await reserveBooking(data.address, "onchain");
         startOnchainPolling(data.address, satsAmount);
+        armPayTimeout(60 * 60_000);
       } else {
         if (!btcPrice) { toast.error("BTC price not loaded yet."); setIsGenerating(false); return; }
         const satsAmount = convertToSats(centsToDollars(effectiveGrandTotalCents));
@@ -385,7 +461,9 @@ const CarBooking = () => {
         const data = await res.json();
         setInvoice(data.payment_request);
         setPaymentHash(data.payment_hash);
+        await reserveBooking(data.payment_hash, "lightning");
         startLightningPolling(data.payment_hash, satsAmount, serviceName, planName, clientName, clientEmail);
+        armPayTimeout(15 * 60_000);
       }
     } catch (err: any) {
       toast.error(err.message ?? "Failed to generate invoice");
@@ -423,8 +501,11 @@ const CarBooking = () => {
             satsAmount,
           });
         }
-      } catch {
-        // Ignore polling errors
+      } catch (err) {
+        // A transient poll failure is normal; log it so a persistently dead
+        // poll is diagnosable instead of invisible. The timeout above is what
+        // eventually tells the customer.
+        console.error("Car rental: Lightning verify error", err);
       }
     }, 3000);
   };
@@ -451,8 +532,8 @@ const CarBooking = () => {
             satsAmount,
           });
         }
-      } catch {
-        // Ignore polling errors
+      } catch (err) {
+        console.error("Car rental: on-chain verify error", err);
       }
     }, 5000);
   };
@@ -1206,65 +1287,31 @@ const CarBooking = () => {
               </Button>
             </div>
           ) : invoice ? (
-            <div className="flex flex-col items-center gap-5">
-              <div className="rounded-2xl border-4 border-foreground p-3 bg-white">
-                <QRCodeSVG value={invoice} size={220} />
-              </div>
-              <p className="text-sm text-muted-foreground text-center">Scan with any Lightning wallet</p>
-              <div className="w-full max-w-sm">
-                <p className="mb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Invoice</p>
-                <div className="flex items-center gap-2">
-                  <code className="flex-1 overflow-hidden text-ellipsis rounded-lg bg-muted px-3 py-2 text-xs">
-                    {invoice.slice(0, 40)}…
-                  </code>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => { navigator.clipboard.writeText(invoice!); toast.success("Copied!"); }}
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Spinner size="sm" className="text-amber-400" />
-                Waiting for payment…
-              </div>
-              {lockedSatsAmount && (
-                <p className="text-xs text-muted-foreground">
-                  Amount: {lockedSatsAmount.toLocaleString()} sats
-                </p>
-              )}
-            </div>
+            /* Shared panel — this screen used to hand-roll its own QR frame,
+               truncated invoice row and forever-spinner, which is why it was
+               the one checkout that could never show an expired invoice. */
+            <InvoiceQrPanel
+              mode="lightning"
+              invoice={invoice}
+              sats={lockedSatsAmount ?? 0}
+              totalCents={effectiveGrandTotalCents}
+              isPaid={isPaid}
+              isExpired={payExpired}
+              onRetry={() => generateInvoice()}
+              successLabel="Confirming your booking…"
+            />
           ) : onchainAddress ? (
-            <div className="flex flex-col items-center gap-5">
-              <a
-                href={onchainUri ?? `bitcoin:${onchainAddress}`}
-                className="rounded-2xl border-4 border-foreground p-3 bg-white"
-              >
-                <QRCodeSVG value={onchainUri ?? `bitcoin:${onchainAddress}`} size={220} />
-              </a>
-              <p className="text-sm text-muted-foreground text-center">Send exactly {(lockedSatsAmount || 0).toLocaleString()} sats to this address</p>
-              <div className="w-full max-w-sm">
-                <p className="mb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Bitcoin Address</p>
-                <div className="flex items-center gap-2">
-                  <code className="flex-1 overflow-hidden text-ellipsis rounded-lg bg-muted px-3 py-2 text-xs break-all">
-                    {onchainAddress}
-                  </code>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => { navigator.clipboard.writeText(onchainAddress!); toast.success("Copied!"); }}
-                  >
-                    <Copy className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Spinner size="sm" className="text-amber-400" />
-                Waiting for payment… on-chain can take a few minutes.
-              </div>
-            </div>
+            <InvoiceQrPanel
+              mode="onchain"
+              address={onchainAddress}
+              uri={onchainUri}
+              sats={lockedSatsAmount ?? 0}
+              totalCents={effectiveGrandTotalCents}
+              isPaid={isPaid}
+              isExpired={payExpired}
+              onRetry={() => generateInvoice()}
+              successLabel="Confirming your booking…"
+            />
           ) : null}
           </div>
         </section>

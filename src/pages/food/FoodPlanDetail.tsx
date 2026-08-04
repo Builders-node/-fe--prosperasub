@@ -1128,6 +1128,8 @@ const FoodPlanDetail = () => {
               sats={inv.state.sats ?? 0}
               totalCents={effectiveTotalCents}
               isPaid={isPaid}
+              isExpired={inv.state.isExpired}
+              onRetry={() => inv.reset()}
               successLabel={`Creating ${checkoutMode === "order" ? "order" : "subscription"}…`}
             />
           )}

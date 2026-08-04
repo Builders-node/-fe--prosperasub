@@ -97,9 +97,17 @@ export default function Cart() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPaid, setIsPaid] = useState(false);
   const createdRef = useRef(false);
+  /** batch_id of the rows reserved before payment, so we can flip them to paid. */
+  const pendingBatchRef = useRef<string | null>(null);
 
   // Unified Lightning + on-chain invoice generation + polling.
   const inv = useInvoicePayment({
+    // Reserve the rows BEFORE the customer pays. Previously the only insert
+    // happened after confirmation, so a failure there (RLS, network, a closed
+    // tab) meant money taken and no subscription anywhere — with no
+    // payment_reference for the reconcile cron to find either. Every other
+    // checkout reserves first; the cart and cars were the two that didn't.
+    onInvoiceReady: (paymentRef) => { reserveRecords(paymentRef); },
     onPaid: (paymentRef) => { onPaidComplete(paymentRef); },
   });
 
@@ -172,13 +180,38 @@ export default function Cart() {
     });
     const { error } = await supabaseDb.from("food_subscriptions").insert(rows);
     if (error) throw error;
+    return batchId;
+  };
+
+  /**
+   * Write the basket as pending rows the moment the invoice exists. Best-effort:
+   * a failure here must not block the customer from paying, but it does mean we
+   * fall back to the old insert-after-payment path in `onPaidComplete`.
+   */
+  const reserveRecords = async (paymentRef: string) => {
+    if (pendingBatchRef.current || createdRef.current) return;
+    try {
+      pendingBatchRef.current = await createRecords(paymentRef, true);
+    } catch (e) {
+      console.error("Cart: could not reserve pending rows", e);
+      pendingBatchRef.current = null;
+    }
   };
 
   const onPaidComplete = async (paymentRef: string, pending = false) => {
     if (createdRef.current) return;
     createdRef.current = true;
     try {
-      await createRecords(paymentRef, pending);
+      if (pendingBatchRef.current) {
+        // Rows already exist — promote them rather than inserting a second set.
+        const { error } = await supabaseDb
+          .from("food_subscriptions")
+          .update({ status: "active", payment_status: "paid", payment_reference: paymentRef })
+          .eq("batch_id", pendingBatchRef.current);
+        if (error) throw error;
+      } else {
+        await createRecords(paymentRef, pending);
+      }
       setIsPaid(true);
       clear();
       // Cart succeeded — draft has served its purpose, wipe so a fresh cart
@@ -482,6 +515,8 @@ export default function Cart() {
                 sats={inv.state.sats ?? 0}
                 totalCents={effectiveTotalCents}
                 isPaid={isPaid}
+                isExpired={inv.state.isExpired}
+                onRetry={() => inv.reset()}
                 successLabel="Creating your orders…"
               />
             )}
