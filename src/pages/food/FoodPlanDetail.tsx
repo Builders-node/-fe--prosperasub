@@ -7,6 +7,7 @@ import {
   MessageCircle, MapPin, User as UserIcon, CheckCircle2,
   Zap, Wallet, Bitcoin, ShoppingCart,
 } from "lucide-react";
+import { collapseHiddenMeals, menuColumnsFor, redactMeals } from "@/lib/food/hiddenMenu";
 import { Spinner } from "@/components/ui/spinner";
 import { CheckoutShell } from "@/components/patterns/CheckoutShell";
 import { supabase, supabaseDb, accountApi } from "@/integrations/supabase/client";
@@ -260,12 +261,20 @@ const FoodPlanDetail = () => {
 
       if (!menu) return null;
 
+      // Surprise week: don't select the dish columns at all, and collapse to
+      // one row per day+meal_type so the course count doesn't leak either.
+      const hidden = !!menu.hide_dishes;
       const { data: meals } = await supabaseDb
-        .from("food_menu_meals").select("*")
+        .from("food_menu_meals").select(menuColumnsFor(hidden))
         .eq("menu_id", menu.id)
         .order("sort_order", { ascending: true });
+      const rows = (meals ?? []) as unknown as FoodMenuMeal[];
 
-      return { menu, meals: (meals ?? []) as FoodMenuMeal[] };
+      return {
+        menu,
+        hidden,
+        meals: hidden ? collapseHiddenMeals(redactMeals(rows, true)) : rows,
+      };
     },
     enabled: !!planId && !!plan,
   });
@@ -691,6 +700,7 @@ const FoodPlanDetail = () => {
                 meals={weeklyMenu?.meals ?? []}
                 mealTypes={mealTypes}
                 weekStartDate={weeklyMenu?.menu.week_start_date ?? ""}
+                hideDishes={!!weeklyMenu?.hidden}
               />
             )}
           </section>

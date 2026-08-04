@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Coffee, Sun, Moon, Apple, UtensilsCrossed, Flame } from "lucide-react";
 import { nowHN } from "@/lib/timezone";
+import { collapseHiddenMeals, menuColumnsFor, redactMeals, HIDDEN_DISH_LABEL } from "@/lib/food/hiddenMenu";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { MEAL_TYPE_LABELS } from "@/types/food";
 import type { FoodMenuMeal, FoodWeeklyMenu, MealType, DayOfWeek } from "@/types/food";
@@ -62,12 +63,17 @@ export function TodaysMeals({ providerId, mealPlanId }: Props) {
         menu = m?.[0] ?? null;
       }
       if (!menu) return { meals: [] as FoodMenuMeal[], restaurantName, deliveryTimes: {} as Record<string, string> };
+      // On a hidden menu we don't even SELECT the dish columns — the names
+      // never leave the database, so "hidden" holds up in devtools too.
+      const hidden = !!menu.hide_dishes;
       const { data: meals } = await supabaseDb
-        .from("food_menu_meals").select("*")
+        .from("food_menu_meals").select(menuColumnsFor(hidden))
         .eq("menu_id", menu.id).eq("day_of_week", todayKey)
         .order("sort_order", { ascending: true });
+      const rows = (meals ?? []) as unknown as FoodMenuMeal[];
       return {
-        meals: (meals ?? []) as FoodMenuMeal[],
+        hidden,
+        meals: hidden ? collapseHiddenMeals(redactMeals(rows, true)) : rows,
         restaurantName,
         deliveryTimes: (menu.delivery_times ?? {}) as Record<string, string>,
       };
@@ -75,6 +81,7 @@ export function TodaysMeals({ providerId, mealPlanId }: Props) {
   });
 
   const meals = data?.meals ?? [];
+  const hidden = !!data?.hidden;
   const restaurantName = data?.restaurantName;
   const deliveryTimes = data?.deliveryTimes ?? {};
   if (meals.length === 0) return null;
@@ -115,7 +122,9 @@ export function TodaysMeals({ providerId, mealPlanId }: Props) {
                 {byType.get(type)!.map((meal) => (
                   <li key={meal.id} className="rounded-2xl bg-muted/30 px-3 py-2">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-semibold text-foreground">{meal.meal_name}</span>
+                      <span className={hidden ? "font-semibold italic text-muted-foreground" : "font-semibold text-foreground"}>
+                        {hidden ? HIDDEN_DISH_LABEL : meal.meal_name}
+                      </span>
                       {meal.calories && (
                         <span className="inline-flex items-center gap-0.5 rounded-full bg-orange-500/10 px-2 py-0.5 text-xs text-orange-400">
                           <Flame className="h-3 w-3" />{meal.calories} kcal

@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Plus, Edit, Trash2, ChevronDown, ChevronUp,
   Coffee, Sun, Moon, Apple, UtensilsCrossed, Flame, X,
-  Copy, Eye, ImagePlus,
+  Copy, Eye, EyeOff, Search, ImagePlus,
 } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { supabaseDb } from "@/integrations/supabase/client";
@@ -67,6 +67,7 @@ export function RestaurantWeeklyMenusTab({ providerId, providerName }: Props) {
     meal_plan_id: string;
     week_start_date: string;
     is_published: boolean;
+    hide_dishes?: boolean;
     delivery_times: Record<string, string>;
   }>({
     meal_plan_id: "", week_start_date: "", is_published: false, delivery_times: {},
@@ -195,6 +196,21 @@ export function RestaurantWeeklyMenusTab({ providerId, providerName }: Props) {
     },
     onError: (e) => toast.error(String(e)),
   });
+
+  /**
+   * Surprise menu. The week stays published — customers still see which meals
+   * land on which day — but the dish names are withheld. Redaction happens at
+   * every read site (lib/food/hiddenMenu.ts + the gated backend endpoint), so
+   * the names aren't merely undrawn, they aren't sent.
+   */
+  const toggleHideDishes = async (id: string, hide_dishes: boolean) => {
+    const { error } = await supabaseDb.from("food_weekly_menus")
+      .update({ hide_dishes, updated_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    toast.success(hide_dishes ? "Dishes hidden — customers see meal types only" : "Dishes visible again");
+    qc.invalidateQueries({ queryKey: ["admin-food-menus", providerId] });
+  };
 
   const togglePublish = async (id: string, is_published: boolean) => {
     const { error } = await supabaseDb
@@ -389,6 +405,11 @@ export function RestaurantWeeklyMenusTab({ providerId, providerName }: Props) {
                       }`}>
                         {menu.is_published ? "Published" : "Draft"}
                       </Badge>
+                      {menu.hide_dishes && (
+                        <Badge className="rounded-full bg-indigo-500/15 text-xs text-indigo-400">
+                          <EyeOff className="mr-1 h-3 w-3" /> Dishes hidden
+                        </Badge>
+                      )}
                     </div>
                     <p className="mt-0.5 text-xs text-muted-foreground">
                       {totalDishes} dish{totalDishes !== 1 ? "es" : ""} · {daysWithContent} day{daysWithContent !== 1 ? "s" : ""} filled
@@ -397,9 +418,21 @@ export function RestaurantWeeklyMenusTab({ providerId, providerName }: Props) {
                   <div className="flex shrink-0 flex-wrap items-center justify-end gap-1 border-t border-border/40 pt-3 sm:border-t-0 sm:pt-0">
                     <Switch checked={menu.is_published}
                       onCheckedChange={(v) => togglePublish(menu.id, v)} />
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className={`h-8 w-8 p-0 ${menu.hide_dishes ? "text-indigo-400" : ""}`}
+                      title={menu.hide_dishes
+                        ? "Dishes hidden — customers see meal types only. Click to reveal."
+                        : "Hide dishes — customers see only which meals they get"}
+                      aria-pressed={!!menu.hide_dishes}
+                      onClick={() => toggleHideDishes(menu.id, !menu.hide_dishes)}
+                    >
+                      {menu.hide_dishes ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
                     <Button size="sm" variant="ghost" className="h-8 w-8 p-0" title="Preview"
                       onClick={() => setPreviewMenu(menu)}>
-                      <Eye className="h-4 w-4" />
+                      <Search className="h-4 w-4" />
                     </Button>
                     <Button size="sm" variant="ghost" className="h-8 w-8 p-0" title="Duplicate"
                       onClick={() => openDuplicate(menu)}>

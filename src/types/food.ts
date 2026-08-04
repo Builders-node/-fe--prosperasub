@@ -51,6 +51,8 @@ export interface FoodWeeklyMenu {
   meal_plan_id: string | null;
   week_start_date: string;
   is_published: boolean;
+  /** Surprise menu — customers see the meal types, never the dishes. */
+  hide_dishes?: boolean;
   /** Per-meal delivery times keyed by meal type → "HH:MM" (e.g. { lunch: "12:00" }). */
   delivery_times?: Record<string, string> | null;
   created_at: string;

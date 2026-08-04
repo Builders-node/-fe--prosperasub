@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Flame, Check, UtensilsCrossed } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { HIDDEN_DISH_LABEL } from "@/lib/food/hiddenMenu";
 import type { FoodMenuMeal, DayOfWeek, MealType } from "@/types/food";
 import { DAYS_OF_WEEK, MEAL_TYPE_LABELS } from "@/types/food";
 import { nowHN } from "@/lib/timezone";
@@ -36,6 +37,13 @@ function todayDayOfWeek(): DayOfWeek {
 interface Props {
   meals: FoodMenuMeal[];
   mealTypes: MealType[];
+  /**
+   * Surprise week — the customer sees which meals are scheduled but not what
+   * they are. The dish fields are already blank by the time they get here
+   * (lib/food/hiddenMenu redacts at the query); this just changes the copy so
+   * the gap reads as intentional rather than as missing data.
+   */
+  hideDishes?: boolean;
   weekStartDate: string;
 }
 
@@ -49,7 +57,7 @@ interface Props {
  * entire week at once for the *plan detail* / admin preview, while this view is
  * optimised for the "what am I eating today" subscription screen.
  */
-export function MyRationView({ meals, mealTypes, weekStartDate }: Props) {
+export function MyRationView({ meals, mealTypes, weekStartDate, hideDishes = false }: Props) {
   const today = todayDayOfWeek();
   const [selectedDay, setSelectedDay] = useState<DayOfWeek>(today);
 
@@ -172,9 +180,9 @@ export function MyRationView({ meals, mealTypes, weekStartDate }: Props) {
                       <div
                         key={meal.id}
                         className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted"
-                        title={meal.meal_name}
+                        title={hideDishes ? HIDDEN_DISH_LABEL : meal.meal_name}
                       >
-                        {meal.image_url ? (
+                        {!hideDishes && meal.image_url ? (
                           <img
                             src={meal.image_url}
                             alt={meal.meal_name}
@@ -193,8 +201,10 @@ export function MyRationView({ meals, mealTypes, weekStartDate }: Props) {
                   <ul className="mt-1 space-y-0.5">
                     {dishes.map((meal) => (
                       <li key={`${meal.id}-name`} className="text-sm text-foreground">
-                        <span className="font-medium">{meal.meal_name}</span>
-                        {meal.meal_description && (
+                        <span className={hideDishes ? "font-medium italic text-muted-foreground" : "font-medium"}>
+                          {hideDishes ? HIDDEN_DISH_LABEL : meal.meal_name}
+                        </span>
+                        {!hideDishes && meal.meal_description && (
                           <span className="text-muted-foreground">
                             {" · "}
                             {meal.meal_description}

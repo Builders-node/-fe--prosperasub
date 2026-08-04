@@ -80,9 +80,11 @@ const FoodProviderDetail = () => {
     queryFn: async () => {
       const { data: menus } = await supabaseDb
         .from("food_weekly_menus")
-        .select("id, meal_plan_id")
+        .select("id, meal_plan_id, hide_dishes")
         .eq("provider_id", id!);
-      const menuIds = (menus ?? []).map((m) => m.id);
+      // A hidden week's dish PHOTOS give the dish away just as well as its
+      // name, so those menus contribute nothing to the plan-card imagery.
+      const menuIds = (menus ?? []).filter((m: any) => !m.hide_dishes).map((m) => m.id);
       if (!menuIds.length) return {} as Record<string, string[]>;
 
       const { data: meals } = await supabaseDb
