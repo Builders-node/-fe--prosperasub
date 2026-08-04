@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Car, CalendarDays, Pencil } from "lucide-react";
 import { format, parseISO } from "date-fns";
+import { ProviderRail, CategoryChips, ALL_CATEGORIES } from "@/components/listing/ListingNav";
 import { groupProvidersByCategory } from "@/lib/services/groupByCategory";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { useSelectedResidence } from "@/contexts/LocationContext";
@@ -142,6 +143,35 @@ const CarRental = () => {
   );
   const hiddenVehicleCount = (vehicles ?? []).length - visibleVehicles.length;
 
+  const railProviders = useMemo(
+    () => providerGroups.flatMap((g) =>
+      g.providers.map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        avatarUrl: p.avatar_url ?? null,
+        gallery: p.gallery_urls ?? [],
+        meta: g.label,
+      }))),
+    [providerGroups],
+  );
+  const chipCategories = useMemo(
+    () => providerGroups.map((g) => ({ key: g.key, label: g.label, count: g.providers.length })),
+    [providerGroups],
+  );
+  const [activeCategory, setActiveCategory] = useState<string>(ALL_CATEGORIES);
+  // NOTE: the chip narrows the rail only. `rental_vehicles` rows carry no
+  // provider column, so a vehicle cannot be traced back to a category — the
+  // grid below stays whole. Wire vehicles to their provider and this filter
+  // can cover them too.
+  const visibleRail = activeCategory === ALL_CATEGORIES
+    ? railProviders
+    : providerGroups
+        .filter((g) => g.key === activeCategory)
+        .flatMap((g) => g.providers.map((p: any) => ({
+          id: p.id, name: p.name, avatarUrl: p.avatar_url ?? null,
+          gallery: p.gallery_urls ?? [], meta: g.label,
+        })));
+
   const openProvider = (providerId: string) => {
     navigate(`/services/rental/providers/${providerId}`);
   };
@@ -199,25 +229,10 @@ const CarRental = () => {
         ) : providerGroups.length === 0 ? (
           <YdEmptyState icon={Car} title="No providers yet" subtitle="We're setting things up. Check back soon." />
         ) : (
-          providerGroups.map((group) => (
-            <section key={group.key}>
-              <h2 className="mb-4 text-xl font-black tracking-tight text-foreground">{group.label}</h2>
-              <div className="grid gap-3 md:gap-4 md:grid-cols-2">
-                {group.providers.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => openProvider(p.id)}
-                    className="flex h-28 items-center justify-center rounded-3xl border border-border bg-card px-6 text-center transition-colors hover:border-primary/40"
-                  >
-                    <span className="text-2xl font-black tracking-tight text-foreground">
-                      {p.name}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </section>
-          ))
+          <div className="space-y-4">
+            <ProviderRail providers={visibleRail} icon={Car} onOpen={openProvider} />
+            <CategoryChips categories={chipCategories} value={activeCategory} onChange={setActiveCategory} />
+          </div>
         )}
 
         {/* ─── Vehicles ──────────────────────────────────────────── */}

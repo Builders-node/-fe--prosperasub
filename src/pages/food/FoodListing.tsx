@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import {
   UtensilsCrossed, ChefHat, MapPin, ArrowRight, CalendarDays,
 } from "lucide-react";
+import { ProviderRail, CategoryChips, ALL_CATEGORIES } from "@/components/listing/ListingNav";
 import { groupProvidersByCategory } from "@/lib/services/groupByCategory";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { HomeHeader } from "@/components/HomeHeader";
@@ -156,9 +157,41 @@ const FoodListing = () => {
   );
 
   // All meal plans across restaurants, flattened with their provider for context.
-  const allPlans = visibleProviders.flatMap((p) =>
-    p.plans.map((plan) => ({ plan, provider: p })),
+  // ── Providers rail + category chips (shared shape across all four
+  //    listings — see components/listing/ListingNav) ──────────────────────
+  const railProviders = useMemo(
+    () => restaurantGroups.flatMap((g) =>
+      g.providers.map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        avatarUrl: p.logo_url ?? p.avatar_url ?? null,
+        gallery: (p.images ?? []).map((i: any) => i.url ?? i.image_url).filter(Boolean),
+        meta: `${(p.plans ?? []).length} plan${(p.plans ?? []).length !== 1 ? "s" : ""}`,
+      }))),
+    [restaurantGroups],
   );
+  const chipCategories = useMemo(
+    () => restaurantGroups.map((g) => ({
+      key: g.key,
+      label: g.label,
+      count: g.providers.reduce((n: number, p: any) => n + (p.plans ?? []).length, 0),
+    })),
+    [restaurantGroups],
+  );
+  const [activeCategory, setActiveCategory] = useState<string>(ALL_CATEGORIES);
+  const visibleGroups = activeCategory === ALL_CATEGORIES
+    ? restaurantGroups
+    : restaurantGroups.filter((g) => g.key === activeCategory);
+  /** Restaurant ids inside the chosen category — food plans carry their
+   *  provider, so the chip narrows the plan list too. */
+  const scopedProviderIds = useMemo(
+    () => new Set(visibleGroups.flatMap((g) => g.providers.map((p: any) => p.id))),
+    [visibleGroups],
+  );
+
+  const allPlans = visibleProviders
+    .filter((p) => scopedProviderIds.size === 0 || scopedProviderIds.has(p.id))
+    .flatMap((p) => p.plans.map((plan) => ({ plan, provider: p })));
 
   // Dietary filter — customer taps Keto → we hide plans without that tag.
   // Only surface filter chips for tags at least one plan actually carries; a
@@ -189,71 +222,60 @@ const FoodListing = () => {
 
       <main className="market-content py-space-4 md:py-space-8">
 
-        {/* ─── Restaurants ─────────────────────────────────────────── */}
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-xl font-black tracking-tight text-foreground">Restaurants</h2>
-          {selectedResidenceId && (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
-              <MapPin className="h-3.5 w-3.5" /> {residence}
-            </span>
-          )}
-        </div>
+        {/* ─── Providers → Categories → the list ───────────────────── */}
+        {!isLoading && !isError && railProviders.length > 0 && (
+          <div className="mb-6 space-y-4">
+            <ProviderRail
+              providers={railProviders}
+              icon={ChefHat}
+              label="Restaurants"
+              onOpen={(id) => navigate(`/services/food/${id}`)}
+            />
+            <div className="flex flex-wrap items-center gap-2">
+              <CategoryChips categories={chipCategories} value={activeCategory} onChange={setActiveCategory} />
+              {selectedResidenceId && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+                  <MapPin className="h-3.5 w-3.5" /> {residence}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
         {isLoading ? (
-          <div className="grid gap-3 md:gap-4 md:grid-cols-2">
-            {[1, 2].map((i) => (
-              <div key={i} className="h-72 animate-pulse rounded-3xl bg-muted" />
-            ))}
+          <div className="mb-6 flex gap-3">
+            {[1, 2].map((i) => <div key={i} className="h-28 w-[260px] shrink-0 animate-pulse rounded-2xl bg-muted" />)}
           </div>
         ) : isError ? (
-          <QueryError
-            title="Couldn't load restaurants"
-            error={error instanceof Error ? error.message : undefined}
-            onRetry={() => refetch()}
-            retrying={isFetching}
-          />
-        ) : visibleProviders.length > 0 ? (
-          <>
-          {/* One block per category. Header hides when only one category
-              has restaurants — food today only has "Meal Subscription", so
-              the page reads visually identical to before while the data
-              layer aligns with the 3-level architecture. */}
-          <div className="space-y-6">
-            {restaurantGroups.map((group) => (
-              <div key={group.key}>
-                <h3 className="mb-3 text-caption font-bold uppercase tracking-[0.16em] text-muted-foreground">
-                  {group.label}
-                </h3>
-                <div className="grid gap-3 md:gap-4 md:grid-cols-2">
-                  {group.providers.map((p) => (
-                    <RestaurantCard
-                      key={p.id}
-                      provider={p}
-                      onClick={() => navigate(`/services/food/${p.id}`)}
-                    />
-                  ))}
-                </div>
-              </div>
-            ))}
+          <div className="mb-6">
+            <QueryError
+              title="Couldn't load restaurants"
+              error={error instanceof Error ? error.message : undefined}
+              onRetry={() => refetch()}
+              retrying={isFetching}
+            />
           </div>
-          {hiddenCount > 0 && (
-            <p className="mt-3 text-center text-xs text-muted-foreground">
-              {hiddenCount} restaurant{hiddenCount > 1 ? "s" : ""} not available in {residence}
-            </p>
-          )}
-          </>
-        ) : selectedResidenceId ? (
-          <YdEmptyState
-            icon={MapPin}
-            title={`No restaurants in ${residence} yet`}
-            subtitle="Try another location or check back soon."
-          />
-        ) : (
-          <YdEmptyState
-            icon={ChefHat}
-            title="No restaurants yet"
-            subtitle="We're setting things up. Check back soon."
-          />
-        )}
+        ) : visibleProviders.length === 0 ? (
+          <div className="mb-6">
+            {selectedResidenceId ? (
+              <YdEmptyState
+                icon={MapPin}
+                title={`No restaurants in ${residence} yet`}
+                subtitle="Try another location or check back soon."
+              />
+            ) : (
+              <YdEmptyState
+                icon={ChefHat}
+                title="No restaurants yet"
+                subtitle="We're setting things up. Check back soon."
+              />
+            )}
+          </div>
+        ) : hiddenCount > 0 ? (
+          <p className="mb-6 text-center text-xs text-muted-foreground">
+            {hiddenCount} restaurant{hiddenCount > 1 ? "s" : ""} not available in {residence}
+          </p>
+        ) : null}
 
         {/* ─── Meal Plans ──────────────────────────────────────────── */}
         {allPlans.length > 0 && (

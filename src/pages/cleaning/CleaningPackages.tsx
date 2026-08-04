@@ -1,8 +1,9 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { SparklesIcon, ShieldCheck } from "lucide-react";
+import { SparklesIcon, ShieldCheck, ChevronRight } from "lucide-react";
 import { groupProvidersByCategory } from "@/lib/services/groupByCategory";
+import { ProviderRail, CategoryChips, ALL_CATEGORIES } from "@/components/listing/ListingNav";
 import { supabase, supabaseDb } from "@/integrations/supabase/client";
 import { useSelectedResidence } from "@/contexts/LocationContext";
 import { useResidences } from "@/hooks/useResidences";
@@ -196,6 +197,33 @@ const CleaningPackages = () => {
     }
   };
 
+  // Rail = every provider with visible plans, flattened out of the category
+  // groups. Chips = the categories those providers fall into.
+  const railProviders = useMemo(
+    () => categoryGroups.flatMap((c) =>
+      c.providers.map((p) => ({
+        id: p.providerId,
+        name: p.providerName,
+        avatarUrl: p.providerAvatar,
+        gallery: p.providerGallery,
+        // Category is redundant here — the chips right below say it.
+        meta: `${p.packages.length} plan${p.packages.length !== 1 ? "s" : ""}`,
+      }))),
+    [categoryGroups],
+  );
+  const chipCategories = useMemo(
+    () => categoryGroups.map((c) => ({
+      key: c.categoryKey,
+      label: c.categoryLabel,
+      count: c.providers.reduce((n, p) => n + p.packages.length, 0),
+    })),
+    [categoryGroups],
+  );
+  const [activeCategory, setActiveCategory] = useState<string>(ALL_CATEGORIES);
+  const visibleGroups = activeCategory === ALL_CATEGORIES
+    ? categoryGroups
+    : categoryGroups.filter((c) => c.categoryKey === activeCategory);
+
   const openProvider = (providerId: string) => {
     navigate(`/services/cleaning/providers/${providerId}`);
   };
@@ -207,13 +235,15 @@ const CleaningPackages = () => {
 
       <main className="market-content space-y-8 py-space-4 md:py-space-8">
 
-        {/* ─── Categories → Providers → Plans ─────────────────────────
-            Three-level information architecture: each Category (Apartment
-            Cleaning · Car Wash · …) gets its own block; inside it the
-            providers appear as tiles, and each tile is followed by its
-            plans. Previous flat provider-grouped layout mixed car-wash
-            plans next to apartment-cleaning plans with no visual signal
-            they belong to different services. */}
+        {/* Providers → Categories → the list. See components/listing/
+            ListingNav — the same three-step shape on all four services. */}
+        {!packagesQ.isLoading && !providersQ.isLoading && !categoriesQ.isLoading && categoryGroups.length > 0 && (
+          <>
+            <ProviderRail providers={railProviders} icon={SparklesIcon} onOpen={openProvider} />
+            <CategoryChips categories={chipCategories} value={activeCategory} onChange={setActiveCategory} />
+          </>
+        )}
+
         {packagesQ.isLoading || providersQ.isLoading || categoriesQ.isLoading ? (
           <section>
             <div className="grid gap-3 md:gap-4 md:grid-cols-2">
@@ -238,7 +268,7 @@ const CleaningPackages = () => {
             subtitle={t("cleaning.noPackagesDescription")}
           />
         ) : (
-          categoryGroups.map((category) => (
+          visibleGroups.map((category) => (
             <section key={category.categoryKey} className="space-y-4">
               {/* Category header — always shown so the 3-level architecture
                   (category → provider → plans) is visible on every service,
@@ -250,34 +280,18 @@ const CleaningPackages = () => {
 
               {category.providers.map((provider) => (
                 <div key={provider.providerId} className="space-y-3">
-                  {/* Provider tile — same shape as the earlier top-row
-                      tile but now inline with its own plans below. */}
+                  {/* Compact provider line. The rail at the top of the page
+                      already shows the avatar and gallery, so repeating the
+                      full tile here just pushed the plans below the fold. */}
                   <button
                     type="button"
                     onClick={() => openProvider(provider.providerId)}
-                    className="group flex w-full flex-col overflow-hidden rounded-3xl border border-border bg-card text-left transition-colors hover:border-primary/40"
+                    className="flex items-center gap-2 text-left"
                   >
-                    <div className="flex items-center gap-4 p-5">
-                      {provider.providerAvatar ? (
-                        <img src={provider.providerAvatar} alt="" className="h-14 w-14 shrink-0 rounded-2xl object-cover" />
-                      ) : (
-                        <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-primary/10">
-                          <SparklesIcon className="h-6 w-6 text-primary" />
-                        </span>
-                      )}
-                      <span className="text-lg font-black tracking-tight text-foreground">
-                        {provider.providerName}
-                      </span>
-                    </div>
-                    {provider.providerGallery.slice(0, 3).length > 0 && (
-                      <div className="grid grid-cols-3 gap-0.5 bg-border/40">
-                        {provider.providerGallery.slice(0, 3).map((url, i) => (
-                          <div key={i} className="aspect-video overflow-hidden bg-muted">
-                            <img src={url} alt="" className="h-full w-full object-cover" />
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                    <span className="text-caption font-bold uppercase tracking-[0.16em] text-muted-foreground">
+                      {provider.providerName}
+                    </span>
+                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
                   </button>
 
                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
