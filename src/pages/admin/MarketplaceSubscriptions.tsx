@@ -21,6 +21,9 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { supabaseDb } from "@/integrations/supabase/client";
+import {
+  fetchMarketplaceSales, buildSalePatch, SALE_SOURCES, type SaleRow,
+} from "@/lib/admin/marketplaceSales";
 import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAuditEvent } from "@/lib/auditLog";
@@ -29,31 +32,7 @@ import { cn } from "@/lib/utils";
 type SortKey = "name" | "date" | "service";
 
 interface Provider { id: string; name: string; archetype_key: string | null; }
-interface Plan { id: string; name: string; }
 interface UserRow { id: string; name: string | null; display_name: string | null; email: string | null; }
-
-/**
- * Union row that flattens `provider_subscriptions` and `provider_bookings`
- * into the same shape. Subs use start_date/end_date (dates), bookings use
- * start_at/end_at (timestamps). We normalize to ISO-day strings for display
- * and carry a `kind` marker so admins can tell them apart at a glance.
- */
-interface SaleRow {
-  id: string;
-  kind: "subscription" | "booking";
-  provider_id: string;
-  plan_id: string | null;
-  user_id: string | null;
-  start_date: string | null;
-  end_date: string | null;
-  status: string;
-  payment_status: string;
-  payment_method: string | null;
-  price_cents: number | null;
-  payment_reference: string | null;
-  source_service_key: string | null;
-  created_at: string;
-}
 
 /**
  * A single derived "Stage" that combines status + payment_status into one
@@ -73,8 +52,14 @@ function subscriptionStage(s: SaleRow): { label: string; className: string } {
 }
 
 /**
- * Universal admin list of every recurring purchase on the platform. Reads
- * `provider_subscriptions` and joins providers/plans by id.
+ * Every sale on the platform, read from each service's own table via
+ * `lib/admin/marketplaceSales.ts`.
+ *
+ * It used to read the universal `provider_subscriptions` / `provider_bookings`
+ * mirrors, which a one-off backfill filled in July 2026 and nothing has written
+ * to since — so the page showed 20 of 39 sales, six of the visible ones had a
+ * stale status, and edits landed on the mirror instead of the row the customer
+ * actually has.
  */
 const MarketplaceSubscriptions = () => {
   const qc = useQueryClient();
@@ -91,21 +76,23 @@ const MarketplaceSubscriptions = () => {
   const [deleteRow, setDeleteRow] = useState<SaleRow | null>(null);
 
   const invalidate = () => {
-    qc.invalidateQueries({ queryKey: ["marketplace-subscriptions"] });
-    qc.invalidateQueries({ queryKey: ["marketplace-bookings"] });
+    qc.invalidateQueries({ queryKey: ["marketplace-sales"] });
+    // The per-service surfaces read the same rows we just wrote.
+    qc.invalidateQueries({ queryKey: ["provider-food-subs"] });
+    qc.invalidateQueries({ queryKey: ["provider-cleaning-subs"] });
+    qc.invalidateQueries({ queryKey: ["unified-bookings"] });
+    qc.invalidateQueries({ queryKey: ["provider-analytics"] });
   };
 
-  /** Table + column name for the underlying row of a SaleRow. */
-  const backing = (s: SaleRow) => s.kind === "subscription"
-    ? { table: "provider_subscriptions", startCol: "start_date", endCol: "end_date",   priceCol: "price_cents"       }
-    : { table: "provider_bookings",      startCol: "start_at",   endCol: "end_at",     priceCol: "total_price_cents" };
+  /** The row's real table — the one the customer and the crons read. */
+  const backing = (s: SaleRow) => SALE_SOURCES[s.source_service_key];
 
   const updateMutation = useMutation({
     mutationFn: async ({ row, patch }: { row: SaleRow; patch: Record<string, any> }) => {
       const b = backing(row);
       const { error } = await supabaseDb.from(b.table).update({ ...patch, updated_at: new Date().toISOString() }).eq("id", row.id);
       if (error) throw error;
-      if (userData?.id) await logAuditEvent(userData.id, "edit", row.kind === "subscription" ? "provider_subscription" : "provider_booking", row.id, patch);
+      if (userData?.id) await logAuditEvent(userData.id, "edit", backing(row).table, row.id, patch);
     },
     onSuccess: () => { toast.success("Saved"); invalidate(); setEditRow(null); },
     onError: (e: any) => toast.error(e?.message || "Could not save"),
@@ -116,7 +103,7 @@ const MarketplaceSubscriptions = () => {
       const b = backing(row);
       const { error } = await supabaseDb.from(b.table).delete().eq("id", row.id);
       if (error) throw error;
-      if (userData?.id) await logAuditEvent(userData.id, "delete", row.kind === "subscription" ? "provider_subscription" : "provider_booking", row.id, {});
+      if (userData?.id) await logAuditEvent(userData.id, "delete", backing(row).table, row.id, {});
     },
     onSuccess: () => { toast.success("Deleted"); invalidate(); setDeleteRow(null); },
     onError: (e: any) => toast.error(e?.message || "Could not delete"),
@@ -142,73 +129,26 @@ const MarketplaceSubscriptions = () => {
   });
   const providerById = useMemo(() => new Map(providers.map((p) => [p.id, p])), [providers]);
 
-  const { data: plans = [] } = useQuery({
-    queryKey: ["marketplace-plans-slim"],
-    queryFn: async () => {
-      const { data, error } = await supabaseDb.from("provider_plans").select("id, name");
-      if (error) throw error;
-      return (data ?? []) as Plan[];
-    },
-  });
-  const planById = useMemo(() => new Map(plans.map((p) => [p.id, p])), [plans]);
+  // No provider_plans lookup: plan_id is now the LEGACY id (food_meal_plans,
+  // cleaning_packages, …) and would never match a row in that mirror table, so
+  // every Plan cell would read "—". The adapter resolves the name at source.
 
-  const isoDay = (v?: string | null): string | null => v ? v.slice(0, 10) : null;
-
-  const { data: subs = [], isLoading: subsLoading, isError: subsError, error: subsErrObj, refetch: refetchSubs } = useQuery({
-    queryKey: ["marketplace-subscriptions"],
-    queryFn: async () => {
-      const { data, error } = await supabaseDb.from("provider_subscriptions")
-        .select("*").order("created_at", { ascending: false });
-      if (error) throw error;
-      return ((data ?? []) as any[]).map<SaleRow>((r) => ({
-        id: r.id,
-        kind: "subscription",
-        provider_id: r.provider_id,
-        plan_id: r.plan_id ?? null,
-        user_id: r.user_id ?? null,
-        start_date: isoDay(r.start_date),
-        end_date: isoDay(r.end_date),
-        status: r.status,
-        payment_status: r.payment_status,
-        payment_method: r.payment_method ?? null,
-        price_cents: r.price_cents ?? null,
-        payment_reference: r.payment_reference ?? null,
-        source_service_key: r.source_service_key ?? null,
-        created_at: r.created_at,
-      }));
-    },
+  /**
+   * One query across every service's own table.
+   *
+   * This used to read `provider_subscriptions` + `provider_bookings` — mirror
+   * tables filled by a one-off backfill in July and never written to since. The
+   * page was therefore a snapshot of that day: it showed 9 of 19 food rows, and
+   * six of the nine had a stale status (cancelled and expired customers still
+   * read "Active"). See lib/admin/marketplaceSales.ts.
+   */
+  const {
+    data: rows = [], isLoading, isError, error: subsErrObj, refetch: refetchSubs,
+  } = useQuery({
+    queryKey: ["marketplace-sales"],
+    queryFn: fetchMarketplaceSales,
   });
 
-  const { data: bookings = [], isLoading: bookingsLoading, isError: bookingsError, refetch: refetchBookings } = useQuery({
-    queryKey: ["marketplace-bookings"],
-    queryFn: async () => {
-      // Rental (and any other archetype using the booking model) lives here.
-      // We surface it in the same view so admin sees the whole revenue stream.
-      const { data, error } = await supabaseDb.from("provider_bookings")
-        .select("*").order("created_at", { ascending: false });
-      if (error) throw error;
-      return ((data ?? []) as any[]).map<SaleRow>((r) => ({
-        id: r.id,
-        kind: "booking",
-        provider_id: r.provider_id,
-        plan_id: r.plan_id ?? null,
-        user_id: r.user_id ?? null,
-        start_date: isoDay(r.start_at),
-        end_date: isoDay(r.end_at),
-        status: r.status,
-        payment_status: r.payment_status ?? "paid",
-        payment_method: r.payment_method ?? null,
-        price_cents: r.total_price_cents ?? r.price_cents ?? null,
-        payment_reference: r.payment_reference ?? null,
-        source_service_key: r.source_service_key ?? null,
-        created_at: r.created_at,
-      }));
-    },
-  });
-
-  const isLoading = subsLoading || bookingsLoading;
-  const isError = subsError || bookingsError;
-  const rows = useMemo(() => [...subs, ...bookings], [subs, bookings]);
 
   const userIds = useMemo(() => Array.from(new Set(rows.map((s) => s.user_id).filter((x): x is string => !!x))), [rows]);
   const { data: users = [] } = useQuery({
@@ -221,10 +161,14 @@ const MarketplaceSubscriptions = () => {
     },
   });
   const userById = useMemo(() => new Map(users.map((u) => [u.id, u])), [users]);
-  const userLabel = (id: string | null): string => {
-    if (!id) return "—";
-    const u = userById.get(id);
-    return u?.display_name || u?.name || u?.email || id.slice(0, 8);
+  /**
+   * Beach walk-ins and off-platform food orders carry a name on the row and no
+   * account at all. Falling straight to "—" hid who the sale was for.
+   */
+  const customerLabel = (s: SaleRow): string => {
+    const u = s.user_id ? userById.get(s.user_id) : undefined;
+    return u?.display_name || u?.name || s.customer_name || u?.email
+      || (s.user_id ? s.user_id.slice(0, 8) : "—");
   };
 
   const visible = useMemo(() => {
@@ -236,19 +180,18 @@ const MarketplaceSubscriptions = () => {
       if (payment  !== "all" && s.payment_status !== payment)    return false;
       if (kind     !== "all" && s.kind           !== kind)       return false;
       if (q) {
-        const plan = s.plan_id ? planById.get(s.plan_id) : undefined;
         const user = s.user_id ? userById.get(s.user_id) : undefined;
         if (!(
           (prov?.name ?? "").toLowerCase().includes(q) ||
-          (plan?.name ?? "").toLowerCase().includes(q) ||
-          userLabel(s.user_id).toLowerCase().includes(q) ||
+          (s.plan_name ?? "").toLowerCase().includes(q) ||
+          customerLabel(s).toLowerCase().includes(q) ||
           (user?.email ?? "").toLowerCase().includes(q) ||
           (s.payment_reference ?? "").toLowerCase().includes(q)
         )) return false;
       }
       return true;
     });
-  }, [rows, service, status, payment, kind, search, providerById, planById, userById]);
+  }, [rows, service, status, payment, kind, search, providerById, userById]);
 
   const sorted = useMemo(() => {
     const svcLabel = (key?: string | null) => archetypes.find((a) => a.key === key)?.label ?? "";
@@ -256,7 +199,7 @@ const MarketplaceSubscriptions = () => {
     return [...visible].sort((a, b) => {
       let cmp = 0;
       if (sortBy === "name") {
-        cmp = userLabel(a.user_id).localeCompare(userLabel(b.user_id));
+        cmp = customerLabel(a).localeCompare(customerLabel(b));
       } else if (sortBy === "service") {
         const prov = (s: SaleRow) => providerById.get(s.provider_id)?.archetype_key ?? null;
         cmp = svcLabel(prov(a)).localeCompare(svcLabel(prov(b)));
@@ -324,7 +267,7 @@ const MarketplaceSubscriptions = () => {
         <AdminListShell
           search={search} onSearch={setSearch} searchPlaceholder="Search by provider, plan, user, payment ref…"
           isLoading={isLoading} isError={isError} error={subsErrObj}
-          onRetry={() => { refetchSubs(); refetchBookings(); }}
+          onRetry={() => { refetchSubs(); }}
           isEmpty={rows.length === 0}
           isNoResults={rows.length > 0 && visible.length === 0} count={visible.length}
           emptyTitle="No sales yet" emptySubtitle="Subscriptions and bookings will appear here."
@@ -348,7 +291,6 @@ const MarketplaceSubscriptions = () => {
               <tbody>
                 {sorted.map((s) => {
                   const prov = providerById.get(s.provider_id);
-                  const plan = s.plan_id ? planById.get(s.plan_id) : undefined;
                   const arche = prov ? archetypes.find((a) => a.key === prov.archetype_key) : undefined;
                   const AIcon = arche?.Icon ?? Building2;
                   const stage = subscriptionStage(s);
@@ -360,14 +302,14 @@ const MarketplaceSubscriptions = () => {
                             to={`/admin/users?userId=${encodeURIComponent(s.user_id)}`}
                             className="hover:text-primary hover:underline"
                           >
-                            {userLabel(s.user_id)}
+                            {customerLabel(s)}
                           </Link>
                         ) : (
-                          userLabel(s.user_id)
+                          customerLabel(s)
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        {plan?.name ?? <em className="italic text-muted-foreground/70">no plan</em>}
+                        {s.plan_name ?? <em className="italic text-muted-foreground/70">no plan</em>}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
                         {prov ? (
@@ -445,22 +387,9 @@ const MarketplaceSubscriptions = () => {
           <SheetHeader>
             <SheetTitle>{editRow?.kind === "booking" ? "Edit booking" : "Edit subscription"}</SheetTitle>
             <SheetDescription>
-              {editRow ? `${userLabel(editRow.user_id)} · ${providerById.get(editRow.provider_id)?.name ?? "—"}` : ""}
+              {editRow ? `${customerLabel(editRow)} · ${providerById.get(editRow.provider_id)?.name ?? "—"}` : ""}
             </SheetDescription>
           </SheetHeader>
-          {/* Read-only-mirror warning: universal provider_subscriptions /
-              provider_bookings are populated from legacy tables (source_service_key
-              + source_*_id). Writes here don't back-sync — the legacy row (which
-              the reconcile cron, revenue math, and customer's My Subs all read)
-              stays whatever it was. Route admins to the correct edit surface. */}
-          <div className="mx-4 mt-4 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-500">
-            <p className="font-semibold text-foreground">Edits here don't sync to the source table</p>
-            <p className="mt-0.5">
-              This row mirrors a {editRow?.kind === "booking" ? "car rental" : "cleaning/food/beach"} record.
-              To change payment status or lifecycle, open the service-specific admin page
-              (Cleaning subs / Food workspace / Beach admin / Bookings calendar).
-            </p>
-          </div>
           {editRow && (
             <EditForm
               key={editRow.id}
@@ -505,7 +434,6 @@ function EditForm({
   onSave: (patch: Record<string, any>) => void;
   saving: boolean;
 }) {
-  const isBooking = row.kind === "booking";
   const [statusV, setStatusV] = useState(row.status);
   const [paymentV, setPaymentV] = useState(row.payment_status);
   const [methodV, setMethodV] = useState(row.payment_method ?? "");
@@ -525,26 +453,21 @@ function EditForm({
   }, [row.id]);
 
   const submit = () => {
-    const patch: Record<string, any> = {
+    // Generic fields; buildSalePatch maps them onto the row's own column names
+    // — cleaning's status lives in `subscription_status`, food's price is the
+    // weekly rate. Writing a plain `status` to a cleaning row changed nothing.
+    const edit: Parameters<typeof buildSalePatch>[1] = {
       status: statusV,
       payment_status: paymentV,
       payment_method: methodV || null,
     };
-    // Bookings use start_at/end_at timestamps; subs use start_date/end_date.
-    // Only touch date columns when the value actually changed to avoid rewriting
-    // the timestamp-side of the row on a plain date-only edit.
-    if (isBooking) {
-      if (start && start !== row.start_date) patch.start_at = new Date(`${start}T00:00:00`).toISOString();
-      if (end   && end   !== row.end_date)   patch.end_at   = new Date(`${end}T23:59:59`).toISOString();
-    } else {
-      if (start !== (row.start_date ?? "")) patch.start_date = start || null;
-      if (end   !== (row.end_date   ?? "")) patch.end_date   = end   || null;
-    }
+    // Only send a date the admin actually changed. Every service stores these
+    // as plain dates, so there's no timestamp half left to preserve.
+    if (start !== (row.start_date ?? "")) edit.start_date = start || null;
+    if (end   !== (row.end_date   ?? "")) edit.end_date   = end   || null;
     const cents = Math.round(parseFloat(priceDollars || "0") * 100);
-    if (!Number.isNaN(cents)) {
-      patch[isBooking ? "total_price_cents" : "price_cents"] = cents;
-    }
-    onSave(patch);
+    if (!Number.isNaN(cents) && cents !== row.price_cents) edit.price_cents = cents;
+    onSave(buildSalePatch(row, edit));
   };
 
   return (
