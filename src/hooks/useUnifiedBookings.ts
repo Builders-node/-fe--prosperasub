@@ -51,15 +51,16 @@ async function fetchCleaning(providerId: string, from: string, to: string): Prom
   // Owners were seeing "—" because we only carried the package name through.
   const { data: subs } = await supabaseDb
     .from("cleaning_subscriptions")
-    .select("id,package_id,user_id,client_id,apartment_note,cleaner_hint")
+    .select("id,package_id,user_id,client_id,apartment_note,cleaner_hint,customer_whatsapp")
     .in("package_id", pkgIds);
-  type SubMeta = { packageId: string; userId: string | null; clientId: string | null; apartmentNote: string | null; cleanerHint: string | null };
+  type SubMeta = { packageId: string; userId: string | null; clientId: string | null; apartmentNote: string | null; customerWhatsapp: string | null; cleanerHint: string | null };
   const subMap = new Map<string, SubMeta>(
     (subs ?? []).map((s: any) => [s.id, {
       packageId: s.package_id,
       userId: s.user_id ?? null,
       clientId: s.client_id ?? null,
       apartmentNote: s.apartment_note ?? null,
+      customerWhatsapp: s.customer_whatsapp ?? null,
       cleanerHint: s.cleaner_hint ?? null,
     }]),
   );
@@ -132,7 +133,7 @@ async function fetchCleaning(providerId: string, from: string, to: string): Prom
         cleaner_hint: meta?.cleanerHint ?? null,
         // Cleaning collects no phone of its own, so it comes from the customer's
         // profile, falling back to the client record for company bookings.
-        phone: pickPhone(profile?.whatsapp, profile?.phone_number, client?.phone),
+        phone: pickPhone(meta?.customerWhatsapp, profile?.whatsapp, profile?.phone_number, client?.phone),
         // Slot context — the Reschedule dialog needs the current slot id (to
         // free capacity on move) plus the date/times to preselect + render.
         slot_id: row.slot_id ?? slot.id ?? null,

@@ -49,7 +49,7 @@ export function CleaningSubscriptionsList({ providerId }: { providerId: string }
       if (!pkgIds.length) return [];
       const { data } = await supabaseDb
         .from("cleaning_subscriptions")
-        .select("id,package_id,user_id,client_id,subscription_status,payment_status,monthly_price_cents,total_price_cents,billing_period_months,service_start_date,service_end_date,paid_until,end_date,apartment_note,cleaner_hint")
+        .select("id,package_id,user_id,client_id,customer_whatsapp,subscription_status,payment_status,monthly_price_cents,total_price_cents,billing_period_months,service_start_date,service_end_date,paid_until,end_date,apartment_note,cleaner_hint")
         .in("package_id", pkgIds)
         .order("service_start_date", { ascending: false });
       return (data ?? []).map((s: any) => ({
@@ -223,7 +223,8 @@ export function CleaningSubscriptionsList({ providerId }: { providerId: string }
     const user = userMap[s.user_id];
     const client = s.client_id ? clientMap[s.client_id] : null;
     const customer = user?.display_name ?? user?.name ?? client?.contact_person ?? client?.company_name ?? user?.email ?? "Customer";
-    const phone = pickPhone(user?.phone, client?.phone);
+    // Order-level number first — it's what this customer gave for this order.
+    const phone = pickPhone(s.customer_whatsapp, user?.phone, client?.phone);
     const price = Number(s.total_price_cents || s.monthly_price_cents || 0);
     // Effective status for the badge + action gates. A paid-but-unpaid sub gets
     // an extra "Awaiting payment" chip so the owner isn't tricked into treating

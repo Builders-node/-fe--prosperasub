@@ -26,6 +26,7 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { SectionOverline } from "@/components/subscriptions/MySubsPrimitives";
 import { ChevronRight as ChevronRightIcon } from "lucide-react";
+import { phoneError } from "@/components/patterns/CustomerPhone";
 import { formatUSD, centsToDollars } from "@/lib/pricing";
 import { useBtcPrice } from "@/hooks/useBtcPrice";
 import { getMealTypesForPlan, formatWeekLabel } from "@/lib/foodUtils";
@@ -294,7 +295,9 @@ const FoodPlanDetail = () => {
     && new Set(selectedMeals).size === selectedMeals.length;
   const checkoutValid =
     checkout.customer_name.trim() &&
-    checkout.customer_whatsapp.trim() &&
+    // Was just a blank check — which is how a subscription ended up storing
+    // "dwqdwqd" as its WhatsApp number.
+    !phoneError(checkout.customer_whatsapp) &&
     checkout.delivery_address.trim() &&
     mealsValid;
 

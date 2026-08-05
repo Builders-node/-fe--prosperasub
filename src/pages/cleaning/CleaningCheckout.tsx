@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { CheckoutStickyFooter } from "@/components/patterns/CheckoutStickyFooter";
 import { Textarea } from "@/components/ui/textarea";
 import { NotesField } from "@/components/patterns/NotesField";
-import { Home as HomeIcon, Sparkles as SparklesIcon } from "lucide-react";
+import { Home as HomeIcon, Sparkles as SparklesIcon, MessageCircle } from "lucide-react";
+import { phoneError, normalizePhone } from "@/components/patterns/CustomerPhone";
 import { SectionOverline } from "@/components/subscriptions/MySubsPrimitives";
 
 import { Label } from "@/components/ui/label";
@@ -48,6 +49,10 @@ const CleaningCheckout = () => {
   const [apartmentNote, setApartmentNote] = useState("");
   const [apartmentNoteError, setApartmentNoteError] = useState("");
   const [cleanerHint, setCleanerHint] = useState("");
+  // Cleaning used to collect no phone at all, so a provider had no way to reach
+  // the customer about a visit. Required, like the apartment number.
+  const [phone, setPhone] = useState("");
+  const [phoneErr, setPhoneErr] = useState("");
   const [billingPeriodMonths, setBillingPeriodMonths] = useState<CleaningDurationMonths>(1);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("lightning");
   const mutationCalledRef = useRef(false);
@@ -75,6 +80,28 @@ const CleaningCheckout = () => {
     },
   });
 
+  // Prefill the phone from the customer's profile — most people have already
+  // given it once, and asking again on every checkout is how a required field
+  // turns into a drop-off.
+  const { data: myProfile } = useQuery({
+    queryKey: ["checkout-profile-phone", userData?.id],
+    enabled: !!userData?.id,
+    queryFn: async () => {
+      const { data } = await supabaseDb
+        .from("user_profiles")
+        .select("user_id,phone_number,whatsapp")
+        .eq("user_id", userData!.id)
+        .maybeSingle();
+      return data;
+    },
+  });
+  const phoneTouchedRef = useRef(false);
+  useEffect(() => {
+    if (phoneTouchedRef.current || phone) return;
+    const known = normalizePhone(myProfile?.whatsapp) ?? normalizePhone(myProfile?.phone_number);
+    if (known) setPhone(known);
+  }, [myProfile, phone]);
+
   // Renewal: load the previous subscription so we can prefill apartment/notes
   // and re-apply the same weekly schedule (day + time) on the new one.
   const { data: prevSub } = useQuery({
@@ -83,7 +110,7 @@ const CleaningCheckout = () => {
     queryFn: async () => {
       const { data, error } = await supabaseDb
         .from("cleaning_subscriptions")
-        .select("id, package_id, billing_period_months, apartment_note, cleaner_hint, recurring_day_of_week, recurring_time")
+        .select("id, package_id, billing_period_months, apartment_note, cleaner_hint, customer_whatsapp, recurring_day_of_week, recurring_time")
         .eq("id", renewFromSubId)
         .maybeSingle();
       if (error) throw error;
@@ -98,6 +125,7 @@ const CleaningCheckout = () => {
     prefilledRef.current = true;
     if (prevSub.apartment_note) setApartmentNote(prevSub.apartment_note);
     if (prevSub.cleaner_hint) setCleanerHint(prevSub.cleaner_hint);
+    if (prevSub.customer_whatsapp) setPhone(prevSub.customer_whatsapp);
     const months = Number(prevSub.billing_period_months);
     if (months === 1 || months === 2 || months === 3) {
       setBillingPeriodMonths(months as CleaningDurationMonths);
@@ -140,6 +168,7 @@ const CleaningCheckout = () => {
     if (!userData?.email) return null;
     const cleanedApartmentNote = apartmentNote.trim();
     if (!cleanedApartmentNote) return null;
+    if (phoneError(phone)) return null;
     try {
       const { data: userRow } = await supabaseDb
         .from("users").select("id").eq("email", userData.email).maybeSingle();
@@ -167,6 +196,7 @@ const CleaningCheckout = () => {
         subscription_status: "pending_payment",
         apartment_note: cleanedApartmentNote,
         cleaner_hint: cleanerHint.trim() || null,
+        customer_whatsapp: phone.trim() || null,
       };
 
       if (pendingSubIdRef.current) {
@@ -263,6 +293,7 @@ const CleaningCheckout = () => {
           is_active: false,
           apartment_note: cleanedApartmentNote,
           cleaner_hint: cleanerHint.trim() || null,
+          customer_whatsapp: phone.trim() || null,
           ...patch,
         })
         .select("id, service_start_date, service_end_date, paid_until, payment_reference")
@@ -272,6 +303,21 @@ const CleaningCheckout = () => {
       return data;
     },
     onSuccess: async (data) => {
+      // Remember the number on the profile so the next checkout prefills and
+      // the provider has a fallback if a later order skips the field.
+      // Best-effort: the subscription is already paid, so a failed profile
+      // write must not surface as an error on the success screen.
+      const cleanPhone = normalizePhone(phone);
+      if (cleanPhone && userData?.id) {
+        try {
+          await supabaseDb
+            .from("user_profiles")
+            .upsert({ user_id: userData.id, whatsapp: cleanPhone }, { onConflict: "user_id" });
+        } catch {
+          /* ignore — the number is on the subscription either way */
+        }
+      }
+
       // Refresh My Bookings data so the new subscription appears without a manual refresh.
       queryClient.invalidateQueries({ queryKey: ["my-cleaning-subscriptions-all"] });
       queryClient.invalidateQueries({ queryKey: ["my-linked-client-subscriptions"] });
@@ -335,13 +381,25 @@ const CleaningCheckout = () => {
   };
 
   const validateApartmentNote = () => {
+    let ok = true;
     if (!apartmentNote.trim()) {
       setApartmentNoteError("Apartment number is required.");
       toast.error("Add your apartment number before payment.");
-      return false;
+      ok = false;
+    } else {
+      setApartmentNoteError("");
     }
-    setApartmentNoteError("");
-    return true;
+    // Checked here rather than only on blur so the sticky footer can't start a
+    // payment for an order nobody can follow up on.
+    const pErr = phoneError(phone);
+    if (pErr) {
+      setPhoneErr(pErr);
+      if (ok) toast.error(pErr);
+      ok = false;
+    } else {
+      setPhoneErr("");
+    }
+    return ok;
   };
 
   const getClientName = () => userData?.name || userData?.display_name || userData?.email || undefined;
@@ -350,7 +408,9 @@ const CleaningCheckout = () => {
     service_name: "Cleaning subscription",
     client_name: getClientName(),
     client_email: userData?.email,
-    client_phone: (userData as any)?.phone || (userData as any)?.phone_number || undefined,
+    // Was reading userData.phone / .phone_number — neither exists on the users
+    // record, so every cleaning payment notification went out without a number.
+    client_phone: normalizePhone(phone) ?? undefined,
     plan_name: pkg?.name,
     duration: `${billingPeriodMonths} month${billingPeriodMonths === 1 ? "" : "s"}`,
     booking_id: packageId,
@@ -569,9 +629,36 @@ const CleaningCheckout = () => {
                 <div>
                   <SectionOverline label="Apartment details" />
                   <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
-                    Required so the cleaning team can find your unit.
+                    Required so the cleaning team can find you.
                   </p>
                 </div>
+                {/* Same flat inline row as the food checkout's WhatsApp field —
+                    a customer who books cleaning and food shouldn't meet two
+                    different-looking versions of the same question. */}
+                <div className="flex items-center gap-3 rounded-2xl bg-muted/40 px-4">
+                  <MessageCircle className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <div className="min-w-0 flex-1">
+                    <label htmlFor="cleaning-phone" className="block pt-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      Phone / WhatsApp <span className="text-destructive">*</span>
+                    </label>
+                    <input
+                      id="cleaning-phone"
+                      type="tel"
+                      inputMode="tel"
+                      autoComplete="tel"
+                      value={phone}
+                      onChange={(e) => {
+                        phoneTouchedRef.current = true;
+                        setPhone(e.target.value);
+                        if (phoneErr) setPhoneErr("");
+                      }}
+                      onBlur={() => setPhoneErr(phone.trim() ? (phoneError(phone) ?? "") : "")}
+                      placeholder="+504 1234 5678"
+                      className="w-full border-0 bg-transparent px-0 pb-3 pt-0.5 text-base text-foreground outline-none placeholder:text-muted-foreground/60"
+                    />
+                  </div>
+                </div>
+                {phoneErr && <p className="text-xs text-destructive">{phoneErr}</p>}
                 <LocationPicker
                   userId={userData?.id}
                   value={apartmentNote}

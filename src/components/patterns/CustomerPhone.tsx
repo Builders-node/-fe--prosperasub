@@ -31,6 +31,26 @@ export function normalizePhone(raw: unknown): string | null {
 }
 
 /**
+ * Checkout-side guard, so the number a provider later sees is one they can
+ * actually dial. `customer_whatsapp` already holds a row reading "dwqdwqd" —
+ * the food form only checked that the field wasn't blank.
+ *
+ * Deliberately loose about format: Honduras numbers get written +504 9999-0000,
+ * 504 9999 0000 and 99990000, and rejecting any of those would be worse than
+ * accepting a slightly odd one. It only insists the value could be a phone.
+ */
+export function phoneError(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return "Phone number is required.";
+  const d = digits(trimmed);
+  if (d.length < 8) return "That doesn't look like a phone number.";
+  if (d.length > 15) return "That number is too long.";
+  // Anything beyond digits, spaces, +, -, ( ) and . is a typo, not a format.
+  if (/[^0-9+\-().\s]/.test(trimmed)) return "That doesn't look like a phone number.";
+  return null;
+}
+
+/**
  * Pick the first usable number from a fallback chain, e.g.
  * `pickPhone(sub.customer_whatsapp, profile?.whatsapp, profile?.phone_number)`.
  */
