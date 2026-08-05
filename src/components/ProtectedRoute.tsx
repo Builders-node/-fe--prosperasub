@@ -88,10 +88,16 @@ function PermissionGate({
   permissions: string[];
   children: ReactNode;
 }) {
-  const { canAny, isLoading } = useAdminPermissions();
+  const { canAny, isLoading, isUnknown } = useAdminPermissions();
   // Never decide on an empty list mid-flight — that would bounce a legitimate
   // admin on first paint.
   if (isLoading) return <PageLoader className="min-h-screen bg-background" />;
+  // A failed permission fetch means "we don't know", not "you have none". When
+  // the API was down this bounced admins off every permissioned page to the
+  // dashboard, which reads as losing access rather than as an outage. Let them
+  // through — the backend enforces RBAC per endpoint, so the page can only
+  // show its own error, never data they shouldn't see.
+  if (isUnknown) return <>{children}</>;
   if (!canAny(permissions as never[])) {
     return <Navigate to="/admin/dashboard" replace />;
   }

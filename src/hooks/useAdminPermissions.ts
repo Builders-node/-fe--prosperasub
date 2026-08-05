@@ -62,6 +62,14 @@ export function useAdminPermissions() {
     // Callers must not gate on an empty list while it's still loading, or the
     // first paint redirects a legitimate admin away.
     isLoading: query.isLoading,
+    /**
+     * The permission list could not be fetched. Treat this as "we don't know",
+     * never as "no permissions" — when the API was down this emptied the whole
+     * admin sidebar down to Dashboard, which reads as a broken panel rather
+     * than an outage. Every route is still enforced server-side, so showing a
+     * link that 403s is strictly better than hiding the product.
+     */
+    isUnknown: query.isError,
     isResolved: !query.isLoading && (query.isSuccess || query.isError),
   };
 }

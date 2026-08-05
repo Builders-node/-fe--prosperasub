@@ -78,17 +78,20 @@ function SidebarNav({
   currentPath: string;
   wrap?: (el: React.ReactElement) => React.ReactElement;
 }) {
-  const { canAny, isLoading } = useAdminPermissions();
+  const { canAny, isLoading, isUnknown } = useAdminPermissions();
 
-  // Hide items the admin can't use. While permissions are loading we render
-  // everything rather than nothing — a sidebar that pops items in one by one
-  // is worse than one that briefly shows a link the user can't open (the route
-  // guard still refuses it).
+  // Hide items the admin can't use — but only when we actually KNOW what they
+  // can use. While the list is loading, or when the request failed, render
+  // everything: a sidebar that pops items in one by one is worse than one that
+  // briefly shows a link the user can't open, and a failed fetch used to empty
+  // the panel down to Dashboard, which looks like the product broke rather
+  // than like an outage. The route guard still refuses the actual page.
+  const permissionsUnresolved = isLoading || isUnknown;
   const visibleSections = NAV_SECTIONS
     .map((section) => ({
       ...section,
       items: section.items.filter(
-        (item) => isLoading || !item.permissions?.length || canAny(item.permissions as never[]),
+        (item) => permissionsUnresolved || !item.permissions?.length || canAny(item.permissions as never[]),
       ),
     }))
     .filter((section) => section.items.length > 0);
