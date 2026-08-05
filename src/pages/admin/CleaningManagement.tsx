@@ -20,7 +20,8 @@ import { toast } from "sonner";
 
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { TabEmptyState, SectionOverline } from "@/components/subscriptions/MySubsPrimitives";
-import { supabase, adminApi } from "@/integrations/supabase/client";
+import { supabase, supabaseDb, adminApi } from "@/integrations/supabase/client";
+import { cancelCleaningBookings } from "@/lib/cleaning/cancelBooking";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -284,11 +285,19 @@ const CleaningManagement = ({
   // flags the calendar for re-sync so the Google event updates automatically.
   const setStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const { error } = await supabase
-        .from("cleaning_bookings")
-        .update({ status, google_calendar_sync_status: "pending", updated_at: new Date().toISOString() })
-        .eq("id", id);
-      if (error) throw error;
+      // Cancelling isn't a status write: the visit is holding a slot seat and a
+      // cleaning off the subscription, and both have to go back. Everything
+      // else really is just a status.
+      if (status === "cancelled") {
+        const { cancelled } = await cancelCleaningBookings(supabaseDb, [id]);
+        if (cancelled.length === 0) throw new Error("This booking is already cancelled or completed");
+      } else {
+        const { error } = await supabase
+          .from("cleaning_bookings")
+          .update({ status, google_calendar_sync_status: "pending", updated_at: new Date().toISOString() })
+          .eq("id", id);
+        if (error) throw error;
+      }
       supabase._syncBookingToCalendar(id);
     },
     onSuccess: () => { toast.success("Status updated"); invalidateCleaning(); },
@@ -346,10 +355,13 @@ const CleaningManagement = ({
 
       // Free up the old slot's capacity, then take one on the new slot.
       if (oldSlotId) {
-        const { error: decErr } = await supabase.rpc("decrement_slot_bookings", { p_slot_id: oldSlotId });
+        // supabaseDb, not the wrapper: the wrapper doesn't shim this function,
+        // and until now it answered "success" for anything it didn't know — so
+        // the fallback below never ran and every reschedule burned a seat.
+        const { error: decErr } = await supabaseDb.rpc("decrement_slot_bookings", { p_slot_id: oldSlotId });
         if (decErr) {
-          const { data: os } = await supabase.from("cleaning_available_slots").select("current_bookings").eq("id", oldSlotId).single();
-          if (os) await supabase.from("cleaning_available_slots")
+          const { data: os } = await supabaseDb.from("cleaning_available_slots").select("current_bookings").eq("id", oldSlotId).single();
+          if (os) await supabaseDb.from("cleaning_available_slots")
             .update({ current_bookings: Math.max(0, (os.current_bookings ?? 0) - 1) }).eq("id", oldSlotId);
         }
       }

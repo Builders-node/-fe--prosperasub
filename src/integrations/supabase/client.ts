@@ -3,6 +3,7 @@
 // Business data: Supabase PostgREST — cleaning, profiles, admin operations
 
 import { createClient } from "@supabase/supabase-js";
+import { cancelCleaningBookings } from "@/lib/cleaning/cancelBooking";
 
 // ============================================================
 // CONFIG
@@ -767,20 +768,26 @@ class OwnedQueryBuilder {
 
           for (const booking of clientBookings || []) {
             if (booking.status === "booked" && booking.slot_id) {
-              await db.rpc("decrement_slot_bookings", { p_slot_id: booking.slot_id }).catch(() => {
-                // Fallback: manual decrement
-                db.from("cleaning_available_slots")
+              // PostgREST reports a failed RPC in `error`, it doesn't throw — so
+              // the `.catch()` this used to hang the fallback off never fired.
+              // Check the returned error instead, and await the fallback rather
+              // than leaving it to a floating promise chain.
+              const { error: decErr } = await db.rpc("decrement_slot_bookings", {
+                p_slot_id: booking.slot_id,
+              });
+              if (decErr) {
+                const { data: slot } = await db
+                  .from("cleaning_available_slots")
                   .select("current_bookings")
                   .eq("id", booking.slot_id)
-                  .single()
-                  .then(({ data: slot }) => {
-                    if (slot) {
-                      db.from("cleaning_available_slots")
-                        .update({ current_bookings: Math.max(0, slot.current_bookings - 1) })
-                        .eq("id", booking.slot_id);
-                    }
-                  });
-              });
+                  .single();
+                if (slot) {
+                  await db
+                    .from("cleaning_available_slots")
+                    .update({ current_bookings: Math.max(0, (slot.current_bookings ?? 0) - 1) })
+                    .eq("id", booking.slot_id);
+                }
+              }
             }
           }
         }
@@ -1718,61 +1725,21 @@ export const supabase = {
 
     if (name === "cancel_cleaning_booking") {
       return (async () => {
-        const bookingId = params?.p_booking_id;
-        const { data: booking, error: findError } = await db
-          .from("cleaning_bookings")
-          .select("*")
-          .eq("id", bookingId)
-          .single();
-
-        if (findError || !booking) {
-          return { data: null, error: new Error("Booking not found") };
-        }
-        if (booking.status === "completed") {
-          return { data: null, error: new Error("Completed bookings cannot be cancelled") };
-        }
-
-        const now = new Date().toISOString();
-        await db
-          .from("cleaning_bookings")
-          // Flag for calendar sync so the auto-sync cron cancels the Google event
-          // even when the canceller (a client) can't call the admin sync endpoint.
-          .update({ status: "cancelled", google_calendar_sync_status: "pending", updated_at: now })
-          .eq("id", bookingId);
-
-        if (booking.slot_id) {
-          const { data: slot } = await db
-            .from("cleaning_available_slots")
-            .select("current_bookings")
-            .eq("id", booking.slot_id)
-            .single();
-          if (slot) {
-            await db
-              .from("cleaning_available_slots")
-              .update({
-                current_bookings: Math.max(0, (slot.current_bookings || 0) - 1),
-                updated_at: now,
-              })
-              .eq("id", booking.slot_id);
+        const bookingId = params?.p_booking_id as string;
+        try {
+          // Shared with the three admin/owner cancel paths — cancelling has to
+          // release the slot seat and refund the cleaning wherever it happens.
+          const { cancelled, skipped } = await cancelCleaningBookings(db, [bookingId]);
+          if (cancelled.length === 0) {
+            return {
+              data: null,
+              error: new Error(
+                skipped.length ? "This booking is already cancelled or completed" : "Booking not found",
+              ),
+            };
           }
-        }
-
-        const subId = booking.cleaning_subscription_id || booking.subscription_id;
-        if (subId) {
-          const { data: sub } = await db
-            .from("cleaning_subscriptions")
-            .select("cleanings_remaining")
-            .eq("id", subId)
-            .single();
-          if (sub) {
-            await db
-              .from("cleaning_subscriptions")
-              .update({
-                cleanings_remaining: (sub.cleanings_remaining || 0) + 1,
-                updated_at: now,
-              })
-              .eq("id", subId);
-          }
+        } catch (err) {
+          return { data: null, error: err instanceof Error ? err : new Error("Could not cancel booking") };
         }
 
         // Auto-sync cancellation to Google Calendar
@@ -1826,7 +1793,15 @@ export const supabase = {
       })();
     }
 
-    return Promise.resolve({ data: [], error: null });
+    // An RPC this wrapper doesn't shim used to resolve as SUCCESS with an empty
+    // result. That is how `decrement_slot_bookings` went unnoticed for so long:
+    // the admin reschedule called it, got `error: null`, skipped its manual
+    // fallback, and silently leaked a slot seat on every move. Report the miss
+    // so a caller's error branch actually runs.
+    return Promise.resolve({
+      data: null,
+      error: new Error(`RPC "${name}" is not available through this client. Use supabaseDb for direct Postgres functions.`),
+    });
   },
 
   // ── EDGE FUNCTIONS ────────────────────────────────────────

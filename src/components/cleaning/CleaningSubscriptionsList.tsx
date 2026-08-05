@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { approvePayment, isPendingPayment } from "@/lib/subscriptionApprove";
 import { format, isBefore } from "date-fns";
 import { supabaseDb } from "@/integrations/supabase/client";
+import { cancelCleaningBookings } from "@/lib/cleaning/cancelBooking";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { PageLoader } from "@/components/ui/spinner";
@@ -95,11 +96,10 @@ export function CleaningSubscriptionsList({ providerId }: { providerId: string }
           .eq("status", "booked")
           .gte("cleaning_available_slots.date", today);
         const ids = (futureBookings ?? []).map((b: any) => b.id);
-        if (ids.length) {
-          await supabaseDb.from("cleaning_bookings")
-            .update({ status: "cancelled" })
-            .in("id", ids);
-        }
+        // Through the shared helper, not a bulk status write: each of these
+        // visits is holding a slot seat, and cancelling the whole subscription
+        // used to leave every one of those slots looking permanently full.
+        if (ids.length) await cancelCleaningBookings(supabaseDb, ids);
       }
     },
     onSuccess: () => {

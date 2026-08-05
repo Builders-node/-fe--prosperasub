@@ -13,6 +13,7 @@ import {
 import { TabEmptyState, SectionOverline } from "@/components/subscriptions/MySubsPrimitives";
 import { cn } from "@/lib/utils";
 import { supabaseDb } from "@/integrations/supabase/client";
+import { cancelCleaningBookings } from "@/lib/cleaning/cancelBooking";
 import { toast } from "sonner";
 import { useUnifiedBookings, type UnifiedBookingRow } from "@/hooks/useUnifiedBookings";
 import { useAuth } from "@/contexts/AuthContext";
@@ -76,6 +77,15 @@ export function UnifiedBookingCalendar({ providerId, sourceKey }: Props) {
   // live under the Reports tab — this is the daily-status quick path.
   const setStatus = useMutation({
     mutationFn: async ({ row, next }: { row: UnifiedBookingRow; next: string }) => {
+      // Cleaning cancellations go through the shared helper: the visit holds a
+      // slot seat and a cleaning off the subscription, and a bare status write
+      // strands both. Other services book a resource for a date range and have
+      // no counter to give back, so a plain write is right for them.
+      if (next === "cancelled" && row.sourceTable === "cleaning_bookings") {
+        const { cancelled } = await cancelCleaningBookings(supabaseDb, [row.id]);
+        if (cancelled.length === 0) throw new Error("This booking is already cancelled or completed");
+        return;
+      }
       const { error } = await supabaseDb
         .from(row.sourceTable)
         .update({ status: next })
