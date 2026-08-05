@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabaseDb } from "@/integrations/supabase/client";
+import { pickPhone } from "@/components/patterns/CustomerPhone";
 
 /**
  * Normalized booking row shared by every service. Adapters map their legacy
@@ -78,15 +79,24 @@ async function fetchCleaning(providerId: string, from: string, to: string): Prom
   // show "Ivan Syrtsov" instead of "—" without N per-row lookups.
   const userIds = Array.from(new Set(rows.map((r: any) => subMap.get(r.subscription_id)?.userId).filter(Boolean))) as string[];
   const clientIds = Array.from(new Set(rows.map((r: any) => subMap.get(r.subscription_id)?.clientId).filter(Boolean))) as string[];
-  const [usersRes, clientsRes] = await Promise.all([
+  // Columns here have to be real ones. `users.phone`, `cleaning_clients.
+  // contact_name` and `cleaning_clients.whatsapp` don't exist — PostgREST
+  // answers 42703 and the whole enrichment query fails, which is why the
+  // calendar showed no customer name and never a phone number. A user's phone
+  // lives on `user_profiles`, and the client's is `phone` / `contact_person`.
+  const [usersRes, profilesRes, clientsRes] = await Promise.all([
     userIds.length
-      ? supabaseDb.from("users").select("id,name,display_name,phone").in("id", userIds)
+      ? supabaseDb.from("users").select("id,name,display_name").in("id", userIds)
+      : Promise.resolve({ data: [] as any[] }),
+    userIds.length
+      ? supabaseDb.from("user_profiles").select("user_id,phone_number,whatsapp").in("user_id", userIds)
       : Promise.resolve({ data: [] as any[] }),
     clientIds.length
-      ? supabaseDb.from("cleaning_clients").select("id,company_name,contact_name,whatsapp").in("id", clientIds)
+      ? supabaseDb.from("cleaning_clients").select("id,company_name,contact_person,phone").in("id", clientIds)
       : Promise.resolve({ data: [] as any[] }),
   ]);
   const userMap = new Map((usersRes.data ?? []).map((u: any) => [String(u.id), u]));
+  const profileMap = new Map((profilesRes.data ?? []).map((p: any) => [String(p.user_id), p]));
   const clientMap = new Map((clientsRes.data ?? []).map((c: any) => [String(c.id), c]));
 
   return rows.map((row: any) => {
@@ -98,10 +108,11 @@ async function fetchCleaning(providerId: string, from: string, to: string): Prom
     const meta = subMap.get(row.subscription_id);
     const user = meta?.userId ? userMap.get(String(meta.userId)) : null;
     const client = meta?.clientId ? clientMap.get(String(meta.clientId)) : null;
+    const profile = meta?.userId ? profileMap.get(String(meta.userId)) : null;
     const customerName =
       user?.display_name ??
       user?.name ??
-      client?.contact_name ??
+      client?.contact_person ??
       client?.company_name ??
       null;
     const location = row.location ?? meta?.apartmentNote ?? null;
@@ -119,7 +130,9 @@ async function fetchCleaning(providerId: string, from: string, to: string): Prom
         notes: row.notes ?? null,
         access_instructions: row.access_instructions ?? null,
         cleaner_hint: meta?.cleanerHint ?? null,
-        phone: user?.phone ?? client?.whatsapp ?? null,
+        // Cleaning collects no phone of its own, so it comes from the customer's
+        // profile, falling back to the client record for company bookings.
+        phone: pickPhone(profile?.whatsapp, profile?.phone_number, client?.phone),
         // Slot context — the Reschedule dialog needs the current slot id (to
         // free capacity on move) plus the date/times to preselect + render.
         slot_id: row.slot_id ?? slot.id ?? null,
@@ -143,7 +156,7 @@ async function fetchFood(providerId: string, from: string, to: string): Promise<
 
   const { data } = await supabaseDb
     .from("food_subscriptions")
-    .select("id,meal_plan_id,customer_name,started_at,end_date,status,payment_status,weekly_price_cents,commitment_weeks,delivery_address")
+    .select("id,meal_plan_id,customer_name,customer_whatsapp,started_at,end_date,status,payment_status,weekly_price_cents,commitment_weeks,delivery_address")
     .eq("provider_id", providerId)
     .lte("started_at", to)
     .gte("end_date", from)
@@ -164,7 +177,10 @@ async function fetchFood(providerId: string, from: string, to: string): Promise<
     status: row.status ?? "unknown",
     paymentStatus: row.payment_status ?? null,
     priceCents: Number(row.weekly_price_cents || 0) * Number(row.commitment_weeks || 1) || null,
-    meta: { delivery_address: row.delivery_address },
+    meta: {
+      delivery_address: row.delivery_address,
+      phone: pickPhone(row.customer_whatsapp),
+    },
   }));
 }
 
@@ -191,7 +207,7 @@ async function fetchCars(providerId: string, from: string, to: string): Promise<
   // has no name column populated.
   const userIds = Array.from(new Set(rows.map((r: any) => r.user_id).filter(Boolean)));
   const usersRes = userIds.length
-    ? await supabaseDb.from("users").select("id,name,display_name,phone").in("id", userIds)
+    ? await supabaseDb.from("users").select("id,name,display_name").in("id", userIds)
     : { data: [] as any[] };
   const userMap = new Map((usersRes.data ?? []).map((u: any) => [String(u.id), u]));
 
@@ -210,7 +226,7 @@ async function fetchCars(providerId: string, from: string, to: string): Promise<
       meta: {
         delivery_address: row.delivery_address,
         delivery_notes: row.delivery_notes,
-        phone: user?.phone ?? row.customer_whatsapp ?? null,
+        phone: pickPhone(row.customer_whatsapp),
       },
     };
   });

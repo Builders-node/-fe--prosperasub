@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Sparkles, MoreHorizontal, PauseCircle, PlayCircle, XCircle, RefreshCcw, CheckCircle2 } from "lucide-react";
 import { StatusPill } from "@/components/patterns/StatusPill";
+import { CustomerPhone, pickPhone } from "@/components/patterns/CustomerPhone";
 import { useAuth } from "@/contexts/AuthContext";
 import { approvePayment, isPendingPayment } from "@/lib/subscriptionApprove";
 import { format, isBefore } from "date-fns";
@@ -48,7 +49,7 @@ export function CleaningSubscriptionsList({ providerId }: { providerId: string }
       if (!pkgIds.length) return [];
       const { data } = await supabaseDb
         .from("cleaning_subscriptions")
-        .select("id,package_id,user_id,subscription_status,payment_status,monthly_price_cents,total_price_cents,billing_period_months,service_start_date,service_end_date,paid_until,end_date,apartment_note,cleaner_hint")
+        .select("id,package_id,user_id,client_id,subscription_status,payment_status,monthly_price_cents,total_price_cents,billing_period_months,service_start_date,service_end_date,paid_until,end_date,apartment_note,cleaner_hint")
         .in("package_id", pkgIds)
         .order("service_start_date", { ascending: false });
       return (data ?? []).map((s: any) => ({
@@ -60,16 +61,38 @@ export function CleaningSubscriptionsList({ providerId }: { providerId: string }
 
   // Look up display names for the customers who own these subs.
   const userIds = useMemo(() => Array.from(new Set(subs.map((s: any) => s.user_id).filter(Boolean))), [subs]);
+  const clientIds = useMemo(() => Array.from(new Set(subs.map((s: any) => s.client_id).filter(Boolean))), [subs]);
+  // Cleaning checkout never asks for a phone, so unlike Food there's no
+  // order-level number to show. It comes from the customer's profile, or from
+  // the cleaning_clients record for company bookings.
+  const { data: clientMap = {} } = useQuery({
+    queryKey: ["provider-cleaning-sub-clients", clientIds],
+    enabled: clientIds.length > 0,
+    queryFn: async () => {
+      const { data } = await supabaseDb
+        .from("cleaning_clients")
+        .select("id,phone,contact_person,company_name")
+        .in("id", clientIds);
+      const map: Record<string, any> = {};
+      (data ?? []).forEach((c: any) => { map[c.id] = c; });
+      return map;
+    },
+  });
+
   const { data: userMap = {} } = useQuery({
     queryKey: ["provider-cleaning-sub-users", userIds],
     enabled: userIds.length > 0,
     queryFn: async () => {
-      const { data } = await supabaseDb
-        .from("users")
-        .select("id,email,name,display_name")
-        .in("id", userIds);
-      const map: Record<string, { display_name?: string | null; name?: string | null; email?: string | null }> = {};
-      (data ?? []).forEach((u: any) => { map[u.id] = u; });
+      const [{ data }, { data: profiles }] = await Promise.all([
+        supabaseDb.from("users").select("id,email,name,display_name").in("id", userIds),
+        supabaseDb.from("user_profiles").select("user_id,phone_number,whatsapp").in("user_id", userIds),
+      ]);
+      const profileMap = new Map((profiles ?? []).map((p: any) => [String(p.user_id), p]));
+      const map: Record<string, { display_name?: string | null; name?: string | null; email?: string | null; phone?: string | null }> = {};
+      (data ?? []).forEach((u: any) => {
+        const prof = profileMap.get(String(u.id));
+        map[u.id] = { ...u, phone: pickPhone(prof?.whatsapp, prof?.phone_number) };
+      });
       return map;
     },
   });
@@ -198,7 +221,9 @@ export function CleaningSubscriptionsList({ providerId }: { providerId: string }
 
   const renderRow = (s: any) => {
     const user = userMap[s.user_id];
-    const customer = user?.display_name ?? user?.name ?? user?.email ?? "Customer";
+    const client = s.client_id ? clientMap[s.client_id] : null;
+    const customer = user?.display_name ?? user?.name ?? client?.contact_person ?? client?.company_name ?? user?.email ?? "Customer";
+    const phone = pickPhone(user?.phone, client?.phone);
     const price = Number(s.total_price_cents || s.monthly_price_cents || 0);
     // Effective status for the badge + action gates. A paid-but-unpaid sub gets
     // an extra "Awaiting payment" chip so the owner isn't tricked into treating
@@ -227,6 +252,7 @@ export function CleaningSubscriptionsList({ providerId }: { providerId: string }
             {customer}
             {start && end && ` · ${format(new Date(`${start}T00:00:00`), "MMM d")} → ${format(new Date(`${end}T00:00:00`), "MMM d, yyyy")}`}
           </p>
+          {phone && <CustomerPhone phone={phone} className="mt-1" />}
           {(s.apartment_note || s.cleaner_hint) && (
             <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
               {s.apartment_note}

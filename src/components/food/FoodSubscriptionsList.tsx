@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { UtensilsCrossed, MoreHorizontal, PauseCircle, PlayCircle, XCircle, RefreshCcw, CheckCircle2 } from "lucide-react";
 import { StatusPill } from "@/components/patterns/StatusPill";
+import { CustomerPhone, pickPhone } from "@/components/patterns/CustomerPhone";
 import { useAuth } from "@/contexts/AuthContext";
 import { approvePayment, isPendingPayment } from "@/lib/subscriptionApprove";
 import { format, isBefore } from "date-fns";
@@ -43,7 +44,7 @@ export function FoodSubscriptionsList({ providerId }: { providerId: string }) {
 
       const { data } = await supabaseDb
         .from("food_subscriptions")
-        .select("id,user_id,customer_name,meal_plan_id,status,payment_status,started_at,end_date,commitment_weeks,weekly_price_cents,delivery_address")
+        .select("id,user_id,customer_name,customer_whatsapp,meal_plan_id,status,payment_status,started_at,end_date,commitment_weeks,weekly_price_cents,delivery_address")
         .eq("provider_id", providerId)
         .order("started_at", { ascending: false });
       const today = new Date().toISOString().slice(0, 10);
@@ -65,10 +66,19 @@ export function FoodSubscriptionsList({ providerId }: { providerId: string }) {
     queryKey: ["provider-food-sub-users", userIds],
     enabled: userIds.length > 0,
     queryFn: async () => {
-      const { data } = await supabaseDb
-        .from("users").select("id,email,name,display_name").in("id", userIds);
-      const map: Record<string, { display_name?: string | null; name?: string | null; email?: string | null }> = {};
-      (data ?? []).forEach((u: any) => { map[u.id] = u; });
+      // `users` carries no phone — a customer's number lives on user_profiles.
+      // Pulled alongside the name so an order placed without filling in the
+      // WhatsApp field still shows a way to reach the person.
+      const [{ data }, { data: profiles }] = await Promise.all([
+        supabaseDb.from("users").select("id,email,name,display_name").in("id", userIds),
+        supabaseDb.from("user_profiles").select("user_id,phone_number,whatsapp").in("user_id", userIds),
+      ]);
+      const profileMap = new Map((profiles ?? []).map((p: any) => [String(p.user_id), p]));
+      const map: Record<string, { display_name?: string | null; name?: string | null; email?: string | null; phone?: string | null }> = {};
+      (data ?? []).forEach((u: any) => {
+        const prof = profileMap.get(String(u.id));
+        map[u.id] = { ...u, phone: pickPhone(prof?.whatsapp, prof?.phone_number) };
+      });
       return map;
     },
   });
@@ -174,6 +184,8 @@ export function FoodSubscriptionsList({ providerId }: { providerId: string }) {
   const renderRow = (s: any) => {
     const user = userMap[s.user_id];
     const customer = user?.display_name ?? user?.name ?? s.customer_name ?? user?.email ?? "Customer";
+    // Order-level number first: it's what this customer gave for *this* order.
+    const phone = pickPhone(s.customer_whatsapp, user?.phone);
     const period = Math.max(Number(s.commitment_weeks) || 1, 1);
     const totalCents = Number(s.weekly_price_cents || 0) * period;
     const st = String(s.status || "").toLowerCase();
@@ -202,6 +214,11 @@ export function FoodSubscriptionsList({ providerId }: { providerId: string }) {
             {s.started_at && s.end_date &&
               ` · ${format(new Date(`${s.started_at}T00:00:00`), "MMM d")} → ${format(new Date(`${s.end_date}T00:00:00`), "MMM d, yyyy")}`}
           </p>
+          {/* The number the customer gave at checkout, falling back to their
+              profile. On its own line rather than appended to the name — a
+              provider scanning the list for someone to call shouldn't have to
+              read past a date range to find it. */}
+          {phone && <CustomerPhone phone={phone} className="mt-1" />}
           {s.delivery_address && (
             <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{s.delivery_address}</p>
           )}

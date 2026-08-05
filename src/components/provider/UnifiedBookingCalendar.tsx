@@ -4,6 +4,7 @@ import { format, addDays, isSameDay } from "date-fns";
 import { ChevronLeft, ChevronRight, CalendarDays, MoreHorizontal, CheckCircle2, XCircle, PauseCircle, PlayCircle, CalendarClock } from "lucide-react";
 import { formatUSD } from "@/lib/pricing";
 import { StatusPill } from "@/components/patterns/StatusPill";
+import { CustomerPhone } from "@/components/patterns/CustomerPhone";
 import { RescheduleCleaningDialog } from "@/components/cleaning/RescheduleCleaningDialog";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -326,8 +327,11 @@ function BookingRow({
         </div>
         <p className="truncate text-xs text-muted-foreground">
           {row.customerName ?? "—"}{" · "}{timeRange}
-          {phone && ` · ${phone}`}
         </p>
+        {/* Its own line and a real tel:/WhatsApp link — the number used to be
+            appended as grey text after the time range, where it was both hard
+            to spot and impossible to tap. */}
+        {phone && <CustomerPhone phone={phone} />}
         {location && (
           <p className="truncate text-xs text-muted-foreground">
             <span className="font-semibold text-foreground/80">Location:</span> {location}
