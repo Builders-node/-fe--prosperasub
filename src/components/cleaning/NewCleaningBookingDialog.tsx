@@ -56,6 +56,25 @@ interface SubOption {
   billing_months: number;
 }
 
+interface UserOption {
+  id: string;
+  label: string;
+  email: string | null;
+}
+
+/**
+ * Who the visit is for.
+ *
+ * An admin has to be able to book for anyone — a resident who paid off-platform,
+ * a one-off favour, a trial. Requiring an existing paid subscription meant those
+ * customers simply couldn't be scheduled, and the workaround was inventing a
+ * subscription for them. `cleaning_bookings` only insists on a user OR a client
+ * (`cleaning_bookings_has_owner`), so a subscription-less visit is legal.
+ */
+type Target =
+  | { kind: "subscription"; sub: SubOption }
+  | { kind: "user"; user: UserOption };
+
 type Cadence = "once" | "daily" | "weekly" | "biweekly" | "monthly";
 
 const CADENCE_DAYS: Record<Exclude<Cadence, "once">, number> = {
@@ -64,6 +83,21 @@ const CADENCE_DAYS: Record<Exclude<Cadence, "once">, number> = {
   biweekly: 14,
   monthly:  30,
 };
+
+/**
+ * Monday-first, matching every other calendar in the product. Values are
+ * JS `getDay()` numbers so they can be compared without a lookup.
+ */
+const WEEKDAYS = [
+  { dow: 1, short: "Mon" }, { dow: 2, short: "Tue" }, { dow: 3, short: "Wed" },
+  { dow: 4, short: "Thu" }, { dow: 5, short: "Fri" }, { dow: 6, short: "Sat" },
+  { dow: 0, short: "Sun" },
+] as const;
+
+/** Honduras-local weekday of a YYYY-MM-DD string, without a timezone shift. */
+function dowOf(iso: string): number {
+  return new Date(`${iso}T12:00:00Z`).getUTCDay();
+}
 
 const CADENCE_LABEL: Record<Cadence, string> = {
   once:     "Just this date",
@@ -94,12 +128,18 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
   const qc = useQueryClient();
   const { userData } = useAuth();
   const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<"subscription" | "user">("subscription");
   const [subId, setSubId] = useState<string>("");
+  const [userId, setUserId] = useState<string>("");
+  const [userSearch, setUserSearch] = useState<string>("");
   const [date, setDate] = useState<string>(todayHN());
   const [startTime, setStartTime] = useState<string>("09:00");
   const [endTime, setEndTime] = useState<string>("11:00");
   const [notes, setNotes] = useState<string>("");
   const [cadence, setCadence] = useState<Cadence>("once");
+  // Which days the cleaner should come. Empty = whatever day the anchor date
+  // falls on, which is what "Weekly" used to mean and still does by default.
+  const [weekdays, setWeekdays] = useState<number[]>([]);
   const [count, setCount] = useState<number>(1);
 
   const { data: subs = [], isLoading: subsLoading } = useQuery<SubOption[]>({
@@ -134,7 +174,10 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
           ? supabaseDb.from("users").select("id,name,display_name,email").in("id", userIds)
           : Promise.resolve({ data: [] as any[] }),
         clientIds.length
-          ? supabaseDb.from("cleaning_clients").select("id,company_name,contact_name").in("id", clientIds)
+          // contact_person, not contact_name — the latter doesn't exist, so this
+          // query 400'd and every client-backed subscription fell back to the
+          // literal word "Customer" in the picker.
+          ? supabaseDb.from("cleaning_clients").select("id,company_name,contact_person").in("id", clientIds)
           : Promise.resolve({ data: [] as any[] }),
       ]);
       const userMap = new Map((usersRes.data ?? []).map((u: any) => [String(u.id), u]));
@@ -145,7 +188,7 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
         const client = r.client_id ? clientMap.get(String(r.client_id)) : null;
         const customer =
           user?.display_name ?? user?.name ?? user?.email ??
-          client?.contact_name ?? client?.company_name ?? "Customer";
+          client?.contact_person ?? client?.company_name ?? "Customer";
         const pkg = r.package_id ? pkgMap.get(r.package_id) : null;
         // Total visits across the paid period. Falls back to 1 (single visit)
         // when we can't figure it out — the admin can bump the count manually.
@@ -169,7 +212,39 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
     },
   });
 
+  // Every account, so an admin can book for someone who has no subscription —
+  // paid off-platform, a trial, a one-off favour. Loaded only in that mode.
+  const { data: users = [], isLoading: usersLoading } = useQuery<UserOption[]>({
+    queryKey: ["admin-new-booking-users"],
+    enabled: open && mode === "user",
+    queryFn: async () => {
+      const { data } = await supabaseDb
+        .from("users")
+        .select("id,name,display_name,email")
+        .order("display_name", { ascending: true, nullsFirst: false });
+      return (data ?? []).map((u: any) => ({
+        id: u.id,
+        label: u.display_name || u.name || u.email || String(u.id).slice(0, 8),
+        email: u.email ?? null,
+      }));
+    },
+  });
+
+  const visibleUsers = useMemo(() => {
+    const q = userSearch.trim().toLowerCase();
+    if (!q) return users;
+    return users.filter((u) =>
+      u.label.toLowerCase().includes(q) || (u.email ?? "").toLowerCase().includes(q));
+  }, [users, userSearch]);
+
   const selectedSub = useMemo(() => subs.find((s) => s.id === subId) ?? null, [subs, subId]);
+  const selectedUser = useMemo(() => users.find((u) => u.id === userId) ?? null, [users, userId]);
+
+  /** Who this visit is for, whichever way the admin chose to say it. */
+  const target: Target | null = useMemo(() => {
+    if (mode === "subscription") return selectedSub ? { kind: "subscription", sub: selectedSub } : null;
+    return selectedUser ? { kind: "user", user: selectedUser } : null;
+  }, [mode, selectedSub, selectedUser]);
 
   // Auto-fill notes from the subscription's apartment_note on selection so the
   // admin doesn't have to retype every visit.
@@ -197,18 +272,45 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
     else if (selectedSub) setCount(selectedSub.suggested_count);
   }, [cadence, selectedSub]);
 
-  // Build the list of dates to book — anchored on `date`, stepped by the
-  // cadence, N entries total. `once` = just the anchor.
+  /** Weekday choice only means something for the two weekly cadences. */
+  const weekdaysApply = cadence === "weekly" || cadence === "biweekly";
+
+  // Build the list of dates to book — anchored on `date`, N entries total.
+  // `once` = just the anchor.
   const dates = useMemo(() => {
-    const n = cadence === "once" ? 1 : Math.max(1, Math.min(count, 60));
-    if (cadence === "once") return [date];
+    if (cadence === "once" || !date) return date ? [date] : [];
+    const n = Math.max(1, Math.min(count, 60));
+
+    // Specific days of the week: walk forward from the anchor and take every
+    // day that matches, so "Mon + Thu, 8 visits" books four real weeks rather
+    // than eight Mondays. A fixed +7 step could never express that.
+    if (weekdaysApply && weekdays.length > 0) {
+      const wanted = new Set(weekdays);
+      // Every-2-weeks keeps only alternate weeks; weeks are counted from the
+      // Monday of the anchor's week so the parity doesn't shift with the day
+      // the admin happened to start on.
+      const anchorMonday = (dowOf(date) + 6) % 7; // days since Monday
+      const out: string[] = [];
+      const horizon = 60 * (cadence === "biweekly" ? 14 : 7) + 14;
+      for (let offset = 0; offset < horizon && out.length < n; offset += 1) {
+        const d = offset === 0 ? date : addDaysISO(date, offset);
+        if (!wanted.has(dowOf(d))) continue;
+        if (cadence === "biweekly") {
+          const weekIndex = Math.floor((offset + anchorMonday) / 7);
+          if (weekIndex % 2 !== 0) continue;
+        }
+        out.push(d);
+      }
+      return out;
+    }
+
     const step = CADENCE_DAYS[cadence];
     return Array.from({ length: n }, (_, i) => (i === 0 ? date : addDaysISO(date, i * step)));
-  }, [cadence, count, date]);
+  }, [cadence, count, date, weekdays, weekdaysApply]);
 
   const create = useMutation({
     mutationFn: async () => {
-      if (!selectedSub) throw new Error("Pick a subscription");
+      if (!target) throw new Error(mode === "user" ? "Pick a customer" : "Pick a subscription");
       if (!date) throw new Error("Pick a date");
       if (!startTime) throw new Error("Pick a start time");
       if (!dates.length) throw new Error("No dates to book");
@@ -219,12 +321,27 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
       const createdIds: string[] = [];
       for (const d of dates) {
         const slot = await ensureCleaningSlot(d, startTime, endTime || startTime);
+        // A visit booked straight for a user has no subscription behind it. The
+        // table only requires a user OR a client (cleaning_bookings_has_owner),
+        // so that's a legal row — it just doesn't draw down anyone's remaining
+        // cleanings, because there is no balance to draw from.
+        const owner = target.kind === "subscription"
+          ? {
+              user_id: target.sub.user_id, client_id: target.sub.client_id,
+              cleaning_subscription_id: target.sub.id, subscription_id: target.sub.id,
+            }
+          : {
+              user_id: target.user.id, client_id: null,
+              cleaning_subscription_id: null, subscription_id: null,
+            };
         const { data: bRow, error: bErr } = await supabaseDb.from("cleaning_bookings").insert({
-          user_id: selectedSub.user_id,
-          client_id: selectedSub.client_id,
+          ...owner,
+          // Stamped directly. Without it a subscription-less visit belongs to
+          // nobody — the provider's Bookings list finds rows by walking
+          // booking → subscription → package → provider, and that walk has no
+          // starting point here.
+          provider_id: providerId,
           slot_id: slot.id,
-          cleaning_subscription_id: selectedSub.id,
-          subscription_id: selectedSub.id,
           status: "booked",
           reservation_type: "booking_reserved",
           source: cadence === "once" ? "admin_manual" : "admin_bulk",
@@ -256,8 +373,12 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
 
       if (userData?.id) {
         await logAuditEvent(userData.id, "create", "booking", createdIds[0] ?? null, {
-          subscription_id: selectedSub.id, dates, start_time: startTime, end_time: endTime,
+          ...(target.kind === "subscription"
+            ? { subscription_id: target.sub.id }
+            : { booked_for_user: target.user.id, without_subscription: true }),
+          dates, start_time: startTime, end_time: endTime,
           count: created, cadence,
+          ...(weekdaysApply && weekdays.length ? { weekdays } : {}),
         });
       }
       return { created };
@@ -274,7 +395,11 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
 
   const resetAndClose = () => {
     setOpen(false);
+    setMode("subscription");
     setSubId("");
+    setUserId("");
+    setUserSearch("");
+    setWeekdays([]);
     setDate(todayHN());
     setStartTime("09:00");
     setEndTime("11:00");
@@ -302,25 +427,86 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
           </DialogHeader>
 
           <div className="space-y-4">
-            <div>
-              <Label>Customer subscription *</Label>
-              <Select value={subId} onValueChange={setSubId}>
-                <SelectTrigger>
-                  <SelectValue placeholder={subsLoading ? "Loading…" : "Pick a subscription"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {subs.length === 0 && (
-                    <div className="px-3 py-2 text-xs text-muted-foreground">
-                      {subsLoading ? "Loading subscriptions…" : "No paid subscriptions for this provider yet."}
-                    </div>
-                  )}
-                  {subs.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.customer_name} · {s.package_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            {/* Who the visit is for. Booking used to require an existing paid
+                subscription, so a customer who paid off-platform or is being
+                given a trial couldn't be scheduled at all. */}
+            <div className="space-y-2">
+              <Label>Book for *</Label>
+              <div className="flex gap-1.5">
+                {([
+                  { key: "subscription", label: "Existing subscription" },
+                  { key: "user", label: "Any customer" },
+                ] as const).map((m) => (
+                  <button
+                    key={m.key}
+                    type="button"
+                    onClick={() => setMode(m.key)}
+                    className={cn(
+                      "flex-1 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
+                      mode === m.key
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-card text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+
+              {mode === "subscription" ? (
+                <Select value={subId} onValueChange={setSubId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={subsLoading ? "Loading…" : "Pick a subscription"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {subs.length === 0 && (
+                      <div className="px-3 py-2 text-xs text-muted-foreground">
+                        {subsLoading ? "Loading subscriptions…" : "No paid subscriptions for this provider yet."}
+                      </div>
+                    )}
+                    {subs.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.customer_name} · {s.package_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <>
+                  <Select value={userId} onValueChange={setUserId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder={usersLoading ? "Loading…" : "Pick a customer"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {/* Search lives inside the list so it filters what's on
+                          screen without the dialog growing a second field. */}
+                      <div className="px-2 pb-1 pt-2">
+                        <Input
+                          value={userSearch}
+                          onChange={(e) => setUserSearch(e.target.value)}
+                          onKeyDown={(e) => e.stopPropagation()}
+                          placeholder="Search by name or email…"
+                          className="h-8"
+                        />
+                      </div>
+                      {visibleUsers.length === 0 && (
+                        <div className="px-3 py-2 text-xs text-muted-foreground">
+                          {usersLoading ? "Loading customers…" : "No customer matches that search."}
+                        </div>
+                      )}
+                      {visibleUsers.map((u) => (
+                        <SelectItem key={u.id} value={u.id}>
+                          {u.label}{u.email && u.email !== u.label ? ` · ${u.email}` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    No subscription is attached, so this visit doesn't draw down anyone's
+                    remaining cleanings. Use it for off-platform or complimentary visits.
+                  </p>
+                </>
+              )}
             </div>
 
             <div>
@@ -380,6 +566,39 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
                   </button>
                 ))}
               </div>
+              {/* Which days the cleaner should come. "Weekly" alone could only
+                  mean "the same weekday as the start date"; a customer who wants
+                  Mon + Thu had to be booked twice, once per day. */}
+              {weekdaysApply && (
+                <div className="mt-2 space-y-1.5">
+                  <Label className="text-xs">Days of the week</Label>
+                  <div className="flex flex-wrap gap-1">
+                    {WEEKDAYS.map((d) => {
+                      const on = weekdays.includes(d.dow);
+                      return (
+                        <button
+                          key={d.dow}
+                          type="button"
+                          onClick={() => setWeekdays((prev) =>
+                            prev.includes(d.dow) ? prev.filter((x) => x !== d.dow) : [...prev, d.dow])}
+                          className={cn(
+                            "rounded-full px-2.5 py-1 text-xs font-semibold transition-colors",
+                            on ? "bg-primary text-primary-foreground"
+                               : "bg-card text-muted-foreground hover:text-foreground",
+                          )}
+                        >
+                          {d.short}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {weekdays.length === 0
+                      ? `No day picked — repeats on ${WEEKDAYS.find((d) => d.dow === dowOf(date))?.short ?? "the start day"}, the start date's own day.`
+                      : `Visits land only on the days above, starting ${date}.`}
+                  </p>
+                </div>
+              )}
               {cadence !== "once" && (
                 <div className="mt-2 flex items-center gap-2">
                   <Label className="text-xs shrink-0">Number of visits</Label>
@@ -397,10 +616,12 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
                       // BOTH the count is the suggested total AND the cadence
                       // matches the plan's natural rhythm — otherwise we're
                       // spanning way more (or fewer) days than the paid window.
+                      // No `cadence !== "once"` test: this whole block only
+                      // renders when that's already true.
                       const isMatch =
                         !!selectedSub &&
                         count === selectedSub.suggested_count &&
-                        cadence !== "once" &&
+                        weekdays.length === 0 &&
                         cadence === suggestCadenceFor(selectedSub.per_month);
                       return isMatch
                         ? "(matches subscription period)"
@@ -416,7 +637,9 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
             <Button variant="ghost" onClick={resetAndClose}>Cancel</Button>
             <Button
               onClick={() => create.mutate()}
-              disabled={!subId || !date || !startTime || create.isPending}
+              // `target`, not `subId` — booking for a bare customer never sets
+              // a subscription id, so the old check left the button dead.
+              disabled={!target || !date || !startTime || !dates.length || create.isPending}
             >
               {create.isPending && <Spinner size="sm" className="mr-2" />}
               {dates.length > 1 ? `Create ${dates.length} bookings` : "Create booking"}

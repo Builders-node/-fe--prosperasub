@@ -65,12 +65,18 @@ async function fetchCleaning(providerId: string, from: string, to: string): Prom
     }]),
   );
   const subIds = Array.from(subMap.keys());
-  if (!subIds.length) return [];
 
+  // Matched on the booking's own provider_id OR its subscription. An admin can
+  // book a visit for a customer who has no subscription at all (paid
+  // off-platform, a trial); those rows carry provider_id and nothing else, so
+  // a subscription-only filter made them invisible on the very page the admin
+  // just created them from.
+  const providerClause = `provider_id.eq.${providerId}`;
+  const subClause = subIds.length ? `,subscription_id.in.(${subIds.join(",")})` : "";
   const { data } = await supabaseDb
     .from("cleaning_bookings")
-    .select("id,subscription_id,slot_id,status,notes,location,access_instructions,google_calendar_event_id,cleaning_available_slots!inner(id,date,start_time,end_time)")
-    .in("subscription_id", subIds)
+    .select("id,subscription_id,provider_id,user_id,client_id,slot_id,status,notes,location,access_instructions,google_calendar_event_id,cleaning_available_slots!inner(id,date,start_time,end_time)")
+    .or(`${providerClause}${subClause}`)
     .gte("cleaning_available_slots.date", from)
     .lte("cleaning_available_slots.date", to)
     .order("cleaning_available_slots(date)", { ascending: true });
@@ -78,8 +84,14 @@ async function fetchCleaning(providerId: string, from: string, to: string): Prom
 
   // Resolve user + client display names in one batch each so the calendar can
   // show "Ivan Syrtsov" instead of "—" without N per-row lookups.
-  const userIds = Array.from(new Set(rows.map((r: any) => subMap.get(r.subscription_id)?.userId).filter(Boolean))) as string[];
-  const clientIds = Array.from(new Set(rows.map((r: any) => subMap.get(r.subscription_id)?.clientId).filter(Boolean))) as string[];
+  //
+  // `?? r.user_id` covers the subscription-less rows: they have no subscription
+  // to read an owner from, so the owner is on the booking itself. Without this
+  // an admin-created visit would show up nameless.
+  const ownerOf = (r: any) => subMap.get(r.subscription_id)?.userId ?? r.user_id ?? null;
+  const clientOf = (r: any) => subMap.get(r.subscription_id)?.clientId ?? r.client_id ?? null;
+  const userIds = Array.from(new Set(rows.map(ownerOf).filter(Boolean))) as string[];
+  const clientIds = Array.from(new Set(rows.map(clientOf).filter(Boolean))) as string[];
   // Columns here have to be real ones. `users.phone`, `cleaning_clients.
   // contact_name` and `cleaning_clients.whatsapp` don't exist — PostgREST
   // answers 42703 and the whole enrichment query fails, which is why the
@@ -107,9 +119,11 @@ async function fetchCleaning(providerId: string, from: string, to: string): Prom
       ? new Date(`${slot.date}T${String(slot.end_time).slice(0, 5)}:00`)
       : null;
     const meta = subMap.get(row.subscription_id);
-    const user = meta?.userId ? userMap.get(String(meta.userId)) : null;
-    const client = meta?.clientId ? clientMap.get(String(meta.clientId)) : null;
-    const profile = meta?.userId ? profileMap.get(String(meta.userId)) : null;
+    const ownerId = ownerOf(row);
+    const clientId = clientOf(row);
+    const user = ownerId ? userMap.get(String(ownerId)) : null;
+    const client = clientId ? clientMap.get(String(clientId)) : null;
+    const profile = ownerId ? profileMap.get(String(ownerId)) : null;
     const customerName =
       user?.display_name ??
       user?.name ??
