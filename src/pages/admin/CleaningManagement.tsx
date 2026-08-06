@@ -21,6 +21,8 @@ import { toast } from "sonner";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { TabEmptyState, SectionOverline } from "@/components/subscriptions/MySubsPrimitives";
 import { supabase, supabaseDb, adminApi } from "@/integrations/supabase/client";
+import { fetchAllRows } from "@/lib/supabasePaging";
+import { todayHN } from "@/lib/timezone";
 import { cancelCleaningBookings } from "@/lib/cleaning/cancelBooking";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -142,7 +144,14 @@ const CleaningManagement = ({
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [completionBookingId, setCompletionBookingId] = useState<string>("");
   const [deleteBooking, setDeleteBooking] = useState<any | null>(null);
-  const [hideCompleted, setHideCompleted] = useState(false);
+  // Completed visits are history, not work — they were shown by default and
+  // buried everything still to be done.
+  const [hideCompleted, setHideCompleted] = useState(true);
+  const [period, setPeriod] = useState<"upcoming" | "past" | "all">("upcoming");
+  const [customer, setCustomer] = useState<string>("all");
+  const [dateFrom, setDateFrom] = useState<string>("");
+  const [dateTo, setDateTo] = useState<string>("");
+  const [bookingSearch, setBookingSearch] = useState<string>("");
   const [rescheduleBooking, setRescheduleBooking] = useState<any | null>(null);
   const [rescheduleDate, setRescheduleDate] = useState<string>("");
   const [rescheduleSlotId, setRescheduleSlotId] = useState<string>("");
@@ -170,18 +179,17 @@ const CleaningManagement = ({
     queryKey: ["admin-cleaning-scope-subs", providerId ?? "all"],
     enabled: !!providerId,
     queryFn: async () => {
-      const { data: pkgs } = await supabase
+      const { data: pkgs } = await supabaseDb
         .from("cleaning_packages").select("id").eq("provider_id", providerId!);
       const pkgIds = (pkgs ?? []).map((p: any) => p.id);
       if (!pkgIds.length) return [] as string[];
-      // NOT paged, deliberately: this file talks to the `supabase` wrapper, whose
-      // OwnedQueryBuilder (integrations/supabase/client.ts) implements select/eq/
-      // in/order but NOT .range(), so fetchAllRows cannot drive it. Past 1000
-      // subscriptions for one provider this list clips and later bookings go
-      // missing — the real fix is to move this read onto supabaseDb.
-      const { data: subs } = await supabase
-        .from("cleaning_subscriptions").select("id").in("package_id", pkgIds);
-      return (subs ?? []).map((s: any) => s.id) as string[];
+      // supabaseDb, not the wrapper: the wrapper's OwnedQueryBuilder has no
+      // .range(), so this read could never be paged and clipped silently at
+      // 1000 subscriptions.
+      const subs = await fetchAllRows<any>(() => supabaseDb
+        .from("cleaning_subscriptions").select("id").in("package_id", pkgIds)
+        .order("id", { ascending: true }));
+      return subs.map((s: any) => s.id) as string[];
     },
   });
 
@@ -193,12 +201,21 @@ const CleaningManagement = ({
     // first render sees no filter and leaks every provider's bookings.
     enabled: !providerId || scopeSubIds !== null,
     queryFn: async () => {
-      if (providerId && (scopeSubIds ?? []).length === 0) return [];
-      let bookingsQuery = supabase
+      // Matched on the booking's own provider_id OR its subscription. An admin
+      // can now book a visit for a customer with no subscription at all, and a
+      // subscription-only filter made those rows invisible on the very page
+      // they were created from. `.or()` is why this had to leave the wrapper —
+      // OwnedQueryBuilder doesn't implement it.
+      let bookingsQuery = supabaseDb
         .from("cleaning_bookings")
         .select("*, cleaning_available_slots(id, date, start_time, end_time), cleaning_custom_plans(*), cleaning_completion_reports(*)")
         .order("created_at", { ascending: true });
-      if (providerId) bookingsQuery = bookingsQuery.in("subscription_id", scopeSubIds!);
+      if (providerId) {
+        const subIds = scopeSubIds ?? [];
+        const clauses = [`provider_id.eq.${providerId}`];
+        if (subIds.length) clauses.push(`subscription_id.in.(${subIds.join(",")})`);
+        bookingsQuery = bookingsQuery.or(clauses.join(","));
+      }
       // Load bookings without relying on FK joins (TEXT vs UUID type mismatch breaks them)
       const { data: rawBookings, error } = await bookingsQuery;
       if (error) throw error;
@@ -210,10 +227,10 @@ const CleaningManagement = ({
 
       const [clientsRes, usersRes] = await Promise.all([
         clientIds.length
-          ? supabase.from("cleaning_clients").select("id, company_name, location, email, phone").in("id", clientIds)
+          ? supabaseDb.from("cleaning_clients").select("id, company_name, location, email, phone").in("id", clientIds)
           : Promise.resolve({ data: [] }),
         userIds.length
-          ? supabase.from("users").select("id, display_name, name, email").in("id", userIds)
+          ? supabaseDb.from("users").select("id, display_name, name, email").in("id", userIds)
           : Promise.resolve({ data: [] }),
       ]);
 
@@ -562,26 +579,71 @@ const CleaningManagement = ({
     [slots, selectedDateKey],
   );
 
-  const sortedBookings = useMemo(
-    () =>
-      [...bookings].sort((a: any, b: any) => {
-        const dateA = a.cleaning_available_slots?.date ?? "";
-        const dateB = b.cleaning_available_slots?.date ?? "";
-        if (dateA !== dateB) return dateA < dateB ? -1 : 1;
-        const timeA = a.cleaning_available_slots?.start_time ?? "";
-        const timeB = b.cleaning_available_slots?.start_time ?? "";
-        return timeA < timeB ? -1 : timeA > timeB ? 1 : 0;
-      }),
-    [bookings],
-  );
+  /** Slot date of a booking, "" when it somehow has no slot. */
+  const bookingDate = (b: any): string => b.cleaning_available_slots?.date ?? "";
 
+  /**
+   * Who each booking is for, as one searchable string. Built once so the
+   * customer filter and the search box agree on what a name is.
+   */
+  const bookingCustomer = (b: any): string =>
+    b.customer_name || b.users?.display_name || b.users?.name ||
+    b.cleaning_clients?.company_name || b.users?.email || "—";
+
+  const customerOptions = useMemo(() => {
+    const names = new Set<string>();
+    bookings.forEach((b: any) => { const n = bookingCustomer(b); if (n !== "—") names.add(n); });
+    return Array.from(names).sort((a, b) => a.localeCompare(b));
+  }, [bookings]);
+
+  /**
+   * The list opened on the oldest booking on record and counted forward, so an
+   * admin looking for tomorrow's visit landed weeks in the past. Upcoming is
+   * what this page is for; Past and All are one click away.
+   */
+  const filteredBookings = useMemo(() => {
+    const today = todayHN();
+    const q = bookingSearch.trim().toLowerCase();
+    return bookings.filter((b: any) => {
+      const d = bookingDate(b);
+      if (period === "upcoming" && d && d < today) return false;
+      if (period === "past" && (!d || d >= today)) return false;
+      if (dateFrom && d && d < dateFrom) return false;
+      if (dateTo   && d && d > dateTo)   return false;
+      if (customer !== "all" && bookingCustomer(b) !== customer) return false;
+      if (hideCompleted && b.status === "completed") return false;
+      if (q) {
+        const hay = `${bookingCustomer(b)} ${b.notes ?? ""} ${b.location ?? ""}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [bookings, period, dateFrom, dateTo, customer, hideCompleted, bookingSearch]);
+
+  const visibleBookings = useMemo(() => {
+    // Past reads newest-first (what happened most recently); everything else
+    // soonest-first (what's coming up).
+    const dir = period === "past" ? -1 : 1;
+    return [...filteredBookings].sort((a: any, b: any) => {
+      const dateA = bookingDate(a), dateB = bookingDate(b);
+      if (dateA !== dateB) return (dateA < dateB ? -1 : 1) * dir;
+      const timeA = a.cleaning_available_slots?.start_time ?? "";
+      const timeB = b.cleaning_available_slots?.start_time ?? "";
+      return (timeA < timeB ? -1 : timeA > timeB ? 1 : 0) * dir;
+    });
+  }, [filteredBookings, period]);
+
+  // Counts the toggle's label needs — of what the OTHER filters already left,
+  // so "Show completed (59)" doesn't promise rows the date filter will hide.
   const completedCount = useMemo(
-    () => sortedBookings.filter((b: any) => b.status === "completed").length,
-    [sortedBookings],
-  );
-  const visibleBookings = useMemo(
-    () => (hideCompleted ? sortedBookings.filter((b: any) => b.status !== "completed") : sortedBookings),
-    [sortedBookings, hideCompleted],
+    () => bookings.filter((b: any) => {
+      const d = bookingDate(b);
+      const today = todayHN();
+      if (period === "upcoming" && d && d < today) return false;
+      if (period === "past" && (!d || d >= today)) return false;
+      return b.status === "completed";
+    }).length,
+    [bookings, period],
   );
 
   const bookingsPager = usePagination(visibleBookings, 25);
@@ -703,10 +765,93 @@ const CleaningManagement = ({
               </div>
             </CardHeader>
             <CardContent>
+              {/* Filter bar. The list used to open on every booking ever made,
+                  oldest first, with completed ones mixed in — finding tomorrow
+                  meant scrolling past a month of history. */}
+              <div className="mb-space-4 flex flex-wrap items-center gap-space-2">
+                <div className="flex gap-1">
+                  {([
+                    { key: "upcoming", label: "Upcoming" },
+                    { key: "past",     label: "Past" },
+                    { key: "all",      label: "All" },
+                  ] as const).map((p) => (
+                    <button
+                      key={p.key}
+                      type="button"
+                      onClick={() => { setPeriod(p.key); bookingsPager.setPage(1); }}
+                      className={cn(
+                        "rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
+                        period === p.key
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted/40 text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+
+                <Input
+                  value={bookingSearch}
+                  onChange={(e) => { setBookingSearch(e.target.value); bookingsPager.setPage(1); }}
+                  placeholder="Search customer, notes…"
+                  className="h-9 w-48"
+                />
+
+                <Select value={customer} onValueChange={(v) => { setCustomer(v); bookingsPager.setPage(1); }}>
+                  <SelectTrigger className="h-9 w-48"><SelectValue placeholder="All customers" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All customers</SelectItem>
+                    {customerOptions.map((n) => (
+                      <SelectItem key={n} value={n}>{n}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <div className="flex items-center gap-1">
+                  <Input
+                    type="date" value={dateFrom}
+                    onChange={(e) => { setDateFrom(e.target.value); bookingsPager.setPage(1); }}
+                    className="h-9 w-36" aria-label="From date"
+                  />
+                  <span className="text-xs text-muted-foreground">→</span>
+                  <Input
+                    type="date" value={dateTo}
+                    onChange={(e) => { setDateTo(e.target.value); bookingsPager.setPage(1); }}
+                    className="h-9 w-36" aria-label="To date"
+                  />
+                </div>
+
+                {(period !== "upcoming" || customer !== "all" || dateFrom || dateTo || bookingSearch) && (
+                  <Button
+                    type="button" variant="ghost" size="sm"
+                    onClick={() => {
+                      setPeriod("upcoming"); setCustomer("all");
+                      setDateFrom(""); setDateTo(""); setBookingSearch("");
+                      bookingsPager.setPage(1);
+                    }}
+                  >
+                    Reset
+                  </Button>
+                )}
+
+                <span className="ml-auto text-xs text-muted-foreground">
+                  {visibleBookings.length} of {bookings.length}
+                </span>
+              </div>
+
               {bookingsLoading ? (
                 <p className="py-space-8 text-center text-muted-foreground">Loading bookings...</p>
               ) : bookings.length === 0 ? (
                 <TabEmptyState icon={CalendarDays} title="No cleaning bookings" subtitle="Bookings created from subscriptions or assigned plans will appear here." />
+              ) : visibleBookings.length === 0 ? (
+                <TabEmptyState
+                  icon={CalendarDays}
+                  title="Nothing matches these filters"
+                  subtitle={period === "upcoming"
+                    ? "No upcoming visits. Switch to Past or All to see earlier ones."
+                    : "Try widening the date range or clearing the customer filter."}
+                />
               ) : (
                 <>
                   <div className="space-y-space-3 md:hidden">
