@@ -778,7 +778,7 @@ const CleaningManagement = ({
                     <button
                       key={p.key}
                       type="button"
-                      onClick={() => { setPeriod(p.key); bookingsPager.setPage(1); }}
+                      onClick={() => { setPeriod(p.key); }}
                       className={cn(
                         "rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
                         period === p.key
@@ -793,12 +793,12 @@ const CleaningManagement = ({
 
                 <Input
                   value={bookingSearch}
-                  onChange={(e) => { setBookingSearch(e.target.value); bookingsPager.setPage(1); }}
+                  onChange={(e) => { setBookingSearch(e.target.value); }}
                   placeholder="Search customer, notes…"
                   className="h-9 w-48"
                 />
 
-                <Select value={customer} onValueChange={(v) => { setCustomer(v); bookingsPager.setPage(1); }}>
+                <Select value={customer} onValueChange={(v) => { setCustomer(v); }}>
                   <SelectTrigger className="h-9 w-48"><SelectValue placeholder="All customers" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All customers</SelectItem>
@@ -811,13 +811,13 @@ const CleaningManagement = ({
                 <div className="flex items-center gap-1">
                   <Input
                     type="date" value={dateFrom}
-                    onChange={(e) => { setDateFrom(e.target.value); bookingsPager.setPage(1); }}
+                    onChange={(e) => { setDateFrom(e.target.value); }}
                     className="h-9 w-36" aria-label="From date"
                   />
                   <span className="text-xs text-muted-foreground">→</span>
                   <Input
                     type="date" value={dateTo}
-                    onChange={(e) => { setDateTo(e.target.value); bookingsPager.setPage(1); }}
+                    onChange={(e) => { setDateTo(e.target.value); }}
                     className="h-9 w-36" aria-label="To date"
                   />
                 </div>
@@ -828,8 +828,7 @@ const CleaningManagement = ({
                     onClick={() => {
                       setPeriod("upcoming"); setCustomer("all");
                       setDateFrom(""); setDateTo(""); setBookingSearch("");
-                      bookingsPager.setPage(1);
-                    }}
+                                          }}
                   >
                     Reset
                   </Button>

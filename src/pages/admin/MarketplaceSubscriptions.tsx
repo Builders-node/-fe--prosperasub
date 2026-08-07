@@ -5,6 +5,7 @@ import { Building2, ChevronsUpDown, ChevronUp, ChevronDown, MoreVertical, Pencil
 import { toast } from "sonner";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { AdminListShell } from "@/components/admin/AdminListShell";
+import { usePagination, TablePagination } from "@/components/ui/table-pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -214,6 +215,12 @@ const MarketplaceSubscriptions = () => {
     });
   }, [visible, sortBy, sortDir, archetypes, providerById, userById]);
 
+  // One row per sale, so this list only ever grows. Paged client-side: the
+  // adapter already has every row in hand for the counts and the filters, so
+  // there's nothing to re-fetch — it resets to page 1 whenever a filter changes
+  // the result count.
+  const pager = usePagination(sorted, 25);
+
   return (
     <SuperAdminLayout title="Subscriptions" subtitle="Every recurring subscription and one-off booking across all services">
       <div className="space-y-5">
@@ -289,7 +296,7 @@ const MarketplaceSubscriptions = () => {
                 </tr>
               </thead>
               <tbody>
-                {sorted.map((s) => {
+                {pager.paged.map((s) => {
                   const prov = providerById.get(s.provider_id);
                   const arche = prov ? archetypes.find((a) => a.key === prov.archetype_key) : undefined;
                   const AIcon = arche?.Icon ?? Building2;
@@ -378,6 +385,7 @@ const MarketplaceSubscriptions = () => {
               </tbody>
             </table>
           </div>
+          <TablePagination {...pager} onPage={pager.setPage} />
         </AdminListShell>
       </div>
 
