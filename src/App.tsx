@@ -85,6 +85,7 @@ const LegacyProviderRedirect = lazy(() => import("./pages/admin/LegacyProviderRe
 const MarketplacePlans = lazy(() => import("./pages/admin/MarketplacePlans"));
 const Support = lazy(() => import("./pages/Support"));
 const AdminSupport = lazy(() => import("./pages/admin/Support"));
+const AdminClients = lazy(() => import("./pages/admin/Clients"));
 const MarketplaceHub = lazy(() => import("./pages/admin/MarketplaceHub"));
 const MarketplaceServiceDetail = lazy(() => import("./pages/admin/MarketplaceServiceDetail"));
 const MarketplaceSubscriptions = lazy(() => import("./pages/admin/MarketplaceSubscriptions"));
@@ -306,7 +307,12 @@ const App = () => {
               <Route path="/admin/users" element={
                 <ProtectedRoute allowedRoles={['super_admin']} requiredPermissions={["users.read"]}><AdminUsers /></ProtectedRoute>
               } />
-              <Route path="/admin/clients" element={<Navigate to="/admin/users" replace />} />
+              {/* Was a redirect to /admin/users. A client is a billed business or
+                  household, not an individual account — the two are different things
+                  and the redirect made the distinction impossible to see. */}
+              <Route path="/admin/clients" element={
+                <ProtectedRoute allowedRoles={['super_admin']} requiredPermissions={["users.read"]}><AdminClients /></ProtectedRoute>
+              } />
               <Route path="/admin/provider-applications" element={<Navigate to="/admin/marketplace/providers/applications" replace />} />
               <Route path="/admin/payments" element={
                 <ProtectedRoute allowedRoles={['super_admin']} requiredPermissions={["payments.read"]}><AdminPayments /></ProtectedRoute>

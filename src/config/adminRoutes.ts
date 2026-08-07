@@ -16,6 +16,7 @@ export const adminRoutes = {
   superAdminMarketplacePlans: "/admin/marketplace/plans",
   superAdminMarketplaceSubscriptions: "/admin/marketplace/subscriptions",
   superAdminUsers: "/admin/users",
+  superAdminClients: "/admin/clients",
   superAdminSupport: "/admin/support",
   superAdminLocations: "/admin/locations",
   superAdminAds: "/admin/ads",

@@ -11,7 +11,7 @@
 import {
   BarChart3, CalendarDays, DollarSign,
   FileText, Layers, LayoutDashboard, MapPin, Megaphone,
-  LifeBuoy, ShieldCheck, Users,
+  LifeBuoy, ShieldCheck, Users, Building2,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { adminRoutes } from "./adminRoutes";
@@ -91,6 +91,10 @@ export const PEOPLE_SECTION: NavSection = {
   title: "People",
   items: [
     { label: "Users", path: adminRoutes.superAdminUsers, icon: Users,
+      permissions: ["users.read"] },
+    // Clients are the businesses and households we bill; Users are individual
+    // accounts. Same section, deliberately separate entries.
+    { label: "Clients", path: adminRoutes.superAdminClients, icon: Building2,
       permissions: ["users.read"] },
     { label: "Support", path: adminRoutes.superAdminSupport, icon: LifeBuoy,
       permissions: ["users.read"] },
