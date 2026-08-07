@@ -75,7 +75,7 @@ async function fetchCleaning(providerId: string, from: string, to: string): Prom
   const subClause = subIds.length ? `,subscription_id.in.(${subIds.join(",")})` : "";
   const { data } = await supabaseDb
     .from("cleaning_bookings")
-    .select("id,subscription_id,provider_id,user_id,client_id,slot_id,status,notes,location,access_instructions,google_calendar_event_id,cleaning_available_slots!inner(id,date,start_time,end_time)")
+    .select("id,subscription_id,provider_id,user_id,client_id,slot_id,status,source,notes,location,access_instructions,google_calendar_event_id,cleaning_available_slots!inner(id,date,start_time,end_time)")
     .or(`${providerClause}${subClause}`)
     .gte("cleaning_available_slots.date", from)
     .lte("cleaning_available_slots.date", to)
@@ -145,6 +145,9 @@ async function fetchCleaning(providerId: string, from: string, to: string): Prom
         notes: row.notes ?? null,
         access_instructions: row.access_instructions ?? null,
         cleaner_hint: meta?.cleanerHint ?? null,
+        // How the visit got here. Only the partner value is surfaced; the rest
+        // describe how we made the row ourselves.
+        source: row.source ?? null,
         // Cleaning collects no phone of its own, so it comes from the customer's
         // profile, falling back to the client record for company bookings.
         phone: pickPhone(meta?.customerWhatsapp, profile?.whatsapp, profile?.phone_number, client?.phone),

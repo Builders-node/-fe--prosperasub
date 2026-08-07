@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, CalendarDays, MoreHorizontal, CheckCircle2, 
 import { formatUSD } from "@/lib/pricing";
 import { StatusPill } from "@/components/patterns/StatusPill";
 import { CustomerPhone } from "@/components/patterns/CustomerPhone";
+import { SaleOriginBadge } from "@/components/patterns/SaleOrigin";
 import { RescheduleCleaningDialog } from "@/components/cleaning/RescheduleCleaningDialog";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -324,6 +325,7 @@ function BookingRow({
             {row.planName ?? row.customerName ?? "Booking"}
           </p>
           <StatusPill status={row.status} />
+          <SaleOriginBadge source={row.meta?.source} />
         </div>
         <p className="truncate text-xs text-muted-foreground">
           {row.customerName ?? "—"}{" · "}{timeRange}

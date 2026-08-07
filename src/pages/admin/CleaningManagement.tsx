@@ -24,6 +24,7 @@ import { supabase, supabaseDb, adminApi } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/lib/supabasePaging";
 import { todayHN } from "@/lib/timezone";
 import { cancelCleaningBookings } from "@/lib/cleaning/cancelBooking";
+import { SaleOriginBadge } from "@/components/patterns/SaleOrigin";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -885,9 +886,13 @@ const CleaningManagement = ({
                           <TableRow key={booking.id}>
                             <TableCell className="font-medium">{getBookingClientName(booking)}</TableCell>
                             <TableCell>
-                              <Badge variant={booking.custom_plan_id ? "secondary" : "outline"}>
-                                {booking.custom_plan_id ? "Private" : "Public"}
-                              </Badge>
+                              <span className="flex flex-wrap items-center gap-1.5">
+                                <Badge variant={booking.custom_plan_id ? "secondary" : "outline"}>
+                                  {booking.custom_plan_id ? "Private" : "Public"}
+                                </Badge>
+                                {/* Visits the partner booked, not us. */}
+                                <SaleOriginBadge source={booking.source} />
+                              </span>
                             </TableCell>
                             <TableCell>
                               {getBookingDate(booking) ? format(new Date(`${getBookingDate(booking)}T00:00:00`), "MMM d, yyyy") : "—"}
@@ -1293,6 +1298,7 @@ function BookingCard({
         <Badge variant={booking.custom_plan_id ? "secondary" : "outline"}>
           {booking.custom_plan_id ? "Private" : "Public"}
         </Badge>
+        <SaleOriginBadge source={booking.source} />
         <Badge variant={statusColor(booking.google_calendar_sync_status) as any}>
           {calendarStatusLabel(booking.google_calendar_sync_status)}
         </Badge>

@@ -40,22 +40,47 @@ export function isFromBuildersNode(paymentReference: unknown): boolean {
 }
 
 /**
+ * A single booking says where it came from directly — `cleaning_bookings.source`
+ * is written as `builders_node` by the partner endpoint. Unlike a subscription
+ * there's no payment reference to read, because the visit draws on a
+ * subscription that was paid for separately.
+ *
+ * Everything else in that column describes how WE made the row
+ * (`admin_manual`, `admin_bulk`, `user_recurring_schedule`, …), so only the
+ * partner value is worth surfacing.
+ */
+export function bookingOrigin(source: unknown): SaleOrigin {
+  return source === "builders_node"
+    ? { key: "builders_node", label: "Builders Node", externalRef: "" }
+    : { key: "platform", label: null, externalRef: null };
+}
+
+/**
  * Renders nothing for a platform sale — the common case shouldn't carry a
  * badge saying "normal".
+ *
+ * Takes `paymentReference` for a subscription or `source` for a single booking;
+ * pass whichever the row has.
  */
 export function SaleOriginBadge({
   paymentReference,
+  source,
   className,
 }: {
-  paymentReference: unknown;
+  paymentReference?: unknown;
+  source?: unknown;
   className?: string;
 }) {
-  const origin = saleOrigin(paymentReference);
+  const origin = source !== undefined ? bookingOrigin(source) : saleOrigin(paymentReference);
   if (origin.key !== "builders_node") return null;
 
   return (
     <span
-      title={`Provisioned by Builders Node · ref ${origin.externalRef}`}
+      title={
+        origin.externalRef
+          ? `Provisioned by Builders Node · ref ${origin.externalRef}`
+          : "Booked through Builders Node"
+      }
       className={cn(
         "inline-flex shrink-0 items-center gap-1 rounded-full bg-sky-500/15 px-2 py-0.5",
         "text-[10px] font-bold uppercase tracking-wide text-sky-400",
