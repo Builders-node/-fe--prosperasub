@@ -59,8 +59,12 @@ export function bookingOrigin(source: unknown): SaleOrigin {
  * Renders nothing for a platform sale — the common case shouldn't carry a
  * badge saying "normal".
  *
- * Takes `paymentReference` for a subscription or `source` for a single booking;
- * pass whichever the row has.
+ * Pass whichever markers the row has — `source` for a cleaning visit,
+ * `paymentReference` for anything that was paid for. Either one is enough:
+ * food and rental have no `source` column at all, so keying only on that made
+ * the badge unreachable on the deliveries view; and a cleaning visit generated
+ * by the recurring scheduler carries `source: "user_recurring_schedule"` even
+ * though the subscription behind it came from the partner.
  */
 export function SaleOriginBadge({
   paymentReference,
@@ -71,7 +75,9 @@ export function SaleOriginBadge({
   source?: unknown;
   className?: string;
 }) {
-  const origin = source !== undefined ? bookingOrigin(source) : saleOrigin(paymentReference);
+  const bySource = bookingOrigin(source);
+  const byRef = saleOrigin(paymentReference);
+  const origin = bySource.key === "builders_node" ? bySource : byRef;
   if (origin.key !== "builders_node") return null;
 
   return (

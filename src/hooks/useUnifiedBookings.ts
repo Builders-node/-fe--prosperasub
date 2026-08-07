@@ -51,9 +51,9 @@ async function fetchCleaning(providerId: string, from: string, to: string): Prom
   // Owners were seeing "—" because we only carried the package name through.
   const { data: subs } = await supabaseDb
     .from("cleaning_subscriptions")
-    .select("id,package_id,user_id,client_id,apartment_note,cleaner_hint,customer_whatsapp")
+    .select("id,package_id,user_id,client_id,apartment_note,cleaner_hint,customer_whatsapp,payment_reference")
     .in("package_id", pkgIds);
-  type SubMeta = { packageId: string; userId: string | null; clientId: string | null; apartmentNote: string | null; customerWhatsapp: string | null; cleanerHint: string | null };
+  type SubMeta = { packageId: string; userId: string | null; clientId: string | null; apartmentNote: string | null; customerWhatsapp: string | null; paymentReference: string | null; cleanerHint: string | null };
   const subMap = new Map<string, SubMeta>(
     (subs ?? []).map((s: any) => [s.id, {
       packageId: s.package_id,
@@ -61,6 +61,7 @@ async function fetchCleaning(providerId: string, from: string, to: string): Prom
       clientId: s.client_id ?? null,
       apartmentNote: s.apartment_note ?? null,
       customerWhatsapp: s.customer_whatsapp ?? null,
+      paymentReference: s.payment_reference ?? null,
       cleanerHint: s.cleaner_hint ?? null,
     }]),
   );
@@ -148,6 +149,7 @@ async function fetchCleaning(providerId: string, from: string, to: string): Prom
         // How the visit got here. Only the partner value is surfaced; the rest
         // describe how we made the row ourselves.
         source: row.source ?? null,
+        payment_reference: meta?.paymentReference ?? null,
         // Cleaning collects no phone of its own, so it comes from the customer's
         // profile, falling back to the client record for company bookings.
         phone: pickPhone(meta?.customerWhatsapp, profile?.whatsapp, profile?.phone_number, client?.phone),
@@ -174,7 +176,7 @@ async function fetchFood(providerId: string, from: string, to: string): Promise<
 
   const { data } = await supabaseDb
     .from("food_subscriptions")
-    .select("id,meal_plan_id,customer_name,customer_whatsapp,started_at,end_date,status,payment_status,weekly_price_cents,commitment_weeks,delivery_address")
+    .select("id,meal_plan_id,customer_name,customer_whatsapp,started_at,end_date,status,payment_status,payment_reference,weekly_price_cents,commitment_weeks,delivery_address")
     .eq("provider_id", providerId)
     .lte("started_at", to)
     .gte("end_date", from)
@@ -198,6 +200,9 @@ async function fetchFood(providerId: string, from: string, to: string): Promise<
     meta: {
       delivery_address: row.delivery_address,
       phone: pickPhone(row.customer_whatsapp),
+      // Food has no `source` column — a partner-provisioned subscription is
+      // identified by its payment reference, same as on the subscription list.
+      payment_reference: row.payment_reference ?? null,
     },
   }));
 }
@@ -213,7 +218,7 @@ async function fetchCars(providerId: string, from: string, to: string): Promise<
 
   const { data } = await supabaseDb
     .from("rental_bookings")
-    .select("id,user_id,vehicle_id,start_date,end_date,start_time,end_time,status,payment_status,total_cents,customer_whatsapp,delivery_address,delivery_notes")
+    .select("id,user_id,vehicle_id,start_date,end_date,start_time,end_time,status,payment_status,payment_reference,total_cents,customer_whatsapp,delivery_address,delivery_notes")
     .in("vehicle_id", vIds)
     .lte("start_date", to)
     .gte("end_date", from)
@@ -245,6 +250,7 @@ async function fetchCars(providerId: string, from: string, to: string): Promise<
         delivery_address: row.delivery_address,
         delivery_notes: row.delivery_notes,
         phone: pickPhone(row.customer_whatsapp),
+        payment_reference: row.payment_reference ?? null,
       },
     };
   });

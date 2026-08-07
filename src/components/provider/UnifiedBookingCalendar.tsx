@@ -325,7 +325,7 @@ function BookingRow({
             {row.planName ?? row.customerName ?? "Booking"}
           </p>
           <StatusPill status={row.status} />
-          <SaleOriginBadge source={row.meta?.source} />
+          <SaleOriginBadge source={row.meta?.source} paymentReference={row.meta?.payment_reference} />
         </div>
         <p className="truncate text-xs text-muted-foreground">
           {row.customerName ?? "—"}{" · "}{timeRange}
