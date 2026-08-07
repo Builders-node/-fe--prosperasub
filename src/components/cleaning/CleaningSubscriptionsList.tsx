@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Sparkles, MoreHorizontal, PauseCircle, PlayCircle, XCircle, RefreshCcw, CheckCircle2 } from "lucide-react";
 import { StatusPill } from "@/components/patterns/StatusPill";
 import { CustomerPhone, pickPhone } from "@/components/patterns/CustomerPhone";
+import { SaleOriginBadge } from "@/components/patterns/SaleOrigin";
 import { useAuth } from "@/contexts/AuthContext";
 import { approvePayment, isPendingPayment } from "@/lib/subscriptionApprove";
 import { format, isBefore } from "date-fns";
@@ -49,7 +50,7 @@ export function CleaningSubscriptionsList({ providerId }: { providerId: string }
       if (!pkgIds.length) return [];
       const { data } = await supabaseDb
         .from("cleaning_subscriptions")
-        .select("id,package_id,user_id,client_id,customer_whatsapp,subscription_status,payment_status,monthly_price_cents,total_price_cents,billing_period_months,service_start_date,service_end_date,paid_until,end_date,apartment_note,cleaner_hint")
+        .select("id,package_id,user_id,client_id,customer_whatsapp,payment_reference,subscription_status,payment_status,monthly_price_cents,total_price_cents,billing_period_months,service_start_date,service_end_date,paid_until,end_date,apartment_note,cleaner_hint")
         .in("package_id", pkgIds)
         .order("service_start_date", { ascending: false });
       return (data ?? []).map((s: any) => ({
@@ -246,6 +247,7 @@ export function CleaningSubscriptionsList({ providerId }: { providerId: string }
             {pendingPayment && (
               <Badge className="rounded-full text-[10px] bg-amber-500/15 text-amber-500">Awaiting payment</Badge>
             )}
+            <SaleOriginBadge paymentReference={s.payment_reference} />
           </div>
           {/* line-clamp-2 (not truncate) so the end date wraps to a second
               line instead of being cut with "Ju…" on mobile. */}

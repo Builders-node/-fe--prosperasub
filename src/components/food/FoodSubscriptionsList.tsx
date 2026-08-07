@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { UtensilsCrossed, MoreHorizontal, PauseCircle, PlayCircle, XCircle, RefreshCcw, CheckCircle2 } from "lucide-react";
 import { StatusPill } from "@/components/patterns/StatusPill";
 import { CustomerPhone, pickPhone } from "@/components/patterns/CustomerPhone";
+import { SaleOriginBadge } from "@/components/patterns/SaleOrigin";
 import { useAuth } from "@/contexts/AuthContext";
 import { approvePayment, isPendingPayment } from "@/lib/subscriptionApprove";
 import { format, isBefore } from "date-fns";
@@ -44,7 +45,7 @@ export function FoodSubscriptionsList({ providerId }: { providerId: string }) {
 
       const { data } = await supabaseDb
         .from("food_subscriptions")
-        .select("id,user_id,customer_name,customer_whatsapp,meal_plan_id,status,payment_status,started_at,end_date,commitment_weeks,weekly_price_cents,delivery_address")
+        .select("id,user_id,customer_name,customer_whatsapp,meal_plan_id,status,payment_status,payment_reference,started_at,end_date,commitment_weeks,weekly_price_cents,delivery_address")
         .eq("provider_id", providerId)
         .order("started_at", { ascending: false });
       const today = new Date().toISOString().slice(0, 10);
@@ -206,6 +207,9 @@ export function FoodSubscriptionsList({ providerId }: { providerId: string }) {
             {pendingPayment && (
               <Badge className="rounded-full text-[10px] bg-amber-500/15 text-amber-500">Awaiting payment</Badge>
             )}
+            {/* Which of these the provider onboarded themselves, and which came
+                through the partner. Renders nothing for an ordinary sale. */}
+            <SaleOriginBadge paymentReference={s.payment_reference} />
           </div>
           {/* line-clamp-2 (not truncate) so the end date wraps to a second
               line instead of being cut with "Ju…" on mobile. */}

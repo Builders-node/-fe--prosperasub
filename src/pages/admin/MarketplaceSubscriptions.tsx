@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { AdminListShell } from "@/components/admin/AdminListShell";
 import { usePagination, TablePagination } from "@/components/ui/table-pagination";
+import { SaleOriginBadge, isFromBuildersNode } from "@/components/patterns/SaleOrigin";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -70,6 +71,7 @@ const MarketplaceSubscriptions = () => {
   const [status, setStatus] = useState("all");
   const [payment, setPayment] = useState("all");
   const [kind, setKind] = useState<"all" | "subscription" | "booking">("all");
+  const [origin, setOrigin] = useState<"all" | "builders_node" | "platform">("all");
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
@@ -180,6 +182,8 @@ const MarketplaceSubscriptions = () => {
       if (status   !== "all" && s.status         !== status)     return false;
       if (payment  !== "all" && s.payment_status !== payment)    return false;
       if (kind     !== "all" && s.kind           !== kind)       return false;
+      if (origin === "builders_node" && !isFromBuildersNode(s.payment_reference)) return false;
+      if (origin === "platform"      &&  isFromBuildersNode(s.payment_reference)) return false;
       if (q) {
         const user = s.user_id ? userById.get(s.user_id) : undefined;
         if (!(
@@ -192,7 +196,7 @@ const MarketplaceSubscriptions = () => {
       }
       return true;
     });
-  }, [rows, service, status, payment, kind, search, providerById, userById]);
+  }, [rows, service, status, payment, kind, origin, search, providerById, userById]);
 
   const sorted = useMemo(() => {
     const svcLabel = (key?: string | null) => archetypes.find((a) => a.key === key)?.label ?? "";
@@ -269,6 +273,18 @@ const MarketplaceSubscriptions = () => {
               </SelectContent>
             </Select>
           </FilterBlock>
+          {/* Sold by us, or provisioned through the partner. Reconciling what
+              Builders Node says they sold used to mean reading payment refs. */}
+          <FilterBlock label="Origin">
+            <Select value={origin} onValueChange={(v) => setOrigin(v as typeof origin)}>
+              <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="platform">ProsperaSub</SelectItem>
+                <SelectItem value="builders_node">Builders Node</SelectItem>
+              </SelectContent>
+            </Select>
+          </FilterBlock>
         </div>
 
         <AdminListShell
@@ -278,7 +294,7 @@ const MarketplaceSubscriptions = () => {
           isEmpty={rows.length === 0}
           isNoResults={rows.length > 0 && visible.length === 0} count={visible.length}
           emptyTitle="No sales yet" emptySubtitle="Subscriptions and bookings will appear here."
-          onClearFilters={() => { setSearch(""); setService("all"); setStatus("all"); setPayment("all"); setKind("all"); }}
+          onClearFilters={() => { setSearch(""); setService("all"); setStatus("all"); setPayment("all"); setKind("all"); setOrigin("all"); }}
         >
           <div className="overflow-x-auto rounded-2xl border border-border">
             <table className="w-full min-w-[900px] text-sm">
@@ -304,16 +320,19 @@ const MarketplaceSubscriptions = () => {
                   return (
                     <tr key={s.id} className="border-b border-border/60 last:border-0 hover:bg-muted/30">
                       <td className="px-4 py-3 font-semibold text-foreground">
-                        {s.user_id ? (
-                          <Link
-                            to={`/admin/users?userId=${encodeURIComponent(s.user_id)}`}
-                            className="hover:text-primary hover:underline"
-                          >
-                            {customerLabel(s)}
-                          </Link>
-                        ) : (
-                          customerLabel(s)
-                        )}
+                        <span className="flex flex-wrap items-center gap-2">
+                          {s.user_id ? (
+                            <Link
+                              to={`/admin/users?userId=${encodeURIComponent(s.user_id)}`}
+                              className="hover:text-primary hover:underline"
+                            >
+                              {customerLabel(s)}
+                            </Link>
+                          ) : (
+                            customerLabel(s)
+                          )}
+                          <SaleOriginBadge paymentReference={s.payment_reference} />
+                        </span>
                       </td>
                       <td className="px-4 py-3">
                         {s.plan_name ?? <em className="italic text-muted-foreground/70">no plan</em>}
