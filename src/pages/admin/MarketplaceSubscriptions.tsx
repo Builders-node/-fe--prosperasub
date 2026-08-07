@@ -153,7 +153,20 @@ const MarketplaceSubscriptions = () => {
   });
 
 
-  const userIds = useMemo(() => Array.from(new Set(rows.map((s) => s.user_id).filter((x): x is string => !!x))), [rows]);
+  /**
+   * `users.id` is a uuid column, but legacy rows can point at a Google-sub id
+   * like `google-1141294…` — one of those in the batch makes PostgREST reject
+   * the WHOLE `id=in.(…)` query with 22P02, so every single customer fell back
+   * to a truncated id. Those ids have no `users` row to find anyway; the name
+   * comes from `customer_name` on the sale instead.
+   */
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const userIds = useMemo(
+    () => Array.from(new Set(
+      rows.map((s) => s.user_id).filter((x): x is string => !!x && UUID_RE.test(x)),
+    )),
+    [rows],
+  );
   const { data: users = [] } = useQuery({
     queryKey: ["marketplace-subs-users", userIds.join(",")],
     enabled: userIds.length > 0,
@@ -170,8 +183,9 @@ const MarketplaceSubscriptions = () => {
    */
   const customerLabel = (s: SaleRow): string => {
     const u = s.user_id ? userById.get(s.user_id) : undefined;
-    return u?.display_name || u?.name || s.customer_name || u?.email
-      || (s.user_id ? s.user_id.slice(0, 8) : "—");
+    // Deliberately no `user_id.slice(0, 8)` fallback: a truncated uuid is not a
+    // name, it just looks like one and sent admins hunting for "e869d031".
+    return u?.display_name || u?.name || s.customer_name || u?.email || "—";
   };
 
   const visible = useMemo(() => {

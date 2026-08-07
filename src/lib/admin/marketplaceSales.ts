@@ -169,12 +169,17 @@ async function loadPlans(table: string): Promise<Map<string, { name: string | nu
  * quietly be wrong.
  */
 export async function fetchMarketplaceSales(): Promise<SaleRow[]> {
-  const [bridge, mealPlans, packages, beachPlans, vehicles] = await Promise.all([
+  const [bridge, mealPlans, packages, beachPlans, vehicles, cleaningClients] = await Promise.all([
     buildProviderBridge(),
     loadPlans("food_meal_plans"),
     loadPlans("cleaning_packages"),
     loadPlans("beach_club_plans"),
     loadPlans("rental_vehicles"),
+    // Company bookings have no user at all — the name lives on the client
+    // record, and without it those rows rendered as a bare "—".
+    supabaseDb.from("cleaning_clients").select("id,company_name,contact_person")
+      .then(({ data }) => new Map((data ?? []).map((c: any) =>
+        [String(c.id), (c.company_name || c.contact_person || null) as string | null]))),
   ]);
 
   const [food, cleaning, beach, rental] = await Promise.all([
@@ -184,7 +189,7 @@ export async function fetchMarketplaceSales(): Promise<SaleRow[]> {
       .order("created_at", { ascending: false }).order("id", { ascending: false })),
     fetchAllRows<any>(() => supabaseDb
       .from("cleaning_subscriptions")
-      .select("id,provider_id,package_id,user_id,subscription_status,payment_status,payment_method,payment_reference,service_start_date,service_end_date,paid_until,end_date,total_price_cents,monthly_price_cents,created_at")
+      .select("id,provider_id,package_id,user_id,client_id,subscription_status,payment_status,payment_method,payment_reference,service_start_date,service_end_date,paid_until,end_date,total_price_cents,monthly_price_cents,created_at")
       .order("created_at", { ascending: false }).order("id", { ascending: false })),
     fetchAllRows<any>(() => supabaseDb
       .from("beach_club_subscriptions")
@@ -223,7 +228,7 @@ export async function fetchMarketplaceSales(): Promise<SaleRow[]> {
     plan_id: r.package_id ?? null,
     plan_name: packages.get(String(r.package_id))?.name ?? null,
     user_id: r.user_id ?? null,
-    customer_name: null,
+    customer_name: r.client_id ? cleaningClients.get(String(r.client_id)) ?? null : null,
     start_date: day(r.service_start_date),
     // paid_until is the authoritative period end when it's set; the other two
     // are what older rows carry.
