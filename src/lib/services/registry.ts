@@ -39,7 +39,7 @@ export interface ProviderConfig {
   labels: {
     singular: string;   // "Restaurant"
     plural: string;     // "Restaurants"
-    apply: string;      // "Open your restaurant on ProsperaSub"
+    apply: string;      // "Open your restaurant on EverySub"
   };
   /** Which sections a provider portal should render for this service. */
   features: Array<
@@ -112,7 +112,7 @@ export const SERVICES: Record<ServiceKey, ServiceConfig> = {
       labels: {
         singular: "Cleaning company",
         plural: "Cleaning companies",
-        apply: "Offer cleaning on ProsperaSub",
+        apply: "Offer cleaning on EverySub",
       },
       features: ["info", "plans", "bookings", "staff"],
       adminListHref: "/admin/cleaning/providers",
@@ -137,7 +137,7 @@ export const SERVICES: Record<ServiceKey, ServiceConfig> = {
       labels: {
         singular: "Rental agency",
         plural: "Rental agencies",
-        apply: "List your rental fleet on ProsperaSub",
+        apply: "List your rental fleet on EverySub",
       },
       features: ["info", "vehicles", "bookings", "staff"],
       adminListHref: "/admin/car-rentals/providers",
@@ -162,7 +162,7 @@ export const SERVICES: Record<ServiceKey, ServiceConfig> = {
       labels: {
         singular: "Restaurant",
         plural: "Restaurants",
-        apply: "Open your restaurant on ProsperaSub",
+        apply: "Open your restaurant on EverySub",
       },
       features: ["info", "plans", "menu", "bookings", "staff", "analytics"],
       adminListHref: "/admin/food/providers",

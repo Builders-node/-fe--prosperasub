@@ -58,7 +58,7 @@ const en = {
   "discovery.myBusiness": "My Business",
   "discovery.manageBusinesses": "Manage your businesses",
   "discovery.becomeProvider": "Become a provider",
-  "discovery.offerService": "Offer your service on ProsperaSub",
+  "discovery.offerService": "Offer your service on EverySub",
 
   // ── Verify access
   "verify.granted": "Access granted",
@@ -68,7 +68,7 @@ const en = {
   "verify.whatToDo": "What to do:",
   "verify.hintRefresh": "Codes refresh every few minutes. Ask the customer to open My Subs and show a fresh one.",
   "verify.hintSignIn": "If the customer isn't signed in, they need to sign in first to generate a QR.",
-  "verify.openApp": "Open ProsperaSub",
+  "verify.openApp": "Open EverySub",
   "verify.activeAccess": "Active access",
   "verify.noActive": "No active subscriptions",
 
@@ -137,7 +137,7 @@ const es: Record<TranslationKey, string> = {
   "discovery.myBusiness": "Mi Negocio",
   "discovery.manageBusinesses": "Gestiona tus negocios",
   "discovery.becomeProvider": "Ser proveedor",
-  "discovery.offerService": "Ofrece tu servicio en ProsperaSub",
+  "discovery.offerService": "Ofrece tu servicio en EverySub",
 
   // ── Verify access
   "verify.granted": "Acceso concedido",
@@ -147,7 +147,7 @@ const es: Record<TranslationKey, string> = {
   "verify.whatToDo": "Qué hacer:",
   "verify.hintRefresh": "Los códigos se renuevan cada pocos minutos. Pide al cliente que abra Mis Subs y muestre uno nuevo.",
   "verify.hintSignIn": "Si el cliente no ha iniciado sesión, debe hacerlo antes para generar un QR.",
-  "verify.openApp": "Abrir ProsperaSub",
+  "verify.openApp": "Abrir EverySub",
   "verify.activeAccess": "Acceso activo",
   "verify.noActive": "Sin suscripciones activas",
 

@@ -428,7 +428,7 @@ const CarBooking = () => {
         if (!data.address) throw new Error("Could not generate a Bitcoin address.");
 
         setOnchainAddress(data.address);
-        setOnchainUri(`bitcoin:${data.address}?amount=${(satsAmount / 1e8).toFixed(8)}&label=ProsperaSub&message=${encodeURIComponent(description)}`);
+        setOnchainUri(`bitcoin:${data.address}?amount=${(satsAmount / 1e8).toFixed(8)}&label=EverySub&message=${encodeURIComponent(description)}`);
         await reserveBooking(data.address, "onchain");
         startOnchainPolling(data.address, satsAmount);
         armPayTimeout(60 * 60_000);

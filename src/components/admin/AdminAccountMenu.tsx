@@ -58,7 +58,7 @@ export function AdminAccountMenu() {
             <AppDropdownItem
               icon={Store}
               title="Go to the site"
-              subtitle="Browse ProsperaSub as a customer"
+              subtitle="Browse EverySub as a customer"
               onSelect={() => navigate(publicRoutes.userSite)}
             />
           </div>

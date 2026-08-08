@@ -188,7 +188,7 @@ const SuperAdminLayout = ({ children, title, subtitle }: SuperAdminLayoutProps) 
             </div>
             <div className="min-w-0">
               <p className="type-card-title truncate">Admin Panel</p>
-              <p className="text-caption text-muted-foreground">ProsperaSub</p>
+              <p className="text-caption text-muted-foreground">EverySub</p>
             </div>
           </Link>
         </div>
@@ -225,7 +225,7 @@ const SuperAdminLayout = ({ children, title, subtitle }: SuperAdminLayoutProps) 
                       </span>
                       Admin Panel
                     </SheetTitle>
-                    <SheetDescription>ProsperaSub operations</SheetDescription>
+                    <SheetDescription>EverySub operations</SheetDescription>
                   </SheetHeader>
 
                   {/* On mobile, flat leaf links close the drawer; group headers do not */}

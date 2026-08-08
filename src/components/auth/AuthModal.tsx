@@ -142,7 +142,7 @@ function AuthForm({
       toast.error(error.message || "Could not create account. Please try again.");
       return;
     }
-    toast.success("Account created! Welcome to ProsperaSub.");
+    toast.success("Account created! Welcome to EverySub.");
     onSuccess();
     navigate(redirectTo, { replace: true });
   };
@@ -244,8 +244,8 @@ function AuthForm({
         </h2>
         <p className="mt-1 text-[13px]" style={{ color: "hsl(var(--yd-text2))" }}>
           {view === "login"
-            ? "Sign in to your ProsperaSub account"
-            : "Join ProsperaSub — Convenience Subscriptions to Próspera"}
+            ? "Sign in to your EverySub account"
+            : "Join EverySub — Convenience Subscriptions to Próspera"}
         </p>
       </div>
 
@@ -422,7 +422,7 @@ export function AuthModal({ open, onClose, defaultView = "login", redirectTo = "
         onEscapeKeyDown={(e) => e.preventDefault()}
       >
         <DialogTitle className="sr-only">
-          {defaultView === "forgot_password" ? "Reset your password" : defaultView === "login" ? "Log in to ProsperaSub" : "Create a ProsperaSub account"}
+          {defaultView === "forgot_password" ? "Reset your password" : defaultView === "login" ? "Log in to EverySub" : "Create a EverySub account"}
         </DialogTitle>
         <DialogDescription className="sr-only">
           Enter your credentials to continue.

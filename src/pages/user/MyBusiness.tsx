@@ -67,7 +67,7 @@ export default function MyBusiness() {
             <Store className="mb-3 h-12 w-12 text-muted-foreground/40" />
             <p className="font-semibold text-foreground">No businesses yet</p>
             <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-              Want to offer your service on ProsperaSub? Apply to become a provider — once approved,
+              Want to offer your service on EverySub? Apply to become a provider — once approved,
               your business appears here to manage.
             </p>
             <Button className="mt-4 rounded-full" onClick={() => navigate("/become-a-provider")}>

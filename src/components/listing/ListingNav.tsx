@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
  *
  * All four listings used to open straight into category sections, with each
  * provider buried *inside* its category next to its own plans. So the page read
- * "Apartment Cleaning → ProsperaSub Cleaning → 3 cards → Car Wash → ProsperaSub
+ * "Apartment Cleaning → EverySub Cleaning → 3 cards → Car Wash → EverySub
  * Car Wash → 1 card", and you could not tell at a glance who was on the
  * platform or what kinds of service existed — the two questions a customer
  * actually arrives with.

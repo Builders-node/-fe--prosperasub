@@ -49,7 +49,7 @@ export function DesktopHeader({
           to="/"
           className="shrink-0 text-[19px] font-black tracking-tight text-foreground hover:text-primary transition-colors"
         >
-          ProsperaSub
+          EverySub
         </Link>
 
         <LocationSelector />

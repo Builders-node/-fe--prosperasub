@@ -27,7 +27,7 @@ const meta = {
   parameters: {
     docs: {
       description: {
-        component: "Reusable Prospera Sub design-system primitives and their normalized states.",
+        component: "Reusable EverySub design-system primitives and their normalized states.",
       },
     },
   },

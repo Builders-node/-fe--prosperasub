@@ -56,7 +56,7 @@ const EMPTY: Category = {
  * Service categories = the middle layer of the marketplace model:
  *
  *     Service (archetype)  →  Category  →  Provider  →  Plan
- *     Cleaning             →  Car Wash  →  ProsperaSub Car Wash → $29/mo
+ *     Cleaning             →  Car Wash  →  EverySub Car Wash → $29/mo
  *
  * A category groups providers that do the same *kind* of work inside one
  * service. Without it, a car-wash provider and an apartment-cleaning provider

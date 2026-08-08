@@ -84,7 +84,7 @@ export function PayBox({
         });
         if (error) throw error; if (data?.error) throw new Error(data.error);
         setOnchainAddress(data.address);
-        setOnchainUri(`bitcoin:${data.address}?amount=${(sats / 1e8).toFixed(8)}&label=ProsperaSub`);
+        setOnchainUri(`bitcoin:${data.address}?amount=${(sats / 1e8).toFixed(8)}&label=EverySub`);
         setPayOpen(true);
         if (pollingRef.current) clearInterval(pollingRef.current);
         pollingRef.current = setInterval(async () => {

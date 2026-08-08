@@ -1,6 +1,6 @@
 {
-  "name": "ProsperaSub - Convenience Subscriptions to Próspera",
-  "short_name": "ProsperaSub",
+  "name": "EverySub - Convenience Subscriptions to Próspera",
+  "short_name": "EverySub",
   "description": "Your all-in-one platform for subscriptions and services in the Próspera ecosystem.",
   "start_url": "/",
   "display": "standalone",

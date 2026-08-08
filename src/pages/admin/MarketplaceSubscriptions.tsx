@@ -294,7 +294,7 @@ const MarketplaceSubscriptions = () => {
               <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All</SelectItem>
-                <SelectItem value="platform">ProsperaSub</SelectItem>
+                <SelectItem value="platform">EverySub</SelectItem>
                 <SelectItem value="builders_node">Builders Node</SelectItem>
               </SelectContent>
             </Select>

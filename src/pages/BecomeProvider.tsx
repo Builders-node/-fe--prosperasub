@@ -97,7 +97,7 @@ export default function BecomeProvider() {
           <div>
             <h1 className="text-2xl font-black tracking-tight sm:text-3xl">Become a provider</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Offer your service on ProsperaSub. Submit an application — once approved, you'll manage
+              Offer your service on EverySub. Submit an application — once approved, you'll manage
               your listings, plans and bookings from <strong>My Business</strong>.
             </p>
           </div>

@@ -43,7 +43,7 @@ const CleaningPackages = () => {
   const { t } = useI18n();
 
   // Providers under the Cleaning archetype — same "top row" pattern as Food.
-  // Currently one (ProsperaSub Cleaning); adding a second is a data-only change.
+  // Currently one (EverySub Cleaning); adding a second is a data-only change.
   const providersQ = useQuery({
     queryKey: ["cleaning-providers-public"],
     queryFn: async () => {
@@ -132,10 +132,10 @@ const CleaningPackages = () => {
 
   // Three-level grouping: category → provider → plans.
   //   Apartment Cleaning
-  //     ProsperaSub Cleaning
+  //     EverySub Cleaning
   //       Studio · 1BR · 2BR
   //   Car Wash
-  //     ProsperaSub Car Wash
+  //     EverySub Car Wash
   //       Monthly Car Wash
   // Providers without a category_key (legacy data) fall into "Other" at the
   // end — the schema NOT-NULLs this column so "Other" should stay empty

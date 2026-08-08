@@ -95,7 +95,7 @@ const ResetPassword = () => {
               {isComplete
                 ? "Your password is updated. You can sign in with the new password now."
                 : isConfirmMode
-                  ? "Enter a new password for your Prospera Sub account."
+                  ? "Enter a new password for your EverySub account."
                   : "Enter your email and we will generate a secure reset link for this account."}
             </p>
           </div>

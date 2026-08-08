@@ -244,7 +244,7 @@ const AdminPayments = () => {
           plan_name: "Blink health check",
           duration: "One time",
           admin_url: `${window.location.origin}/admin/payments`,
-          description: "ProsperaSub admin test payment - $1.00",
+          description: "EverySub admin test payment - $1.00",
           external_id: `admin-test-${Date.now()}`,
         },
       });
@@ -267,7 +267,7 @@ const AdminPayments = () => {
         body: {
           payment_hash: testInvoice.payment_hash,
           service_name: "Admin test payment",
-          client_name: "ProsperaSub admin",
+          client_name: "EverySub admin",
           plan_name: "Blink health check",
           duration: "One time",
           booking_id: "admin-test-payment",
@@ -315,7 +315,7 @@ const AdminPayments = () => {
           context: "admin_test_payment",
           service_name: "Admin on-chain test",
           plan_name: "Blink on-chain health check",
-          description: "ProsperaSub admin on-chain test - $1.00",
+          description: "EverySub admin on-chain test - $1.00",
           external_id: `admin-onchain-test-${Date.now()}`,
         },
       });
@@ -352,7 +352,7 @@ const AdminPayments = () => {
       const { data, error } = await supabase.functions.invoke("create-simplefi-invoice", {
         body: {
           amount_cents: 100,
-          description: "ProsperaSub admin LIVES test - $1.00",
+          description: "EverySub admin LIVES test - $1.00",
           reference: { orderId: `admin-lives-test-${Date.now()}`, context: "admin_test_payment" },
         },
       });
@@ -740,7 +740,7 @@ const AdminPayments = () => {
                         toast.success("PayPal test payment captured");
                       }}
                       orderMeta={{
-                        description: "ProsperaSub admin PayPal test - $1.00",
+                        description: "EverySub admin PayPal test - $1.00",
                         service_name: "Admin PayPal test",
                         context: "admin_test_payment",
                       }}

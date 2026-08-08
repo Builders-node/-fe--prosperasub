@@ -61,7 +61,7 @@ export function CheckoutShell({
           </button>
           <div className="pointer-events-none absolute inset-0 flex select-none flex-col items-center justify-center px-14 text-center">
             <span className="text-[17px] font-black leading-none tracking-tight text-foreground">
-              ProsperaSub
+              EverySub
             </span>
             {(subtitle ?? title) && (
               <span className="mt-0.5 max-w-full truncate text-xs font-medium text-muted-foreground">

@@ -114,7 +114,7 @@ export function useInvoicePayment({
         if (error) throw error;
         if (data?.error) throw new Error(data.error);
         if (!data?.address) throw new Error("Could not generate a Bitcoin address.");
-        const uri = `bitcoin:${data.address}?amount=${(amountSats / 1e8).toFixed(8)}&label=ProsperaSub&message=${encodeURIComponent(description)}`;
+        const uri = `bitcoin:${data.address}?amount=${(amountSats / 1e8).toFixed(8)}&label=EverySub&message=${encodeURIComponent(description)}`;
         setState((s) => ({ ...s, address: data.address, uri, isGenerating: false }));
         onInvoiceReady?.(data.address, "onchain");
         startOnchainPolling(data.address, amountSats);

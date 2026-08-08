@@ -51,7 +51,7 @@ export function InfinitaPaymentPanel({
       const { data, error } = await supabase.functions.invoke("create-simplefi-invoice", {
         body: {
           amount_cents: totalCents,
-          description: `${serviceName || "ProsperaSub"} — ${formatUSD(totalCents)}`,
+          description: `${serviceName || "EverySub"} — ${formatUSD(totalCents)}`,
           // service + order_id become reference.service + reference.orderId
           // in the SimpleFi payment_request, so the webhook can route directly.
           service,
