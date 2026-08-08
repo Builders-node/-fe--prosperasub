@@ -26,6 +26,8 @@ import { useAuth } from "@/contexts/AuthContext";
 const API_URL = (import.meta.env.VITE_API_URL as string) || "https://api.prosperasub.com";
 
 const SUPPORT_WHATSAPP = "+50488776655";
+// Change alongside the mailbox itself — a support address that bounces is
+// worse than none. Kept on the old domain until everysub.net mail is live.
 const SUPPORT_EMAIL = "support@prosperasub.com";
 
 export default function Support() {
