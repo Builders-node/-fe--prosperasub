@@ -18,6 +18,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { logAuditEvent } from "@/lib/auditLog";
 import { todayHN, addDaysISO } from "@/lib/timezone";
 import { cn } from "@/lib/utils";
+import { fetchUsersByIds } from "@/lib/admin/customerNames";
 
 /**
  * Admin/owner one-off booking creator for a cleaning provider — mounted on the
@@ -171,7 +172,7 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
       const clientIds = Array.from(new Set(rows.map((r: any) => r.client_id).filter(Boolean))) as string[];
       const [usersRes, clientsRes] = await Promise.all([
         userIds.length
-          ? supabaseDb.from("users").select("id,name,display_name,email").in("id", userIds)
+          ? fetchUsersByIds(userIds).then((m) => ({ data: [...m.values()] }))
           : Promise.resolve({ data: [] as any[] }),
         clientIds.length
           // contact_person, not contact_name — the latter doesn't exist, so this

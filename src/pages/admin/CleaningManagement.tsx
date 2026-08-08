@@ -53,6 +53,7 @@ import {
 import { usePagination, TablePagination } from "@/components/ui/table-pagination";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { fetchUsersByIds } from "@/lib/admin/customerNames";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -231,7 +232,7 @@ const CleaningManagement = ({
           ? supabaseDb.from("cleaning_clients").select("id, company_name, location, email, phone").in("id", clientIds)
           : Promise.resolve({ data: [] }),
         userIds.length
-          ? supabaseDb.from("users").select("id, display_name, name, email").in("id", userIds)
+          ? fetchUsersByIds(userIds).then((m) => ({ data: [...m.values()] }))
           : Promise.resolve({ data: [] }),
       ]);
 

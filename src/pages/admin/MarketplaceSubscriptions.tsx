@@ -30,6 +30,7 @@ import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAuditEvent } from "@/lib/auditLog";
 import { cn } from "@/lib/utils";
+import { fetchUsersByIds } from "@/lib/admin/customerNames";
 
 type SortKey = "name" | "date" | "service";
 
@@ -171,9 +172,7 @@ const MarketplaceSubscriptions = () => {
     queryKey: ["marketplace-subs-users", userIds.join(",")],
     enabled: userIds.length > 0,
     queryFn: async () => {
-      const { data, error } = await supabaseDb.from("users").select("id, name, display_name, email").in("id", userIds);
-      if (error) throw error;
-      return (data ?? []) as UserRow[];
+      return [...(await fetchUsersByIds(userIds)).values()] as UserRow[];
     },
   });
   const userById = useMemo(() => new Map(users.map((u) => [u.id, u])), [users]);

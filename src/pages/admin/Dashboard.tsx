@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { approvePayment, type ApproveService } from "@/lib/subscriptionApprove";
 import { cn } from "@/lib/utils";
+import { fetchUsersByIds, fetchClientNames, customerNameFrom } from "@/lib/admin/customerNames";
 
 /**
  * Admin Overview.
@@ -130,7 +131,7 @@ const AdminDashboard = () => {
     queryFn: async () => {
       const [cleaningSubs, foodSubs, beachSubs, rentalBookings] = await Promise.all([
         supabaseDb.from("cleaning_subscriptions")
-          .select("id, user_id, total_price_cents, monthly_price_cents, created_at, payment_status, subscription_status")
+          .select("id, user_id, client_id, total_price_cents, monthly_price_cents, created_at, payment_status, subscription_status")
           .is("deleted_at", null).neq("payment_status", "paid").neq("payment_status", "refunded")
           .not("subscription_status", "in", "(cancelled,expired)")
           .order("created_at", { ascending: false }).limit(20),
@@ -157,20 +158,27 @@ const AdminDashboard = () => {
         ...(beachSubs.data ?? []).map((r: any) => r.user_id),
         ...(rentalBookings.data ?? []).map((r: any) => r.user_id),
       ].filter(Boolean))] as string[];
-      const usersRes = userIds.length
-        ? await supabaseDb.from("users").select("id, name, display_name, email").in("id", userIds)
-        : { data: [] as any[] };
-      const userMap = new Map((usersRes.data ?? []).map((u: any) => [String(u.id), u]));
-      const label = (userId: string | null, fallback?: string | null) => {
-        if (!userId) return fallback || "Customer";
-        const u = userMap.get(String(userId));
-        return u?.display_name || u?.name || u?.email || fallback || "Customer";
-      };
+      // fetchUsersByIds drops ids that `users.id` (a uuid column) can't hold.
+      // One Google-sub id in the batch made PostgREST reject the whole query
+      // with 22P02, emptying the map and turning every name into a fallback.
+      const [userMap, clientMap] = await Promise.all([
+        fetchUsersByIds(userIds),
+        fetchClientNames((cleaningSubs.data ?? []).map((r: any) => r.client_id)),
+      ]);
+      const label = (userId: string | null, fallback?: string | null, clientId?: string | null) =>
+        customerNameFrom({
+          user: userId ? userMap.get(String(userId)) : null,
+          customerName: fallback,
+          clientName: clientId ? clientMap.get(String(clientId)) : null,
+          fallback: "Customer",
+        });
 
       const rows: PendingRow[] = [];
       (cleaningSubs.data ?? []).forEach((r: any) => rows.push({
         id: r.id, service: "cleaning", serviceLabel: "Cleaning", ServiceIcon: SparklesIcon,
-        userLabel: label(r.user_id),
+        // Cleaning carries no customer_name of its own — a company booking's
+        // name lives on the client record, so pass the client through.
+        userLabel: label(r.user_id, null, r.client_id),
         amountCents: Number(r.total_price_cents) || Number(r.monthly_price_cents) || 0,
         createdAt: r.created_at,
       }));
@@ -221,7 +229,7 @@ const AdminDashboard = () => {
     queryKey: ["admin-recent-activity-subscriptions"],
     queryFn: async () => {
       const [cleaningSubs, foodSubs, beachSubs, rentalBookings] = await Promise.all([
-        supabaseDb.from("cleaning_subscriptions").select("id, user_id, payment_status, total_price_cents, monthly_price_cents, created_at").is("deleted_at", null).order("created_at", { ascending: false }).limit(6),
+        supabaseDb.from("cleaning_subscriptions").select("id, user_id, client_id, payment_status, total_price_cents, monthly_price_cents, created_at").is("deleted_at", null).order("created_at", { ascending: false }).limit(6),
         supabaseDb.from("food_subscriptions").select("id, user_id, status, customer_name, weekly_price_cents, commitment_weeks, created_at").order("created_at", { ascending: false }).limit(6),
         supabaseDb.from("beach_club_subscriptions").select("id, user_id, status, payment_status, customer_name, total_cents, created_at").order("created_at", { ascending: false }).limit(6),
         supabaseDb.from("rental_bookings").select("id, user_id, status, payment_status, total_cents, created_at").is("deleted_at", null).order("created_at", { ascending: false }).limit(6),
@@ -233,21 +241,24 @@ const AdminDashboard = () => {
         ...(beachSubs.data ?? []).map((r: any) => r.user_id),
         ...(rentalBookings.data ?? []).map((r: any) => r.user_id),
       ].filter(Boolean))];
-      const { data: usersData } = userIds.length
-        ? await supabaseDb.from("users").select("id, name, display_name, email").in("id", userIds)
-        : { data: [] as any[] };
-      const usersMap = new Map((usersData ?? []).map((u: any) => [String(u.id), u]));
-      const nameOf = (uid: string, fallback?: string | null) => {
-        const u = usersMap.get(String(uid));
-        return u?.display_name || u?.name || u?.email || fallback || "Unknown";
-      };
+      const [usersMap, clientsMap] = await Promise.all([
+        fetchUsersByIds(userIds),
+        fetchClientNames((cleaningSubs.data ?? []).map((r: any) => r.client_id)),
+      ]);
+      const nameOf = (uid: string | null, fallback?: string | null, clientId?: string | null) =>
+        customerNameFrom({
+          user: uid ? usersMap.get(String(uid)) : null,
+          customerName: fallback,
+          clientName: clientId ? clientsMap.get(String(clientId)) : null,
+          fallback: "Customer",
+        });
 
       type Activity = { id: string; service: ServiceKey; tone: "paid" | "pending"; label: string; detail: string; date: string; href: string };
       const out: Activity[] = [];
 
       (cleaningSubs.data ?? []).forEach((s: any) => out.push({
         id: `csub-${s.id}`, service: "cleaning", tone: s.payment_status === "paid" ? "paid" : "pending",
-        label: `${nameOf(s.user_id)} — Cleaning subscription`,
+        label: `${nameOf(s.user_id, null, s.client_id)} — Cleaning subscription`,
         detail: s.payment_status === "paid" ? formatCents(s.total_price_cents || s.monthly_price_cents || 0) : "Awaiting payment",
         date: s.created_at, href: "/admin/marketplace/subscriptions",
       }));

@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { pickPhone } from "@/components/patterns/CustomerPhone";
+import { fetchUsersByIds } from "@/lib/admin/customerNames";
 
 /**
  * Normalized booking row shared by every service. Adapters map their legacy
@@ -100,7 +101,7 @@ async function fetchCleaning(providerId: string, from: string, to: string): Prom
   // lives on `user_profiles`, and the client's is `phone` / `contact_person`.
   const [usersRes, profilesRes, clientsRes] = await Promise.all([
     userIds.length
-      ? supabaseDb.from("users").select("id,name,display_name").in("id", userIds)
+      ? fetchUsersByIds(userIds).then((m) => ({ data: [...m.values()] }))
       : Promise.resolve({ data: [] as any[] }),
     userIds.length
       ? supabaseDb.from("user_profiles").select("user_id,phone_number,whatsapp").in("user_id", userIds)
@@ -230,7 +231,7 @@ async function fetchCars(providerId: string, from: string, to: string): Promise<
   // has no name column populated.
   const userIds = Array.from(new Set(rows.map((r: any) => r.user_id).filter(Boolean)));
   const usersRes = userIds.length
-    ? await supabaseDb.from("users").select("id,name,display_name").in("id", userIds)
+    ? await fetchUsersByIds(userIds).then((m) => ({ data: [...m.values()] }))
     : { data: [] as any[] };
   const userMap = new Map((usersRes.data ?? []).map((u: any) => [String(u.id), u]));
 

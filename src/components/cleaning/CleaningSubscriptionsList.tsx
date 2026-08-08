@@ -21,6 +21,7 @@ import { effectiveCleaningStatus } from "@/lib/subscriptionLifecycle";
 import { todayHN, addDaysISO, addMonthsISO } from "@/lib/timezone";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { fetchUsersByIds } from "@/lib/admin/customerNames";
 
 /**
  * Compact owner-facing subscriptions list for the cleaning provider workspace.
@@ -85,7 +86,7 @@ export function CleaningSubscriptionsList({ providerId }: { providerId: string }
     enabled: userIds.length > 0,
     queryFn: async () => {
       const [{ data }, { data: profiles }] = await Promise.all([
-        supabaseDb.from("users").select("id,email,name,display_name").in("id", userIds),
+        fetchUsersByIds(userIds).then((m) => ({ data: [...m.values()] })),
         supabaseDb.from("user_profiles").select("user_id,phone_number,whatsapp").in("user_id", userIds),
       ]);
       const profileMap = new Map((profiles ?? []).map((p: any) => [String(p.user_id), p]));

@@ -12,6 +12,7 @@ import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover
 import { formatUSD } from "@/lib/pricing";
 import { recognizedCents, addDaysISO } from "@/lib/revenueRecognition";
 import { cn } from "@/lib/utils";
+import { fetchUsersByIds } from "@/lib/admin/customerNames";
 
 type RangeKey = "week" | "month" | "custom";
 
@@ -210,7 +211,7 @@ export function FinanceBreakdown() {
       const vehIds    = [...new Set((cars.data ?? []).map((r: any) => r.vehicle_id).filter(Boolean))];
 
       const [users, clients, pkgs, meals, provs, vehs] = await Promise.all([
-        userIds.length   ? supabaseDb.from("users").select("id,email,name,display_name").in("id", userIds) : Promise.resolve({ data: [] as any[] }),
+        fetchUsersByIds(userIds).then((m) => ({ data: [...m.values()] })),
         clientIds.length ? supabaseDb.from("cleaning_clients").select("id,company_name,email").in("id", clientIds) : Promise.resolve({ data: [] as any[] }),
         pkgIds.length    ? supabaseDb.from("cleaning_packages").select("id,name").in("id", pkgIds) : Promise.resolve({ data: [] as any[] }),
         mealIds.length   ? supabaseDb.from("food_meal_plans").select("id,name").in("id", mealIds) : Promise.resolve({ data: [] as any[] }),
