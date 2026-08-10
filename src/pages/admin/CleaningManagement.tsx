@@ -247,13 +247,62 @@ const CleaningManagement = ({
     },
   });
 
-  const { data: slots = [] } = useQuery({
-    queryKey: ["admin-cleaning-slots"],
+  /**
+   * The universal providers.id for this workspace.
+   *
+   * `providerId` here is the LEGACY cleaning provider id — it is matched
+   * against cleaning_packages.provider_id above — while slot rows carry the
+   * UNIVERSAL id. Filtering slots by the legacy id would silently match
+   * nothing, which is the id-space split CLAUDE.md calls the top source of
+   * bugs in this codebase.
+   */
+  const { data: universalProviderId = null } = useQuery({
+    queryKey: ["admin-cleaning-universal-provider", providerId ?? "all"],
+    enabled: !!providerId,
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data } = await supabaseDb
+        .from("providers").select("id")
+        .eq("source_service_key", "cleaning")
+        .eq("source_provider_id", providerId!)
+        .maybeSingle();
+      return (data?.id as string | undefined) ?? null;
+    },
+  });
+
+  /**
+   * Slots for THIS provider, matching what the customer is offered.
+   *
+   * This query had no provider filter at all, so a provider's Operations
+   * calendar listed every slot on the platform. On the Car Wash workspace that
+   * meant its own 60-minute grid AND the shared 105-minute one on the same
+   * day — eight entries for a provider that publishes three — with no way to
+   * tell which was which.
+   *
+   * The fallback mirrors CleaningBook exactly: own slots if there are any,
+   * otherwise the shared grid. Admin and customer must not disagree about what
+   * the schedule is.
+   */
+  const { data: slots = [] } = useQuery({
+    queryKey: ["admin-cleaning-slots", providerId ?? "all", universalProviderId ?? "shared"],
+    enabled: !providerId || universalProviderId !== undefined,
+    queryFn: async () => {
+      const base = () => supabaseDb
         .from("cleaning_available_slots")
         .select("*")
         .order("date", { ascending: true });
+
+      // Platform-wide view (not embedded): everything, as before.
+      if (!providerId) {
+        const { data, error } = await base();
+        if (error) throw error;
+        return data ?? [];
+      }
+      if (universalProviderId) {
+        const { data, error } = await base().eq("provider_id", universalProviderId);
+        if (error) throw error;
+        if ((data ?? []).length > 0) return data!;
+      }
+      const { data, error } = await base().is("provider_id", null);
       if (error) throw error;
       return data ?? [];
     },
