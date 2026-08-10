@@ -11,6 +11,7 @@ import { BottomNav } from "@/components/BottomNav";
 import { YdEmptyState } from "@/components/yd/YdPrimitives";
 import { QueryError } from "@/components/QueryError";
 import { EntertainmentPlanCard } from "@/components/patterns/EntertainmentPlanCard";
+import { UniversalPlanCard } from "@/components/patterns/UniversalPlanCard";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
@@ -96,11 +97,36 @@ const BeachClub = () => {
     queryFn: async () => {
       const { data, error } = await supabaseDb
         .from("beach_club_plans")
-        .select("*")
+        .select("*, owner_provider_id")
         .eq("is_active", true)
         .order("sort_order", { ascending: true });
       if (error) throw error;
       return (data ?? []) as BeachPlan[];
+    },
+  });
+
+  /**
+   * Plans for providers under this archetype that have no legacy table.
+   * `beach_club_plans` above only knows the Beach Club; a provider like Massage
+   * keeps its offer in provider_plans, so without this its plans exist, show on
+   * its own provider page, and are invisible on the listing everyone lands on.
+   *
+   * Scoped by the PROVIDER being universal rather than by the plan's own
+   * source_service_key: the backfill gave legacy providers provider_plans rows
+   * too, and matching on the plan would list the Beach Club's membership twice.
+   */
+  const universalPlansQ = useQuery({
+    queryKey: ["entertainment-universal-plans-public"],
+    queryFn: async () => {
+      const { data, error } = await supabaseDb
+        .from("provider_plans")
+        .select("id, provider_id, name, description, price_cents, currency, period, features, providers!inner(name, archetype_key, source_service_key, category_key)")
+        .eq("providers.archetype_key", "entertainment")
+        .is("providers.source_service_key", null)
+        .eq("status", "active")
+        .order("sort_order", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as any[];
     },
   });
 
@@ -120,8 +146,6 @@ const BeachClub = () => {
     [providerGroups],
   );
   const [activeCategory, setActiveCategory] = useState<string>(ALL_CATEGORIES);
-  // Same caveat as cars: `beach_club_plans` has no owner column, so the chip
-  // scopes the rail and the plan grid below stays whole.
   const visibleRail = activeCategory === ALL_CATEGORIES
     ? railProviders
     : providerGroups
@@ -130,6 +154,36 @@ const BeachClub = () => {
           id: p.id, name: p.name, avatarUrl: p.avatar_url ?? null,
           gallery: p.gallery_urls ?? [], meta: g.label,
         })));
+
+  /**
+   * The chip narrows BOTH plan grids, not just the rail.
+   *
+   * A comment here used to claim beach_club_plans had no owner column, so the
+   * grid "stays whole" while the rail filtered. It does have one —
+   * owner_provider_id, populated — and ProviderDetail has been filtering on it
+   * all along. Left as it was, picking "Massage" would have shown the massage
+   * plan next to the Beach Club membership.
+   */
+  const providerCategory = useMemo(() => {
+    const m: Record<string, string | null> = {};
+    (providersQ.data ?? []).forEach((p: any) => { m[p.id] = p.category_key ?? null; });
+    return m;
+  }, [providersQ.data]);
+
+  const inActiveCategory = (categoryKey: string | null | undefined) =>
+    activeCategory === ALL_CATEGORIES || categoryKey === activeCategory;
+
+  const visibleBeachPlans = useMemo(
+    () => (plansQ.data ?? []).filter((pl: any) =>
+      inActiveCategory(providerCategory[pl.owner_provider_id])),
+    [plansQ.data, providerCategory, activeCategory],
+  );
+
+  const visibleUniversalPlans = useMemo(
+    () => (universalPlansQ.data ?? []).filter((r: any) =>
+      inActiveCategory(r.providers?.category_key)),
+    [universalPlansQ.data, activeCategory],
+  );
 
   const openProvider = (providerId: string) => {
     navigate(providerHref("entertainment", providerId));
@@ -182,15 +236,27 @@ const BeachClub = () => {
               onRetry={() => plansQ.refetch()}
               retrying={plansQ.isFetching}
             />
-          ) : plansQ.data && plansQ.data.length > 0 ? (
+          ) : visibleBeachPlans.length + visibleUniversalPlans.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {plansQ.data.map((plan) => (
+              {visibleBeachPlans.map((plan: any) => (
                 <EntertainmentPlanCard
                   key={plan.id}
                   plan={plan}
                   onSubscribe={(id) => {
-                    if (!isAuthenticated) openAuthModal("login", `/services/beach-club/checkout/${id}`);
-                    else navigate(`/services/beach-club/checkout/${id}`);
+                    const href = `/services/beach-club/checkout/${id}`;
+                    if (!isAuthenticated) openAuthModal("login", href);
+                    else navigate(href);
+                  }}
+                />
+              ))}
+              {visibleUniversalPlans.map((plan: any) => (
+                <UniversalPlanCard
+                  key={plan.id}
+                  plan={plan}
+                  onSubscribe={(id) => {
+                    const href = `/services/beach-club/checkout/plan/${id}`;
+                    if (!isAuthenticated) openAuthModal("login", href);
+                    else navigate(href);
                   }}
                 />
               ))}
