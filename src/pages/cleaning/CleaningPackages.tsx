@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useArchetypeLabel } from "@/hooks/useServiceArchetypes";
 import { useNavigate } from "react-router-dom";
 import { SparklesIcon, ShieldCheck, ChevronRight } from "lucide-react";
 import { providerHref } from "@/lib/services/serviceUrls";
@@ -38,6 +39,7 @@ interface CleaningCategory {
 
 const CleaningPackages = () => {
   const navigate = useNavigate();
+  const serviceTitle = useArchetypeLabel("cleaning", "Cleaning");
   const { isAuthenticated } = useAuth();
   const { openAuthModal } = useAuthModal();
   const { t } = useI18n();
@@ -231,7 +233,7 @@ const CleaningPackages = () => {
 
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-12">
-      <HomeHeader title="Cleaning" showBackButton onBack={() => navigate("/discovery")} />
+      <HomeHeader title={serviceTitle} showBackButton onBack={() => navigate("/discovery")} />
       <DesktopHeader />
 
       <main className="market-content space-y-8 py-space-4 md:py-space-8">

@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { useArchetypeLabel } from "@/hooks/useServiceArchetypes";
 import { Waves } from "lucide-react";
 import { providerHref } from "@/lib/services/serviceUrls";
 import { ProviderRail, CategoryChips, ALL_CATEGORIES } from "@/components/listing/ListingNav";
@@ -40,6 +41,7 @@ interface EntertainmentCategory {
 
 const BeachClub = () => {
   const navigate = useNavigate();
+  const serviceTitle = useArchetypeLabel("entertainment", "Entertainment");
   const { isAuthenticated } = useAuth();
   const { openAuthModal } = useAuthModal();
 
@@ -191,7 +193,7 @@ const BeachClub = () => {
 
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-12">
-      <HomeHeader title="Entertainment" showBackButton onBack={() => navigate("/discovery")} />
+      <HomeHeader title={serviceTitle} showBackButton onBack={() => navigate("/discovery")} />
       <DesktopHeader />
 
       <main className="market-content py-space-4 md:py-space-8">

@@ -64,6 +64,7 @@ const Cart = lazy(() => import("./pages/Cart"));
 // keeps its own /services/food/:id detail page (richer legacy layout).
 const ProviderDetail = lazy(() => import("./pages/ProviderDetail"));
 const UniversalPlanCheckout = lazy(() => import("./pages/UniversalPlanCheckout"));
+const ServicePage = lazy(() => import("./pages/ServicePage"));
 
 
 // Food
@@ -198,6 +199,14 @@ const App = () => {
 
               {/* Public provider profile — cleaning / rental / entertainment.
                   Food has its own /services/food/:id route above. */}
+              {/* Generic listing for any archetype without a bespoke page.
+                  The four static /services/<name> routes above win over this
+                  dynamic one — React Router prefers a static segment — so the
+                  rich cleaning/food/rental/beach pages are untouched. This is
+                  what lets a service added in /admin/services be reachable at
+                  all. */}
+              <Route path="/services/:archetypeKey" element={<ServicePage />} />
+
               {/* Checkout for a plan in the universal provider_plans table — the
                   path a provider with no legacy table of its own takes. Sits
                   BEFORE the :providerId route only by convention; the segments

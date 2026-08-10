@@ -51,3 +51,19 @@ export function useServiceArchetypes(activeOnly = true) {
 
   return { archetypes, isLoading };
 }
+
+/**
+ * The label an admin gave this service, for pages that used to hard-code it.
+ *
+ * The Entertainment archetype was called five different things at once: key
+ * `entertainment`, DB label "Lifestyle", page header "Entertainment", URL
+ * `beach-club`, registry label "Beach Club". A customer tapped "Lifestyle" and
+ * landed on a page titled "Entertainment". Three of those five are visible, and
+ * the DB label is the one an admin can actually change — so it wins.
+ *
+ * `fallback` is shown while the archetypes load, so a title never flashes empty.
+ */
+export function useArchetypeLabel(key: string, fallback: string): string {
+  const { archetypes } = useServiceArchetypes(true);
+  return archetypes.find((a) => a.key === key)?.label ?? fallback;
+}

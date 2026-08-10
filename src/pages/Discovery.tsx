@@ -32,10 +32,11 @@ const Discovery = () => {
   const { hasAny: managesBusiness } = useMyBusinesses();
   const { archetypes: allArchetypes, isLoading: archetypesLoading } = useServiceArchetypes(true);
 
-  // Only show archetypes that resolve to a real listing URL. An archetype
-  // without a matching public route is unreachable — filter it out so we
-  // never render a tile that leads nowhere.
-  const archetypes = allArchetypes.filter((a) => publicListingHref(a.source_service_key));
+  // Every active archetype now resolves to a listing — legacy ones to their
+  // bespoke page, the rest to the generic ServicePage — so nothing is filtered
+  // out. The old filter existed because an archetype off the hard-coded route
+  // map led nowhere; that map no longer decides what exists.
+  const archetypes = allArchetypes;
   const { t } = useI18n();
 
   // What's actually inside each service. A tile saying "Apartment Cleaning ·
@@ -186,7 +187,7 @@ function ArchetypeTile({
   const images = categories.map((c) => c.imageUrl).filter(Boolean).slice(0, MAX_TILE_IMAGES) as string[];
   return (
     <Link
-      to={publicListingHref(archetype.source_service_key) ?? "/discovery"}
+      to={publicListingHref(archetype.source_service_key, archetype.key) ?? "/discovery"}
       aria-label={archetype.label}
       className={cn(
         "group relative flex min-h-[112px] flex-col overflow-hidden rounded-2xl transition-colors active:scale-[0.98] hover:bg-muted/40",

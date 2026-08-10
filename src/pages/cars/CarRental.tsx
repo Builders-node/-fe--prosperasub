@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useArchetypeLabel } from "@/hooks/useServiceArchetypes";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Car, CalendarDays, Pencil } from "lucide-react";
 import { format, parseISO } from "date-fns";
@@ -30,6 +31,7 @@ const fmt12 = (t: string) => {
 
 const CarRental = () => {
   const navigate = useNavigate();
+  const serviceTitle = useArchetypeLabel("rental", "Rental");
   const [searchParams, setSearchParams] = useSearchParams();
 
   // ─── Listing-level date filter (carried into each car's booking flow) ───────
@@ -179,7 +181,7 @@ const CarRental = () => {
 
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-12">
-      <HomeHeader title="Rental" showBackButton onBack={() => navigate("/discovery")} />
+      <HomeHeader title={serviceTitle} showBackButton onBack={() => navigate("/discovery")} />
       <DesktopHeader />
 
       <main className="market-content space-y-8 py-space-4 md:py-space-8">

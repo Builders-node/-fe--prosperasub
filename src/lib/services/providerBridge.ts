@@ -82,10 +82,27 @@ const PUBLIC_LISTING_HREF: Record<string, string> = {
   beach_club: "/services/beach-club",
 };
 
-/** Resolve the short canonical public URL for a legacy source key, if any. */
-export function publicListingHref(sourceServiceKey?: string | null): string | null {
-  if (!sourceServiceKey) return null;
-  return PUBLIC_LISTING_HREF[sourceServiceKey] ?? null;
+/**
+ * The public URL for an archetype's listing.
+ *
+ * Legacy-backed services keep their bespoke short paths — those are live URLs
+ * in ads, emails and the beach landing page, and are not worth breaking.
+ * Everything else resolves to /services/<archetypeKey>, handled by the generic
+ * ServicePage.
+ *
+ * This used to return null for anything not in the map above, and Discovery
+ * dropped those tiles on purpose. The consequence was that a service created
+ * in /admin/services could never be reached by a customer — the only way to
+ * add one was to edit this file. Now it is a data change.
+ */
+export function publicListingHref(
+  sourceServiceKey?: string | null,
+  archetypeKey?: string | null,
+): string | null {
+  if (sourceServiceKey && PUBLIC_LISTING_HREF[sourceServiceKey]) {
+    return PUBLIC_LISTING_HREF[sourceServiceKey];
+  }
+  return archetypeKey ? `/services/${archetypeKey}` : null;
 }
 
 /**

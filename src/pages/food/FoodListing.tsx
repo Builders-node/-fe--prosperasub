@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useArchetypeLabel } from "@/hooks/useServiceArchetypes";
 import { useNavigate } from "react-router-dom";
 import {
   UtensilsCrossed, ChefHat, MapPin, ArrowRight, CalendarDays,
@@ -32,6 +33,7 @@ type ProviderWithPlans = FoodProvider & {
 
 const FoodListing = () => {
   const navigate = useNavigate();
+  const serviceTitle = useArchetypeLabel("food", "Food");
 
   // Single-RPC catalog fetch — replaces the previous 6-query waterfall
   // (providers → plans → provider_residences + plan_residences → reviews →
@@ -217,7 +219,7 @@ const FoodListing = () => {
 
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-12">
-      <HomeHeader title="Food" showBackButton onBack={() => navigate("/discovery")} />
+      <HomeHeader title={serviceTitle} showBackButton onBack={() => navigate("/discovery")} />
       <DesktopHeader />
 
       <main className="market-content py-space-4 md:py-space-8">
