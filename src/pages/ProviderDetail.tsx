@@ -115,7 +115,7 @@ function useUniversalPlans(providerId: string | undefined, enabled: boolean) {
     queryFn: async () => {
       const { data, error } = await supabaseDb
         .from("provider_plans")
-        .select("id, name, description, price_cents, currency, period, features")
+        .select("id, name, description, price_cents, currency, period, features, included_quantity, included_unit")
         .eq("provider_id", providerId!)
         .eq("status", "active")
         .order("sort_order", { ascending: true });

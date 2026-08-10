@@ -120,7 +120,7 @@ const BeachClub = () => {
     queryFn: async () => {
       const { data, error } = await supabaseDb
         .from("provider_plans")
-        .select("id, provider_id, name, description, price_cents, currency, period, features, providers!inner(name, archetype_key, source_service_key, category_key)")
+        .select("id, provider_id, name, description, price_cents, currency, period, features, included_quantity, included_unit, providers!inner(name, archetype_key, source_service_key, category_key)")
         .eq("providers.archetype_key", "entertainment")
         .is("providers.source_service_key", null)
         .eq("status", "active")

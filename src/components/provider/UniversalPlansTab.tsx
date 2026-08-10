@@ -21,9 +21,14 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+import { PLAN_PERIODS, type PlanPeriod, includedLabel } from "@/lib/services/planPeriod";
+
 const AUDIT = "provider_plan";
-const PERIODS = ["one_time", "weekly", "monthly", "quarterly", "yearly"] as const;
-type Period = typeof PERIODS[number];
+// Periods live in lib/services/planPeriod.ts — the checkout computes the term
+// from the same list, and the two drifting apart is what made a yearly plan
+// sell a month.
+const PERIODS = PLAN_PERIODS;
+type Period = PlanPeriod;
 
 interface Plan {
   id: string;
@@ -35,10 +40,15 @@ interface Plan {
   period: Period;
   status: string;
   sort_order: number;
+  /** How many of the thing are included per period. Null = unmetered access. */
+  included_quantity: number | null;
+  /** Singular noun for what is counted — "massage", "wash", "class". */
+  included_unit: string | null;
 }
 const EMPTY: Omit<Plan, "id" | "provider_id"> = {
   name: "", description: "", price_cents: 0, currency: "USD",
   period: "monthly", status: "active", sort_order: 0,
+  included_quantity: null, included_unit: "",
 };
 
 /** CRUD for `provider_plans` filtered by provider. Works for any capability that lists plans. */
@@ -76,6 +86,7 @@ export function UniversalPlansTab({ providerId }: { providerId: string }) {
     setForm({
       name: p.name, description: p.description ?? "", price_cents: p.price_cents,
       currency: p.currency, period: p.period, status: p.status, sort_order: p.sort_order,
+      included_quantity: p.included_quantity, included_unit: p.included_unit ?? "",
     });
     setPriceDollars((p.price_cents / 100).toFixed(2));
   };
@@ -91,10 +102,17 @@ export function UniversalPlansTab({ providerId }: { providerId: string }) {
         period: form.period,
         status: form.status,
         sort_order: form.sort_order,
+        // A blank box means "unmetered", not zero — the DB rejects <= 0.
+        included_quantity: form.included_quantity && form.included_quantity > 0
+          ? form.included_quantity : null,
+        included_unit: form.included_unit.trim() || null,
         updated_at: new Date().toISOString(),
       };
       if (!payload.name) throw new Error("Name is required");
       if (payload.price_cents < 0) throw new Error("Price must be non-negative");
+      if (form.included_quantity !== null && form.included_quantity <= 0) {
+        throw new Error("Included quantity must be at least 1 — leave it empty for unlimited");
+      }
 
       if (editing === "new") {
         const { data, error } = await supabaseDb.from("provider_plans").insert(payload).select("id").single();
@@ -147,7 +165,7 @@ export function UniversalPlansTab({ providerId }: { providerId: string }) {
                   <span className="font-bold text-foreground">{p.name}</span>
                   <StatusPill status={p.status} />
                   <span className="text-xs text-muted-foreground">
-                    {formatUSD(p.price_cents)} · {p.period.replace("_", " ")}
+                    {formatUSD(p.price_cents)} · {p.period.replace("_", " ")}{includedLabel(p.included_quantity, p.included_unit, p.period) ? ` · ${includedLabel(p.included_quantity, p.included_unit, p.period)}` : ""}
                   </span>
                 </div>
                 {p.description && <p className="mt-1 text-sm text-muted-foreground">{p.description}</p>}
@@ -210,6 +228,41 @@ export function UniversalPlansTab({ providerId }: { providerId: string }) {
                 </select>
               </div>
             </div>
+            {/* "4 massages a month" — the 4 and the noun, so the number is data
+                rather than a phrase buried in the plan name. Leave the count
+                empty for plain unmetered access. */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Included per period</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  inputMode="numeric"
+                  placeholder="e.g. 4 — leave empty for unlimited"
+                  value={form.included_quantity ?? ""}
+                  onChange={(e) => {
+                    const n = Number.parseInt(e.target.value, 10);
+                    setForm((f) => ({ ...f, included_quantity: Number.isFinite(n) ? n : null }));
+                  }}
+                />
+              </div>
+              <div>
+                <Label>Unit</Label>
+                <Input
+                  placeholder="massage"
+                  value={form.included_unit}
+                  onChange={(e) => setForm((f) => ({ ...f, included_unit: e.target.value }))}
+                />
+              </div>
+            </div>
+            {includedLabel(form.included_quantity, form.included_unit, form.period) && (
+              <p className="-mt-1 text-xs text-muted-foreground">
+                Customers will see: <span className="font-medium text-foreground">
+                  {includedLabel(form.included_quantity, form.included_unit, form.period)}
+                </span>
+              </p>
+            )}
+
             <div>
               <Label>Sort order</Label>
               <Input type="number" value={form.sort_order} onChange={(e) => setForm((f) => ({ ...f, sort_order: parseInt(e.target.value || "0") }))} />

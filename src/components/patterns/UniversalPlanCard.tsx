@@ -1,6 +1,7 @@
 import { ArrowRight, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatUSD } from "@/lib/pricing";
+import { includedLabel, periodNoun } from "@/lib/services/planPeriod";
 
 /**
  * A plan from the universal `provider_plans` table.
@@ -20,6 +21,8 @@ export interface UniversalPlan {
   currency: string | null;
   period: string | null;
   features: unknown;
+  included_quantity?: number | null;
+  included_unit?: string | null;
 }
 
 /**
@@ -34,12 +37,10 @@ function featureList(features: unknown): string[] {
     .map((f) => f.trim());
 }
 
-/** "month" → "/ month". An unset period says nothing rather than guessing one. */
+/** "monthly" → "/ month". A one-off says nothing rather than inventing a cycle. */
 function periodLabel(period: string | null): string {
-  if (!period) return "";
-  const p = period.trim().toLowerCase();
-  if (!p || p === "once" || p === "one_time" || p === "one-time") return "";
-  return `/ ${p.replace(/_/g, " ")}`;
+  const noun = periodNoun(period);
+  return noun ? `/ ${noun}` : "";
 }
 
 export function UniversalPlanCard({
@@ -50,6 +51,7 @@ export function UniversalPlanCard({
   featured?: boolean;
 }) {
   const features = featureList(plan.features);
+  const included = includedLabel(plan.included_quantity, plan.included_unit, plan.period);
   const hasPrice = typeof plan.price_cents === "number" && plan.price_cents > 0;
 
   return (
@@ -59,6 +61,9 @@ export function UniversalPlanCard({
       }`}
     >
       <h3 className="text-lg font-black tracking-tight text-foreground">{plan.name}</h3>
+      {included && (
+        <p className="mt-1.5 text-sm font-semibold text-primary">{included}</p>
+      )}
       {plan.description && (
         <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{plan.description}</p>
       )}

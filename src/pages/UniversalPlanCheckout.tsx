@@ -11,7 +11,7 @@ import { supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserUuid } from "@/hooks/useUserUuid";
 import { toast } from "sonner";
-import { addDays, addMonths, addYears, format } from "date-fns";
+import { format } from "date-fns";
 import { nowHN } from "@/lib/timezone";
 import { UserLayout } from "@/components/layout/UserLayout";
 import { useBtcPrice } from "@/hooks/useBtcPrice";
@@ -23,6 +23,7 @@ import { PayPalPanel } from "@/components/payment/PayPalPanel";
 import { InvoiceQrPanel } from "@/components/payment/InvoiceQrPanel";
 import { useInvoicePayment } from "@/hooks/useInvoicePayment";
 import { serviceListingHref, serviceSlug } from "@/lib/services/serviceUrls";
+import { endDateFor, termLabel, includedLabel } from "@/lib/services/planPeriod";
 
 /**
  * Checkout for a plan in the universal `provider_plans` table.
@@ -40,31 +41,9 @@ interface PlanRow {
   description: string | null;
   price_cents: number | null;
   period: string | null;
+  included_quantity: number | null;
+  included_unit: string | null;
   provider_name: string | null;
-}
-
-/**
- * A plan's period drives the term. Anything unrecognised is treated as a month
- * rather than left open-ended — an end_date of null reads as "never expires"
- * everywhere downstream, which is not what an unknown period means.
- */
-function endDateFor(startISO: string, period: string | null): Date {
-  const start = new Date(`${startISO}T00:00:00`);
-  switch ((period ?? "").trim().toLowerCase()) {
-    case "day":   return addDays(start, 1);
-    case "week":  return addDays(start, 7);
-    case "year":  return addYears(start, 1);
-    default:      return addMonths(start, 1);
-  }
-}
-
-function termLabel(period: string | null): string {
-  switch ((period ?? "").trim().toLowerCase()) {
-    case "day":  return "1 day";
-    case "week": return "1 week";
-    case "year": return "1 year";
-    default:     return "1 month";
-  }
 }
 
 const UniversalPlanCheckout = () => {
@@ -99,7 +78,7 @@ const UniversalPlanCheckout = () => {
     queryFn: async () => {
       const { data, error } = await supabaseDb
         .from("provider_plans")
-        .select("id, provider_id, name, description, price_cents, period, providers(name)")
+        .select("id, provider_id, name, description, price_cents, period, included_quantity, included_unit, providers(name)")
         .eq("id", planId!)
         .eq("status", "active")
         .single();
@@ -146,6 +125,8 @@ const UniversalPlanCheckout = () => {
       plan_name: plan!.name,
       provider_name: plan!.provider_name,
       period: plan!.period,
+      included_quantity: plan!.included_quantity,
+      included_unit: plan!.included_unit,
       customer_name: userData?.name || userData?.display_name || null,
       customer_email: userData?.email || null,
       surcharge_cents: effectiveTotalCents - totalCents,
@@ -367,6 +348,9 @@ const UniversalPlanCheckout = () => {
 
           <div className="divide-y divide-border/60 border-t border-border/60">
             <SummaryRow label="Plan" value={plan.name} />
+            {includedLabel(plan.included_quantity, plan.included_unit, plan.period) && (
+              <SummaryRow label="Included" value={includedLabel(plan.included_quantity, plan.included_unit, plan.period)!} />
+            )}
             <SummaryRow label="Term" value={termLabel(plan.period)} />
             <SummaryRow label="Start date" value={format(new Date(`${startDate}T00:00:00`), "d MMM yyyy")} />
             <SummaryRow label="Ends" value={format(endDate, "d MMM yyyy")} />
