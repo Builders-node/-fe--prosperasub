@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { effectiveCleaningStatus, effectiveFoodStatus } from "@/lib/subscriptionLifecycle";
 import { QueryError } from "@/components/QueryError";
@@ -36,6 +36,8 @@ import {
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
+import { serviceSlug } from "@/lib/services/serviceUrls";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { accountApi, supabase, supabaseDb } from "@/integrations/supabase/client";
@@ -246,7 +248,25 @@ function CleaningBookingRow({
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-type ServiceTab = "cleaning" | "food" | "cars" | "beach" | "other";
+/**
+ * A tab is an archetype key, straight from service_archetypes — not a fixed
+ * list. The four labels used to be hard-coded here, so the tab still said
+ * "Beach" long after an admin renamed that archetype to "Lifestyle", and a new
+ * archetype got no tab at all.
+ *
+ * The tab CONTENT is still per-service: each legacy table has its own columns
+ * and its own card. What is data-driven is which tabs exist, what they are
+ * called, their icons and their order.
+ */
+type ServiceTab = string;
+
+/** Old `?tab=` values, so links and bookmarks keep landing where they did. */
+const LEGACY_TAB_ALIASES: Record<string, string> = {
+  cars: "rental",
+  beach: "entertainment",
+  "beach-club": "entertainment",
+  other: "entertainment",
+};
 
 const MySubscriptions = () => {
   const { isAuthenticated, isLoading: authLoading, userData } = useAuth();
@@ -260,12 +280,22 @@ const MySubscriptions = () => {
   const queryClient = useQueryClient();
   const navigate    = useNavigate();
 
-  // ── Service tab state (Cleaning / Food / Cars) ──────────────────────────
+  // ── Service tabs, driven by service_archetypes ─────────────────────────
+  const { archetypes } = useServiceArchetypes(true);
   const [searchParams, setSearchParams] = useSearchParams();
-  const initialTab = (searchParams.get("tab") as ServiceTab) || "cleaning";
+  const rawTab = searchParams.get("tab") ?? "";
   const [activeTab, setActiveTab] = useState<ServiceTab>(
-    ["cleaning", "food", "cars", "beach", "other"].includes(initialTab) ? initialTab : "cleaning",
+    LEGACY_TAB_ALIASES[rawTab] ?? rawTab ?? "",
   );
+
+  // The archetype list arrives async, so the first render has no tabs to
+  // validate against. Settle on the first archetype once they land, and only
+  // if the current selection isn't one of them.
+  useEffect(() => {
+    if (!archetypes.length) return;
+    if (archetypes.some((a) => a.key === activeTab)) return;
+    setActiveTab(archetypes[0].key);
+  }, [archetypes, activeTab]);
   /**
    * Active / Past. Food, Cars and Beach rendered one flat list each with live
    * and long-dead rows intermixed and no way to separate them — a customer
@@ -328,7 +358,7 @@ const MySubscriptions = () => {
       if (error) throw error;
       return data ?? [];
     },
-    enabled: (!!userUuid || !!userData?.id) && activeTab === "cars",
+    enabled: (!!userUuid || !!userData?.id) && activeTab === "rental",
   });
 
   // ── Beach Club memberships for the current user ─────────────────────────
@@ -348,36 +378,41 @@ const MySubscriptions = () => {
       if (error) throw error;
       return data ?? [];
     },
-    enabled: (!!userUuid || !!userData?.id) && activeTab === "beach",
+    enabled: (!!userUuid || !!userData?.id) && activeTab === "entertainment",
   });
 
   /**
    * Subscriptions to providers that have no legacy table of their own — the
    * universal provider_subscriptions row written by UniversalPlanCheckout.
-   * Without this tab a customer pays and then cannot see what they bought:
-   * the four tabs above each read one legacy table and none of them would
-   * ever return this row.
+   * A provider like Massage has no legacy table, so none of the per-service
+   * queries above would ever return its rows and a customer could pay and then
+   * not see what they bought.
+   *
+   * Scoped to the open tab's archetype, so it appears beneath that service's
+   * own list rather than in a catch-all bucket. Massage is under Lifestyle, so
+   * that is where its subscription belongs.
    */
   const {
-    data: universalSubs = [], isLoading: universalLoading,
+    data: universalSubs = [],
     isError: universalError, refetch: refetchUniversal,
   } = useQuery({
-    queryKey: ["my-universal-subscriptions", userUuid],
+    queryKey: ["my-universal-subscriptions", userUuid, activeTab],
     queryFn: async () => {
-      if (!userUuid) return [];
+      if (!userUuid || !activeTab) return [];
       const { data, error } = await supabaseDb
         .from("provider_subscriptions")
-        .select("*, providers(name), provider_plans(name, period)")
+        .select("*, providers!inner(name, archetype_key), provider_plans(name, period)")
         .eq("user_id", userUuid)
-        // Legacy-backed rows are mirrors of a row one of the other tabs already
-        // shows. Without this filter every beach and cleaning subscription
-        // would appear twice on this page.
+        .eq("providers.archetype_key", activeTab)
+        // Legacy-backed rows mirror a row the per-service query already shows.
+        // Without this filter every beach and cleaning subscription appears
+        // twice on the same tab.
         .is("source_service_key", null)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data ?? [];
     },
-    enabled: !!userUuid && activeTab === "other",
+    enabled: !!userUuid && !!activeTab,
   });
 
   // ── Queries ──────────────────────────────────────────────────────────────
@@ -765,13 +800,7 @@ const MySubscriptions = () => {
 
         {/* ── Service tabs ────────────────────────────────────────── */}
         <div className="mb-5 flex gap-1 overflow-x-auto rounded-2xl bg-muted/50 p-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-          {([
-            { id: "cleaning" as const, label: "Cleaning", icon: SparklesIcon },
-            { id: "food"     as const, label: "Food",     icon: UtensilsCrossed },
-            { id: "cars"     as const, label: "Cars",     icon: Car },
-            { id: "beach"    as const, label: "Beach",    icon: Waves },
-            { id: "other"    as const, label: "Other",    icon: LayoutGrid },
-          ]).map(({ id, label, icon: Icon }) => {
+          {archetypes.map(({ key: id, label, Icon }) => {
             const active = activeTab === id;
             return (
               <button
@@ -872,7 +901,7 @@ const MySubscriptions = () => {
         )}
 
         {/* ─── CARS tab content ─────────────────────────────────── */}
-        {activeTab === "cars" && (
+        {activeTab === "rental" && (
           <div className="space-y-5">
             <TabHeaderCTA
               primary={{ label: "Browse Vehicles", icon: Car, onClick: () => navigate("/services/rental") }}
@@ -926,7 +955,7 @@ const MySubscriptions = () => {
         )}
 
         {/* ─── BEACH CLUB tab content ──────────────────────────── */}
-        {activeTab === "beach" && (() => {
+        {activeTab === "entertainment" && (() => {
           const today = todayHN();
           const hasActive = beachSubs.some((s: any) =>
             String(s.status).toLowerCase() === "active" && (!s.end_date || s.end_date >= today));
@@ -1018,28 +1047,14 @@ const MySubscriptions = () => {
           );
         })()}
 
-        {/* ─── OTHER tab — universal provider_subscriptions ───── */}
-        {activeTab === "other" && (
-          <div className="space-y-5">
-            <TabHeaderCTA
-              primary={{ label: "Browse services", icon: LayoutGrid, onClick: () => navigate("/discovery") }}
-            />
-
-            <ScopeToggle scope={scope} onChange={setScope} />
-
-            {universalLoading ? (
-              <Skeleton rows={3} />
-            ) : universalError ? (
+        {/* ─── Universal provider_subscriptions for the open tab ─────
+            Rendered under whichever service is open, not in a bucket of its
+            own. Silent when there is nothing: every tab already has its own
+            empty state, and a second one underneath reads as a fault. */}
+        {(universalError || visibleUniversal.length > 0) && (
+          <div className="mt-6 space-y-5">
+            {universalError ? (
               <QueryError title="Couldn't load your subscriptions" onRetry={() => refetchUniversal()} />
-            ) : visibleUniversal.length === 0 ? (
-              <TabEmptyState
-                icon={LayoutGrid}
-                title={scope === "active" ? "No active subscriptions" : "No past subscriptions"}
-                subtitle={scope === "active"
-                  ? "Services that aren't cleaning, food, cars or the beach club show up here."
-                  : "Subscriptions that end or are cancelled show up here."}
-                action={{ label: "Browse services", onClick: () => navigate("/discovery") }}
-              />
             ) : (
               <SectionGroup label="Subscriptions" count={visibleUniversal.length}>
                 {visibleUniversal.map((s: any) => {
@@ -1070,7 +1085,7 @@ const MySubscriptions = () => {
                         label: "Renew",
                         icon: RefreshCw,
                         variant: "secondary" as const,
-                        onClick: () => navigate(`/services/beach-club/checkout/plan/${s.plan_id}`),
+                        onClick: () => navigate(`/services/${serviceSlug(s.providers?.archetype_key ?? activeTab)}/checkout/plan/${s.plan_id}`),
                       }] : []}
                     />
                   );
