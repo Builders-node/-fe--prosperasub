@@ -249,38 +249,73 @@ const CleaningBook = () => {
     enabled: isAuthenticated && !!userUuid,
   });
 
-  const { data: rawSlots, isLoading: slotsLoading } = useQuery({
-    queryKey: ["cleaning-slots-schedule"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("cleaning_available_slots")
-        .select("*")
-        .gte("date", todayKey())
-        .order("date", { ascending: true })
-        .order("start_time", { ascending: true });
-      if (error) throw error;
-      return data || [];
-    },
-  });
-
   // Fetch the parent provider's booking calendar so plans without an override
   // fall through to the provider-level schedule when we filter slots below.
   // Keyed on the SELECTED package's provider_id — the old query grabbed
   // "first active cleaning provider" and applied its schedule to every plan,
   // so owner-set minNotice/maxAdvance only worked by luck.
+  //
+  // Declared BEFORE the slot query, which keys off the universal id: a `const`
+  // read during render before its declaration is a TDZ crash, not a warning.
   const selectedPackage = subscriptions?.find((s: any) => s.id === selectedSubId)?.cleaning_packages;
   const packageProviderId: string | null = selectedPackage?.provider_id ?? null;
-  const { data: providerSettings } = useQuery({
+  const { data: providerRow } = useQuery({
     queryKey: ["cleaning-provider-booking-settings", packageProviderId ?? "none"],
     enabled: !!packageProviderId,
     queryFn: async () => {
       const { data } = await supabaseDb
         .from("providers")
-        .select("booking_settings")
+        // `id` is the UNIVERSAL providers.id the slot rows point at; the
+        // package carries the LEGACY id. Confusing the two is the id-space
+        // split CLAUDE.md calls the top source of bugs here.
+        .select("id, booking_settings")
         .eq("source_service_key", "cleaning")
         .eq("source_provider_id", packageProviderId!)
         .maybeSingle();
-      return data?.booking_settings ?? null;
+      return data ?? null;
+    },
+  });
+  const providerSettings = (providerRow as { booking_settings?: unknown } | null)?.booking_settings ?? null;
+  const universalProviderId = (providerRow as { id?: string } | null)?.id ?? null;
+
+  /**
+   * Slots for THIS provider, falling back to the shared grid.
+   *
+   * The grid used to be global: one set of rows for every cleaning provider,
+   * with the four times hard-coded inside seed_cleaning_slots. Car Wash is
+   * configured for 60-minute sessions and was still offered 8:00–9:45, because
+   * booking_settings only ever acted as a filter below — able to hide a slot
+   * outside opening hours, never to change its length.
+   *
+   * A provider that has its own slots uses only those. One that has none keeps
+   * the shared rows exactly as before, so nothing changes for it until an admin
+   * seeds it.
+   */
+  const { data: rawSlots, isLoading: slotsLoading } = useQuery({
+    queryKey: ["cleaning-slots-schedule", universalProviderId ?? "shared"],
+    queryFn: async () => {
+      // supabaseDb, not the wrapper: OwnedQueryBuilder has no `.is()`, so the
+      // NULL check for the shared grid cannot be expressed through it. The file
+      // already reads its other service tables this way.
+      //
+      // Row count stays under PostgREST's 1000-row cap because the filter is
+      // server-side and per provider: 180 days at 3–4 slots a day is ~700.
+      const base = () => supabaseDb
+        .from("cleaning_available_slots")
+        .select("*")
+        .gte("date", todayKey())
+        .order("date", { ascending: true })
+        .order("start_time", { ascending: true });
+
+      if (universalProviderId) {
+        const { data, error } = await base().eq("provider_id", universalProviderId);
+        if (error) throw error;
+        if ((data ?? []).length > 0) return data!;
+      }
+      // No provider-specific grid — the shared rows are still the schedule.
+      const { data, error } = await base().is("provider_id", null);
+      if (error) throw error;
+      return data || [];
     },
   });
 
