@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Waves, ArrowRight, LandPlot } from "lucide-react";
+import { Waves } from "lucide-react";
 import { providerHref } from "@/lib/services/serviceUrls";
 import { ProviderRail, CategoryChips, ALL_CATEGORIES } from "@/components/listing/ListingNav";
 import { groupProvidersByCategory } from "@/lib/services/groupByCategory";
@@ -14,8 +14,6 @@ import { EntertainmentPlanCard } from "@/components/patterns/EntertainmentPlanCa
 import { supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
-import { useUserUuid } from "@/hooks/useUserUuid";
-import { todayHN } from "@/lib/timezone";
 
 interface BeachPlan {
   id: string;
@@ -41,9 +39,8 @@ interface EntertainmentCategory {
 
 const BeachClub = () => {
   const navigate = useNavigate();
-  const { isAuthenticated, userData } = useAuth();
+  const { isAuthenticated } = useAuth();
   const { openAuthModal } = useAuthModal();
-  const userUuid = useUserUuid();
 
   // Providers under the Entertainment archetype. Right now there's one
   // (Beach Club) but this is the multi-provider surface — the page mirrors
@@ -90,23 +87,9 @@ const BeachClub = () => {
     [providersQ.data, categoriesQ.data],
   );
 
-  // Active membership → unlock court booking.
-  const { data: hasMembership } = useQuery({
-    queryKey: ["my-beach-membership", userUuid, userData?.id],
-    queryFn: async () => {
-      const ids = [userUuid, userData?.id].filter(Boolean) as string[];
-      if (!ids.length) return false;
-      const { data, error } = await supabaseDb
-        .from("beach_club_subscriptions")
-        .select("id, status, end_date")
-        .in("user_id", ids)
-        .eq("status", "active");
-      if (error) return false;
-      const today = todayHN();
-      return (data ?? []).some((s: any) => !s.end_date || s.end_date >= today);
-    },
-    enabled: isAuthenticated && (!!userUuid || !!userData?.id),
-  });
+  // The membership lookup that used to gate the "Book a court" shortcut went
+  // with the shortcut. It was a per-load query against beach_club_subscriptions
+  // whose only consumer was that banner.
 
   const plansQ = useQuery({
     queryKey: ["entertainment-plans-public"],
@@ -158,25 +141,6 @@ const BeachClub = () => {
       <DesktopHeader />
 
       <main className="market-content py-space-4 md:py-space-8">
-        {/* Court booking shortcut — visible only when the user has an active
-            beach-club membership. Kept at the top so members find it fast. */}
-        {hasMembership && (
-          <button
-            type="button"
-            onClick={() => navigate("/services/beach-club/courts")}
-            className="mb-6 flex w-full items-center gap-4 rounded-3xl border border-primary/40 bg-primary/10 p-5 text-left transition-transform active:scale-[0.99]"
-          >
-            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary text-black shadow-sm">
-              <LandPlot className="h-6 w-6" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="text-[15px] font-bold text-foreground">Book a court</p>
-              <p className="mt-0.5 text-sm text-muted-foreground">You're a member — reserve a tennis or pickleball court any time.</p>
-            </div>
-            <ArrowRight className="h-5 w-5 shrink-0 text-primary" />
-          </button>
-        )}
-
         {/* ─── Providers grouped by category ──────────────────────────
             "Beach Membership" providers on top, "Court Bookings" below, etc.
             Header hidden when only one category is populated so single-
@@ -189,16 +153,16 @@ const BeachClub = () => {
           </section>
         ) : providersQ.isError ? (
           <QueryError
-            title="Couldn't load venues"
+            title="Couldn't load providers"
             error={providersQ.error instanceof Error ? providersQ.error.message : undefined}
             onRetry={() => providersQ.refetch()}
             retrying={providersQ.isFetching}
           />
         ) : providerGroups.length === 0 ? (
-          <YdEmptyState icon={Waves} title="No venues yet" subtitle="We're setting things up. Check back soon." />
+          <YdEmptyState icon={Waves} title="No providers yet" subtitle="We're setting things up. Check back soon." />
         ) : (
           <div className="space-y-4">
-            <ProviderRail providers={visibleRail} icon={Waves} label="Venues" onOpen={openProvider} />
+            <ProviderRail providers={visibleRail} icon={Waves} label="Providers" onOpen={openProvider} />
             <CategoryChips categories={chipCategories} value={activeCategory} onChange={setActiveCategory} />
           </div>
         )}
