@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { ExternalLink, CalendarClock } from "lucide-react";
+import { ExternalLink, CalendarClock, Package } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { StatusPill } from "@/components/patterns/StatusPill";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import {
 } from "@/components/provider/capabilities";
 import { UniversalInfoTab, type UniversalProviderRow } from "@/components/provider/UniversalInfoTab";
 import { UniversalPlansTab } from "@/components/provider/UniversalPlansTab";
+import { InnerPillTabs } from "@/components/provider/InnerPillTabs";
 import { BookingsTab } from "@/components/provider/BookingsTab";
 import { ScheduleAccordion } from "@/components/provider/ScheduleAccordion";
 import { LegacyOwnerPortal, FOOD_SUBSCRIPTIONS_TAB_BODY, CLEANING_SUBSCRIPTIONS_TAB_BODY, BEACH_SUBSCRIPTIONS_TAB_BODY } from "@/components/provider/legacyPortalTabs";
@@ -179,10 +180,21 @@ export function ProviderWorkspace({ providerId, publicHref = "/discovery", backH
   );
 }
 
-/** Universal capability portal (non-legacy providers). Same five-slot shape as
- *  LegacyOwnerPortal — Overview → capability tabs → Bookings. Tab prefixes
- *  (analytics above Overview, schedule accordion above Offerings) come in as a
- *  map so the source of truth stays in ProviderWorkspace. */
+/**
+ * Universal portal for providers with no legacy table.
+ *
+ * It used to name its tabs after capabilities — "Subscription plans",
+ * "Catalog", "Delivery" — while all four legacy portals used
+ * Overview / Offerings / Operations / Team. The owner of a massage business
+ * therefore met a different structure from the owner of a cleaning business,
+ * for no reason a provider could see. INFO_TAB_META's own comment already
+ * asked for the legacy shape; the capability tabs just never followed it.
+ *
+ * Now the shape is identical and the capabilities become sub-tabs INSIDE
+ * Offerings, the same way cars put Insurance / Extras / Delivery inside
+ * Operations. One capability collapses to no sub-tabs at all, so a simple
+ * provider sees a plain Plans editor rather than a pill row of one.
+ */
 function CapabilityPortal({ provider, capabilityTabs, bookingsTab, tabPrefixes = {} }: {
   provider: UniversalProviderRow;
   capabilityTabs: { key: CapabilityKey; meta: CapabilityMeta }[];
@@ -191,6 +203,24 @@ function CapabilityPortal({ provider, capabilityTabs, bookingsTab, tabPrefixes =
 }) {
   const InfoIcon = INFO_TAB_META.icon;
   const BookingsIcon = bookingsTab.icon;
+
+  const renderCapability = (key: CapabilityKey, meta: CapabilityMeta) =>
+    key === "subscription_plans"
+      ? <UniversalPlansTab providerId={provider.id} />
+      : <ComingSoonTab capability={meta} />;
+
+  const offerings = capabilityTabs.length === 1
+    ? renderCapability(capabilityTabs[0].key, capabilityTabs[0].meta)
+    : (
+      <InnerPillTabs
+        items={capabilityTabs.map(({ key, meta }) => ({
+          key: meta.tabValue,
+          label: meta.tabLabel,
+          render: () => renderCapability(key, meta),
+        }))}
+      />
+    );
+
   return (
     <Tabs defaultValue={INFO_TAB_META.tabValue}>
       <TabsList equalWidth className="mb-6 w-full">
@@ -199,16 +229,12 @@ function CapabilityPortal({ provider, capabilityTabs, bookingsTab, tabPrefixes =
           <span className="hidden sm:inline">{INFO_TAB_META.tabLabel}</span>
           <span className="sm:hidden">{INFO_TAB_META.tabMobileLabel}</span>
         </TabsTrigger>
-        {capabilityTabs.map(({ meta }) => {
-          const T = meta.icon;
-          return (
-            <TabsTrigger key={meta.tabValue} value={meta.tabValue} equalWidth className="gap-2 px-2 sm:px-space-4">
-              <T className="hidden h-4 w-4 sm:block" />
-              <span className="hidden sm:inline">{meta.tabLabel}</span>
-              <span className="sm:hidden">{meta.tabMobileLabel ?? meta.tabLabel}</span>
-            </TabsTrigger>
-          );
-        })}
+        {capabilityTabs.length > 0 && (
+          <TabsTrigger value="offerings" equalWidth className="gap-2 px-2 sm:px-space-4">
+            <Package className="hidden h-4 w-4 sm:block" />
+            <span>Offerings</span>
+          </TabsTrigger>
+        )}
         <TabsTrigger value={bookingsTab.value} equalWidth className="gap-2 px-2 sm:px-space-4">
           <BookingsIcon className="hidden h-4 w-4 sm:block" />
           <span className="hidden sm:inline">{bookingsTab.label}</span>
@@ -221,15 +247,12 @@ function CapabilityPortal({ provider, capabilityTabs, bookingsTab, tabPrefixes =
         <UniversalInfoTab provider={provider} />
       </TabsContent>
 
-      {capabilityTabs.map(({ key, meta }) => (
-        <TabsContent key={meta.tabValue} value={meta.tabValue}>
-          {/* Universal offerings-like capability tabs share the offerings-prefix slot. */}
+      {capabilityTabs.length > 0 && (
+        <TabsContent value="offerings">
           {tabPrefixes.offerings}
-          {key === "subscription_plans"
-            ? <UniversalPlansTab providerId={provider.id} />
-            : <ComingSoonTab capability={meta} />}
+          {offerings}
         </TabsContent>
-      ))}
+      )}
 
       <TabsContent value={bookingsTab.value}>
         {bookingsTab.render(null as never)}

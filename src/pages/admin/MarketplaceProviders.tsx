@@ -541,6 +541,8 @@ function EditProviderForm({
   const [archetypeKey, setArchetypeKey] = useState(provider.archetype_key ?? "__none");
   const [categoryKey, setCategoryKey] = useState(provider.category_key ?? "__none");
   const [caps, setCaps] = useState<Set<string>>(new Set(provider.capabilities ?? []));
+  /** Legacy-backed providers get a bespoke tab bundle; capabilities don't reach it. */
+  const isLegacyBacked = !!provider.source_service_key;
   const [contactEmail, setContactEmail] = useState(provider.contact_email ?? "");
   const [contactPhone, setContactPhone] = useState(provider.contact_phone ?? "");
 
@@ -638,6 +640,11 @@ function EditProviderForm({
           <Input value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} />
         </div>
       </div>
+      {/* Capabilities decide which Offerings editors a provider gets — but only
+          for providers with no legacy table. The four legacy services render a
+          fixed, bespoke tab bundle (legacyPortalTabs.tsx never reads this
+          field), so toggling it there changed nothing at all and simply lied
+          to whoever clicked. It is shown read-only for those, with the reason. */}
       <div>
         <Label>Capabilities</Label>
         <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -649,10 +656,12 @@ function EditProviderForm({
               <button
                 key={cap}
                 type="button"
-                onClick={() => toggleCap(cap)}
+                disabled={isLegacyBacked}
+                onClick={() => !isLegacyBacked && toggleCap(cap)}
                 className={cn(
                   "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition",
-                  on ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground",
+                  on ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground",
+                  isLegacyBacked ? "cursor-not-allowed opacity-60" : "hover:text-foreground",
                 )}
                 title={meta.description}
               >
@@ -661,6 +670,11 @@ function EditProviderForm({
             );
           })}
         </div>
+        <p className="mt-1.5 text-xs text-muted-foreground">
+          {isLegacyBacked
+            ? `${provider.name} runs on the built-in ${provider.source_service_key} workspace, whose tabs are fixed. These are shown for reference and can't be changed here.`
+            : "Each one adds an editor under this provider's Offerings tab."}
+        </p>
       </div>
 
       <SheetFooter className="mt-4">
