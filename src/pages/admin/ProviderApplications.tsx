@@ -94,6 +94,44 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
       const adminUserId = await resolveUserId(app.user_id, app.contact_email);
       let legacyProviderId: string | null = null;
 
+      /**
+       * Resolve a category that actually exists.
+       *
+       * providers.category_key is NOT NULL with an FK to service_categories,
+       * and the value used here was `LEGACY_SERVICES[...].universalCategoryKey`
+       * — "transport" / "food" / "home". None of those is a row in
+       * service_categories, so approving ANY application failed with
+       *   23503 providers_category_key_fkey
+       * and a business that applied could never be let onto the platform.
+       *
+       * Asking the database beats another hard-coded map: that map is what
+       * drifted. The registry value is still preferred when it happens to name
+       * a real row, so an intentional mapping keeps working.
+       */
+      const resolveCategoryKey = async (): Promise<string | null> => {
+        const preferred = LEGACY_SERVICES[app.service as LegacySourceKey]?.universalCategoryKey;
+        if (preferred) {
+          const { data } = await supabaseDb
+            .from("service_categories").select("key").eq("key", preferred).maybeSingle();
+          if (data?.key) return data.key as string;
+        }
+        if (app.archetype_key) {
+          const { data } = await supabaseDb
+            .from("service_categories").select("key")
+            .eq("archetype_key", app.archetype_key).eq("is_active", true)
+            .order("sort_order", { ascending: true }).limit(1).maybeSingle();
+          if (data?.key) return data.key as string;
+        }
+        return null;
+      };
+
+      const categoryKey = await resolveCategoryKey();
+      if (!categoryKey) {
+        throw new Error(
+          `No category exists for this service yet. Add one under ${app.archetype_key ?? app.service} in Marketplace → Categories, then approve again.`,
+        );
+      }
+
       if (table) {
         const { data, error } = await supabaseDb.from(table).insert({
           name: app.business_name,
@@ -110,11 +148,10 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
       // by a legacy table. Previously this insert was gated on the strict
       // LEGACY_SERVICES lookup, which dropped services whose registry entry
       // exists but whose key wasn't listed there (post-rename / new service).
-      const meta = LEGACY_SERVICES[app.service as LegacySourceKey];
       const legacyCaps = DEFAULT_CAPABILITIES[app.service as LegacySourceKey] ?? [];
       const mergedCaps = Array.from(new Set([...legacyCaps, ...archetypeDefaultCaps]));
       const { data: uRow, error: mErr } = await supabaseDb.from("providers").insert({
-        category_key: meta?.universalCategoryKey ?? app.service,
+        category_key: categoryKey,
         name: app.business_name,
         description: app.description ?? null,
         contact_email: app.contact_email ?? null,

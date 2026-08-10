@@ -32,6 +32,7 @@ import {
   CalendarClock,
   Waves,
   LandPlot,
+  LayoutGrid,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -245,7 +246,7 @@ function CleaningBookingRow({
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-type ServiceTab = "cleaning" | "food" | "cars" | "beach";
+type ServiceTab = "cleaning" | "food" | "cars" | "beach" | "other";
 
 const MySubscriptions = () => {
   const { isAuthenticated, isLoading: authLoading, userData } = useAuth();
@@ -263,7 +264,7 @@ const MySubscriptions = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = (searchParams.get("tab") as ServiceTab) || "cleaning";
   const [activeTab, setActiveTab] = useState<ServiceTab>(
-    ["cleaning", "food", "cars", "beach"].includes(initialTab) ? initialTab : "cleaning",
+    ["cleaning", "food", "cars", "beach", "other"].includes(initialTab) ? initialTab : "cleaning",
   );
   /**
    * Active / Past. Food, Cars and Beach rendered one flat list each with live
@@ -348,6 +349,35 @@ const MySubscriptions = () => {
       return data ?? [];
     },
     enabled: (!!userUuid || !!userData?.id) && activeTab === "beach",
+  });
+
+  /**
+   * Subscriptions to providers that have no legacy table of their own — the
+   * universal provider_subscriptions row written by UniversalPlanCheckout.
+   * Without this tab a customer pays and then cannot see what they bought:
+   * the four tabs above each read one legacy table and none of them would
+   * ever return this row.
+   */
+  const {
+    data: universalSubs = [], isLoading: universalLoading,
+    isError: universalError, refetch: refetchUniversal,
+  } = useQuery({
+    queryKey: ["my-universal-subscriptions", userUuid],
+    queryFn: async () => {
+      if (!userUuid) return [];
+      const { data, error } = await supabaseDb
+        .from("provider_subscriptions")
+        .select("*, providers(name), provider_plans(name, period)")
+        .eq("user_id", userUuid)
+        // Legacy-backed rows are mirrors of a row one of the other tabs already
+        // shows. Without this filter every beach and cleaning subscription
+        // would appear twice on this page.
+        .is("source_service_key", null)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!userUuid && activeTab === "other",
   });
 
   // ── Queries ──────────────────────────────────────────────────────────────
@@ -671,6 +701,9 @@ const MySubscriptions = () => {
   const visibleFood   = inScope(foodSubscriptions as any[], isLiveFood);
   const visibleBeach  = inScope(beachSubs as any[], isLiveBeach);
   const visibleRental = inScope(rentalBookings as any[], isLiveRental);
+  const isLiveUniversal = (s: any) =>
+    String(s.status).toLowerCase() === "active" && (!s.end_date || s.end_date >= todayHN());
+  const visibleUniversal = inScope(universalSubs as any[], isLiveUniversal);
 
   const byDateTime = (a: any, b: any) => {
     const dtA = `${a.cleaning_available_slots?.date ?? "9999"}T${a.cleaning_available_slots?.start_time ?? "00:00:00"}`;
@@ -737,6 +770,7 @@ const MySubscriptions = () => {
             { id: "food"     as const, label: "Food",     icon: UtensilsCrossed },
             { id: "cars"     as const, label: "Cars",     icon: Car },
             { id: "beach"    as const, label: "Beach",    icon: Waves },
+            { id: "other"    as const, label: "Other",    icon: LayoutGrid },
           ]).map(({ id, label, icon: Icon }) => {
             const active = activeTab === id;
             return (
@@ -983,6 +1017,68 @@ const MySubscriptions = () => {
             </div>
           );
         })()}
+
+        {/* ─── OTHER tab — universal provider_subscriptions ───── */}
+        {activeTab === "other" && (
+          <div className="space-y-5">
+            <TabHeaderCTA
+              primary={{ label: "Browse services", icon: LayoutGrid, onClick: () => navigate("/discovery") }}
+            />
+
+            <ScopeToggle scope={scope} onChange={setScope} />
+
+            {universalLoading ? (
+              <Skeleton rows={3} />
+            ) : universalError ? (
+              <QueryError title="Couldn't load your subscriptions" onRetry={() => refetchUniversal()} />
+            ) : visibleUniversal.length === 0 ? (
+              <TabEmptyState
+                icon={LayoutGrid}
+                title={scope === "active" ? "No active subscriptions" : "No past subscriptions"}
+                subtitle={scope === "active"
+                  ? "Services that aren't cleaning, food, cars or the beach club show up here."
+                  : "Subscriptions that end or are cancelled show up here."}
+                action={{ label: "Browse services", onClick: () => navigate("/discovery") }}
+              />
+            ) : (
+              <SectionGroup label="Subscriptions" count={visibleUniversal.length}>
+                {visibleUniversal.map((s: any) => {
+                  const today = todayHN();
+                  const expired = s.end_date && s.end_date < today;
+                  const st = String(s.status).toLowerCase();
+                  const label = st === "active" && !expired ? "active" : expired ? "expired" : st;
+                  // The joined rows are the live truth; metadata is the snapshot
+                  // taken at purchase. Prefer live, fall back to the snapshot so
+                  // a deleted plan still says what was bought.
+                  const planName = s.provider_plans?.name ?? s.metadata?.plan_name ?? "Subscription";
+                  const providerName = s.providers?.name ?? s.metadata?.provider_name ?? null;
+                  return (
+                    <SubscriptionCard
+                      key={s.id}
+                      icon={LayoutGrid}
+                      iconTint="bg-rose-500/15"
+                      iconColor="text-rose-400"
+                      title={planName}
+                      subtitle={<>
+                        {providerName}
+                        {s.start_date && s.end_date && `${providerName ? " · " : ""}${formatDateHN(s.start_date)} → ${formatDateHN(s.end_date)}`}
+                      </>}
+                      metadata={<span className="tabular-nums">{formatUSD(s.price_cents || 0)}</span>}
+                      statusBadge={<StatusPill status={label} />}
+                      actions={st !== "cancelled" && !!s.plan_id ? [{
+                        key: "renew",
+                        label: "Renew",
+                        icon: RefreshCw,
+                        variant: "secondary" as const,
+                        onClick: () => navigate(`/services/beach-club/checkout/plan/${s.plan_id}`),
+                      }] : []}
+                    />
+                  );
+                })}
+              </SectionGroup>
+            )}
+          </div>
+        )}
 
         {/* ─── CLEANING tab content (existing) ─────────────────── */}
         {activeTab === "cleaning" && (

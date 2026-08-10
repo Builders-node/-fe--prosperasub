@@ -63,6 +63,7 @@ const Cart = lazy(() => import("./pages/Cart"));
 // Public provider profile — generic for cleaning/rental/entertainment. Food
 // keeps its own /services/food/:id detail page (richer legacy layout).
 const ProviderDetail = lazy(() => import("./pages/ProviderDetail"));
+const UniversalPlanCheckout = lazy(() => import("./pages/UniversalPlanCheckout"));
 
 
 // Food
@@ -197,6 +198,14 @@ const App = () => {
 
               {/* Public provider profile — cleaning / rental / entertainment.
                   Food has its own /services/food/:id route above. */}
+              {/* Checkout for a plan in the universal provider_plans table — the
+                  path a provider with no legacy table of its own takes. Sits
+                  BEFORE the :providerId route only by convention; the segments
+                  differ ("checkout/plan" vs "providers"), so they can't collide. */}
+              <Route path="/services/:archetypeKey/checkout/plan/:planId" element={
+                <ProtectedRoute><UniversalPlanCheckout /></ProtectedRoute>
+              } />
+
               <Route path="/services/:archetypeKey/providers/:providerId" element={<ProviderDetail />} />
 
               {/* ─── Legacy short-URL redirects (kept so old bookmarks / emails

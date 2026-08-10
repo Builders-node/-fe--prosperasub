@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
-import { archetypeFromSlug, serviceMetaFromSlug } from "@/lib/services/serviceUrls";
+import { archetypeFromSlug, serviceMetaFromSlug, serviceSlug } from "@/lib/services/serviceUrls";
 import { Button } from "@/components/ui/button";
 import {
   SparklesIcon, Waves, Car,
@@ -17,6 +17,7 @@ import { TabEmptyState } from "@/components/subscriptions/MySubsPrimitives";
 import { RentalVehicleCard } from "@/components/patterns/RentalVehicleCard";
 import { CleaningPackageCard } from "@/components/patterns/CleaningPackageCard";
 import { EntertainmentPlanCard } from "@/components/patterns/EntertainmentPlanCard";
+import { UniversalPlanCard, type UniversalPlan } from "@/components/patterns/UniversalPlanCard";
 import {
   ProviderReviewsBlock,
   type ProviderReviewService,
@@ -36,6 +37,8 @@ interface Provider {
   contact_phone: string | null;
   contact_email: string | null;
   archetype_key: string | null;
+  /** Null means the provider has no legacy table — its offer is in provider_plans. */
+  source_service_key: string | null;
 }
 
 // ── Per-archetype meta (icon + heading + fallback route) ────────────────────
@@ -94,6 +97,32 @@ function useEntertainmentPlans(providerId: string | undefined) {
       return (data ?? []) as any[];
     },
     enabled: !!providerId,
+  });
+}
+
+/**
+ * Plans for a provider that has no legacy table behind it.
+ *
+ * The branches above each know one legacy table's columns. A universal-only
+ * provider — one with `source_service_key` null — has none of those, so its
+ * offer lives in `provider_plans` and nothing else on this page would find it.
+ * Without this the provider renders with a "Plans" heading over "No plans yet"
+ * no matter how many plans an admin has entered.
+ */
+function useUniversalPlans(providerId: string | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: ["provider-detail:universal-plans", providerId],
+    queryFn: async () => {
+      const { data, error } = await supabaseDb
+        .from("provider_plans")
+        .select("id, name, description, price_cents, currency, period, features")
+        .eq("provider_id", providerId!)
+        .eq("status", "active")
+        .order("sort_order", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as UniversalPlan[];
+    },
+    enabled: !!providerId && enabled,
   });
 }
 
@@ -174,7 +203,7 @@ const ProviderDetail = () => {
         .from("providers")
         // source_provider_id is needed to hand food off to its legacy page — see the
         // redirect below.
-        .select("id, name, description, avatar_url, banner_url, location, working_hours, contact_phone, contact_email, archetype_key, source_provider_id")
+        .select("id, name, description, avatar_url, banner_url, location, working_hours, contact_phone, contact_email, archetype_key, source_provider_id, source_service_key")
         .eq("id", providerId!).single();
       if (error) throw error;
       return data as Provider;
@@ -190,6 +219,17 @@ const ProviderDetail = () => {
   const cleaningQ = useCleaningPlans(providerId);
   const entertainmentQ = useEntertainmentPlans(providerId);
   const rentalQ = useRentalVehicles(providerId);
+
+  // A provider with no legacy table behind it shows provider_plans instead of
+  // whatever its archetype's legacy branch would query. Hooks must all run
+  // before any early return, so this is declared here and gated with `enabled`
+  // rather than being called conditionally further down.
+  // Note the `!!providerQ.data &&`: without it this is true while the provider
+  // is still loading, and the backfill gave every LEGACY provider provider_plans
+  // rows too — so a cleaning provider would briefly fetch, and could render, a
+  // duplicate set of plans it already shows from cleaning_packages.
+  const isUniversal = !!providerQ.data && !providerQ.data.source_service_key;
+  const universalQ = useUniversalPlans(providerId, isUniversal);
 
   // Rating summary — must be declared BEFORE any early return to satisfy
   // Rules of Hooks. `enabled` gates the actual fetch until we have the id.
@@ -218,6 +258,10 @@ const ProviderDetail = () => {
       ? navigate(`/services/beach-club/checkout/${planId}`)
       : openAuthModal("login", `/services/beach-club/checkout/${planId}`);
   const onVehicleOpen = (id: string) => navigate(`/services/rental/${id}`);
+  const onUniversalSub = (planId: string) => {
+    const href = `/services/${serviceSlug(archetypeKey ?? "")}/checkout/plan/${planId}`;
+    isAuthenticated ? navigate(href) : openAuthModal("login", href);
+  };
 
   // ── Loading / not-found (mirror FoodProviderDetail) ──────────────────────
   // An unknown service segment is a wrong URL, not an empty business. Saying so
@@ -292,26 +336,35 @@ const ProviderDetail = () => {
   const entertainmentPrices = (entertainmentQ.data ?? []).map((r: any) => r.price_per_person_cents);
   const rentalPrices = (rentalQ.data ?? []).map((r: any) => r.daily_price_cents);
 
-  const offeringsCount = {
-    cleaning:      cleaningQ.data?.length ?? 0,
-    entertainment: entertainmentQ.data?.length ?? 0,
-    rental:        rentalQ.data?.length ?? 0,
-  }[archetypeKey ?? ""] ?? 0;
+  const universalPrices = (universalQ.data ?? [])
+    .map((r) => r.price_cents ?? 0)
+    .filter((n) => n > 0);
 
-  const fromPrice =
-    archetypeKey === "cleaning"      ? Math.min(...(cleaningPrices.length      ? cleaningPrices      : [0])) :
-    archetypeKey === "entertainment" ? Math.min(...(entertainmentPrices.length ? entertainmentPrices : [0])) :
-    archetypeKey === "rental"        ? Math.min(...(rentalPrices.length        ? rentalPrices        : [0])) : 0;
-  const fromUnit =
+  const offeringsCount = isUniversal
+    ? (universalQ.data?.length ?? 0)
+    : ({
+        cleaning:      cleaningQ.data?.length ?? 0,
+        entertainment: entertainmentQ.data?.length ?? 0,
+        rental:        rentalQ.data?.length ?? 0,
+      }[archetypeKey ?? ""] ?? 0);
+
+  const fromPrice = isUniversal
+    ? Math.min(...(universalPrices.length ? universalPrices : [0]))
+    : archetypeKey === "cleaning"      ? Math.min(...(cleaningPrices.length      ? cleaningPrices      : [0])) :
+      archetypeKey === "entertainment" ? Math.min(...(entertainmentPrices.length ? entertainmentPrices : [0])) :
+      archetypeKey === "rental"        ? Math.min(...(rentalPrices.length        ? rentalPrices        : [0])) : 0;
+  // A universal plan carries its own period, and they need not agree inside one
+  // provider, so the strip stays silent rather than asserting "/ month".
+  const fromUnit = isUniversal ? "" :
     archetypeKey === "cleaning"      ? "/ month" :
     archetypeKey === "entertainment" ? "/ month" :
     archetypeKey === "rental"        ? "/ day"   : "";
-  const middleStatLabel =
-    archetypeKey === "cleaning" || archetypeKey === "entertainment" ? "Per Month" : "Fleet";
-  const middleStatSub =
-    archetypeKey === "rental" ? "Brands" : archetypeKey === "entertainment" ? "Access" : "Cleanings";
+  const middleStatLabel = isUniversal ? "Plans"
+    : archetypeKey === "cleaning" || archetypeKey === "entertainment" ? "Per Month" : "Fleet";
+  const middleStatSub = isUniversal ? "Offered"
+    : archetypeKey === "rental" ? "Brands" : archetypeKey === "entertainment" ? "Access" : "Cleanings";
   const middleStatValue =
-    archetypeKey === "rental"
+    !isUniversal && archetypeKey === "rental"
       ? new Set((rentalQ.data ?? []).map((v: any) => v.brand)).size
       : offeringsCount;
 
@@ -389,7 +442,30 @@ const ProviderDetail = () => {
             )}
           </h2>
 
-          {archetypeKey === "cleaning" && (
+          {/* A universal provider ignores its archetype's legacy branch — that
+              branch queries a table this provider has no row in. */}
+          {isUniversal && (
+            universalQ.isLoading ? (
+              <SkeletonGrid />
+            ) : universalQ.isError ? (
+              <QueryError title="Couldn't load plans" onRetry={() => universalQ.refetch()} retrying={universalQ.isFetching} />
+            ) : (universalQ.data ?? []).length === 0 ? (
+              <TabEmptyState icon={Icon} title="No plans yet" subtitle="We're setting things up. Check back soon." />
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {(universalQ.data ?? []).map((plan, idx) => (
+                  <UniversalPlanCard
+                    key={plan.id}
+                    plan={plan}
+                    featured={idx === 1 && (universalQ.data ?? []).length > 1}
+                    onSubscribe={onUniversalSub}
+                  />
+                ))}
+              </div>
+            )
+          )}
+
+          {!isUniversal && archetypeKey === "cleaning" && (
             cleaningQ.isLoading ? (
               <SkeletonGrid />
             ) : cleaningQ.isError ? (
@@ -410,7 +486,7 @@ const ProviderDetail = () => {
             )
           )}
 
-          {archetypeKey === "entertainment" && (
+          {!isUniversal && archetypeKey === "entertainment" && (
             entertainmentQ.isLoading ? (
               <SkeletonGrid />
             ) : entertainmentQ.isError ? (
@@ -426,7 +502,7 @@ const ProviderDetail = () => {
             )
           )}
 
-          {archetypeKey === "rental" && (
+          {!isUniversal && archetypeKey === "rental" && (
             rentalQ.isLoading ? (
               <SkeletonGrid />
             ) : rentalQ.isError ? (
@@ -451,6 +527,10 @@ const ProviderDetail = () => {
         {/* ─── Reviews ─────────────────────────────────────────────────────
             Shown for every archetype that maps to provider_reviews.service. */}
         {(() => {
+          // provider_reviews.service is a legacy-service enum. A universal
+          // provider maps to none of its values, so it gets no review block
+          // rather than one filed under a service it isn't.
+          if (isUniversal) return null;
           const reviewService: ProviderReviewService | null =
             archetypeKey === "cleaning" ? "cleaning" :
             archetypeKey === "rental"   ? "rental" :

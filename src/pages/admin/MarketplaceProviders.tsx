@@ -723,7 +723,20 @@ function CreateProviderForm({
     });
   };
 
-  const canSubmit = name.trim().length > 0 && !saving;
+  /**
+   * providers.category_key is NOT NULL, so a name alone is not enough. Before
+   * this, picking "— none —" (an offered option) or a service with no categories
+   * submitted null and the admin got a raw Postgres message in a toast:
+   *   null value in column "category_key" violates not-null constraint
+   * The button now says what is missing instead.
+   */
+  const missing =
+    name.trim().length === 0        ? "Name is required"
+    : archetypeKey === "__none"     ? "Pick a service"
+    : scopedCategories.length === 0 ? "This service has no categories yet"
+    : categoryKey === "__none"      ? "Pick a category"
+    : null;
+  const canSubmit = !missing && !saving;
 
   const submit = () => {
     if (!canSubmit) return;
@@ -818,7 +831,10 @@ function CreateProviderForm({
         </div>
       </div>
 
-      <SheetFooter className="mt-4">
+      <SheetFooter className="mt-4 flex-col items-stretch gap-2 sm:flex-col">
+        {missing && !saving && (
+          <p className="text-xs text-muted-foreground">{missing}</p>
+        )}
         <Button onClick={submit} disabled={!canSubmit} loading={saving} loadingText="Creating…">
           Create provider
         </Button>

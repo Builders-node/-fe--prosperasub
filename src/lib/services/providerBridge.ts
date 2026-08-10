@@ -27,7 +27,16 @@ export interface LegacyServiceMeta {
   sourceKey: LegacySourceKey;
   /** Where the authoritative service data lives (public site reads this). */
   legacyTable: string;
-  /** The universal `service_categories.key` this maps onto. */
+  /**
+   * The universal `service_categories.key` this maps onto.
+   *
+   * Verify against the DB before relying on it. These three drifted to
+   * "transport" / "food" / "home" — none of which is a row in
+   * service_categories — and because providers.category_key is NOT NULL with an
+   * FK, approving any provider application failed outright. The approval path
+   * now checks the value exists and falls back to the archetype's first real
+   * category.
+   */
   universalCategoryKey: string;
   /** Public listing route. */
   publicRoute: string;
@@ -38,15 +47,15 @@ export interface LegacyServiceMeta {
 /** One declarative entry per legacy-backed service. Add a service here + its tab set in legacyPortalTabs.tsx. */
 export const LEGACY_SERVICES: Record<LegacySourceKey, LegacyServiceMeta> = {
   cars: {
-    sourceKey: "cars", legacyTable: "rental_providers", universalCategoryKey: "transport",
+    sourceKey: "cars", legacyTable: "rental_providers", universalCategoryKey: "vehicle_rental",
     publicRoute: "/services/rental", legacyPortalRoute: (id) => `/my-car-rental?providerId=${id}`,
   },
   food: {
-    sourceKey: "food", legacyTable: "food_providers", universalCategoryKey: "food",
+    sourceKey: "food", legacyTable: "food_providers", universalCategoryKey: "meal_subscription",
     publicRoute: "/services/food", legacyPortalRoute: (id) => `/my-restaurant?providerId=${id}`,
   },
   cleaning: {
-    sourceKey: "cleaning", legacyTable: "cleaning_providers", universalCategoryKey: "home",
+    sourceKey: "cleaning", legacyTable: "cleaning_providers", universalCategoryKey: "apartment_cleaning",
     publicRoute: "/services/cleaning", legacyPortalRoute: (id) => `/my-cleaning?providerId=${id}`,
   },
 };

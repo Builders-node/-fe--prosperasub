@@ -54,7 +54,7 @@ const BeachClub = () => {
     queryFn: async () => {
       const { data, error } = await supabaseDb
         .from("providers")
-        .select("id, name, category_key")
+        .select("id, name, category_key, avatar_url, gallery_urls")
         .eq("archetype_key", "entertainment")
         .eq("status", "active")
         .order("sort_order", { ascending: true });
