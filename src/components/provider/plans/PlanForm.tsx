@@ -59,6 +59,13 @@ export interface PlanFormProps {
   periods?: readonly PlanPeriod[];
   /** Hide the counter entirely for services that don't meter anything (beach memberships). */
   hideQuantity?: boolean;
+  /**
+   * Hide the price field for services whose price is DERIVED rather than typed —
+   * the beach club's customer price is provider price plus the platform's
+   * markup, so offering a third box to type it in would invite a number that
+   * disagrees with the two it is made of.
+   */
+  hidePrice?: boolean;
 
   featuresLabel?: string;
   featuresPlaceholder?: string;
@@ -76,6 +83,7 @@ export function PlanForm({
   fixedUnit,
   periods = PLAN_PERIODS,
   hideQuantity = false,
+  hidePrice = false,
   featuresLabel = "What's included",
   featuresPlaceholder = "One per line",
   extras,
@@ -153,6 +161,7 @@ export function PlanForm({
       )}
 
       {/* ── Price ───────────────────────────────────────────────────────── */}
+      {!hidePrice && (
       <div>
         <Label>{priceLabel}</Label>
         <Input
@@ -165,6 +174,7 @@ export function PlanForm({
         />
         {priceHint && <p className="mt-1 text-xs text-muted-foreground">{priceHint}</p>}
       </div>
+      )}
 
       {extras}
 

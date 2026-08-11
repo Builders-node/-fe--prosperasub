@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { PlanForm } from "@/components/provider/plans/PlanForm";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Pencil, Trash2, Waves } from "lucide-react";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
@@ -6,7 +7,6 @@ import { PageLoader, Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -200,53 +200,64 @@ export default function BeachClubPlans({ embedded = false }: { embedded?: boolea
           <DialogHeader>
             <DialogTitle>{editing ? "Edit Plan" : "New Plan"}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Name *</Label>
-              <Input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="Beach Club Membership" />
-            </div>
-            <div>
-              <Label>Tagline</Label>
-              <Input value={form.tagline} onChange={(e) => setForm((f) => ({ ...f, tagline: e.target.value }))} placeholder="Full access to Beach Club amenities…" />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Provider price / person (USD, monthly)</Label>
-                <Input type="number" min={0} step={1} value={form.providerPriceDollars}
-                  onChange={(e) => setForm((f) => ({ ...f, providerPriceDollars: parseFloat(e.target.value) || 0 }))} />
-              </div>
-              <div>
-                <Label>Our extra / person (USD, monthly)</Label>
-                <Input type="number" min={0} step={1} value={form.extraDollars}
-                  onChange={(e) => setForm((f) => ({ ...f, extraDollars: parseFloat(e.target.value) || 0 }))} />
-              </div>
-            </div>
-            <div className="flex items-center justify-between rounded-xl border border-[hsl(var(--app-divider))] bg-muted/30 px-4 py-3">
-              <span className="text-sm font-medium text-muted-foreground">Customer price / person (auto)</span>
-              <span className="font-mono text-base font-bold text-foreground">
-                {formatUSD(Math.round(((form.providerPriceDollars || 0) + (form.extraDollars || 0)) * 100))} / mo
-              </span>
-            </div>
-            <div>
-              <Label>Sort Order</Label>
-              <Input type="number" value={form.sort_order}
-                onChange={(e) => setForm((f) => ({ ...f, sort_order: parseInt(e.target.value || "0") }))} />
-            </div>
-            <div>
-              <Label>Amenities (one per line)</Label>
-              <Textarea rows={4} value={form.amenities}
-                onChange={(e) => setForm((f) => ({ ...f, amenities: e.target.value }))}
-                placeholder={"Gym access\nPools\nWater park\nSports courts"} />
-            </div>
-            <div className="flex items-center justify-between rounded-xl border border-[hsl(var(--app-divider))] px-4 py-3">
-              <Label className="cursor-pointer">Featured (Most Popular)</Label>
-              <Switch checked={form.featured} onCheckedChange={(v) => setForm((f) => ({ ...f, featured: v }))} />
-            </div>
-            <div className="flex items-center justify-between rounded-xl border border-[hsl(var(--app-divider))] px-4 py-3">
-              <Label className="cursor-pointer">Active (visible to users)</Label>
-              <Switch checked={form.is_active} onCheckedChange={(v) => setForm((f) => ({ ...f, is_active: v }))} />
-            </div>
-          </div>
+          <PlanForm
+            values={{
+              name: form.name,
+              description: form.tagline,
+              // Derived from the two boxes below, so PlanForm's own price field
+              // is hidden rather than offering a third number to disagree with.
+              priceCents: Math.round(((form.providerPriceDollars || 0) + (form.extraDollars || 0)) * 100),
+              quantity: null,
+              period: "monthly",
+              unit: "",
+              features: form.amenities.split("\n"),
+              status: form.is_active ? "active" : "inactive",
+              sortOrder: form.sort_order,
+            }}
+            onChange={(patch) => setForm((f) => ({
+              ...f,
+              ...(patch.name !== undefined ? { name: patch.name } : {}),
+              ...(patch.description !== undefined ? { tagline: patch.description } : {}),
+              ...(patch.features !== undefined ? { amenities: patch.features.join("\n") } : {}),
+              ...(patch.status !== undefined ? { is_active: patch.status === "active" } : {}),
+              ...(patch.sortOrder !== undefined ? { sort_order: patch.sortOrder } : {}),
+            }))}
+            hidePrice
+            hideQuantity
+            periods={["monthly"]}
+            featuresLabel="Amenities"
+            featuresPlaceholder={"Gym access\nPools\nWater park\nSports courts"}
+            extras={
+              <>
+                {/* The beach club is the one service the platform resells: the
+                    operator sets their price, we add ours, and the customer
+                    sees the sum. Both halves have to be visible or the markup
+                    becomes invisible to whoever edits it. */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Provider price / person (USD, monthly)</Label>
+                    <Input type="number" min={0} step={1} value={form.providerPriceDollars}
+                      onChange={(e) => setForm((f) => ({ ...f, providerPriceDollars: parseFloat(e.target.value) || 0 }))} />
+                  </div>
+                  <div>
+                    <Label>Our extra / person (USD, monthly)</Label>
+                    <Input type="number" min={0} step={1} value={form.extraDollars}
+                      onChange={(e) => setForm((f) => ({ ...f, extraDollars: parseFloat(e.target.value) || 0 }))} />
+                  </div>
+                </div>
+                <div className="flex items-center justify-between rounded-xl border border-[hsl(var(--app-divider))] bg-muted/30 px-4 py-3">
+                  <span className="text-sm font-medium text-muted-foreground">Customer price / person (auto)</span>
+                  <span className="font-mono text-base font-bold text-foreground">
+                    {formatUSD(Math.round(((form.providerPriceDollars || 0) + (form.extraDollars || 0)) * 100))} / mo
+                  </span>
+                </div>
+                <div className="flex items-center justify-between rounded-xl border border-[hsl(var(--app-divider))] px-4 py-3">
+                  <Label className="cursor-pointer">Featured (Most Popular)</Label>
+                  <Switch checked={form.featured} onCheckedChange={(v) => setForm((f) => ({ ...f, featured: v }))} />
+                </div>
+              </>
+            }
+          />
           <DialogFooter>
             <Button variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
             <Button onClick={() => saveMutation.mutate()} disabled={!form.name.trim() || saveMutation.isPending}>
