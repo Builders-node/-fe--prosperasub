@@ -36,6 +36,7 @@ interface ProviderRow {
   avatar_url: string | null;
   banner_url: string | null;
   contact_phone: string | null;
+  google_calendar_id: string | null;
   contact_email: string | null;
   status: string;
   sort_order: number;
@@ -545,6 +546,7 @@ function EditProviderForm({
   const isLegacyBacked = !!provider.source_service_key;
   const [contactEmail, setContactEmail] = useState(provider.contact_email ?? "");
   const [contactPhone, setContactPhone] = useState(provider.contact_phone ?? "");
+  const [calendarId, setCalendarId] = useState(provider.google_calendar_id ?? "");
 
   // Only offer categories that belong to the selected archetype.
   const scopedCategories = archetypeKey === "__none"
@@ -573,6 +575,9 @@ function EditProviderForm({
       name: name.trim() || provider.name,
       contact_email: contactEmail.trim() || null,
       contact_phone: contactPhone.trim() || null,
+      // Empty means "use the shared calendar", which is what the sync reads
+      // a null as — not "no calendar at all".
+      google_calendar_id: calendarId.trim() || null,
       capabilities: Array.from(caps),
     };
     if (nextArchetype !== (provider.archetype_key ?? null)) {
@@ -639,6 +644,22 @@ function EditProviderForm({
           <Label>Contact phone</Label>
           <Input value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} />
         </div>
+      </div>
+      {/* Bookings for this provider sync to this calendar. Cleaning used to push
+          every business into one shared calendar, so a car wash and an apartment
+          clean sat side by side and each business saw the other's schedule. */}
+      <div>
+        <Label>Google Calendar ID</Label>
+        <Input
+          value={calendarId}
+          onChange={(e) => setCalendarId(e.target.value)}
+          placeholder="abc123@group.calendar.google.com"
+        />
+        <p className="mt-1 text-xs text-muted-foreground">
+          {calendarId.trim()
+            ? "This provider's bookings sync here."
+            : "Empty — bookings go to the shared cleaning calendar. Share a calendar with the service account, then paste its ID."}
+        </p>
       </div>
       {/* Capabilities decide which Offerings editors a provider gets — but only
           for providers with no legacy table. The four legacy services render a
