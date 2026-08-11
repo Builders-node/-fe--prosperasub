@@ -445,21 +445,41 @@ async function ensureSlotsSeeded() {
   }
 }
 
+/**
+ * Find — or create — the slot a booking at this date and time belongs to.
+ *
+ * `providerId` is the UNIVERSAL providers.id, which is what
+ * cleaning_available_slots.provider_id references. Callers holding a legacy
+ * per-service id must bridge it first (useUniversalIdForLegacy).
+ *
+ * Omitting it means the legacy shared grid, which is still the schedule for
+ * platform-run cleaning that belongs to no single provider. Since grids became
+ * per-provider, two providers may legitimately publish the same hour — so a
+ * lookup that filtered only on date and time could return SOMEONE ELSE'S slot
+ * and count a booking against their capacity. That is how a hand-added booking
+ * for one provider ended up on the shared grid at a 105-minute length its own
+ * provider never offers.
+ */
 export async function ensureCleaningSlot(
   date: string,
   startTime: string,
   endTime: string,
+  providerId?: string | null,
 ): Promise<any> {
   const normalizedStart = normalizeTime(startTime);
   const normalizedEnd   = normalizeTime(endTime);
 
-  const { data: existing } = await db
+  let lookup = db
     .from("cleaning_available_slots")
     .select("*")
     .eq("date", date)
     .eq("start_time", normalizedStart)
-    .eq("end_time", normalizedEnd)
-    .maybeSingle();
+    .eq("end_time", normalizedEnd);
+  lookup = providerId
+    ? lookup.eq("provider_id", providerId)
+    : lookup.is("provider_id", null);
+
+  const { data: existing } = await lookup.maybeSingle();
 
   if (existing) return existing;
 
@@ -474,14 +494,22 @@ export async function ensureCleaningSlot(
   const dayOfWeek = new Date(`${date}T00:00:00`).getDay();
   const capacity = dayOfWeek === 6 ? saturdayCap : defaultCap;
 
+  // The id carries the provider, because the old scheme collides the moment
+  // two providers offer the same hour — and the unique index is now scoped by
+  // provider, so the database would happily accept both rows and the second
+  // insert would fail on the primary key instead.
+  const hhmm = normalizedStart.slice(0, 5).replace(":", "");
   const slot = {
-    id: `owned-cleaning-slot-${date}-${normalizedStart.slice(0, 5).replace(":", "")}`,
+    id: providerId
+      ? `slot-${providerId.replace(/-/g, "").slice(0, 8)}-${date}-${hhmm}`
+      : `owned-cleaning-slot-${date}-${hhmm}`,
     date,
     start_time: normalizedStart,
     end_time: normalizedEnd,
     max_bookings: capacity,
     current_bookings: 0,
     is_active: true,
+    provider_id: providerId ?? null,
   };
 
   const { data } = await db

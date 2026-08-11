@@ -70,11 +70,25 @@ export interface PlanFormProps {
   featuresLabel?: string;
   featuresPlaceholder?: string;
 
+  /**
+   * The lifecycle a service actually has. Most sell either active or not;
+   * cleaning also has a Draft it can prepare in and an Archive it retires
+   * into, and hard-coding two options here would have forced that editor to
+   * keep its own Status control — which is how the vocabularies drifted apart
+   * in the first place.
+   */
+  statuses?: ReadonlyArray<{ value: string; label: string }>;
+
   /** Service-specific fields — apartment type, meals/day, per-person pricing. */
   extras?: React.ReactNode;
   /** Rendered under the features list; used for per-service warnings. */
   footer?: React.ReactNode;
 }
+
+const DEFAULT_STATUSES = [
+  { value: "active", label: "Active" },
+  { value: "inactive", label: "Inactive" },
+] as const;
 
 export function PlanForm({
   values, onChange,
@@ -86,11 +100,18 @@ export function PlanForm({
   hidePrice = false,
   featuresLabel = "What's included",
   featuresPlaceholder = "One per line",
+  statuses = DEFAULT_STATUSES,
   extras,
   footer,
 }: PlanFormProps) {
   const unit = fixedUnit ?? values.unit;
   const preview = includedLabel(values.quantity, unit, values.period);
+
+  const previewLine = preview ? (
+    <p className="-mt-1 text-xs text-muted-foreground">
+      Customers will see: <span className="font-medium text-foreground">{preview}</span>
+    </p>
+  ) : null;
 
   return (
     <div className="space-y-4">
@@ -154,11 +175,12 @@ export function PlanForm({
         </div>
       )}
 
-      {preview && (
-        <p className="-mt-1 text-xs text-muted-foreground">
-          Customers will see: <span className="font-medium text-foreground">{preview}</span>
-        </p>
-      )}
+      {/* The preview follows whatever controls produce it. When the count is
+          typed here it belongs right below; when it is derived from fields in
+          `extras` — food's meals/day × days/week, cleaning's frequency — a line
+          above them would change in response to an input further down the page,
+          which reads as a glitch rather than an echo. */}
+      {!hideQuantity && previewLine}
 
       {/* ── Price ───────────────────────────────────────────────────────── */}
       {!hidePrice && (
@@ -177,6 +199,8 @@ export function PlanForm({
       )}
 
       {extras}
+
+      {hideQuantity && previewLine}
 
       {/* ── What's included ─────────────────────────────────────────────── */}
       <div>
@@ -201,8 +225,9 @@ export function PlanForm({
             value={values.status}
             onChange={(e) => onChange({ status: e.target.value })}
           >
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
+            {statuses.map((s) => (
+              <option key={s.value} value={s.value}>{s.label}</option>
+            ))}
           </select>
         </div>
         <div>

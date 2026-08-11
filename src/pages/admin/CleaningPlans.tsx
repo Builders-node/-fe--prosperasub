@@ -36,6 +36,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { usePagination, TablePagination } from "@/components/ui/table-pagination";
 import { Textarea } from "@/components/ui/textarea";
+import { PlanForm, type PlanFormValues } from "@/components/provider/plans/PlanForm";
 import { cn } from "@/lib/utils";
 import {
   formatFrequencyLabel,
@@ -706,6 +707,15 @@ function visibilityTone(v: string): string {
     : "bg-muted text-muted-foreground";
 }
 
+// Cleaning is the only service with somewhere to prepare a plan and somewhere
+// to retire it to. Draft and Archived are both "not for sale" — the storefront
+// filters on status = active — they differ in whether the plan was ever live.
+const CLEANING_STATUSES = [
+  { value: "draft", label: "Draft — not for sale yet" },
+  { value: "active", label: "Active" },
+  { value: "archived", label: "Archived — retired" },
+] as const;
+
 // ─── Plan Form Sheet ─────────────────────────────────────────────────────────
 
 function PlanFormSheet({
@@ -773,6 +783,38 @@ function PlanFormSheet({
 
   const set = (field: string, value: any) => setForm((f: any) => ({ ...f, [field]: value }));
 
+  // ── Bridge to the shared PlanForm ────────────────────────────────────────
+  // cleaning_packages keeps its own columns; this only presents them in the
+  // common vocabulary. The quantity shown is the MONTHLY one, because that is
+  // what the monthly price is set against — a plan at "6 per week" reads to the
+  // customer as 26 cleanings a month, which is also its cleanings_per_month.
+  const planFormValues: PlanFormValues = {
+    name: form.name ?? "",
+    description: form.description ?? "",
+    priceCents: Number(form.monthly_price_cents) || 0,
+    quantity: monthlyCleaningEstimate(form) || null,
+    period: "monthly",
+    unit: "cleaning",
+    features: featuresText.split("\n"),
+    status: form.status ?? "active",
+    sortOrder: Number(form.sort_order) || 0,
+  };
+
+  const applyPlanFormPatch = (patch: Partial<PlanFormValues>) => {
+    if (patch.features !== undefined) setFeaturesText(patch.features.join("\n"));
+    setForm((f: any) => ({
+      ...f,
+      ...(patch.name !== undefined && { name: patch.name }),
+      ...(patch.description !== undefined && { description: patch.description }),
+      ...(patch.priceCents !== undefined && { monthly_price_cents: patch.priceCents }),
+      ...(patch.status !== undefined && { status: patch.status }),
+      ...(patch.sortOrder !== undefined && { sort_order: patch.sortOrder }),
+    }));
+    // quantity / period / unit are not editable here — the schedule is set by
+    // frequency count + unit in `extras`, which cleaning needs because it also
+    // sells per day and per week.
+  };
+
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
       <SheetContent side="right" className="w-full max-w-lg overflow-y-auto">
@@ -782,168 +824,144 @@ function PlanFormSheet({
         </SheetHeader>
 
         <div className="mt-6 space-y-5">
-          <div>
-            <Label>Plan Name *</Label>
-            <Input value={form.name} onChange={(e) => set("name", e.target.value)} placeholder="e.g. Standard Weekly" />
-          </div>
+          {/* The shared plan form. cleaning_packages keeps every one of its
+              columns and both pricing modes; only the layout is common now, so
+              a provider who also runs a restaurant meets the same fields in the
+              same order. Everything cleaning-specific goes through `extras`.
 
-          <div>
-            <Label>Short Description</Label>
-            <Input value={form.short_description || ""} onChange={(e) => set("short_description", e.target.value)} placeholder="Brief one-liner" />
-          </div>
+              Short Description is gone from the form: it was written here and
+              read by nothing on the platform. The column and its values survive
+              untouched — the save spreads the loaded row — so nothing is lost
+              if something starts using it. */}
+          <PlanForm
+            values={planFormValues}
+            onChange={applyPlanFormPatch}
+            priceLabel="Monthly price"
+            priceHint={
+              normalizePricingMode(form.pricing_mode) === "price_per_cleaning"
+                ? `Derived from the per-cleaning price below: ${formatCents(resolveMonthlyPriceCents(form))}/month`
+                : `What the customer is billed each month. Resolved: ${formatCents(resolveMonthlyPriceCents(form))}/month`
+            }
+            fixedUnit="cleaning"
+            // The real controls are frequency count + unit in `extras`, because
+            // cleaning schedules per day and per week as well as per month. The
+            // preview above still reads in the customer's terms — "26 cleanings
+            // a month" — which is the figure the monthly price is set against.
+            hideQuantity
+            statuses={CLEANING_STATUSES}
+            featuresLabel="What's included"
+            featuresPlaceholder={"Full apartment cleaning\nKitchen: counters, sink & stovetop\nBathroom: toilet, sink & shower\nFloors – mopping & sweeping\nDusting all surfaces\nTrash removal"}
+            extras={
+              <>
+                {/* ── How often ──────────────────────────────────────────── */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>How many</Label>
+                    <Input
+                      type="number"
+                      value={form.frequency_count ?? ""}
+                      onChange={(e) => set("frequency_count", e.target.value)}
+                      min={1}
+                      disabled={form.frequency_unit === "custom"}
+                    />
+                  </div>
+                  <div>
+                    <Label>How often</Label>
+                    <Select value={form.frequency_unit} onValueChange={(v) => set("frequency_unit", v)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="day">Per day</SelectItem>
+                        <SelectItem value="week">Per week</SelectItem>
+                        <SelectItem value="month">Per month</SelectItem>
+                        <SelectItem value="custom">Custom</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
 
-          <div>
-            <Label>Full Description</Label>
-            <Textarea value={form.description || ""} onChange={(e) => set("description", e.target.value)} placeholder="Detailed plan description" />
-          </div>
+                {form.frequency_unit === "custom" && (
+                  <div>
+                    <Label>Custom schedule label</Label>
+                    <Input
+                      value={form.custom_frequency_label || ""}
+                      onChange={(e) => set("custom_frequency_label", e.target.value)}
+                      placeholder="e.g. Alternate Tuesdays"
+                    />
+                  </div>
+                )}
 
-          {/* Dollars, like every other plan editor on the platform. This was the
-              one form that asked for cents, so an owner who runs both a
-              restaurant and a cleaning service typed 79.00 in one tab and 7900
-              in the next — and a slip between them is a factor of 100 on a live
-              price. Storage is still cents; only the input changed. */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>Monthly Price ($)</Label>
-              <Input
-                type="number" min={0} step={0.01} inputMode="decimal"
-                value={centsInputValue(form.monthly_price_cents)}
-                onChange={(e) => set("monthly_price_cents", dollarsToCents(e.target.value))}
-              />
-              <p className="mt-1 text-xs text-muted-foreground">
-                = {formatCents(Number(form.monthly_price_cents) || 0)}/month
-              </p>
-            </div>
-            <div>
-              <Label>Price per Cleaning ($)</Label>
-              <Input
-                type="number" min={0} step={0.01} inputMode="decimal"
-                value={centsInputValue(form.price_per_cleaning_cents)}
-                onChange={(e) => set("price_per_cleaning_cents", dollarsToCents(e.target.value))}
-              />
-              <p className="mt-1 text-xs text-muted-foreground">
-                = {formatCents(Number(form.price_per_cleaning_cents) || 0)} per cleaning
-              </p>
-            </div>
-          </div>
+                <p className="-mt-1 text-xs text-muted-foreground">
+                  Service frequency: <span className="font-medium text-foreground">{formatFrequencyLabel(form)}</span>
+                </p>
 
-          <div>
-            <Label>Pricing Mode</Label>
-            <Select value={form.pricing_mode} onValueChange={(v) => set("pricing_mode", v)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="fixed_monthly_price">Fixed monthly price</SelectItem>
-                <SelectItem value="price_per_cleaning">Price per cleaning</SelectItem>
-                <SelectItem value="calculated_estimate">Calculated estimate</SelectItem>
-                <SelectItem value="custom_manual">Custom manual</SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Final monthly estimate: {formatCents(resolveMonthlyPriceCents(form))}
-            </p>
-          </div>
+                {/* ── The second price, and which of the two rules ────────── */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>Price per cleaning ($)</Label>
+                    <Input
+                      type="number" min={0} step={0.01} inputMode="decimal"
+                      value={centsInputValue(form.price_per_cleaning_cents)}
+                      onChange={(e) => set("price_per_cleaning_cents", dollarsToCents(e.target.value))}
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      = {formatCents(Number(form.price_per_cleaning_cents) || 0)} each
+                    </p>
+                  </div>
+                  <div>
+                    <Label>Which price rules</Label>
+                    <Select value={form.pricing_mode} onValueChange={(v) => set("pricing_mode", v)}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="fixed_monthly_price">The monthly price</SelectItem>
+                        <SelectItem value="price_per_cleaning">Price per cleaning × count</SelectItem>
+                        <SelectItem value="calculated_estimate">Calculated estimate</SelectItem>
+                        <SelectItem value="custom_manual">Custom manual</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>Frequency Count</Label>
-              <Input
-                type="number"
-                value={form.frequency_count ?? ""}
-                onChange={(e) => set("frequency_count", e.target.value)}
-                min={1}
-                disabled={form.frequency_unit === "custom"}
-              />
-            </div>
-            <div>
-              <Label>Frequency Unit</Label>
-              <Select value={form.frequency_unit} onValueChange={(v) => set("frequency_unit", v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="day">Per day</SelectItem>
-                  <SelectItem value="week">Per week</SelectItem>
-                  <SelectItem value="month">Per month</SelectItem>
-                  <SelectItem value="custom">Custom</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+                <div>
+                  <Label>Apartment type</Label>
+                  <Select value={form.apartment_type} onValueChange={(v) => set("apartment_type", v)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="any">Any</SelectItem>
+                      <SelectItem value="studio">Studio</SelectItem>
+                      <SelectItem value="1br">1 Bedroom</SelectItem>
+                      <SelectItem value="2br">2 Bedroom</SelectItem>
+                      <SelectItem value="3br+">3+ Bedroom</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            }
+            footer={
+              <>
+                <div>
+                  <Label>Not included by default (one per line)</Label>
+                  <Textarea
+                    value={notIncludedText}
+                    onChange={(e) => setNotIncludedText(e.target.value)}
+                    placeholder={"Laundry or folding clothes\nInside oven or refrigerator\nWindow cleaning\nSpecialized services unless requested"}
+                    rows={4}
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">Each line becomes an ✗ item in the collapsible "Not included" section.</p>
+                </div>
 
-          <div>
-            <Label>Optional Custom Frequency Label</Label>
-            <Input
-              value={form.custom_frequency_label || ""}
-              onChange={(e) => set("custom_frequency_label", e.target.value)}
-              placeholder="Custom schedule"
-            />
-            <p className="mt-1 text-xs text-muted-foreground">
-              Service Frequency: {formatFrequencyLabel(form)}
-            </p>
-          </div>
-
-          <div>
-            <Label>Apartment Type</Label>
-            <Select value={form.apartment_type} onValueChange={(v) => set("apartment_type", v)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="any">Any</SelectItem>
-                <SelectItem value="studio">Studio</SelectItem>
-                <SelectItem value="1br">1 Bedroom</SelectItem>
-                <SelectItem value="2br">2 Bedroom</SelectItem>
-                <SelectItem value="3br+">3+ Bedroom</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Label>What's Included (one per line)</Label>
-            <Textarea
-              value={featuresText}
-              onChange={(e) => setFeaturesText(e.target.value)}
-              placeholder={"Full apartment cleaning\nKitchen: counters, sink & stovetop\nBathroom: toilet, sink & shower\nFloors – mopping & sweeping\nDusting all surfaces\nTrash removal"}
-              rows={6}
-            />
-            <p className="mt-1 text-xs text-muted-foreground">Each line becomes a ✓ checklist item on the public page.</p>
-          </div>
-
-          <div>
-            <Label>Not Included by Default (one per line)</Label>
-            <Textarea
-              value={notIncludedText}
-              onChange={(e) => setNotIncludedText(e.target.value)}
-              placeholder={"Laundry or folding clothes\nInside oven or refrigerator\nWindow cleaning\nSpecialized services unless requested"}
-              rows={4}
-            />
-            <p className="mt-1 text-xs text-muted-foreground">Each line becomes an ✗ item shown in the collapsible "Not included" section.</p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>Visibility</Label>
-              <Select value={form.visibility} onValueChange={(v) => set("visibility", v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="public">Public</SelectItem>
-                  <SelectItem value="private">Private</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Status</Label>
-              <Select value={form.status} onValueChange={(v) => set("status", v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="draft">Draft</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="archived">Archived</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div>
-            <Label>Sort Order</Label>
-            <Input type="number" value={form.sort_order} onChange={(e) => set("sort_order", e.target.value)} min={0} />
-          </div>
+                <div>
+                  <Label>Visibility</Label>
+                  <Select value={form.visibility} onValueChange={(v) => set("visibility", v)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="public">Public — listed on the storefront</SelectItem>
+                      <SelectItem value="private">Private — direct link only</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            }
+          />
 
           {plan?.id && (
             <div className="border-t border-border pt-4">

@@ -14,6 +14,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { adminApi, ensureCleaningSlot, supabaseDb } from "@/integrations/supabase/client";
+import { useUniversalIdForLegacy } from "@/lib/services/providerBridge";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAuditEvent } from "@/lib/auditLog";
 import { todayHN, addDaysISO } from "@/lib/timezone";
@@ -142,6 +143,13 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
   // falls on, which is what "Weekly" used to mean and still does by default.
   const [weekdays, setWeekdays] = useState<number[]>([]);
   const [count, setCount] = useState<number>(1);
+
+  // `providerId` here is the LEGACY cleaning_providers id — that is what the
+  // workspace passes down and what cleaning_bookings.provider_id stores. Slots
+  // reference the universal providers.id, so the booking has to be attached
+  // through the bridge; without it a hand-added visit lands on the shared grid
+  // and is counted against a schedule its own provider does not keep.
+  const { data: universalProviderId } = useUniversalIdForLegacy("cleaning", providerId ?? null);
 
   const { data: subs = [], isLoading: subsLoading } = useQuery<SubOption[]>({
     queryKey: ["admin-new-booking-subs", providerId],
@@ -321,7 +329,7 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
       let created = 0;
       const createdIds: string[] = [];
       for (const d of dates) {
-        const slot = await ensureCleaningSlot(d, startTime, endTime || startTime);
+        const slot = await ensureCleaningSlot(d, startTime, endTime || startTime, universalProviderId ?? null);
         // A visit booked straight for a user has no subscription behind it. The
         // table only requires a user OR a client (cleaning_bookings_has_owner),
         // so that's a legal row — it just doesn't draw down anyone's remaining
