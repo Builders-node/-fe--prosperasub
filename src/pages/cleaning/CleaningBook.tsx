@@ -16,7 +16,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useUserUuid } from "@/hooks/useUserUuid";
 import { cn } from "@/lib/utils";
 import { resolvePlanBookingSettings } from "@/lib/booking/resolvePlanSettings";
-import { mondayFirstIndex, toMinutes } from "@/lib/booking/bookingSettings";
+import { blockAppliesOn, mondayFirstIndex, toMinutes } from "@/lib/booking/bookingSettings";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -358,7 +358,7 @@ const CleaningBook = () => {
       }
       // Time-range block?
       const blocked = settings.blockedRanges.some((r) => {
-        if (r.date !== slot.date) return false;
+        if (!blockAppliesOn(r, slot.date)) return false;
         const bf = toMinutes(r.from);
         const bt = toMinutes(r.to);
         return !Number.isNaN(bf) && !Number.isNaN(bt) && start < bt && end > bf;

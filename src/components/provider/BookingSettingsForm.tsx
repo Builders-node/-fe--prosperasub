@@ -13,6 +13,7 @@ import {
   type BookingSettings, type BlockedRange, type DayHours,
 } from "@/lib/booking/bookingSettings";
 import type { UniversalProviderRow } from "@/components/provider/UniversalInfoTab";
+import { todayHN } from "@/lib/timezone";
 
 const inputCls =
   "h-9 rounded-md border border-input bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-40";
@@ -92,8 +93,11 @@ export function BookingSettingsEditor({
     patch({ blockedDates: [...s.blockedDates, newBlockDate].sort() });
     setNewBlockDate("");
   };
+  // Every day by default. A recurring block is the common case — a lunch hour,
+  // a shift changeover — and the old default (the preview date, or "" when none
+  // was picked) produced a range that matched no day and blocked nothing.
   const addBlockedRange = () =>
-    patch({ blockedRanges: [...s.blockedRanges, { id: newId(), date: previewDate || "", from: "12:00", to: "13:00", note: "" }] });
+    patch({ blockedRanges: [...s.blockedRanges, { id: newId(), date: null, from: "12:00", to: "13:00", note: "" }] });
   const setRange = (id: string, p: Partial<BlockedRange>) =>
     patch({ blockedRanges: s.blockedRanges.map((r) => (r.id === id ? { ...r, ...p } : r)) });
 
@@ -221,7 +225,24 @@ export function BookingSettingsEditor({
               <div className="mt-2 space-y-2">
                 {s.blockedRanges.map((r) => (
                   <div key={r.id} className="flex flex-wrap items-center gap-2 rounded-xl border border-border/60 p-2">
-                    <input type="date" value={r.date} onChange={(e) => setRange(r.id, { date: e.target.value })} className={inputCls} />
+                    {/* Every day, or one date. The switch is the whole choice —
+                        turning it off needs a date to fall back to, and today
+                        is the only one we can pick without guessing. */}
+                    <label className="flex items-center gap-2">
+                      <Switch
+                        checked={r.date === null}
+                        onCheckedChange={(on) => setRange(r.id, { date: on ? null : todayHN() })}
+                        aria-label="Repeat every day"
+                      />
+                      <span className="text-xs font-semibold text-muted-foreground">Every day</span>
+                    </label>
+                    {r.date === null ? (
+                      <span className="rounded-full bg-muted/50 px-2.5 py-1 text-xs text-muted-foreground">
+                        Applies to every open day
+                      </span>
+                    ) : (
+                      <input type="date" value={r.date} onChange={(e) => setRange(r.id, { date: e.target.value || todayHN() })} className={inputCls} />
+                    )}
                     <input type="time" value={r.from} onChange={(e) => setRange(r.id, { from: e.target.value })} className={inputCls} />
                     <span className="text-muted-foreground">—</span>
                     <input type="time" value={r.to} onChange={(e) => setRange(r.id, { to: e.target.value })} className={inputCls} />

@@ -18,10 +18,22 @@ export interface DayHours {
 
 export interface BlockedRange {
   id: string;
-  date: string;        // "YYYY-MM-DD"
+  /**
+   * "YYYY-MM-DD" for a one-off, or **null for every day**.
+   *
+   * A recurring block is what a lunch hour, a shift changeover or a standing
+   * meeting actually is — and until it could be expressed, the only way to say
+   * "never 12:00–13:00" was to add the same range once per date, forever.
+   */
+  date: string | null;
   from: string;        // "HH:MM"
   to: string;          // "HH:MM"
   note?: string;
+}
+
+/** Does this block apply on the given day? */
+export function blockAppliesOn(range: BlockedRange, dateISO: string): boolean {
+  return range.date === null || range.date === dateISO;
 }
 
 export interface BookingSettings {
@@ -128,8 +140,14 @@ export function normalizeBookingSettings(raw: unknown): BookingSettings {
     minNoticeHours: Math.max(0, Number(s.minNoticeHours) || 0),
     maxAdvanceDays: Number(s.maxAdvanceDays) > 0 ? Number(s.maxAdvanceDays) : d.maxAdvanceDays,
     blockedDates: Array.isArray(s.blockedDates) ? s.blockedDates.filter((x): x is string => typeof x === "string") : [],
+    // A range needs an id and two times; the date is optional and its absence
+    // is meaningful. "" was what the old editor wrote when no preview date was
+    // picked — it matched no day at all, so the block silently did nothing.
+    // It now reads as what the provider was trying to say: every day.
     blockedRanges: Array.isArray(s.blockedRanges)
-      ? s.blockedRanges.filter((r): r is BlockedRange => !!r && typeof r.date === "string")
+      ? s.blockedRanges
+          .filter((r): r is BlockedRange => !!r && typeof r.from === "string" && typeof r.to === "string")
+          .map((r) => ({ ...r, date: typeof r.date === "string" && r.date !== "" ? r.date : null }))
       : [],
   };
 }
@@ -157,7 +175,7 @@ export function computeSlots(settings: BookingSettings, dateISO: string): Slot[]
   if (Number.isNaN(open) || Number.isNaN(close) || dur <= 0 || close <= open) return [];
 
   const step = settings.bufferBeforeMin + dur + settings.bufferAfterMin;
-  const ranges = settings.blockedRanges.filter((r) => r.date === dateISO);
+  const ranges = settings.blockedRanges.filter((r) => blockAppliesOn(r, dateISO));
 
   const slots: Slot[] = [];
   for (let start = open; start + dur <= close; start += step) {
