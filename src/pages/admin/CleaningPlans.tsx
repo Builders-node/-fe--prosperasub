@@ -226,7 +226,12 @@ const CleaningPlans = ({
 
   const savePlanMutation = useMutation({
     mutationFn: async (plan: Partial<Plan> & { id?: string }) => {
-      const { id, created_at, updated_at, is_active, ...fields } = plan as any;
+      const { id, created_at, updated_at, is_active: _ignored, ...fields } = plan as any;
+      // Derived, never typed. The form's Status select is the only control for
+      // "is this plan live", but is_active was stripped from every payload —
+      // so a plan switched off in the database could not be switched back on
+      // from the admin at all, and a plan set to Draft stayed is_active=true.
+      fields.is_active = fields.status === "active";
       // When embedded inside a provider workspace, force provider_id onto every
       // insert so a plan created there always belongs to the current provider.
       // Absent this, EMPTY_PLAN had no provider_id → new rows landed NULL and
@@ -263,9 +268,12 @@ const CleaningPlans = ({
 
   const duplicatePlanMutation = useMutation({
     mutationFn: async (plan: Plan) => {
-      const { id, created_at, updated_at, is_active, ...fields } = plan as any;
+      const { id, created_at, updated_at, is_active: _ignored, ...fields } = plan as any;
+      // A duplicate is a draft, so it must not be live. Copying the source
+      // plan's is_active published "(Copy)" to the storefront on the spot.
       const insertFields: Record<string, unknown> = {
-        ...fields, name: `${plan.name} (Copy)`, status: "draft", sort_order: plans.length,
+        ...fields, name: `${plan.name} (Copy)`, status: "draft", is_active: false,
+        sort_order: plans.length,
       };
       // Preserve provider ownership on duplicate. If somehow the source plan
       // has no provider_id (legacy row) and we're embedded, stamp it too.
@@ -289,7 +297,11 @@ const CleaningPlans = ({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
       const { error } = await supabaseDb
         .from("cleaning_packages")
-        .update({ status })
+        // is_active is the legacy twin of status and every read site still
+        // checks it. Writing status alone left an archived plan is_active=true,
+        // so "Archive" removed the badge and nothing else — the plan kept
+        // selling. The two move together now; status is the one an admin sets.
+        .update({ status, is_active: status === "active" })
         .eq("id", id);
       if (error) throw error;
       await logAuditEvent(adminId, status === "archived" ? "archive" : "restore", "plan", id, { status });
@@ -622,11 +634,11 @@ const CleaningPlans = ({
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div>
-              <Label>Custom Price (cents/month)</Label>
+              <Label>Custom Price ($/month)</Label>
               <Input
-                type="number"
-                value={editingAssignment?.custom_price_cents ?? ""}
-                onChange={(e) => setEditingAssignment((a: any) => ({ ...a, custom_price_cents: e.target.value === "" ? null : Number(e.target.value) }))}
+                type="number" min={0} step={0.01} inputMode="decimal"
+                value={centsInputValue(editingAssignment?.custom_price_cents)}
+                onChange={(e) => setEditingAssignment((a: any) => ({ ...a, custom_price_cents: dollarsToCents(e.target.value) }))}
                 placeholder="Leave empty to use plan default"
               />
             </div>
@@ -782,17 +794,30 @@ function PlanFormSheet({
             <Textarea value={form.description || ""} onChange={(e) => set("description", e.target.value)} placeholder="Detailed plan description" />
           </div>
 
+          {/* Dollars, like every other plan editor on the platform. This was the
+              one form that asked for cents, so an owner who runs both a
+              restaurant and a cleaning service typed 79.00 in one tab and 7900
+              in the next — and a slip between them is a factor of 100 on a live
+              price. Storage is still cents; only the input changed. */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label>Monthly Price (cents)</Label>
-              <Input type="number" value={form.monthly_price_cents ?? ""} onChange={(e) => set("monthly_price_cents", e.target.value)} min={0} />
+              <Label>Monthly Price ($)</Label>
+              <Input
+                type="number" min={0} step={0.01} inputMode="decimal"
+                value={centsInputValue(form.monthly_price_cents)}
+                onChange={(e) => set("monthly_price_cents", dollarsToCents(e.target.value))}
+              />
               <p className="mt-1 text-xs text-muted-foreground">
                 = {formatCents(Number(form.monthly_price_cents) || 0)}/month
               </p>
             </div>
             <div>
-              <Label>Price per Cleaning (cents)</Label>
-              <Input type="number" value={form.price_per_cleaning_cents ?? ""} onChange={(e) => set("price_per_cleaning_cents", e.target.value)} min={0} />
+              <Label>Price per Cleaning ($)</Label>
+              <Input
+                type="number" min={0} step={0.01} inputMode="decimal"
+                value={centsInputValue(form.price_per_cleaning_cents)}
+                onChange={(e) => set("price_per_cleaning_cents", dollarsToCents(e.target.value))}
+              />
               <p className="mt-1 text-xs text-muted-foreground">
                 = {formatCents(Number(form.price_per_cleaning_cents) || 0)} per cleaning
               </p>
@@ -946,6 +971,21 @@ function PlanFormSheet({
   );
 }
 
+// Dollars in the box, cents in the column. Same conversion the shared PlanForm
+// uses, so the two forms behave identically when a provider moves between them.
+function centsInputValue(cents: unknown): string {
+  const n = Number(cents);
+  return cents === null || cents === undefined || cents === "" || !Number.isFinite(n) || n === 0
+    ? ""
+    : (n / 100).toString();
+}
+
+function dollarsToCents(input: string): number | null {
+  if (input.trim() === "") return null;
+  const n = Number.parseFloat(input);
+  return Number.isFinite(n) ? Math.round(n * 100) : null;
+}
+
 // ─── Assign Client Sheet ─────────────────────────────────────────────────────
 
 function AssignClientSheet({
@@ -1000,9 +1040,17 @@ function AssignClientSheet({
           </div>
 
           <div>
-            <Label>Custom Price Override (cents, optional)</Label>
-            <Input type="number" value={customPrice} onChange={(e) => setCustomPrice(e.target.value)} placeholder="Leave empty for default" />
-            {customPrice && <p className="mt-1 text-xs text-muted-foreground">= {formatCents(Number(customPrice))}</p>}
+            <Label>Custom Price Override ($/month, optional)</Label>
+            <Input
+              type="number" min={0} step={0.01} inputMode="decimal"
+              value={customPrice} onChange={(e) => setCustomPrice(e.target.value)}
+              placeholder="Leave empty for default"
+            />
+            {customPrice && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                = {formatCents(dollarsToCents(customPrice) ?? 0)}
+              </p>
+            )}
           </div>
 
           <div>
@@ -1016,7 +1064,7 @@ function AssignClientSheet({
             onClick={() => onAssign({
               plan_id: planId,
               client_id: clientId,
-              custom_price_cents: customPrice ? Number(customPrice) : null,
+              custom_price_cents: dollarsToCents(customPrice),
               notes: notes || null,
             })}
             loading={saving}

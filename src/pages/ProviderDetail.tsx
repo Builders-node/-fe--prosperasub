@@ -73,6 +73,8 @@ function useCleaningPlans(providerId: string | undefined) {
         .from("cleaning_packages")
         .select("*")
         .eq("owner_provider_id", providerId!)
+        // Same three-flag rule as the storefront listing — see CleaningPackages.
+        .eq("status", "active")
         .eq("is_active", true)
         .eq("visibility", "public")
         .order("sort_order", { ascending: true });

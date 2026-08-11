@@ -152,7 +152,9 @@ export function RestaurantMealPlansTab({ providerId }: Props) {
         description: form.description.trim() || null,
         weekly_price_cents: form.weekly_price_cents,
         meals_per_day: form.meals_per_day,
-        meals_per_week: form.meals_per_week,
+        // Always recomputed on save, so an existing plan whose stored total
+        // disagrees with its two factors is corrected the next time it's edited.
+        meals_per_week: form.meals_per_day * form.days_per_week,
         days_per_week: form.days_per_week,
         highlights: highlights.length > 0 ? highlights : null,
         dietary_tags: form.dietary_tags.length > 0 ? form.dietary_tags : null,
@@ -333,10 +335,21 @@ export function RestaurantMealPlansTab({ providerId }: Props) {
                   <Input type="number" min={1} max={7} inputMode="numeric" value={form.days_per_week}
                     onChange={(e) => setForm((f) => ({ ...f, days_per_week: parseInt(e.target.value || "5") }))} />
                 </div>
+                {/* Derived, not typed. This is the number the customer reads on
+                    the listing card ("15 meals/week"), and it used to be a third
+                    free field beside the two it is made of — so a plan could
+                    advertise 3 meals while delivering 3 × 5 for the same price.
+                    Nothing recomputed it and nothing checked it. */}
                 <div>
                   <Label>Total / week</Label>
-                  <Input type="number" min={1} inputMode="numeric" value={form.meals_per_week}
-                    onChange={(e) => setForm((f) => ({ ...f, meals_per_week: parseInt(e.target.value || "1") }))} />
+                  <Input
+                    type="number" value={form.meals_per_day * form.days_per_week}
+                    readOnly tabIndex={-1}
+                    className="bg-muted text-muted-foreground"
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {form.meals_per_day} × {form.days_per_week}, calculated
+                  </p>
                 </div>
               </div>
             </section>

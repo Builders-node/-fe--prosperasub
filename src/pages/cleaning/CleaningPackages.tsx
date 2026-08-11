@@ -109,6 +109,10 @@ const CleaningPackages = () => {
       const { data, error } = await supabase
         .from("cleaning_packages")
         .select("*")
+        // status is what the admin's Draft / Active / Archived control writes.
+        // Without it, archiving a plan left it on sale and "Duplicate" — which
+        // creates a draft copy — published "(Copy)" to the storefront instantly.
+        .eq("status", "active")
         .eq("is_active", true)
         .eq("visibility", "public")
         .order("sort_order", { ascending: true });

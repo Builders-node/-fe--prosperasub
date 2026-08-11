@@ -67,14 +67,20 @@ const CleaningCheckout = () => {
     }
   }, [enabledMethods, paymentMethod]);
 
-  const { data: pkg } = useQuery({
+  const { data: pkg, isLoading: pkgLoading } = useQuery({
     queryKey: ["cleaning-package", packageId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("cleaning_packages")
         .select("*")
+        // A draft or archived plan is not for sale, and the backend refuses to
+        // price one anyway (catalog.getCleaningPackage filters the same way).
+        // Loading it here only got the customer to the pay button before the
+        // failure. Visibility is NOT filtered: a private plan is bought from
+        // the link its assigned client was given.
+        .eq("status", "active")
         .eq("id", packageId)
-        .single();
+        .maybeSingle();
       if (error) throw error;
       return data;
     },
@@ -533,6 +539,26 @@ const CleaningCheckout = () => {
               onClick: () => navigate("/my-subscriptions"),
             }}
           />
+        </div>
+      </UserLayout>
+    );
+  }
+
+  // An unavailable plan used to render an empty page with a back button and no
+  // explanation — the customer had followed a link that silently led nowhere.
+  if (!pkgLoading && !pkg) {
+    return (
+      <UserLayout title="Checkout" showBackButton backTo="/services/cleaning" showBottomNav={false}>
+        <div className="mx-auto max-w-xl px-4 py-16">
+          <h1 className="text-2xl font-black tracking-tight text-foreground">
+            This plan isn't available
+          </h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            It may have been retired or replaced. Have a look at what's on offer now.
+          </p>
+          <Button className="mt-6" size="xl" onClick={() => navigate("/services/cleaning")}>
+            See cleaning plans
+          </Button>
         </div>
       </UserLayout>
     );
