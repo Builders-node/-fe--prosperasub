@@ -36,6 +36,25 @@ export function blockAppliesOn(range: BlockedRange, dateISO: string): boolean {
   return range.date === null || range.date === dateISO;
 }
 
+/**
+ * If [start, end) runs into any of these blocks, the END of the latest one it
+ * runs into — the minute the day is free again. Null when nothing is hit.
+ *
+ * Shared by both slot engines: the generator resumes exactly here, so a slot
+ * follows a blocked period immediately instead of a buffer's width later.
+ * Times are minutes since midnight.
+ */
+export function latestBlockEnd(ranges: BlockedRange[], start: number, end: number): number | null {
+  let latest: number | null = null;
+  for (const r of ranges) {
+    const from = toMinutes(r.from);
+    const to = toMinutes(r.to);
+    if (Number.isNaN(from) || Number.isNaN(to)) continue;
+    if (start < to && end > from && (latest === null || to > latest)) latest = to;
+  }
+  return latest;
+}
+
 export interface BookingSettings {
   timezone: string;
   /** Length 7, Monday-first (index 0 = Monday). */
@@ -178,14 +197,23 @@ export function computeSlots(settings: BookingSettings, dateISO: string): Slot[]
   const ranges = settings.blockedRanges.filter((r) => blockAppliesOn(r, dateISO));
 
   const slots: Slot[] = [];
-  for (let start = open; start + dur <= close; start += step) {
+  let start = open;
+  while (start + dur <= close) {
     const end = start + dur;
-    const overlapsBlock = ranges.some((r) => {
-      const bf = toMinutes(r.from);
-      const bt = toMinutes(r.to);
-      return !Number.isNaN(bf) && !Number.isNaN(bt) && start < bt && end > bf;
-    });
-    if (!overlapsBlock) slots.push({ from: toHHMM(start), to: toHHMM(end) });
+    const blockEnd = latestBlockEnd(ranges, start, end);
+
+    if (blockEnd !== null) {
+      // Resume AT the moment the block ends, with no buffer in front of it.
+      // The buffer is the gap the provider needs AFTER a job — to tidy up, to
+      // drive to the next address — and a blocked hour is not a job. Stepping
+      // the grid past it instead pushed the first slot after a 12:00–15:00
+      // lunch to 15:30 and quietly cost half an hour of every such day.
+      start = blockEnd > start ? blockEnd : start + step;
+      continue;
+    }
+
+    slots.push({ from: toHHMM(start), to: toHHMM(end) });
+    start += step;
   }
   return slots;
 }
