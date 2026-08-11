@@ -231,7 +231,10 @@ const CleaningPlans = ({
       // "is this plan live", but is_active was stripped from every payload —
       // so a plan switched off in the database could not be switched back on
       // from the admin at all, and a plan set to Draft stayed is_active=true.
-      fields.is_active = fields.status === "active";
+      // Only when status is actually being written: a payload without it is a
+      // partial edit, and deriving from `undefined` would silently retire the
+      // plan on a save that never mentioned its status.
+      if (fields.status !== undefined) fields.is_active = fields.status === "active";
       // When embedded inside a provider workspace, force provider_id onto every
       // insert so a plan created there always belongs to the current provider.
       // Absent this, EMPTY_PLAN had no provider_id → new rows landed NULL and
