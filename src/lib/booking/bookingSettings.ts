@@ -31,6 +31,15 @@ export interface BookingSettings {
   sessionDurationMin: number;
   bufferBeforeMin: number;
   bufferAfterMin: number;
+  /**
+   * How many bookings may share one time slot — a cleaning company with three
+   * crews can take three 10:00 jobs, a single massage table can take one.
+   *
+   * Until now this came from `global_settings.default_slot_capacity`, one
+   * number for the whole platform, so every provider was assumed to have the
+   * same number of hands.
+   */
+  capacity: number;
   /** Earliest a customer can book, in hours from now. */
   minNoticeHours: number;
   /** Latest a customer can book, in days from today. */
@@ -57,6 +66,9 @@ export const DEFAULT_BOOKING_SETTINGS: BookingSettings = {
   sessionDurationMin: 60,
   bufferBeforeMin: 0,
   bufferAfterMin: 0,
+  // 2 is what global_settings.default_slot_capacity has always been, so a
+  // provider that never touches the field keeps exactly today's behaviour.
+  capacity: 2,
   minNoticeHours: 12,
   maxAdvanceDays: 30,
   blockedDates: [],
@@ -109,6 +121,10 @@ export function normalizeBookingSettings(raw: unknown): BookingSettings {
     sessionDurationMin: Number(s.sessionDurationMin) > 0 ? Number(s.sessionDurationMin) : d.sessionDurationMin,
     bufferBeforeMin: Math.max(0, Number(s.bufferBeforeMin) || 0),
     bufferAfterMin: Math.max(0, Number(s.bufferAfterMin) || 0),
+    // A stored 0 would mean "nobody can ever book", which is what an empty
+    // input produces — settings written before this field existed have no
+    // value at all, and both must read as the default.
+    capacity: Number(s.capacity) > 0 ? Math.floor(Number(s.capacity)) : d.capacity,
     minNoticeHours: Math.max(0, Number(s.minNoticeHours) || 0),
     maxAdvanceDays: Number(s.maxAdvanceDays) > 0 ? Number(s.maxAdvanceDays) : d.maxAdvanceDays,
     blockedDates: Array.isArray(s.blockedDates) ? s.blockedDates.filter((x): x is string => typeof x === "string") : [],

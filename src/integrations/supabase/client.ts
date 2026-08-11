@@ -483,16 +483,31 @@ export async function ensureCleaningSlot(
 
   if (existing) return existing;
 
-  // Read default capacity from global settings
-  const { data: settings } = await db
-    .from("global_settings")
-    .select("key, value")
-    .in("key", ["default_slot_capacity", "saturday_slot_capacity"]);
-  const settingsMap = new Map((settings || []).map((s: any) => [s.key, s.value]));
-  const defaultCap = Math.max(1, Number(settingsMap.get("default_slot_capacity")) || 1);
-  const saturdayCap = Math.max(1, Number(settingsMap.get("saturday_slot_capacity")) || defaultCap);
-  const dayOfWeek = new Date(`${date}T00:00:00`).getDay();
-  const capacity = dayOfWeek === 6 ? saturdayCap : defaultCap;
+  // How many bookings this hour can hold. The provider's own answer wins; the
+  // platform-wide numbers are the fallback for the shared grid, which belongs
+  // to no single provider, and for a provider that has never set one.
+  let capacity: number | null = null;
+  if (providerId) {
+    const { data: provider } = await db
+      .from("providers")
+      .select("booking_settings")
+      .eq("id", providerId)
+      .maybeSingle();
+    const own = Number((provider?.booking_settings as { capacity?: unknown } | null)?.capacity);
+    if (Number.isFinite(own) && own >= 1) capacity = Math.floor(own);
+  }
+
+  if (capacity === null) {
+    const { data: settings } = await db
+      .from("global_settings")
+      .select("key, value")
+      .in("key", ["default_slot_capacity", "saturday_slot_capacity"]);
+    const settingsMap = new Map((settings || []).map((s: any) => [s.key, s.value]));
+    const defaultCap = Math.max(1, Number(settingsMap.get("default_slot_capacity")) || 1);
+    const saturdayCap = Math.max(1, Number(settingsMap.get("saturday_slot_capacity")) || defaultCap);
+    const dayOfWeek = new Date(`${date}T00:00:00`).getDay();
+    capacity = dayOfWeek === 6 ? saturdayCap : defaultCap;
+  }
 
   // The id carries the provider, because the old scheme collides the moment
   // two providers offer the same hour — and the unique index is now scoped by

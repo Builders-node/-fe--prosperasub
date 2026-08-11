@@ -65,10 +65,19 @@ function NumberField({ label, suffix, value, min, max, onChange }: {
  * anywhere a config lives (per-provider, per-plan, per-resource, …).
  */
 export function BookingSettingsEditor({
-  value, onChange,
+  value, onChange, showCapacity = true,
 }: {
   value: BookingSettings;
   onChange: (next: BookingSettings) => void;
+  /**
+   * Capacity belongs to the provider and nowhere else.
+   *
+   * A per-plan or per-vehicle override of this config is applied as a FILTER
+   * over the pre-seeded slot rows — it can hide an hour, never change how many
+   * people fit in one. Offering the field there would show a number that is
+   * saved, displayed and completely ignored.
+   */
+  showCapacity?: boolean;
 }) {
   const [previewDate, setPreviewDate] = useState<string>("");
   const [newBlockDate, setNewBlockDate] = useState<string>("");
@@ -143,6 +152,26 @@ export function BookingSettingsEditor({
             <NumberField label="Buffer before" suffix="min" value={s.bufferBeforeMin} onChange={(n) => patch({ bufferBeforeMin: n })} />
             <NumberField label="Buffer after" suffix="min" value={s.bufferAfterMin} onChange={(n) => patch({ bufferAfterMin: n })} />
           </div>
+
+          {/* How many customers can hold the same hour. This used to be one
+              number for the entire platform (global_settings), which assumed
+              every provider had the same number of crews. */}
+          {showCapacity && (
+          <div className="sm:max-w-md">
+            <NumberField
+              label="Bookings at the same time"
+              suffix={s.capacity === 1 ? "job" : "jobs"}
+              min={1}
+              value={s.capacity}
+              onChange={(n) => patch({ capacity: Math.max(1, n) })}
+            />
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              {s.capacity === 1
+                ? "One customer per time slot — a second person sees that hour as taken."
+                : `Up to ${s.capacity} customers can book the same hour. Set this to how many crews you can send out at once.`}
+            </p>
+          </div>
+          )}
         </div>
       </Section>
 

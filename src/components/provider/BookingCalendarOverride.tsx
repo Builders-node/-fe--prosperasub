@@ -77,7 +77,9 @@ export function BookingCalendarOverride({
 
       {overrideOn && (
         <div className="mt-4 border-t border-border/50 pt-4">
-          <BookingSettingsEditor value={draft} onChange={handleEditorChange} />
+          {/* No capacity here — an override filters the provider's slots, it
+              does not create its own. See BookingSettingsEditor's showCapacity. */}
+          <BookingSettingsEditor value={draft} onChange={handleEditorChange} showCapacity={false} />
         </div>
       )}
     </section>
