@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   ChefHat, UtensilsCrossed, CalendarDays,
   RefreshCw, Check,
@@ -96,6 +96,7 @@ type PaymentStep = "details" | "pay" | "success";
 // ─── Component ────────────────────────────────────────────────────────────────
 const FoodPlanDetail = () => {
   const { providerId, planId } = useParams<{ providerId: string; planId: string }>();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const renewSubId = searchParams.get("renew");
   const navigate = useNavigate();
@@ -548,7 +549,14 @@ const FoodPlanDetail = () => {
 
   // ─── Dialog open handlers ─────────────────────────────────────────────────
   const openCheckout = (mode: CheckoutMode) => {
-    if (!isAuthenticated) { openAuthModal(); return; }
+    // Come back to the plan they were buying. `openAuthModal()` with no second
+    // argument redirects to "/", so a logged-out customer who pressed
+    // Subscribe was logged in and dropped on the home page — the one flow of
+    // the six that lost its buyer at the door.
+    if (!isAuthenticated) {
+      openAuthModal("login", `${location.pathname}${location.search}`);
+      return;
+    }
     setCheckoutMode(mode);
     setPaymentStep("details");
     inv.reset();

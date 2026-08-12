@@ -11,7 +11,7 @@
  */
 
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
@@ -231,6 +231,18 @@ function AuthForm({
         >
           ← Back to login
         </button>
+
+        {/* The one place a locked-out person can ask for help. /support was
+            linked only from the account menu, which is behind the door they
+            cannot open. */}
+        <Link
+          to="/support"
+          onClick={onSuccess}
+          className="mt-3 flex w-full items-center justify-center text-[13px] transition-colors hover:opacity-70"
+          style={{ color: "hsl(var(--yd-text2))" }}
+        >
+          Still stuck? Contact support
+        </Link>
       </div>
     );
   }

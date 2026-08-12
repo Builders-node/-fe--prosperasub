@@ -651,6 +651,65 @@ const MySubscriptions = () => {
     return `${hour}:${String(m).padStart(2, "0")} ${suffix}`;
   };
 
+  // ── Cancellation ───────────────────────────────────────────────────────────
+  // Cancelling stops the NEXT period; access runs to end_date and the decision
+  // can be undone until then, so the confirm dialog says the date out loud and
+  // the card keeps a Resume button afterwards. Four services, one endpoint —
+  // the slug is what the backend maps to a table.
+  const [cancelTarget, setCancelTarget] = useState<
+    { service: string; id: string; name: string; endsOn: string | null } | null
+  >(null);
+
+  const cancelMutation = useMutation({
+    mutationFn: async ({ service, id, resume }: { service: string; id: string; resume?: boolean }) => {
+      const { data, error } = await accountApi(
+        `/account/${service}/subscriptions/${id}/${resume ? "resume" : "cancel"}`,
+        { method: "POST" },
+      );
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (_data, vars) => {
+      toast.success(vars.resume ? "Subscription resumed." : "Subscription won't renew.");
+      setCancelTarget(null);
+      queryClient.invalidateQueries({ queryKey: ["my-cleaning-subscriptions-all"] });
+      queryClient.invalidateQueries({ queryKey: ["my-food-subscriptions"] });
+      queryClient.invalidateQueries({ queryKey: ["my-beach-subscriptions"] });
+      queryClient.invalidateQueries({ queryKey: ["my-universal-subscriptions"] });
+    },
+    onError: (e: Error) => toast.error(e.message || "Could not update the subscription."),
+  });
+
+  /**
+   * The Cancel (or Resume) button for one subscription, as a card action.
+   * Returns an array so a call site can spread it and get nothing when the
+   * subscription is in a state where stopping means nothing.
+   */
+  const cancelAction = (service: string, sub: any, planName: string) => {
+    const cancelled = Boolean(sub?.cancel_at_period_end);
+    if (cancelled) {
+      return [{
+        key: "resume",
+        label: "Resume",
+        icon: RefreshCw,
+        variant: "secondary" as const,
+        onClick: () => cancelMutation.mutate({ service, id: sub.id, resume: true }),
+      }];
+    }
+    return [{
+      key: "cancel",
+      label: "Cancel",
+      icon: X,
+      variant: "secondary" as const,
+      onClick: () => setCancelTarget({
+        service,
+        id: sub.id,
+        name: planName,
+        endsOn: sub.end_date ?? sub.service_end_date ?? null,
+      }),
+    }];
+  };
+
   const payMutation = useMutation({
     mutationFn: async (subscriptionId: string) => {
       const { data, error } = await accountApi(`/account/subscriptions/${subscriptionId}/invoice`, { method: "POST" });
@@ -714,6 +773,19 @@ const MySubscriptions = () => {
   const paidCleaningSubs = (cleaningSubscriptions ?? []).filter(
     (s) => s.payment_status === "paid" && !isOneTimeComplete(s),
   );
+  /**
+   * Started and never paid for.
+   *
+   * Everything else on this page begins from paidCleaningSubs, so these rows
+   * existed in the database and nowhere in the customer's view: no record that
+   * they had begun, and no way to finish. The backend has always been able to
+   * issue a fresh invoice for one (/account/subscriptions/:id/invoice); only
+   * admin-assigned client plans ever offered the button.
+   */
+  const unpaidCleaningSubs = (cleaningSubscriptions ?? []).filter((s: any) => {
+    const status = String(s.subscription_status ?? "").toLowerCase();
+    return s.payment_status !== "paid" && status !== "cancelled" && status !== "expired";
+  });
   const activeCleaningSubs = paidCleaningSubs.filter(
     (s) => s.is_active && effectiveCleaningStatus(s) === "active",
   );
@@ -889,9 +961,12 @@ const MySubscriptions = () => {
                       statusBadge={<StatusPill status={s.status} />}
                       metadata={<span className="tabular-nums">{formatUSD((s.weekly_price_cents || 0) * (s.commitment_weeks || 1))}</span>}
                       onClick={() => navigate(`/services/food/subscription/${s.id}`)}
-                      actions={foodCanRenew(s) ? [
-                        { key: "renew", label: "Renew", icon: RefreshCw, onClick: openRenewDialog, variant: "secondary" },
-                      ] : []}
+                      actions={[
+                        ...(foodCanRenew(s) ? [
+                          { key: "renew", label: "Renew", icon: RefreshCw, onClick: openRenewDialog, variant: "secondary" as const },
+                        ] : []),
+                        ...cancelAction("food", s, s.food_meal_plans?.name ?? "meal plan"),
+                      ]}
                     />
                   );
                 })}
@@ -1027,9 +1102,12 @@ const MySubscriptions = () => {
                         statusBadge={
                           <StatusPill status={label} />
                         }
-                        actions={canRenew ? [
-                          { key: "renew", label: "Renew", icon: RefreshCw, onClick: openRenewDialog, variant: "secondary" },
-                        ] : []}
+                        actions={[
+                          ...(canRenew ? [
+                            { key: "renew", label: "Renew", icon: RefreshCw, onClick: openRenewDialog, variant: "secondary" as const },
+                          ] : []),
+                          ...cancelAction("beach", s, s.plan_name ?? "membership"),
+                        ]}
                         rate={canRate ? (
                           <RateProviderButton
                             service="beach"
@@ -1080,13 +1158,16 @@ const MySubscriptions = () => {
                       </>}
                       metadata={<span className="tabular-nums">{formatUSD(s.price_cents || 0)}</span>}
                       statusBadge={<StatusPill status={label} />}
-                      actions={st !== "cancelled" && !!s.plan_id ? [{
-                        key: "renew",
-                        label: "Renew",
-                        icon: RefreshCw,
-                        variant: "secondary" as const,
-                        onClick: () => navigate(`/services/${serviceSlug(s.providers?.archetype_key ?? activeTab)}/checkout/plan/${s.plan_id}`),
-                      }] : []}
+                      actions={st === "cancelled" ? [] : [
+                        ...(s.plan_id ? [{
+                          key: "renew",
+                          label: "Renew",
+                          icon: RefreshCw,
+                          variant: "secondary" as const,
+                          onClick: () => navigate(`/services/${serviceSlug(s.providers?.archetype_key ?? activeTab)}/checkout/plan/${s.plan_id}`),
+                        }] : []),
+                        ...cancelAction("plan", s, s.provider_plans?.name ?? "subscription"),
+                      ]}
                     />
                   );
                 })}
@@ -1142,6 +1223,43 @@ const MySubscriptions = () => {
                   </section>
                 )}
 
+                {/* ── Payment never finished ──
+                    These were invisible: every list on this page starts from
+                    paidCleaningSubs, so a customer who closed the tab during an
+                    on-chain payment saw no trace of the subscription they had
+                    started — and the only "Pay now" on the page belonged to
+                    admin-assigned client plans. Two were sitting like this for
+                    nine days. */}
+                {unpaidCleaningSubs.length > 0 && (
+                  <section className="space-y-2">
+                    <SectionOverline label="Waiting for payment" tone="warning" />
+                    {unpaidCleaningSubs.map((sub: any) => (
+                      <div
+                        key={sub.id}
+                        className="flex items-center justify-between gap-4 rounded-2xl border border-warning/30 bg-warning/5 px-4 py-3"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-bold text-foreground">
+                            {sub.cleaning_packages?.name ?? "Cleaning plan"}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Payment wasn't completed — nothing has been charged.
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          className="shrink-0"
+                          onClick={() => payMutation.mutate(sub.id)}
+                          loading={payMutation.isPending && payMutation.variables === sub.id}
+                        >
+                          <CreditCard className="h-3.5 w-3.5" />
+                          Finish payment
+                        </Button>
+                      </div>
+                    ))}
+                  </section>
+                )}
+
                 {/* ── Active plan ── */}
                 {(activeCleaningSubs.length > 0 || linkedClientPlans.length > 0 || linkedClientSubscriptions.length > 0) && (
                   <section className="space-y-2">
@@ -1183,6 +1301,9 @@ const MySubscriptions = () => {
                         variant: "secondary" as const,
                         onClick: openRenewDialog,
                       });
+                      actions.push(
+                        ...cancelAction("cleaning", sub, sub.cleaning_packages?.name ?? "cleaning plan"),
+                      );
                       return (
                         <SubscriptionCard
                           key={sub.id}
@@ -1333,7 +1454,7 @@ const MySubscriptions = () => {
                 )}
 
                 {/* ── No plan empty state ── */}
-                {activeCleaningSubs.length === 0 && expiredCleaningSubs.length === 0 && pendingScheduleCleaningSubs.length === 0 && linkedClientPlans.length === 0 && linkedClientSubscriptions.length === 0 && (
+                {activeCleaningSubs.length === 0 && expiredCleaningSubs.length === 0 && pendingScheduleCleaningSubs.length === 0 && unpaidCleaningSubs.length === 0 && linkedClientPlans.length === 0 && linkedClientSubscriptions.length === 0 && (
                   <TabEmptyState
                     icon={SparklesIcon}
                     title="No active cleaning plan"
@@ -1442,6 +1563,41 @@ const MySubscriptions = () => {
             )}
           </div>
         )}
+      </ResponsiveDialog>
+
+      {/* ── Cancel a subscription ──
+          The date is the whole point of this dialog: "cancel" reads as "lose
+          it now" unless we say otherwise, and the customer has paid through
+          that day. */}
+      <ResponsiveDialog
+        open={!!cancelTarget}
+        onOpenChange={(open) => { if (!open) setCancelTarget(null); }}
+        title={<span className="flex items-center gap-2"><X className="h-5 w-5 text-destructive" />Cancel {cancelTarget?.name}?</span>}
+        description={
+          cancelTarget?.endsOn
+            ? `It won't renew. You keep everything until ${formatDateHN(cancelTarget.endsOn)}, and you can undo this at any time before then.`
+            : "It won't renew. You can undo this at any time before it ends."
+        }
+        footer={
+          <div className="flex w-full gap-2">
+            <Button variant="ghost" className="flex-1" onClick={() => setCancelTarget(null)}>
+              Keep it
+            </Button>
+            <Button
+              variant="destructive"
+              className="flex-1"
+              disabled={cancelMutation.isPending}
+              onClick={() => cancelTarget && cancelMutation.mutate({ service: cancelTarget.service, id: cancelTarget.id })}
+            >
+              {cancelMutation.isPending && <Spinner size="sm" className="mr-2" />}
+              Cancel subscription
+            </Button>
+          </div>
+        }
+      >
+        <p className="text-sm text-muted-foreground">
+          Nothing is charged again and nothing is refunded — this simply stops the next period.
+        </p>
       </ResponsiveDialog>
 
       {/* ── Reschedule cleaning session ── */}
