@@ -21,7 +21,7 @@ import { cn } from "@/lib/utils";
  * an admin adds one in /admin/services/categories.
  */
 
-const ROTATE_MS = 6000;
+const ROTATE_MS = 3000;
 
 function Slide({ item }: { item: CategoryHighlight }) {
   return (
