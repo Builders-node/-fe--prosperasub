@@ -8,6 +8,7 @@ import { groupProvidersByCategory } from "@/lib/services/groupByCategory";
 import { ProviderRail, CategoryChips, ALL_CATEGORIES } from "@/components/listing/ListingNav";
 import { supabase, supabaseDb } from "@/integrations/supabase/client";
 import { useResidenceFilter } from "@/hooks/useResidenceFilter";
+import { useProviderRatings } from "@/hooks/useProviderRatings";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { useI18n } from "@/i18n";
@@ -191,6 +192,12 @@ const CleaningPackages = () => {
     [categoryGroups],
   );
 
+  // Ratings key off the universal provider id, which is what cleaning packages
+  // carry in owner_provider_id — no bridge needed here.
+  const ratings = useProviderRatings(
+    (providersQ.data ?? []).map((p: any) => p.id),
+  );
+
   const goToCheckout = (pkgId: string) => {
     if (!isAuthenticated) {
       openAuthModal("login", `/services/cleaning/checkout/${pkgId}`);
@@ -298,7 +305,13 @@ const CleaningPackages = () => {
 
                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                     {provider.packages.map((pkg: any) => (
-                      <CleaningPackageCard key={pkg.id} pkg={pkg} onSubscribe={goToCheckout} />
+                      <CleaningPackageCard
+                        key={pkg.id}
+                        pkg={pkg}
+                        rating={ratings[provider.providerId]}
+                        photos={provider.providerGallery}
+                        onSubscribe={goToCheckout}
+                      />
                     ))}
                   </div>
                 </div>

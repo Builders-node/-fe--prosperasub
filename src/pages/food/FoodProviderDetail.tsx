@@ -1,16 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
-import {
-  ChefHat,
-  UtensilsCrossed,
-  CalendarDays,
-  Truck,
-  Check,
-  MapPin,
-  Clock,
-  ArrowRight,
-  Star,
-} from "lucide-react";
+import { ChefHat, UtensilsCrossed, CalendarDays, Truck, Check, MapPin, Clock, Star } from "lucide-react";
 import { formatWorkingHours } from "@/lib/workingHours";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { HomeHeader } from "@/components/HomeHeader";
@@ -18,9 +8,8 @@ import { DesktopHeader } from "@/components/layout/DesktopHeader";
 import { BottomNav } from "@/components/BottomNav";
 import { FoodReviews } from "@/components/food/FoodReviews";
 import { StarRating } from "@/components/food/StarRating";
-import { Button } from "@/components/ui/button";
-import { formatUSD } from "@/lib/pricing";
 import { useResidenceFilter } from "@/hooks/useResidenceFilter";
+import { MealPlanCard } from "@/components/food/MealPlanCard";
 import type { FoodProvider, FoodMealPlan, FoodProviderImage, FoodReview } from "@/types/food";
 
 const FoodProviderDetail = () => {
@@ -327,7 +316,14 @@ const FoodProviderDetail = () => {
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {visiblePlans.map((plan, idx) => (
-                <MealPlanCard key={plan.id} plan={plan} featured={idx === 1} providerId={id!} images={planImages[plan.id] ?? []} />
+                <MealPlanCard
+                  key={plan.id}
+                  plan={plan}
+                  featured={idx === 1}
+                  images={planImages[plan.id] ?? []}
+                  rating={ratingCount ? { average: ratingAvg, count: ratingCount } : null}
+                  onOpen={() => navigate(`/services/food/${id}/plans/${plan.id}`)}
+                />
               ))}
             </div>
           )}
@@ -405,115 +401,6 @@ function InfoRow({ icon, label, value }: { icon: React.ReactNode; label: string;
         <p className="mt-0.5 text-sm text-foreground whitespace-pre-line">{value}</p>
       </div>
     </div>
-  );
-}
-
-function MealPlanCard({
-  plan,
-  featured,
-  providerId,
-  images = [],
-}: {
-  plan: FoodMealPlan;
-  featured?: boolean;
-  providerId: string;
-  images?: string[];
-}) {
-  const navigate = useNavigate();
-  const photos = images.slice(0, 3);
-
-  return (
-    <article
-      role="button"
-      tabIndex={0}
-      onClick={() => navigate(`/services/food/${providerId}/plans/${plan.id}`)}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          navigate(`/services/food/${providerId}/plans/${plan.id}`);
-        }
-      }}
-      className={`group flex cursor-pointer flex-col rounded-3xl p-6 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-        featured
-          ? "bg-primary/10 hover:bg-primary/15"
-          : "bg-card hover:bg-muted/40"
-      }`}
-    >
-      {/* Meal photos */}
-      {photos.length > 0 && (
-        <div className="mb-4 grid grid-cols-3 gap-1.5">
-          {photos.map((url, i) => (
-            <div
-              key={i}
-              className={`relative aspect-square overflow-hidden rounded-xl bg-muted ${photos.length === 1 ? "col-span-3 aspect-[16/9]" : ""}`}
-            >
-              <img src={url} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
-              {i === 2 && images.length > 3 && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/55 text-sm font-bold text-white">
-                  +{images.length - 3}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {featured && (
-        <span className="mb-3 self-start rounded-full bg-primary px-2.5 py-0.5 text-xs font-bold text-primary-foreground">
-          Most Popular
-        </span>
-      )}
-
-      <h3 className="text-lg font-black tracking-tight text-foreground">{plan.name}</h3>
-
-      {plan.description && (
-        <p className="mt-1.5 text-sm text-muted-foreground leading-relaxed">{plan.description}</p>
-      )}
-
-      {/* Chips */}
-      <div className="mt-4 flex flex-wrap gap-2">
-        <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
-          <UtensilsCrossed className="h-3 w-3" />
-          {plan.meals_per_week} meals/week
-        </span>
-        <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
-          <CalendarDays className="h-3 w-3" />
-          {plan.days_per_week} days/week
-        </span>
-      </div>
-
-      {/* Highlights */}
-      {plan.highlights && plan.highlights.length > 0 && (
-        <ul className="mt-4 space-y-1.5">
-          {plan.highlights.map((h, i) => (
-            <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
-              <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
-              {h}
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {/* Price */}
-      <div className="mt-5 flex items-baseline gap-1">
-        <span className="text-3xl font-black tabular-nums text-foreground">
-          {formatUSD(plan.weekly_price_cents)}
-        </span>
-        <span className="text-sm text-muted-foreground">/ week</span>
-      </div>
-
-      {/* CTA */}
-      <div className="mt-5" onClick={(e) => e.stopPropagation()}>
-        <Button
-          size="sm"
-          className="w-full rounded-full"
-          onClick={() => navigate(`/services/food/${providerId}/plans/${plan.id}`)}
-        >
-          View Menu
-          <ArrowRight className="ml-2 h-4 w-4" />
-        </Button>
-      </div>
-    </article>
   );
 }
 

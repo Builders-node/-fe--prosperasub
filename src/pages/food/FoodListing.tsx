@@ -2,9 +2,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useArchetypeLabel } from "@/hooks/useServiceArchetypes";
 import { useNavigate } from "react-router-dom";
-import {
-  UtensilsCrossed, ChefHat, MapPin, ArrowRight, CalendarDays,
-} from "lucide-react";
+import { ChefHat, MapPin } from "lucide-react";
 import { ProviderRail, CategoryChips, ALL_CATEGORIES } from "@/components/listing/ListingNav";
 import { groupProvidersByCategory } from "@/lib/services/groupByCategory";
 import { supabaseDb } from "@/integrations/supabase/client";
@@ -12,11 +10,10 @@ import { HomeHeader } from "@/components/HomeHeader";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
 import { BottomNav } from "@/components/BottomNav";
 import { QueryError } from "@/components/QueryError";
-import { formatUSD } from "@/lib/pricing";
-import {
-  YdChip, YdEmptyState,
-} from "@/components/yd/YdPrimitives";
+import { YdEmptyState } from "@/components/yd/YdPrimitives";
 import { useResidenceFilter } from "@/hooks/useResidenceFilter";
+import { useProviderRatings } from "@/hooks/useProviderRatings";
+import { MealPlanCard } from "@/components/food/MealPlanCard";
 import type { FoodProvider, FoodMealPlan } from "@/types/food";
 import { DIETARY_TAGS, dietaryTagMeta, type DietaryTag } from "@/lib/foodDietaryTags";
 import { cn } from "@/lib/utils";
@@ -131,6 +128,10 @@ const FoodListing = () => {
 
   // ── Location filter ──────────────────────────────────────────────────────
   const { residence, servesHere, isFiltering } = useResidenceFilter();
+
+  // Ratings belong to the restaurant, and the listing knows restaurants by
+  // their legacy food_providers.id — the hook bridges to the universal id.
+  const ratings = useProviderRatings((providers ?? []).map((p) => p.id), { legacyService: "food" });
 
   const visibleProviders = (providers ?? [])
     .filter((p) => servesHere(p.residenceIds))
@@ -335,7 +336,8 @@ const FoodListing = () => {
                     plan={plan}
                     providerName={provider.name}
                     images={planImages[plan.id] ?? []}
-                    onClick={() => navigate(`/services/food/${provider.id}/plans/${plan.id}`)}
+                    rating={ratings[provider.id]}
+                    onOpen={() => navigate(`/services/food/${provider.id}/plans/${plan.id}`)}
                   />
                 ))}
               </div>
@@ -375,113 +377,6 @@ function RestaurantCard({
         {provider.name}
       </span>
     </button>
-  );
-}
-
-// ─── Meal plan card ──────────────────────────────────────────────────────────
-function MealPlanCard({
-  plan,
-  providerName,
-  images = [],
-  onClick,
-}: {
-  plan: FoodMealPlan;
-  providerName: string;
-  images?: string[];
-  onClick: () => void;
-}) {
-  const photos = images.slice(0, 3);
-  return (
-    <article
-      role="button"
-      tabIndex={0}
-      onClick={onClick}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); }
-      }}
-      className="group flex cursor-pointer flex-col rounded-3xl bg-card p-5 transition-all duration-200
-                 motion-safe:hover:scale-[1.01] hover:border-primary/40
-                 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-    >
-      {/* Meal photos */}
-      {photos.length > 0 && (
-        <div className="mb-4 grid grid-cols-3 gap-1.5">
-          {photos.map((url, i) => (
-            <div
-              key={i}
-              className={`relative aspect-square overflow-hidden rounded-xl bg-muted ${photos.length === 1 ? "col-span-3 aspect-[16/9]" : ""}`}
-            >
-              <img src={url} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
-              {i === 2 && images.length > 3 && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/55 text-sm font-bold text-white">
-                  +{images.length - 3}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-
-      <p className="flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.16em] text-primary">
-        <ChefHat className="h-3 w-3" /> {providerName}
-      </p>
-      <h3 className="mt-1 text-lg font-black tracking-tight text-foreground leading-tight">
-        {plan.name}
-      </h3>
-      {plan.description && (
-        <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{plan.description}</p>
-      )}
-
-      {/* Dietary tags — colored soft pills, only rendered when present. Gives
-          the plan card an at-a-glance identity ("Keto", "Vegan") next to the
-          neutral quantity chips underneath. */}
-      {(() => {
-        const tags = ((plan as any).dietary_tags ?? []) as string[];
-        if (tags.length === 0) return null;
-        return (
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {tags.map((t) => {
-              const meta = dietaryTagMeta(t);
-              if (!meta) return null;
-              const Icon = meta.icon;
-              return (
-                <span
-                  key={t}
-                  className={cn(
-                    "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider",
-                    meta.tint,
-                  )}
-                >
-                  <Icon className="h-3 w-3" />
-                  {meta.label}
-                </span>
-              );
-            })}
-          </div>
-        );
-      })()}
-
-      {/* Spec chips */}
-      <div className="mt-3 flex flex-wrap gap-2">
-        <YdChip icon={UtensilsCrossed} label={`${plan.meals_per_week} meals/week`} />
-        <YdChip icon={CalendarDays} label={`${plan.days_per_week} days/week`} />
-      </div>
-
-      {/* Price + CTA */}
-      <div className="mt-4 flex items-end justify-between gap-3 border-t border-border/60 pt-3">
-        <div className="flex items-baseline gap-1">
-          <span className="text-2xl font-black tabular-nums text-foreground">
-            {formatUSD(plan.weekly_price_cents)}
-          </span>
-          <span className="text-xs text-muted-foreground">/wk</span>
-        </div>
-        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-sm font-bold text-black
-                         transition-transform duration-200 group-hover:translate-x-0.5">
-          View menu
-          <ArrowRight className="h-4 w-4" />
-        </span>
-      </div>
-    </article>
   );
 }
 

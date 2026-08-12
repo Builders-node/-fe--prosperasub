@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { useProviderRatings } from "@/hooks/useProviderRatings";
 import { useArchetypeLabel } from "@/hooks/useServiceArchetypes";
 import { Waves } from "lucide-react";
 import { providerHref } from "@/lib/services/serviceUrls";
@@ -67,6 +68,18 @@ const BeachClub = () => {
   // grouping: one section per category (Beach Membership · Court Bookings)
   // so a "gym" or "spa" provider added later automatically gets its own
   // bucket instead of being smushed into the memberships grid.
+  // Ratings and photos both belong to the provider — beach_club_plans has no
+  // image of its own, so a plan borrows its club's gallery.
+  const providerMedia = useMemo(() => {
+    const m: Record<string, string[]> = {};
+    (providersQ.data ?? []).forEach((p: any) => {
+      const gallery: string[] = Array.isArray(p.gallery_urls) ? p.gallery_urls : [];
+      m[p.id] = gallery.length ? gallery : (p.avatar_url ? [p.avatar_url] : []);
+    });
+    return m;
+  }, [providersQ.data]);
+  const ratings = useProviderRatings((providersQ.data ?? []).map((p: any) => p.id));
+
   const categoriesQ = useQuery({
     queryKey: ["entertainment-categories-public"],
     queryFn: async () => {
@@ -244,6 +257,8 @@ const BeachClub = () => {
                 <EntertainmentPlanCard
                   key={plan.id}
                   plan={plan}
+                  rating={ratings[plan.owner_provider_id]}
+                  photos={providerMedia[plan.owner_provider_id]}
                   onSubscribe={(id) => {
                     const href = `/services/beach-club/checkout/${id}`;
                     if (!isAuthenticated) openAuthModal("login", href);
@@ -255,6 +270,8 @@ const BeachClub = () => {
                 <UniversalPlanCard
                   key={plan.id}
                   plan={plan}
+                  rating={ratings[plan.provider_id]}
+                  photos={providerMedia[plan.provider_id]}
                   onSubscribe={(id) => {
                     const href = `/services/beach-club/checkout/plan/${id}`;
                     if (!isAuthenticated) openAuthModal("login", href);

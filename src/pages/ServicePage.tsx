@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { useProviderRatings } from "@/hooks/useProviderRatings";
 import { providerHref } from "@/lib/services/serviceUrls";
 import { ProviderRail, CategoryChips, ALL_CATEGORIES } from "@/components/listing/ListingNav";
 import { groupProvidersByCategory } from "@/lib/services/groupByCategory";
@@ -63,6 +64,17 @@ const ServicePage = () => {
     },
     enabled: !!archetypeKey,
   });
+
+  // A universal plan has no picture of its own; it borrows its provider's.
+  const providerMedia = useMemo(() => {
+    const m: Record<string, string[]> = {};
+    (providersQ.data ?? []).forEach((p: any) => {
+      const gallery: string[] = Array.isArray(p.gallery_urls) ? p.gallery_urls : [];
+      m[p.id] = gallery.length ? gallery : (p.avatar_url ? [p.avatar_url] : []);
+    });
+    return m;
+  }, [providersQ.data]);
+  const ratings = useProviderRatings((providersQ.data ?? []).map((p: any) => p.id));
 
   const categoriesQ = useQuery({
     queryKey: ["service-categories-public", archetypeKey],
@@ -206,7 +218,13 @@ const ServicePage = () => {
           ) : visiblePlans.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {visiblePlans.map((plan: any) => (
-                <UniversalPlanCard key={plan.id} plan={plan} onSubscribe={subscribe} />
+                <UniversalPlanCard
+                  key={plan.id}
+                  plan={plan}
+                  rating={ratings[plan.provider_id]}
+                  photos={providerMedia[plan.provider_id]}
+                  onSubscribe={subscribe}
+                />
               ))}
             </div>
           ) : (
