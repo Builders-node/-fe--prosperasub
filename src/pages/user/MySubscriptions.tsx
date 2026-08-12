@@ -30,6 +30,7 @@ import {
   X,
   Eye,
   CalendarClock,
+  CalendarPlus,
   Waves,
   LandPlot,
   LayoutGrid,
@@ -717,6 +718,82 @@ const MySubscriptions = () => {
     }];
   };
 
+  /**
+   * Rentals are not subscriptions and their two actions reflect that.
+   *
+   * Cancel: a rental is a car held on specific dates, so cancelling releases
+   * them there and then (every availability query already ignores cancelled
+   * bookings) rather than letting the period run out. Only before it starts.
+   *
+   * Extend: the follow-on days are simply another booking of the same car,
+   * starting the day after this one ends. That is not a workaround — it is the
+   * only way the extra days get priced by the real tiered pricing, checked
+   * against the calendar, and paid for through a checkout that already exists.
+   * Bolting days onto a paid booking would mean inventing a partially-paid
+   * booking state that nothing else on the platform understands.
+   */
+  const [cancelRentalTarget, setCancelRentalTarget] = useState<any | null>(null);
+
+  const cancelRentalMutation = useMutation({
+    mutationFn: async (bookingId: string) => {
+      const { data, error } = await accountApi(`/account/rental/bookings/${bookingId}/cancel`, { method: "POST" });
+      if (error) throw error;
+      return data as { refundPending?: boolean };
+    },
+    onSuccess: (data) => {
+      toast.success(data?.refundPending
+        ? "Rental cancelled. We'll be in touch about the refund."
+        : "Rental cancelled.");
+      setCancelRentalTarget(null);
+      queryClient.invalidateQueries({ queryKey: ["my-rental-bookings"] });
+    },
+    onError: (e: Error) => toast.error(e.message || "Could not cancel the rental."),
+  });
+
+  /**
+   * Which of the two a given rental gets.
+   *
+   * Extend needs a car that is still on the calendar and a rental that has not
+   * finished; cancel needs one that has not started. A rental in progress
+   * therefore offers Extend and not Cancel, which is exactly right — you can
+   * keep the car longer, you cannot un-take it.
+   */
+  const rentalActions = (b: any) => {
+    const today = todayHN();
+    const status = String(b.status ?? "").toLowerCase();
+    const dead = ["cancelled", "completed", "refunded"].includes(status);
+    if (dead) return [];
+
+    const actions: Array<{ key: string; label: string; icon: any; variant?: "secondary"; onClick: () => void }> = [];
+
+    if (b.end_date && b.end_date >= today && b.vehicle_id) {
+      actions.push({
+        key: "extend",
+        label: "Extend",
+        icon: CalendarPlus,
+        variant: "secondary",
+        onClick: () => navigate(
+          `/services/rental/${b.vehicle_id}/book?start=${addDaysISO(b.end_date, 1)}` +
+          `&end=${addDaysISO(b.end_date, 2)}` +
+          `&startTime=${encodeURIComponent(b.end_time ?? "09:00")}` +
+          `&endTime=${encodeURIComponent(b.end_time ?? "09:00")}`,
+        ),
+      });
+    }
+
+    if (b.start_date && b.start_date > today) {
+      actions.push({
+        key: "cancel",
+        label: "Cancel",
+        icon: X,
+        variant: "secondary",
+        onClick: () => setCancelRentalTarget(b),
+      });
+    }
+
+    return actions;
+  };
+
   const payMutation = useMutation({
     mutationFn: async (subscriptionId: string) => {
       const { data, error } = await accountApi(`/account/subscriptions/${subscriptionId}/invoice`, { method: "POST" });
@@ -1040,6 +1117,7 @@ const MySubscriptions = () => {
                       subtitle={`${b.rental_days} day${b.rental_days !== 1 ? "s" : ""}`}
                       statusBadge={<StatusPill status={b.status} />}
                       metadata={<span className="tabular-nums">{formatUSD(b.total_cents)}</span>}
+                      actions={rentalActions(b)}
                       rate={canRate ? (
                         <RateProviderButton
                           service="rental"
@@ -1630,6 +1708,43 @@ const MySubscriptions = () => {
       >
         <p className="text-sm text-muted-foreground">
           Nothing is charged again and nothing is refunded — this simply stops the next period.
+        </p>
+      </ResponsiveDialog>
+
+      {/* ── Cancel a rental ──
+          Different promise from the subscription dialog above: the dates go
+          back on the calendar immediately, and if money was taken it comes
+          back by hand rather than automatically, so the dialog says so. */}
+      <ResponsiveDialog
+        open={!!cancelRentalTarget}
+        onOpenChange={(open) => { if (!open) setCancelRentalTarget(null); }}
+        title={<span className="flex items-center gap-2"><X className="h-5 w-5 text-destructive" />Cancel this rental?</span>}
+        description={
+          cancelRentalTarget?.start_date
+            ? `The car is booked from ${formatDateHN(cancelRentalTarget.start_date)}. Cancelling frees those dates for someone else straight away.`
+            : "Cancelling frees these dates for someone else straight away."
+        }
+        footer={
+          <div className="flex w-full gap-2">
+            <Button variant="ghost" className="flex-1" onClick={() => setCancelRentalTarget(null)}>
+              Keep it
+            </Button>
+            <Button
+              variant="destructive"
+              className="flex-1"
+              disabled={cancelRentalMutation.isPending}
+              onClick={() => cancelRentalTarget && cancelRentalMutation.mutate(cancelRentalTarget.id)}
+            >
+              {cancelRentalMutation.isPending && <Spinner size="sm" className="mr-2" />}
+              Cancel rental
+            </Button>
+          </div>
+        }
+      >
+        <p className="text-sm text-muted-foreground">
+          {String(cancelRentalTarget?.payment_status ?? "").toLowerCase() === "paid"
+            ? `You paid ${formatUSD(cancelRentalTarget?.total_cents ?? 0)}. We'll contact you about the refund — it isn't sent automatically.`
+            : "Nothing has been charged for this rental."}
         </p>
       </ResponsiveDialog>
 
