@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, ChefHat, LifeBuoy, List, LogOut, Shield, Receipt } from "lucide-react";
+import { Bell, ChefHat, LifeBuoy, List, LogOut, Shield, Receipt, Store } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import {
   DropdownMenu,
@@ -67,8 +67,13 @@ export function AccountMenu() {
             <AppDropdownItem icon={List} title={t("profile.bookings")} to="/my-subscriptions" />
             <AppDropdownItem icon={Receipt} title="History" to="/history" />
             <AppDropdownItem icon={Bell} title="Notifications" to="/notifications" />
-            {managesBusiness && (
+            {managesBusiness ? (
               <AppDropdownItem icon={ChefHat} title="My Business" to="/my-business" />
+            ) : (
+              // Off the home screen now, so this is the only way in — without
+              // it the whole provider signup has no entry point but a typed
+              // URL.
+              <AppDropdownItem icon={Store} title={t("discovery.becomeProvider")} to="/become-a-provider" />
             )}
             <AppDropdownItem icon={LifeBuoy} title="Support" to="/support" />
           </div>

@@ -122,14 +122,11 @@ const Discovery = () => {
             />
           )}
 
-          {/* One business row, not two. Someone who already runs a business on
-              the platform wants the door into it; the invitation to become a
-              provider is for everyone else, and showing both put a pitch to
-              sign up underneath the link to the business they already have. */}
-          {managesBusiness ? (
+          {/* The home screen is for buying, so it only carries the door into a
+              business you already run. Signing up to be a provider lives in
+              the account menu — it is a once-ever action, not a shortcut. */}
+          {managesBusiness && (
             <ShortcutRow icon={BusinessCenterIcon} title={t("discovery.myBusiness")} to="/my-business" />
-          ) : (
-            <ShortcutRow icon={BusinessCenterIcon} title={t("discovery.becomeProvider")} to="/become-a-provider" />
           )}
         </div>
       </section>
