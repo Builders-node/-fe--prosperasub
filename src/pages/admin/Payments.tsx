@@ -20,6 +20,7 @@ import { fetchAllRows } from "@/lib/supabasePaging";
 import { adminApi, supabase, supabaseDb } from "@/integrations/supabase/client";
 import { FinanceBreakdown } from "@/components/admin/FinanceBreakdown";
 import { NetProfitPanel } from "@/components/admin/NetProfitPanel";
+import { ProviderPayoutsPanel } from "@/components/admin/ProviderPayoutsPanel";
 import { PayPalPanel } from "@/components/payment/PayPalPanel";
 
 // Dashed placeholder shown before a test payment is generated.
@@ -411,6 +412,7 @@ const AdminPayments = () => {
         <TabsList className="mb-space-4">
           <TabsTrigger value="payments">Payments</TabsTrigger>
           <TabsTrigger value="profit">Net Profit</TabsTrigger>
+          <TabsTrigger value="payouts">Payouts</TabsTrigger>
         </TabsList>
 
         <TabsContent value="payments">
@@ -879,6 +881,10 @@ const AdminPayments = () => {
 
         <TabsContent value="profit">
           <NetProfitPanel />
+        </TabsContent>
+
+        <TabsContent value="payouts">
+          <ProviderPayoutsPanel />
         </TabsContent>
       </Tabs>
 

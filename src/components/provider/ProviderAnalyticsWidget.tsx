@@ -164,13 +164,16 @@ async function fetchCarsStats(legacyId: string) {
       .lte("start_date", daysFromNowISO(7))
       .neq("status", "cancelled"),
     supabaseDb.from("rental_bookings")
-      .select("total_price_cents,created_at")
+      // total_cents, not total_price_cents — cleaning uses the longer name,
+      // rentals don't, and asking for a column that isn't there makes
+      // PostgREST 400 the whole request, so this card read $0.00 forever.
+      .select("total_cents,created_at")
       .in("vehicle_id", vehicleIds)
       .eq("payment_status", "paid")
       .gte("created_at", monthStartISO()),
   ]);
   const revenueCents = (revRows ?? []).reduce((s: number, r: any) =>
-    s + Number(r.total_price_cents || 0), 0);
+    s + Number(r.total_cents || 0), 0);
   return { active: active ?? 0, upcoming: upcoming ?? 0, revenueCents };
 }
 

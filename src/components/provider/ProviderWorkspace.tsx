@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { ExternalLink, CalendarClock, Package } from "lucide-react";
+import { ExternalLink, CalendarClock, Package, Wallet } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { StatusPill } from "@/components/patterns/StatusPill";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,8 @@ import { BookingsTab } from "@/components/provider/BookingsTab";
 import { ScheduleAccordion } from "@/components/provider/ScheduleAccordion";
 import { LegacyOwnerPortal, FOOD_SUBSCRIPTIONS_TAB_BODY, CLEANING_SUBSCRIPTIONS_TAB_BODY, BEACH_SUBSCRIPTIONS_TAB_BODY } from "@/components/provider/legacyPortalTabs";
 import { ProviderAnalyticsWidget } from "@/components/provider/ProviderAnalyticsWidget";
+import { ProviderReviewsPanel } from "@/components/provider/ProviderReviewsPanel";
+import { ProviderEarningsTab } from "@/components/provider/ProviderEarningsTab";
 import type { PortalTab } from "@/components/provider/ProviderPortalShell";
 import { LEGACY_PORTAL_SOURCE_KEYS, legacyIdOf } from "@/lib/services/providerBridge";
 
@@ -139,12 +141,40 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
   //   • ProviderAnalyticsWidget rides above Overview — the KPIs are what "who I am" is measured by.
   // One uniform tab-prefix mechanism in LegacyOwnerPortal/CapabilityPortal drives both.
   const tabPrefixes: Record<string, React.ReactNode> = {
-    info: <ProviderAnalyticsWidget providerId={provider.id} legacyId={legacyId} sourceKey={sourceKey} />,
+    info: (
+      <div className="mb-6 space-y-3">
+        <ProviderAnalyticsWidget providerId={provider.id} legacyId={legacyId} sourceKey={sourceKey} />
+        {/* Reputation belongs with "how am I doing", right under the number it
+            explains — the KPI strip's Rating card. Renders nothing until
+            somebody has actually rated the business. */}
+        <ProviderReviewsPanel providerId={provider.id} />
+      </div>
+    ),
     offerings: <ScheduleAccordion provider={provider} />,
   };
 
+  // Money — what came in, what the platform kept, what has been paid out.
+  // Owner-only: the payout ledger is the owner's, and the endpoint behind it
+  // refuses a manager, so showing the tab to one would render an error card.
+  const moneyTab: PortalTab<unknown> = {
+    value: "money",
+    label: "Money",
+    icon: Wallet,
+    ownerOnly: true,
+    render: () => (
+      <ProviderEarningsTab providerId={provider.id} legacyId={legacyId} sourceKey={sourceKey} />
+    ),
+  };
+  const extraTabs: PortalTab<any>[] = [moneyTab];
+
   const capabilityPortal = (
-    <CapabilityPortal provider={provider} capabilityTabs={capabilityTabs} bookingsTab={bookingsTab} tabPrefixes={tabPrefixes} />
+    <CapabilityPortal
+      provider={provider}
+      capabilityTabs={capabilityTabs}
+      bookingsTab={bookingsTab}
+      tabPrefixes={tabPrefixes}
+      extraTabs={extraTabs}
+    />
   );
 
   return (
@@ -195,7 +225,7 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
         </div>
 
         {isLegacyPortal
-          ? <LegacyOwnerPortal sourceKey={sourceKey} legacyId={legacyId} fallback={capabilityPortal} bookingsTab={bookingsTab} tabPrefixes={tabPrefixes} />
+          ? <LegacyOwnerPortal sourceKey={sourceKey} legacyId={legacyId} fallback={capabilityPortal} bookingsTab={bookingsTab} tabPrefixes={tabPrefixes} extraTabs={extraTabs} />
           : capabilityPortal}
       </div>
     </>
@@ -217,11 +247,14 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
  * Operations. One capability collapses to no sub-tabs at all, so a simple
  * provider sees a plain Plans editor rather than a pill row of one.
  */
-function CapabilityPortal({ provider, capabilityTabs, bookingsTab, tabPrefixes = {} }: {
+function CapabilityPortal({ provider, capabilityTabs, bookingsTab, tabPrefixes = {}, extraTabs = [] }: {
   provider: UniversalProviderRow;
   capabilityTabs: { key: CapabilityKey; meta: CapabilityMeta }[];
   bookingsTab: PortalTab<unknown>;
   tabPrefixes?: Record<string, React.ReactNode>;
+  /** Same extras the legacy portals get, so a universal provider isn't a
+   *  second-class one — see legacyPortalTabs.assembleTabs. */
+  extraTabs?: PortalTab<any>[];
 }) {
   const InfoIcon = INFO_TAB_META.icon;
   const BookingsIcon = bookingsTab.icon;
@@ -262,6 +295,15 @@ function CapabilityPortal({ provider, capabilityTabs, bookingsTab, tabPrefixes =
           <span className="hidden sm:inline">{bookingsTab.label}</span>
           <span className="sm:hidden">{bookingsTab.mobileLabel ?? bookingsTab.label}</span>
         </TabsTrigger>
+        {extraTabs.map((t) => {
+          const ExtraIcon = t.icon;
+          return (
+            <TabsTrigger key={t.value} value={t.value} equalWidth className="gap-2 px-2 sm:px-space-4">
+              <ExtraIcon className="hidden h-4 w-4 sm:block" />
+              <span>{t.label}</span>
+            </TabsTrigger>
+          );
+        })}
       </TabsList>
 
       <TabsContent value={INFO_TAB_META.tabValue}>
@@ -279,6 +321,12 @@ function CapabilityPortal({ provider, capabilityTabs, bookingsTab, tabPrefixes =
       <TabsContent value={bookingsTab.value}>
         {bookingsTab.render(null as never)}
       </TabsContent>
+
+      {extraTabs.map((t) => (
+        <TabsContent key={t.value} value={t.value}>
+          {t.render(null as never, true)}
+        </TabsContent>
+      ))}
     </Tabs>
   );
 }

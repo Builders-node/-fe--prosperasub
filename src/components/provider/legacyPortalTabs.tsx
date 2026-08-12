@@ -185,13 +185,22 @@ function assembleTabs<T>(
     };
   });
 
-  if (!bookingsTab) return [...withPrefixes, ...extraTabs];
+  // Extras go next to Bookings, not after Team: Money answers the question
+  // Bookings raises ("who booked what" → "so what am I owed"), and Team is the
+  // owner-only tail of every service's tab strip.
+  if (!bookingsTab) {
+    const opsIdx = withPrefixes.findIndex((t) => t.value === "operations");
+    const at = opsIdx >= 0 ? opsIdx : withPrefixes.length;
+    const out = [...withPrefixes];
+    out.splice(at, 0, ...(extraTabs as PortalTab<T>[]));
+    return out;
+  }
   const overviewIdx = withPrefixes.findIndex((t) => t.value === "info");
   const offeringsIdx = withPrefixes.findIndex((t) => t.value === "offerings");
   const insertAfter = offeringsIdx >= 0 ? offeringsIdx : overviewIdx;
   const result = [...withPrefixes];
-  result.splice(insertAfter + 1, 0, bookingsTab as PortalTab<T>);
-  return [...result, ...(extraTabs as PortalTab<T>[])];
+  result.splice(insertAfter + 1, 0, bookingsTab as PortalTab<T>, ...(extraTabs as PortalTab<T>[]));
+  return result;
 }
 
 // Access-revoked panel — shown to a non-admin whose owner/manager row was
@@ -271,7 +280,7 @@ interface OwnerTabsProps {
   /** Map of tab-value → ReactNode to prepend to that tab's body. Currently used for
    * the ProviderAnalyticsWidget above Overview + the ScheduleAccordion above Offerings. */
   tabPrefixes?: Record<string, ReactNode>;
-  /** Extra tabs appended after the service tabs. */
+  /** Extra tabs, spliced in right after Bookings. */
   extraTabs: PortalTab<any>[];
 }
 
