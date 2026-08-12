@@ -340,6 +340,42 @@ const compareFilterValues = (left: any, right: any) => {
 
 const _packageCache = new Map<string, { name: string; cleanings_per_month: number; price_per_cleaning_cents: number }>();
 
+/**
+ * Which slot grid a cleaning package books against — the universal
+ * `providers.id`, or null when the provider keeps no rows of its own and the
+ * legacy shared grid is still its schedule.
+ *
+ * package → legacy provider → universal provider, the same walk the booking
+ * page and seed_cleaning_slots make. Cached per package: scheduling calls it
+ * once, but rescheduling hits the same one repeatedly.
+ */
+const _providerGridCache = new Map<string, string | null>();
+
+const cleaningProviderGridId = async (packageId?: string | null): Promise<string | null> => {
+  if (!packageId) return null;
+  if (_providerGridCache.has(packageId)) return _providerGridCache.get(packageId) ?? null;
+
+  let gridId: string | null = null;
+  try {
+    const { data: pkg } = await db
+      .from("cleaning_packages").select("provider_id").eq("id", packageId).maybeSingle();
+    const legacyId = (pkg as { provider_id?: string } | null)?.provider_id;
+    if (legacyId) {
+      const { data: prov } = await db
+        .from("providers").select("id")
+        .eq("source_service_key", "cleaning")
+        .eq("source_provider_id", legacyId)
+        .maybeSingle();
+      gridId = (prov as { id?: string } | null)?.id ?? null;
+    }
+  } catch {
+    gridId = null; // fall back to the shared grid rather than fail the booking
+  }
+
+  _providerGridCache.set(packageId, gridId);
+  return gridId;
+};
+
 const cleaningPackageForId = async (packageId: string) => {
   const cached = _packageCache.get(packageId);
   if (cached) return cached;
@@ -1339,7 +1375,29 @@ export const supabase = {
           .select("*")
           .gte("date", formatDate(periodStart))
           .lte("date", formatDate(periodEnd));
-        const slots: any[] = allSlots || [];
+
+        /**
+         * Narrow to the grid this subscription actually books against.
+         *
+         * Slots became per-provider on 2026-08-10, so a (date, time) pair now
+         * matches several rows — Car Wash's, Apartment Cleaning's and the
+         * legacy shared one. Every lookup below is `slots.find(...)`, which
+         * takes whichever came back first, so a car wash booked on 17 August
+         * landed in the shared grid and one on 21 September landed in Car
+         * Wash's, from the same schedule. Capacity was then checked and
+         * decremented against whoever happened to win.
+         *
+         * Same rule as the booking page and the SQL function: the provider's
+         * own rows when it keeps any, the shared grid otherwise.
+         */
+        const providerGridId = await cleaningProviderGridId(subData.package_id);
+        const allSlotRows: any[] = allSlots || [];
+        const ownRows = providerGridId
+          ? allSlotRows.filter((s: any) => s.provider_id === providerGridId)
+          : [];
+        const slots: any[] = ownRows.length
+          ? ownRows
+          : allSlotRows.filter((s: any) => s.provider_id == null);
 
         // Load existing future bookings for this subscription
         const { data: existingBookings } = await db
