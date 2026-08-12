@@ -12,6 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useMyBusinesses } from "@/hooks/useMyBusinesses";
 import { useServiceArchetypes, type ServiceArchetype } from "@/hooks/useServiceArchetypes";
 import { publicListingHref } from "@/lib/services/providerBridge";
+import { useResidenceMatters } from "@/contexts/LocationContext";
 import { useI18n } from "@/i18n";
 import { cn } from "@/lib/utils";
 
@@ -31,6 +32,11 @@ const Discovery = () => {
   const [qrOpen, setQrOpen] = useState(false);
   const { hasAny: managesBusiness } = useMyBusinesses();
   const { archetypes: allArchetypes, isLoading: archetypesLoading } = useServiceArchetypes(true);
+
+  // Home filters nothing itself, but it is where people set their location
+  // before they go looking for a service — so the header selector belongs
+  // here even though this page never reads the value.
+  useResidenceMatters();
 
   // Every active archetype now resolves to a listing — legacy ones to their
   // bespoke page, the rest to the generic ServicePage — so nothing is filtered

@@ -20,8 +20,7 @@ import { FoodReviews } from "@/components/food/FoodReviews";
 import { StarRating } from "@/components/food/StarRating";
 import { Button } from "@/components/ui/button";
 import { formatUSD } from "@/lib/pricing";
-import { useSelectedResidence } from "@/contexts/LocationContext";
-import { useResidences } from "@/hooks/useResidences";
+import { useResidenceFilter } from "@/hooks/useResidenceFilter";
 import type { FoodProvider, FoodMealPlan, FoodProviderImage, FoodReview } from "@/types/food";
 
 const FoodProviderDetail = () => {
@@ -67,12 +66,8 @@ const FoodProviderDetail = () => {
   });
 
   // Filter plans by the globally-selected location.
-  const { residence } = useSelectedResidence();
-  const { data: residences = [] } = useResidences();
-  const selectedResidenceId = residence ? (residences.find((r) => r.name === residence)?.id ?? null) : null;
-  const visiblePlans = plans.filter(
-    (p) => !selectedResidenceId || (p as any).residenceIds.length === 0 || (p as any).residenceIds.includes(selectedResidenceId),
-  );
+  const { residence, servesHere, isFiltering } = useResidenceFilter();
+  const visiblePlans = plans.filter((p) => servesHere((p as any).residenceIds));
 
   // Meal photos for each plan — pulled from this provider's weekly menus, keyed by plan id.
   const { data: planImages = {} } = useQuery({
@@ -306,7 +301,7 @@ const FoodProviderDetail = () => {
             {visiblePlans.length > 0 && (
               <span className="text-base font-normal text-muted-foreground">({visiblePlans.length})</span>
             )}
-            {selectedResidenceId && (
+            {isFiltering && (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
                 <MapPin className="h-3.5 w-3.5" /> {residence}
               </span>
@@ -321,10 +316,10 @@ const FoodProviderDetail = () => {
             <div className="flex flex-col items-center justify-center rounded-3xl bg-card py-14 text-center">
               <CalendarDays className="mb-3 h-10 w-10 text-muted-foreground/40" />
               <p className="font-semibold text-foreground">
-                {selectedResidenceId && plans.length > 0 ? `No plans in ${residence}` : "No plans yet"}
+                {isFiltering && plans.length > 0 ? `No plans in ${residence}` : "No plans yet"}
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
-                {selectedResidenceId && plans.length > 0
+                {isFiltering && plans.length > 0
                   ? "This restaurant doesn't deliver these plans to your location."
                   : "We're setting things up. Check back soon."}
               </p>

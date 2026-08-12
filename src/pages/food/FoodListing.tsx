@@ -16,8 +16,7 @@ import { formatUSD } from "@/lib/pricing";
 import {
   YdChip, YdEmptyState,
 } from "@/components/yd/YdPrimitives";
-import { useSelectedResidence } from "@/contexts/LocationContext";
-import { useResidences } from "@/hooks/useResidences";
+import { useResidenceFilter } from "@/hooks/useResidenceFilter";
 import type { FoodProvider, FoodMealPlan } from "@/types/food";
 import { DIETARY_TAGS, dietaryTagMeta, type DietaryTag } from "@/lib/foodDietaryTags";
 import { cn } from "@/lib/utils";
@@ -131,11 +130,7 @@ const FoodListing = () => {
   }, [catalog.data]);
 
   // ── Location filter ──────────────────────────────────────────────────────
-  const { residence } = useSelectedResidence();
-  const { data: residences = [] } = useResidences();
-  const selectedResidenceId = residence ? (residences.find((r) => r.name === residence)?.id ?? null) : null;
-  // Empty link list = available everywhere; otherwise must include the selection.
-  const servesHere = (ids: string[]) => !selectedResidenceId || ids.length === 0 || ids.includes(selectedResidenceId);
+  const { residence, servesHere, isFiltering } = useResidenceFilter();
 
   const visibleProviders = (providers ?? [])
     .filter((p) => servesHere(p.residenceIds))
@@ -235,7 +230,7 @@ const FoodListing = () => {
             />
             <div className="flex flex-wrap items-center gap-2">
               <CategoryChips categories={chipCategories} value={activeCategory} onChange={setActiveCategory} />
-              {selectedResidenceId && (
+              {isFiltering && (
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
                   <MapPin className="h-3.5 w-3.5" /> {residence}
                 </span>
@@ -259,7 +254,7 @@ const FoodListing = () => {
           </div>
         ) : visibleProviders.length === 0 ? (
           <div className="mb-6">
-            {selectedResidenceId ? (
+            {isFiltering ? (
               <YdEmptyState
                 icon={MapPin}
                 title={`No restaurants in ${residence} yet`}

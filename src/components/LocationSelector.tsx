@@ -2,7 +2,7 @@ import { useState } from "react";
 import { MapPin, ChevronDown, Check } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useResidences } from "@/hooks/useResidences";
-import { useSelectedResidence } from "@/contexts/LocationContext";
+import { useLocationControl } from "@/contexts/LocationContext";
 import { cn } from "@/lib/utils";
 
 interface Props {
@@ -21,11 +21,17 @@ interface Props {
  */
 export function LocationSelector({ variant = "chip", className }: Props) {
   const { data: residences = [] } = useResidences();
-  const { residence, setResidence } = useSelectedResidence();
+  const { residence, setResidence, residenceMatters } = useLocationControl();
   const [open, setOpen] = useState(false);
 
   // Nothing to choose from yet — hide entirely.
   if (residences.length === 0) return null;
+
+  // Nothing on this page reads the residence, so the control would be a
+  // promise the page cannot keep: the beach club is a place you go to, and the
+  // generic service listing has no service areas to match against. Pages that
+  // do use it claim it (LocationContext), which is what flips this on.
+  if (!residenceMatters) return null;
 
   const label = residence || "Choose location";
 

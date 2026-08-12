@@ -8,8 +8,7 @@ import { providerHref } from "@/lib/services/serviceUrls";
 import { ProviderRail, CategoryChips, ALL_CATEGORIES } from "@/components/listing/ListingNav";
 import { groupProvidersByCategory } from "@/lib/services/groupByCategory";
 import { supabaseDb } from "@/integrations/supabase/client";
-import { useSelectedResidence } from "@/contexts/LocationContext";
-import { useResidences } from "@/hooks/useResidences";
+import { useResidenceFilter } from "@/hooks/useResidenceFilter";
 import { HomeHeader } from "@/components/HomeHeader";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
 import { BottomNav } from "@/components/BottomNav";
@@ -138,12 +137,8 @@ const CarRental = () => {
   });
 
   // ── Location filter ──────────────────────────────────────────────────────
-  const { residence } = useSelectedResidence();
-  const { data: residences = [] } = useResidences();
-  const selectedResidenceId = residence ? (residences.find((r) => r.name === residence)?.id ?? null) : null;
-  const visibleVehicles = (vehicles ?? []).filter(
-    (v: any) => !selectedResidenceId || (v.residenceIds?.length ?? 0) === 0 || v.residenceIds.includes(selectedResidenceId),
-  );
+  const { residence, servesHere, isFiltering } = useResidenceFilter();
+  const visibleVehicles = (vehicles ?? []).filter((v: any) => servesHere(v.residenceIds));
   const hiddenVehicleCount = (vehicles ?? []).length - visibleVehicles.length;
 
   const railProviders = useMemo(
@@ -274,7 +269,7 @@ const CarRental = () => {
             </p>
           )}
           </>
-        ) : selectedResidenceId ? (
+        ) : isFiltering ? (
           <YdEmptyState
             icon={Car}
             title={`No vehicles in ${residence} yet`}

@@ -7,8 +7,7 @@ import { providerHref } from "@/lib/services/serviceUrls";
 import { groupProvidersByCategory } from "@/lib/services/groupByCategory";
 import { ProviderRail, CategoryChips, ALL_CATEGORIES } from "@/components/listing/ListingNav";
 import { supabase, supabaseDb } from "@/integrations/supabase/client";
-import { useSelectedResidence } from "@/contexts/LocationContext";
-import { useResidences } from "@/hooks/useResidences";
+import { useResidenceFilter } from "@/hooks/useResidenceFilter";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { useI18n } from "@/i18n";
@@ -129,12 +128,8 @@ const CleaningPackages = () => {
   });
 
   // ── Location filter ──────────────────────────────────────────────────────
-  const { residence } = useSelectedResidence();
-  const { data: residences = [] } = useResidences();
-  const selectedResidenceId = residence ? (residences.find((r) => r.name === residence)?.id ?? null) : null;
-  const visiblePackages = (packagesQ.data ?? []).filter(
-    (p: any) => !selectedResidenceId || (p.residenceIds?.length ?? 0) === 0 || p.residenceIds.includes(selectedResidenceId),
-  );
+  const { residence, servesHere } = useResidenceFilter();
+  const visiblePackages = (packagesQ.data ?? []).filter((p: any) => servesHere(p.residenceIds));
 
   // Three-level grouping: category → provider → plans.
   //   Apartment Cleaning
