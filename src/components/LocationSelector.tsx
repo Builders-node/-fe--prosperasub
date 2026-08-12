@@ -1,13 +1,17 @@
 import { useState } from "react";
 import { MapPin, ChevronDown, Check } from "lucide-react";
+import { LocationOnIcon } from "@/components/icons/FigmaIcons";
 import { ResponsiveDialog } from "@/components/patterns/ResponsiveDialog";
 import { useResidences } from "@/hooks/useResidences";
 import { useLocationControl } from "@/contexts/LocationContext";
 import { cn } from "@/lib/utils";
 
 interface Props {
-  /** Visual style: "chip" for header pill, "full" for a full-width bar row. */
-  variant?: "chip" | "full";
+  /**
+   * "chip" — header pill · "full" — full-width bar row ·
+   * "icon" — a bare 40px pin button, the shape the Figma home header uses.
+   */
+  variant?: "chip" | "full" | "icon";
   className?: string;
 }
 
@@ -40,7 +44,20 @@ export function LocationSelector({ variant = "chip", className }: Props) {
     setOpen(false);
   };
 
-  const trigger = (
+  const trigger = variant === "icon" ? (
+    <button
+      type="button"
+      onClick={() => setOpen(true)}
+      aria-label="Choose your location"
+      className={cn(
+        "flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-muted",
+        residence ? "text-primary" : "text-foreground",
+        className,
+      )}
+    >
+      <LocationOnIcon className="h-6 w-6" />
+    </button>
+  ) : (
     <button
       type="button"
       onClick={() => setOpen(true)}

@@ -250,6 +250,11 @@ export default {
         "card-hover": "0 8px 24px -4px rgba(0, 0, 0, 0.12), 0 12px 32px -8px rgba(0, 0, 0, 0.08)",
         "button": "0 2px 4px 0 rgba(0, 0, 0, 0.1)",
         "button-hover": "0 4px 8px 0 rgba(0, 0, 0, 0.15)",
+        /* The home screen's one elevation, straight from the Figma file:
+           drop-shadow(0px 4px 2px rgba(233,233,233,0.25)). Barely there on
+           purpose — the design separates surfaces by colour, and this only
+           keeps a white card from dissolving into the #f6f6f6 page. */
+        "figma": "0px 4px 2px rgba(233, 233, 233, 0.25)",
       },
     },
   },

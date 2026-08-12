@@ -10,8 +10,8 @@
 
   :root {
     /* ─── Brand ──────────────────────────────────────── */
-    --brand-accent-hex: #F8A31A;
-    --brand-accent: 37 94% 54%;
+    --brand-accent-hex: #F7A21B;
+    --brand-accent: 36.8 93.3% 53.7%;   /* #f7a21b, to the byte */
     --brand-accent-hover: 37 94% 47%;
     --brand-accent-active: 37 94% 40%;
     --brand-accent-soft: 37 94% 54% / 0.16;
@@ -173,11 +173,16 @@
     --type-label-line-height: var(--lh-snug);
     --type-caption-line-height: 1rem;
 
-    /* ─── Colors (light mode) ────────────────────────── */
-    --background: 0 0% 96%;
-    --foreground: 0 0% 10%;
+    /* ─── Colors (light mode) ──────────────────────────
+       Taken from the Figma home screen (node 137:739) so the values here and
+       the ones in the file are the same numbers, not neighbours:
+         #f6f6f6 page · #ffffff surface · #2a2a2a ink · #7d7d7d secondary
+       They were already within a rounding step of these; the point of pinning
+       them is that a screenshot comparison now has nothing to explain away. */
+    --background: 0 0% 96.5%;   /* #f6f6f6 */
+    --foreground: 0 0% 16.5%;   /* #2a2a2a */
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 10%;
+    --card-foreground: 0 0% 16.5%;
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 10%;
     --primary: var(--brand-accent);
@@ -185,13 +190,13 @@
     --secondary: 0 0% 100%;
     --secondary-foreground: 0 0% 12%;
     --muted: 0 0% 93%;
-    --muted-foreground: 0 0% 46%;
+    --muted-foreground: 0 0% 49%;   /* #7d7d7d */
     --accent: var(--brand-accent);
     --accent-foreground: var(--brand-on-accent);
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
     /* Borderless — borders are nearly invisible; contrast comes from bg layering */
-    --border: 0 0% 96%;
+    --border: 0 0% 96.5%;
     /* Inputs sit on muted bg — Yandex Прокат form-field aesthetic */
     --input: 0 0% 93%;
     --ring: var(--brand-accent);

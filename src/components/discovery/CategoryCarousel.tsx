@@ -25,50 +25,49 @@ const ROTATE_MS = 3000;
 
 function Slide({ item }: { item: CategoryHighlight }) {
   return (
+    // 140px tall, 16px radius, orange when there is no photo — the design's
+    // own promo card. The service sits above the category in 12px regular and
+    // the category itself is 16px semibold: the small line is context, the big
+    // one is the thing.
     <Link
       to={item.href}
       aria-label={item.label}
-      className="group relative flex h-[168px] w-full shrink-0 items-end overflow-hidden rounded-3xl sm:h-[200px]"
+      className="group relative flex h-[140px] w-full shrink-0 flex-col justify-end overflow-hidden rounded-radius-md bg-primary p-4"
     >
-      {item.imageUrl ? (
-        <img
-          src={item.imageUrl}
-          alt=""
-          loading="lazy"
-          decoding="async"
-          className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-        />
-      ) : (
-        // No photo for this category yet — the archetype's own colour stands in
-        // so the banner keeps one design instead of two. An admin's cover photo
-        // in /admin/services/categories replaces it.
-        <div className={cn("absolute inset-0", item.archetype?.accent ?? "bg-primary")} />
+      {item.imageUrl && (
+        <>
+          <img
+            src={item.imageUrl}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+          />
+          {/* White text on whatever gets uploaded, so the scrim is not
+              optional — weighted to the bottom where the words are. */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
+        </>
       )}
 
-      {/* Text is white on whatever photo gets uploaded, so the scrim is not
-          optional. Weighted to the bottom, where the words are, so the top of
-          the picture stays a picture. */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/10" />
-
-      {/* Wider padding from md up: the carousel's arrows float over the slide
-          and were clipping the first letters of the eyebrow. */}
-      <div className="relative w-full px-5 pb-5 sm:px-8 sm:pb-7 md:px-16">
+      <div className="relative flex flex-col gap-0.5">
         {item.archetype && (
-          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/70">
+          <p className={cn("text-[12px] tracking-[-0.24px]", item.imageUrl ? "text-white/80" : "text-primary-foreground/70")}>
             {item.archetype.label}
           </p>
         )}
-        <h3 className="mt-1 text-2xl font-black tracking-tight text-white sm:text-3xl">
+        <p className={cn(
+          "text-[16px] font-semibold tracking-[-0.32px]",
+          item.imageUrl ? "text-white" : "text-primary-foreground",
+        )}>
           {item.label}
-        </h3>
-        {item.fromCents !== null ? (
-          <p className="mt-1 flex items-baseline gap-1.5 text-white">
-            <span className="text-sm text-white/70">from</span>
-            <span className="text-2xl font-black tabular-nums sm:text-3xl">{formatUSD(item.fromCents)}</span>
-            {item.unit && <span className="text-sm text-white/70">{item.unit}</span>}
+        </p>
+        {item.fromCents !== null && (
+          <p className={cn(
+            "text-[12px] tracking-[-0.24px]",
+            item.imageUrl ? "text-white/80" : "text-primary-foreground/70",
+          )}>
+            from {formatUSD(item.fromCents)}{item.unit ? ` ${item.unit}` : ""}
           </p>
-        ) : (
-          <p className="mt-1 text-sm text-white/70">Coming soon</p>
         )}
       </div>
     </Link>
@@ -113,7 +112,7 @@ export function CategoryCarousel() {
   };
 
   if (isLoading) {
-    return <div className="h-[168px] animate-pulse rounded-3xl bg-muted/40 sm:h-[200px]" />;
+    return <div className="h-[140px] animate-pulse rounded-radius-md bg-muted/40" />;
   }
   if (count === 0) return null;
 
@@ -128,16 +127,19 @@ export function CategoryCarousel() {
       {/* The arrows are positioned against THIS box, not the section, so the
           dots underneath don't drag them off centre. */}
       <div
-        className="relative overflow-hidden rounded-3xl"
+        className="relative overflow-hidden rounded-radius-md"
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
       >
+        {/* Peek, not dots. The design keeps ~8px of the next card visible at
+            each edge — that sliver is the affordance that says "there is more
+            here", and it does it without a row of controls under the banner. */}
         <div
           className="flex transition-transform duration-500 ease-out"
-          style={{ transform: `translateX(-${index * 100}%)` }}
+          style={{ transform: `translateX(calc(-${index} * (100% - 16px)))` }}
         >
           {highlights.map((h) => (
-            <div key={h.key} className="w-full shrink-0">
+            <div key={h.key} className="w-[calc(100%-16px)] shrink-0 pr-2">
               <Slide item={h} />
             </div>
           ))}
@@ -167,25 +169,6 @@ export function CategoryCarousel() {
         )}
       </div>
 
-      {count > 1 && (
-        <>
-          <div className="mt-3 flex items-center justify-center gap-1.5">
-            {highlights.map((h, i) => (
-              <button
-                key={h.key}
-                type="button"
-                onClick={() => setIndex(i)}
-                aria-label={`Show ${h.label}`}
-                aria-current={i === index || undefined}
-                className={cn(
-                  "h-1.5 rounded-full transition-all",
-                  i === index ? "w-5 bg-foreground" : "w-1.5 bg-muted-foreground/30 hover:bg-muted-foreground/60",
-                )}
-              />
-            ))}
-          </div>
-        </>
-      )}
     </section>
   );
 }

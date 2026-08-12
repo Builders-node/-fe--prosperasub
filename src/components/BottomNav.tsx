@@ -2,13 +2,17 @@ import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { getNavigationForRoles, isNavItemActive } from "@/config/navigation";
-import { useUnreadCount } from "@/hooks/useNotifications";
+import { useState } from "react";
+import { useCart } from "@/contexts/CartContext";
+import { ProfileModal } from "@/components/account/ProfileModal";
+import { cn } from "@/lib/utils";
 
 export function BottomNav() {
   const location = useLocation();
   const { roles, isAuthenticated } = useAuth();
   const { openAuthModal } = useAuthModal();
-  const { data: unreadCount = 0 } = useUnreadCount();
+  const { count: cartCount } = useCart();
+  const [profileOpen, setProfileOpen] = useState(false);
 
   const navItems = getNavigationForRoles(roles);
   const visibleNavItems = navItems.filter((item) => !(!isAuthenticated && item.requiresAuth));
@@ -31,30 +35,52 @@ export function BottomNav() {
   }
 
   return (
+    // White bar, 60px of content plus the home-indicator inset — the design's
+    // 84px total on an iPhone 14. No top border: the page behind it is #f6f6f6
+    // and the white is the separation.
     <nav
-      className="fixed bottom-0 left-0 right-0 z-50 md:hidden yd-nav yd-border border-t"
+      className="fixed bottom-0 left-0 right-0 z-50 bg-card md:hidden"
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
     >
       <div className="flex items-stretch" style={{ height: 60 }}>
         {visibleNavItems.map((item) => {
           const isActive = isNavItemActive(item, location.pathname);
-          const iconStyle = { color: isActive ? "hsl(var(--yd-text))" : "hsl(var(--muted-foreground))" };
-          const labelStyle = { fontWeight: isActive ? 700 : 500, color: isActive ? "hsl(var(--yd-text))" : "hsl(var(--muted-foreground))" };
-          const className = "flex flex-1 flex-col items-center justify-center gap-1 transition-colors";
-          const isNotifications = item.path === "/notifications";
+          // Active is the brand orange, everything else the secondary grey —
+          // no weight change, no stroke change: the colour is the state.
+          const tone = isActive ? "text-primary" : "text-muted-foreground";
+          const className = "flex flex-1 flex-col items-center justify-center gap-1 p-2 transition-colors";
+          const isCart = item.path === "/cart";
           const inner = (
             <>
-              <span className="relative">
-                <item.icon className="h-[26px] w-[26px]" style={iconStyle} strokeWidth={isActive ? 2.2 : 1.8} />
-                {isNotifications && unreadCount > 0 && (
-                  <span className="absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-primary px-1 text-[9px] font-black text-primary-foreground leading-none">
-                    {unreadCount > 99 ? "99+" : unreadCount}
+              <span className={cn("relative flex h-6 w-6 items-center justify-center", tone)}>
+                <item.icon className="h-full w-full" />
+                {isCart && cartCount > 0 && (
+                  <span className="absolute -right-2 -top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-primary px-1 text-[9px] font-black leading-none text-primary-foreground">
+                    {cartCount > 99 ? "99+" : cartCount}
                   </span>
                 )}
               </span>
-              <span className="text-[10px] leading-none" style={labelStyle}>{item.label}</span>
+              <span className={cn("text-[12px] leading-4", tone)}>{item.label}</span>
             </>
           );
+
+          if (item.path === "/account") {
+            // There is no account page — the profile is a modal, and the
+            // account menu is what owns it.
+            return (
+              <button
+                key={item.path}
+                type="button"
+                className={className}
+                onClick={() => {
+                  if (!isAuthenticated) { openAuthModal("login"); return; }
+                  setProfileOpen(true);
+                }}
+              >
+                {inner}
+              </button>
+            );
+          }
 
           if (item.requiresAuth && !isAuthenticated) {
             return (
@@ -76,6 +102,8 @@ export function BottomNav() {
           );
         })}
       </div>
+
+      <ProfileModal open={profileOpen} onOpenChange={setProfileOpen} />
     </nav>
   );
 }

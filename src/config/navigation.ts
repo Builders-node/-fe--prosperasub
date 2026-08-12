@@ -1,9 +1,11 @@
-import { Bell, CalendarDays, Compass } from "lucide-react";
 import { AppRole } from "@/contexts/AuthContext";
-import { LucideIcon } from "lucide-react";
+import type { ComponentType, SVGProps } from "react";
+import {
+  HomeIcon, Inventory2Icon, PersonIcon, ShoppingBagIcon,
+} from "@/components/icons/FigmaIcons";
 
 export interface NavItem {
-  icon: LucideIcon;
+  icon: ComponentType<SVGProps<SVGSVGElement>>;
   label: string;
   path: string;
   /** Paths that should also mark this nav item as active */
@@ -21,23 +23,36 @@ export interface NavigationConfig {
 /**
  * Navigation items for regular users
  */
+/**
+ * The four tabs from the Figma home screen: Home · Subs · Cart · Account.
+ *
+ * Notifications left the tab bar and moved into the header, where the design
+ * puts the bell — a tab is for a place you go, and notifications are something
+ * you glance at. Account opens the account sheet rather than routing, because
+ * there is no standalone account page: the profile lives in a modal.
+ */
 const USER_NAV: NavItem[] = [
   {
-    icon: Compass,
-    label: "Services",
+    icon: HomeIcon,
+    label: "Home",
     path: "/discovery",
-    activePatterns: ["/discovery"],
+    activePatterns: ["/discovery", "/services"],
   },
   {
-    icon: CalendarDays,
-    label: "My Subs",
+    icon: Inventory2Icon,
+    label: "Subs",
     path: "/my-subscriptions",
     requiresAuth: true,
   },
   {
-    icon: Bell,
-    label: "Notifications",
-    path: "/notifications",
+    icon: ShoppingBagIcon,
+    label: "Cart",
+    path: "/cart",
+  },
+  {
+    icon: PersonIcon,
+    label: "Account",
+    path: "/account",
     requiresAuth: true,
   },
 ];

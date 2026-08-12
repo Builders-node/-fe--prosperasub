@@ -13,6 +13,7 @@ import { useMyBusinesses } from "@/hooks/useMyBusinesses";
 import { useServiceArchetypes, type ServiceArchetype } from "@/hooks/useServiceArchetypes";
 import { publicListingHref } from "@/lib/services/providerBridge";
 import { CategoryCarousel } from "@/components/discovery/CategoryCarousel";
+import { BusinessCenterIcon, QrCodeIcon } from "@/components/icons/FigmaIcons";
 import { useResidenceMatters } from "@/contexts/LocationContext";
 import { useI18n } from "@/i18n";
 import { cn } from "@/lib/utils";
@@ -62,112 +63,94 @@ const Discovery = () => {
 
   const firstName = userData?.name?.split(" ")[0] || userData?.display_name?.split(" ")[0];
 
+  /**
+   * One shortcut row, exactly as the design draws it: a #f6f6f6 card with a
+   * white 8px-radius icon tile, a 16px semibold title and an optional 12px
+   * caption. Used for My Access, My Business and Become a provider so the
+   * three read as one list rather than three ideas.
+   */
+  const ShortcutRow = ({
+    icon: Icon, title, caption, onClick, to,
+  }: {
+    icon: (props: { className?: string }) => JSX.Element;
+    title: string;
+    caption?: string;
+    onClick?: () => void;
+    to?: string;
+  }) => {
+    const inner = (
+      <>
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] bg-card">
+          <Icon className="h-6 w-6 text-foreground" />
+        </span>
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
+          <span className="truncate text-[16px] font-semibold tracking-[-0.32px] text-foreground">{title}</span>
+          {caption && (
+            <span className="truncate text-[12px] tracking-[-0.24px] text-muted-foreground">{caption}</span>
+          )}
+        </span>
+      </>
+    );
+    const className = "flex w-full items-center gap-3 rounded-radius-md bg-background p-4 transition-colors active:scale-[0.99] hover:bg-muted";
+    return to
+      ? <Link to={to} className={className}>{inner}</Link>
+      : <button type="button" onClick={onClick} className={className}>{inner}</button>;
+  };
+
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-12">
       <AdBanner placement="home_top" />
-      <HomeHeader />
+      <HomeHeader variant="brand" />
       <DesktopHeader />
 
-      <main className="market-content space-y-6 py-space-4 md:space-y-8 md:py-space-8">
-        {/* ─── Greeting ──────────────────────────────────────────────── */}
-        <h1 className="text-2xl md:text-3xl font-black tracking-tight text-foreground">
-          {firstName ? t("discovery.greeting").replace("{name}", firstName) : t("discovery.prompt")}
-        </h1>
+      {/*
+        The design splits the screen in two: a white panel that carries the
+        promo rail and the shortcuts, rounded 24px at the bottom, then the grey
+        page with the service grid. The panel is what makes the top of the
+        screen read as one block instead of three stacked cards.
+      */}
+      <section className="bg-card pb-4 shadow-figma rounded-b-radius-lg md:rounded-b-none">
+        <div className="market-content space-y-4 pt-4">
+          <CategoryCarousel />
 
-        {/* ─── Access hero — critical daily-use action, hoisted above every
-              other shortcut. Prominent tile with a large QR plaque, subtitle
-              explaining WHERE to use it, and a full-width primary CTA feel so
-              you never have to hunt for it. Signed-in users only. ─────────── */}
-        {userData && (
-          <button
-            type="button"
-            onClick={() => setQrOpen(true)}
-            aria-label="Show my access QR code"
-            className="group relative flex w-full items-center gap-3 overflow-hidden rounded-2xl bg-primary/10 p-3 text-left transition-colors active:scale-[0.99] hover:bg-primary/15"
-          >
-            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground transition-transform group-hover:scale-105">
-              <QrCode className="h-6 w-6" />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="flex items-center gap-2">
-                <span className="text-[15px] font-black tracking-tight text-foreground">My Access</span>
-                <span className="rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-emerald-500">
-                  Active
-                </span>
-              </span>
-              <span className="mt-0.5 block truncate text-[12px] text-muted-foreground">
-                Show your entry QR at cleaning, food, courts and beach.
-              </span>
-            </span>
-            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-          </button>
-        )}
-
-        {/* ─── Personal row: everything else (subs, business, become a
-              provider). My Access got hoisted out because it's daily-use
-              and needs to jump out visually. ───────────────────────────── */}
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-          <Link
-            to={MY_SUBS_TILE.to}
-            aria-label={t("discovery.mySubs")}
-            className="group flex items-center gap-3 rounded-2xl bg-card p-3 transition-colors active:scale-[0.98] hover:bg-muted/40"
-          >
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary transition-transform group-hover:scale-110">
-              <MY_SUBS_TILE.icon className="h-5 w-5" />
-            </span>
-            <p className="min-w-0 text-[14px] font-bold leading-tight text-foreground">{t("discovery.mySubs")}</p>
-          </Link>
-
-          {managesBusiness && (
-            <Link
-              to="/my-business"
-              aria-label={t("discovery.myBusiness")}
-              className="group flex items-center gap-3 rounded-2xl bg-card p-3 transition-colors active:scale-[0.98] hover:bg-muted/40"
-            >
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary transition-transform group-hover:scale-110">
-                <ChefHat className="h-5 w-5" />
-              </span>
-              <p className="min-w-0 text-[14px] font-bold leading-tight text-foreground">{t("discovery.myBusiness")}</p>
-            </Link>
+          {userData && (
+            <ShortcutRow
+              icon={QrCodeIcon}
+              title="My Access"
+              caption="Show this to personnel"
+              onClick={() => setQrOpen(true)}
+            />
           )}
 
-          <Link
-            to="/become-a-provider"
-            aria-label={t("discovery.becomeProvider")}
-            className="group flex items-center gap-3 rounded-2xl bg-card p-3 transition-colors active:scale-[0.98] hover:bg-muted/40"
-          >
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary transition-transform group-hover:scale-110">
-              <Store className="h-5 w-5" />
-            </span>
-            <p className="min-w-0 text-[14px] font-bold leading-tight text-foreground">{t("discovery.becomeProvider")}</p>
-          </Link>
+          {managesBusiness && (
+            <ShortcutRow icon={BusinessCenterIcon} title={t("discovery.myBusiness")} to="/my-business" />
+          )}
+
+          <ShortcutRow icon={BusinessCenterIcon} title={t("discovery.becomeProvider")} to="/become-a-provider" />
         </div>
+      </section>
 
-        {/* ─── Category carousel ──
-              Sits directly above the services grid and answers the question
-              the grid cannot: the grid says which kinds of business exist,
-              this says what you can actually buy today and what it starts at.
-              Car Wash was a tap inside Cleaning with nothing on the home page
-              hinting it existed. */}
-        <CategoryCarousel />
-
-        {/* ─── Services (business archetypes) — the single browse surface ── */}
-        <section>
-          <SectionHeader title={t("discovery.services")} scrollable={false} />
+      <main className="market-content space-y-4 py-4 md:space-y-8 md:py-space-8">
+        {/* ─── Services ─────────────────────────────────────────────── */}
+        <section className="space-y-3">
+          <h2 className="text-[20px] font-semibold tracking-[-0.4px] text-foreground">
+            {t("discovery.services")}
+          </h2>
           {archetypesLoading ? (
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
               {[0, 1, 2, 3].map((i) => (
-                <div key={i} className="min-h-[112px] animate-pulse rounded-2xl bg-muted/40" />
+                <div key={i} className="h-[120px] animate-pulse rounded-radius-md bg-muted/40" />
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
               {archetypes.map((a) => (
                 <ArchetypeTile key={a.key} archetype={a} categories={categoriesByArchetype.get(a.key) ?? []} />
               ))}
             </div>
           )}
         </section>
+
       </main>
 
       <ResponsiveDialog open={qrOpen} onOpenChange={setQrOpen} title="My Access">
@@ -182,7 +165,7 @@ const Discovery = () => {
 };
 
 /** Keeps a many-category service from stretching every tile in its row. */
-const MAX_TILE_CATEGORIES = 3;
+const MAX_TILE_CATEGORIES = 2;
 /**
  * At most two cover photos per tile. Three would each be too narrow to read
  * as anything, and the tile is a signpost, not a gallery.
@@ -198,77 +181,32 @@ function ArchetypeTile({
   /** Active categories inside this service, in admin sort order. */
   categories?: TileCategory[];
 }) {
-  const Icon = archetype.Icon;
-  const images = categories.map((c) => c.imageUrl).filter(Boolean).slice(0, MAX_TILE_IMAGES) as string[];
   return (
+    // 120px tall, white, 16px radius, 16px padding, title pinned top and the
+    // category list pinned bottom — the design's own card, and the reason the
+    // grid reads as four equal things rather than four different heights.
     <Link
       to={publicListingHref(archetype.source_service_key, archetype.key) ?? "/discovery"}
       aria-label={archetype.label}
-      className={cn(
-        "group relative flex min-h-[112px] flex-col overflow-hidden rounded-2xl transition-colors active:scale-[0.98] hover:bg-muted/40",
-        ARCHETYPE_TILE_BG,
-      )}
+      className="flex h-[120px] flex-col justify-between rounded-radius-md bg-card p-4 shadow-figma transition-colors active:scale-[0.98] hover:bg-muted/40"
     >
-      <div className="max-w-[85%] p-4 pb-3">
-        <p className="text-[15px] font-bold leading-tight text-foreground">{archetype.label}</p>
-        {categories.length > 0 ? (
-          // One per line rather than a dot-separated run: at a glance the
-          // customer counts what's inside instead of parsing a sentence.
-          // Capped so a service with many categories can't stretch the whole
-          // row — grid tiles share the tallest one's height.
-          <ul className="mt-1 space-y-0.5">
-            {categories.slice(0, MAX_TILE_CATEGORIES).map((c) => (
-              <li key={c.label} className="truncate text-[11px] leading-snug text-muted-foreground">{c.label}</li>
-            ))}
-            {categories.length > MAX_TILE_CATEGORIES && (
-              <li className="text-[11px] leading-snug text-muted-foreground/70">
-                +{categories.length - MAX_TILE_CATEGORIES} more
-              </li>
-            )}
-          </ul>
-        ) : archetype.description ? (
-          // Fall back to the blurb only when a service has no categories yet —
-          // better than an empty tile.
-          <p className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">{archetype.description}</p>
-        ) : null}
-      </div>
+      <p className="line-clamp-2 text-[16px] font-semibold tracking-[-0.32px] text-foreground">
+        {archetype.label}
+      </p>
 
-      {/* Cover strip. One photo fills the width; two split it evenly, which is
-          what makes "Apartment Cleaning + Car Wash" legible as two things
-          without reading the labels. `mt-auto` pins it to the bottom so tiles
-          with and without photos still line up in the grid. */}
-      <div className="relative mt-auto">
-        {images.length > 0 && (
-          // Fixed height, not an aspect ratio: at 4/3 a half-width pane is half
-          // as tall as a full-width one, so a two-photo tile ended up with a
-          // short strip and a gap above it while the grid stretched every tile
-          // to the tallest.
-          <div className={cn("grid h-32 gap-0.5 md:h-36", images.length > 1 ? "grid-cols-2" : "grid-cols-1")}>
-            {images.map((url, i) => (
-              <div key={`${url}-${i}`} className="overflow-hidden bg-muted">
-                <img
-                  src={url}
-                  alt=""
-                  loading="lazy"
-                  decoding="async"
-                  className="h-full w-full object-cover"
-                />
-              </div>
-            ))}
-          </div>
-        )}
-        <span
-          className={cn(
-            "absolute bottom-3 right-3 flex h-10 w-10 items-center justify-center rounded-xl text-primary transition-transform group-hover:scale-110",
-            // Over a photo the icon needs its own opaque chip; on a bare tile
-            // the usual tint is enough.
-            images.length > 0 ? "bg-background/90 backdrop-blur-sm" : "bg-primary/15",
-          )}
-        >
-          <Icon className="h-5 w-5" />
-        </span>
-        {images.length === 0 && <div className="h-16" />}
-      </div>
+      {categories.length > 0 ? (
+        <ul className="flex flex-col gap-1">
+          {categories.slice(0, MAX_TILE_CATEGORIES).map((c) => (
+            <li key={c.label} className="truncate text-[12px] tracking-[-0.24px] text-muted-foreground">
+              {c.label}
+            </li>
+          ))}
+        </ul>
+      ) : archetype.description ? (
+        <p className="line-clamp-2 text-[12px] tracking-[-0.24px] text-muted-foreground">
+          {archetype.description}
+        </p>
+      ) : null}
     </Link>
   );
 }
