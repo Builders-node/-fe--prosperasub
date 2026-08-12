@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/select";
 import { supabaseDb, supabase, ensureCleaningSlot } from "@/integrations/supabase/client";
 import { todayHN } from "@/lib/timezone";
+import { to12h as format12h } from "@/lib/booking/bookingSettings";
 
 /**
  * Reschedule an existing cleaning booking to another day / time.
@@ -48,13 +49,7 @@ interface Props {
   onClose: () => void;
 }
 
-const to12h = (t: string | null | undefined) => {
-  if (!t) return "";
-  const [hh, mm] = String(t).slice(0, 5).split(":").map((n) => parseInt(n, 10));
-  const period = hh >= 12 ? "PM" : "AM";
-  const h12 = hh % 12 === 0 ? 12 : hh % 12;
-  return `${h12}:${String(mm).padStart(2, "0")} ${period}`;
-};
+const to12h = (t: string | null | undefined) => (t ? format12h(t) : "");
 
 const clip5 = (t: string | null | undefined) => (t ? String(t).slice(0, 5) : "");
 

@@ -56,6 +56,7 @@ import {
 import { RateProviderButton } from "@/components/reviews/RateProviderButton";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { to12h as format12h } from "@/lib/booking/bookingSettings";
 
 /**
  * Compute what the server-side renewal will land on: continuous period,
@@ -169,14 +170,8 @@ function CleaningBookingRow({
   const dateStr = slot?.date
     ? format(new Date(slot.date + "T00:00:00"), upcoming ? "EEE, MMM d" : "MMM d, yyyy")
     : "—";
-  const to12h = (t: string) => {
-    const [h, m] = t.slice(0, 5).split(":").map(Number);
-    const suffix = h >= 12 ? "PM" : "AM";
-    const hour = h === 0 ? 12 : h > 12 ? h - 12 : h;
-    return `${hour}:${String(m).padStart(2, "0")} ${suffix}`;
-  };
   const timeStr = slot?.start_time
-    ? `${to12h(slot.start_time)} – ${to12h(slot.end_time ?? "")}`
+    ? `${format12h(slot.start_time)} – ${format12h(slot.end_time ?? "")}`
     : null;
 
   return (

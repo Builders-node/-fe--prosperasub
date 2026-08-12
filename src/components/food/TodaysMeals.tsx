@@ -5,6 +5,7 @@ import { collapseHiddenMeals, menuColumnsFor, redactMeals, HIDDEN_DISH_LABEL } f
 import { supabaseDb } from "@/integrations/supabase/client";
 import { MEAL_TYPE_LABELS } from "@/types/food";
 import type { FoodMenuMeal, FoodWeeklyMenu, MealType, DayOfWeek } from "@/types/food";
+import { to12h as format12h } from "@/lib/booking/bookingSettings";
 
 const DAY_KEYS: DayOfWeek[] = [
   "sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday",
@@ -19,15 +20,8 @@ const MEAL_META: Record<string, { icon: React.ReactNode; color: string }> = {
 
 const MEAL_ORDER: MealType[] = ["breakfast", "lunch", "dinner", "snack", "meal", "other"];
 
-/** "08:00" → "8:00 AM" */
-function to12h(hhmm?: string): string | null {
-  if (!hhmm) return null;
-  const [h, m] = hhmm.split(":").map(Number);
-  if (Number.isNaN(h)) return null;
-  const period = h >= 12 ? "PM" : "AM";
-  const hour = h % 12 || 12;
-  return `${hour}:${String(m ?? 0).padStart(2, "0")} ${period}`;
-}
+/** "08:00" → "8:00 AM"; nothing at all when there is no time to show. */
+const to12h = (hhmm?: string): string | null => (hhmm ? format12h(hhmm) : null);
 
 interface Props {
   providerId: string;

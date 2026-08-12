@@ -55,6 +55,7 @@ import { usePagination, TablePagination } from "@/components/ui/table-pagination
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { fetchUsersByIds } from "@/lib/admin/customerNames";
+import { to12h as format12h } from "@/lib/booking/bookingSettings";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -102,13 +103,7 @@ const calendarSyncSkipMessage = (reason?: string) => {
   }
 };
 
-const to12h = (time?: string | null) => {
-  if (!time) return "—";
-  const [h, m] = time.slice(0, 5).split(":").map(Number);
-  const suffix = h >= 12 ? "PM" : "AM";
-  const hour = h === 0 ? 12 : h > 12 ? h - 12 : h;
-  return `${hour}:${String(m).padStart(2, "0")} ${suffix}`;
-};
+const to12h = (time?: string | null) => (time ? format12h(time) : "—");
 
 const getUserName = (user: any) => {
   if (!user) return "Unknown";

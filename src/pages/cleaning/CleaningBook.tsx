@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { addDays, format, isBefore, parseISO } from "date-fns";
@@ -16,36 +16,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useUserUuid } from "@/hooks/useUserUuid";
 import { cn } from "@/lib/utils";
 import { resolvePlanBookingSettings } from "@/lib/booking/resolvePlanSettings";
-import { blockAppliesOn, mondayFirstIndex, toMinutes } from "@/lib/booking/bookingSettings";
-
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const WEEKDAYS = [
-  { value: 1, label: "Monday",    short: "Mon" },
-  { value: 2, label: "Tuesday",   short: "Tue" },
-  { value: 3, label: "Wednesday", short: "Wed" },
-  { value: 4, label: "Thursday",  short: "Thu" },
-  { value: 5, label: "Friday",    short: "Fri" },
-  { value: 6, label: "Saturday",  short: "Sat" },
-];
-
-const TIME_PERIODS = [
-  { id: "morning",   label: "Morning",   emoji: "🌅", from: "00:00:00", to: "12:00:00" },
-  { id: "afternoon", label: "Afternoon", emoji: "☀️", from: "12:00:00", to: "17:00:00" },
-  { id: "evening",   label: "Evening",   emoji: "🌙", from: "17:00:00", to: "24:00:00" },
-];
+import { blockAppliesOn, mondayFirstIndex, to12h, toMinutes } from "@/lib/booking/bookingSettings";
+import { DayStrip, TimeSlotPicker, WEEKDAYS } from "@/components/booking/TimePickers";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const todayKey = () => todayHN();
 const toDate   = (value: string) => parseISO(`${value}T00:00:00`);
 const normalizeTime = (value: string) => (value.length === 5 ? `${value}:00` : value);
-const to12h = (t: string) => {
-  const [h, m] = t.slice(0, 5).split(":").map(Number);
-  const suffix = h >= 12 ? "PM" : "AM";
-  const hour = h === 0 ? 12 : h > 12 ? h - 12 : h;
-  return `${hour}:${String(m).padStart(2, "0")} ${suffix}`;
-};
 const timeLabel     = (start: string, end: string) => `${to12h(start)} – ${to12h(end)}`;
 
 const getScheduleDates = (startDate: string, endDate: string, weekday: number) => {
@@ -59,145 +37,6 @@ const getScheduleDates = (startDate: string, endDate: string, weekday: number) =
   }
   return dates;
 };
-
-// ─── Sub-components ───────────────────────────────────────────────────────────
-
-/** Horizontal scrollable day-of-week selector strip */
-function DayStrip({
-  days,
-  selected,
-  onSelect,
-  occurrences,
-}: {
-  days: typeof WEEKDAYS;
-  selected: number;
-  onSelect: (v: number) => void;
-  occurrences: Record<number, { nextDate: string; count: number }>;
-}) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  // Scroll selected day into view
-  useEffect(() => {
-    const el = scrollRef.current?.querySelector("[data-selected]") as HTMLElement | null;
-    el?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
-  }, [selected]);
-
-  return (
-    <div
-      ref={scrollRef}
-      className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide"
-    >
-      {[...days]
-        .sort((a, b) => {
-          const aDate = occurrences[a.value]?.nextDate ?? "9999";
-          const bDate = occurrences[b.value]?.nextDate ?? "9999";
-          return aDate.localeCompare(bDate);
-        })
-        .map((day) => {
-        const info = occurrences[day.value];
-        const isSelected = selected === day.value;
-        const hasSlots = info && info.count > 0;
-        const dateNum = info?.nextDate
-          ? format(toDate(info.nextDate), "d")
-          : null;
-        const dateMonth = info?.nextDate
-          ? format(toDate(info.nextDate), "MMM")
-          : null;
-
-        return (
-          <button
-            key={day.value}
-            type="button"
-            data-selected={isSelected || undefined}
-            onClick={() => onSelect(day.value)}
-            disabled={!hasSlots}
-            className={cn(
-              "flex shrink-0 flex-col items-center gap-1 rounded-2xl px-4 py-3 transition-all duration-150",
-              "min-w-[72px] border",
-              isSelected
-                ? "border-transparent bg-foreground text-background "
-                : hasSlots
-                  ? "border-border bg-card text-foreground hover:border-foreground/20 hover:bg-muted"
-                  : "border-border bg-muted/40 text-muted-foreground opacity-50 cursor-not-allowed",
-            )}
-          >
-            <span className={cn("text-xs font-semibold tracking-wide", isSelected ? "text-background/70" : "text-muted-foreground")}>
-              {day.short}
-            </span>
-            {dateNum && (
-              <>
-                <span className="text-xl font-black leading-none">{dateNum}</span>
-                <span className={cn("text-[10px] font-semibold uppercase", isSelected ? "text-background/50" : "text-muted-foreground/70")}>{dateMonth}</span>
-              </>
-            )}
-            <span className={cn("text-[11px] font-semibold", isSelected ? "text-background/60" : "text-muted-foreground")}>
-              {info ? `${info.count} wk${info.count !== 1 ? "s" : ""}` : "–"}
-            </span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-/** Time chip — single selectable time slot pill */
-function TimeChip({
-  label,
-  selected,
-  onClick,
-}: {
-  label: string;
-  selected: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "flex h-11 w-full items-center justify-center rounded-full border text-sm font-semibold transition-all duration-150",
-        selected
-          ? "border-transparent bg-foreground text-background "
-          : "border-border bg-card text-foreground hover:border-foreground/30 hover:bg-muted",
-      )}
-    >
-      {label}
-    </button>
-  );
-}
-
-/** Period section with its chips */
-function TimePeriodSection({
-  period,
-  slots,
-  selectedTime,
-  onSelect,
-}: {
-  period: (typeof TIME_PERIODS)[number];
-  slots: { start: string; end: string }[];
-  selectedTime: string;
-  onSelect: (start: string) => void;
-}) {
-  if (!slots.length) return null;
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <span className="text-base">{period.emoji}</span>
-        <span className="text-sm font-semibold text-foreground">{period.label}</span>
-      </div>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-        {slots.map((slot) => (
-          <TimeChip
-            key={slot.start}
-            label={timeLabel(slot.start, slot.end)}
-            selected={selectedTime === slot.start}
-            onClick={() => onSelect(slot.start)}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -470,15 +309,11 @@ const CleaningBook = () => {
     return result;
   }, [selectedSubscription, periodStart, periodEnd]);
 
-  // ── NEW: time slots grouped by period ─────────────────────────────────────
-  const groupedSlots = useMemo(() => {
-    return TIME_PERIODS.map((period) => ({
-      period,
-      slots: availableTimeOptions.filter(
-        (s) => s.start >= period.from && s.start < period.to,
-      ),
-    })).filter((group) => group.slots.length > 0);
-  }, [availableTimeOptions]);
+  // The picker groups these into morning / afternoon / evening itself.
+  const timeChoices = useMemo(
+    () => availableTimeOptions.map((s) => ({ start: s.start, label: timeLabel(s.start, s.end) })),
+    [availableTimeOptions],
+  );
 
   /**
    * Why no time is on offer, in the customer's terms.
@@ -647,7 +482,6 @@ const CleaningBook = () => {
                   Choose a weekday
                 </h2>
                 <DayStrip
-                  days={WEEKDAYS}
                   selected={selectedDay}
                   onSelect={(day) => { setSelectedDay(day); setSelectedTime(""); }}
                   occurrences={weekdayOccurrences}
@@ -671,7 +505,7 @@ const CleaningBook = () => {
                     <p className="text-sm font-semibold text-foreground">No dates in paid period</p>
                     <p className="mt-1 text-xs text-muted-foreground">Try a different weekday.</p>
                   </div>
-                ) : !groupedSlots.length ? (
+                ) : !timeChoices.length ? (
                   <div className="rounded-2xl border border-border bg-card p-6 text-center">
                     <p className="text-sm font-semibold text-foreground">No time works for every date</p>
                     <p className="mt-1 text-xs text-muted-foreground">
@@ -687,17 +521,11 @@ const CleaningBook = () => {
                     </Link>
                   </div>
                 ) : (
-                  <div className="rounded-2xl border border-border bg-card p-4 space-y-5">
-                    {groupedSlots.map(({ period, slots: periodSlots }) => (
-                      <TimePeriodSection
-                        key={period.id}
-                        period={period}
-                        slots={periodSlots}
-                        selectedTime={selectedTime}
-                        onSelect={setSelectedTime}
-                      />
-                    ))}
-                  </div>
+                  <TimeSlotPicker
+                    options={timeChoices}
+                    selected={selectedTime}
+                    onSelect={setSelectedTime}
+                  />
                 )}
               </section>
 
