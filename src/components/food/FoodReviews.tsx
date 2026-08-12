@@ -25,17 +25,38 @@ export function FoodReviews({ providerId, ownerUserId }: Props) {
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
 
+  /**
+   * `providerId` here is the LEGACY food_providers id — that is what the
+   * restaurant page has. Reviews live in `provider_reviews`, keyed by the
+   * universal `providers.id`, so the two have to be bridged.
+   *
+   * Until now this component read and wrote `food_reviews`, which nothing else
+   * on the platform reads: the restaurant page showed its own private set of
+   * reviews while the provider page showed a different one.
+   */
+  const { data: universalProviderId = null } = useQuery({
+    queryKey: ["food-universal-provider-id", providerId],
+    enabled: !!providerId,
+    queryFn: async () => {
+      const { data } = await supabaseDb
+        .from("providers").select("id")
+        .eq("source_service_key", "food").eq("source_provider_id", providerId)
+        .maybeSingle();
+      return (data as { id?: string } | null)?.id ?? null;
+    },
+  });
+
   const { data: reviews = [], isLoading } = useQuery({
-    queryKey: ["food-reviews", providerId],
+    queryKey: ["food-reviews", universalProviderId],
     queryFn: async () => {
       const { data, error } = await supabaseDb
-        .from("food_reviews").select("*")
-        .eq("provider_id", providerId)
+        .from("provider_reviews").select("*")
+        .eq("provider_id", universalProviderId!)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as FoodReview[];
     },
-    enabled: !!providerId,
+    enabled: !!universalProviderId,
   });
 
   // Is the current user a customer of this restaurant? (has any subscription)
@@ -69,13 +90,15 @@ export function FoodReviews({ providerId, ownerUserId }: Props) {
     mutationFn: async () => {
       if (!uuid) throw new Error("Please sign in to leave a review.");
       if (rating < 1) throw new Error("Pick a star rating first.");
-      const { error } = await supabaseDb.from("food_reviews").upsert(
+      if (!universalProviderId) throw new Error("This restaurant can't take reviews yet.");
+      const { error } = await supabaseDb.from("provider_reviews").upsert(
         {
-          provider_id: providerId,
+          provider_id: universalProviderId,
           user_id: uuid,
           customer_name: userData?.name || userData?.display_name || userData?.email || null,
           rating,
           comment: comment.trim() || null,
+          service: "food",
           updated_at: new Date().toISOString(),
         },
         { onConflict: "provider_id,user_id" },
@@ -84,7 +107,7 @@ export function FoodReviews({ providerId, ownerUserId }: Props) {
     },
     onSuccess: () => {
       toast.success(myReview ? "Review updated" : "Thanks for your review!");
-      qc.invalidateQueries({ queryKey: ["food-reviews", providerId] });
+      qc.invalidateQueries({ queryKey: ["food-reviews", universalProviderId] });
       qc.invalidateQueries({ queryKey: ["food-reviews-summary"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -92,12 +115,12 @@ export function FoodReviews({ providerId, ownerUserId }: Props) {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabaseDb.from("food_reviews").delete().eq("id", id);
+      const { error } = await supabaseDb.from("provider_reviews").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
       toast.success("Review removed");
-      qc.invalidateQueries({ queryKey: ["food-reviews", providerId] });
+      qc.invalidateQueries({ queryKey: ["food-reviews", universalProviderId] });
       qc.invalidateQueries({ queryKey: ["food-reviews-summary"] });
     },
     onError: (e: Error) => toast.error(e.message),

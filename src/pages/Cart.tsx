@@ -30,6 +30,7 @@ import { LocationPicker } from "@/components/account/SavedLocations";
 import { useCart, cartLineTotal } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePhonePrefill } from "@/hooks/useAccountPhone";
+import { phoneError } from "@/components/patterns/CustomerPhone";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { useUserUuid } from "@/hooks/useUserUuid";
 import { useBtcPrice } from "@/hooks/useBtcPrice";
@@ -100,6 +101,11 @@ export default function Cart() {
   usePhonePrefill(form.customer_whatsapp, (phone) =>
     setForm((f) => ({ ...f, customer_whatsapp: phone })));
 
+  // Same guard the cleaning and food checkouts use. Without it the cart
+  // accepted anything non-blank, so a provider could be handed "dwqdwqd" as
+  // the number to call about a delivery.
+  const [phoneErr, setPhoneErr] = useState("");
+
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPaid, setIsPaid] = useState(false);
   const createdRef = useRef(false);
@@ -131,7 +137,9 @@ export default function Cart() {
   const totalUsd = centsToDollars(effectiveTotalCents);
   const estimatedSats = convertToSats(totalUsd);
   const formValid =
-    form.customer_name.trim() && form.customer_whatsapp.trim() && form.delivery_address.trim();
+    form.customer_name.trim()
+    && !phoneError(form.customer_whatsapp)
+    && form.delivery_address.trim();
 
   // ─── Create all subscriptions after a single payment ───────────────────────
   const createRecords = async (paymentRef: string, pending = false) => {
@@ -438,12 +446,18 @@ export default function Cart() {
                           type="tel"
                           inputMode="tel"
                           value={form.customer_whatsapp}
-                          onChange={(e) => setForm((f) => ({ ...f, customer_whatsapp: e.target.value }))}
+                          onChange={(e) => {
+                            setForm((f) => ({ ...f, customer_whatsapp: e.target.value }));
+                            if (phoneErr) setPhoneErr("");
+                          }}
+                          onBlur={() => setPhoneErr(form.customer_whatsapp.trim() ? (phoneError(form.customer_whatsapp) ?? "") : "")}
+                          autoComplete="tel"
                           placeholder="+504 1234 5678"
                           className="w-full border-0 bg-transparent px-0 pb-3 pt-0.5 text-base text-foreground outline-none placeholder:text-muted-foreground/60"
                         />
                       </div>
                     </div>
+                    {phoneErr && <p className="text-xs text-destructive">{phoneErr}</p>}
 
                     {/* Residence */}
                     {residences.length > 0 && (

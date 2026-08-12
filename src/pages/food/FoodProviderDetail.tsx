@@ -121,13 +121,29 @@ const FoodProviderDetail = () => {
     enabled: !!id,
   });
 
+  /**
+   * The rating shown at the top of the page.
+   *
+   * `id` is the LEGACY food_providers id; reviews live in `provider_reviews`
+   * keyed by the universal one, so this bridges before counting. It used to
+   * read `food_reviews`, which meant this header and the reviews list below it
+   * could disagree — and after the ratings were unified it would have shown
+   * "No reviews" over a list of them.
+   */
   const { data: reviewStats } = useQuery({
     queryKey: ["food-provider-rating", id],
     queryFn: async () => {
+      const { data: prov } = await supabaseDb
+        .from("providers").select("id")
+        .eq("source_service_key", "food").eq("source_provider_id", id!)
+        .maybeSingle();
+      const universalId = (prov as { id?: string } | null)?.id;
+      if (!universalId) return { count: 0, avg: 0 };
+
       const { data, error } = await supabaseDb
-        .from("food_reviews")
+        .from("provider_reviews")
         .select("rating")
-        .eq("provider_id", id!);
+        .eq("provider_id", universalId);
       if (error) throw error;
       const rows = (data ?? []) as Pick<FoodReview, "rating">[];
       const count = rows.length;

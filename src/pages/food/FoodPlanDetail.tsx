@@ -10,6 +10,7 @@ import {
 import { collapseHiddenMeals, menuColumnsFor, redactMeals } from "@/lib/food/hiddenMenu";
 import { Spinner } from "@/components/ui/spinner";
 import { CheckoutShell } from "@/components/patterns/CheckoutShell";
+import { CheckoutSuccessPanel } from "@/components/patterns/CheckoutSuccessPanel";
 import { supabase, supabaseDb, accountApi } from "@/integrations/supabase/client";
 import { InvoiceQrPanel } from "@/components/payment/InvoiceQrPanel";
 import { useInvoicePayment } from "@/hooks/useInvoicePayment";
@@ -1167,59 +1168,45 @@ const FoodPlanDetail = () => {
 
           {/* ── Step 3: Success ──────────────────────────────────────────── */}
           {paymentStep === "success" && (
-            <div className="flex flex-col items-center text-center py-4 space-y-4">
-              <div className="rounded-full bg-green-500/15 p-4">
-                <CheckCircle2 className="h-12 w-12 text-green-400" />
-              </div>
-
-              <div>
-                <h3 className="text-lg font-black text-foreground">
-                  {paymentMethod === "infinita"
-                    ? "Payment Submitted!"
-                    : checkoutMode === "order"
-                    ? "Order Confirmed!"
-                    : "Subscription Started!"}
-                </h3>
-                <p className="mt-2 text-sm text-muted-foreground max-w-sm">
-                  {paymentMethod === "infinita"
-                    ? "An admin will verify your transaction and confirm your payment. We'll contact you on WhatsApp."
-                    : checkoutMode === "order"
-                    ? "Your order is confirmed and paid. We'll contact you on WhatsApp to arrange delivery."
-                    : "Your weekly subscription is now active. We'll send weekly confirmations and delivery updates via WhatsApp."}
-                </p>
-              </div>
-
-              {createdId && (
-                <div className="rounded-lg bg-muted/50 px-4 py-2 text-xs text-muted-foreground">
-                  Reference: <span className="font-mono font-bold text-foreground">
-                    {createdId.slice(0, 8).toUpperCase()}
+            /* The shared receipt every other checkout shows. Food had its own
+               hand-built one — different icon, different layout, a "Reference"
+               chip nobody else has — so the single screen a customer sees after
+               paying looked like a different product depending on what they
+               bought. */
+            <CheckoutSuccessPanel
+              icon={UtensilsCrossed}
+              amount={formatUSD(effectiveTotalCents)}
+              eyebrow={
+                paymentMethod === "infinita"
+                  ? "Payment submitted"
+                  : checkoutMode === "order" ? "Order confirmed" : "Subscription started"
+              }
+              subtitle={
+                <>
+                  <span className="block font-semibold text-foreground">{plan.name}</span>
+                  <span className="block">
+                    {provider?.name}
+                    {` · ${checkout.duration_weeks} week${checkout.duration_weeks > 1 ? "s" : ""}`}
                   </span>
-                </div>
-              )}
-
-              <div className="rounded-xl bg-muted/50 p-4 w-full space-y-1 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Plan</span>
-                  <span className="font-semibold">{plan.name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Duration</span>
-                  <span>{checkout.duration_weeks} week{checkout.duration_weeks > 1 ? "s" : ""}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">{paymentMethod === "infinita" ? "Amount" : "Paid"}</span>
-                  <span className="font-bold text-green-400">
+                  <span className="mt-1 block">
                     {paymentMethod === "infinita"
-                      ? formatUSD(totalCents)
-                      : `${(inv.state.sats ?? 0).toLocaleString()} sats (${formatUSD(totalCents)})`}
+                      ? "An admin will verify your transaction. We'll reach you on WhatsApp."
+                      : "We'll send delivery updates on WhatsApp."}
                   </span>
-                </div>
-              </div>
-
-              <Button className="w-full rounded-full" onClick={() => { closeDialog(); navigate("/my-subscriptions?tab=food"); }}>
-                View My Bookings
-              </Button>
-            </div>
+                  {createdId && (
+                    <span className="mt-2 block text-xs">
+                      Reference{" "}
+                      <span className="font-mono font-bold text-foreground">
+                        {createdId.slice(0, 8).toUpperCase()}
+                      </span>
+                    </span>
+                  )}
+                </>
+              }
+              ctaLabel="View my subscriptions"
+              onCta={() => { closeDialog(); navigate("/my-subscriptions?tab=food"); }}
+              secondary={{ label: "Keep browsing", onClick: () => closeDialog() }}
+            />
           )}
       </CheckoutShell>
     </div>

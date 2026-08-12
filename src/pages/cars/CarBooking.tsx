@@ -12,6 +12,7 @@ import { supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { usePhonePrefill } from "@/hooks/useAccountPhone";
+import { phoneError } from "@/components/patterns/CustomerPhone";
 import { useBtcPrice } from "@/hooks/useBtcPrice";
 import { formatUSD, centsToDollars } from "@/lib/pricing";
 import { UserLayout } from "@/components/layout/UserLayout";
@@ -72,6 +73,10 @@ const CarBooking = () => {
   // Prefilled from the account, still editable — a customer may want the car
   // delivered to somebody else's phone.
   usePhonePrefill(whatsApp, setWhatsApp);
+  // Same guard as cleaning and food. The booking used to be "ready" the moment
+  // the field was non-blank, so a delivery could be confirmed against a number
+  // nobody can dial.
+  const [phoneErr, setPhoneErr] = useState("");
   const [insuranceId, setInsuranceId] = useState<string | null>(null);
   const [insuranceSheetOpen, setInsuranceSheetOpen] = useState(false);
   const [extrasSheetOpen, setExtrasSheetOpen] = useState(false);
@@ -250,7 +255,7 @@ const CarBooking = () => {
   const feePct = surchargePercent(paymentMethod);
   // At least one add-on must be chosen when extras are available
   const extrasRequiredUnmet = extras.length > 0 && selectedExtraIds.length === 0;
-  const whatsAppMissing = !whatsApp.trim();
+  const whatsAppMissing = !!phoneError(whatsApp);
   const bookingReady = !!pricing && !!startDate && !!endDate && !calendarError && !extrasRequiredUnmet && !whatsAppMissing;
 
   // Reveal the payment method right after the booking summary as soon as the
@@ -948,11 +953,18 @@ const CarBooking = () => {
                       type="tel"
                       placeholder="+504 9370 6270"
                       value={whatsApp}
-                      onChange={(e) => setWhatsApp(e.target.value)}
+                      onChange={(e) => {
+                        setWhatsApp(e.target.value);
+                        if (phoneErr) setPhoneErr("");
+                      }}
+                      onBlur={() => setPhoneErr(whatsApp.trim() ? (phoneError(whatsApp) ?? "") : "")}
+                      inputMode="tel"
+                      autoComplete="tel"
                       className="w-full border-0 bg-transparent px-0 pb-3 pt-0.5 text-base text-foreground outline-none placeholder:text-muted-foreground/60"
                     />
                   </div>
                 </div>
+                {phoneErr && <p className="text-xs text-destructive">{phoneErr}</p>}
 
                 {/* Saved-addresses row (same LocationPicker as cleaning + food).
                     Falls back to free-text — customer can tap a saved chip or

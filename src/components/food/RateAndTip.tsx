@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { StarRating } from "@/components/food/StarRating";
 import { TipPayment } from "@/components/payment/TipPayment";
+import { RateProviderButton } from "@/components/reviews/RateProviderButton";
 import { useUserUuid } from "@/hooks/useUserUuid";
 import { SectionOverline } from "@/components/subscriptions/MySubsPrimitives";
 import { toast } from "sonner";
@@ -27,38 +28,10 @@ export function RateAndTip({ providerId, subscriptionId, customerName }: Props) 
   const qc = useQueryClient();
   const userUuid = useUserUuid();
 
-  // ─── Review ────────────────────────────────────────────────────────────────
-  const { data: myReview } = useQuery({
-    queryKey: ["my-food-review", providerId, userUuid],
-    enabled: !!userUuid,
-    queryFn: async () => {
-      const { data } = await supabaseDb
-        .from("food_reviews").select("*")
-        .eq("provider_id", providerId).eq("user_id", userUuid!).maybeSingle();
-      return data;
-    },
-  });
-
-  const [rating, setRating] = useState(0);
-  const [comment, setComment] = useState("");
-  useEffect(() => { if (myReview) { setRating(myReview.rating || 0); setComment(myReview.comment || ""); } }, [myReview]);
-
-  const saveReview = useMutation({
-    mutationFn: async () => {
-      if (!rating) throw new Error("Pick a star rating first");
-      const { error } = await supabaseDb.from("food_reviews").upsert(
-        { provider_id: providerId, user_id: userUuid, customer_name: customerName ?? null, rating, comment: comment.trim() || null, subscription_id: subscriptionId, updated_at: new Date().toISOString() },
-        { onConflict: "provider_id,user_id" },
-      );
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success("Thanks for your review!");
-      qc.invalidateQueries({ queryKey: ["my-food-review", providerId] });
-      qc.invalidateQueries({ queryKey: ["food-reviews", providerId] });
-    },
-    onError: (e: any) => toast.error(e?.message || "Could not save review"),
-  });
+  // The review half used to live here and wrote to `food_reviews`, a table the
+  // provider page has never read — a customer's stars went nowhere.
+  // RateProviderButton owns ratings now; this component keeps the tip, which is
+  // genuinely per-purchase.
 
   // ─── Tips total (for the badge) ────────────────────────────────────────────
   const { data: tips = [] } = useQuery({
@@ -74,31 +47,16 @@ export function RateAndTip({ providerId, subscriptionId, customerName }: Props) 
     <section className="space-y-3">
       <div className="flex items-center gap-2 px-1">
         <Star className="h-4 w-4 text-amber-400" fill="currentColor" />
-        <SectionOverline label={myReview ? "Your review" : "Rate & tip"} />
+        <SectionOverline label="Rate & tip" />
       </div>
 
-      {/* Review — one card, star row + borderless textarea + full-width CTA */}
-      <div className="space-y-3 rounded-3xl bg-card p-5">
-        <p className="text-[15px] font-bold text-foreground">
-          {myReview ? "Your review" : "How was your experience?"}
-        </p>
-        <StarRating value={rating} onChange={setRating} size={32} />
-        <textarea
-          value={comment}
-          onChange={(e) => setComment(e.target.value)}
-          rows={3}
-          placeholder="Tell others about the food, delivery, etc. (optional)"
-          className="w-full resize-none rounded-2xl bg-muted/40 px-4 py-3 text-[15px] text-foreground outline-none placeholder:text-muted-foreground/60 focus:bg-muted/60"
+      <div className="rounded-3xl bg-card p-5">
+        <RateProviderButton
+          service="food_provider"
+          itemId={providerId}
+          subscriptionId={subscriptionId}
+          customerName={customerName}
         />
-        <Button
-          onClick={() => saveReview.mutate()}
-          disabled={!rating || saveReview.isPending}
-          className="w-full rounded-2xl"
-          size="lg"
-        >
-          {saveReview.isPending && <Spinner size="sm" className="mr-2" />}
-          {myReview ? "Update review" : "Save review"}
-        </Button>
       </div>
 
       {/* Tip — separate card so the two concerns are visually distinct */}

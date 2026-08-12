@@ -16,6 +16,9 @@ import { nowHN } from "@/lib/timezone";
 import { UserLayout } from "@/components/layout/UserLayout";
 import { useBtcPrice } from "@/hooks/useBtcPrice";
 import { formatUSD, centsToDollars } from "@/lib/pricing";
+import { NotesField } from "@/components/patterns/NotesField";
+import { phoneError } from "@/components/patterns/CustomerPhone";
+import { usePhonePrefill } from "@/hooks/useAccountPhone";
 import { PaymentMethodSelector, type PaymentMethod } from "@/components/payment/PaymentMethodSelector";
 import { usePaymentMethods } from "@/hooks/usePaymentMethods";
 import { InfinitaPaymentPanel } from "@/components/payment/InfinitaPaymentPanel";
@@ -58,6 +61,13 @@ const UniversalPlanCheckout = () => {
   const [showSuccess, setShowSuccess] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [startDate, setStartDate] = useState(format(nowHN(), "yyyy-MM-dd"));
+  // The universal checkout collected nothing but a start date. Every other
+  // purchase on the platform asks how to reach the buyer and lets them say
+  // something; a massage booked here had neither.
+  const [phone, setPhone] = useState("");
+  const [phoneErr, setPhoneErr] = useState("");
+  const [notes, setNotes] = useState("");
+  usePhonePrefill(phone, setPhone);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("lightning");
   const mutationCalledRef = useRef(false);
   const pendingSubIdRef = useRef<string | null>(null);
@@ -121,6 +131,8 @@ const UniversalPlanCheckout = () => {
     payment_status: "pending",
     payment_method: method,
     status: "pending",
+    customer_whatsapp: phone.trim() || null,
+    notes: notes.trim() || null,
     metadata: {
       plan_name: plan!.name,
       provider_name: plan!.provider_name,
@@ -342,6 +354,26 @@ const UniversalPlanCheckout = () => {
                   onClick={(e) => (e.currentTarget as HTMLInputElement & { showPicker?: () => void }).showPicker?.()}
                 />
                 <CalendarDays className="pointer-events-none absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+              </div>
+
+              <Label htmlFor="up-phone" className="mt-4 block text-xs text-muted-foreground">
+                WhatsApp <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="up-phone"
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                className="mt-1.5 h-12 rounded-2xl"
+                placeholder="+504 1234 5678"
+                value={phone}
+                onChange={(e) => { setPhone(e.target.value); if (phoneErr) setPhoneErr(""); }}
+                onBlur={() => setPhoneErr(phone.trim() ? (phoneError(phone) ?? "") : "")}
+              />
+              {phoneErr && <p className="mt-1 text-xs text-destructive">{phoneErr}</p>}
+
+              <div className="mt-4">
+                <NotesField value={notes} onChange={setNotes} />
               </div>
             </div>
           )}

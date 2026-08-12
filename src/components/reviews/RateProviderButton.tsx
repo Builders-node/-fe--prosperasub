@@ -14,7 +14,16 @@ import { useUserUuid } from "@/hooks/useUserUuid";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-type Service = "cleaning" | "rental" | "beach";
+/**
+ * Where a rating can be left from.
+ *
+ * `food` and `cleaning_booking` are new. Before them, food ratings went to
+ * `food_reviews` and a cleaning visit's rating to `cleaning_reviews` — two
+ * tables nothing reads. The provider page and the reviews block have only ever
+ * read `provider_reviews`, so a customer who rated their restaurant saw their
+ * stars vanish. One table now, reached from every entry point.
+ */
+type Service = "cleaning" | "rental" | "beach" | "food" | "food_provider" | "cleaning_booking";
 
 interface Props {
   service: Service;
@@ -34,6 +43,56 @@ interface Props {
  *
  * Lazy — the item→provider lookup only fires when the dialog opens.
  */
+
+/**
+ * The universal `providers.id` behind whatever id the caller happens to hold.
+ *
+ * Three shapes, because the entry points genuinely differ:
+ *   - a plan/vehicle row that already carries `owner_provider_id`
+ *   - a food meal plan, which only knows its LEGACY food_providers id and has
+ *     to cross the id-space bridge
+ *   - a cleaning BOOKING, which is three hops from its provider
+ */
+async function resolveProviderId(service: Service, itemId: string): Promise<string | null> {
+  if (service === "food" || service === "food_provider") {
+    // `food` is given a meal plan; `food_provider` is given the legacy
+    // food_providers id directly, which is what the subscription page holds.
+    let legacyId: string | undefined | null = itemId;
+    if (service === "food") {
+      const { data: plan } = await supabaseDb
+        .from("food_meal_plans").select("provider_id").eq("id", itemId).maybeSingle();
+      legacyId = (plan as { provider_id?: string } | null)?.provider_id;
+    }
+    if (!legacyId) return null;
+    const { data: prov } = await supabaseDb
+      .from("providers").select("id")
+      .eq("source_service_key", "food").eq("source_provider_id", legacyId).maybeSingle();
+    return (prov as { id?: string } | null)?.id ?? null;
+  }
+
+  if (service === "cleaning_booking") {
+    const { data: booking } = await supabaseDb
+      .from("cleaning_bookings").select("subscription_id").eq("id", itemId).maybeSingle();
+    const subId = (booking as { subscription_id?: string } | null)?.subscription_id;
+    if (!subId) return null;
+    const { data: sub } = await supabaseDb
+      .from("cleaning_subscriptions").select("package_id").eq("id", subId).maybeSingle();
+    const pkgId = (sub as { package_id?: string } | null)?.package_id;
+    if (!pkgId) return null;
+    const { data: pkg } = await supabaseDb
+      .from("cleaning_packages").select("owner_provider_id").eq("id", pkgId).maybeSingle();
+    return (pkg as { owner_provider_id?: string } | null)?.owner_provider_id ?? null;
+  }
+
+  const table =
+    service === "cleaning" ? "cleaning_packages" :
+    service === "rental"   ? "rental_vehicles"   :
+                             "beach_club_plans";
+  const { data: link } = await supabaseDb
+    .from(table).select("owner_provider_id").eq("id", itemId).maybeSingle();
+  return (link as { owner_provider_id?: string } | null)?.owner_provider_id ?? null;
+}
+
 export function RateProviderButton({ service, itemId, subscriptionId, customerName, className }: Props) {
   const qc = useQueryClient();
   const { userData } = useAuth();
@@ -52,13 +111,7 @@ export function RateProviderButton({ service, itemId, subscriptionId, customerNa
     enabled: !!itemId && !!uid,
     queryFn: async () => {
       if (!itemId || !uid) return null;
-      const table =
-        service === "cleaning" ? "cleaning_packages" :
-        service === "rental"   ? "rental_vehicles"   :
-                                 "beach_club_plans";
-      const { data: link } = await supabaseDb
-        .from(table).select("owner_provider_id").eq("id", itemId).maybeSingle();
-      const providerId = (link?.owner_provider_id as string | null) ?? null;
+      const providerId = await resolveProviderId(service, itemId);
       if (!providerId) return null;
       const { data: review } = await supabaseDb
         .from("provider_reviews").select("*")
@@ -90,7 +143,12 @@ export function RateProviderButton({ service, itemId, subscriptionId, customerNa
           customer_name: customerName ?? userData?.name ?? userData?.display_name ?? userData?.email ?? null,
           rating,
           comment: comment.trim() || null,
-          service,
+          // The customer-facing service, not the entry point: a rating left
+          // from a visit dialog is still a rating of the cleaning provider.
+          service:
+            service === "cleaning_booking" ? "cleaning"
+            : service === "food_provider" ? "food"
+            : service,
           subscription_id: subscriptionId,
           updated_at: new Date().toISOString(),
         },

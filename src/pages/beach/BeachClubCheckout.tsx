@@ -16,6 +16,9 @@ import { nowHN } from "@/lib/timezone";
 import { UserLayout } from "@/components/layout/UserLayout";
 import { useBtcPrice } from "@/hooks/useBtcPrice";
 import { formatUSD, centsToDollars } from "@/lib/pricing";
+import { NotesField } from "@/components/patterns/NotesField";
+import { phoneError } from "@/components/patterns/CustomerPhone";
+import { usePhonePrefill } from "@/hooks/useAccountPhone";
 import { PaymentMethodSelector, type PaymentMethod } from "@/components/payment/PaymentMethodSelector";
 import { usePaymentMethods } from "@/hooks/usePaymentMethods";
 import { InfinitaPaymentPanel } from "@/components/payment/InfinitaPaymentPanel";
@@ -44,6 +47,14 @@ const BeachClubCheckout = () => {
   const [isPaid, setIsPaid] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  // A membership used to be the one purchase that asked for nothing: no way to
+  // reach the buyer, no way for them to say anything. Cleaning, food, the cart
+  // and a car booking all collect both.
+  const [phone, setPhone] = useState("");
+  const [phoneErr, setPhoneErr] = useState("");
+  const [notes, setNotes] = useState("");
+  usePhonePrefill(phone, setPhone);
+
   const [people, setPeople] = useState(1);
   const [startDate, setStartDate] = useState(format(nowHN(), "yyyy-MM-dd"));
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("lightning");
@@ -104,6 +115,8 @@ const BeachClubCheckout = () => {
       user_id: userData?.id ?? null,
       customer_name: userData?.name || userData?.display_name || null,
       customer_email: userData?.email || null,
+      customer_whatsapp: phone.trim() || null,
+      notes: notes.trim() || null,
       people,
       start_date: startDate,
       end_date: format(endDate, "yyyy-MM-dd"),
@@ -189,6 +202,8 @@ const BeachClubCheckout = () => {
           user_id: userData?.id ?? null,
           customer_name: userData?.name || userData?.display_name || null,
           customer_email: userData?.email || null,
+          customer_whatsapp: phone.trim() || null,
+          notes: notes.trim() || null,
           people,
           start_date: startDate,
           end_date: format(endDate, "yyyy-MM-dd"),
@@ -358,6 +373,24 @@ const BeachClubCheckout = () => {
                       <CalendarDays className="pointer-events-none absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
                     </div>
                   </div>
+                  <div>
+                    <Label htmlFor="bc-phone" className="text-xs text-muted-foreground">
+                      WhatsApp <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      id="bc-phone"
+                      type="tel"
+                      inputMode="tel"
+                      autoComplete="tel"
+                      className="mt-1.5 h-12 rounded-2xl"
+                      placeholder="+504 1234 5678"
+                      value={phone}
+                      onChange={(e) => { setPhone(e.target.value); if (phoneErr) setPhoneErr(""); }}
+                      onBlur={() => setPhoneErr(phone.trim() ? (phoneError(phone) ?? "") : "")}
+                    />
+                    {phoneErr && <p className="mt-1 text-xs text-destructive">{phoneErr}</p>}
+                  </div>
+                  <NotesField value={notes} onChange={setNotes} />
                 </div>
               )}
 

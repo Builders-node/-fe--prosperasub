@@ -1593,7 +1593,11 @@ const MySubscriptions = () => {
               </Button>
             )}
             {viewBooking.status === "completed" && (
-              <CleaningRateAndTip bookingId={viewBooking.id} customerName={userData?.name ?? userData?.display_name} />
+              <CleaningRateAndTip
+                bookingId={viewBooking.id}
+                subscriptionId={viewBooking.subscription_id ?? viewBooking.cleaning_subscription_id ?? null}
+                customerName={userData?.name ?? userData?.display_name}
+              />
             )}
           </div>
         )}
