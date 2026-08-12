@@ -253,6 +253,10 @@
     --shadow-md: none;
     --shadow-lg: none;
     --shadow-xl: none;
+    /* The one elevation in the design (Figma 137:739). It is a LIGHT shadow —
+       rgba(233,233,233,.25) — whose whole job is keeping a white card from
+       dissolving into the #f6f6f6 page. See .dark, where it has no job. */
+    --shadow-figma: 0px 4px 2px rgba(233, 233, 233, 0.25);
 
     --sidebar-background: 0 0% 96%;
     --sidebar-foreground: 0 0% 10%;
@@ -345,6 +349,9 @@
     --shadow-md: 0 10px 28px -18px hsl(0 0% 0% / 0.9);
     --shadow-lg: 0 20px 44px -24px hsl(0 0% 0% / 0.95);
     --shadow-xl: 0 28px 70px -32px hsl(0 0% 0% / 1);
+    /* Off. A near-white shadow on a dark page is a halo around every card, not
+       elevation — and dark mode already separates surfaces by lightness. */
+    --shadow-figma: none;
   }
 }
 
@@ -447,11 +454,23 @@
     font-variant-numeric: tabular-nums lining-nums;
   }
 
-  html:not(.dark) *,
-  html:not(.dark) *::before,
-  html:not(.dark) *::after {
+  /* Flat, in both themes.
+     This used to apply to light only, which meant shadows survived in dark —
+     and the dark values are near-black glows that read as halos on a page that
+     already separates its surfaces by lightness. The design has one shadow and
+     it is a light-mode one; everything else is off everywhere. */
+  *,
+  *::before,
+  *::after {
     box-shadow: none !important;
     text-shadow: none !important;
+  }
+
+  /* The exception, and the only one: the design's own elevation, which keeps a
+     white card from dissolving into the #f6f6f6 page. `--shadow-figma` is
+     `none` in dark, so this rule quietly does nothing there. */
+  .shadow-figma {
+    box-shadow: var(--shadow-figma) !important;
   }
 
   /* iOS Safari auto-zooms the viewport when a form field with font-size < 16px

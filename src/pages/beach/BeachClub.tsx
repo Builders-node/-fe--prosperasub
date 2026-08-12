@@ -340,12 +340,16 @@ const BeachClub = () => {
           )}
         </section>
 
+        {/* The grid above is no longer memberships-only — a massage package sits
+            next to the club membership — so the note explains the whole page and
+            names the membership where a rule applies only to it. */}
         <section className="mt-space-6 rounded-3xl bg-muted/40 p-5">
-          <p className="font-bold text-foreground">How memberships work</p>
+          <p className="font-bold text-foreground">How it works</p>
           <ul className="mt-2 space-y-1.5 text-sm leading-relaxed text-muted-foreground">
-            <li>• Pricing is per person and billed monthly (up to one month; longer-term pricing available on request).</li>
-            <li>• Ideal for groups — choose how many people and pay for everyone at once.</li>
-            <li>• Tap <span className="font-semibold text-foreground">Subscribe</span> to pay with Lightning, on-chain, LIVES or PayPal and activate your membership.</li>
+            <li>• Every plan runs for one month from the start date you pick at checkout.</li>
+            <li>• The club membership is priced per person — set the group size and pay for everyone at once.</li>
+            <li>• <span className="font-semibold text-foreground">Subscribe</span> takes you to checkout: Lightning, on-chain Bitcoin, LIVES or PayPal. Your plan is active as soon as the payment confirms.</li>
+            <li>• Nothing renews by itself — renew from My Subscriptions when the month is up.</li>
           </ul>
         </section>
       </main>
