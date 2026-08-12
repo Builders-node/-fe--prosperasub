@@ -17,6 +17,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { LocationPicker } from "@/components/account/SavedLocations";
 import { NotesField } from "@/components/patterns/NotesField";
 import { useUserUuid } from "@/hooks/useUserUuid";
+import { useAccountPhone } from "@/hooks/useAccountPhone";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { HomeHeader } from "@/components/HomeHeader";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
@@ -110,6 +111,15 @@ const FoodPlanDetail = () => {
   const [checkoutMode, setCheckoutMode] = useState<CheckoutMode>("order");
   const [paymentStep, setPaymentStep] = useState<PaymentStep>("details");
   const [checkout, setCheckout] = useState({ ...EMPTY_CHECKOUT });
+  /**
+   * The number the customer already gave us.
+   *
+   * Read here rather than through usePhonePrefill because opening the checkout
+   * dialog RESETS this form — a prefill that ran at mount was wiped the moment
+   * the customer pressed Subscribe. It is seeded in openCheckout instead, and
+   * stays editable from there.
+   */
+  const accountPhone = useAccountPhone();
   // Meal selection lives outside the flat checkout object because its length
   // is coupled to the plan (not user-editable text): easier to reset when the
   // plan loads. Initialised empty so the customer must actively pick — unless
@@ -565,7 +575,7 @@ const FoodPlanDetail = () => {
     mutationCalledRef.current = false;
     setCheckout({
       customer_name: userData?.name ?? "",
-      customer_whatsapp: "",
+      customer_whatsapp: accountPhone ?? "",
       residence: globalResidence || "",
       delivery_address: "",
       notes: "",

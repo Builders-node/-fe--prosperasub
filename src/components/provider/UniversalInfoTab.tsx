@@ -20,6 +20,8 @@ export interface UniversalProviderRow {
   banner_url?: string | null;
   status?: string | null;
   category_key?: string;
+  /** Which service this provider belongs to — drives its public URL. */
+  archetype_key?: string | null;
   capabilities?: string[];
   source_service_key?: string | null;
   source_provider_id?: string | null;

@@ -29,6 +29,7 @@ import { supabaseDb } from "@/integrations/supabase/client";
 import { LocationPicker } from "@/components/account/SavedLocations";
 import { useCart, cartLineTotal } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePhonePrefill } from "@/hooks/useAccountPhone";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { useUserUuid } from "@/hooks/useUserUuid";
 import { useBtcPrice } from "@/hooks/useBtcPrice";
@@ -93,6 +94,11 @@ export default function Cart() {
   useEffect(() => {
     try { localStorage.setItem(DRAFT_KEY, JSON.stringify(form)); } catch { /* quota / private mode */ }
   }, [form]);
+
+  // Prefilled from the account, editable — and it will not overwrite a number
+  // restored from the saved draft above.
+  usePhonePrefill(form.customer_whatsapp, (phone) =>
+    setForm((f) => ({ ...f, customer_whatsapp: phone })));
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPaid, setIsPaid] = useState(false);

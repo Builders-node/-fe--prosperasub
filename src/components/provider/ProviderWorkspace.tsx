@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
+import { providerHref } from "@/lib/services/serviceUrls";
 import {
   ALL_CAPABILITIES, CAPABILITIES, ComingSoonTab, INFO_TAB_META,
   type CapabilityKey, type CapabilityMeta,
@@ -30,8 +31,19 @@ import { LEGACY_PORTAL_SOURCE_KEYS, legacyIdOf } from "@/lib/services/providerBr
  * legacyPortalTabs); otherwise it shows the universal capability tabs. Every
  * provider gets a Schedule tab.
  */
-export function ProviderWorkspace({ providerId, publicHref = "/discovery", backHref = "/my-business" }: {
-  providerId: string; publicHref?: string; backHref?: string;
+export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-business" }: {
+  providerId: string;
+  /**
+   * Where "View Public" goes. Defaults to this provider's own public page,
+   * derived from the row we already load.
+   *
+   * It used to default to "/discovery", and NEITHER caller passed anything —
+   * so the button on every provider workspace opened the platform's home
+   * listing instead of the business it sits on. It looked broken because it
+   * was pointed at nothing in particular.
+   */
+  publicHref?: string;
+  backHref?: string;
 }) {
   const navigate = useNavigate();
   const { archetypes } = useServiceArchetypes(false);
@@ -46,6 +58,16 @@ export function ProviderWorkspace({ providerId, publicHref = "/discovery", backH
       return (data ?? null) as UniversalProviderRow | null;
     },
   });
+
+  /**
+   * The provider's own public page. `providerHref` builds
+   * /services/<slug>/providers/<universal id>, which resolves for every
+   * service — the shared provider page hands off to a legacy one where a
+   * bespoke page exists (food redirects to /services/food/<legacy id>).
+   */
+  const resolvedPublicHref =
+    publicHref
+    ?? (provider?.archetype_key ? providerHref(provider.archetype_key, provider.id) : "/discovery");
 
   const capabilityTabs = useMemo(() => {
     if (!provider?.capabilities) return [];
@@ -167,7 +189,7 @@ export function ProviderWorkspace({ providerId, publicHref = "/discovery", backH
             )}
           </div>
           <Button variant="outline" size="sm" className="order-last w-full shrink-0 gap-1.5 rounded-full sm:order-none sm:w-auto"
-            onClick={() => window.open(publicHref, "_blank")}>
+            onClick={() => window.open(resolvedPublicHref, "_blank")}>
             <ExternalLink className="h-3.5 w-3.5" /> View Public
           </Button>
         </div>

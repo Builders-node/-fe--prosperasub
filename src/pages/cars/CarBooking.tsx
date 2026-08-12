@@ -11,6 +11,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
+import { usePhonePrefill } from "@/hooks/useAccountPhone";
 import { useBtcPrice } from "@/hooks/useBtcPrice";
 import { formatUSD, centsToDollars } from "@/lib/pricing";
 import { UserLayout } from "@/components/layout/UserLayout";
@@ -68,6 +69,9 @@ const CarBooking = () => {
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [deliveryNotes, setDeliveryNotes] = useState("");
   const [whatsApp, setWhatsApp] = useState("");
+  // Prefilled from the account, still editable — a customer may want the car
+  // delivered to somebody else's phone.
+  usePhonePrefill(whatsApp, setWhatsApp);
   const [insuranceId, setInsuranceId] = useState<string | null>(null);
   const [insuranceSheetOpen, setInsuranceSheetOpen] = useState(false);
   const [extrasSheetOpen, setExtrasSheetOpen] = useState(false);

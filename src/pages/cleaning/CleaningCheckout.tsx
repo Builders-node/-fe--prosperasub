@@ -16,6 +16,7 @@ import { CheckoutSuccessPanel } from "@/components/patterns/CheckoutSuccessPanel
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { accountApi, supabase, supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePhonePrefill } from "@/hooks/useAccountPhone";
 import { LocationPicker } from "@/components/account/SavedLocations";
 import { toast } from "sonner";
 import { addMonths, format } from "date-fns";
@@ -86,27 +87,10 @@ const CleaningCheckout = () => {
     },
   });
 
-  // Prefill the phone from the customer's profile — most people have already
-  // given it once, and asking again on every checkout is how a required field
-  // turns into a drop-off.
-  const { data: myProfile } = useQuery({
-    queryKey: ["checkout-profile-phone", userData?.id],
-    enabled: !!userData?.id,
-    queryFn: async () => {
-      const { data } = await supabaseDb
-        .from("user_profiles")
-        .select("user_id,phone_number,whatsapp")
-        .eq("user_id", userData!.id)
-        .maybeSingle();
-      return data;
-    },
-  });
-  const phoneTouchedRef = useRef(false);
-  useEffect(() => {
-    if (phoneTouchedRef.current || phone) return;
-    const known = normalizePhone(myProfile?.whatsapp) ?? normalizePhone(myProfile?.phone_number);
-    if (known) setPhone(known);
-  }, [myProfile, phone]);
+  // The number the customer already gave us, filled in once and editable.
+  // Was inline here and nowhere else; food, the cart and car bookings asked
+  // for it again on every purchase. See hooks/useAccountPhone.
+  usePhonePrefill(phone, setPhone);
 
   // Renewal: load the previous subscription so we can prefill apartment/notes
   // and re-apply the same weekly schedule (day + time) on the new one.
@@ -674,7 +658,6 @@ const CleaningCheckout = () => {
                       autoComplete="tel"
                       value={phone}
                       onChange={(e) => {
-                        phoneTouchedRef.current = true;
                         setPhone(e.target.value);
                         if (phoneErr) setPhoneErr("");
                       }}
