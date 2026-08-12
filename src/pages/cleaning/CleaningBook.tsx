@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { addDays, format, isBefore, parseISO } from "date-fns";
 import { todayHN } from "@/lib/timezone";
@@ -334,8 +334,29 @@ const CleaningBook = () => {
     const now = todayHN() as unknown as Date; // nowHN not exported here; use current Date semantics for cutoffs
     const currentMs = Date.now();
     const noticeCutoffMs = currentMs + settings.minNoticeHours * 3600_000;
-    const advanceCutoffMs = currentMs + settings.maxAdvanceDays * 86400_000;
     void now;
+
+    /**
+     * maxAdvanceDays limits how far ahead a customer may START a booking. A
+     * recurring schedule inside a period they have ALREADY PAID FOR is not
+     * that, so the horizon has to reach at least the end of it.
+     *
+     * Without this the page was unusable for anyone whose plan outran the
+     * horizon. availableTimeOptions offers a time only if a free slot exists on
+     * EVERY date of the period; the default horizon is 30 days, so a two-month
+     * car-wash plan had its last three dates filtered away and not one time was
+     * offered — on any weekday. The screen said "A conflict exists in your
+     * period. Choose a different weekday", which could never help, and a
+     * customer who had paid on 3 August was still unable to book nine days
+     * later. There was no conflict; the slots were there, all free.
+     */
+    const sub = subscriptions?.find((s: any) => s.id === selectedSubId);
+    const paidUntil = sub?.paid_until || sub?.service_end_date || sub?.end_date || null;
+    const paidUntilMs = paidUntil ? Date.parse(`${paidUntil}T23:59:59`) : Number.NaN;
+    const advanceCutoffMs = Math.max(
+      currentMs + settings.maxAdvanceDays * 86400_000,
+      Number.isNaN(paidUntilMs) ? 0 : paidUntilMs,
+    );
 
     return rawSlots.filter((slot: any) => {
       // Full-day block? Hide.
@@ -458,6 +479,20 @@ const CleaningBook = () => {
       ),
     })).filter((group) => group.slots.length > 0);
   }, [availableTimeOptions]);
+
+  /**
+   * Why no time is on offer, in the customer's terms.
+   *
+   * A time must be free on EVERY date of the paid period, so one bad date kills
+   * every option — and the old copy blamed "a conflict" and told them to try
+   * another weekday, which is useless when the reason is the same on all seven.
+   * Naming the dates lets them pick a weekday that actually works, or tell
+   * support something specific.
+   */
+  const blockedDates = useMemo(() => {
+    if (!slots?.length || !scheduleDates.length || availableTimeOptions.length) return [];
+    return scheduleDates.filter((date) => !slots.some((s: any) => s.date === date));
+  }, [availableTimeOptions, scheduleDates, slots]);
 
   const nextCleaningDate   = scheduleDates.find((d) => d > todayKey()) || null;
   const selectedTimeOption = availableTimeOptions.find((o) => o.start === selectedTime);
@@ -638,10 +673,18 @@ const CleaningBook = () => {
                   </div>
                 ) : !groupedSlots.length ? (
                   <div className="rounded-2xl border border-border bg-card p-6 text-center">
-                    <p className="text-sm font-semibold text-foreground">No recurring slots available</p>
+                    <p className="text-sm font-semibold text-foreground">No time works for every date</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      A conflict exists in your period. Choose a different weekday.
+                      {blockedDates.length > 0
+                        ? `Nothing is published on ${blockedDates
+                            .slice(0, 3)
+                            .map((d) => format(toDate(d), "MMM d"))
+                            .join(", ")}${blockedDates.length > 3 ? ` and ${blockedDates.length - 3} more` : ""}. Try another weekday, or contact us and we'll set it up for you.`
+                        : "Every time is already full on at least one of your dates. Try another weekday, or contact us and we'll set it up for you."}
                     </p>
+                    <Link to="/support" className="mt-3 inline-block text-xs font-semibold text-primary hover:opacity-80">
+                      Contact support
+                    </Link>
                   </div>
                 ) : (
                   <div className="rounded-2xl border border-border bg-card p-4 space-y-5">
