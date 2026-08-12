@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useCategoryHighlights, type CategoryHighlight } from "@/hooks/useCategoryHighlights";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
@@ -24,70 +24,52 @@ import { cn } from "@/lib/utils";
 const ROTATE_MS = 6000;
 
 function Slide({ item }: { item: CategoryHighlight }) {
-  const Icon = item.archetype?.Icon;
   return (
     <Link
       to={item.href}
       aria-label={item.label}
-      className="group relative flex h-full w-full shrink-0 items-center overflow-hidden rounded-3xl bg-card"
+      className="group relative flex h-[168px] w-full shrink-0 items-end overflow-hidden rounded-3xl sm:h-[200px]"
     >
-      {item.imageUrl && (
-        <>
-          <img
-            src={item.imageUrl}
-            alt=""
-            loading="lazy"
-            decoding="async"
-            className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-          />
-          {/* The text sits on top, so it needs its own contrast rather than
-              trusting whatever photo an admin uploads. */}
-          <div className="absolute inset-0 bg-gradient-to-r from-background via-background/85 to-background/20" />
-        </>
+      {item.imageUrl ? (
+        <img
+          src={item.imageUrl}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+        />
+      ) : (
+        // No photo for this category yet — the archetype's own colour stands in
+        // so the banner keeps one design instead of two. An admin's cover photo
+        // in /admin/services/categories replaces it.
+        <div className={cn("absolute inset-0", item.archetype?.accent ?? "bg-primary")} />
       )}
 
-      {/* Extra side padding from md up so the carousel's own arrows, which
-          float over the slide, don't land on the icon or the CTA badge. */}
-      <div className="relative flex min-w-0 flex-1 items-center gap-4 px-5 py-6 sm:px-8 sm:py-8 md:px-14">
-        {Icon && (
-          <span
-            className={cn(
-              "hidden h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-white sm:flex",
-              item.archetype?.accent ?? "bg-primary",
-            )}
-          >
-            <Icon className="h-7 w-7" />
-          </span>
+      {/* Text is white on whatever photo gets uploaded, so the scrim is not
+          optional. Weighted to the bottom, where the words are, so the top of
+          the picture stays a picture. */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/10" />
+
+      {/* Wider padding from md up: the carousel's arrows float over the slide
+          and were clipping the first letters of the eyebrow. */}
+      <div className="relative w-full px-5 pb-5 sm:px-8 sm:pb-7 md:px-16">
+        {item.archetype && (
+          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/70">
+            {item.archetype.label}
+          </p>
         )}
-
-        <div className="min-w-0 flex-1">
-          {item.archetype && (
-            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">
-              {item.archetype.label}
-            </p>
-          )}
-          <h3 className="mt-1 truncate text-xl font-black tracking-tight text-foreground sm:text-2xl">
-            {item.label}
-          </h3>
-
-          {item.fromCents !== null ? (
-            <p className="mt-1.5 flex items-baseline gap-1.5">
-              <span className="text-sm text-muted-foreground">from</span>
-              <span className="text-2xl font-black tabular-nums text-foreground sm:text-3xl">
-                {formatUSD(item.fromCents)}
-              </span>
-              {item.unit && <span className="text-sm text-muted-foreground">{item.unit}</span>}
-            </p>
-          ) : (
-            // No live offer yet. Saying "coming soon" beats a blank space where
-            // every other slide has a price.
-            <p className="mt-1.5 text-sm text-muted-foreground">Coming soon</p>
-          )}
-        </div>
-
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-foreground transition-transform group-hover:translate-x-0.5">
-          <ArrowRight className="h-5 w-5" />
-        </span>
+        <h3 className="mt-1 text-2xl font-black tracking-tight text-white sm:text-3xl">
+          {item.label}
+        </h3>
+        {item.fromCents !== null ? (
+          <p className="mt-1 flex items-baseline gap-1.5 text-white">
+            <span className="text-sm text-white/70">from</span>
+            <span className="text-2xl font-black tabular-nums sm:text-3xl">{formatUSD(item.fromCents)}</span>
+            {item.unit && <span className="text-sm text-white/70">{item.unit}</span>}
+          </p>
+        ) : (
+          <p className="mt-1 text-sm text-white/70">Coming soon</p>
+        )}
       </div>
     </Link>
   );
@@ -131,7 +113,7 @@ export function CategoryCarousel() {
   };
 
   if (isLoading) {
-    return <div className="h-[132px] animate-pulse rounded-3xl bg-muted/40 sm:h-[148px]" />;
+    return <div className="h-[168px] animate-pulse rounded-3xl bg-muted/40 sm:h-[200px]" />;
   }
   if (count === 0) return null;
 
@@ -169,7 +151,7 @@ export function CategoryCarousel() {
               type="button"
               onClick={() => go(-1)}
               aria-label="Previous category"
-              className="absolute left-2 top-1/2 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-background/80 text-foreground shadow-sm backdrop-blur transition-colors hover:bg-background md:flex"
+              className="absolute left-3 top-1/2 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur transition-colors hover:bg-black/55 md:flex"
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
@@ -177,7 +159,7 @@ export function CategoryCarousel() {
               type="button"
               onClick={() => go(1)}
               aria-label="Next category"
-              className="absolute right-2 top-1/2 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-background/80 text-foreground shadow-sm backdrop-blur transition-colors hover:bg-background md:flex"
+              className="absolute right-3 top-1/2 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur transition-colors hover:bg-black/55 md:flex"
             >
               <ChevronRight className="h-5 w-5" />
             </button>

@@ -42,10 +42,13 @@ export function useCategoryHighlights() {
   const { categories, isLoading: categoriesLoading } = useServiceCategories(true);
   const { archetypes, isLoading: archetypesLoading } = useServiceArchetypes(true);
 
-  const { data: prices, isLoading: pricesLoading } = useQuery({
-    queryKey: ["category-from-prices"],
+  const { data: facts, isLoading: factsLoading } = useQuery({
+    queryKey: ["category-highlights-facts"],
     staleTime: 5 * 60 * 1000,
-    queryFn: async (): Promise<Record<string, { cents: number; unit: string }>> => {
+    queryFn: async (): Promise<{
+      prices: Record<string, { cents: number; unit: string }>;
+      photos: Record<string, string>;
+    }> => {
       // Providers carry the category; the offers hang off providers, half of
       // them by the universal id and half by the legacy one (see
       // lib/services/providerBridge). Build both lookups once.
@@ -62,7 +65,10 @@ export function useCategoryHighlights() {
         if (p.source_provider_id) byLegacy.set(String(p.source_provider_id), p.category_key);
       });
 
-      const [cleaning, food, vehicles, beach, universal] = await Promise.all([
+      const providerIds = [...byUniversal.keys()];
+      const legacyIds = [...byLegacy.keys()];
+
+      const [cleaning, food, vehicles, beach, universal, menus, vehicleImages, media] = await Promise.all([
         supabaseDb.from("cleaning_packages")
           .select("owner_provider_id, pricing_mode, monthly_price_cents, price_per_cleaning_cents, cleanings_per_month, frequency_count, frequency_unit")
           .eq("status", "active").is("deleted_at", null),
@@ -72,11 +78,23 @@ export function useCategoryHighlights() {
         // listing filters on. Asking for "active" here quietly returned
         // nothing and every car read "Coming soon" next to a full fleet.
         supabaseDb.from("rental_vehicles")
-          .select("provider_id, owner_provider_id, daily_price_cents").eq("status", "public"),
+          .select("id, provider_id, owner_provider_id, daily_price_cents").eq("status", "public"),
         supabaseDb.from("beach_club_plans")
           .select("owner_provider_id, price_per_person_cents").eq("is_active", true),
         supabaseDb.from("provider_plans")
           .select("provider_id, price_cents, period").eq("status", "active"),
+
+        // ── Photos ──
+        // The banner is photo-first, so every category needs one real picture.
+        // Menus and vehicle galleries are where the platform's actual
+        // photography lives today; provider media is the fallback for the rest.
+        legacyIds.length
+          ? supabaseDb.from("food_weekly_menus").select("id, provider_id").in("provider_id", legacyIds)
+          : Promise.resolve({ data: [] } as any),
+        supabaseDb.from("rental_vehicle_images").select("vehicle_id, url").order("sort_order", { ascending: true }),
+        providerIds.length
+          ? supabaseDb.from("providers").select("id, gallery_urls, banner_url, avatar_url").in("id", providerIds)
+          : Promise.resolve({ data: [] } as any),
       ]);
 
       const out: Record<string, { cents: number; unit: string }> = {};
@@ -104,7 +122,46 @@ export function useCategoryHighlights() {
         offer(byUniversal.get(String(p.provider_id)), num(p.price_cents), noun ? `/ ${noun}` : "");
       });
 
-      return out;
+      // ── Photos, best source first ──────────────────────────────────────
+      const photos: Record<string, string> = {};
+      const photo = (categoryKey: string | undefined, url: unknown) => {
+        const value = typeof url === "string" ? url.trim() : "";
+        if (!categoryKey || !value || photos[categoryKey]) return;
+        photos[categoryKey] = value;
+      };
+
+      // Food: a dish from this restaurant's own menus.
+      const menuProvider = new Map<string, string>();
+      ((menus as any).data ?? []).forEach((m: any) => menuProvider.set(String(m.id), String(m.provider_id)));
+      if (menuProvider.size) {
+        const { data: meals } = await supabaseDb
+          .from("food_menu_meals")
+          .select("menu_id, image_url")
+          .in("menu_id", [...menuProvider.keys()])
+          .not("image_url", "is", null);
+        (meals ?? []).forEach((meal: any) =>
+          photo(byLegacy.get(menuProvider.get(String(meal.menu_id)) ?? ""), meal.image_url));
+      }
+
+      // Rental: the first photo of one of this fleet's cars.
+      const vehicleCategory = new Map<string, string>();
+      ((vehicles as any).data ?? []).forEach((v: any) => {
+        const cat = byUniversal.get(String(v.owner_provider_id)) ?? byLegacy.get(String(v.provider_id));
+        if (cat) vehicleCategory.set(String(v.id), cat);
+      });
+      ((vehicleImages as any).data ?? []).forEach((img: any) =>
+        photo(vehicleCategory.get(String(img.vehicle_id)), img.url));
+
+      // Everything else: whatever the business itself uploaded.
+      ((media as any).data ?? []).forEach((p: any) => {
+        const cat = byUniversal.get(String(p.id));
+        const gallery = Array.isArray(p.gallery_urls) ? p.gallery_urls : [];
+        photo(cat, p.banner_url);
+        photo(cat, gallery[0]);
+        photo(cat, p.avatar_url);
+      });
+
+      return { prices: out, photos };
     },
   });
 
@@ -112,7 +169,7 @@ export function useCategoryHighlights() {
     .map((c: any) => {
       const archetype = archetypes.find((a) => a.key === c.archetype_key) ?? null;
       const listing = publicListingHref(archetype?.source_service_key, c.archetype_key);
-      const price = prices?.[c.key] ?? null;
+      const price = facts?.prices?.[c.key] ?? null;
       return {
         key: c.key,
         label: c.label,
@@ -120,7 +177,9 @@ export function useCategoryHighlights() {
         // The category is carried in the URL so the listing opens on it —
         // see useCategoryParam. Without it this is just a link to "cleaning".
         href: listing ? `${listing}?category=${encodeURIComponent(c.key)}` : "/discovery",
-        imageUrl: c.image_url ?? null,
+        // An admin's cover photo wins; otherwise borrow a real one from what
+        // this category actually sells.
+        imageUrl: c.image_url ?? facts?.photos?.[c.key] ?? null,
         fromCents: price?.cents ?? null,
         unit: price?.unit ?? null,
       };
@@ -129,5 +188,5 @@ export function useCategoryHighlights() {
     // the home page while its listing is gone.
     .filter((h) => h.archetype !== null);
 
-  return { highlights, isLoading: categoriesLoading || archetypesLoading || pricesLoading };
+  return { highlights, isLoading: categoriesLoading || archetypesLoading || factsLoading };
 }
