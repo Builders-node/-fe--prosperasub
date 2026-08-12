@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
-import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-import { cn } from "@/lib/utils";
+import { ResponsiveDialog } from "@/components/patterns/ResponsiveDialog";
 
 interface BottomSheetModalProps {
   open: boolean;
@@ -15,23 +14,25 @@ interface BottomSheetModalProps {
   footer?: ReactNode;
   /** Extra classes for the scrollable body. */
   bodyClassName?: string;
-  /** Max height of the sheet. */
+  /** Extra classes for the sheet itself. Mobile only — see below. */
   className?: string;
 }
 
 /**
- * The single, platform-wide bottom-sheet modal.
+ * A bottom sheet on a phone, a centred modal on a desktop.
  *
- *   ┌─────────────────────┐
- *   │ Sticky Header + X   │  solid background, always visible
- *   ├─────────────────────┤
- *   │ Scrollable Content  │  scrolls behind the header & footer
- *   ├─────────────────────┤
- *   │ Fixed CTA Footer    │  always visible, safe-area aware
- *   └─────────────────────┘
+ * This used to be a sheet on every screen, which on a wide display meant a
+ * full-width bar glued to the bottom edge — the shape a phone wants and a
+ * desktop never does.
  *
- * Uses a flex column (not sticky-within-scroll) so there is never a transparent
- * gap and content never bleeds behind the header or footer.
+ * It is now a thin adapter over ResponsiveDialog, which already had the
+ * breakpoint logic and the identical header / scrolling body / pinned footer
+ * layout. The two were the same component with one difference, and this is the
+ * difference, gone.
+ *
+ * `className` is passed through to the mobile sheet only: the call sites use it
+ * for heights like `h-[92vh]`, which is right for a sheet and wrong for a
+ * centred dialog that sizes to its content.
  */
 export function BottomSheetModal({
   open,
@@ -44,33 +45,16 @@ export function BottomSheetModal({
   className,
 }: BottomSheetModalProps) {
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        side="bottom"
-        className={cn("flex max-h-[88vh] flex-col gap-0 rounded-t-3xl p-0", className)}
-      >
-        {/* Sticky header — solid, never scrolls. Close (X) is the built-in
-            SheetContent button pinned top-right over this header. */}
-        <div className="shrink-0 border-b border-border/50 bg-background px-3 pb-3 pt-4">
-          <SheetTitle className="pr-10 text-2xl font-black leading-tight tracking-tight">
-            {title}
-          </SheetTitle>
-          {subtitle && <p className="mt-1 pr-10 text-sm text-muted-foreground">{subtitle}</p>}
-        </div>
-
-        {/* Scrollable content */}
-        <div className={cn("flex-1 overflow-y-auto px-3 py-3", bodyClassName)}>{children}</div>
-
-        {/* Fixed bottom action area */}
-        {footer && (
-          <div
-            className="shrink-0 border-t border-border/50 bg-background px-3 pt-3"
-            style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px), 0.75rem)" }}
-          >
-            {footer}
-          </div>
-        )}
-      </SheetContent>
-    </Sheet>
+    <ResponsiveDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={title}
+      description={subtitle}
+      footer={footer}
+      bodyClassName={bodyClassName}
+      sheetClassName={className}
+    >
+      {children}
+    </ResponsiveDialog>
   );
 }

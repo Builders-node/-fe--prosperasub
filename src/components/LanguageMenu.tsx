@@ -5,8 +5,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { HEADER_ACTION_CLASS, HEADER_ACTION_ICON_CLASS } from "@/components/layout/headerAction";
 import { languages, useI18n } from "@/i18n";
 
 export function LanguageMenu() {
@@ -15,14 +15,13 @@ export function LanguageMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button
+        <button
           type="button"
-          variant="tertiary"
-          size="iconLg"
           aria-label={t("language.choose")}
+          className={HEADER_ACTION_CLASS}
         >
-          <Globe2 className="h-6 w-6" />
-        </Button>
+          <Globe2 className={HEADER_ACTION_ICON_CLASS} />
+        </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"

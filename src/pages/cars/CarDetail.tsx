@@ -8,12 +8,10 @@ import {
 } from "lucide-react";
 import { format, parseISO, differenceInCalendarDays } from "date-fns";
 import { supabaseDb } from "@/integrations/supabase/client";
+import { ResponsiveDialog } from "@/components/patterns/ResponsiveDialog";
 import { HomeHeader } from "@/components/HomeHeader";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
 import { Button } from "@/components/ui/button";
-import {
-  Sheet, SheetContent, SheetHeader, SheetTitle,
-} from "@/components/ui/sheet";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -529,45 +527,45 @@ const CarDetail = () => {
       </Dialog>
 
       {/* ─── Date selection sheet (Yandex Прокат "Select rental dates" modal) ─── */}
-      <Sheet open={dateSheetOpen} onOpenChange={setDateSheetOpen}>
-        <SheetContent side="bottom" className="h-[92vh] overflow-y-auto rounded-t-3xl px-4 pb-8 pt-5">
-          <SheetHeader className="mb-3">
-            <SheetTitle className="text-lg font-black">Select rental dates</SheetTitle>
-          </SheetHeader>
-          {id && (
-            <>
-              <RentalCalendar
-                vehicleId={id}
-                startDate={startDate}
-                endDate={endDate}
-                onRangeChange={(s, e) => { setStartDate(s); setEndDate(e); }}
-                onError={setCalendarError}
-                maxDays={30}
-                pickupTime={startTime}
-                dropoffTime={endTime}
-                timeOptions={TIME_OPTIONS}
-                onPickupTimeChange={setStartTime}
-                onDropoffTimeChange={setEndTime}
-              />
-              {calendarError && (
-                <p className="mt-3 text-center text-sm font-medium text-destructive">
-                  {calendarError}
-                </p>
-              )}
-              <div className="sticky bottom-0 -mx-4 mt-4 bg-background/95 px-4 pt-3 ">
-                <Button
-                  size="lg"
-                  className="w-full h-12 rounded-2xl font-bold"
-                  onClick={() => setDateSheetOpen(false)}
-                  disabled={!startDate || !endDate || !!calendarError}
-                >
-                  {startDate && endDate ? "Apply" : "Pick a date range"}
-                </Button>
-              </div>
-            </>
-          )}
-        </SheetContent>
-      </Sheet>
+      <ResponsiveDialog
+        open={dateSheetOpen}
+        onOpenChange={setDateSheetOpen}
+        title="Select rental dates"
+        sheetClassName="h-[92vh]"
+        footer={
+          <Button
+            size="lg"
+            className="h-12 w-full rounded-2xl font-bold"
+            onClick={() => setDateSheetOpen(false)}
+            disabled={!startDate || !endDate || !!calendarError}
+          >
+            {startDate && endDate ? "Apply" : "Pick a date range"}
+          </Button>
+        }
+      >
+        {id && (
+          <>
+            <RentalCalendar
+              vehicleId={id}
+              startDate={startDate}
+              endDate={endDate}
+              onRangeChange={(s, e) => { setStartDate(s); setEndDate(e); }}
+              onError={setCalendarError}
+              maxDays={30}
+              pickupTime={startTime}
+              dropoffTime={endTime}
+              timeOptions={TIME_OPTIONS}
+              onPickupTimeChange={setStartTime}
+              onDropoffTimeChange={setEndTime}
+            />
+            {calendarError && (
+              <p className="mt-3 text-center text-sm font-medium text-destructive">
+                {calendarError}
+              </p>
+            )}
+          </>
+        )}
+      </ResponsiveDialog>
     </div>
   );
 };

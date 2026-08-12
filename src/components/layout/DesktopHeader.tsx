@@ -67,7 +67,7 @@ export function DesktopHeader({
             !hideNav && (
               authLoading ? (
                 /* Skeleton placeholder — prevents login→avatar flash */
-                <div className="h-11 w-11 animate-pulse rounded-full bg-muted" />
+                <div className="h-10 w-10 animate-pulse rounded-full bg-muted" />
               ) : isAuthenticated ? (
                 <AccountMenu />
               ) : (

@@ -52,7 +52,7 @@ export function AccountMenu() {
           <button
             type="button"
             aria-label={t("nav.account")}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-radius-full bg-primary text-lg font-black text-primary-foreground transition hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-base font-black text-primary-foreground transition hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {avatarLabel}
           </button>

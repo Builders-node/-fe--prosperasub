@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { MapPin, ChevronDown, Check } from "lucide-react";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { ResponsiveDialog } from "@/components/patterns/ResponsiveDialog";
 import { useResidences } from "@/hooks/useResidences";
 import { useLocationControl } from "@/contexts/LocationContext";
 import { cn } from "@/lib/utils";
@@ -15,9 +15,9 @@ interface Props {
  * Global location/residence selector. Reads the data-driven residences list and
  * stores the choice app-wide (LocationContext → localStorage).
  *
- * Opens as a bottom Sheet — the app is mobile-first and a floating Popover
- * anchored to the trigger drops out of the viewport on narrow screens (see
- * the screenshot where the panel spilled left of the trigger).
+ * Opens as a bottom sheet on a phone and a centred modal on a desktop
+ * (ResponsiveDialog). Not a Popover anchored to the trigger: that drops out of
+ * the viewport on narrow screens.
  */
 export function LocationSelector({ variant = "chip", className }: Props) {
   const { data: residences = [] } = useResidences();
@@ -74,42 +74,36 @@ export function LocationSelector({ variant = "chip", className }: Props) {
         trigger
       )}
 
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent
-          side="bottom"
-          className="max-h-[80vh] overflow-y-auto rounded-t-3xl border-0 p-0 pb-[env(safe-area-inset-bottom)]"
-        >
-          <SheetHeader className="px-4 pt-5">
-            <SheetTitle className="text-left">Deliver to</SheetTitle>
-          </SheetHeader>
-          <ul className="divide-y divide-border/40 px-2 pb-2">
-            <li>
+      {/* Sheet on a phone, centred modal on a desktop — on a wide screen the
+          bare sheet was a full-width bar glued to the bottom edge. */}
+      <ResponsiveDialog open={open} onOpenChange={setOpen} title="Deliver to" bodyClassName="px-2 py-2">
+        <ul className="divide-y divide-border/40">
+          <li>
+            <button
+              type="button"
+              onClick={() => pick("")}
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-muted/40"
+            >
+              <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <span className="flex-1 text-sm text-foreground">No specific location</span>
+              {!residence && <Check className="h-4 w-4 shrink-0 text-primary" />}
+            </button>
+          </li>
+          {residences.map((r) => (
+            <li key={r.id}>
               <button
                 type="button"
-                onClick={() => pick("")}
+                onClick={() => pick(r.name)}
                 className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-muted/40"
               >
                 <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
-                <span className="flex-1 text-sm text-foreground">No specific location</span>
-                {!residence && <Check className="h-4 w-4 shrink-0 text-primary" />}
+                <span className="flex-1 text-sm text-foreground">{r.name}</span>
+                {residence === r.name && <Check className="h-4 w-4 shrink-0 text-primary" />}
               </button>
             </li>
-            {residences.map((r) => (
-              <li key={r.id}>
-                <button
-                  type="button"
-                  onClick={() => pick(r.name)}
-                  className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-muted/40"
-                >
-                  <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  <span className="flex-1 text-sm text-foreground">{r.name}</span>
-                  {residence === r.name && <Check className="h-4 w-4 shrink-0 text-primary" />}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </SheetContent>
-      </Sheet>
+          ))}
+        </ul>
+      </ResponsiveDialog>
     </>
   );
 }

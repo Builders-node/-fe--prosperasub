@@ -14,8 +14,14 @@ interface Props {
   children: ReactNode;
   /** Optional pinned bottom action area. */
   footer?: ReactNode;
-  /** Extra class for the content wrapper. */
+  /** Extra class for the content wrapper, both breakpoints. */
   className?: string;
+  /**
+   * Extra class for the MOBILE sheet only. Heights like `h-[92vh]` belong to a
+   * sheet; a centred dialog sizes to its content and would be stretched by
+   * them.
+   */
+  sheetClassName?: string;
   /** Body class (padding/scroll). */
   bodyClassName?: string;
 }
@@ -28,7 +34,7 @@ interface Props {
  * centered floating card. The breakpoint matches Tailwind's `md` (768px).
  */
 export function ResponsiveDialog({
-  open, onOpenChange, title, description, children, footer, className, bodyClassName,
+  open, onOpenChange, title, description, children, footer, className, bodyClassName, sheetClassName,
 }: Props) {
   const isMobile = useIsMobile();
 
@@ -61,7 +67,7 @@ export function ResponsiveDialog({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className={cn("flex max-h-[88vh] flex-col gap-0 rounded-t-3xl p-0", className)}
+        className={cn("flex max-h-[88vh] flex-col gap-0 rounded-t-3xl p-0", className, sheetClassName)}
       >
         <div className="shrink-0 border-b border-border/50 bg-background px-4 pb-3 pt-4">
           <SheetTitle className="pr-10 text-2xl font-black leading-tight tracking-tight">

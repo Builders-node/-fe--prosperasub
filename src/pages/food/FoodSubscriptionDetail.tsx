@@ -8,10 +8,10 @@ import { StatusPill, statusMeta } from "@/components/patterns/StatusPill";
 import { accountApi, supabaseDb } from "@/integrations/supabase/client";
 import { UserLayout } from "@/components/layout/UserLayout";
 import { Button } from "@/components/ui/button";
+import { ResponsiveDialog } from "@/components/patterns/ResponsiveDialog";
 import { Badge } from "@/components/ui/badge";
 import { MyRationView } from "@/components/food/MyRationView";
 import { MealSelectionPicker, defaultMealsForCount, formatMeals, type MealKey } from "@/components/food/MealSelectionPicker";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { getMealTypesForPlan, formatWeekLabel } from "@/lib/foodUtils";
 import { formatUSD } from "@/lib/pricing";
 import { RateAndTip } from "@/components/food/RateAndTip";
@@ -387,52 +387,43 @@ export default function FoodSubscriptionDetail() {
           sheet so it plays nicely with iOS one-hand. Save invalidates both
           the local `selected_meals` query and the parent `access` query so
           any dependent UI (MyRationView filters, admin manifest) refetches. */}
-      <Sheet open={mealsSheetOpen} onOpenChange={setMealsSheetOpen}>
-        <SheetContent
-          side="bottom"
-          className="max-h-[80vh] overflow-y-auto rounded-t-3xl border-0 pb-[env(safe-area-inset-bottom)]"
-        >
-          <SheetHeader className="px-1 pb-4">
-            <SheetTitle className="text-left">Change your meals</SheetTitle>
-          </SheetHeader>
-          {plan && (
-            <>
-              <MealSelectionPicker
-                value={draftMeals}
-                onChange={setDraftMeals}
-                mealsPerDay={plan.meals_per_day}
-              />
-              <div className="mt-6 flex gap-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="flex-1"
-                  onClick={() => setMealsSheetOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="button"
-                  className="flex-1"
-                  onClick={() => saveMeals.mutate(draftMeals)}
-                  disabled={
-                    draftMeals.length !== plan.meals_per_day
-                    || new Set(draftMeals).size !== draftMeals.length
-                    || saveMeals.isPending
-                  }
-                  loading={saveMeals.isPending}
-                  loadingText="Saving…"
-                >
-                  Save
-                </Button>
-              </div>
-              <p className="mt-3 text-xs text-muted-foreground">
-                Changes apply from the next delivery day.
-              </p>
-            </>
-          )}
-        </SheetContent>
-      </Sheet>
+      <ResponsiveDialog
+        open={mealsSheetOpen}
+        onOpenChange={setMealsSheetOpen}
+        title="Change your meals"
+        description="Changes apply from the next delivery day."
+        footer={
+          plan ? (
+            <div className="flex gap-2">
+              <Button type="button" variant="ghost" className="flex-1" onClick={() => setMealsSheetOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                className="flex-1"
+                onClick={() => saveMeals.mutate(draftMeals)}
+                disabled={
+                  draftMeals.length !== plan.meals_per_day
+                  || new Set(draftMeals).size !== draftMeals.length
+                  || saveMeals.isPending
+                }
+                loading={saveMeals.isPending}
+                loadingText="Saving…"
+              >
+                Save
+              </Button>
+            </div>
+          ) : undefined
+        }
+      >
+        {plan && (
+          <MealSelectionPicker
+            value={draftMeals}
+            onChange={setDraftMeals}
+            mealsPerDay={plan.meals_per_day}
+          />
+        )}
+      </ResponsiveDialog>
     </UserLayout>
   );
 }

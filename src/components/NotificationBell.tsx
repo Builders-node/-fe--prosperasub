@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUnreadCount } from "@/hooks/useNotifications";
 import { cn } from "@/lib/utils";
+import { HEADER_ACTION_CLASS, HEADER_ACTION_ICON_CLASS } from "@/components/layout/headerAction";
 
 export function NotificationBell({ className }: { className?: string }) {
   const { isAuthenticated } = useAuth();
@@ -14,12 +15,9 @@ export function NotificationBell({ className }: { className?: string }) {
     <Link
       to="/notifications"
       aria-label={count > 0 ? `${count} unread notifications` : "Notifications"}
-      className={cn(
-        "relative flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
-        className,
-      )}
+      className={cn("relative", HEADER_ACTION_CLASS, className)}
     >
-      <Bell className="h-5 w-5" />
+      <Bell className={HEADER_ACTION_ICON_CLASS} />
       {count > 0 && (
         <span
           className="absolute right-1.5 top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-black text-primary-foreground leading-none"
