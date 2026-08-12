@@ -14,6 +14,7 @@ import { QueryError } from "@/components/QueryError";
 import { YdEmptyState } from "@/components/yd/YdPrimitives";
 import { useResidenceFilter } from "@/hooks/useResidenceFilter";
 import { useProviderRatings } from "@/hooks/useProviderRatings";
+import { usePlanOffers } from "@/hooks/usePlanOffers";
 import { useListingSearch } from "@/hooks/useListingSearch";
 import { ListingToolbar } from "@/components/listing/ListingToolbar";
 import { MealPlanCard } from "@/components/food/MealPlanCard";
@@ -190,9 +191,29 @@ const FoodListing = () => {
     [visibleGroups],
   );
 
+  /**
+   * Plans that have collapsed into an offer show up once, not once per
+   * combination. The card that survives is the cheapest variant — it carries
+   * the "from" price the customer sees, and tapping it opens the plan screen
+   * where the option chips switch between siblings.
+   */
+  const { offerBySourcePlanId } = usePlanOffers(
+    (providers ?? []).map((p) => p.id),
+    { legacyService: "food" },
+  );
+
   const allPlans = visibleProviders
     .filter((p) => scopedProviderIds.size === 0 || scopedProviderIds.has(p.id))
-    .flatMap((p) => p.plans.map((plan) => ({ plan, provider: p })));
+    .flatMap((p) => p.plans.map((plan) => ({ plan, provider: p })))
+    .filter(({ plan }) => {
+      const offer = offerBySourcePlanId.get(String(plan.id));
+      if (!offer) return true;                       // a plain plan, shown as-is
+      const cheapest = offer.variants.reduce(
+        (best, v) => (best === null || v.priceCents < best.priceCents ? v : best),
+        null as null | { priceCents: number; sourcePlanId: string | null },
+      );
+      return cheapest?.sourcePlanId === String(plan.id);
+    });
 
   // Dietary filter — customer taps Keto → we hide plans without that tag.
   // Only surface filter chips for tags at least one plan actually carries; a
@@ -362,6 +383,7 @@ const FoodListing = () => {
                     providerName={provider.name}
                     images={planImages[plan.id] ?? []}
                     rating={ratings[provider.id]}
+                    offer={offerBySourcePlanId.get(String(plan.id)) ?? null}
                     onOpen={() => navigate(`/services/food/${provider.id}/plans/${plan.id}`)}
                   />
                 ))}

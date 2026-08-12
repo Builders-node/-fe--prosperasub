@@ -10,6 +10,7 @@ import { FoodReviews } from "@/components/food/FoodReviews";
 import { StarRating } from "@/components/food/StarRating";
 import { useResidenceFilter } from "@/hooks/useResidenceFilter";
 import { MealPlanCard } from "@/components/food/MealPlanCard";
+import { usePlanOffers } from "@/hooks/usePlanOffers";
 import type { FoodProvider, FoodMealPlan, FoodProviderImage, FoodReview } from "@/types/food";
 
 const FoodProviderDetail = () => {
@@ -56,7 +57,23 @@ const FoodProviderDetail = () => {
 
   // Filter plans by the globally-selected location.
   const { residence, servesHere, isFiltering } = useResidenceFilter();
-  const visiblePlans = plans.filter((p) => servesHere((p as any).residenceIds));
+  const allowedPlans = plans.filter((p) => servesHere((p as any).residenceIds));
+
+  /**
+   * A plan that is one variant of an offer appears once, as its cheapest
+   * variant, carrying the offer's name and "from" price. The option chips live
+   * on the plan screen behind it.
+   */
+  const { offerBySourcePlanId } = usePlanOffers([id], { legacyService: "food" });
+  const visiblePlans = allowedPlans.filter((plan) => {
+    const offer = offerBySourcePlanId.get(String(plan.id));
+    if (!offer) return true;
+    const cheapest = offer.variants.reduce(
+      (best, v) => (best === null || v.priceCents < best.priceCents ? v : best),
+      null as null | { priceCents: number; sourcePlanId: string | null },
+    );
+    return cheapest?.sourcePlanId === String(plan.id);
+  });
 
   // Meal photos for each plan — pulled from this provider's weekly menus, keyed by plan id.
   const { data: planImages = {} } = useQuery({
@@ -321,6 +338,7 @@ const FoodProviderDetail = () => {
                   plan={plan}
                   featured={idx === 1}
                   images={planImages[plan.id] ?? []}
+                  offer={offerBySourcePlanId.get(String(plan.id)) ?? null}
                   rating={ratingCount ? { average: ratingAvg, count: ratingCount } : null}
                   onOpen={() => navigate(`/services/food/${id}/plans/${plan.id}`)}
                 />

@@ -45,8 +45,11 @@ export interface PlanCardProps {
   features?: string[];
   /** How many features to show before cutting the list off. */
   maxFeatures?: number;
-  /** null cents = no price set, which the card says out loud. */
-  price: { cents: number | null | undefined; unit?: string };
+  /**
+   * null cents = no price set, which the card says out loud. `from` marks an
+   * offer whose real price depends on which options the customer picks.
+   */
+  price: { cents: number | null | undefined; unit?: string; from?: boolean };
   rating?: PlanCardRating | null;
   featured?: boolean;
   featuredLabel?: string;
@@ -198,6 +201,7 @@ export function PlanCard({
         <div className="flex items-baseline gap-1">
           {hasPrice ? (
             <>
+              {price.from && <span className="text-sm text-muted-foreground">from</span>}
               <span className="text-2xl font-black tabular-nums text-foreground">{formatUSD(price.cents!)}</span>
               {price.unit && <span className="text-sm text-muted-foreground">{price.unit}</span>}
             </>

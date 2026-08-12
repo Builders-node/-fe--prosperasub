@@ -1,5 +1,6 @@
 import { SparklesIcon, CalendarDays } from "lucide-react";
 import { PlanCard, type PlanCardRating } from "@/components/patterns/PlanCard";
+import type { PlanOffer } from "@/hooks/usePlanOffers";
 import { resolveMonthlyPriceCents, formatFrequencyLabel, formatPricingLabel } from "@/lib/cleaningPlanPricing";
 
 /**
@@ -10,28 +11,47 @@ import { resolveMonthlyPriceCents, formatFrequencyLabel, formatPricingLabel } fr
  * package is priced underneath, and that frequency is worth a chip.
  */
 export function CleaningPackageCard({
-  pkg, onSubscribe, featured = false, rating, photos,
+  pkg, onSubscribe, featured = false, rating, photos, offer,
 }: {
   pkg: any;
   onSubscribe: (id: string) => void;
   featured?: boolean;
   rating?: PlanCardRating | null;
   photos?: string[];
+  /**
+   * Set when this package is the cheapest variant of an offer — Studio / 1BR /
+   * 2BR are one service at three sizes. The card then speaks for the offer and
+   * the size is chosen at checkout.
+   */
+  offer?: PlanOffer | null;
 }) {
   return (
     <PlanCard
-      title={pkg.name}
-      description={pkg.description}
+      title={offer?.name ?? pkg.name}
+      description={offer?.description ?? pkg.description}
       photos={photos}
       rating={rating}
       featured={featured}
-      chips={[
-        { icon: SparklesIcon, label: formatPricingLabel(pkg) },
-        { icon: CalendarDays, label: formatFrequencyLabel(pkg) },
-      ]}
-      features={Array.isArray(pkg.features) ? pkg.features : []}
-      price={{ cents: resolveMonthlyPriceCents(pkg), unit: "/ month" }}
-      cta={{ label: "Subscribe", onClick: () => onSubscribe(pkg.id) }}
+      chips={
+        offer
+          ? [
+              { icon: CalendarDays, label: formatFrequencyLabel(pkg) },
+              ...offer.groups.map((g) => ({
+                label: g.options.map((o) => o.label).join(" · "),
+              })),
+            ]
+          : [
+              { icon: SparklesIcon, label: formatPricingLabel(pkg) },
+              { icon: CalendarDays, label: formatFrequencyLabel(pkg) },
+            ]
+      }
+      features={offer ? [] : (Array.isArray(pkg.features) ? pkg.features : [])}
+      price={{
+        cents: offer?.fromCents ?? resolveMonthlyPriceCents(pkg),
+        unit: "/ month",
+        from: !!offer,
+      }}
+      cta={{ label: offer ? "Choose your size" : "Subscribe", onClick: () => onSubscribe(pkg.id) }}
     />
   );
 }

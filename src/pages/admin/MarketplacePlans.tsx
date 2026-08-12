@@ -24,6 +24,10 @@ interface Plan {
   status: string;
   sort_order: number;
   source_service_key: string | null;
+  /** Set on a variant — the offer it belongs to. */
+  parent_plan_id: string | null;
+  /** Which value this variant picks on each of its offer's axes. */
+  option_keys: Record<string, string> | null;
 }
 
 export interface MarketplacePlansProps {
@@ -73,6 +77,12 @@ const MarketplacePlans = ({ embedded = false, archetypeKey }: MarketplacePlansPr
       return (data ?? []) as Plan[];
     },
   });
+
+  /** plan id → how many variants hang off it. */
+  const variantCounts = plans.reduce<Record<string, number>>((acc, plan) => {
+    if (plan.parent_plan_id) acc[plan.parent_plan_id] = (acc[plan.parent_plan_id] ?? 0) + 1;
+    return acc;
+  }, {});
 
   // `"unassigned"` = the plans of providers whose archetype_key went null when a
   // service was deleted (FK is ON DELETE SET NULL). Matching it against
@@ -168,7 +178,21 @@ const MarketplacePlans = ({ embedded = false, archetypeKey }: MarketplacePlansPr
                     <AIcon className="h-4 w-4 text-white" />
                   </div>
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-foreground">{p.name}</p>
+                    <p className="flex items-center gap-2 truncate text-sm font-semibold text-foreground">
+                      {p.name}
+                      {/* An offer and its variants both live in this table, so
+                          the list says which is which — otherwise "Meal Plan"
+                          and its six combinations read as seven products. */}
+                      {variantCounts[p.id] ? (
+                        <span className="shrink-0 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-primary">
+                          {variantCounts[p.id]} options
+                        </span>
+                      ) : p.parent_plan_id ? (
+                        <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                          {Object.values(p.option_keys ?? {}).join(" · ") || "variant"}
+                        </span>
+                      ) : null}
+                    </p>
                     {p.description && (
                       <p className="truncate text-xs text-muted-foreground">{p.description}</p>
                     )}

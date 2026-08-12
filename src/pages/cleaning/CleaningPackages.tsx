@@ -10,6 +10,7 @@ import { useCategoryParam } from "@/hooks/useCategoryParam";
 import { supabase, supabaseDb } from "@/integrations/supabase/client";
 import { useResidenceFilter } from "@/hooks/useResidenceFilter";
 import { useProviderRatings } from "@/hooks/useProviderRatings";
+import { usePlanOffers } from "@/hooks/usePlanOffers";
 import { resolveMonthlyPriceCents } from "@/lib/cleaningPlanPricing";
 import { useListingSearch } from "@/hooks/useListingSearch";
 import { ListingToolbar } from "@/components/listing/ListingToolbar";
@@ -134,7 +135,26 @@ const CleaningPackages = () => {
 
   // ── Location filter ──────────────────────────────────────────────────────
   const { residence, servesHere } = useResidenceFilter();
-  const visiblePackages = (packagesQ.data ?? []).filter((p: any) => servesHere(p.residenceIds));
+
+  /**
+   * Studio / 1BR / 2BR are one offer at three sizes, so the listing shows the
+   * cheapest of them once, named for the offer. Picking the size happens at
+   * checkout, where the customer is already telling us about their home.
+   */
+  const { offerBySourcePlanId } = usePlanOffers(
+    (providersQ.data ?? []).map((p: any) => p.id),
+  );
+  const visiblePackages = (packagesQ.data ?? [])
+    .filter((p: any) => servesHere(p.residenceIds))
+    .filter((pkg: any) => {
+      const offer = offerBySourcePlanId.get(String(pkg.id));
+      if (!offer) return true;
+      const cheapest = offer.variants.reduce(
+        (best, v) => (best === null || v.priceCents < best.priceCents ? v : best),
+        null as null | { priceCents: number; sourcePlanId: string | null },
+      );
+      return cheapest?.sourcePlanId === String(pkg.id);
+    });
 
   // Three-level grouping: category → provider → plans.
   //   Apartment Cleaning
@@ -327,6 +347,7 @@ const CleaningPackages = () => {
                   key={item.pkg.id}
                   pkg={item.pkg}
                   rating={ratings[item.providerId]}
+                  offer={offerBySourcePlanId.get(String(item.pkg.id)) ?? null}
                   photos={item.gallery}
                   onSubscribe={goToCheckout}
                 />
@@ -367,6 +388,7 @@ const CleaningPackages = () => {
                         pkg={pkg}
                         rating={ratings[provider.providerId]}
                         photos={provider.providerGallery}
+                        offer={offerBySourcePlanId.get(String(pkg.id)) ?? null}
                         onSubscribe={goToCheckout}
                       />
                     ))}

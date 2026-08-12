@@ -1,5 +1,6 @@
 import { CalendarDays, ChefHat, UtensilsCrossed } from "lucide-react";
 import { PlanCard, type PlanCardRating } from "@/components/patterns/PlanCard";
+import type { PlanOffer } from "@/hooks/usePlanOffers";
 import { dietaryTagMeta } from "@/lib/foodDietaryTags";
 import { cn } from "@/lib/utils";
 import type { FoodMealPlan } from "@/types/food";
@@ -19,6 +20,7 @@ export function MealPlanCard({
   images = [],
   featured,
   rating,
+  offer,
   onOpen,
 }: {
   plan: FoodMealPlan;
@@ -27,15 +29,22 @@ export function MealPlanCard({
   images?: string[];
   featured?: boolean;
   rating?: PlanCardRating | null;
+  /**
+   * Set when this plan is the cheapest variant of an offer. The card then
+   * speaks for the whole offer — its name, its "from" price and what the
+   * customer will get to choose — instead of for one combination that happens
+   * to be the cheapest.
+   */
+  offer?: PlanOffer | null;
   onOpen: () => void;
 }) {
   const tags = ((plan as any).dietary_tags ?? []) as string[];
 
   return (
     <PlanCard
-      title={plan.name}
+      title={offer?.name ?? plan.name}
       eyebrow={providerName ? { icon: ChefHat, text: providerName } : undefined}
-      description={plan.description}
+      description={offer?.description ?? plan.description}
       photos={images}
       rating={rating}
       featured={featured}
@@ -60,13 +69,25 @@ export function MealPlanCard({
             })
           : undefined
       }
-      chips={[
-        { icon: UtensilsCrossed, label: `${plan.meals_per_week} meals/week` },
-        { icon: CalendarDays, label: `${plan.days_per_week} days/week` },
-      ]}
-      features={plan.highlights ?? []}
-      price={{ cents: plan.weekly_price_cents, unit: "/ week" }}
-      cta={{ label: "View menu", onClick: onOpen }}
+      chips={
+        offer
+          // What there is to choose, in the offer's own words — "Mon–Fri or
+          // Mon–Sat", "1, 2 or 3 meals a day".
+          ? offer.groups.map((g) => ({
+              label: g.options.map((o) => o.label).join(" · "),
+            }))
+          : [
+              { icon: UtensilsCrossed, label: `${plan.meals_per_week} meals/week` },
+              { icon: CalendarDays, label: `${plan.days_per_week} days/week` },
+            ]
+      }
+      features={offer ? [] : (plan.highlights ?? [])}
+      price={{
+        cents: offer?.fromCents ?? plan.weekly_price_cents,
+        unit: "/ week",
+        from: !!offer,
+      }}
+      cta={{ label: offer ? "Choose your plan" : "View menu", onClick: onOpen }}
       onOpen={onOpen}
     />
   );

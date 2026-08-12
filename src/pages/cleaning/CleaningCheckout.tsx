@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { usePlanOffers, findVariant, selectionFor } from "@/hooks/usePlanOffers";
+import { PlanOptionPicker } from "@/components/plans/PlanOptionPicker";
 import { Button } from "@/components/ui/button";
 import { CheckoutStickyFooter } from "@/components/patterns/CheckoutStickyFooter";
 import { Textarea } from "@/components/ui/textarea";
@@ -528,6 +530,29 @@ const CleaningCheckout = () => {
     );
   }
 
+  /**
+   * Studio / 1BR / 2BR are one offer at three sizes, so the size is chosen
+   * here rather than as three cards on the listing.
+   *
+   * Each size IS its own cleaning_packages row, so choosing one swaps the
+   * package in the URL and everything below — price, duration, slots, the
+   * payment call — re-runs against it. The checkout never learns that options
+   * exist.
+   */
+  const { offers } = usePlanOffers([pkg?.owner_provider_id]);
+  const offer = packageId
+    ? offers.find((o) => o.variants.some((v) => v.sourcePlanId === packageId)) ?? null
+    : null;
+  const currentVariant = offer?.variants.find((v) => v.sourcePlanId === packageId) ?? null;
+  const optionSelection = currentVariant ? selectionFor(currentVariant) : {};
+
+  const chooseSize = (next: Record<string, string>) => {
+    if (!offer) return;
+    const variant = findVariant(offer, next);
+    if (!variant?.sourcePlanId || variant.sourcePlanId === packageId) return;
+    navigate(`/services/cleaning/checkout/${variant.sourcePlanId}${window.location.search}`, { replace: true });
+  };
+
   // An unavailable plan used to render an empty page with a back button and no
   // explanation — the customer had followed a link that silently led nowhere.
   if (!pkgLoading && !pkg) {
@@ -571,8 +596,21 @@ const CleaningCheckout = () => {
             {/* ─── Plan + price summary ─── */}
             <section className="overflow-hidden rounded-3xl bg-card">
               <div className="p-5">
-                <h2 className="text-xl font-black tracking-tight text-foreground">{pkg.name}</h2>
+                <h2 className="text-xl font-black tracking-tight text-foreground">
+                  {offer?.name ?? pkg.name}
+                </h2>
                 <p className="mt-0.5 text-sm text-muted-foreground">Cleaning subscription</p>
+
+                {/* Only while the customer can still change their mind — once
+                    the invoice is on screen the plan is what was quoted. */}
+                {offer && !showPayment && (
+                  <PlanOptionPicker
+                    offer={offer}
+                    selection={optionSelection}
+                    onSelect={chooseSize}
+                    className="mt-4"
+                  />
+                )}
               </div>
 
               {!showPayment && (

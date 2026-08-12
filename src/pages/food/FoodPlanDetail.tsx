@@ -41,6 +41,8 @@ import { PaymentMethodSelector, type PaymentMethod } from "@/components/payment/
 import { usePaymentMethods } from "@/hooks/usePaymentMethods";
 import { useResidences } from "@/hooks/useResidences";
 import { useSelectedResidence } from "@/contexts/LocationContext";
+import { usePlanOffers, findVariant, selectionFor } from "@/hooks/usePlanOffers";
+import { PlanOptionPicker } from "@/components/plans/PlanOptionPicker";
 import { useCart } from "@/contexts/CartContext";
 import { DURATION_OPTIONS, durationLabel } from "@/lib/durations";
 import {
@@ -595,6 +597,27 @@ const FoodPlanDetail = () => {
     setDialogOpen(false);
   };
 
+  /**
+   * If this plan is one variant of an offer, the chips let the customer move
+   * between its siblings.
+   *
+   * Switching is navigation, not a new checkout: each combination IS a real
+   * meal plan with its own id, so `replace` swaps the URL to the sibling and
+   * every query on this page — menu, photos, price, cart — re-runs against it
+   * untouched. Nothing downstream ever learns that options exist.
+   */
+  const { offers } = usePlanOffers([plan?.provider_id], { legacyService: "food" });
+  const offer = planId ? offers.find((o) => o.variants.some((v) => v.sourcePlanId === planId)) ?? null : null;
+  const currentVariant = offer?.variants.find((v) => v.sourcePlanId === planId) ?? null;
+  const selection = currentVariant ? selectionFor(currentVariant) : {};
+
+  const chooseOptions = (next: Record<string, string>) => {
+    if (!offer) return;
+    const variant = findVariant(offer, next);
+    if (!variant?.sourcePlanId || variant.sourcePlanId === planId) return;
+    navigate(`/services/food/${providerId}/plans/${variant.sourcePlanId}`, { replace: true });
+  };
+
   // ─── Loading / 404 ────────────────────────────────────────────────────────
   if (loadingPlan) {
     return (
@@ -658,19 +681,34 @@ const FoodPlanDetail = () => {
                   </p>
                 )}
                 <h1 className="mt-1 text-2xl font-black leading-tight tracking-tight text-foreground md:text-3xl">
-                  {plan.name}
+                  {offer?.name ?? plan.name}
                 </h1>
                 {plan.description && (
                   <p className="mt-2 text-body text-muted-foreground">{plan.description}</p>
                 )}
 
+                {offer && (
+                  <PlanOptionPicker
+                    offer={offer}
+                    selection={selection}
+                    onSelect={chooseOptions}
+                    className="mt-5"
+                  />
+                )}
+
                 <div className="mt-4 flex flex-wrap gap-2">
-                  <span className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1 text-sm font-medium text-muted-foreground">
-                    <UtensilsCrossed className="h-3.5 w-3.5" /> {plan.meals_per_day} meals/day
-                  </span>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1 text-sm font-medium text-muted-foreground">
-                    <CalendarDays className="h-3.5 w-3.5" /> {plan.days_per_week} days/week
-                  </span>
+                  {/* Already answered by the chips above when this plan is part
+                      of an offer — repeating it reads as a second control. */}
+                  {!offer && (
+                    <>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1 text-sm font-medium text-muted-foreground">
+                        <UtensilsCrossed className="h-3.5 w-3.5" /> {plan.meals_per_day} meals/day
+                      </span>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1 text-sm font-medium text-muted-foreground">
+                        <CalendarDays className="h-3.5 w-3.5" /> {plan.days_per_week} days/week
+                      </span>
+                    </>
+                  )}
                   {mealTypes.map((t) => (
                     <span key={t} className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
                       {MEAL_TYPE_LABELS[t]}

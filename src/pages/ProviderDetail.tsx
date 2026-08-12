@@ -120,6 +120,8 @@ function useUniversalPlans(providerId: string | undefined, enabled: boolean) {
         .select("id, name, description, price_cents, currency, period, features, included_quantity, included_unit")
         .eq("provider_id", providerId!)
         .eq("status", "active")
+        // Offers only. A variant is reached by picking options on its offer.
+        .is("parent_plan_id", null)
         .order("sort_order", { ascending: true });
       if (error) throw error;
       return (data ?? []) as UniversalPlan[];
