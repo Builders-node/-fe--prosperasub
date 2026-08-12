@@ -143,12 +143,15 @@ const FoodPlanDetail = () => {
   const handleAddToCart = () => {
     if (!plan) return;
     addToCart({
+      service: "food",
       providerId: plan.provider_id,
-      providerName: provider?.name ?? "Restaurant",
+      providerName: offer ? `${provider?.name ?? "Restaurant"} · ${offer.name}` : (provider?.name ?? "Restaurant"),
       planId: plan.id,
+      // The variant's own name, not the offer's: a basket has to say which
+      // combination was chosen, and "Meal Plan ×2" doesn't.
       planName: plan.name,
       unitPriceCents: plan.weekly_price_cents,
-      durationWeeks: cartDuration,
+      periods: cartDuration,
       mealsPerDay: plan.meals_per_day ?? 3,
     }, 1);
     setJustAdded(true);

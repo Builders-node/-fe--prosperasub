@@ -40,7 +40,18 @@ import { useSelectedResidence } from "@/contexts/LocationContext";
 import { formatUSD, centsToDollars } from "@/lib/pricing";
 import { todayHN, addDaysISO } from "@/lib/timezone";
 import { DURATION_OPTIONS } from "@/lib/durations";
-import { MEAL_KEYS, type MealKey } from "@/components/food/MealSelectionPicker";
+import { CART_SERVICES, lineTotalCents, periodLabel, quantityLabel } from "@/lib/cart/cartItem";
+import { CART_TABLES, buildRows, paidPatch, needsUuidUser, isUuid } from "@/lib/cart/checkoutRows";
+import type { CartService } from "@/lib/cart/cartItem";
+import { Sparkles, Waves, Package } from "lucide-react";
+
+/** A line reads as its service at a glance, not as food-with-a-different-name. */
+const SERVICE_ICON: Record<CartService, typeof UtensilsCrossed> = {
+  food: UtensilsCrossed,
+  cleaning: Sparkles,
+  beach: Waves,
+  plan: Package,
+};
 
 type Step = "cart" | "pay" | "success";
 
@@ -62,7 +73,7 @@ function endDateFor(startISO: string, weeks: number): string {
 
 export default function Cart() {
   const navigate = useNavigate();
-  const { items, totalCents, count, setQty, setDuration, removeItem, clear } = useCart();
+  const { items, totalCents, count, setQty, setPeriods, removeItem, clear } = useCart();
   const { isAuthenticated, userData } = useAuth();
   const { openAuthModal } = useAuthModal();
   const userUuid = useUserUuid();
@@ -136,64 +147,67 @@ export default function Cart() {
   const feePct = surchargePercent(paymentMethod);
   const totalUsd = centsToDollars(effectiveTotalCents);
   const estimatedSats = convertToSats(totalUsd);
+  // A universal-plan line lands in the one table whose user_id is a uuid —
+  // see needsUuidUser. Everything else accepts the raw auth id.
+  const userIdForRows = userUuid ?? userData?.id ?? "";
+  const missingUuid = items.some((i) => needsUuidUser(i.service)) && !isUuid(userIdForRows);
+
   const formValid =
     form.customer_name.trim()
     && !phoneError(form.customer_whatsapp)
-    && form.delivery_address.trim();
+    && form.delivery_address.trim()
+    && !missingUuid;
 
-  // ─── Create all subscriptions after a single payment ───────────────────────
+
+  // ─── Create every line's rows after a single payment ──────────────────────
+  /**
+   * A basket can now hold four services, and each keeps its own table. The
+   * shapes live in lib/cart/checkoutRows; this only decides how much of the
+   * payment-method fee each line carries and writes the groups.
+   */
   const createRecords = async (paymentRef: string, pending = false) => {
     const today = todayHN();
     const batchId = (crypto as any).randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
-    const rows: any[] = [];
-    // The surcharge is charged once on the cart total but stored per row, so
-    // spread it in proportion to each row's price and put the rounding
-    // remainder on the last row — the sum then equals the fee actually charged.
+
+    // The fee is charged once on the cart total but stored per row, so spread
+    // it in proportion to each line's price and put the rounding remainder on
+    // the last line — the rows then sum to the fee actually charged.
     const totalSurchargeCents = effectiveTotalCents - totalCents;
     let surchargeAssigned = 0;
-    const rowCount = items.reduce((n, i) => n + i.qty, 0);
-    items.forEach((item) => {
-      for (let n = 0; n < item.qty; n++) {
-        const rowBaseCents = item.unitPriceCents * item.durationWeeks;
-        const isLastRow = rows.length === rowCount - 1;
-        const rowSurcharge = isLastRow
-          ? totalSurchargeCents - surchargeAssigned
-          : (totalCents > 0 ? Math.round((totalSurchargeCents * rowBaseCents) / totalCents) : 0);
-        surchargeAssigned += rowSurcharge;
-        rows.push({
-          user_id: userUuid ?? userData!.id,
-          provider_id: item.providerId,
-          meal_plan_id: item.planId,
-          weekly_price_cents: item.unitPriceCents,
-          surcharge_cents: rowSurcharge,
-          commitment_weeks: item.durationWeeks,
-          started_at: today,
-          end_date: endDateFor(today, item.durationWeeks),
-          status: pending ? "pending" : "active",
-          payment_status: pending ? "pending" : "paid",
-          payment_method: paymentMethod === "infinita" ? "crypto" : paymentMethod,
-          payment_reference: paymentRef || null,
-          periods_paid: 1,
-          batch_id: batchId,
-          customer_name: form.customer_name.trim(),
-          customer_whatsapp: form.customer_whatsapp.trim(),
-          residence: form.residence.trim() || null,
-          delivery_address: form.delivery_address.trim() || null,
-          notes: form.notes.trim() || null,
-          // FoodPlanDetail makes this a hard requirement and the kitchen reads
-          // it. The cart used to omit it entirely, so a cart-bought
-          // subscription arrived with no meal combo at all. The cart has no
-          // picker, so seed the plan's default: the first `mealsPerDay` meals
-          // in canonical day order. The customer can still change it later.
-          selected_meals: MEAL_KEYS.slice(
-            0,
-            Math.max(1, Math.min(item.mealsPerDay || 3, 3)),
-          ) as MealKey[],
-        });
-      }
+
+    const byTable = new Map<string, any[]>();
+    items.forEach((item, index) => {
+      const lineBase = cartLineTotal(item);
+      const isLast = index === items.length - 1;
+      const lineSurcharge = isLast
+        ? totalSurchargeCents - surchargeAssigned
+        : (totalCents > 0 ? Math.round((totalSurchargeCents * lineBase) / totalCents) : 0);
+      surchargeAssigned += lineSurcharge;
+
+      const rows = buildRows(item, {
+        userId: userIdForRows,
+        today,
+        batchId,
+        paid: !pending,
+        paymentMethod: paymentMethod === "infinita" ? "crypto" : paymentMethod,
+        paymentReference: paymentRef || null,
+        customerName: form.customer_name.trim(),
+        customerWhatsapp: form.customer_whatsapp.trim(),
+        customerEmail: userData?.email ?? null,
+        residence: form.residence.trim() || null,
+        address: form.delivery_address.trim() || null,
+        notes: form.notes.trim() || null,
+        surchargeCents: lineSurcharge,
+      });
+
+      const table = CART_TABLES[item.service];
+      byTable.set(table, [...(byTable.get(table) ?? []), ...rows]);
     });
-    const { error } = await supabaseDb.from("food_subscriptions").insert(rows);
-    if (error) throw error;
+
+    for (const [table, rows] of byTable) {
+      const { error } = await supabaseDb.from(table).insert(rows);
+      if (error) throw error;
+    }
     return batchId;
   };
 
@@ -218,11 +232,16 @@ export default function Cart() {
     try {
       if (pendingBatchRef.current) {
         // Rows already exist — promote them rather than inserting a second set.
-        const { error } = await supabaseDb
-          .from("food_subscriptions")
-          .update({ status: "active", payment_status: "paid", payment_reference: paymentRef })
-          .eq("batch_id", pendingBatchRef.current);
-        if (error) throw error;
+        // Every table the basket touched, because a batch now spans services
+        // and each marks "paid" with its own column names.
+        const services = Array.from(new Set(items.map((i) => i.service)));
+        for (const service of services) {
+          const { error } = await supabaseDb
+            .from(CART_TABLES[service])
+            .update(paidPatch(service, paymentRef))
+            .eq("batch_id", pendingBatchRef.current);
+          if (error) throw error;
+        }
       } else {
         await createRecords(paymentRef, pending);
       }
@@ -320,25 +339,24 @@ export default function Cart() {
                 Left: 56px thumbnail tile · middle: name + provider + duration
                 chip + qty pill · right: total price + close X. */}
             <section className="overflow-hidden rounded-3xl bg-card divide-y divide-border/60">
-              {items.map((item) => (
+              {items.map((item) => {
+                const shape = CART_SERVICES[item.service];
+                const Icon = SERVICE_ICON[item.service];
+                return (
                 <div key={item.key} className="flex items-start gap-3 p-4">
-                  {/* Thumbnail placeholder — 56×56 rounded-xl tile with the food
-                      icon on primary tint. Same visual weight as our
-                      SubscriptionCard icon-tiles. */}
                   <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-                    <UtensilsCrossed className="h-6 w-6 text-primary" />
+                    <Icon className="h-6 w-6 text-primary" />
                   </span>
 
-                  {/* Middle: name, provider, duration chip, qty pill */}
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-bold leading-tight text-foreground">{item.planName}</p>
                         <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                          {item.providerName} · {formatUSD(item.unitPriceCents)}/wk
+                          {item.providerName} · {formatUSD(item.unitPriceCents)}/{shape.periodNoun === "week" ? "wk" : "mo"}
+                          {shape.unitNoun ? ` per ${shape.unitNoun}` : ""}
                         </p>
                       </div>
-                      {/* Close X on the right — mobile-first (Lavka pattern). */}
                       <button
                         type="button"
                         onClick={() => removeItem(item.key)}
@@ -349,55 +367,73 @@ export default function Cart() {
                       </button>
                     </div>
 
-                    {/* Duration chip — compact pill matching our chip language. */}
+                    {/* How long — weeks for meals, months for everything else.
+                        A service that only sells one length says so instead of
+                        offering a select with a single option. */}
                     <div className="mt-2">
-                      <Select value={String(item.durationWeeks)} onValueChange={(v) => setDuration(item.key, parseInt(v))}>
-                        <SelectTrigger className="h-7 w-auto min-w-[104px] rounded-full bg-muted/40 border-0 px-3 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {DURATION_OPTIONS.map((d) => (
-                            <SelectItem key={d.weeks} value={String(d.weeks)}>{d.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      {shape.periodOptions.length > 1 ? (
+                        <Select value={String(item.periods)} onValueChange={(v) => setPeriods(item.key, parseInt(v))}>
+                          <SelectTrigger className="h-7 w-auto min-w-[104px] rounded-full border-0 bg-muted/40 px-3 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {shape.periodOptions.map((n) => (
+                              <SelectItem key={n} value={String(n)}>
+                                {n} {shape.periodNoun}{n === 1 ? "" : "s"}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <span className="inline-flex rounded-full bg-muted/40 px-3 py-1 text-xs text-muted-foreground">
+                          {periodLabel(item)}
+                        </span>
+                      )}
                     </div>
 
-                    {/* Bottom row: qty pill left, line total right. */}
                     <div className="mt-3 flex items-center justify-between gap-2">
-                      <div className="inline-flex items-center rounded-full bg-muted/40">
-                        <button
-                          type="button"
-                          onClick={() => setQty(item.key, item.qty - 1)}
-                          aria-label="Decrease"
-                          className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground"
-                        >
-                          <Minus className="h-3.5 w-3.5" />
-                        </button>
-                        <span className="w-6 text-center text-sm font-bold tabular-nums text-foreground">{item.qty}</span>
-                        <button
-                          type="button"
-                          onClick={() => setQty(item.key, item.qty + 1)}
-                          aria-label="Increase"
-                          className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground"
-                        >
-                          <Plus className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
+                      {shape.allowsQuantity ? (
+                        <div className="inline-flex items-center rounded-full bg-muted/40">
+                          <button
+                            type="button"
+                            onClick={() => setQty(item.key, item.qty - 1)}
+                            aria-label="Decrease"
+                            className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground"
+                          >
+                            <Minus className="h-3.5 w-3.5" />
+                          </button>
+                          <span className="w-6 text-center text-sm font-bold tabular-nums text-foreground">{item.qty}</span>
+                          <button
+                            type="button"
+                            onClick={() => setQty(item.key, item.qty + 1)}
+                            aria-label="Increase"
+                            className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground"
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <span />
+                      )}
                       <p className="text-base font-black tabular-nums text-foreground">
                         {formatUSD(cartLineTotal(item))}
                       </p>
                     </div>
+
+                    {shape.allowsQuantity && shape.unitNoun && (
+                      <p className="mt-1 text-xs text-muted-foreground">{quantityLabel(item)}</p>
+                    )}
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </section>
 
             {/* Summary */}
             <section className="rounded-2xl bg-muted/40 p-4">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-sm font-bold text-foreground">
-                  Total ({count} portion{count > 1 ? "s" : ""})
+                  Total ({count} item{count > 1 ? "s" : ""})
                 </span>
                 <div className="text-right">
                   <span className="text-2xl font-black tabular-nums text-primary">{formatUSD(effectiveTotalCents)}</span>
@@ -584,7 +620,12 @@ export default function Cart() {
           </Button>
           {!formValid && (
             <p className="mt-1.5 flex items-center justify-center gap-1 text-center text-[11px] text-muted-foreground">
-              <Check className="h-3 w-3" /> Fill name, WhatsApp and delivery address to continue
+              <Check className="h-3 w-3" />
+              {missingUuid
+                // Rare, and worth saying out loud rather than a dead button:
+                // one of the lines needs the account fully set up.
+                ? "We're still setting up your account — reload in a moment"
+                : "Fill name, WhatsApp and delivery address to continue"}
             </p>
           )}
         </CheckoutStickyFooter>

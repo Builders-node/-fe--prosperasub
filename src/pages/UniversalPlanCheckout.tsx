@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { CheckoutStickyFooter } from "@/components/patterns/CheckoutStickyFooter";
+import { AddToCartButton } from "@/components/cart/AddToCartButton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Zap, CheckCircle2, RefreshCw, Wallet, Bitcoin, CalendarDays, Sparkles } from "lucide-react";
@@ -480,6 +481,18 @@ const UniversalPlanCheckout = () => {
 
       {!showPayment && (
         <CheckoutStickyFooter>
+          <AddToCartButton
+            className="mb-2 w-full"
+            line={{
+              service: "plan",
+              providerId: plan.provider_id,
+              providerName: (plan as any).providers?.name ?? "Provider",
+              planId: plan.id,
+              planName: plan.name,
+              unitPriceCents: totalCents,
+              periods: 1,
+            }}
+          />
           {enabledMethods.length === 0 && (
             <p className="mb-2 rounded-xl bg-amber-500/10 px-3 py-2 text-center text-xs text-amber-400">
               Payments are temporarily unavailable. Try again in a few minutes.

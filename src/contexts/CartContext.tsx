@@ -1,43 +1,41 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import {
+  CART_SERVICES, cartItemKey, lineTotalCents, migrateStoredItem, type CartItem,
+} from "@/lib/cart/cartItem";
 
 const STORAGE_KEY = "prospera_cart";
 
-export interface CartItem {
-  /** Stable key = planId + duration, so identical lines stack as quantity. */
-  key: string;
-  providerId: string;
-  providerName: string;
-  planId: string;
-  planName: string;
-  unitPriceCents: number; // weekly price per portion
-  durationWeeks: number;
-  mealsPerDay: number;
-  qty: number;
-}
+export type { CartItem } from "@/lib/cart/cartItem";
 
 interface CartContextValue {
   items: CartItem[];
+  /** Lines, not units — "3 in your cart" should not mean one plan bought thrice. */
   count: number;
   totalCents: number;
   addItem: (item: Omit<CartItem, "key" | "qty">, qty?: number) => void;
   setQty: (key: string, qty: number) => void;
-  setDuration: (key: string, durationWeeks: number) => void;
+  /** Weeks for food, months for everything else — see CART_SERVICES. */
+  setPeriods: (key: string, periods: number) => void;
   removeItem: (key: string) => void;
   clear: () => void;
+  /** Is this exact plan already in the cart? Used to say "In your cart". */
+  has: (planId: string) => boolean;
 }
 
 const CartContext = createContext<CartContextValue>({
   items: [], count: 0, totalCents: 0,
-  addItem: () => {}, setQty: () => {}, setDuration: () => {}, removeItem: () => {}, clear: () => {},
+  addItem: () => {}, setQty: () => {}, setPeriods: () => {}, removeItem: () => {}, clear: () => {},
+  has: () => false,
 });
-
-const lineTotal = (i: CartItem) => i.unitPriceCents * i.durationWeeks * i.qty;
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      return raw ? (JSON.parse(raw) as CartItem[]) : [];
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed)
+        ? parsed.map(migrateStoredItem).filter((i): i is CartItem => !!i)
+        : [];
     } catch {
       return [];
     }
@@ -50,22 +48,28 @@ export function CartProvider({ children }: { children: ReactNode }) {
   // Keep tabs in sync.
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY) {
-        try { setItems(e.newValue ? JSON.parse(e.newValue) : []); } catch { /* ignore */ }
-      }
+      if (e.key !== STORAGE_KEY) return;
+      try {
+        const parsed = e.newValue ? JSON.parse(e.newValue) : [];
+        setItems(Array.isArray(parsed)
+          ? parsed.map(migrateStoredItem).filter((i): i is CartItem => !!i)
+          : []);
+      } catch { /* ignore */ }
     };
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
   }, []);
 
   const addItem: CartContextValue["addItem"] = (item, qty = 1) => {
-    const key = `${item.planId}_${item.durationWeeks}`;
+    const key = cartItemKey(item);
     setItems((prev) => {
       const existing = prev.find((i) => i.key === key);
-      if (existing) {
-        return prev.map((i) => (i.key === key ? { ...i, qty: i.qty + qty } : i));
-      }
-      return [...prev, { ...item, key, qty }];
+      if (!existing) return [...prev, { ...item, key, qty }];
+      // A service where quantity means nothing — a second cleaning subscription
+      // to the same plan would need a second schedule nobody asked for — stays
+      // at one rather than silently stacking.
+      if (!CART_SERVICES[item.service].allowsQuantity) return prev;
+      return prev.map((i) => (i.key === key ? { ...i, qty: i.qty + qty } : i));
     });
   };
 
@@ -77,30 +81,33 @@ export function CartProvider({ children }: { children: ReactNode }) {
     );
   };
 
-  const setDuration: CartContextValue["setDuration"] = (key, durationWeeks) => {
+  const setPeriods: CartContextValue["setPeriods"] = (key, periods) => {
     setItems((prev) => {
       const item = prev.find((i) => i.key === key);
-      if (!item || item.durationWeeks === durationWeeks) return prev;
-      const newKey = `${item.planId}_${durationWeeks}`;
+      if (!item || item.periods === periods) return prev;
+      const newKey = cartItemKey({ ...item, periods });
       const existing = prev.find((i) => i.key === newKey);
       if (existing) {
-        // Merge into the line that already has this plan + duration.
+        // Merge into the line that already has this plan for this long.
         return prev
           .filter((i) => i.key !== key)
           .map((i) => (i.key === newKey ? { ...i, qty: i.qty + item.qty } : i));
       }
-      return prev.map((i) => (i.key === key ? { ...i, durationWeeks, key: newKey } : i));
+      return prev.map((i) => (i.key === key ? { ...i, periods, key: newKey } : i));
     });
   };
 
   const removeItem = (key: string) => setItems((prev) => prev.filter((i) => i.key !== key));
   const clear = () => setItems([]);
+  const has = (planId: string) => items.some((i) => i.planId === planId);
 
-  const count = items.reduce((s, i) => s + i.qty, 0);
-  const totalCents = items.reduce((s, i) => s + lineTotal(i), 0);
+  const count = items.length;
+  const totalCents = items.reduce((s, i) => s + lineTotalCents(i), 0);
 
   return (
-    <CartContext.Provider value={{ items, count, totalCents, addItem, setQty, setDuration, removeItem, clear }}>
+    <CartContext.Provider
+      value={{ items, count, totalCents, addItem, setQty, setPeriods, removeItem, clear, has }}
+    >
       {children}
     </CartContext.Provider>
   );
@@ -110,4 +117,4 @@ export function useCart() {
   return useContext(CartContext);
 }
 
-export const cartLineTotal = lineTotal;
+export const cartLineTotal = lineTotalCents;

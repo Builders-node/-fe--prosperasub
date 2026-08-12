@@ -4,6 +4,7 @@ import { usePlanOffers, findVariant, selectionFor } from "@/hooks/usePlanOffers"
 import { PlanOptionPicker } from "@/components/plans/PlanOptionPicker";
 import { Button } from "@/components/ui/button";
 import { CheckoutStickyFooter } from "@/components/patterns/CheckoutStickyFooter";
+import { AddToCartButton } from "@/components/cart/AddToCartButton";
 import { Textarea } from "@/components/ui/textarea";
 import { NotesField } from "@/components/patterns/NotesField";
 import { Home as HomeIcon, Sparkles as SparklesIcon, MessageCircle } from "lucide-react";
@@ -859,6 +860,22 @@ const CleaningCheckout = () => {
       {/* ─── Sticky bottom CTA — unified pattern across all checkouts ─── */}
       {pkg && !showPayment && (
         <CheckoutStickyFooter>
+          {/* Buying one plan shouldn't send anyone to a basket; buying three
+              shouldn't mean paying three times. Both doors, side by side. */}
+          <AddToCartButton
+            className="mb-2 w-full"
+            line={{
+              service: "cleaning",
+              providerId: pkg.owner_provider_id ?? "",
+              providerName: offer?.name ?? "Cleaning",
+              planId: pkg.id,
+              // Which size, not just "Apartment Cleaning" — a basket has to
+              // name the thing being bought.
+              planName: pkg.name,
+              unitPriceCents: monthlyPriceCents,
+              periods: billingPeriodMonths,
+            }}
+          />
           {enabledMethods.length === 0 && (
             <p className="mb-2 rounded-xl bg-amber-500/10 px-3 py-2 text-center text-xs text-amber-400">
               Payments are temporarily unavailable. Try again in a few minutes.

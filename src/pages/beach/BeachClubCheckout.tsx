@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { CheckoutStickyFooter } from "@/components/patterns/CheckoutStickyFooter";
+import { AddToCartButton } from "@/components/cart/AddToCartButton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
@@ -485,6 +486,21 @@ const BeachClubCheckout = () => {
       {/* Sticky Pay button — unified pattern across all checkouts */}
       {plan && !showPayment && (
         <CheckoutStickyFooter>
+          {/* Quantity here is people — the same number the membership charges
+              per, so the basket line carries it unchanged. */}
+          <AddToCartButton
+            className="mb-2 w-full"
+            qty={people}
+            line={{
+              service: "beach",
+              providerId: (plan as any).owner_provider_id ?? "",
+              providerName: "Beach Club",
+              planId: plan.id,
+              planName: plan.name,
+              unitPriceCents: plan.price_per_person_cents,
+              periods: 1,
+            }}
+          />
           {enabledMethods.length === 0 && (
             <p className="mb-2 rounded-xl bg-amber-500/10 px-3 py-2 text-center text-xs text-amber-400">
               Payments are temporarily unavailable. Try again in a few minutes.
