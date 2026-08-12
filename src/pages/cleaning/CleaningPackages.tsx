@@ -2,13 +2,16 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useArchetypeLabel } from "@/hooks/useServiceArchetypes";
 import { useNavigate } from "react-router-dom";
-import { SparklesIcon, ShieldCheck, ChevronRight } from "lucide-react";
+import { SearchX, SparklesIcon, ShieldCheck, ChevronRight } from "lucide-react";
 import { providerHref } from "@/lib/services/serviceUrls";
 import { groupProvidersByCategory } from "@/lib/services/groupByCategory";
 import { ProviderRail, CategoryChips, ALL_CATEGORIES } from "@/components/listing/ListingNav";
 import { supabase, supabaseDb } from "@/integrations/supabase/client";
 import { useResidenceFilter } from "@/hooks/useResidenceFilter";
 import { useProviderRatings } from "@/hooks/useProviderRatings";
+import { resolveMonthlyPriceCents } from "@/lib/cleaningPlanPricing";
+import { useListingSearch } from "@/hooks/useListingSearch";
+import { ListingToolbar } from "@/components/listing/ListingToolbar";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { useI18n } from "@/i18n";
@@ -237,6 +240,34 @@ const CleaningPackages = () => {
     navigate(providerHref("cleaning", providerId));
   };
 
+  /**
+   * Browsing keeps the category → provider → plans grouping; searching or
+   * sorting flattens it. A "cheapest first" list broken into three sections is
+   * three separate answers to a question that has one.
+   */
+  const flatPackages = useMemo(
+    () => visibleGroups.flatMap((category) =>
+      category.providers.flatMap((provider: any) =>
+        provider.packages.map((pkg: any) => ({
+          pkg,
+          providerId: provider.providerId as string,
+          providerName: provider.providerName as string,
+          gallery: provider.providerGallery as string[],
+          categoryLabel: category.categoryLabel as string,
+        })),
+      ),
+    ),
+    [visibleGroups],
+  );
+
+  const search = useListingSearch(flatPackages, {
+    text: (i) => [i.pkg.name, i.pkg.description, i.providerName, i.categoryLabel,
+                  ...(Array.isArray(i.pkg.features) ? i.pkg.features : [])],
+    price: (i) => resolveMonthlyPriceCents(i.pkg),
+    rating: (i) => ratings[i.providerId]?.average ?? null,
+    name: (i) => i.pkg.name ?? "",
+  });
+
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-12">
       <HomeHeader title={serviceTitle} showBackButton onBack={() => navigate("/discovery")} />
@@ -250,6 +281,15 @@ const CleaningPackages = () => {
           <>
             <ProviderRail providers={railProviders} icon={SparklesIcon} onOpen={openProvider} />
             <CategoryChips categories={chipCategories} value={activeCategory} onChange={setActiveCategory} />
+            <ListingToolbar
+              query={search.query}
+              onQueryChange={search.setQuery}
+              sort={search.sort}
+              onSortChange={search.setSort}
+              sorts={search.availableSorts}
+              placeholder="Search plans"
+              resultCount={search.results.length}
+            />
           </>
         )}
 
@@ -276,6 +316,22 @@ const CleaningPackages = () => {
             title={t("cleaning.noPackagesTitle")}
             subtitle={t("cleaning.noPackagesDescription")}
           />
+        ) : search.isActive ? (
+          search.results.length === 0 ? (
+            <YdEmptyState icon={SearchX} title="No plans match" subtitle="Try a different word, or clear the search." />
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {search.results.map((item) => (
+                <CleaningPackageCard
+                  key={item.pkg.id}
+                  pkg={item.pkg}
+                  rating={ratings[item.providerId]}
+                  photos={item.gallery}
+                  onSubscribe={goToCheckout}
+                />
+              ))}
+            </div>
+          )
         ) : (
           visibleGroups.map((category) => (
             <section key={category.categoryKey} className="space-y-4">

@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useProviderRatings } from "@/hooks/useProviderRatings";
+import { useListingSearch } from "@/hooks/useListingSearch";
+import { ListingToolbar } from "@/components/listing/ListingToolbar";
 import { providerHref } from "@/lib/services/serviceUrls";
 import { ProviderRail, CategoryChips, ALL_CATEGORIES } from "@/components/listing/ListingNav";
 import { groupProvidersByCategory } from "@/lib/services/groupByCategory";
@@ -138,6 +140,13 @@ const ServicePage = () => {
     return rows.filter((r: any) => r.providers?.category_key === activeCategory);
   }, [plansQ.data, activeCategory]);
 
+  const search = useListingSearch(visiblePlans, {
+    text: (p: any) => [p.name, p.description, p.providers?.name, ...(Array.isArray(p.features) ? p.features : [])],
+    price: (p: any) => p.price_cents,
+    rating: (p: any) => ratings[p.provider_id]?.average ?? null,
+    name: (p: any) => p.name ?? "",
+  });
+
   const Icon = archetype?.Icon;
 
   // The archetype list decides whether this is a real service. Rendering an
@@ -216,17 +225,33 @@ const ServicePage = () => {
               retrying={plansQ.isFetching}
             />
           ) : visiblePlans.length > 0 ? (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {visiblePlans.map((plan: any) => (
-                <UniversalPlanCard
-                  key={plan.id}
-                  plan={plan}
-                  rating={ratings[plan.provider_id]}
-                  photos={providerMedia[plan.provider_id]}
-                  onSubscribe={subscribe}
-                />
-              ))}
-            </div>
+            <>
+              <ListingToolbar
+                query={search.query}
+                onQueryChange={search.setQuery}
+                sort={search.sort}
+                onSortChange={search.setSort}
+                sorts={search.availableSorts}
+                placeholder="Search plans"
+                resultCount={search.results.length}
+                className="mb-4"
+              />
+              {search.results.length === 0 ? (
+                <YdEmptyState icon={SearchX} title="No plans match" subtitle="Try a different word, or clear the search." />
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {search.results.map((plan: any) => (
+                    <UniversalPlanCard
+                      key={plan.id}
+                      plan={plan}
+                      rating={ratings[plan.provider_id]}
+                      photos={providerMedia[plan.provider_id]}
+                      onSubscribe={subscribe}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
           ) : (
             <YdEmptyState
               icon={Icon}

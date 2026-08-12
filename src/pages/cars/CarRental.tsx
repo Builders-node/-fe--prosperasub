@@ -2,13 +2,15 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useArchetypeLabel } from "@/hooks/useServiceArchetypes";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Car, CalendarDays, Pencil } from "lucide-react";
+import { Car, CalendarDays, Pencil, SearchX } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { providerHref } from "@/lib/services/serviceUrls";
 import { ProviderRail, CategoryChips, ALL_CATEGORIES } from "@/components/listing/ListingNav";
 import { groupProvidersByCategory } from "@/lib/services/groupByCategory";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { useResidenceFilter } from "@/hooks/useResidenceFilter";
+import { useListingSearch } from "@/hooks/useListingSearch";
+import { ListingToolbar } from "@/components/listing/ListingToolbar";
 import { HomeHeader } from "@/components/HomeHeader";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
 import { BottomNav } from "@/components/BottomNav";
@@ -141,6 +143,16 @@ const CarRental = () => {
   const visibleVehicles = (vehicles ?? []).filter((v: any) => servesHere(v.residenceIds));
   const hiddenVehicleCount = (vehicles ?? []).length - visibleVehicles.length;
 
+  // Cars are the one listing where the customer already knows the vocabulary —
+  // "toyota", "automatic", "7 seats" — so the search reads the spec columns as
+  // well as the name.
+  const search = useListingSearch(visibleVehicles, {
+    text: (v: any) => [v.name, v.brand, v.model, v.description, v.transmission, v.fuel_type,
+                       v.year ? String(v.year) : null, v.seats ? `${v.seats} seats` : null],
+    price: (v: any) => v.daily_price_cents,
+    name: (v: any) => v.name ?? "",
+  });
+
   const railProviders = useMemo(
     () => providerGroups.flatMap((g) =>
       g.providers.map((p: any) => ({
@@ -253,16 +265,30 @@ const CarRental = () => {
           />
         ) : visibleVehicles.length > 0 ? (
           <>
+          <ListingToolbar
+            query={search.query}
+            onQueryChange={search.setQuery}
+            sort={search.sort}
+            onSortChange={search.setSort}
+            sorts={search.availableSorts}
+            placeholder="Search cars"
+            resultCount={search.results.length}
+            className="mb-4"
+          />
+          {search.results.length === 0 ? (
+            <YdEmptyState icon={SearchX} title="No cars match" subtitle="Try a different word, or clear the search." />
+          ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {visibleVehicles.map((v, idx) => (
+            {search.results.map((v: any, idx: number) => (
               <RentalVehicleCard
                 key={v.id}
                 v={v}
-                featured={idx === 1 && visibleVehicles.length > 1}
+                featured={!search.isActive && idx === 1 && search.results.length > 1}
                 onOpen={(id) => navigate(`/services/rental/${id}${datesQuery()}`)}
               />
             ))}
           </div>
+          )}
           {hiddenVehicleCount > 0 && (
             <p className="mt-3 text-center text-xs text-muted-foreground">
               {hiddenVehicleCount} vehicle{hiddenVehicleCount > 1 ? "s" : ""} not available in {residence}

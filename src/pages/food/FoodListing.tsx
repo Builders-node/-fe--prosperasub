@@ -13,6 +13,8 @@ import { QueryError } from "@/components/QueryError";
 import { YdEmptyState } from "@/components/yd/YdPrimitives";
 import { useResidenceFilter } from "@/hooks/useResidenceFilter";
 import { useProviderRatings } from "@/hooks/useProviderRatings";
+import { useListingSearch } from "@/hooks/useListingSearch";
+import { ListingToolbar } from "@/components/listing/ListingToolbar";
 import { MealPlanCard } from "@/components/food/MealPlanCard";
 import type { FoodProvider, FoodMealPlan } from "@/types/food";
 import { DIETARY_TAGS, dietaryTagMeta, type DietaryTag } from "@/lib/foodDietaryTags";
@@ -213,6 +215,17 @@ const FoodListing = () => {
       })
     : allPlans;
 
+  const search = useListingSearch(filteredPlans, {
+    text: ({ plan, provider }) => [
+      plan.name, plan.description, provider.name,
+      ...(((plan as any).dietary_tags ?? []) as string[]),
+      ...((plan.highlights ?? []) as string[]),
+    ],
+    price: ({ plan }) => plan.weekly_price_cents,
+    rating: ({ provider }) => ratings[provider.id]?.average ?? null,
+    name: ({ plan }) => plan.name,
+  });
+
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-12">
       <HomeHeader title={serviceTitle} showBackButton onBack={() => navigate("/discovery")} />
@@ -281,7 +294,7 @@ const FoodListing = () => {
             <h2 className="mb-3 mt-space-8 text-xl font-black tracking-tight text-foreground">
               Meal Plans
               <span className="ml-2 text-base font-normal text-muted-foreground">
-                ({dietaryFilter ? filteredPlans.length : allPlans.length})
+                ({dietaryFilter || search.isActive ? search.results.length : allPlans.length})
               </span>
             </h2>
 
@@ -328,9 +341,20 @@ const FoodListing = () => {
               </div>
             )}
 
-            {filteredPlans.length > 0 ? (
+            <ListingToolbar
+              query={search.query}
+              onQueryChange={search.setQuery}
+              sort={search.sort}
+              onSortChange={search.setSort}
+              sorts={search.availableSorts}
+              placeholder="Search meal plans"
+              resultCount={search.results.length}
+              className="mb-4"
+            />
+
+            {search.results.length > 0 ? (
               <div className="grid gap-3 md:gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {filteredPlans.map(({ plan, provider }) => (
+                {search.results.map(({ plan, provider }) => (
                   <MealPlanCard
                     key={plan.id}
                     plan={plan}
@@ -344,7 +368,9 @@ const FoodListing = () => {
             ) : (
               <div className="rounded-3xl bg-card p-8 text-center">
                 <p className="text-sm text-muted-foreground">
-                  No plans match this filter — try another diet.
+                  {search.query.trim()
+                    ? "No plans match your search — try another word."
+                    : "No plans match this filter — try another diet."}
                 </p>
               </div>
             )}

@@ -2,8 +2,10 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useProviderRatings } from "@/hooks/useProviderRatings";
+import { useListingSearch } from "@/hooks/useListingSearch";
+import { ListingToolbar } from "@/components/listing/ListingToolbar";
 import { useArchetypeLabel } from "@/hooks/useServiceArchetypes";
-import { Waves } from "lucide-react";
+import { SearchX, Waves } from "lucide-react";
 import { providerHref } from "@/lib/services/serviceUrls";
 import { ProviderRail, CategoryChips, ALL_CATEGORIES } from "@/components/listing/ListingNav";
 import { groupProvidersByCategory } from "@/lib/services/groupByCategory";
@@ -200,6 +202,40 @@ const BeachClub = () => {
     [universalPlansQ.data, activeCategory],
   );
 
+  /**
+   * Both grids are one list as far as a customer is concerned — a membership
+   * and a massage plan are two things on offer here — so search and sort run
+   * across the pair rather than inside each half.
+   */
+  const allPlans = useMemo(
+    () => [
+      ...visibleBeachPlans.map((plan: any) => ({
+        kind: "beach" as const,
+        plan,
+        providerId: plan.owner_provider_id as string,
+        name: plan.name as string,
+        text: [plan.name, plan.tagline, ...(plan.amenities ?? [])],
+        price: plan.price_per_person_cents as number | null,
+      })),
+      ...visibleUniversalPlans.map((plan: any) => ({
+        kind: "universal" as const,
+        plan,
+        providerId: plan.provider_id as string,
+        name: plan.name as string,
+        text: [plan.name, plan.description, plan.providers?.name],
+        price: plan.price_cents as number | null,
+      })),
+    ],
+    [visibleBeachPlans, visibleUniversalPlans],
+  );
+
+  const search = useListingSearch(allPlans, {
+    text: (i) => i.text,
+    price: (i) => i.price,
+    rating: (i) => ratings[i.providerId]?.average ?? null,
+    name: (i) => i.name,
+  });
+
   const openProvider = (providerId: string) => {
     navigate(providerHref("entertainment", providerId));
   };
@@ -251,35 +287,52 @@ const BeachClub = () => {
               onRetry={() => plansQ.refetch()}
               retrying={plansQ.isFetching}
             />
-          ) : visibleBeachPlans.length + visibleUniversalPlans.length > 0 ? (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {visibleBeachPlans.map((plan: any) => (
-                <EntertainmentPlanCard
-                  key={plan.id}
-                  plan={plan}
-                  rating={ratings[plan.owner_provider_id]}
-                  photos={providerMedia[plan.owner_provider_id]}
-                  onSubscribe={(id) => {
-                    const href = `/services/beach-club/checkout/${id}`;
-                    if (!isAuthenticated) openAuthModal("login", href);
-                    else navigate(href);
-                  }}
-                />
-              ))}
-              {visibleUniversalPlans.map((plan: any) => (
-                <UniversalPlanCard
-                  key={plan.id}
-                  plan={plan}
-                  rating={ratings[plan.provider_id]}
-                  photos={providerMedia[plan.provider_id]}
-                  onSubscribe={(id) => {
-                    const href = `/services/beach-club/checkout/plan/${id}`;
-                    if (!isAuthenticated) openAuthModal("login", href);
-                    else navigate(href);
-                  }}
-                />
-              ))}
-            </div>
+          ) : allPlans.length > 0 ? (
+            <>
+              <ListingToolbar
+                query={search.query}
+                onQueryChange={search.setQuery}
+                sort={search.sort}
+                onSortChange={search.setSort}
+                sorts={search.availableSorts}
+                placeholder="Search plans"
+                resultCount={search.results.length}
+                className="mb-4"
+              />
+              {search.results.length === 0 ? (
+                <YdEmptyState icon={SearchX} title="No plans match" subtitle="Try a different word, or clear the search." />
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {search.results.map((item) =>
+                    item.kind === "beach" ? (
+                      <EntertainmentPlanCard
+                        key={item.plan.id}
+                        plan={item.plan}
+                        rating={ratings[item.providerId]}
+                        photos={providerMedia[item.providerId]}
+                        onSubscribe={(id) => {
+                          const href = `/services/beach-club/checkout/${id}`;
+                          if (!isAuthenticated) openAuthModal("login", href);
+                          else navigate(href);
+                        }}
+                      />
+                    ) : (
+                      <UniversalPlanCard
+                        key={item.plan.id}
+                        plan={item.plan}
+                        rating={ratings[item.providerId]}
+                        photos={providerMedia[item.providerId]}
+                        onSubscribe={(id) => {
+                          const href = `/services/beach-club/checkout/plan/${id}`;
+                          if (!isAuthenticated) openAuthModal("login", href);
+                          else navigate(href);
+                        }}
+                      />
+                    ),
+                  )}
+                </div>
+              )}
+            </>
           ) : (
             <YdEmptyState icon={Waves} title="No plans yet" subtitle="We're setting things up. Check back soon." />
           )}
