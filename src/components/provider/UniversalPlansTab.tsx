@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 import { PlanForm, EMPTY_PLAN, cleanFeatures, type PlanFormValues } from "@/components/provider/plans/PlanForm";
+import { PlanOptionsEditor } from "@/components/provider/PlanOptionsEditor";
 import { includedLabel, normPeriod } from "@/lib/services/planPeriod";
 
 const AUDIT = "provider_plan";
@@ -216,6 +217,18 @@ export function UniversalPlansTab({ providerId }: { providerId: string }) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Grouping plans into one offer the customer picks options on. Sits
+          under the list because it only makes sense once there are plans to
+          group — it says so itself when there aren't. */}
+      <section className="border-t border-border/60 pt-6">
+        <h2 className="text-xl font-black tracking-tight">Options</h2>
+        <p className="mb-4 mt-1 text-sm text-muted-foreground">
+          Selling one thing in a few sizes or frequencies? Group those plans so customers see one
+          card and choose, instead of a card per combination.
+        </p>
+        <PlanOptionsEditor providerId={providerId} />
+      </section>
     </div>
   );
 }

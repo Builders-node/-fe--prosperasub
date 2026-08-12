@@ -37,6 +37,28 @@ import BeachClubCourtsPage from "@/pages/admin/BeachClubCourts";
 import { InnerPillTabs } from "@/components/provider/InnerPillTabs";
 import { UniversalInfoTab } from "@/components/provider/UniversalInfoTab";
 import { UniversalStaffTab } from "@/components/provider/UniversalStaffTab";
+import { PlanOptionsEditor } from "@/components/provider/PlanOptionsEditor";
+import { useUniversalIdForLegacy as useUniversalId } from "@/lib/services/providerBridge";
+
+/**
+ * The options editor keyed by a LEGACY provider id.
+ *
+ * Offers live on the universal `providers` row, and the legacy portals only
+ * ever hold the per-service id, so the bridge happens here rather than in the
+ * editor — which should not have to know that two id-spaces exist.
+ */
+function LegacyPlanOptions({ legacyId, sourceKey }: { legacyId: string; sourceKey: string }) {
+  const { data: universalId, isLoading } = useUniversalId(sourceKey, legacyId);
+  if (isLoading) return <TabsSkeleton />;
+  if (!universalId) {
+    return (
+      <div className="rounded-2xl bg-card p-6 text-sm text-muted-foreground">
+        This business has no marketplace record yet, so its plans can't be grouped into an offer.
+      </div>
+    );
+  }
+  return <PlanOptionsEditor providerId={universalId} />;
+}
 
 // Identity/bridge lives in one place — re-exported here so portal code has a
 // single import surface. See lib/services/providerBridge.ts for the id-space docs.
@@ -88,6 +110,9 @@ export const FOOD_TABS: PortalTab<MyRestaurant>[] = [
       items={[
         { key: "plans", label: "Meal plans",   render: () => <RestaurantMealPlansTab providerId={r.id} /> },
         { key: "weeks", label: "Weekly menus", render: () => <RestaurantWeeklyMenusTab providerId={r.id} providerName={r.name} /> },
+        // Grouping plans into one offer works on the universal id, not the
+        // legacy one — see lib/services/providerBridge.
+        { key: "options", label: "Options", render: () => <LegacyPlanOptions legacyId={r.id} sourceKey="food" /> },
       ]}
     />
   ) },
@@ -101,7 +126,14 @@ export const CLEANING_TABS: PortalTab<CleaningProviderRow>[] = [
   // to THIS provider's packages/subscriptions/bookings. Without this, one
   // cleaning owner's Offerings and Operations tabs displayed (and could edit)
   // every other provider's data.
-  { value: "offerings",     label: "Offerings",  icon: Package,         render: (p) => <CleaningPlansPage embedded providerId={p.id} /> },
+  { value: "offerings",     label: "Offerings",  icon: Package,         render: (p) => (
+    <InnerPillTabs
+      items={[
+        { key: "plans",   label: "Plans",   render: () => <CleaningPlansPage embedded providerId={p.id} /> },
+        { key: "options", label: "Options", render: () => <LegacyPlanOptions legacyId={p.id} sourceKey="cleaning" /> },
+      ]}
+    />
+  ) },
   { value: "operations",    label: "Operations", mobileLabel: "Ops.",   icon: Wrench,          render: (p) => <CleaningOperationsPage embedded providerId={p.id} /> },
   { value: "team",          label: "Team",                               icon: Users, ownerOnly: true, render: (p) => <CleaningStaffTab provider={p} /> },
 ];
