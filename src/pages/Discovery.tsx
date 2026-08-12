@@ -12,6 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useMyBusinesses } from "@/hooks/useMyBusinesses";
 import { useServiceArchetypes, type ServiceArchetype } from "@/hooks/useServiceArchetypes";
 import { publicListingHref } from "@/lib/services/providerBridge";
+import { CategoryCarousel } from "@/components/discovery/CategoryCarousel";
 import { useResidenceMatters } from "@/contexts/LocationContext";
 import { useI18n } from "@/i18n";
 import { cn } from "@/lib/utils";
@@ -141,6 +142,14 @@ const Discovery = () => {
             <p className="min-w-0 text-[14px] font-bold leading-tight text-foreground">{t("discovery.becomeProvider")}</p>
           </Link>
         </div>
+
+        {/* ─── Category carousel ──
+              Sits directly above the services grid and answers the question
+              the grid cannot: the grid says which kinds of business exist,
+              this says what you can actually buy today and what it starts at.
+              Car Wash was a tap inside Cleaning with nothing on the home page
+              hinting it existed. */}
+        <CategoryCarousel />
 
         {/* ─── Services (business archetypes) — the single browse surface ── */}
         <section>

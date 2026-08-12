@@ -8,6 +8,7 @@ import { useArchetypeLabel } from "@/hooks/useServiceArchetypes";
 import { SearchX, Waves } from "lucide-react";
 import { providerHref } from "@/lib/services/serviceUrls";
 import { ProviderRail, CategoryChips, ALL_CATEGORIES } from "@/components/listing/ListingNav";
+import { useCategoryParam } from "@/hooks/useCategoryParam";
 import { groupProvidersByCategory } from "@/lib/services/groupByCategory";
 import { HomeHeader } from "@/components/HomeHeader";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
@@ -162,7 +163,7 @@ const BeachClub = () => {
     () => providerGroups.map((g) => ({ key: g.key, label: g.label, count: g.providers.length })),
     [providerGroups],
   );
-  const [activeCategory, setActiveCategory] = useState<string>(ALL_CATEGORIES);
+  const [activeCategory, setActiveCategory] = useCategoryParam();
   const visibleRail = activeCategory === ALL_CATEGORIES
     ? railProviders
     : providerGroups

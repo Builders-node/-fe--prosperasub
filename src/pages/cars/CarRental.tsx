@@ -6,6 +6,7 @@ import { Car, CalendarDays, Pencil, SearchX } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { providerHref } from "@/lib/services/serviceUrls";
 import { ProviderRail, CategoryChips, ALL_CATEGORIES } from "@/components/listing/ListingNav";
+import { useCategoryParam } from "@/hooks/useCategoryParam";
 import { groupProvidersByCategory } from "@/lib/services/groupByCategory";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { useResidenceFilter } from "@/hooks/useResidenceFilter";
@@ -168,7 +169,7 @@ const CarRental = () => {
     () => providerGroups.map((g) => ({ key: g.key, label: g.label, count: g.providers.length })),
     [providerGroups],
   );
-  const [activeCategory, setActiveCategory] = useState<string>(ALL_CATEGORIES);
+  const [activeCategory, setActiveCategory] = useCategoryParam();
   // NOTE: the chip narrows the rail only. `rental_vehicles` rows carry no
   // provider column, so a vehicle cannot be traced back to a category — the
   // grid below stays whole. Wire vehicles to their provider and this filter

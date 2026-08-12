@@ -4,6 +4,7 @@ import { useArchetypeLabel } from "@/hooks/useServiceArchetypes";
 import { useNavigate } from "react-router-dom";
 import { ChefHat, MapPin } from "lucide-react";
 import { ProviderRail, CategoryChips, ALL_CATEGORIES } from "@/components/listing/ListingNav";
+import { useCategoryParam } from "@/hooks/useCategoryParam";
 import { groupProvidersByCategory } from "@/lib/services/groupByCategory";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { HomeHeader } from "@/components/HomeHeader";
@@ -178,7 +179,7 @@ const FoodListing = () => {
     })),
     [restaurantGroups],
   );
-  const [activeCategory, setActiveCategory] = useState<string>(ALL_CATEGORIES);
+  const [activeCategory, setActiveCategory] = useCategoryParam();
   const visibleGroups = activeCategory === ALL_CATEGORIES
     ? restaurantGroups
     : restaurantGroups.filter((g) => g.key === activeCategory);

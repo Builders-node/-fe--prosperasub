@@ -6,6 +6,7 @@ import { SearchX, SparklesIcon, ShieldCheck, ChevronRight } from "lucide-react";
 import { providerHref } from "@/lib/services/serviceUrls";
 import { groupProvidersByCategory } from "@/lib/services/groupByCategory";
 import { ProviderRail, CategoryChips, ALL_CATEGORIES } from "@/components/listing/ListingNav";
+import { useCategoryParam } from "@/hooks/useCategoryParam";
 import { supabase, supabaseDb } from "@/integrations/supabase/client";
 import { useResidenceFilter } from "@/hooks/useResidenceFilter";
 import { useProviderRatings } from "@/hooks/useProviderRatings";
@@ -231,7 +232,7 @@ const CleaningPackages = () => {
     })),
     [categoryGroups],
   );
-  const [activeCategory, setActiveCategory] = useState<string>(ALL_CATEGORIES);
+  const [activeCategory, setActiveCategory] = useCategoryParam();
   const visibleGroups = activeCategory === ALL_CATEGORIES
     ? categoryGroups
     : categoryGroups.filter((c) => c.categoryKey === activeCategory);

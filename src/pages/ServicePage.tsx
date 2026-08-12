@@ -6,6 +6,7 @@ import { useListingSearch } from "@/hooks/useListingSearch";
 import { ListingToolbar } from "@/components/listing/ListingToolbar";
 import { providerHref } from "@/lib/services/serviceUrls";
 import { ProviderRail, CategoryChips, ALL_CATEGORIES } from "@/components/listing/ListingNav";
+import { useCategoryParam } from "@/hooks/useCategoryParam";
 import { groupProvidersByCategory } from "@/lib/services/groupByCategory";
 import { HomeHeader } from "@/components/HomeHeader";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
@@ -115,7 +116,7 @@ const ServicePage = () => {
     [providersQ.data, categoriesQ.data],
   );
 
-  const [activeCategory, setActiveCategory] = useState<string>(ALL_CATEGORIES);
+  const [activeCategory, setActiveCategory] = useCategoryParam();
 
   const rail = useMemo(
     () => providerGroups
