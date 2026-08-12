@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { effectiveCleaningStatus, effectiveFoodStatus } from "@/lib/subscriptionLifecycle";
 import { QueryError } from "@/components/QueryError";
@@ -154,6 +154,7 @@ function CleaningBookingRow({
   cancelling,
   onView,
   onReschedule,
+  planName,
 }: {
   booking: any;
   upcoming: boolean;
@@ -161,6 +162,8 @@ function CleaningBookingRow({
   cancelling?: boolean;
   onView?: () => void;
   onReschedule?: () => void;
+  /** Which plan this visit belongs to — a customer can hold more than one. */
+  planName?: string | null;
 }) {
   const slot = booking.cleaning_available_slots;
   const dateStr = slot?.date
@@ -193,12 +196,21 @@ function CleaningBookingRow({
       {/* Info */}
       <div className="min-w-0 flex-1">
         <p className="text-sm font-bold leading-tight text-foreground">{dateStr}</p>
-        {timeStr && (
-          <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-            <Clock className="h-3 w-3" />
-            {timeStr}
-          </p>
-        )}
+        <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+          {timeStr && (
+            <span className="flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              {timeStr}
+            </span>
+          )}
+          {/* Which plan this visit is for. Someone with a cleaning plan AND a
+              car wash saw two identical lists of dates and times with nothing
+              to tell them apart — and cancelling the wrong one is a real
+              mistake to make. */}
+          {planName && (
+            <span className="truncate font-semibold text-foreground/80">{planName}</span>
+          )}
+        </p>
       </div>
 
       {/* Right side */}
@@ -770,6 +782,26 @@ const MySubscriptions = () => {
   // route to renewing it with it. `effectiveCleaningStatus` compares the
   // period end against Honduras today, which is what the admin surfaces
   // already use.
+  /**
+   * Subscription id → plan name, for the visit rows.
+   *
+   * Both cleaning subscription queries already attach `cleaning_packages`, so
+   * this costs nothing; the rows just never used it. A customer holding a
+   * cleaning plan and a car wash saw two lists of bare dates and times.
+   */
+  const cleaningPlanNameBySubId = useMemo(() => {
+    const map = new Map<string, string>();
+    [...(cleaningSubscriptions ?? []), ...(linkedClientSubscriptions ?? [])].forEach((s: any) => {
+      const name = s?.cleaning_packages?.name;
+      if (s?.id && name) map.set(String(s.id), String(name));
+    });
+    return map;
+  }, [cleaningSubscriptions, linkedClientSubscriptions]);
+
+  /** The plan a booking belongs to, whichever id column it carries. */
+  const planNameForBooking = (b: any): string | null =>
+    cleaningPlanNameBySubId.get(String(b?.subscription_id ?? b?.cleaning_subscription_id ?? "")) ?? null;
+
   const paidCleaningSubs = (cleaningSubscriptions ?? []).filter(
     (s) => s.payment_status === "paid" && !isOneTimeComplete(s),
   );
@@ -1477,6 +1509,7 @@ const MySubscriptions = () => {
                           key={booking.id}
                           booking={booking}
                           upcoming
+                          planName={planNameForBooking(booking)}
                           onView={() => setViewBooking(booking)}
                           onReschedule={booking.client_id ? undefined : () => openReschedule(booking)}
                           onCancel={() => cancelCleaningMutation.mutate(booking.id)}
@@ -1497,6 +1530,7 @@ const MySubscriptions = () => {
                           key={booking.id}
                           booking={booking}
                           upcoming={false}
+                          planName={planNameForBooking(booking)}
                           onView={() => setViewBooking(booking)}
                         />
                       ))}

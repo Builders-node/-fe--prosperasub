@@ -120,6 +120,61 @@ const getBookingClientName = (booking: any) =>
 
 const getBookingDate = (booking: any) => booking.cleaning_available_slots?.date ?? "";
 
+/**
+ * Names the Google Calendar these bookings actually sync to.
+ *
+ * There was no way to find this out from the product. The binding is
+ * `providers.google_calendar_id`, which is editable on
+ * /admin/marketplace/providers/:id — a page with no sidebar entry — and it is
+ * null for every provider, so everything falls through to the calendar named
+ * by the GOOGLE_CLEANING_CALENDAR_ID environment variable. That value never
+ * reaches the browser, which is why this looked hard-coded: in effect it was.
+ */
+function CalendarTargetLine({ providerId }: { providerId: string | null }) {
+  const { data } = useQuery({
+    queryKey: ["cleaning-calendar-target", providerId ?? "platform"],
+    queryFn: async () => {
+      const qs = providerId ? `?providerId=${encodeURIComponent(providerId)}` : "";
+      const { data, error } = await adminApi(`/admin/cleaning/calendar/target${qs}`);
+      if (error) throw error;
+      return data as {
+        calendarId: string | null;
+        source: "provider" | "platform";
+        configured: boolean;
+        link: string | null;
+      };
+    },
+  });
+
+  if (!data) return null;
+
+  if (!data.configured) {
+    return (
+      <p className="mt-space-2 text-xs font-semibold text-destructive">
+        No Google Calendar is configured — nothing is being synced anywhere.
+      </p>
+    );
+  }
+
+  return (
+    <p className="mt-space-2 flex flex-wrap items-center gap-space-2 text-xs text-muted-foreground">
+      <span>Syncing to</span>
+      <a
+        href={data.link ?? "#"}
+        target="_blank"
+        rel="noreferrer"
+        className="font-semibold text-foreground underline decoration-dotted underline-offset-2 hover:opacity-80"
+      >
+        {data.calendarId}
+      </a>
+      <StatusPill
+        status={data.source === "provider" ? "active" : "pending"}
+        label={data.source === "provider" ? "This provider's own" : "Platform default"}
+      />
+    </p>
+  );
+}
+
 const CleaningManagement = ({
   embedded = false,
   providerId,
@@ -767,6 +822,13 @@ const CleaningManagement = ({
                 <p className="mt-space-1 text-sm text-muted-foreground">
                   Sync booked sessions to Google Calendar and mark completed services.
                 </p>
+                {/* Which calendar, said out loud. The screen promised a sync to
+                    "Google Calendar" without ever naming one: the binding is
+                    providers.google_calendar_id, editable on an admin page
+                    reached only from the marketplace hub, and when it is empty
+                    — as it is for every provider — events go to the calendar
+                    named by a server env var the browser cannot read. */}
+                <CalendarTargetLine providerId={universalProviderId} />
               </div>
               <div className="flex items-center gap-space-2">
                 {completedCount > 0 && (
