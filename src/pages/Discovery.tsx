@@ -122,11 +122,15 @@ const Discovery = () => {
             />
           )}
 
-          {managesBusiness && (
+          {/* One business row, not two. Someone who already runs a business on
+              the platform wants the door into it; the invitation to become a
+              provider is for everyone else, and showing both put a pitch to
+              sign up underneath the link to the business they already have. */}
+          {managesBusiness ? (
             <ShortcutRow icon={BusinessCenterIcon} title={t("discovery.myBusiness")} to="/my-business" />
+          ) : (
+            <ShortcutRow icon={BusinessCenterIcon} title={t("discovery.becomeProvider")} to="/become-a-provider" />
           )}
-
-          <ShortcutRow icon={BusinessCenterIcon} title={t("discovery.becomeProvider")} to="/become-a-provider" />
         </div>
       </section>
 

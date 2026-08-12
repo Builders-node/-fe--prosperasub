@@ -1,5 +1,9 @@
+import { useQuery } from "@tanstack/react-query";
 import { useMyProviders, type MyProviderRow } from "@/hooks/useMyProviders";
 import { PROVIDER_SERVICES, type ServiceConfig, type ProviderConfig } from "@/lib/services/registry";
+import { supabaseDb } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useUserUuid } from "@/hooks/useUserUuid";
 
 export interface BusinessGroup {
   service: ServiceConfig & { providers: ProviderConfig };
@@ -26,5 +30,40 @@ export function useMyBusinesses() {
     if (q.hasAny) groups.push({ service, rows: q.providers });
   }
 
-  return { groups, isLoading, hasAny: groups.length > 0 };
+  /**
+   * Businesses that live only in the universal `providers` table.
+   *
+   * PROVIDER_SERVICES is the registry's three legacy services — cars, food,
+   * cleaning — so a beach club owner, or the owner of a universal-only
+   * provider like Massage, came back as owning nothing. That is the difference
+   * between the home screen offering them "My business" and pitching them to
+   * become a provider they already are.
+   */
+  const { userData } = useAuth();
+  const userUuid = useUserUuid();
+  const ownerId = userUuid ?? userData?.id ?? null;
+  const legacyKeys = PROVIDER_SERVICES.map((s) => s.key);
+
+  const universal = useQuery({
+    queryKey: ["my-universal-providers", ownerId],
+    enabled: !!ownerId,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabaseDb
+        .from("providers")
+        .select("id, name, source_service_key, status")
+        .eq("admin_user_id", ownerId!)
+        .eq("status", "active");
+      if (error) throw error;
+      // Anything the registry already covers is counted above — this only adds
+      // what nothing else would find.
+      return (data ?? []).filter((p: any) => !legacyKeys.includes(p.source_service_key));
+    },
+  });
+
+  return {
+    groups,
+    isLoading: isLoading || universal.isLoading,
+    hasAny: groups.length > 0 || (universal.data?.length ?? 0) > 0,
+  };
 }
