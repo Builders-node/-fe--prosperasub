@@ -10,6 +10,7 @@ import {
 import { supabaseDb } from "@/integrations/supabase/client";
 import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
 import { cn } from "@/lib/utils";
+import { StatusPill } from "@/components/patterns/StatusPill";
 
 interface Provider { id: string; name: string; archetype_key: string | null; }
 interface Plan {
@@ -186,12 +187,9 @@ const MarketplacePlans = ({ embedded = false, archetypeKey }: MarketplacePlansPr
                 </div>
               );
 
-              const statusCell = (
-                <span className={cn(
-                  "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider",
-                  p.status === "active" ? "bg-green-500/15 text-green-400" : "bg-muted text-muted-foreground",
-                )}>{p.status}</span>
-              );
+              // Was a local green/grey pair printing the raw value; the rest of
+              // the platform humanises statuses and uses one set of tones.
+              const statusCell = <StatusPill status={p.status} />;
 
               const actionCell = prov ? (
                 <div className="flex justify-end">

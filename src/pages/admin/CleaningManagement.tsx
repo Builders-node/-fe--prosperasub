@@ -26,6 +26,7 @@ import { todayHN } from "@/lib/timezone";
 import { cancelCleaningBookings } from "@/lib/cleaning/cancelBooking";
 import { SaleOriginBadge } from "@/components/patterns/SaleOrigin";
 import { Badge } from "@/components/ui/badge";
+import { StatusPill } from "@/components/patterns/StatusPill";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -74,25 +75,11 @@ const dailyChecklist = [
   "Report if anything is missing, broken, damaged, or unusual",
 ];
 
-const statusColor = (status?: string | null) => {
-  switch (status) {
-    case "booked":
-    case "paid":
-    case "active":
-    case "synced":
-      return "default";
-    case "completed":
-    case "paused":
-    case "pending":
-      return "secondary";
-    case "cancelled":
-    case "archived":
-    case "failed":
-      return "destructive";
-    default:
-      return "outline";
-  }
-};
+// statusColor lived here and disagreed with every other list: it greyed out
+// `completed` and `pending`, so the same booking read emerald in the customer's
+// My Subscriptions and neutral here, and "awaiting payment" looked settled.
+// StatusPill owns the tones now; only the calendar-sync WORDING stays local,
+// because "Pending" there means the sync hasn't run, not that money is owed.
 
 const calendarStatusLabel = (status?: string | null) => {
   if (status === "synced") return "Synced";
@@ -965,9 +952,11 @@ const CleaningManagement = ({
                             </TableCell>
                             <TableCell>
                               <div className="flex flex-col gap-space-1">
-                                <Badge className="w-fit" variant={statusColor(booking.google_calendar_sync_status) as any}>
-                                  {calendarStatusLabel(booking.google_calendar_sync_status)}
-                                </Badge>
+                                <StatusPill
+                                  className="w-fit"
+                                  status={booking.google_calendar_sync_status ?? "pending"}
+                                  label={calendarStatusLabel(booking.google_calendar_sync_status)}
+                                />
                                 {booking.google_calendar_sync_error ? (
                                   <p className="max-w-[240px] truncate text-xs text-destructive">{booking.google_calendar_sync_error}</p>
                                 ) : null}
@@ -1341,7 +1330,7 @@ function BookingCard({
             {to12h(booking.cleaning_available_slots?.start_time)} - {to12h(booking.cleaning_available_slots?.end_time)}
           </p>
         </div>
-        <Badge variant={statusColor(booking.status) as any}>{booking.status || "unknown"}</Badge>
+        <StatusPill status={booking.status} />
       </div>
 
       <div className="mt-space-3 flex flex-wrap items-center gap-space-2">
@@ -1349,9 +1338,10 @@ function BookingCard({
           {booking.custom_plan_id ? "Private" : "Public"}
         </Badge>
         <SaleOriginBadge source={booking.source} />
-        <Badge variant={statusColor(booking.google_calendar_sync_status) as any}>
-          {calendarStatusLabel(booking.google_calendar_sync_status)}
-        </Badge>
+        <StatusPill
+          status={booking.google_calendar_sync_status ?? "pending"}
+          label={calendarStatusLabel(booking.google_calendar_sync_status)}
+        />
       </div>
 
       {/* Two independent conditions, not a chained ternary. The old

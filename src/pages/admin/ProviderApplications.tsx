@@ -18,14 +18,15 @@ import { logAuditEvent } from "@/lib/auditLog";
 import { toast } from "sonner";
 import { SERVICES as SERVICE_REGISTRY, type ServiceKey } from "@/lib/services/registry";
 import { cn } from "@/lib/utils";
+import { StatusPill } from "@/components/patterns/StatusPill";
 
 type Filter = "pending" | "approved" | "rejected" | "all";
 
-const STATUS_COLOR: Record<string, string> = {
-  pending:  "bg-amber-500/15 text-amber-400",
-  approved: "bg-green-500/15 text-green-400",
-  rejected: "bg-red-500/15 text-red-400",
-};
+// The colour map that used to live here is gone: it printed the raw lowercase
+// value ("pending") while every other list on the platform humanises it, and
+// its greens and reds were a third set of shades. StatusPill owns both now —
+// with context="application", so `pending` reads "Under review" rather than
+// the "Awaiting payment" that word means on a subscription.
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -298,10 +299,7 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
                       </div>
                       <p className="mt-0.5 text-xs text-muted-foreground">{serviceLabel}</p>
                     </div>
-                    <span className={cn(
-                      "inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider",
-                      STATUS_COLOR[a.status] ?? "bg-muted text-muted-foreground",
-                    )}>{a.status}</span>
+                    <StatusPill status={a.status} context="application" />
                   </div>
 
                   {/* ── Contact grid ── */}

@@ -245,8 +245,14 @@ export function CleaningSubscriptionsList({ providerId }: { providerId: string }
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-sm font-bold text-foreground">{s.package_name}</p>
             <StatusPill status={st} />
-            {pendingPayment && (
-              <Badge className="rounded-full text-[10px] bg-amber-500/15 text-amber-500">Awaiting payment</Badge>
+            {/* Only when the lifecycle status doesn't already say it. A
+                subscription at pending_payment rendered "AWAITING PAYMENT"
+                twice, side by side, in two different shapes — the pill from
+                the status and this hand-rolled Badge underneath it. This chip
+                exists for the case the status hides: paid_status unpaid while
+                the subscription itself reads active or expiring. */}
+            {pendingPayment && st !== "pending_payment" && st !== "pending" && (
+              <StatusPill status="pending_payment" />
             )}
             <SaleOriginBadge paymentReference={s.payment_reference} />
           </div>

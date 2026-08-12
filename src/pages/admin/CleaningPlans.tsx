@@ -37,6 +37,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { usePagination, TablePagination } from "@/components/ui/table-pagination";
 import { Textarea } from "@/components/ui/textarea";
 import { PlanForm, type PlanFormValues } from "@/components/provider/plans/PlanForm";
+import { StatusPill } from "@/components/patterns/StatusPill";
 import { cn } from "@/lib/utils";
 import {
   formatFrequencyLabel,
@@ -485,8 +486,8 @@ const CleaningPlans = ({
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <p className="truncate text-sm font-bold text-foreground">{plan.name}</p>
-                  <Badge className={cn("rounded-full text-[10px] capitalize", visibilityTone(plan.visibility))}>{plan.visibility}</Badge>
-                  <Badge className={cn("rounded-full text-[10px] capitalize", statusTone(plan.status))}>{plan.status}</Badge>
+                  <StatusPill status={plan.visibility} />
+                  <StatusPill status={plan.status} />
                 </div>
                 <p className="mt-0.5 truncate text-xs text-muted-foreground">
                   {formatMonthly(plan)} · {formatFrequencyLabel(plan)} · {subscriberCounts[plan.id] || 0} subs
@@ -525,9 +526,7 @@ const CleaningPlans = ({
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <p className="truncate text-sm font-bold text-foreground">{assignment.client.company_name}</p>
-                    <Badge className={cn("rounded-full text-[10px] capitalize", statusTone(assignment.status))}>
-                      {assignment.status}
-                    </Badge>
+                    <StatusPill status={assignment.status} />
                   </div>
                   <p className="mt-0.5 truncate text-xs text-muted-foreground">
                     {assignment.plan.name}
@@ -694,18 +693,11 @@ const CleaningPlans = ({
 
 // Tone helpers — pill background/text per visibility & status. Keeps the
 // unified admin-plans list on the same palette as the rest of the app.
-function statusTone(status: string): string {
-  const s = String(status || "").toLowerCase();
-  if (s === "active")                       return "bg-emerald-500/15 text-emerald-500";
-  if (s === "draft" || s === "paused")      return "bg-amber-500/15 text-amber-500";
-  if (s === "archived" || s === "cancelled") return "bg-muted text-muted-foreground";
-  return "bg-muted text-muted-foreground";
-}
-function visibilityTone(v: string): string {
-  return v === "public"
-    ? "bg-primary/15 text-primary"
-    : "bg-muted text-muted-foreground";
-}
+// statusTone / visibilityTone lived here and disagreed with the rest of the
+// platform: `cancelled` rendered neutral grey where every other list showed it
+// in the destructive tone, and `draft` was amber against neutral elsewhere.
+// StatusPill owns both — public/private are in its table too, as listing
+// visibility.
 
 // Cleaning is the only service with somewhere to prepare a plan and somewhere
 // to retire it to. Draft and Archived are both "not for sale" — the storefront

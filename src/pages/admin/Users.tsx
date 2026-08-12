@@ -20,6 +20,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { usePagination, TablePagination } from "@/components/ui/table-pagination";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { formatUSD } from "@/lib/pricing";
+import { StatusPill, statusLabel } from "@/components/patterns/StatusPill";
 import { formatDateHN } from "@/lib/timezone";
 import { cn } from "@/lib/utils";
 import { useResidences } from "@/hooks/useResidences";
@@ -834,11 +835,9 @@ function EditUserForm({ user, auditLogs, onSave, onSoftDelete, saving, deleting 
                 <div key={c.id} className="flex items-center justify-between rounded-lg bg-muted p-3">
                   <div>
                     <p className="text-sm font-semibold">{c.company_name}</p>
-                    <p className="text-xs text-muted-foreground">{c.email} · {c.status}</p>
+                    <p className="text-xs text-muted-foreground">{c.email}</p>
                   </div>
-                  <Badge variant={c.status === "active" ? "default" : "secondary"} className="text-xs">
-                    {c.status}
-                  </Badge>
+<StatusPill status={c.status} />
                 </div>
               ))}
             </div>
@@ -867,8 +866,8 @@ function EditUserForm({ user, auditLogs, onSave, onSoftDelete, saving, deleting 
                       <Badge variant="outline" className="text-[10px] shrink-0">{s.service}</Badge>
                       <p className="truncate text-sm font-semibold">{s.name}</p>
                     </div>
-                    <p className="mt-0.5 text-xs capitalize text-muted-foreground">
-                      {s.status}
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {statusLabel(s.status)}
                       {s.amountCents != null && <> · {formatUSD(s.amountCents)}</>}
                       {s.created_at && <> · {format(new Date(s.created_at), "MMM d, yyyy")}</>}
                     </p>
@@ -900,7 +899,7 @@ function EditUserForm({ user, auditLogs, onSave, onSoftDelete, saving, deleting 
                   <p className="mt-0.5 capitalize text-muted-foreground">
                     {p.source}
                     {p.amount_cents != null && <> · {formatUSD(p.amount_cents)}</>}
-                    {p.payment_status && <> · {p.payment_status}</>}
+                    {p.payment_status && <> · {statusLabel(p.payment_status)}</>}
                     {p.payment_method && <> · {p.payment_method}</>}
                   </p>
                 </div>

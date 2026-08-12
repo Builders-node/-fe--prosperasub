@@ -64,11 +64,19 @@ const STATUS: Record<string, { label: string; tone: Tone }> = {
   completed:       { label: "Completed",        tone: "positive" },
   approved:        { label: "Approved",         tone: "positive" },
   in_progress:     { label: "In progress",      tone: "positive" },
+  // Google Calendar sync. Shown on every cleaning booking row, so it needs a
+  // tone rather than falling through to neutral like an unknown word.
+  synced:          { label: "Synced",           tone: "positive" },
 
   // ── needs the customer or an admin to do something ───────────────────────
   // One phrasing, everywhere. "Payment pending" and "Pending payment" are gone.
   pending:         { label: "Awaiting payment", tone: "attention" },
   pending_payment: { label: "Awaiting payment", tone: "attention" },
+  // Paid for, waiting for the customer to pick a day. It was the one live
+  // value missing from this table, so it fell through to the humaniser and
+  // showed as a grey "Pending schedule" — the same colour as Archived, on a
+  // subscription somebody had already paid for and was waiting to use.
+  pending_schedule: { label: "Awaiting schedule", tone: "attention" },
   held:            { label: "On hold",          tone: "attention" },
   paused:          { label: "Paused",           tone: "attention" },
   expiring_soon:   { label: "Expiring soon",    tone: "attention" },
@@ -93,6 +101,26 @@ const STATUS: Record<string, { label: string; tone: Tone }> = {
   draft:           { label: "Draft",            tone: "neutral" },
 };
 
+/**
+ * The same word does not always mean the same thing.
+ *
+ * `pending` on a subscription means the customer still owes money; on a
+ * provider APPLICATION it means a human hasn't looked at it yet. One table
+ * cannot serve both, and rendering "Awaiting payment" over someone's shop
+ * application would be nonsense — which is exactly why that page had grown its
+ * own colour map and was printing the raw lowercase value instead.
+ *
+ * Add a context only when a word genuinely changes meaning. Everything not
+ * listed here falls through to the shared table above.
+ */
+const CONTEXT: Record<string, Record<string, { label: string; tone: Tone }>> = {
+  application: {
+    pending: { label: "Under review", tone: "attention" },
+  },
+};
+
+export type StatusContext = keyof typeof CONTEXT;
+
 export interface StatusMeta {
   label: string;
   tone: Tone;
@@ -109,9 +137,12 @@ export interface StatusMeta {
  * value humanised (`pending_pickup` → "Pending pickup") rather than a raw
  * snake_case string leaking into the UI.
  */
-export function statusMeta(status: string | null | undefined): StatusMeta {
+export function statusMeta(
+  status: string | null | undefined,
+  context?: string,
+): StatusMeta {
   const key = String(status ?? "").trim().toLowerCase();
-  const hit = STATUS[key];
+  const hit = (context ? CONTEXT[context]?.[key] : undefined) ?? STATUS[key];
   const tone: Tone = hit?.tone ?? "neutral";
   const label =
     hit?.label ??
@@ -128,8 +159,8 @@ export function statusMeta(status: string | null | undefined): StatusMeta {
 }
 
 /** Just the label — for subtitles and sentences that aren't pills. */
-export function statusLabel(status: string | null | undefined): string {
-  return statusMeta(status).label;
+export function statusLabel(status: string | null | undefined, context?: string): string {
+  return statusMeta(status, context).label;
 }
 
 /**
@@ -141,6 +172,7 @@ export function StatusPill({
   icon,
   className,
   label: labelOverride,
+  context,
 }: {
   status: string | null | undefined;
   /** Optional leading glyph (the provider-application list uses one). */
@@ -148,8 +180,10 @@ export function StatusPill({
   className?: string;
   /** Override the dictionary label without losing the tone. */
   label?: string;
+  /** Where this status lives, when the word is ambiguous — see CONTEXT. */
+  context?: string;
 }) {
-  const meta = statusMeta(status);
+  const meta = statusMeta(status, context);
   return (
     <span
       className={cn(
