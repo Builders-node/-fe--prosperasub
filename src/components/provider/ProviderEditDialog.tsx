@@ -34,7 +34,6 @@ export interface ProviderEditFields {
   avatar_url?: string;
   banner_url?: string;
   location?: string;
-  working_hours?: string;
   contact_phone?: string;
   contact_email?: string;
   status?: string;
@@ -129,14 +128,6 @@ export function ProviderEditDialog({
                 value={values.location ?? ""}
                 onChange={(e) => patch({ location: e.target.value })}
                 placeholder="Prospera Village…"
-              />
-            </div>
-            <div>
-              <Label>Working hours</Label>
-              <Input
-                value={values.working_hours ?? ""}
-                onChange={(e) => patch({ working_hours: e.target.value })}
-                placeholder="Mon–Sat 08:00–18:00"
               />
             </div>
           </section>

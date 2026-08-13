@@ -21,13 +21,23 @@ export const DAY_LABELS: Record<DayCode, string> = {
 };
 
 /** Parse the working_hours TEXT column → array of schedules (falls back gracefully). */
-export function parseWorkingHours(raw: string | null | undefined): HoursSchedule[] {
+/**
+ * Accepts either shape.
+ *
+ * `providers.working_hours` is JSONB and comes back as an array; the legacy
+ * per-service tables still store the same JSON as TEXT. Feeding an array to
+ * JSON.parse throws, which this used to swallow — so the day a column became
+ * JSONB every provider's hours would have quietly read as "Not set".
+ */
+export function parseWorkingHours(raw: unknown): HoursSchedule[] {
   if (!raw) return [];
+  if (Array.isArray(raw)) return raw as HoursSchedule[];
+  if (typeof raw !== "string") return [];
   try {
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed)) return parsed as HoursSchedule[];
   } catch {
-    // legacy plain-text fallback — wrap it in a display-only entry
+    // A plain-text legacy value is shown as-is by formatWorkingHours.
   }
   return [];
 }
@@ -39,9 +49,9 @@ export function serializeWorkingHours(schedules: HoursSchedule[]): string {
 }
 
 /** Human-readable one-liner, e.g. "Mon–Fri 08:00–20:00  ·  Sat 09:00–14:00" */
-export function formatWorkingHours(raw: string | null | undefined): string {
+export function formatWorkingHours(raw: unknown): string {
   const schedules = parseWorkingHours(raw);
-  if (schedules.length === 0) return raw ?? "";
+  if (schedules.length === 0) return typeof raw === "string" ? raw : "";
   return schedules
     .map((s) => {
       const dayStr = compressDays(s.days);

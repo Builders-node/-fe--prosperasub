@@ -7,6 +7,8 @@ import { logAuditEvent } from "@/lib/auditLog";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ProviderEditDialog, type ProviderEditFields } from "@/components/provider/ProviderEditDialog";
+import { WorkingHoursEditor } from "@/components/provider/WorkingHoursEditor";
+import { parseWorkingHours, type HoursSchedule } from "@/lib/workingHours";
 import type { MyProviderRow } from "@/hooks/useMyProviders";
 
 export interface CleaningProviderRow extends MyProviderRow {
@@ -30,8 +32,15 @@ export function CleaningInfoTab({ provider }: { provider: CleaningProviderRow })
   const { userData } = useAuth();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<ProviderEditFields>(() => hydrate(provider));
+  // Same structured schedule the universal profile uses — one shape of hours
+  // across the platform now that the column is JSONB.
+  const [hours, setHours] = useState<HoursSchedule[]>(() => parseWorkingHours((provider as any).working_hours));
 
-  const openEdit = () => { setForm(hydrate(provider)); setOpen(true); };
+  const openEdit = () => {
+    setForm(hydrate(provider));
+    setHours(parseWorkingHours((provider as any).working_hours));
+    setOpen(true);
+  };
 
   const save = useMutation({
     mutationFn: async () => {
@@ -41,7 +50,7 @@ export function CleaningInfoTab({ provider }: { provider: CleaningProviderRow })
         avatar_url: form.avatar_url?.trim() || null,
         banner_url: form.banner_url?.trim() || null,
         location: form.location?.trim() || null,
-        working_hours: form.working_hours?.trim() || null,
+        working_hours: hours.filter((h) => h.days.length && h.open && h.close),
         contact_phone: form.contact_phone?.trim() || null,
         contact_email: form.contact_email?.trim() || null,
         status: form.status || "active",
@@ -101,6 +110,12 @@ export function CleaningInfoTab({ provider }: { provider: CleaningProviderRow })
         onChange={setForm}
         onSave={() => save.mutate()}
         saving={save.isPending}
+        extras={
+          <div className="space-y-2">
+            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Working hours</p>
+            <WorkingHoursEditor value={hours} onChange={setHours} />
+          </div>
+        }
       />
     </div>
   );
@@ -113,7 +128,6 @@ function hydrate(p: CleaningProviderRow): ProviderEditFields {
     avatar_url: p.avatar_url ?? "",
     banner_url: p.banner_url ?? "",
     location: p.location ?? "",
-    working_hours: p.working_hours ?? "",
     contact_phone: p.contact_phone ?? "",
     contact_email: p.contact_email ?? "",
     status: p.status ?? "active",

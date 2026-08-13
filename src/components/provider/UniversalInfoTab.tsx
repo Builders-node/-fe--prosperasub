@@ -7,13 +7,16 @@ import { logAuditEvent } from "@/lib/auditLog";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ProviderEditDialog, type ProviderEditFields } from "@/components/provider/ProviderEditDialog";
+import { WorkingHoursEditor } from "@/components/provider/WorkingHoursEditor";
+import { formatWorkingHours, parseWorkingHours, type HoursSchedule } from "@/lib/workingHours";
 
 export interface UniversalProviderRow {
   id: string;
   name: string;
   description?: string | null;
   location?: string | null;
-  working_hours?: string | null;
+  /** JSONB on `providers`; the legacy tables still hold the same JSON as text. */
+  working_hours?: unknown;
   contact_phone?: string | null;
   contact_email?: string | null;
   avatar_url?: string | null;
@@ -39,8 +42,17 @@ export function UniversalInfoTab({ provider }: { provider: UniversalProviderRow 
   const { userData } = useAuth();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<ProviderEditFields>(() => hydrate(provider));
+  /**
+   * Hours are edited as a schedule, not as free text — a provider typing
+   * "Mon-Fri 9 to 6" gives the booking calendar nothing to work with.
+   */
+  const [hours, setHours] = useState<HoursSchedule[]>(() => parseWorkingHours(provider.working_hours));
 
-  const openEdit = () => { setForm(hydrate(provider)); setOpen(true); };
+  const openEdit = () => {
+    setForm(hydrate(provider));
+    setHours(parseWorkingHours(provider.working_hours));
+    setOpen(true);
+  };
 
   const save = useMutation({
     mutationFn: async () => {
@@ -50,7 +62,9 @@ export function UniversalInfoTab({ provider }: { provider: UniversalProviderRow 
         avatar_url: form.avatar_url?.trim() || null,
         banner_url: form.banner_url?.trim() || null,
         location: form.location?.trim() || null,
-        working_hours: form.working_hours?.trim() || null,
+        // The column is JSONB now, so the array goes in as-is; serialising it
+        // to a string would store a quoted blob.
+        working_hours: hours.filter((h) => h.days.length && h.open && h.close),
         contact_phone: form.contact_phone?.trim() || null,
         contact_email: form.contact_email?.trim() || null,
         status: form.status || "active",
@@ -92,7 +106,7 @@ export function UniversalInfoTab({ provider }: { provider: UniversalProviderRow 
           {provider.location || <em className="text-muted-foreground/70">Not set</em>}
         </Row>
         <Row icon={<Clock className="h-4 w-4 text-muted-foreground" />} label="Working hours">
-          {provider.working_hours || <em className="text-muted-foreground/70">Not set</em>}
+          {formatWorkingHours(provider.working_hours) || <em className="text-muted-foreground/70">Not set</em>}
         </Row>
         <Row icon={<Phone className="h-4 w-4 text-muted-foreground" />} label="Phone">
           {provider.contact_phone || <em className="text-muted-foreground/70">Not set</em>}
@@ -110,6 +124,12 @@ export function UniversalInfoTab({ provider }: { provider: UniversalProviderRow 
         onChange={setForm}
         onSave={() => save.mutate()}
         saving={save.isPending}
+        extras={
+          <div className="space-y-2">
+            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Working hours</p>
+            <WorkingHoursEditor value={hours} onChange={setHours} />
+          </div>
+        }
       />
     </div>
   );
@@ -122,7 +142,6 @@ function hydrate(p: UniversalProviderRow): ProviderEditFields {
     avatar_url: p.avatar_url ?? "",
     banner_url: p.banner_url ?? "",
     location: p.location ?? "",
-    working_hours: p.working_hours ?? "",
     contact_phone: p.contact_phone ?? "",
     contact_email: p.contact_email ?? "",
     status: p.status ?? "active",

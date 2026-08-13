@@ -16,7 +16,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { logAuditEvent } from "@/lib/auditLog";
 import { ImageField } from "@/components/food/ImageField";
 import { GalleryField } from "@/components/patterns/GalleryField";
-import { WorkingHoursEditor } from "@/components/food/WorkingHoursEditor";
+import { WorkingHoursEditor } from "@/components/provider/WorkingHoursEditor";
 import {
   parseWorkingHours, serializeWorkingHours, formatWorkingHours,
   type HoursSchedule,
