@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useArchetypeLabel } from "@/hooks/useServiceArchetypes";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useGoBack } from "@/hooks/useGoBack";
 import { Car, CalendarDays, Pencil, SearchX } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { providerHref } from "@/lib/services/serviceUrls";
@@ -32,6 +33,9 @@ const fmt12 = (t: string) => {
 
 const CarRental = () => {
   const navigate = useNavigate();
+  // Back returns to where the visitor actually was; this path is only
+  // the fallback for a cold landing. See hooks/useGoBack.
+  const goBack = useGoBack("/discovery");
   const serviceTitle = useArchetypeLabel("rental", "Rental");
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -191,7 +195,7 @@ const CarRental = () => {
       <DesktopHeader />
       <ListingHeader
         title={serviceTitle}
-        onBack={() => navigate("/discovery")}
+        onBack={goBack}
         query={search.query}
         onQueryChange={search.setQuery}
         placeholder={`Search ${serviceTitle}`}

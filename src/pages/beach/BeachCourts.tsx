@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useGoBack } from "@/hooks/useGoBack";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { addDays, format } from "date-fns";
 import { Waves, ChevronLeft, ChevronRight, Clock, X, Plus, CalendarDays, CircleDot, Lock } from "lucide-react";
@@ -42,6 +43,9 @@ interface EngineBooking {
 
 const BeachCourts = () => {
   const navigate = useNavigate();
+  // Back returns to where the visitor actually was; this path is only
+  // the fallback for a cold landing. See hooks/useGoBack.
+  const goBack = useGoBack("/services/beach-club");
   const qc = useQueryClient();
   const { userData, isAuthenticated, isLoading: authLoading } = useAuth();
   const userUuid = useUserUuid();
@@ -216,7 +220,7 @@ const BeachCourts = () => {
           <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
             Court booking is included with an active Beach Club membership. Subscribe to reserve courts any time.
           </p>
-          <Button className="mt-5 rounded-full bg-primary text-black hover:bg-[hsl(var(--brand-accent-hover))]" onClick={() => navigate("/services/beach-club")}>
+          <Button className="mt-5 rounded-full bg-primary text-black hover:bg-[hsl(var(--brand-accent-hover))]" onClick={goBack}>
             View membership plans
           </Button>
         </div>
@@ -319,7 +323,7 @@ const BeachCourts = () => {
 
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-12">
-      <HomeHeader title="Beach Club Courts" showBackButton onBack={() => navigate("/services/beach-club")} />
+      <HomeHeader title="Beach Club Courts" showBackButton onBack={goBack} />
       <DesktopHeader />
       <main className="market-content py-space-4 md:py-space-8">
         <div className="mb-space-4">

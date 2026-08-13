@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useGoBack } from "@/hooks/useGoBack";
 import { useQuery } from "@tanstack/react-query";
 import { useProviderRatings } from "@/hooks/useProviderRatings";
 import { useListingSearch } from "@/hooks/useListingSearch";
@@ -47,6 +48,9 @@ interface ProviderRow {
 const ServicePage = () => {
   const { archetypeKey } = useParams<{ archetypeKey: string }>();
   const navigate = useNavigate();
+  // Back returns to where the visitor actually was; this path is only
+  // the fallback for a cold landing. See hooks/useGoBack.
+  const goBack = useGoBack("/discovery");
   const { isAuthenticated } = useAuth();
   const { openAuthModal } = useAuthModal();
   const { archetypes, isLoading: archetypesLoading } = useServiceArchetypes(true);
@@ -159,7 +163,7 @@ const ServicePage = () => {
   if (!archetype) {
     return (
       <div className="min-h-screen bg-background pb-24 md:pb-12">
-        <HomeHeader title="Not found" showBackButton onBack={() => navigate("/discovery")} />
+        <HomeHeader title="Not found" showBackButton onBack={goBack} />
         <DesktopHeader />
         <main className="market-content py-space-8">
           <YdEmptyState
@@ -183,7 +187,7 @@ const ServicePage = () => {
       <DesktopHeader />
       <ListingHeader
         title={archetype.label}
-        onBack={() => navigate("/discovery")}
+        onBack={goBack}
         query={search.query}
         onQueryChange={search.setQuery}
         placeholder={`Search ${archetype.label}`}

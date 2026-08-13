@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { useGoBack } from "@/hooks/useGoBack";
 import { useQuery } from "@tanstack/react-query";
 import { HomeHeader } from "@/components/HomeHeader";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
@@ -42,7 +43,7 @@ import { SearchX } from "lucide-react";
 
 interface ResolvedPlan {
   /** Which table the row came from — decides where Subscribe goes. */
-  source: "cleaning" | "beach" | "universal";
+  source: "cleaning" | "beach" | "food" | "universal";
   id: string;
   title: string;
   description: string | null;
@@ -52,6 +53,8 @@ interface ResolvedPlan {
   providerId: string | null;
   /** A line the service wants under the title — cleaning's frequency. */
   meta: string | null;
+  /** Food buys through its own screen, which is keyed by the legacy provider. */
+  legacyProviderId?: string | null;
 }
 
 const asStringList = (value: unknown): string[] =>
@@ -63,6 +66,7 @@ const periodUnit = (period: string | null | undefined) =>
 const PlanDetail = () => {
   const { archetypeKey = "", planId = "" } = useParams<{ archetypeKey: string; planId: string }>();
   const navigate = useNavigate();
+  const goBack = useGoBack("/discovery");
   const { isAuthenticated } = useAuth();
   const { openAuthModal } = useAuthModal();
 
@@ -90,6 +94,35 @@ const PlanDetail = () => {
             priceUnit: periodUnit(universal.period),
             providerId: universal.provider_id ? String(universal.provider_id) : null,
             meta: null,
+          };
+        }
+
+        const { data: food, error: foodError } = await supabaseDb
+          .from("food_meal_plans")
+          .select("id, name, description, weekly_price_cents, meals_per_day, provider_id")
+          .eq("id", planId)
+          .maybeSingle();
+        if (foodError) throw foodError;
+        if (food) {
+          // provider_id here is food_providers.id. Ratings, reviews and the
+          // offer lookup all key off the UNIVERSAL providers row, so bridge.
+          const { data: bridged } = await supabaseDb
+            .from("providers")
+            .select("id")
+            .eq("source_service_key", "food")
+            .eq("source_provider_id", food.provider_id)
+            .maybeSingle();
+          return {
+            source: "food",
+            id: String(food.id),
+            title: food.name,
+            description: food.description ?? null,
+            features: [],
+            priceCents: food.weekly_price_cents ?? null,
+            priceUnit: "/ week",
+            providerId: bridged?.id ? String(bridged.id) : null,
+            legacyProviderId: food.provider_id ? String(food.provider_id) : null,
+            meta: food.meals_per_day ? `${food.meals_per_day} meal${food.meals_per_day === 1 ? "" : "s"} a day` : null,
           };
         }
 
@@ -209,12 +242,18 @@ const PlanDetail = () => {
   const checkoutHref = !plan ? "" :
     plan.source === "cleaning" ? `/services/cleaning/checkout/${buyableId}` :
     plan.source === "beach"    ? `/services/beach-club/checkout/${buyableId}` :
+    // Food keeps its own screen — the weekly menu and the delivery details
+    // live there, and it is where the payment happens.
+    plan.source === "food"     ? `/services/food/${plan.legacyProviderId}/plans/${buyableId}` :
     `/services/${archetypeKey}/checkout/plan/${buyableId}`;
 
   const subscribe = () => {
     if (!checkoutHref) return;
-    if (!isAuthenticated) openAuthModal("login", checkoutHref);
-    else navigate(checkoutHref);
+    // Food's button opens the weekly menu, not a till — asking for an account
+    // to LOOK at what is being cooked is the gate in the wrong place. That
+    // screen prompts for a login when the customer actually goes to pay.
+    if (plan?.source === "food" || isAuthenticated) navigate(checkoutHref);
+    else openAuthModal("login", checkoutHref);
   };
 
   /**
@@ -282,6 +321,7 @@ const PlanDetail = () => {
   const reviewService: ProviderReviewService | null =
     plan.source === "cleaning" ? "cleaning" :
     plan.source === "beach" ? "beach" :
+    plan.source === "food" ? "food" :
     archetypeKey === "cleaning" ? "cleaning" :
     archetypeKey === "rental" ? "rental" :
     archetypeKey === "food" ? "food" :
@@ -294,7 +334,8 @@ const PlanDetail = () => {
    * there is nothing behind it to click, rather than rendered dead.
    */
   const listing = publicListingHref(
-    plan.source === "cleaning" ? "cleaning" : plan.source === "beach" ? "beach" : null,
+    plan.source === "cleaning" ? "cleaning" : plan.source === "beach" ? "beach"
+      : plan.source === "food" ? "food" : null,
     archetypeKey,
   );
   const category = categoryQ.data as { key: string; label: string } | null | undefined;
@@ -343,7 +384,7 @@ const PlanDetail = () => {
           <button
             type="button"
             aria-label="Back"
-            onClick={() => navigate(-1)}
+            onClick={goBack}
             className="flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-black/10"
           >
             <KeyboardArrowLeftIcon className="h-6 w-6" />
@@ -372,7 +413,7 @@ const PlanDetail = () => {
 
       {/* Desktop keeps the ordinary title bar; the hero is a phone shape. */}
       <div className="hidden md:block">
-        <HomeHeader title={title} showBackButton onBack={() => navigate(-1)} bare />
+        <HomeHeader title={title} showBackButton onBack={goBack} bare />
       </div>
 
       {/*
@@ -463,7 +504,7 @@ const PlanDetail = () => {
             className="w-full rounded-radius-md bg-primary px-4 py-3 text-[16px] font-semibold leading-6 tracking-[-0.32px] text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
           >
             {typeof priceCents === "number" && priceCents > 0
-              ? `${showFrom ? "From " : "Pay "}${formatUSD(priceCents)}${plan.priceUnit ? ` ${plan.priceUnit}` : ""}`
+              ? `${plan.source === "food" ? "View menu · " : showFrom ? "From " : "Pay "}${formatUSD(priceCents)}${plan.priceUnit ? ` ${plan.priceUnit}` : ""}`
               : "Subscribe"}
           </button>
         </div>
@@ -474,11 +515,11 @@ const PlanDetail = () => {
 
 /** The page frame, for the states that have no plan to show. */
 function Shell({ title, children }: { title: string; children: React.ReactNode }) {
-  const navigate = useNavigate();
+  const goBack = useGoBack("/discovery");
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-12">
       <DesktopHeader />
-      <HomeHeader title={title} showBackButton onBack={() => navigate(-1)} bare />
+      <HomeHeader title={title} showBackButton onBack={goBack} bare />
       <main className="market-content py-space-8">{children}</main>
       <BottomNav />
     </div>

@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useArchetypeLabel } from "@/hooks/useServiceArchetypes";
 import { useNavigate } from "react-router-dom";
+import { useGoBack } from "@/hooks/useGoBack";
 import { SearchX, SparklesIcon } from "lucide-react";
 import { providerHref } from "@/lib/services/serviceUrls";
 import { groupProvidersByCategory } from "@/lib/services/groupByCategory";
@@ -43,6 +44,9 @@ interface CleaningCategory {
 
 const CleaningPackages = () => {
   const navigate = useNavigate();
+  // Back returns to where the visitor actually was; this path is only
+  // the fallback for a cold landing. See hooks/useGoBack.
+  const goBack = useGoBack("/discovery");
   const serviceTitle = useArchetypeLabel("cleaning", "Cleaning");
   const { isAuthenticated } = useAuth();
   const { openAuthModal } = useAuthModal();
@@ -283,7 +287,7 @@ const CleaningPackages = () => {
       <DesktopHeader />
       <ListingHeader
         title={serviceTitle}
-        onBack={() => navigate("/discovery")}
+        onBack={goBack}
         query={search.query}
         onQueryChange={search.setQuery}
         placeholder={`Search ${serviceTitle}`}

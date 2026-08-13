@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
+import { useGoBack } from "@/hooks/useGoBack";
 import { archetypeFromSlug, serviceMetaFromSlug, serviceSlug } from "@/lib/services/serviceUrls";
 import { Button } from "@/components/ui/button";
 import {
@@ -216,6 +217,9 @@ const ProviderDetail = () => {
   });
 
   const meta = serviceMetaFromSlug(serviceSegment) ?? FALLBACK_META;
+  // Where the visitor actually was; the listing is only the cold-landing
+  // fallback. See hooks/useGoBack.
+  const goBack = useGoBack(meta.listingRoute);
   const Icon = meta.icon;
 
   // Offerings queries — always hooked (React rules); the caller only reads the
@@ -274,7 +278,7 @@ const ProviderDetail = () => {
   if (!archetypeKey) {
     return (
       <div className="min-h-screen bg-background pb-24 md:pb-0">
-        <HomeHeader title="Not found" showBackButton onBack={() => navigate("/discovery")} />
+        <HomeHeader title="Not found" showBackButton onBack={goBack} />
         <DesktopHeader />
         <main className="market-content flex flex-col items-center justify-center py-16 text-center">
           <SparklesIcon className="mb-4 h-12 w-12 text-muted-foreground/40" />
@@ -294,7 +298,7 @@ const ProviderDetail = () => {
   if (providerQ.isLoading) {
     return (
       <div className="min-h-screen bg-background pb-24 md:pb-0">
-        <HomeHeader title="Provider" showBackButton onBack={() => navigate(meta.listingRoute)} />
+        <HomeHeader title="Provider" showBackButton onBack={goBack} />
         <DesktopHeader />
         <main className="market-content py-space-6 space-y-4">
           <div className="h-48 animate-pulse rounded-3xl bg-muted" />
@@ -309,7 +313,7 @@ const ProviderDetail = () => {
   if (providerQ.isError || !providerQ.data) {
     return (
       <div className="min-h-screen bg-background pb-24 md:pb-0">
-        <HomeHeader title="Provider" showBackButton onBack={() => navigate(meta.listingRoute)} />
+        <HomeHeader title="Provider" showBackButton onBack={goBack} />
         <DesktopHeader />
         <main className="market-content flex flex-col items-center justify-center py-16">
           <Icon className="mb-4 h-12 w-12 text-muted-foreground/40" />
@@ -374,7 +378,7 @@ const ProviderDetail = () => {
 
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-0">
-      <HomeHeader title={p.name} showBackButton onBack={() => navigate(meta.listingRoute)} />
+      <HomeHeader title={p.name} showBackButton onBack={goBack} />
       <DesktopHeader />
 
       {/* ─── Full-width banner ───────────────────────────────────────────── */}

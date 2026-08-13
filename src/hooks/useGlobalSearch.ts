@@ -38,7 +38,7 @@ export interface SearchHit {
 /** One legacy plan row's own page, by the service it belongs to. */
 function legacyPlanHref(provider: any, legacyPlanId: string): string {
   switch (provider?.source_service_key) {
-    case "food":     return `/services/food/${provider.source_provider_id}/plans/${legacyPlanId}`;
+    case "food":     return `/services/food/plans/${legacyPlanId}`;
     case "cleaning": return `/services/cleaning/plans/${legacyPlanId}`;
     case "beach":    return `/services/beach-club/plans/${legacyPlanId}`;
     default:         return "/discovery";
@@ -175,7 +175,7 @@ export function useGlobalSearch(query: string) {
     data.food.forEach((p: any) => {
       if (variantSourceIds.has(String(p.id))) return;
       push(String(p.id), p.name, legacyProviderName.get(String(p.provider_id)) ?? "Food",
-           `/services/food/${p.provider_id}/plans/${p.id}`, p.weekly_price_cents ?? null, "/ week",
+           `/services/food/plans/${p.id}`, p.weekly_price_cents ?? null, "/ week",
            [p.description]);
     });
     data.vehicles.forEach((v: any) => {

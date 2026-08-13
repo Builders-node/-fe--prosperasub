@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useGoBack } from "@/hooks/useGoBack";
 import { useQuery } from "@tanstack/react-query";
 import {
   Car, Users, Luggage, Zap, Wind, ChevronLeft, ChevronRight,
@@ -44,6 +45,9 @@ const fmt12 = (t: string) => {
 const CarDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  // Back returns to where the visitor actually was; this path is only
+  // the fallback for a cold landing. See hooks/useGoBack.
+  const goBack = useGoBack("/services/rental");
   const [imgIndex, setImgIndex] = useState(0);
 
   // ─── Date selection state (pre-filled from the listing filter via URL) ──────
@@ -122,7 +126,7 @@ const CarDetail = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background">
-        <HomeHeader title="Car Details" showBackButton onBack={() => navigate("/services/rental")} />
+        <HomeHeader title="Car Details" showBackButton onBack={goBack} />
         <DesktopHeader />
         <main className="market-content py-space-6">
           <div className="h-72 animate-pulse rounded-3xl bg-muted" />
@@ -136,7 +140,7 @@ const CarDetail = () => {
   if (!vehicle) {
     return (
       <div className="min-h-screen bg-background">
-        <HomeHeader title="Car Details" showBackButton onBack={() => navigate("/services/rental")} />
+        <HomeHeader title="Car Details" showBackButton onBack={goBack} />
         <DesktopHeader />
         <main className="market-content py-space-10 text-center">
           <Car className="mx-auto mb-4 h-12 w-12 text-muted-foreground/40" />
@@ -153,7 +157,7 @@ const CarDetail = () => {
 
   return (
     <div className="min-h-screen bg-background pb-28 md:pb-32">
-      <HomeHeader title={vehicle.name} showBackButton onBack={() => navigate("/services/rental")} />
+      <HomeHeader title={vehicle.name} showBackButton onBack={goBack} />
       <DesktopHeader />
 
       <main className="market-content py-4 md:py-8">

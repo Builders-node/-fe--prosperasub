@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useArchetypeLabel } from "@/hooks/useServiceArchetypes";
 import { useNavigate } from "react-router-dom";
+import { useGoBack } from "@/hooks/useGoBack";
 import { ChefHat, MapPin } from "lucide-react";
 import { ProviderRail, CategoryChips, ALL_CATEGORIES } from "@/components/listing/ListingNav";
 import { useCategoryParam } from "@/hooks/useCategoryParam";
@@ -32,6 +33,9 @@ type ProviderWithPlans = FoodProvider & {
 
 const FoodListing = () => {
   const navigate = useNavigate();
+  // Back returns to where the visitor actually was; this path is only
+  // the fallback for a cold landing. See hooks/useGoBack.
+  const goBack = useGoBack("/discovery");
   const serviceTitle = useArchetypeLabel("food", "Food");
 
   // Single-RPC catalog fetch — replaces the previous 6-query waterfall
@@ -252,7 +256,7 @@ const FoodListing = () => {
       <DesktopHeader />
       <ListingHeader
         title={serviceTitle}
-        onBack={() => navigate("/discovery")}
+        onBack={goBack}
         query={search.query}
         onQueryChange={search.setQuery}
         placeholder={`Search ${serviceTitle}`}
@@ -382,7 +386,7 @@ const FoodListing = () => {
                     images={planImages[plan.id] ?? []}
                     rating={ratings[provider.id]}
                     offer={offerBySourcePlanId.get(String(plan.id)) ?? null}
-                    onOpen={() => navigate(`/services/food/${provider.id}/plans/${plan.id}`)}
+                    onOpen={() => navigate(`/services/food/plans/${plan.id}`)}
                   />
                 ))}
               </div>

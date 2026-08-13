@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useGoBack } from "@/hooks/useGoBack";
 import {
   ShoppingCart, Trash2, Minus, Plus, MapPin, MessageCircle, User as UserIcon,
   Check, Zap, Bitcoin, UtensilsCrossed, X,
@@ -73,6 +74,7 @@ function endDateFor(startISO: string, weeks: number): string {
 
 export default function Cart() {
   const navigate = useNavigate();
+  const goBack = useGoBack("/discovery");
   const { items, totalCents, count, setQty, setPeriods, removeItem, clear } = useCart();
   const { isAuthenticated, userData } = useAuth();
   const { openAuthModal } = useAuthModal();
@@ -306,7 +308,7 @@ export default function Cart() {
   // ─── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background pb-28 md:pb-12">
-      <HomeHeader title="Cart" showBackButton onBack={() => navigate(-1)} />
+      <HomeHeader title="Cart" showBackButton onBack={goBack} />
       <DesktopHeader showBackButton breadcrumb="Cart" />
 
       <main className="market-content space-y-5 py-space-4 md:py-space-6">

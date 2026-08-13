@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useGoBack } from "@/hooks/useGoBack";
 import { useQuery } from "@tanstack/react-query";
 import { useProviderRatings } from "@/hooks/useProviderRatings";
 import { useListingSearch } from "@/hooks/useListingSearch";
@@ -44,6 +45,9 @@ interface EntertainmentCategory {
 
 const BeachClub = () => {
   const navigate = useNavigate();
+  // Back returns to where the visitor actually was; this path is only
+  // the fallback for a cold landing. See hooks/useGoBack.
+  const goBack = useGoBack("/discovery");
   const serviceTitle = useArchetypeLabel("entertainment", "Entertainment");
   const { isAuthenticated } = useAuth();
   const { openAuthModal } = useAuthModal();
@@ -246,7 +250,7 @@ const BeachClub = () => {
       <DesktopHeader />
       <ListingHeader
         title={serviceTitle}
-        onBack={() => navigate("/discovery")}
+        onBack={goBack}
         query={search.query}
         onQueryChange={search.setQuery}
         placeholder={`Search ${serviceTitle}`}

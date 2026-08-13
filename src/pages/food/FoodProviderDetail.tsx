@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
+import { useGoBack } from "@/hooks/useGoBack";
 import { ChefHat, UtensilsCrossed, CalendarDays, Truck, Check, MapPin, Clock, Star } from "lucide-react";
 import { formatWorkingHours } from "@/lib/workingHours";
 import { supabaseDb } from "@/integrations/supabase/client";
@@ -16,6 +17,9 @@ import type { FoodProvider, FoodMealPlan, FoodProviderImage, FoodReview } from "
 const FoodProviderDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  // Back returns to where the visitor actually was; this path is only
+  // the fallback for a cold landing. See hooks/useGoBack.
+  const goBack = useGoBack("/services/food");
 
   const { data: provider, isLoading: loadingProvider } = useQuery({
     queryKey: ["food-provider", id],
@@ -157,7 +161,7 @@ const FoodProviderDetail = () => {
   if (loadingProvider) {
     return (
       <div className="min-h-screen bg-background pb-24 md:pb-0">
-        <HomeHeader title="Food" showBackButton onBack={() => navigate("/services/food")} />
+        <HomeHeader title="Food" showBackButton onBack={goBack} />
         <DesktopHeader />
         <main className="market-content py-space-6 space-y-4">
           <div className="h-48 animate-pulse rounded-3xl bg-muted" />
@@ -172,7 +176,7 @@ const FoodProviderDetail = () => {
   if (!provider) {
     return (
       <div className="min-h-screen bg-background pb-24 md:pb-0">
-        <HomeHeader title="Food" showBackButton onBack={() => navigate("/services/food")} />
+        <HomeHeader title="Food" showBackButton onBack={goBack} />
         <DesktopHeader />
         <main className="market-content flex flex-col items-center justify-center py-16">
           <ChefHat className="mb-4 h-12 w-12 text-muted-foreground/40" />
@@ -194,7 +198,7 @@ const FoodProviderDetail = () => {
 
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-0">
-      <HomeHeader title={provider.name} showBackButton onBack={() => navigate("/services/food")} />
+      <HomeHeader title={provider.name} showBackButton onBack={goBack} />
       <DesktopHeader />
 
       {/* ─── Full-width banner ───────────────────────────────────────────── */}

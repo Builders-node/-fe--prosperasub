@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useGoBack } from "@/hooks/useGoBack";
 import { HomeHeader } from "@/components/HomeHeader";
 import { LocationSelector } from "@/components/LocationSelector";
 import { ResponsiveDialog } from "@/components/patterns/ResponsiveDialog";
@@ -43,7 +43,7 @@ export function ListingHeader({
   /** Off where the choice changes nothing — the beach has one address. */
   showLocation?: boolean;
 }) {
-  const navigate = useNavigate();
+  const goBack = useGoBack();
   const [filtersOpen, setFiltersOpen] = useState(false);
   const canSort = sorts.length > 1 && !!onSortChange && !!sort;
   // A dot, not a count: there is one setting behind the button, and it is
@@ -99,7 +99,7 @@ export function ListingHeader({
       </div>
 
       <div className="sticky top-0 z-40 md:hidden">
-      <HomeHeader title={title} showBackButton onBack={onBack ?? (() => navigate(-1))} bare />
+      <HomeHeader title={title} showBackButton onBack={onBack ?? goBack} bare />
 
       {/* `overflow-hidden` because the location row is a full-width button with
           a background of its own: without it that square background fills the

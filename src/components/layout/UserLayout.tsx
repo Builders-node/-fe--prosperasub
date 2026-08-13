@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useGoBack } from "@/hooks/useGoBack";
 import { PageLoader } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -38,13 +39,9 @@ export function UserLayout({
   const { t } = useI18n();
   const { openAuthModal } = useAuthModal();
 
-  const handleBack = () => {
-    if (backTo) {
-      navigate(backTo);
-    } else {
-      navigate(-1);
-    }
-  };
+  // `backTo` names where this screen sits in the tree; it is the fallback for
+  // a cold landing, not a replacement for the visitor's own history.
+  const handleBack = useGoBack(backTo);
 
   // Still determining auth state — show spinner to prevent flash
   if ((isLoading || !isUserDataReady) && !allowGuest) {
