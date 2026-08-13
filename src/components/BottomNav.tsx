@@ -14,7 +14,19 @@ export function BottomNav() {
   const { count: cartCount } = useCart();
 
   const navItems = getNavigationForRoles(roles);
-  const visibleNavItems = navItems.filter((item) => !(!isAuthenticated && item.requiresAuth));
+  /**
+   * Account stays in the bar with no account.
+   *
+   * Hiding it left a signed-out visitor with no visible way in at all: the
+   * header's Log in only appears on subpages, and the tab that says "Account"
+   * was the thing they were looking for. It is still gated — tapping it opens
+   * the login modal rather than a profile — but the door is now where people
+   * look for it. Subs stays hidden, because a list of subscriptions you cannot
+   * have is a promise, not a door.
+   */
+  const visibleNavItems = navItems.filter(
+    (item) => item.path === "/account" || !(!isAuthenticated && item.requiresAuth),
+  );
 
   // The tab bar is on screen the whole session and its four destinations are
   // where most taps go, so their chunks are fetched once the app goes quiet.
