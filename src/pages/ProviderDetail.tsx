@@ -15,7 +15,6 @@ import { DesktopHeader } from "@/components/layout/DesktopHeader";
 import { BottomNav } from "@/components/BottomNav";
 import { QueryError } from "@/components/QueryError";
 import { TabEmptyState } from "@/components/subscriptions/MySubsPrimitives";
-import { RentalVehicleCard } from "@/components/patterns/RentalVehicleCard";
 import { CleaningPackageCard } from "@/components/patterns/CleaningPackageCard";
 import { EntertainmentPlanCard } from "@/components/patterns/EntertainmentPlanCard";
 import { UniversalPlanCard, type UniversalPlan } from "@/components/patterns/UniversalPlanCard";
@@ -24,7 +23,6 @@ import {
   type ProviderReviewService,
 } from "@/components/reviews/ProviderReviewsBlock";
 import { resolveMonthlyPriceCents } from "@/lib/cleaningPlanPricing";
-import type { RentalVehicle, RentalVehicleImage } from "@/types/carRental";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 interface Provider {
@@ -131,28 +129,6 @@ function useUniversalPlans(providerId: string | undefined, enabled: boolean) {
   });
 }
 
-function useRentalVehicles(providerId: string | undefined) {
-  return useQuery({
-    queryKey: ["provider-detail:rental-vehicles", providerId],
-    queryFn: async () => {
-      const { data: vData, error } = await supabaseDb
-        .from("rental_vehicles").select("*")
-        .eq("owner_provider_id", providerId!)
-        .eq("status", "public")
-        .order("sort_order", { ascending: true });
-      if (error) throw error;
-      if (!vData || vData.length === 0) return [] as (RentalVehicle & { images: RentalVehicleImage[] })[];
-      const ids = vData.map((v) => v.id);
-      const { data: imgs } = await supabaseDb
-        .from("rental_vehicle_images").select("*").in("vehicle_id", ids)
-        .order("sort_order", { ascending: true });
-      const map: Record<string, RentalVehicleImage[]> = {};
-      (imgs ?? []).forEach((i: any) => { (map[i.vehicle_id] ??= []).push(i); });
-      return vData.map((v: RentalVehicle) => ({ ...v, images: map[v.id] ?? [] }));
-    },
-    enabled: !!providerId,
-  });
-}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Shared primitives (copied from FoodProviderDetail for pixel-parity)
@@ -226,7 +202,6 @@ const ProviderDetail = () => {
   // one that matches this archetype. Filtered by universal owner_provider_id.
   const cleaningQ = useCleaningPlans(providerId);
   const entertainmentQ = useEntertainmentPlans(providerId);
-  const rentalQ = useRentalVehicles(providerId);
 
   // A provider with no legacy table behind it shows provider_plans instead of
   // whatever its archetype's legacy branch would query. Hooks must all run
@@ -342,7 +317,6 @@ const ProviderDetail = () => {
   // Stats derived per archetype so we can show meaningful numbers.
   const cleaningPrices = (cleaningQ.data ?? []).map((r: any) => resolveMonthlyPriceCents(r)).filter(Boolean);
   const entertainmentPrices = (entertainmentQ.data ?? []).map((r: any) => r.price_per_person_cents);
-  const rentalPrices = (rentalQ.data ?? []).map((r: any) => r.daily_price_cents);
 
   const universalPrices = (universalQ.data ?? [])
     .map((r) => r.price_cents ?? 0)
@@ -353,28 +327,23 @@ const ProviderDetail = () => {
     : ({
         cleaning:      cleaningQ.data?.length ?? 0,
         entertainment: entertainmentQ.data?.length ?? 0,
-        rental:        rentalQ.data?.length ?? 0,
       }[archetypeKey ?? ""] ?? 0);
 
   const fromPrice = isUniversal
     ? Math.min(...(universalPrices.length ? universalPrices : [0]))
     : archetypeKey === "cleaning"      ? Math.min(...(cleaningPrices.length      ? cleaningPrices      : [0])) :
-      archetypeKey === "entertainment" ? Math.min(...(entertainmentPrices.length ? entertainmentPrices : [0])) :
-      archetypeKey === "rental"        ? Math.min(...(rentalPrices.length        ? rentalPrices        : [0])) : 0;
+      archetypeKey === "entertainment" ? Math.min(...(entertainmentPrices.length ? entertainmentPrices : [0])) : 0;
   // A universal plan carries its own period, and they need not agree inside one
   // provider, so the strip stays silent rather than asserting "/ month".
   const fromUnit = isUniversal ? "" :
     archetypeKey === "cleaning"      ? "/ month" :
     archetypeKey === "entertainment" ? "/ month" :
-    archetypeKey === "rental"        ? "/ day"   : "";
+    "";
   const middleStatLabel = isUniversal ? "Plans"
-    : archetypeKey === "cleaning" || archetypeKey === "entertainment" ? "Per Month" : "Fleet";
+    : "Per Month";
   const middleStatSub = isUniversal ? "Offered"
-    : archetypeKey === "rental" ? "Brands" : archetypeKey === "entertainment" ? "Access" : "Cleanings";
-  const middleStatValue =
-    !isUniversal && archetypeKey === "rental"
-      ? new Set((rentalQ.data ?? []).map((v: any) => v.brand)).size
-      : offeringsCount;
+    : archetypeKey === "entertainment" ? "Access" : "Cleanings";
+  const middleStatValue = offeringsCount;
 
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-0">
@@ -510,26 +479,6 @@ const ProviderDetail = () => {
             )
           )}
 
-          {!isUniversal && archetypeKey === "rental" && (
-            rentalQ.isLoading ? (
-              <SkeletonGrid />
-            ) : rentalQ.isError ? (
-              <QueryError title="Couldn't load vehicles" onRetry={() => rentalQ.refetch()} retrying={rentalQ.isFetching} />
-            ) : (rentalQ.data ?? []).length === 0 ? (
-              <TabEmptyState icon={Car} title="No vehicles yet" subtitle="We're setting things up. Check back soon." />
-            ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {(rentalQ.data ?? []).map((v: any, idx: number) => (
-                  <RentalVehicleCard
-                    key={v.id}
-                    v={v}
-                    featured={idx === 1 && (rentalQ.data ?? []).length > 1}
-                    onOpen={onVehicleOpen}
-                  />
-                ))}
-              </div>
-            )
-          )}
         </section>
 
         {/* ─── Reviews ─────────────────────────────────────────────────────

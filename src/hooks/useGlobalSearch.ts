@@ -54,7 +54,7 @@ export function useGlobalSearch(query: string) {
     queryKey: ["global-search-catalogue"],
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
-      const [categories, providers, plans, cleaning, food, vehicles, beach] = await Promise.all([
+      const [categories, providers, plans, cleaning, food, beach] = await Promise.all([
         supabaseDb.from("service_categories")
           .select("key, label, archetype_key").eq("is_active", true),
         supabaseDb.from("providers")
@@ -71,8 +71,6 @@ export function useGlobalSearch(query: string) {
           .eq("status", "active").is("deleted_at", null).eq("visibility", "public"),
         supabaseDb.from("food_meal_plans")
           .select("id, name, description, provider_id, weekly_price_cents").eq("status", "active"),
-        supabaseDb.from("rental_vehicles")
-          .select("id, name, brand, model, description, daily_price_cents").eq("status", "public"),
         supabaseDb.from("beach_club_plans")
           .select("id, name, tagline, price_per_person_cents").eq("is_active", true),
       ]);
@@ -82,7 +80,6 @@ export function useGlobalSearch(query: string) {
         plans: plans.data ?? [],
         cleaning: cleaning.data ?? [],
         food: food.data ?? [],
-        vehicles: vehicles.data ?? [],
         beach: beach.data ?? [],
       };
     },
@@ -177,10 +174,6 @@ export function useGlobalSearch(query: string) {
       push(String(p.id), p.name, legacyProviderName.get(String(p.provider_id)) ?? "Food",
            `/services/food/plans/${p.id}`, p.weekly_price_cents ?? null, "/ week",
            [p.description]);
-    });
-    data.vehicles.forEach((v: any) => {
-      push(String(v.id), v.name, [v.brand, v.model].filter(Boolean).join(" ") || "Rental",
-           `/services/rental/${v.id}`, v.daily_price_cents ?? null, "/ day", [v.description]);
     });
     data.beach.forEach((p: any) => {
       push(String(p.id), p.name, "Beach Club",

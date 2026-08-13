@@ -21,14 +21,14 @@ import {
  * Discovery, MySubscriptions, and visibility gating pick it up automatically.
  */
 
-export type ServiceKey = "cleaning" | "cars" | "food" | "beach";
+export type ServiceKey = "cleaning" | "food" | "beach";
 
 /**
  * Optional provider-side configuration. Categories where the platform itself
  * *is* the operator (cleaning, beach club) omit this — they don't have
  * third-party providers to onboard.
  *
- * Categories with providers (food/cars/...) share the same lifecycle:
+ * Categories with providers (food/cleaning/...) share the same lifecycle:
  * anyone applies through /become-a-provider → admin reviews the application
  * → on approval a row is created in the service's `*_providers` table.
  */
@@ -46,7 +46,6 @@ export interface ProviderConfig {
     | "info"        // universal name/avatar/banner/location/hours
     | "plans"       // meal plans, vehicles, etc.
     | "menu"        // weekly menu (food)
-    | "vehicles"    // rental vehicles
     | "bookings"    // paid subscriptions / reservations
     | "staff"       // restaurant/provider staff access
     | "analytics"   // provider analytics
@@ -120,31 +119,6 @@ export const SERVICES: Record<ServiceKey, ServiceConfig> = {
       portalRoute: (id) => `/my-cleaning?providerId=${id}`,
     },
   },
-  cars: {
-    key: "cars",
-    label: "Car Rental",
-    icon: Car,
-    tint: "bg-orange-50 dark:bg-orange-950/40",
-    chip: "bg-orange-500",
-    accent: "bg-orange-500",
-    tileHref: "/services/rental",
-    adminRootHref: "/admin/car-rentals/providers",
-    visibilityKey: "category_cars_visible",
-    subscriptionsTable: "rental_bookings",
-    statusField: "status",
-    providers: {
-      table: "rental_providers",
-      labels: {
-        singular: "Rental agency",
-        plural: "Rental agencies",
-        apply: "List your rental fleet on EverySub",
-      },
-      features: ["info", "vehicles", "bookings", "staff"],
-      adminListHref: "/admin/car-rentals/providers",
-      managerTable: "rental_provider_managers",
-      portalRoute: (id) => `/my-car-rental?providerId=${id}`,
-    },
-  },
   food: {
     key: "food",
     label: "Food",
@@ -192,7 +166,7 @@ export const PROVIDER_SERVICES: ServiceConfig[] = Object.values(SERVICES).filter
 
 /** Stable iteration order for tiles / lists. */
 export const SERVICE_KEYS: ServiceKey[] = [
-  "cleaning", "cars", "food", "beach",
+  "cleaning", "food", "beach",
 ];
 
 /** All service configs in the registry's canonical order. */

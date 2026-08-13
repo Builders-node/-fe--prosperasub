@@ -23,7 +23,6 @@ const CHUNKS: Record<string, () => Promise<unknown>> = {
   "/my-business": () => import("@/pages/user/MyBusiness"),
   "/services/cleaning": () => import("@/pages/cleaning/CleaningPackages"),
   "/services/food": () => import("@/pages/food/FoodListing"),
-  "/services/rental": () => import("@/pages/cars/CarRental"),
   "/services/beach-club": () => import("@/pages/beach/BeachClub"),
 };
 

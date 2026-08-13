@@ -3,14 +3,12 @@ import { SparklesIcon, Car, UtensilsCrossed, Waves } from "lucide-react";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { cn } from "@/lib/utils";
 import CleaningAnalytics from "./CleaningAnalytics";
-import CarRentalsAnalytics from "./CarRentalsAnalytics";
 import FoodAnalytics from "./FoodAnalytics";
 import BeachClubAnalytics from "./BeachClubAnalytics";
 import { DomainEventBusPanel } from "@/components/admin/DomainEventBusPanel";
 
 const SERVICES = [
   { id: "cleaning", label: "Cleaning", icon: SparklesIcon, color: "text-blue-400" },
-  { id: "cars", label: "Rental", icon: Car, color: "text-orange-400" },
   { id: "food", label: "Food", icon: UtensilsCrossed, color: "text-orange-400" },
   { id: "beach", label: "Beach Club", icon: Waves, color: "text-cyan-400" },
 ] as const;
@@ -55,7 +53,6 @@ const Analytics = () => {
       </div>
 
       {service === "cleaning" && <CleaningAnalytics embedded />}
-      {service === "cars" && <CarRentalsAnalytics embedded />}
       {service === "food" && <FoodAnalytics embedded />}
       {service === "beach" && <BeachClubAnalytics embedded />}
 

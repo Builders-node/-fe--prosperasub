@@ -24,7 +24,7 @@ import NotFound from "./pages/NotFound";
 
 // ─── Lazy (everything else) ───────────────────────────────────────────────────
 // React.lazy + dynamic import() gives each page its own bundle chunk. Public
-// visitors never download admin code; admins don't download Cars/Food details
+// visitors never download admin code; admins don't download Food details
 // until they navigate there.
 
 // Auth
@@ -53,16 +53,12 @@ const CleaningPackages = lazy(() => import("./pages/cleaning/CleaningPackages"))
 const CleaningCheckout = lazy(() => import("./pages/cleaning/CleaningCheckout"));
 const CleaningBook = lazy(() => import("./pages/cleaning/CleaningBook"));
 
-// Car Rental
-const CarRental = lazy(() => import("./pages/cars/CarRental"));
-const CarDetail = lazy(() => import("./pages/cars/CarDetail"));
-const CarBooking = lazy(() => import("./pages/cars/CarBooking"));
 
 // Cart
 const Cart = lazy(() => import("./pages/Cart"));
 const SearchPage = lazy(() => import("./pages/Search"));
 
-// Public provider profile — generic for cleaning/rental/entertainment. Food
+// Public provider profile — generic for cleaning/entertainment. Food
 // keeps its own /services/food/:id detail page (richer legacy layout).
 const ProviderDetail = lazy(() => import("./pages/ProviderDetail"));
 const UniversalPlanCheckout = lazy(() => import("./pages/UniversalPlanCheckout"));
@@ -194,41 +190,6 @@ const App = () => {
               } />
 
               {/* Rental */}
-              <Route path="/services/rental" element={<CarRental />} />
-              <Route path="/services/rental/:id" element={<CarDetail />} />
-              <Route path="/services/rental/:id/book" element={
-                <ProtectedRoute><CarBooking /></ProtectedRoute>
-              } />
-
-              {/* Beach Club */}
-              <Route path="/services/beach-club" element={<BeachClub />} />
-              <Route path="/services/beach-club/courts" element={
-                <ProtectedRoute><BeachCourts /></ProtectedRoute>
-              } />
-              <Route path="/services/beach-club/checkout/:planId" element={
-                <ProtectedRoute><BeachClubCheckout /></ProtectedRoute>
-              } />
-
-              {/* Public provider profile — cleaning / rental / entertainment.
-                  Food has its own /services/food/:id route above. */}
-              {/* Generic listing for any archetype without a bespoke page.
-                  The four static /services/<name> routes above win over this
-                  dynamic one — React Router prefers a static segment — so the
-                  rich cleaning/food/rental/beach pages are untouched. This is
-                  what lets a service added in /admin/services be reachable at
-                  all. */}
-              <Route path="/services/:archetypeKey" element={<ServicePage />} />
-
-              {/* Checkout for a plan in the universal provider_plans table — the
-                  path a provider with no legacy table of its own takes. Sits
-                  BEFORE the :providerId route only by convention; the segments
-                  differ ("checkout/plan" vs "providers"), so they can't collide. */}
-              {/* The plan's own page — what a card opens. Food's four-segment
-                  route above is more specific, so food keeps its own. */}
-              <Route path="/services/:archetypeKey/plans/:planId" element={<PlanDetail />} />
-              <Route path="/services/:archetypeKey/checkout/plan/:planId" element={
-                <ProtectedRoute><UniversalPlanCheckout /></ProtectedRoute>
-              } />
 
               <Route path="/services/:archetypeKey/providers/:providerId" element={<ProviderDetail />} />
 
@@ -241,9 +202,6 @@ const App = () => {
               <Route path="/food/:id"                element={<LegacyRewrite from="/food" to="/services/food" />} />
               <Route path="/food/:providerId/plans/:planId" element={<LegacyRewrite from="/food" to="/services/food" />} />
               <Route path="/food/subscription/:id"   element={<LegacyRewrite from="/food" to="/services/food" />} />
-              <Route path="/cars"                    element={<Navigate to="/services/rental" replace />} />
-              <Route path="/cars/:id"                element={<LegacyRewrite from="/cars" to="/services/rental" />} />
-              <Route path="/cars/:id/book"           element={<LegacyRewrite from="/cars" to="/services/rental" />} />
               <Route path="/beach-club"              element={<Navigate to="/services/beach-club" replace />} />
               <Route path="/beach-club/courts"       element={<Navigate to="/services/beach-club/courts" replace />} />
               <Route path="/beach-club/checkout/:planId" element={<LegacyRewrite from="/beach-club" to="/services/beach-club" />} />
@@ -275,7 +233,6 @@ const App = () => {
               } />
               {/* Legacy portal URLs — resolve ?providerId=<legacy> to universal and redirect. */}
               <Route path="/my-restaurant"  element={<ProtectedRoute><LegacyPortalRedirect service="food" /></ProtectedRoute>} />
-              <Route path="/my-car-rental"  element={<ProtectedRoute><LegacyPortalRedirect service="cars" /></ProtectedRoute>} />
               <Route path="/my-cleaning"    element={<ProtectedRoute><LegacyPortalRedirect service="cleaning" /></ProtectedRoute>} />
               <Route path="/become-a-provider" element={<BecomeProvider />} />
               {/* Reachable signed out on purpose — someone who can't log in
@@ -369,37 +326,6 @@ const App = () => {
               <Route path="/admin/settings" element={<Navigate to="/admin/payments" replace />} />
               <Route path="/admin/ads" element={
                 <ProtectedRoute allowedRoles={['super_admin']} requiredPermissions={["admin_settings.read"]}><AdsManagement /></ProtectedRoute>
-              } />
-              {/* Admin Car Rentals — vehicles & reservations are managed per provider (Food-style) */}
-              <Route path="/admin/car-rentals" element={<Navigate to="/admin/car-rentals/providers" replace />} />
-              <Route path="/admin/car-rentals/reservations" element={<Navigate to="/admin/car-rentals/providers" replace />} />
-              {/* /admin/car-rentals/customers was orphaned — no sidebar entry, no
-                  page links to it. Customer/user management lives at /admin/users
-                  (unified People page, task #6). */}
-              <Route path="/admin/car-rentals/customers" element={<Navigate to="/admin/users" replace />} />
-              <Route path="/admin/car-rentals/analytics" element={<Navigate to="/admin/analytics?service=cars" replace />} />
-              <Route path="/admin/car-rentals/delivery" element={
-                <Navigate to="/admin/car-rentals/providers" replace />
-              } />
-              <Route path="/admin/car-rentals/insurance" element={
-                <Navigate to="/admin/car-rentals/providers" replace />
-              } />
-              <Route path="/admin/car-rentals/extras" element={
-                <Navigate to="/admin/car-rentals/providers" replace />
-              } />
-              <Route path="/admin/car-rentals/providers" element={<Navigate to="/admin/marketplace/providers" replace />} />
-              <Route path="/admin/car-rentals/providers/:id" element={
-                <ProtectedRoute allowedRoles={['super_admin']}><LegacyProviderRedirect sourceKey="cars" /></ProtectedRoute>
-              } />
-              {/* Admin Food */}
-              <Route path="/admin/food/analytics" element={<Navigate to="/admin/analytics?service=food" replace />} />
-              <Route path="/admin/food/providers" element={<Navigate to="/admin/marketplace/providers" replace />} />
-              <Route path="/admin/food/providers/:id" element={
-                <ProtectedRoute allowedRoles={['super_admin']}><LegacyProviderRedirect sourceKey="food" /></ProtectedRoute>
-              } />
-              <Route path="/admin/food/residences" element={<Navigate to="/admin/locations" replace />} />
-              <Route path="/admin/locations" element={
-                <ProtectedRoute allowedRoles={['super_admin']} requiredPermissions={["admin_settings.read"]}><FoodResidences /></ProtectedRoute>
               } />
 
               <Route path="/admin/food/subscriptions" element={<Navigate to="/admin/marketplace/subscriptions" replace />} />

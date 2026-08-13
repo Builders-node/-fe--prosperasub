@@ -77,8 +77,7 @@ export function useCategoryHighlights() {
         // Vehicles say "public", not "active" — the same value the car
         // listing filters on. Asking for "active" here quietly returned
         // nothing and every car read "Coming soon" next to a full fleet.
-        supabaseDb.from("rental_vehicles")
-          .select("id, provider_id, owner_provider_id, daily_price_cents").eq("status", "public"),
+        Promise.resolve({ data: [] } as any),
         supabaseDb.from("beach_club_plans")
           .select("owner_provider_id, price_per_person_cents").eq("is_active", true),
         supabaseDb.from("provider_plans")
@@ -91,7 +90,7 @@ export function useCategoryHighlights() {
         legacyIds.length
           ? supabaseDb.from("food_weekly_menus").select("id, provider_id").in("provider_id", legacyIds)
           : Promise.resolve({ data: [] } as any),
-        supabaseDb.from("rental_vehicle_images").select("vehicle_id, url").order("sort_order", { ascending: true }),
+        Promise.resolve({ data: [] } as any),
         providerIds.length
           ? supabaseDb.from("providers").select("id, gallery_urls, banner_url, avatar_url").in("id", providerIds)
           : Promise.resolve({ data: [] } as any),

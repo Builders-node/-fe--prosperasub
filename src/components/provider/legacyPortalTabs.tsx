@@ -6,13 +6,6 @@ import { PortalTabsView } from "@/components/provider/PortalTabsView";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
-import { ProviderInfoTab } from "@/components/rental/admin/ProviderInfoTab";
-import { ProviderVehiclesTab } from "@/components/rental/admin/ProviderVehiclesTab";
-import { ProviderInsuranceTab } from "@/components/rental/admin/ProviderInsuranceTab";
-import { ProviderExtrasTab } from "@/components/rental/admin/ProviderExtrasTab";
-import { ProviderDeliveryTab } from "@/components/rental/admin/ProviderDeliveryTab";
-import { ProviderStaffTab } from "@/components/rental/admin/ProviderStaffTab";
-import { useMyCarRentals, type MyCarRental } from "@/hooks/useMyCarRentals";
 
 import { RestaurantInfoTab } from "@/components/food/admin/RestaurantInfoTab";
 import { RestaurantMealPlansTab } from "@/components/food/admin/RestaurantMealPlansTab";
@@ -76,21 +69,6 @@ export { LEGACY_PORTAL_SOURCE_KEYS, useUniversalIdForLegacy, isLegacySource, leg
 //                tab in batch 2 — currently still separate Calendar + subs)
 //   Operations = daily work (add-ons / delivery / reports)
 //   Team       = owner + managers
-export const CAR_TABS: PortalTab<MyCarRental>[] = [
-  { value: "info",       label: "Overview",   icon: LayoutDashboard, render: (p) => <ProviderInfoTab provider={p} /> },
-  { value: "offerings",  label: "Offerings",  icon: Package,         render: (p) => <ProviderVehiclesTab providerId={p.id} /> },
-  { value: "operations", label: "Operations", icon: Wrench,          render: (p) => (
-    <InnerPillTabs
-      items={[
-        { key: "insurance", label: "Insurance", render: () => <ProviderInsuranceTab providerId={p.id} /> },
-        { key: "extras",    label: "Extras",    render: () => <ProviderExtrasTab providerId={p.id} /> },
-        { key: "delivery",  label: "Delivery",  render: () => <ProviderDeliveryTab providerId={p.id} /> },
-      ]}
-    />
-  ) },
-  { value: "team",       label: "Team",       icon: Users, ownerOnly: true, render: (p) => <ProviderStaffTab provider={p} /> },
-];
-
 // Batch 2: the standalone Subscriptions tab is gone. Its contents are folded
 // into the injected Bookings tab (LegacyOwnerPortal wires it as the "By
 // customer" view) so a provider clicks Bookings once and toggles between the
@@ -206,10 +184,10 @@ function assembleTabs<T>(
     const originalRender = t.render;
     return {
       ...t,
-      render: (row: T) => (
+      render: (row: T, isOwner: boolean) => (
         <>
           {prefix}
-          {originalRender(row)}
+          {originalRender(row, isOwner)}
         </>
       ),
     };
@@ -246,18 +224,6 @@ function AccessRevokedPanel() {
       </p>
     </div>
   );
-}
-
-function CarsOwnerTabs({ legacyId, fallback, bookingsTab, tabPrefixes, extraTabs }: OwnerTabsProps) {
-  const { isAdmin } = useAuth();
-  const { providers, isLoading } = useMyCarRentals();
-  const owned = providers.find((p) => p.id === legacyId) ?? null;
-  const needAdmin = isAdmin && !isLoading && !owned;
-  const admin = useAdminLegacyRow<MyCarRental>("rental_providers", legacyId, needAdmin);
-  if (isLoading || (needAdmin && admin.isLoading)) return <TabsSkeleton />;
-  const row = owned ?? admin.data ?? null;
-  if (!row) return isAdmin ? <>{fallback}</> : <AccessRevokedPanel />;
-  return <PortalTabsView tabs={assembleTabs(CAR_TABS, bookingsTab, extraTabs, tabPrefixes)} provider={row} isOwner={owned ? owned.myRole === "owner" : true} />;
 }
 
 function FoodOwnerTabs({ legacyId, fallback, bookingsTab, tabPrefixes, extraTabs }: OwnerTabsProps) {
@@ -328,7 +294,6 @@ export function LegacyOwnerPortal({ sourceKey, legacyId, fallback, bookingsTab, 
   extraTabs?: PortalTab<any>[];
 }) {
   const props = { legacyId, fallback, bookingsTab, tabPrefixes, extraTabs };
-  if (sourceKey === "cars") return <CarsOwnerTabs {...props} />;
   if (sourceKey === "food") return <FoodOwnerTabs {...props} />;
   if (sourceKey === "cleaning") return <CleaningOwnerTabs {...props} />;
   if (sourceKey === "beach" || sourceKey === "beach_club")
