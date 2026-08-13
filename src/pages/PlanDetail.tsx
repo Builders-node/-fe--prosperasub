@@ -10,6 +10,10 @@ import { QueryError } from "@/components/QueryError";
 import { YdEmptyState } from "@/components/yd/YdPrimitives";
 import { PlanOptionPicker } from "@/components/plans/PlanOptionPicker";
 import { MealSelectionPicker, defaultMealsForCount, type MealKey } from "@/components/food/MealSelectionPicker";
+import { WeeklyMenuDisplay } from "@/components/food/WeeklyMenuDisplay";
+import { useFoodWeeklyMenu } from "@/hooks/useFoodWeeklyMenu";
+import { useCart } from "@/contexts/CartContext";
+import { toast } from "sonner";
 import {
   CheckIcon, KeyboardArrowLeftIcon, KeyboardArrowRightIcon, NotificationsIcon,
 } from "@/components/icons/FigmaIcons";
@@ -208,6 +212,14 @@ const PlanDetail = () => {
     return offerBySourcePlanId.get(plan.id) ?? null;
   }, [plan, offers, offerBySourcePlanId]);
 
+  // What is being cooked this week — the reason to buy, so it lives here.
+  const menuQ = useFoodWeeklyMenu(
+    plan?.source === "food" ? plan.id : undefined,
+    plan?.legacyProviderId ?? undefined,
+  );
+
+  const { addItem: addToCart } = useCart();
+
   const [selection, setSelection] = useState<Record<string, string>>({});
 
   /**
@@ -264,12 +276,27 @@ const PlanDetail = () => {
       ? `/services/food/${plan.legacyProviderId}/plans/${buyableId}?meals=${meals.join(",")}` :
     `/services/${archetypeKey}/checkout/plan/${buyableId}`;
 
+  const buyFood = () => {
+    if (!plan) return;
+    addToCart({
+      service: "food",
+      providerId: plan.legacyProviderId ?? "",
+      providerName: providerName ?? "Restaurant",
+      planId: buyableId,
+      planName: chosen?.name ?? plan.title,
+      unitPriceCents: priceCents ?? 0,
+      periods: 1,
+      mealsPerDay: mealsPerDay || 1,
+      meals,
+    } as never, 1);
+    toast.success("Added to your cart");
+    navigate("/cart");
+  };
+
   const subscribe = () => {
+    if (plan?.source === "food") { buyFood(); return; }
     if (!checkoutHref) return;
-    // Food's button opens the weekly menu, not a till — asking for an account
-    // to LOOK at what is being cooked is the gate in the wrong place. That
-    // screen prompts for a login when the customer actually goes to pay.
-    if (plan?.source === "food" || isAuthenticated) navigate(checkoutHref);
+    if (isAuthenticated) navigate(checkoutHref);
     else openAuthModal("login", checkoutHref);
   };
 
@@ -500,6 +527,17 @@ const PlanDetail = () => {
           </section>
         )}
 
+        {menuQ.data && (
+          <section className="space-y-3 rounded-radius-lg bg-card p-4 shadow-figma">
+            <h2 className="text-[20px] font-semibold tracking-[-0.4px] text-foreground">This week's menu</h2>
+            <WeeklyMenuDisplay
+              meals={menuQ.data.meals}
+              mealTypes={(meals.length ? meals : defaultMealsForCount(mealsPerDay || 1)) as never}
+              weekStartDate={menuQ.data.menu.week_start_date}
+            />
+          </section>
+        )}
+
         {plan.providerId && reviewService && (
           // The block is a bare <section>, so the card padding belongs here —
           // full-bleed left its heading against the screen edge.
@@ -527,7 +565,7 @@ const PlanDetail = () => {
             className="w-full rounded-radius-md bg-primary px-4 py-3 text-[16px] font-semibold leading-6 tracking-[-0.32px] text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
           >
             {typeof priceCents === "number" && priceCents > 0
-              ? `${plan.source === "food" ? "View menu · " : showFrom ? "From " : "Pay "}${formatUSD(priceCents)}${plan.priceUnit ? ` ${plan.priceUnit}` : ""}`
+              ? `${plan.source === "food" ? "Add to cart · " : showFrom ? "From " : "Pay "}${formatUSD(priceCents)}${plan.priceUnit ? ` ${plan.priceUnit}` : ""}`
               : "Subscribe"}
           </button>
         </div>

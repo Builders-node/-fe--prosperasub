@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Navigate, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   ChefHat, UtensilsCrossed, CalendarDays,
   RefreshCw, Check,
@@ -100,6 +100,17 @@ type PaymentStep = "details" | "pay" | "success";
 // ─── Component ────────────────────────────────────────────────────────────────
 const FoodPlanDetail = () => {
   const { providerId, planId } = useParams<{ providerId: string; planId: string }>();
+  /**
+   * Renewals only.
+   *
+   * This used to be the food plan page AND its checkout. The plan page moved
+   * to the shared one and buying moved to the cart, which already knew how to
+   * sell food — leaving this screen showing a weekly menu with a Subscribe
+   * button under it, which reads as a list, not a till. Renewal is the one
+   * thing neither of those covers (it extends an existing subscription
+   * through the account API), so that is all this is now.
+   */
+  const isRenewal = new URLSearchParams(window.location.search).has("renew");
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const renewSubId = searchParams.get("renew");
@@ -658,6 +669,10 @@ const FoodPlanDetail = () => {
   }
 
   // ─── Render ───────────────────────────────────────────────────────────────
+  if (!isRenewal) {
+    return <Navigate to={`/services/food/plans/${planId}`} replace />;
+  }
+
   return (
     <div className="min-h-screen bg-background pb-36 md:pb-32">
       <HomeHeader title="Checkout" showBackButton onBack={() => navigate(`/services/food/plans/${planId}`)} />
