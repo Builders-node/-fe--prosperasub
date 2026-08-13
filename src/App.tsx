@@ -35,6 +35,7 @@ const VerifyAccess = lazy(() => import("./pages/VerifyAccess"));
 
 // User
 const MySubscriptions = lazy(() => import("./pages/user/MySubscriptions"));
+const Profile = lazy(() => import("./pages/user/Profile"));
 const Notifications = lazy(() => import("./pages/user/Notifications"));
 const History = lazy(() => import("./pages/user/History"));
 const MyBusiness = lazy(() => import("./pages/user/MyBusiness"));
@@ -252,6 +253,9 @@ const App = () => {
               {/* User */}
               <Route path="/my-subscriptions" element={
                 <ProtectedRoute><MySubscriptions /></ProtectedRoute>
+              } />
+              <Route path="/account" element={
+                <ProtectedRoute><Profile /></ProtectedRoute>
               } />
               <Route path="/notifications" element={
                 <ProtectedRoute><Notifications /></ProtectedRoute>

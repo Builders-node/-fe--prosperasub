@@ -28,8 +28,8 @@ export interface NavigationConfig {
  *
  * Notifications left the tab bar and moved into the header, where the design
  * puts the bell — a tab is for a place you go, and notifications are something
- * you glance at. Account opens the account sheet rather than routing, because
- * there is no standalone account page: the profile lives in a modal.
+ * you glance at. Account routes to /account like the other three: the profile
+ * used to be a modal, which made it the one surface with no address.
  */
 const USER_NAV: NavItem[] = [
   {

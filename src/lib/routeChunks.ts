@@ -18,6 +18,7 @@ const CHUNKS: Record<string, () => Promise<unknown>> = {
   "/search": () => import("@/pages/Search"),
   "/cart": () => import("@/pages/Cart"),
   "/my-subscriptions": () => import("@/pages/user/MySubscriptions"),
+  "/account": () => import("@/pages/user/Profile"),
   "/notifications": () => import("@/pages/user/Notifications"),
   "/my-business": () => import("@/pages/user/MyBusiness"),
   "/services/cleaning": () => import("@/pages/cleaning/CleaningPackages"),

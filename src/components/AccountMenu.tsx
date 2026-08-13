@@ -17,14 +17,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useMyBusinesses } from "@/hooks/useMyBusinesses";
 import { useI18n } from "@/i18n";
 import { accountApi } from "@/integrations/supabase/client";
-import { ProfileModal } from "@/components/account/ProfileModal";
 
 export function AccountMenu() {
   const { userData, isSuperAdmin, logout, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const { t } = useI18n();
 
-  const [profileOpen, setProfileOpen] = useState(false);
 
   // Elevate the "Platform Admin" entry for users with the admin RBAC role even
   // when their JWT session isn't flagged super_admin (happens when the same
@@ -61,7 +59,7 @@ export function AccountMenu() {
           <AppDropdownProfile
             title={displayName}
             subtitle={t("profile.openProfile")}
-            onSelect={() => setProfileOpen(true)}
+            onSelect={() => navigate("/account")}
           />
           <div className="space-y-space-1">
             <AppDropdownItem icon={List} title={t("profile.bookings")} to="/my-subscriptions" />
@@ -104,7 +102,6 @@ export function AccountMenu() {
         </AppDropdownContent>
       </DropdownMenu>
 
-      <ProfileModal open={profileOpen} onOpenChange={setProfileOpen} />
     </>
   );
 }

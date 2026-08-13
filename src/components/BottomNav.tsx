@@ -2,9 +2,8 @@ import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { getNavigationForRoles, isNavItemActive } from "@/config/navigation";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useCart } from "@/contexts/CartContext";
-import { ProfileModal } from "@/components/account/ProfileModal";
 import { prefetchRoute, prefetchShellRoutes } from "@/lib/routeChunks";
 import { cn } from "@/lib/utils";
 
@@ -13,7 +12,6 @@ export function BottomNav() {
   const { roles, isAuthenticated } = useAuth();
   const { openAuthModal } = useAuthModal();
   const { count: cartCount } = useCart();
-  const [profileOpen, setProfileOpen] = useState(false);
 
   const navItems = getNavigationForRoles(roles);
   const visibleNavItems = navItems.filter((item) => !(!isAuthenticated && item.requiresAuth));
@@ -75,24 +73,6 @@ export function BottomNav() {
             </>
           );
 
-          if (item.path === "/account") {
-            // There is no account page — the profile is a modal, and the
-            // account menu is what owns it.
-            return (
-              <button
-                key={item.path}
-                type="button"
-                className={className}
-                onClick={() => {
-                  if (!isAuthenticated) { openAuthModal("login"); return; }
-                  setProfileOpen(true);
-                }}
-              >
-                {inner}
-              </button>
-            );
-          }
-
           if (item.requiresAuth && !isAuthenticated) {
             return (
               <button
@@ -114,8 +94,6 @@ export function BottomNav() {
           );
         })}
       </div>
-
-      <ProfileModal open={profileOpen} onOpenChange={setProfileOpen} />
     </nav>
   );
 }

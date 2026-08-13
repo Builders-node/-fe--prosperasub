@@ -15,14 +15,12 @@ import {
 import { publicRoutes } from "@/config/adminRoutes";
 import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/i18n";
-import { ProfileModal } from "@/components/account/ProfileModal";
 
 export function AdminAccountMenu() {
   const { userData, logout } = useAuth();
   const navigate = useNavigate();
   const { t } = useI18n();
 
-  const [showProfileDialog, setShowProfileDialog] = useState(false);
 
   const handleLogout = async () => {
     await logout();
@@ -50,7 +48,7 @@ export function AdminAccountMenu() {
             <AppDropdownItem
               icon={UserRound}
               title={t("profile.pageTitle")}
-              onSelect={() => setShowProfileDialog(true)}
+              onSelect={() => navigate("/account")}
             />
             {/* Leaving the admin panel and leaving the account are different
                 things. Only the second existed — so an admin who wanted to look
@@ -77,7 +75,6 @@ export function AdminAccountMenu() {
         </AppDropdownContent>
       </DropdownMenu>
 
-      <ProfileModal open={showProfileDialog} onOpenChange={setShowProfileDialog} />
     </>
   );
 }
