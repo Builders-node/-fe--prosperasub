@@ -189,8 +189,37 @@ const App = () => {
                 <ProtectedRoute><FoodSubscriptionDetail /></ProtectedRoute>
               } />
 
-              {/* Rental */}
+              {/* Beach Club */}
+              <Route path="/services/beach-club" element={<BeachClub />} />
+              <Route path="/services/beach-club/courts" element={
+                <ProtectedRoute><BeachCourts /></ProtectedRoute>
+              } />
+              <Route path="/services/beach-club/checkout/:planId" element={
+                <ProtectedRoute><BeachClubCheckout /></ProtectedRoute>
+              } />
 
+              {/* Generic listing for any archetype without a bespoke page.
+                  The static /services/<name> routes above win over this dynamic
+                  one — React Router prefers a static segment — so the rich
+                  cleaning / food / beach pages are untouched. This is what lets
+                  a service added in /admin/services be reachable at all. */}
+              <Route path="/services/:archetypeKey" element={<ServicePage />} />
+
+              {/* The plan's own page — what a card in a listing opens. Food's
+                  four-segment route above is more specific, so food keeps its
+                  own renewal screen. */}
+              <Route path="/services/:archetypeKey/plans/:planId" element={<PlanDetail />} />
+
+              {/* Checkout for a plan in the universal provider_plans table — the
+                  path a provider with no legacy table of its own takes. The
+                  segments differ ("checkout/plan" vs "providers"), so it cannot
+                  collide with the provider profile below. */}
+              <Route path="/services/:archetypeKey/checkout/plan/:planId" element={
+                <ProtectedRoute><UniversalPlanCheckout /></ProtectedRoute>
+              } />
+
+              {/* Public provider profile — cleaning / entertainment. Food has
+                  its own /services/food/:id route above. */}
               <Route path="/services/:archetypeKey/providers/:providerId" element={<ProviderDetail />} />
 
               {/* ─── Legacy short-URL redirects (kept so old bookmarks / emails
