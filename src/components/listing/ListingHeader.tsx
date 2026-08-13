@@ -101,7 +101,10 @@ export function ListingHeader({
       <div className="sticky top-0 z-40 md:hidden">
       <HomeHeader title={title} showBackButton onBack={onBack ?? (() => navigate(-1))} bare />
 
-      <div className="flex flex-col gap-2 rounded-b-radius-lg bg-card pb-2">
+      {/* `overflow-hidden` because the location row is a full-width button with
+          a background of its own: without it that square background fills the
+          panel's two rounded corners and the curve disappears on press. */}
+      <div className="flex flex-col gap-2 overflow-hidden rounded-b-radius-lg bg-card pb-2">
         <div className="flex items-center gap-2 pl-4 pr-2">
           {searchField}
           {sortButton}

@@ -95,7 +95,7 @@ export function HomeHeader({ title, showBackButton = false, onBack, variant = "t
     // 56px of white: two 40px round buttons inside 8px of padding, with the
     // title centred between them. No bottom border — the page behind it is
     // #f6f6f6, and the white is the separation.
-    <header className={cn("sticky top-0 z-40 bg-card md:hidden", !bare && "rounded-b-radius-lg")}>
+    <header className={cn("sticky top-0 z-40 bg-card md:hidden", !bare && "overflow-hidden rounded-b-radius-lg")}>
       <div className="relative flex items-center justify-between p-2" style={{ height: "56px" }}>
         <div className="h-10 w-10 shrink-0">
           {showBackButton && (
@@ -147,7 +147,10 @@ export function HomeHeader({ title, showBackButton = false, onBack, variant = "t
       {/* A listing continues the white panel with its own search and location
           rows, so it takes the rounding off this one and puts it at the bottom
           of its own. */}
-      {!bare && <LocationSelector variant="full" />}
+      {/* The `full` variant put a grey #f6f6f6 strip with square corners at the
+          bottom of a white rounded header — wrong colour and wrong shape. The
+          row is the same control the listings and the home screen use. */}
+      {!bare && <LocationSelector variant="row" className="py-2" />}
     </header>
   );
 }
