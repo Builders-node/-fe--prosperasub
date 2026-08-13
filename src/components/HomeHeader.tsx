@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { AccountMenu } from "@/components/AccountMenu";
@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { LocationSelector } from "@/components/LocationSelector";
 import { CartButton } from "@/components/CartButton";
-import { NotificationsIcon, ShoppingBagIcon } from "@/components/icons/FigmaIcons";
+import { useCart } from "@/contexts/CartContext";
+import { NotificationsIcon, SearchIcon, ShoppingBagIcon } from "@/components/icons/FigmaIcons";
 
 interface HomeHeaderProps {
   title?: string;
@@ -25,6 +26,7 @@ export function HomeHeader({ title, showBackButton = false, onBack, variant = "t
   const navigate = useNavigate();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { openAuthModal } = useAuthModal();
+  const { count: cartCount } = useCart();
 
   const handleBack = () => {
     if (onBack) { onBack(); return; }
@@ -33,30 +35,54 @@ export function HomeHeader({ title, showBackButton = false, onBack, variant = "t
 
   if (variant === "brand") {
     return (
-      // 56px tall, white, 16px left / 8px right padding — the design's own
-      // measurements. No bottom border: the white panel underneath carries the
-      // separation with its 24px rounded corners.
+      // 64px, white, 8px side padding — the design's own measurements. The
+      // search field is the middle of the header rather than a screen you have
+      // to find: "where do I get my car washed" is a question the app can
+      // answer, and until now the only way to ask it was to guess which
+      // service it lived under.
       <header className="sticky top-0 z-40 bg-card md:hidden">
-        <div className="flex h-14 items-center gap-2 pl-4 pr-2">
-          <div className="flex min-w-0 flex-1 items-center gap-2">
-            <ShoppingBagIcon className="h-6 w-6 shrink-0 text-primary" />
-            <span className="truncate text-[16px] font-semibold tracking-[-0.32px] text-foreground">
-              EverySub
-            </span>
-          </div>
+        <div className="flex h-16 items-center gap-2 px-2">
+          <Link
+            to="/cart"
+            aria-label="Cart"
+            className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-primary transition-colors hover:bg-muted"
+          >
+            <ShoppingBagIcon className="h-6 w-6" />
+            {cartCount > 0 && (
+              <span className="absolute right-0 top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-primary px-1 text-[9px] font-black leading-none text-primary-foreground">
+                {cartCount > 99 ? "99+" : cartCount}
+              </span>
+            )}
+          </Link>
 
-          <div className="flex shrink-0 items-center">
-            <LocationSelector variant="icon" />
-            <button
-              type="button"
-              aria-label="Notifications"
-              onClick={() => navigate("/notifications")}
-              className="flex h-10 w-10 items-center justify-center rounded-full text-foreground transition-colors hover:bg-muted"
-            >
-              <NotificationsIcon className="h-6 w-6" />
-            </button>
-          </div>
+          {/* A button, not an input: typing happens on the search screen, and a
+              field that quietly does nothing where you tapped it is worse than
+              one that takes you somewhere. */}
+          <button
+            type="button"
+            onClick={() => navigate("/search")}
+            className="flex min-w-0 flex-1 items-center gap-2 rounded-radius-md bg-background px-3 py-2 text-left transition-colors hover:bg-muted"
+          >
+            <SearchIcon className="h-6 w-6 shrink-0 text-muted-foreground" />
+            <span className="truncate text-[16px] tracking-[-0.32px] text-muted-foreground">
+              Search on EverySub
+            </span>
+          </button>
+
+          <button
+            type="button"
+            aria-label="Notifications"
+            onClick={() => navigate("/notifications")}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-foreground transition-colors hover:bg-muted"
+          >
+            <NotificationsIcon className="h-6 w-6" />
+          </button>
         </div>
+
+        {/* The location moved out of the icon row into a row of its own, where
+            it can say WHICH location instead of being a pin you have to press
+            to find out. */}
+        <LocationSelector variant="row" />
       </header>
     );
   }

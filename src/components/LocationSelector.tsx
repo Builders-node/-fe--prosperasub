@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { MapPin, ChevronDown, Check } from "lucide-react";
-import { LocationOnIcon } from "@/components/icons/FigmaIcons";
+import { KeyboardArrowRightIcon, LocationOnIcon } from "@/components/icons/FigmaIcons";
 import { ResponsiveDialog } from "@/components/patterns/ResponsiveDialog";
 import { useResidences } from "@/hooks/useResidences";
 import { useLocationControl } from "@/contexts/LocationContext";
@@ -9,9 +9,12 @@ import { cn } from "@/lib/utils";
 interface Props {
   /**
    * "chip" — header pill · "full" — full-width bar row ·
-   * "icon" — a bare 40px pin button, the shape the Figma home header uses.
+   * "icon" — a bare 40px pin button ·
+   * "row"  — the Figma home header's own row: pin, the location itself, and a
+   *          chevron. It says which location instead of making you press a pin
+   *          to find out.
    */
-  variant?: "chip" | "full" | "icon";
+  variant?: "chip" | "full" | "icon" | "row";
   className?: string;
 }
 
@@ -44,7 +47,26 @@ export function LocationSelector({ variant = "chip", className }: Props) {
     setOpen(false);
   };
 
-  const trigger = variant === "icon" ? (
+  const trigger = variant === "row" ? (
+    <button
+      type="button"
+      onClick={() => setOpen(true)}
+      aria-label="Choose your location"
+      className={cn(
+        "flex w-full items-center gap-2 bg-card px-4 py-3 text-left transition-colors hover:bg-muted/40",
+        className,
+      )}
+    >
+      <LocationOnIcon className={cn("h-6 w-6 shrink-0", residence ? "text-primary" : "text-muted-foreground")} />
+      <span className={cn(
+        "min-w-0 flex-1 truncate text-[16px] tracking-[-0.32px]",
+        residence ? "text-foreground" : "text-muted-foreground",
+      )}>
+        {residence || "Choose your location"}
+      </span>
+      <KeyboardArrowRightIcon className="h-6 w-6 shrink-0 text-muted-foreground" />
+    </button>
+  ) : variant === "icon" ? (
     <button
       type="button"
       onClick={() => setOpen(true)}

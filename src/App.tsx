@@ -59,6 +59,7 @@ const CarBooking = lazy(() => import("./pages/cars/CarBooking"));
 
 // Cart
 const Cart = lazy(() => import("./pages/Cart"));
+const SearchPage = lazy(() => import("./pages/Search"));
 
 // Public provider profile — generic for cleaning/rental/entertainment. Food
 // keeps its own /services/food/:id detail page (richer legacy layout).
@@ -235,6 +236,9 @@ const App = () => {
 
               {/* Cart */}
               <Route path="/cart" element={<Cart />} />
+              {/* "Search on Everysub" — one field over the whole catalogue.
+                  Public: browsing is what a search is for. */}
+              <Route path="/search" element={<SearchPage />} />
 
               {/* User */}
               <Route path="/my-subscriptions" element={

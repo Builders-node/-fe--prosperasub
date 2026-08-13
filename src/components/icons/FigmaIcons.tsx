@@ -93,3 +93,19 @@ export function ShoppingBagIcon(props: IconProps) {
     </svg>
   );
 }
+
+export function SearchIcon(props: IconProps) {
+  return (
+    <svg viewBox="0 0 17.49 17.49" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden {...props}>
+    <path d="M12.5 11H11.71L11.43 10.73C12.41 9.59 13 8.11 13 6.5C13 2.91 10.09 0 6.5 0C2.91 0 0 2.91 0 6.5C0 10.09 2.91 13 6.5 13C8.11 13 9.59 12.41 10.73 11.43L11 11.71V12.5L16 17.49L17.49 16L12.5 11ZM6.5 11C4.01 11 2 8.99 2 6.5C2 4.01 4.01 2 6.5 2C8.99 2 11 4.01 11 6.5C11 8.99 8.99 11 6.5 11Z" />
+    </svg>
+  );
+}
+
+export function KeyboardArrowRightIcon(props: IconProps) {
+  return (
+    <svg viewBox="0 0 7.41 12" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden {...props}>
+    <path d="M0 10.59L4.58 6L0 1.41L1.41 0L7.41 6L1.41 12L0 10.59Z" />
+    </svg>
+  );
+}
