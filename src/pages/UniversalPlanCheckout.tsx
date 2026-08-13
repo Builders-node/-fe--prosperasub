@@ -25,6 +25,7 @@ import { usePaymentMethods } from "@/hooks/usePaymentMethods";
 import { InfinitaPaymentPanel } from "@/components/payment/InfinitaPaymentPanel";
 import { PayPalPanel } from "@/components/payment/PayPalPanel";
 import { InvoiceQrPanel } from "@/components/payment/InvoiceQrPanel";
+import { attachPaymentReference } from "@/lib/payments/pendingReference";
 import { useInvoicePayment } from "@/hooks/useInvoicePayment";
 import { serviceListingHref, serviceSlug } from "@/lib/services/serviceUrls";
 import { endDateFor, termLabel, includedLabel } from "@/lib/services/planPeriod";
@@ -113,6 +114,12 @@ const UniversalPlanCheckout = () => {
         mutationCalledRef.current = true;
         createSubscription.mutate({ paymentRef, status: "paid", method });
       }
+    },
+    // The reference goes on the reserved row as soon as it exists, so a
+    // tab that dies before the payment confirms still leaves something the
+    // reconcile cron can verify. See lib/payments/pendingReference.
+    onInvoiceReady: (paymentRef, method) => {
+      void attachPaymentReference(supabaseDb, "provider_subscriptions", pendingSubIdRef.current, paymentRef, method);
     },
   });
 
@@ -415,6 +422,7 @@ const UniversalPlanCheckout = () => {
             <InfinitaPaymentPanel
               totalCents={effectiveTotalCents}
               onPaid={(id: string) => onExternalPaid(id, "crypto")}
+              onInvoiceReady={(paymentId: string) => attachPaymentReference(supabaseDb, "provider_subscriptions", pendingSubIdRef.current, paymentId, "crypto")}
               orderMeta={{ description: orderDescription, ...paymentMeta() }}
             />
           </section>

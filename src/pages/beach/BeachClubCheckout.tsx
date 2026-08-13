@@ -25,6 +25,7 @@ import { usePaymentMethods } from "@/hooks/usePaymentMethods";
 import { InfinitaPaymentPanel } from "@/components/payment/InfinitaPaymentPanel";
 import { PayPalPanel } from "@/components/payment/PayPalPanel";
 import { InvoiceQrPanel } from "@/components/payment/InvoiceQrPanel";
+import { attachPaymentReference } from "@/lib/payments/pendingReference";
 import { useInvoicePayment } from "@/hooks/useInvoicePayment";
 
 interface BeachPlan {
@@ -95,6 +96,12 @@ const BeachClubCheckout = () => {
         mutationCalledRef.current = true;
         createSubscriptionMutation.mutate({ paymentRef, status: "paid", method });
       }
+    },
+    // The reference goes on the reserved row as soon as it exists, so a
+    // tab that dies before the payment confirms still leaves something the
+    // reconcile cron can verify. See lib/payments/pendingReference.
+    onInvoiceReady: (paymentRef, method) => {
+      void attachPaymentReference(supabaseDb, "beach_club_subscriptions", pendingSubIdRef.current, paymentRef, method);
     },
   });
 
@@ -421,6 +428,7 @@ const BeachClubCheckout = () => {
               <section className="overflow-hidden rounded-3xl bg-card p-5">
                 <h2 className="mb-4 text-xl font-black tracking-tight text-foreground">Pay with LIVES</h2>
                 <InfinitaPaymentPanel totalCents={effectiveTotalCents} onPaid={handleInfinitaPaid}
+                onInvoiceReady={(paymentId: string) => attachPaymentReference(supabaseDb, "beach_club_subscriptions", pendingSubIdRef.current, paymentId, "crypto")}
                   orderMeta={{ description: `Beach Club - ${plan.name} - ${people}p - ${formatUSD(effectiveTotalCents)}`, ...paymentMeta() }} />
               </section>
             ) : showPayment && paymentMethod === "paypal" ? (

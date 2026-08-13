@@ -33,6 +33,7 @@ import { usePaymentMethods } from "@/hooks/usePaymentMethods";
 import { InfinitaPaymentPanel } from "@/components/payment/InfinitaPaymentPanel";
 import { PayPalPanel } from "@/components/payment/PayPalPanel";
 import { InvoiceQrPanel } from "@/components/payment/InvoiceQrPanel";
+import { attachPaymentReference } from "@/lib/payments/pendingReference";
 import { useInvoicePayment } from "@/hooks/useInvoicePayment";
 const CLEANING_DURATION_OPTIONS = [1, 2, 3] as const;
 type CleaningDurationMonths = (typeof CLEANING_DURATION_OPTIONS)[number];
@@ -148,6 +149,12 @@ const CleaningCheckout = () => {
           satsAmount: inv.state.sats ?? 0,
         });
       }
+    },
+    // The reference goes on the reserved row as soon as it exists, so a
+    // tab that dies before the payment confirms still leaves something the
+    // reconcile cron can verify. See lib/payments/pendingReference.
+    onInvoiceReady: (paymentRef, method) => {
+      void attachPaymentReference(supabase, "cleaning_subscriptions", pendingSubIdRef.current, paymentRef, method);
     },
   });
 
@@ -754,6 +761,7 @@ const CleaningCheckout = () => {
                 <InfinitaPaymentPanel
                   totalCents={effectiveTotalCents}
                   onPaid={handleInfinitaPaid}
+                  onInvoiceReady={(paymentId: string) => attachPaymentReference(supabase, "cleaning_subscriptions", pendingSubIdRef.current, paymentId, "crypto")}
                   orderMeta={{
                     description: `Cleaning - ${pkg.name} - ${billingPeriodMonths} month${billingPeriodMonths > 1 ? "s" : ""} - ${formatUSD(totalCents)}`,
                     ...getCleaningPaymentMetadata(),
