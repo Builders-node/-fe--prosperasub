@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useArchetypeLabel } from "@/hooks/useServiceArchetypes";
 import { useNavigate } from "react-router-dom";
-import { SearchX, SparklesIcon, ChevronRight } from "lucide-react";
+import { SearchX, SparklesIcon } from "lucide-react";
 import { providerHref } from "@/lib/services/serviceUrls";
 import { groupProvidersByCategory } from "@/lib/services/groupByCategory";
 import { ProviderRail, CategoryChips, ALL_CATEGORIES } from "@/components/listing/ListingNav";
@@ -364,22 +364,12 @@ const CleaningPackages = () => {
                 {category.categoryLabel}
               </h2>
 
+              {/* No provider line above the plans. Every cleaning provider is
+                  named after its category, so it read as the heading repeated
+                  in small caps — and the rail at the top of the page is
+                  already the way to a provider. */}
               {category.providers.map((provider) => (
-                <div key={provider.providerId} className="space-y-3">
-                  {/* Compact provider line. The rail at the top of the page
-                      already shows the avatar and gallery, so repeating the
-                      full tile here just pushed the plans below the fold. */}
-                  <button
-                    type="button"
-                    onClick={() => openProvider(provider.providerId)}
-                    className="flex items-center gap-2 text-left"
-                  >
-                    <span className="text-caption font-bold uppercase tracking-[0.16em] text-muted-foreground">
-                      {provider.providerName}
-                    </span>
-                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-                  </button>
-
+                <div key={provider.providerId}>
                   <div className="grid gap-2 md:grid-cols-2">
                     {provider.packages.map((pkg: any) => (
                       <CleaningPackageCard
