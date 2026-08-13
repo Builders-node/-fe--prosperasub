@@ -209,12 +209,6 @@ const CleaningPackages = () => {
     }));
   }, [visiblePackages, providersQ.data, categoriesQ.data]);
 
-  // Flatten for "Providers" top strip (kept for scan-ability across categories).
-  const flatProviders = useMemo(
-    () => categoryGroups.flatMap((c) => c.providers),
-    [categoryGroups],
-  );
-
   // Ratings key off the universal provider id, which is what cleaning packages
   // carry in owner_provider_id — no bridge needed here.
   const ratings = useProviderRatings(
@@ -336,61 +330,35 @@ const CleaningPackages = () => {
             title={t("cleaning.noPackagesTitle")}
             subtitle={t("cleaning.noPackagesDescription")}
           />
-        ) : search.isActive ? (
-          search.results.length === 0 ? (
-            <YdEmptyState icon={SearchX} title="No plans match" subtitle="Try a different word, or clear the search." />
-          ) : (
-            <div className="grid gap-2 md:grid-cols-2">
-              {search.results.map((item) => (
-                <CleaningPackageCard
-                  key={item.pkg.id}
-                  pkg={item.pkg}
-                  rating={ratings[item.providerId]}
-                  offer={offerBySourcePlanId.get(String(item.pkg.id)) ?? null}
-                  photos={item.gallery}
-                  onSubscribe={goToCheckout}
-                />
-              ))}
-            </div>
-          )
         ) : (
-          visibleGroups.map((category) => (
-            <section key={category.categoryKey} className="space-y-4">
-              {/* Category header — always shown so the 3-level architecture
-                  (category → provider → plans) is visible on every service,
-                  not just archetypes that happen to have multiple populated
-                  categories today. */}
-              <h2 className="text-[20px] font-semibold tracking-[-0.4px] text-foreground">
-                {category.categoryLabel}
-              </h2>
+          /**
+           * One flat list of plans, the shape the other three services and the
+           * design use. Cleaning used to break the list into a section per
+           * category — which is the same cut the chips right above it already
+           * make, so the page answered the same question twice and did it in
+           * two different places.
+           */
+          <section className="space-y-3">
+            <h2 className="text-[20px] font-semibold tracking-[-0.4px] text-foreground">Plans</h2>
 
-              {/* No provider line above the plans. Every cleaning provider is
-                  named after its category, so it read as the heading repeated
-                  in small caps — and the rail at the top of the page is
-                  already the way to a provider. */}
-              {category.providers.map((provider) => (
-                <div key={provider.providerId}>
-                  <div className="grid gap-2 md:grid-cols-2">
-                    {provider.packages.map((pkg: any) => (
-                      <CleaningPackageCard
-                        key={pkg.id}
-                        pkg={pkg}
-                        rating={ratings[provider.providerId]}
-                        photos={provider.providerGallery}
-                        offer={offerBySourcePlanId.get(String(pkg.id)) ?? null}
-                        onSubscribe={goToCheckout}
-                      />
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </section>
-          ))
+            {search.results.length === 0 ? (
+              <YdEmptyState icon={SearchX} title="No plans match" subtitle="Try a different word, or clear the search." />
+            ) : (
+              <div className="grid gap-2 md:grid-cols-2">
+                {search.results.map((item) => (
+                  <CleaningPackageCard
+                    key={item.pkg.id}
+                    pkg={item.pkg}
+                    rating={ratings[item.providerId]}
+                    offer={offerBySourcePlanId.get(String(item.pkg.id)) ?? null}
+                    photos={item.gallery}
+                    onSubscribe={goToCheckout}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
         )}
-
-        {/* Keep flatProviders reference in scope so tree-shakers don't drop
-            the memo; also lets us surface the count in a future footer. */}
-        {flatProviders.length === 0 && null}
 
       </main>
 
