@@ -392,7 +392,7 @@ const PlanDetail = () => {
                 <Link
                   key={crumb.label}
                   to={crumb.href}
-                  className="flex shrink-0 items-start gap-0.5 rounded-radius-md bg-muted py-1 pl-2 pr-1 text-[12px] font-medium leading-4 tracking-[-0.24px] text-muted-foreground transition-colors hover:text-foreground"
+                  className="flex shrink-0 items-start gap-0.5 rounded-radius-md bg-inset py-1 pl-2 pr-1 text-[12px] font-medium leading-4 tracking-[-0.24px] text-muted-foreground transition-colors hover:text-foreground"
                 >
                   <span className="max-w-[45vw] truncate">{crumb.label}</span>
                   <KeyboardArrowRightIcon className="h-4 w-4 shrink-0" />

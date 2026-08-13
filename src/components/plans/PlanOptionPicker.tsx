@@ -56,7 +56,7 @@ export function PlanOptionPicker({
           // a hair apart in the light theme, but in the dark --background is
           // BELOW the card and --muted is above it: using the page colour here
           // inverted the layer ladder and left the selected tile invisible.
-          className="flex w-full items-stretch gap-0 rounded-[18px] bg-muted p-0.5 shadow-figma"
+          className="flex w-full items-stretch gap-0 rounded-[18px] bg-inset p-0.5 shadow-figma"
         >
           {group.options.map((option) => {
             const selected = selection[group.key] === option.key;

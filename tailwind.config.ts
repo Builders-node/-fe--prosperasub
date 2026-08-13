@@ -40,6 +40,8 @@ export default {
           DEFAULT: "hsl(var(--muted))",
           foreground: "hsl(var(--muted-foreground))",
         },
+        /** A row, chip or rail sitting inside a card. See DESIGN.md → Layers. */
+        inset: "hsl(var(--inset))",
         accent: {
           DEFAULT: "hsl(var(--accent))",
           foreground: "hsl(var(--accent-foreground))",

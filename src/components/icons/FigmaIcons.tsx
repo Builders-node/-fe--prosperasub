@@ -124,6 +124,39 @@ export function SearchIcon(props: IconProps) {
   );
 }
 
+/** 18px box in the design — its own viewBox, like the check. */
+export function StarIcon(props: IconProps) {
+  return (
+    <svg viewBox="0 0 18 18" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden {...props}>
+    <g transform="translate(1.5, 1.88)">
+      <path d="M7.5 11.4525L12.135 14.25L10.905 8.9775L15 5.43L9.6075 4.9725L7.5 0L5.3925 4.9725L0 5.43L4.095 8.9775L2.865 14.25L7.5 11.4525Z" />
+    </g>
+    </svg>
+  );
+}
+
+/** 22px box in the design — its own viewBox, like the check. */
+export function InfoIcon(props: IconProps) {
+  return (
+    <svg viewBox="0 0 22 22" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden {...props}>
+    <g transform="translate(1.83, 1.83)">
+      <path d="M8.25 4.58333H10.0833V6.41667H8.25V4.58333ZM8.25 8.25H10.0833V13.75H8.25V8.25ZM9.16667 0C4.10667 0 0 4.10667 0 9.16667C0 14.2267 4.10667 18.3333 9.16667 18.3333C14.2267 18.3333 18.3333 14.2267 18.3333 9.16667C18.3333 4.10667 14.2267 0 9.16667 0ZM9.16667 16.5C5.12417 16.5 1.83333 13.2092 1.83333 9.16667C1.83333 5.12417 5.12417 1.83333 9.16667 1.83333C13.2092 1.83333 16.5 5.12417 16.5 9.16667C16.5 13.2092 13.2092 16.5 9.16667 16.5Z" />
+    </g>
+    </svg>
+  );
+}
+
+/** 32px box in the design — its own viewBox, like the check. */
+export function CommentIcon(props: IconProps) {
+  return (
+    <svg viewBox="0 0 32 32" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden {...props}>
+    <g transform="translate(2.67, 2.67)">
+      <path d="M26.6533 2.66667C26.6533 1.2 25.4667 0 24 0H2.66667C1.2 0 0 1.2 0 2.66667V18.6667C0 20.1333 1.2 21.3333 2.66667 21.3333H21.3333L26.6667 26.6667L26.6533 2.66667ZM24 2.66667V20.2267L22.44 18.6667H2.66667V2.66667H24ZM5.33333 13.3333H21.3333V16H5.33333V13.3333ZM5.33333 9.33333H21.3333V12H5.33333V9.33333ZM5.33333 5.33333H21.3333V8H5.33333V5.33333Z" />
+    </g>
+    </svg>
+  );
+}
+
 /** The design draws this in a 22px box, not 24 — hence its own viewBox. */
 export function CheckIcon(props: IconProps) {
   return (
