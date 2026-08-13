@@ -3,14 +3,13 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useProviderRatings } from "@/hooks/useProviderRatings";
 import { useListingSearch } from "@/hooks/useListingSearch";
-import { ListingToolbar } from "@/components/listing/ListingToolbar";
+import { ListingHeader } from "@/components/listing/ListingHeader";
 import { useArchetypeLabel } from "@/hooks/useServiceArchetypes";
 import { SearchX, Waves } from "lucide-react";
 import { providerHref } from "@/lib/services/serviceUrls";
 import { ProviderRail, CategoryChips, ALL_CATEGORIES } from "@/components/listing/ListingNav";
 import { useCategoryParam } from "@/hooks/useCategoryParam";
 import { groupProvidersByCategory } from "@/lib/services/groupByCategory";
-import { HomeHeader } from "@/components/HomeHeader";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
 import { BottomNav } from "@/components/BottomNav";
 import { YdEmptyState } from "@/components/yd/YdPrimitives";
@@ -244,8 +243,18 @@ const BeachClub = () => {
 
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-12">
-      <HomeHeader title={serviceTitle} showBackButton onBack={() => navigate("/discovery")} />
       <DesktopHeader />
+      <ListingHeader
+        title={serviceTitle}
+        onBack={() => navigate("/discovery")}
+        query={search.query}
+        onQueryChange={search.setQuery}
+        placeholder={`Search ${serviceTitle}`}
+        sort={search.sort}
+        onSortChange={search.setSort}
+        sorts={search.availableSorts}
+        showLocation={false}
+      />
 
       <main className="market-content py-space-4 md:py-space-8">
         {/* ─── Providers grouped by category ──────────────────────────
@@ -269,14 +278,14 @@ const BeachClub = () => {
           <YdEmptyState icon={Waves} title="No providers yet" subtitle="We're setting things up. Check back soon." />
         ) : (
           <div className="space-y-4">
-            <ProviderRail providers={visibleRail} icon={Waves} label="Providers" onOpen={openProvider} />
             <CategoryChips categories={chipCategories} value={activeCategory} onChange={setActiveCategory} />
+            <ProviderRail providers={visibleRail} icon={Waves} label="Providers" onOpen={openProvider} />
           </div>
         )}
 
         {/* ─── Plans ──────────────────────────────────────────────── */}
         <section id="entertainment-plans" className="mt-space-6 scroll-mt-4">
-          <h2 className="mb-4 text-xl font-black tracking-tight text-foreground">Plans</h2>
+          <h2 className="mb-4 text-[20px] font-semibold tracking-[-0.4px] text-foreground">Plans</h2>
 
           {plansQ.isLoading ? (
             <div className="grid gap-3 md:gap-4 md:grid-cols-2">
@@ -291,20 +300,10 @@ const BeachClub = () => {
             />
           ) : allPlans.length > 0 ? (
             <>
-              <ListingToolbar
-                query={search.query}
-                onQueryChange={search.setQuery}
-                sort={search.sort}
-                onSortChange={search.setSort}
-                sorts={search.availableSorts}
-                placeholder="Search plans"
-                resultCount={search.results.length}
-                className="mb-4"
-              />
               {search.results.length === 0 ? (
                 <YdEmptyState icon={SearchX} title="No plans match" subtitle="Try a different word, or clear the search." />
               ) : (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-2 md:grid-cols-2">
                   {search.results.map((item) =>
                     item.kind === "beach" ? (
                       <EntertainmentPlanCard

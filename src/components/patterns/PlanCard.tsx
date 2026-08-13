@@ -1,7 +1,6 @@
 import type { LucideIcon } from "lucide-react";
-import { ArrowRight, Check, Star } from "lucide-react";
+import { Star } from "lucide-react";
 import type { ReactNode } from "react";
-import { Button } from "@/components/ui/button";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 
@@ -42,8 +41,11 @@ export interface PlanCardProps {
   /** Whatever the service wants to flag — dietary tags, for instance. */
   badges?: ReactNode;
   chips?: PlanCardChip[];
+  /**
+   * Still accepted, no longer drawn: the row has no space for a tick-list, and
+   * the full list is on the plan's own page, one tap away.
+   */
   features?: string[];
-  /** How many features to show before cutting the list off. */
   maxFeatures?: number;
   /**
    * null cents = no price set, which the card says out loud. `from` marks an
@@ -59,45 +61,14 @@ export interface PlanCardProps {
   className?: string;
 }
 
-function PhotoStrip({ photos }: { photos: string[] }) {
-  const shown = photos.slice(0, 3);
-  return (
-    <div className="mb-4 grid grid-cols-3 gap-1.5">
-      {shown.map((url, i) => (
-        <div
-          key={i}
-          className={cn(
-            "relative aspect-square overflow-hidden rounded-xl bg-muted",
-            shown.length === 1 && "col-span-3 aspect-[16/9]",
-            shown.length === 2 && i === 0 && "col-span-2 aspect-auto",
-          )}
-        >
-          <img
-            src={url}
-            alt=""
-            loading="lazy"
-            decoding="async"
-            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-          />
-          {i === 2 && photos.length > 3 && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/55 text-sm font-bold text-white">
-              +{photos.length - 3}
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
 /** ★ 4.8 (12) — absent entirely when nobody has rated, never "0.0" or "No reviews". */
 export function RatingLine({ rating, className }: { rating?: PlanCardRating | null; className?: string }) {
   if (!rating || rating.count < 1) return null;
   return (
-    <span className={cn("inline-flex items-center gap-1 text-[13px] font-semibold text-foreground", className)}>
+    <span className={cn("inline-flex items-center gap-1 text-[12px] font-semibold tracking-[-0.24px] text-foreground", className)}>
       <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
       {rating.average.toFixed(1)}
-      <span className="font-medium text-muted-foreground">({rating.count})</span>
+      <span className="font-normal text-muted-foreground">({rating.count})</span>
     </span>
   );
 }
@@ -109,8 +80,6 @@ export function PlanCard({
   photos = [],
   badges,
   chips = [],
-  features = [],
-  maxFeatures = 3,
   price,
   rating,
   featured = false,
@@ -120,108 +89,107 @@ export function PlanCard({
   className,
 }: PlanCardProps) {
   const hasPrice = typeof price.cents === "number" && price.cents > 0;
-  const EyebrowIcon = eyebrow?.icon;
+  // An empty string in the gallery is still a gallery entry, and it drew a
+  // grey square where a photo should be.
+  const cover = photos.find((url) => typeof url === "string" && url.trim().length > 0);
+
+  /**
+   * The secondary line. A 120px row has one slot for grey 12px text, and the
+   * services fill it with different things — who sells it, cleaning's "3
+   * cleanings a month", food's meal tags, a plain description. They queue up
+   * in that one slot instead of each inventing a row of its own, which is what
+   * cost the description its second line.
+   */
+  const meta = [eyebrow?.text, description, ...chips.map((c) => c.label)]
+    .filter(Boolean).join(" · ");
+  const open = onOpen ?? (cta.disabled ? undefined : cta.onClick);
 
   return (
+    // 120px tall, 8px around the picture, 16px of air to the text — the
+    // design's row. The whole row is the target; the card no longer carries a
+    // Subscribe button, because on a list of eight plans eight buttons all
+    // meant "open this plan" and one of them was always the wrong one to hit.
     <article
-      role={onOpen ? "button" : undefined}
-      tabIndex={onOpen ? 0 : undefined}
-      onClick={onOpen}
+      role={open ? "button" : undefined}
+      tabIndex={open ? 0 : undefined}
+      onClick={open}
       onKeyDown={
-        onOpen
+        open
           ? (e) => {
-              if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOpen(); }
+              if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); }
             }
           : undefined
       }
       className={cn(
-        "group flex flex-col rounded-3xl p-5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+        "flex h-[120px] gap-4 rounded-radius-md py-2 pl-2 pr-4 shadow-figma transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
         featured ? "bg-primary/10 hover:bg-primary/15" : "bg-card hover:bg-muted/40",
-        onOpen && "cursor-pointer",
+        open && "cursor-pointer",
         className,
       )}
     >
-      {photos.length > 0 && <PhotoStrip photos={photos} />}
-
-      {featured && (
-        <span className="mb-2 self-start rounded-full bg-primary/20 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-primary">
-          {featuredLabel}
-        </span>
-      )}
-
-      {eyebrow && (
-        <p className="flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.16em] text-primary">
-          {EyebrowIcon && <EyebrowIcon className="h-3 w-3" />}
-          {eyebrow.text}
-        </p>
-      )}
-
-      <div className="mt-1 flex items-start justify-between gap-3">
-        <h3 className="text-lg font-black leading-tight tracking-tight text-foreground">{title}</h3>
-        <RatingLine rating={rating} className="mt-0.5 shrink-0" />
-      </div>
-
-      {description && (
-        <p className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-muted-foreground">{description}</p>
-      )}
-
-      {badges && <div className="mt-3 flex flex-wrap gap-1.5">{badges}</div>}
-
-      {chips.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {chips.map((chip) => {
-            const Icon = chip.icon;
-            return (
-              <span
-                key={chip.label}
-                className="inline-flex items-center gap-1 rounded-full bg-muted/60 px-2.5 py-1 text-[11px] font-medium text-muted-foreground"
-              >
-                {Icon && <Icon className="h-3 w-3" />}
-                {chip.label}
-              </span>
-            );
-          })}
+      {/* Square, the height of the card. Without a picture the square would be
+          an empty grey hole, so the row simply closes up around the text. */}
+      {cover && (
+        <div className="aspect-square h-full shrink-0 overflow-hidden rounded-[8px] bg-muted">
+          <img
+            src={cover}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            className="h-full w-full object-cover"
+          />
         </div>
       )}
 
-      {features.length > 0 && (
-        <ul className="mt-3 space-y-1">
-          {features.slice(0, maxFeatures).map((f, i) => (
-            <li key={i} className="flex items-start gap-2 text-[13px] text-muted-foreground">
-              <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
-              {f}
-            </li>
-          ))}
-        </ul>
-      )}
+      {/* `overflow-hidden` is what keeps the row 120px tall: without it a long
+          description pushes the price out through the bottom of the card. */}
+      <div className="flex min-w-0 flex-1 flex-col gap-1 overflow-hidden py-2">
+        {/* The "Most Popular" pill used to sit here and took two thirds of the
+            width, leaving "Toyota Rai…". The tinted background says the same
+            thing and costs no room. */}
+        <h3 className="truncate text-[16px] font-semibold tracking-[-0.32px] text-foreground" title={featured ? `${title} — ${featuredLabel}` : title}>
+          {title}
+        </h3>
 
-      {/* Price sits at the bottom of the card whatever the content above it,
-          so a grid of cards lines its prices up instead of stair-stepping. */}
-      <div className="mt-auto pt-4">
-        <div className="flex items-baseline gap-1">
-          {hasPrice ? (
-            <>
-              {price.from && <span className="text-sm text-muted-foreground">from</span>}
-              <span className="text-2xl font-black tabular-nums text-foreground">{formatUSD(price.cents!)}</span>
-              {price.unit && <span className="text-sm text-muted-foreground">{price.unit}</span>}
-            </>
-          ) : (
-            // A plan with no price is a half-finished admin entry. Saying so
-            // beats rendering "$0.00" next to a Subscribe button.
-            <span className="text-sm font-semibold text-muted-foreground">Price on request</span>
-          )}
-        </div>
+        {/* `flex-1` rather than a natural height: the description takes
+            whatever the row has left over after the title and the price, so a
+            long one is clamped instead of shoving the price off the card. */}
+        {meta && (
+          // The wrapper is not decoration: a flex item has its display
+          // blockified, which turns `-webkit-box` into `flow-root` and makes
+          // line-clamp a no-op. Clamping only works one level in.
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <p className="line-clamp-2 text-[12px] leading-[1.35] tracking-[-0.24px] text-muted-foreground">
+              {meta}
+            </p>
+          </div>
+        )}
 
-        <div onClick={(e) => e.stopPropagation()}>
-          <Button
-            size="lg"
-            className="mt-4 h-12 w-full rounded-2xl text-base font-bold"
-            disabled={cta.disabled}
-            onClick={cta.onClick}
-          >
-            {cta.disabled ? (cta.disabledLabel ?? cta.label) : cta.label}
-            {!cta.disabled && <ArrowRight className="ml-2 h-4 w-4" />}
-          </Button>
+        {badges && <div className="flex shrink-0 flex-wrap gap-1 overflow-hidden">{badges}</div>}
+
+        {/* Price pinned to the bottom right, so a column of rows lines its
+            prices up instead of stair-stepping with the text above them. */}
+        <div className="mt-auto flex shrink-0 items-end justify-between gap-2">
+          <RatingLine rating={rating} className="shrink-0" />
+          <div className="ml-auto flex items-end gap-1 whitespace-nowrap">
+            {hasPrice ? (
+              <>
+                {price.from && (
+                  <span className="pb-px text-[12px] tracking-[-0.24px] text-muted-foreground">From</span>
+                )}
+                <span className="text-[16px] font-semibold tabular-nums tracking-[-0.32px] text-foreground">
+                  {formatUSD(price.cents!)}
+                </span>
+                {price.unit && (
+                  <span className="pb-px text-[12px] tracking-[-0.24px] text-muted-foreground">{price.unit}</span>
+                )}
+              </>
+            ) : (
+              // A plan with no price is a half-finished admin entry. Saying so
+              // beats rendering "$0.00".
+              <span className="text-[12px] font-semibold text-muted-foreground">Price on request</span>
+            )}
+          </div>
         </div>
       </div>
     </article>

@@ -1,7 +1,7 @@
-import { SparklesIcon, CalendarDays } from "lucide-react";
+import { CalendarDays } from "lucide-react";
 import { PlanCard, type PlanCardRating } from "@/components/patterns/PlanCard";
 import type { PlanOffer } from "@/hooks/usePlanOffers";
-import { resolveMonthlyPriceCents, formatFrequencyLabel, formatPricingLabel } from "@/lib/cleaningPlanPricing";
+import { resolveMonthlyPriceCents, formatFrequencyLabel } from "@/lib/cleaningPlanPricing";
 
 /**
  * A `cleaning_packages` row as a plan card.
@@ -40,10 +40,9 @@ export function CleaningPackageCard({
                 label: g.options.map((o) => o.label).join(" · "),
               })),
             ]
-          : [
-              { icon: SparklesIcon, label: formatPricingLabel(pkg) },
-              { icon: CalendarDays, label: formatFrequencyLabel(pkg) },
-            ]
+          // The pricing label ("$29.00/month") used to sit here; on the row
+          // card it lands two words from the price itself and says it twice.
+          : [{ icon: CalendarDays, label: formatFrequencyLabel(pkg) }]
       }
       features={offer ? [] : (Array.isArray(pkg.features) ? pkg.features : [])}
       price={{

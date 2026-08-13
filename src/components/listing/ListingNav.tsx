@@ -35,65 +35,36 @@ export interface RailProvider {
 }
 
 export function ProviderRail({
-  providers, icon: FallbackIcon, onOpen, label = "Providers",
+  providers, onOpen, label = "Providers",
 }: {
   providers: RailProvider[];
-  icon: LucideIcon;
+  /** Kept for the callers that pass one; the design's tile is text only. */
+  icon?: LucideIcon;
   onOpen: (id: string) => void;
   label?: string;
 }) {
   if (providers.length === 0) return null;
   return (
     <section className="space-y-3">
-      <div className="flex items-baseline gap-2">
-        <h2 className="text-xl font-black tracking-tight text-foreground">{label}</h2>
-        <span className="text-caption tabular-nums text-muted-foreground">{providers.length}</span>
-      </div>
+      <h2 className="text-[20px] font-semibold tracking-[-0.4px] text-foreground">{label}</h2>
 
       {/*
-        Horizontal rail. `-mx-*` + matching padding lets cards bleed to the
-        screen edge on mobile so the last one is visibly cut off — the standard
-        affordance that there is more to swipe. `snap-x` makes the swipe settle
-        on a card instead of anywhere.
+        Half-width tiles, two of them on a 375px screen with the third cut off
+        — the standard affordance that there is more to swipe. `snap-x` makes
+        the swipe settle on a tile instead of anywhere.
       */}
-      <div className="-mx-space-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-space-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="-mx-space-4 flex snap-x snap-mandatory gap-2 overflow-x-auto px-space-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {providers.map((p) => (
           <button
             key={p.id}
             type="button"
             onClick={() => onOpen(p.id)}
-            className="group w-[260px] shrink-0 snap-start overflow-hidden rounded-2xl bg-card text-left transition-colors hover:bg-muted/40"
+            title={p.meta ? `${p.name} — ${p.meta}` : p.name}
+            className="flex h-20 w-[168px] shrink-0 snap-start items-center justify-center rounded-radius-md bg-card p-4 transition-colors hover:bg-muted/40"
           >
-            {p.gallery?.[0] ? (
-              <div className="aspect-[16/9] overflow-hidden bg-muted">
-                <img
-                  src={p.gallery[0]}
-                  alt=""
-                  loading="lazy"
-                  decoding="async"
-                  className="h-full w-full object-cover"
-                />
-              </div>
-            ) : null}
-            <div className="flex items-center gap-3 p-4">
-              {p.avatarUrl ? (
-                <img
-                  src={p.avatarUrl}
-                  alt=""
-                  loading="lazy"
-                  decoding="async"
-                  className="h-11 w-11 shrink-0 rounded-xl object-cover"
-                />
-              ) : (
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-                  <FallbackIcon className="h-5 w-5 text-primary" />
-                </span>
-              )}
-              <div className="min-w-0">
-                <p className="line-clamp-2 font-black leading-tight tracking-tight text-foreground">{p.name}</p>
-                {p.meta && <p className="mt-0.5 truncate text-caption text-muted-foreground">{p.meta}</p>}
-              </div>
-            </div>
+            <p className="line-clamp-2 w-full text-center text-[16px] font-semibold leading-tight tracking-[-0.32px] text-foreground">
+              {p.name}
+            </p>
           </button>
         ))}
       </div>
@@ -121,8 +92,10 @@ export function CategoryChips({
 }) {
   // One category is not a choice — showing a lone chip next to "All" is noise.
   if (categories.length < 2) return null;
-  const total = categories.reduce((n, c) => n + c.count, 0);
-  const options: ChipCategory[] = [{ key: ALL_CATEGORIES, label: allLabel, count: total }, ...categories];
+  const options: ChipCategory[] = [
+    { key: ALL_CATEGORIES, label: allLabel, count: categories.reduce((n, c) => n + c.count, 0) },
+    ...categories,
+  ];
 
   return (
     <div
@@ -139,22 +112,16 @@ export function CategoryChips({
             role="tab"
             aria-selected={selected}
             onClick={() => onChange(c.key)}
+            // The count is gone: it was a number nobody acts on, and it made
+            // every chip two words wide on the axis that is already scarce.
             className={cn(
-              "flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors",
+              "shrink-0 whitespace-nowrap rounded-radius-md px-4 py-2 text-[16px] font-semibold tracking-[-0.32px] transition-colors",
               selected
-                ? "bg-foreground text-background"
-                : "bg-muted/50 text-muted-foreground hover:text-foreground",
+                ? "bg-primary text-foreground"
+                : "bg-card text-foreground hover:bg-muted",
             )}
           >
             {c.label}
-            <span
-              className={cn(
-                "rounded-full px-1.5 text-xs tabular-nums",
-                selected ? "bg-background/20" : "bg-muted-foreground/15",
-              )}
-            >
-              {c.count}
-            </span>
           </button>
         );
       })}

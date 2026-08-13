@@ -124,6 +124,26 @@ export function SearchIcon(props: IconProps) {
   );
 }
 
+export function KeyboardArrowLeftIcon(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden {...props}>
+    <g transform="translate(8.29, 6)">
+      <path d="M7.41 10.59L2.83 6L7.41 1.41L6 0L0 6L6 12L7.41 10.59Z" />
+    </g>
+    </svg>
+  );
+}
+
+export function FilterListIcon(props: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden {...props}>
+    <g transform="translate(3, 6)">
+      <path d="M7 12H11V10H7V12ZM0 0V2H18V0H0ZM3 7H15V5H3V7Z" />
+    </g>
+    </svg>
+  );
+}
+
 export function KeyboardArrowRightIcon(props: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden {...props}>

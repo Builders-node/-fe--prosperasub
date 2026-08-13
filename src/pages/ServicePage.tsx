@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useProviderRatings } from "@/hooks/useProviderRatings";
 import { useListingSearch } from "@/hooks/useListingSearch";
-import { ListingToolbar } from "@/components/listing/ListingToolbar";
+import { ListingHeader } from "@/components/listing/ListingHeader";
 import { providerHref } from "@/lib/services/serviceUrls";
 import { ProviderRail, CategoryChips, ALL_CATEGORIES } from "@/components/listing/ListingNav";
 import { useCategoryParam } from "@/hooks/useCategoryParam";
@@ -184,8 +184,17 @@ const ServicePage = () => {
     <div className="min-h-screen bg-background pb-24 md:pb-12">
       {/* The archetype's own label — the same word the tile used and the same
           one the admin typed. */}
-      <HomeHeader title={archetype.label} showBackButton onBack={() => navigate("/discovery")} />
       <DesktopHeader />
+      <ListingHeader
+        title={archetype.label}
+        onBack={() => navigate("/discovery")}
+        query={search.query}
+        onQueryChange={search.setQuery}
+        placeholder={`Search ${archetype.label}`}
+        sort={search.sort}
+        onSortChange={search.setSort}
+        sorts={search.availableSorts}
+      />
 
       <main className="market-content py-space-4 md:py-space-8">
         {providersQ.isLoading ? (
@@ -207,15 +216,15 @@ const ServicePage = () => {
           />
         ) : (
           <div className="space-y-4">
-            <ProviderRail providers={rail} icon={Icon!} label="Providers" onOpen={openProvider} />
             {chips.length > 1 && (
               <CategoryChips categories={chips} value={activeCategory} onChange={setActiveCategory} />
             )}
+            <ProviderRail providers={rail} icon={Icon!} label="Providers" onOpen={openProvider} />
           </div>
         )}
 
         <section id="plans" className="mt-space-6 scroll-mt-4">
-          <h2 className="mb-4 text-xl font-black tracking-tight text-foreground">Plans</h2>
+          <h2 className="mb-3 text-[20px] font-semibold tracking-[-0.4px] text-foreground">Plans</h2>
 
           {plansQ.isLoading ? (
             <div className="grid gap-3 md:grid-cols-2 md:gap-4">
@@ -230,20 +239,10 @@ const ServicePage = () => {
             />
           ) : visiblePlans.length > 0 ? (
             <>
-              <ListingToolbar
-                query={search.query}
-                onQueryChange={search.setQuery}
-                sort={search.sort}
-                onSortChange={search.setSort}
-                sorts={search.availableSorts}
-                placeholder="Search plans"
-                resultCount={search.results.length}
-                className="mb-4"
-              />
               {search.results.length === 0 ? (
                 <YdEmptyState icon={SearchX} title="No plans match" subtitle="Try a different word, or clear the search." />
               ) : (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-2 md:grid-cols-2">
                   {search.results.map((plan: any) => (
                     <UniversalPlanCard
                       key={plan.id}

@@ -365,16 +365,20 @@
   /* Form inputs (Input, Textarea, Select triggers, etc.) — Yandex Прокат style:
      muted background, NO border, ring on focus.
      Catches all the shadcn/ui form components without per-file changes. */
-  .light input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
-  .light textarea,
+  /* `:not(.bg-transparent)` is the opt-out. Without it this rule painted its
+     own grey rectangle inside every field drawn by its container — the search
+     pills in the header and on /search — and won on specificity, because the
+     four :not()s above outweigh any single utility class. */
+  .light input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not(.bg-transparent),
+  .light textarea:not(.bg-transparent),
   .light select,
   .light [role="combobox"],
   .light [data-radix-select-trigger] {
     border-color: transparent !important;
     background-color: hsl(var(--input));
   }
-  .light input:focus,
-  .light textarea:focus,
+  .light input:not(.bg-transparent):focus,
+  .light textarea:not(.bg-transparent):focus,
   .light select:focus,
   .light [role="combobox"]:focus,
   .light [data-radix-select-trigger]:focus {

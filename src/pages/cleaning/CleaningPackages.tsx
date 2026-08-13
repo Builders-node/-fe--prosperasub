@@ -13,11 +13,10 @@ import { useProviderRatings } from "@/hooks/useProviderRatings";
 import { usePlanOffers } from "@/hooks/usePlanOffers";
 import { resolveMonthlyPriceCents } from "@/lib/cleaningPlanPricing";
 import { useListingSearch } from "@/hooks/useListingSearch";
-import { ListingToolbar } from "@/components/listing/ListingToolbar";
+import { ListingHeader } from "@/components/listing/ListingHeader";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { useI18n } from "@/i18n";
-import { HomeHeader } from "@/components/HomeHeader";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
 import { BottomNav } from "@/components/BottomNav";
 import { QueryError } from "@/components/QueryError";
@@ -291,8 +290,17 @@ const CleaningPackages = () => {
 
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-12">
-      <HomeHeader title={serviceTitle} showBackButton onBack={() => navigate("/discovery")} />
       <DesktopHeader />
+      <ListingHeader
+        title={serviceTitle}
+        onBack={() => navigate("/discovery")}
+        query={search.query}
+        onQueryChange={search.setQuery}
+        placeholder={`Search ${serviceTitle}`}
+        sort={search.sort}
+        onSortChange={search.setSort}
+        sorts={search.availableSorts}
+      />
 
       <main className="market-content space-y-8 py-space-4 md:py-space-8">
 
@@ -300,17 +308,8 @@ const CleaningPackages = () => {
             ListingNav — the same three-step shape on all four services. */}
         {!packagesQ.isLoading && !providersQ.isLoading && !categoriesQ.isLoading && categoryGroups.length > 0 && (
           <>
-            <ProviderRail providers={railProviders} icon={SparklesIcon} onOpen={openProvider} />
             <CategoryChips categories={chipCategories} value={activeCategory} onChange={setActiveCategory} />
-            <ListingToolbar
-              query={search.query}
-              onQueryChange={search.setQuery}
-              sort={search.sort}
-              onSortChange={search.setSort}
-              sorts={search.availableSorts}
-              placeholder="Search plans"
-              resultCount={search.results.length}
-            />
+            <ProviderRail providers={railProviders} icon={SparklesIcon} onOpen={openProvider} />
           </>
         )}
 
@@ -341,7 +340,7 @@ const CleaningPackages = () => {
           search.results.length === 0 ? (
             <YdEmptyState icon={SearchX} title="No plans match" subtitle="Try a different word, or clear the search." />
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-2 md:grid-cols-2">
               {search.results.map((item) => (
                 <CleaningPackageCard
                   key={item.pkg.id}
@@ -361,7 +360,7 @@ const CleaningPackages = () => {
                   (category → provider → plans) is visible on every service,
                   not just archetypes that happen to have multiple populated
                   categories today. */}
-              <h2 className="text-xl font-black tracking-tight text-foreground">
+              <h2 className="text-[20px] font-semibold tracking-[-0.4px] text-foreground">
                 {category.categoryLabel}
               </h2>
 
@@ -381,7 +380,7 @@ const CleaningPackages = () => {
                     <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
                   </button>
 
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  <div className="grid gap-2 md:grid-cols-2">
                     {provider.packages.map((pkg: any) => (
                       <CleaningPackageCard
                         key={pkg.id}

@@ -7,7 +7,6 @@ import { ProviderRail, CategoryChips, ALL_CATEGORIES } from "@/components/listin
 import { useCategoryParam } from "@/hooks/useCategoryParam";
 import { groupProvidersByCategory } from "@/lib/services/groupByCategory";
 import { supabaseDb } from "@/integrations/supabase/client";
-import { HomeHeader } from "@/components/HomeHeader";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
 import { BottomNav } from "@/components/BottomNav";
 import { QueryError } from "@/components/QueryError";
@@ -16,7 +15,7 @@ import { useResidenceFilter } from "@/hooks/useResidenceFilter";
 import { useProviderRatings } from "@/hooks/useProviderRatings";
 import { usePlanOffers } from "@/hooks/usePlanOffers";
 import { useListingSearch } from "@/hooks/useListingSearch";
-import { ListingToolbar } from "@/components/listing/ListingToolbar";
+import { ListingHeader } from "@/components/listing/ListingHeader";
 import { MealPlanCard } from "@/components/food/MealPlanCard";
 import type { FoodProvider, FoodMealPlan } from "@/types/food";
 import { DIETARY_TAGS, dietaryTagMeta, type DietaryTag } from "@/lib/foodDietaryTags";
@@ -250,20 +249,23 @@ const FoodListing = () => {
 
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-12">
-      <HomeHeader title={serviceTitle} showBackButton onBack={() => navigate("/discovery")} />
       <DesktopHeader />
+      <ListingHeader
+        title={serviceTitle}
+        onBack={() => navigate("/discovery")}
+        query={search.query}
+        onQueryChange={search.setQuery}
+        placeholder={`Search ${serviceTitle}`}
+        sort={search.sort}
+        onSortChange={search.setSort}
+        sorts={search.availableSorts}
+      />
 
       <main className="market-content py-space-4 md:py-space-8">
 
         {/* ─── Providers → Categories → the list ───────────────────── */}
         {!isLoading && !isError && railProviders.length > 0 && (
           <div className="mb-6 space-y-4">
-            <ProviderRail
-              providers={railProviders}
-              icon={ChefHat}
-              label="Restaurants"
-              onOpen={(id) => navigate(`/services/food/${id}`)}
-            />
             <div className="flex flex-wrap items-center gap-2">
               <CategoryChips categories={chipCategories} value={activeCategory} onChange={setActiveCategory} />
               {isFiltering && (
@@ -272,6 +274,12 @@ const FoodListing = () => {
                 </span>
               )}
             </div>
+            <ProviderRail
+              providers={railProviders}
+              icon={ChefHat}
+              label="Restaurants"
+              onOpen={(id) => navigate(`/services/food/${id}`)}
+            />
           </div>
         )}
 
@@ -313,7 +321,7 @@ const FoodListing = () => {
         {/* ─── Meal Plans ──────────────────────────────────────────── */}
         {allPlans.length > 0 && (
           <>
-            <h2 className="mb-3 mt-space-8 text-xl font-black tracking-tight text-foreground">
+            <h2 className="mb-3 mt-space-8 text-[20px] font-semibold tracking-[-0.4px] text-foreground">
               Meal Plans
               <span className="ml-2 text-base font-normal text-muted-foreground">
                 ({dietaryFilter || search.isActive ? search.results.length : allPlans.length})
@@ -363,16 +371,6 @@ const FoodListing = () => {
               </div>
             )}
 
-            <ListingToolbar
-              query={search.query}
-              onQueryChange={search.setQuery}
-              sort={search.sort}
-              onSortChange={search.setSort}
-              sorts={search.availableSorts}
-              placeholder="Search meal plans"
-              resultCount={search.results.length}
-              className="mb-4"
-            />
 
             {search.results.length > 0 ? (
               <div className="grid gap-3 md:gap-4 md:grid-cols-2 xl:grid-cols-3">

@@ -1,13 +1,12 @@
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { AccountMenu } from "@/components/AccountMenu";
-import { Button } from "@/components/ui/button";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { LocationSelector } from "@/components/LocationSelector";
-import { CartButton } from "@/components/CartButton";
 import { useCart } from "@/contexts/CartContext";
-import { NotificationsIcon, SearchIcon, ShoppingBagIcon } from "@/components/icons/FigmaIcons";
+import { cn } from "@/lib/utils";
+import {
+  KeyboardArrowLeftIcon, NotificationsIcon, SearchIcon, ShoppingBagIcon,
+} from "@/components/icons/FigmaIcons";
 
 interface HomeHeaderProps {
   title?: string;
@@ -20,9 +19,14 @@ interface HomeHeaderProps {
    * button plus a centred title is what a subpage is expected to look like.
    */
   variant?: "brand" | "title";
+  /**
+   * The title bar alone, with no rounding and no location row — for a page
+   * that continues the white panel underneath it (see ListingHeader).
+   */
+  bare?: boolean;
 }
 
-export function HomeHeader({ title, showBackButton = false, onBack, variant = "title" }: HomeHeaderProps) {
+export function HomeHeader({ title, showBackButton = false, onBack, variant = "title", bare = false }: HomeHeaderProps) {
   const navigate = useNavigate();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { openAuthModal } = useAuthModal();
@@ -88,37 +92,51 @@ export function HomeHeader({ title, showBackButton = false, onBack, variant = "t
   }
 
   return (
-    <header className="sticky top-0 z-40 bg-background border-b border-border/40 md:hidden">
-      <div className="relative flex items-center px-4" style={{ height: "56px" }}>
-        {/* Left */}
-        <div className="w-10 shrink-0">
+    // 56px of white: two 40px round buttons inside 8px of padding, with the
+    // title centred between them. No bottom border — the page behind it is
+    // #f6f6f6, and the white is the separation.
+    <header className={cn("sticky top-0 z-40 bg-card md:hidden", !bare && "rounded-b-radius-lg")}>
+      <div className="relative flex items-center justify-between p-2" style={{ height: "56px" }}>
+        <div className="h-10 w-10 shrink-0">
           {showBackButton && (
-            <Button type="button" variant="ghost" size="icon" className="h-10 w-10 rounded-full" aria-label="Back" onClick={handleBack}>
-              <ArrowLeft className="h-5 w-5" aria-hidden="true" />
-            </Button>
+            <button
+              type="button"
+              aria-label="Back"
+              onClick={handleBack}
+              className="flex h-10 w-10 items-center justify-center rounded-full text-foreground transition-colors hover:bg-muted"
+            >
+              <KeyboardArrowLeftIcon className="h-6 w-6" />
+            </button>
           )}
         </div>
 
-        {/* Center — native mobile pattern: a back button on the left plus the
-            page title in the centre. */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none">
-          <span className="max-w-[60vw] truncate text-[17px] font-black tracking-tight text-foreground">
+        {/* Centred on the header, not on what is left of it — a long title has
+            to stay centred whether or not there is a back button. */}
+        <div className="pointer-events-none absolute inset-0 flex select-none items-center justify-center px-14">
+          <span className="truncate text-[16px] font-semibold tracking-[-0.32px] text-foreground">
             {title ?? "EverySub"}
           </span>
         </div>
 
-        {/* Right */}
-        <div className="ml-auto flex shrink-0 items-center justify-end gap-0.5">
-          <CartButton />
+        <div className="flex h-10 shrink-0 items-center justify-end">
           {authLoading ? (
             <div className="h-10 w-10 animate-pulse rounded-full bg-muted" />
           ) : isAuthenticated ? (
-            <AccountMenu />
+            <button
+              type="button"
+              aria-label="Notifications"
+              onClick={() => navigate("/notifications")}
+              className="flex h-10 w-10 items-center justify-center rounded-full text-foreground transition-colors hover:bg-muted"
+            >
+              <NotificationsIcon className="h-6 w-6" />
+            </button>
           ) : (
+            // The bell is worth nothing to someone with no account, and the
+            // bottom bar's Account tab is the only other way in from here.
             <button
               type="button"
               onClick={() => openAuthModal("login")}
-              className="inline-flex h-9 shrink-0 items-center whitespace-nowrap rounded-full px-4 text-sm font-semibold transition-colors hover:opacity-80 yd-circle yd-text"
+              className="inline-flex h-10 shrink-0 items-center whitespace-nowrap rounded-full px-4 text-[16px] font-semibold text-foreground transition-colors hover:bg-muted"
             >
               Log in
             </button>
@@ -126,8 +144,10 @@ export function HomeHeader({ title, showBackButton = false, onBack, variant = "t
         </div>
       </div>
 
-      {/* Global location selector (self-hides when no residences exist) */}
-      <LocationSelector variant="full" />
+      {/* A listing continues the white panel with its own search and location
+          rows, so it takes the rounding off this one and puts it at the bottom
+          of its own. */}
+      {!bare && <LocationSelector variant="full" />}
     </header>
   );
 }

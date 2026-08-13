@@ -11,9 +11,8 @@ import { groupProvidersByCategory } from "@/lib/services/groupByCategory";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { useResidenceFilter } from "@/hooks/useResidenceFilter";
 import { useListingSearch } from "@/hooks/useListingSearch";
-import { ListingToolbar } from "@/components/listing/ListingToolbar";
+import { ListingHeader } from "@/components/listing/ListingHeader";
 import { ResponsiveDialog } from "@/components/patterns/ResponsiveDialog";
-import { HomeHeader } from "@/components/HomeHeader";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
 import { BottomNav } from "@/components/BottomNav";
 import { QueryError } from "@/components/QueryError";
@@ -189,8 +188,17 @@ const CarRental = () => {
 
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-12">
-      <HomeHeader title={serviceTitle} showBackButton onBack={() => navigate("/discovery")} />
       <DesktopHeader />
+      <ListingHeader
+        title={serviceTitle}
+        onBack={() => navigate("/discovery")}
+        query={search.query}
+        onQueryChange={search.setQuery}
+        placeholder={`Search ${serviceTitle}`}
+        sort={search.sort}
+        onSortChange={search.setSort}
+        sorts={search.availableSorts}
+      />
 
       <main className="market-content space-y-8 py-space-4 md:py-space-8">
 
@@ -241,14 +249,14 @@ const CarRental = () => {
           <YdEmptyState icon={Car} title="No providers yet" subtitle="We're setting things up. Check back soon." />
         ) : (
           <div className="space-y-4">
-            <ProviderRail providers={visibleRail} icon={Car} onOpen={openProvider} />
             <CategoryChips categories={chipCategories} value={activeCategory} onChange={setActiveCategory} />
+            <ProviderRail providers={visibleRail} icon={Car} onOpen={openProvider} />
           </div>
         )}
 
         {/* ─── Vehicles ──────────────────────────────────────────── */}
         <section id="rental-vehicles" className="scroll-mt-4">
-          <h2 className="mb-4 text-xl font-black tracking-tight text-foreground">Vehicles</h2>
+          <h2 className="mb-4 text-[20px] font-semibold tracking-[-0.4px] text-foreground">Vehicles</h2>
 
         {/* Vehicle grid */}
         {isLoading ? (
@@ -266,20 +274,10 @@ const CarRental = () => {
           />
         ) : visibleVehicles.length > 0 ? (
           <>
-          <ListingToolbar
-            query={search.query}
-            onQueryChange={search.setQuery}
-            sort={search.sort}
-            onSortChange={search.setSort}
-            sorts={search.availableSorts}
-            placeholder="Search cars"
-            resultCount={search.results.length}
-            className="mb-4"
-          />
           {search.results.length === 0 ? (
             <YdEmptyState icon={SearchX} title="No cars match" subtitle="Try a different word, or clear the search." />
           ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-2 md:grid-cols-2">
             {search.results.map((v: any, idx: number) => (
               <RentalVehicleCard
                 key={v.id}
