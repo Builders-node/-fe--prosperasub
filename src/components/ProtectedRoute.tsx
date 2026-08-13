@@ -1,9 +1,10 @@
 import { ReactNode, useEffect } from "react";
-import { Navigate, useLocation } from "react-router-dom";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth, AppRole } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { useAdminPermissions } from "@/hooks/useAdminPermissions";
 import { PageLoader } from "@/components/ui/spinner";
+import { Button } from "@/components/ui/button";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -22,7 +23,7 @@ interface ProtectedRouteProps {
 /**
  * ProtectedRoute handles three distinct cases:
  * 1. Loading — show spinner while auth state resolves
- * 2. Not authenticated — open AuthModal (Sheet on mobile / Dialog on desktop) over the current page
+ * 2. Not authenticated — open AuthModal over a screen that says so
  * 3. Authenticated but wrong role — show Unauthorized page
  * 4. Authenticated with correct role — render children
  */
@@ -105,11 +106,18 @@ function PermissionGate({
 }
 
 /**
- * Renders a minimal placeholder and immediately opens the auth modal.
- * Keeps the user on the same URL so after login they land on the right page.
+ * Opens the auth modal and stays on the URL, so logging in lands on the page
+ * that was asked for.
+ *
+ * What is behind the modal matters: this used to be a full-screen spinner, so
+ * dismissing the login left a page that span forever with nothing to press and
+ * no way out but the back button. A spinner is a promise that something is
+ * loading, and nothing was. It is now a plain screen that says what happened
+ * and offers the two ways forward.
  */
 function UnauthenticatedGate({ redirectTo }: { redirectTo: string }) {
   const { openAuthModal } = useAuthModal();
+  const navigate = useNavigate();
 
   useEffect(() => {
     // Open on next tick so the modal provider is fully mounted
@@ -117,7 +125,22 @@ function UnauthenticatedGate({ redirectTo }: { redirectTo: string }) {
     return () => clearTimeout(timer);
   }, [openAuthModal, redirectTo]);
 
-  return <PageLoader className="min-h-screen bg-background" />;
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background px-6 text-center">
+      <div>
+        <p className="text-[20px] font-semibold tracking-[-0.4px] text-foreground">Sign in to continue</p>
+        <p className="mt-1 text-[12px] tracking-[-0.24px] text-muted-foreground">
+          This page is yours — it needs an account to know which one.
+        </p>
+      </div>
+      <div className="flex w-full max-w-[280px] flex-col gap-2">
+        <Button className="w-full" onClick={() => openAuthModal("login", redirectTo)}>Log in</Button>
+        <Button variant="secondary" className="w-full" onClick={() => navigate("/discovery")}>
+          Back to home
+        </Button>
+      </div>
+    </div>
+  );
 }
 
 export default ProtectedRoute;

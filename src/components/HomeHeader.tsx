@@ -76,10 +76,16 @@ export function HomeHeader({ title, showBackButton = false, onBack, variant = "t
             </span>
           </button>
 
+          {/* Notifications is a protected route, so sending a signed-out
+              visitor there opened the page, then the login modal on top of it,
+              and left them on a page they could not see. Ask first, go after. */}
           <button
             type="button"
             aria-label="Notifications"
-            onClick={() => navigate("/notifications")}
+            onClick={() => (isAuthenticated
+              ? navigate("/notifications")
+              : openAuthModal("login", "/notifications"))}
+            onPointerDown={() => isAuthenticated && prefetchRoute("/notifications")}
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-foreground transition-colors hover:bg-muted"
           >
             <NotificationsIcon className="h-6 w-6" />
