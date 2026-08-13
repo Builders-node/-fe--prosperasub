@@ -174,11 +174,7 @@ const ServicePage = () => {
   }
 
   const openProvider = (providerId: string) => navigate(providerHref(archetype.key, providerId));
-  const subscribe = (planId: string) => {
-    const href = `/services/${archetype.key}/checkout/plan/${planId}`;
-    if (!isAuthenticated) openAuthModal("login", href);
-    else navigate(href);
-  };
+  const openPlan = (planId: string) => navigate(`/services/${archetype.key}/plans/${planId}`);
 
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-12">
@@ -249,7 +245,7 @@ const ServicePage = () => {
                       plan={plan}
                       rating={ratings[plan.provider_id]}
                       photos={providerMedia[plan.provider_id]}
-                      onSubscribe={subscribe}
+                      onSubscribe={openPlan}
                     />
                   ))}
                 </div>

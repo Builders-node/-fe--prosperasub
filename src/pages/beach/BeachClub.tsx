@@ -311,11 +311,7 @@ const BeachClub = () => {
                         plan={item.plan}
                         rating={ratings[item.providerId]}
                         photos={providerMedia[item.providerId]}
-                        onSubscribe={(id) => {
-                          const href = `/services/beach-club/checkout/${id}`;
-                          if (!isAuthenticated) openAuthModal("login", href);
-                          else navigate(href);
-                        }}
+                        onSubscribe={(id) => navigate(`/services/beach-club/plans/${id}`)}
                       />
                     ) : (
                       <UniversalPlanCard
@@ -323,11 +319,7 @@ const BeachClub = () => {
                         plan={item.plan}
                         rating={ratings[item.providerId]}
                         photos={providerMedia[item.providerId]}
-                        onSubscribe={(id) => {
-                          const href = `/services/beach-club/checkout/plan/${id}`;
-                          if (!isAuthenticated) openAuthModal("login", href);
-                          else navigate(href);
-                        }}
+                        onSubscribe={(id) => navigate(`/services/beach-club/plans/${id}`)}
                       />
                     ),
                   )}

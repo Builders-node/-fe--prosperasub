@@ -67,6 +67,7 @@ const SearchPage = lazy(() => import("./pages/Search"));
 const ProviderDetail = lazy(() => import("./pages/ProviderDetail"));
 const UniversalPlanCheckout = lazy(() => import("./pages/UniversalPlanCheckout"));
 const ServicePage = lazy(() => import("./pages/ServicePage"));
+const PlanDetail = lazy(() => import("./pages/PlanDetail"));
 
 
 // Food
@@ -222,6 +223,9 @@ const App = () => {
                   path a provider with no legacy table of its own takes. Sits
                   BEFORE the :providerId route only by convention; the segments
                   differ ("checkout/plan" vs "providers"), so they can't collide. */}
+              {/* The plan's own page — what a card opens. Food's four-segment
+                  route above is more specific, so food keeps its own. */}
+              <Route path="/services/:archetypeKey/plans/:planId" element={<PlanDetail />} />
               <Route path="/services/:archetypeKey/checkout/plan/:planId" element={
                 <ProtectedRoute><UniversalPlanCheckout /></ProtectedRoute>
               } />

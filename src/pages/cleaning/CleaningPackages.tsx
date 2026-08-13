@@ -215,13 +215,9 @@ const CleaningPackages = () => {
     (providersQ.data ?? []).map((p: any) => p.id),
   );
 
-  const goToCheckout = (pkgId: string) => {
-    if (!isAuthenticated) {
-      openAuthModal("login", `/services/cleaning/checkout/${pkgId}`);
-    } else {
-      navigate(`/services/cleaning/checkout/${pkgId}`);
-    }
-  };
+  // A card opens the plan's page, not the till — and looking needs no
+  // account, so the login prompt waits until Subscribe.
+  const openPlan = (pkgId: string) => navigate(`/services/cleaning/plans/${pkgId}`);
 
   // Rail = every provider with visible plans, flattened out of the category
   // groups. Chips = the categories those providers fall into.
@@ -352,7 +348,7 @@ const CleaningPackages = () => {
                     rating={ratings[item.providerId]}
                     offer={offerBySourcePlanId.get(String(item.pkg.id)) ?? null}
                     photos={item.gallery}
-                    onSubscribe={goToCheckout}
+                    onSubscribe={openPlan}
                   />
                 ))}
               </div>

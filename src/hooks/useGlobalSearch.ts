@@ -35,12 +35,12 @@ export interface SearchHit {
   haystack: string;
 }
 
-/** Where one legacy plan row is bought, by the service it belongs to. */
+/** One legacy plan row's own page, by the service it belongs to. */
 function legacyPlanHref(provider: any, legacyPlanId: string): string {
   switch (provider?.source_service_key) {
     case "food":     return `/services/food/${provider.source_provider_id}/plans/${legacyPlanId}`;
-    case "cleaning": return `/services/cleaning/checkout/${legacyPlanId}`;
-    case "beach":    return `/services/beach-club/checkout/${legacyPlanId}`;
+    case "cleaning": return `/services/cleaning/plans/${legacyPlanId}`;
+    case "beach":    return `/services/beach-club/plans/${legacyPlanId}`;
     default:         return "/discovery";
   }
 }
@@ -170,7 +170,7 @@ export function useGlobalSearch(query: string) {
       const monthly = p.monthly_price_cents
         ?? (p.price_per_cleaning_cents ?? 0) * (p.cleanings_per_month ?? 1);
       push(String(p.id), p.name, providerName.get(String(p.owner_provider_id)) ?? "Cleaning",
-           `/services/cleaning/checkout/${p.id}`, monthly || null, "/ month", [p.description]);
+           `/services/cleaning/plans/${p.id}`, monthly || null, "/ month", [p.description]);
     });
     data.food.forEach((p: any) => {
       if (variantSourceIds.has(String(p.id))) return;
@@ -184,7 +184,7 @@ export function useGlobalSearch(query: string) {
     });
     data.beach.forEach((p: any) => {
       push(String(p.id), p.name, "Beach Club",
-           `/services/beach-club/checkout/${p.id}`, p.price_per_person_cents ?? null,
+           `/services/beach-club/plans/${p.id}`, p.price_per_person_cents ?? null,
            "/ person · month", [p.tagline]);
     });
     data.plans.forEach((p: any) => {
@@ -199,9 +199,9 @@ export function useGlobalSearch(query: string) {
         // An offer opens on its cheapest combination — the same door the
         // listing card uses, so the option chips are already there.
         ? legacyPlanHref(provider, cheapest.sourceId)
-        // A plan with no legacy row behind it is bought through the universal
-        // checkout.
-        : `/services/beach-club/checkout/plan/${p.id}`;
+        // A plan with no legacy row behind it has its own page under whatever
+        // archetype its provider belongs to.
+        : `/services/${provider?.archetype_key ?? "beach-club"}/plans/${p.id}`;
 
       push(String(p.id), p.name, providerName.get(String(p.provider_id)) ?? null, href,
            p.price_cents ?? null, p.period === "weekly" ? "/ week" : "/ month", [p.description],
