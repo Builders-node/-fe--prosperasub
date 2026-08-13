@@ -124,6 +124,17 @@ export function SearchIcon(props: IconProps) {
   );
 }
 
+/** The design draws this in a 22px box, not 24 — hence its own viewBox. */
+export function CheckIcon(props: IconProps) {
+  return (
+    <svg viewBox="0 0 22 22" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden {...props}>
+    <g transform="translate(2.94, 4.85)">
+      <path d="M5.12417 9.69833L1.30167 5.87583L0 7.16833L5.12417 12.2925L16.1242 1.2925L14.8317 0L5.12417 9.69833Z" />
+    </g>
+    </svg>
+  );
+}
+
 export function KeyboardArrowLeftIcon(props: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden {...props}>

@@ -117,7 +117,7 @@ export function CategoryChips({
             className={cn(
               "shrink-0 whitespace-nowrap rounded-radius-md px-4 py-2 text-[16px] font-semibold tracking-[-0.32px] transition-colors",
               selected
-                ? "bg-primary text-foreground"
+                ? "bg-primary text-primary-foreground"
                 : "bg-card text-foreground hover:bg-muted",
             )}
           >

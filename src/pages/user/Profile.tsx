@@ -110,7 +110,7 @@ function PillSelector<T extends string | number>({ options, value, onChange }: {
         <button key={String(opt.value)} type="button" onClick={() => onChange(opt.value)}
           className={cn(
             "flex-1 rounded-radius-md px-3 py-2 text-[12px] font-semibold tracking-[-0.24px] transition-colors",
-            value === opt.value ? "bg-primary text-foreground" : "bg-card text-muted-foreground hover:text-foreground",
+            value === opt.value ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:text-foreground",
           )}
         >
           {opt.label}

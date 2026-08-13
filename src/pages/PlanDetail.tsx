@@ -1,19 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Check } from "lucide-react";
 import { HomeHeader } from "@/components/HomeHeader";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
 import { BottomNav } from "@/components/BottomNav";
-import { Button } from "@/components/ui/button";
 import { PageLoader } from "@/components/ui/spinner";
 import { QueryError } from "@/components/QueryError";
 import { YdEmptyState } from "@/components/yd/YdPrimitives";
-import { RatingLine } from "@/components/patterns/PlanCard";
 import { PlanOptionPicker } from "@/components/plans/PlanOptionPicker";
+import {
+  CheckIcon, KeyboardArrowLeftIcon, KeyboardArrowRightIcon, NotificationsIcon,
+} from "@/components/icons/FigmaIcons";
 import { ProviderReviewsBlock, type ProviderReviewService } from "@/components/reviews/ProviderReviewsBlock";
-import { useProviderRatings } from "@/hooks/useProviderRatings";
 import { findVariant, selectionFor, usePlanOffers, type PlanOffer } from "@/hooks/usePlanOffers";
+import { useArchetypeLabel } from "@/hooks/useServiceArchetypes";
+import { publicListingHref } from "@/lib/services/providerBridge";
+import { providerHref } from "@/lib/services/serviceUrls";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { supabaseDb } from "@/integrations/supabase/client";
@@ -146,16 +148,13 @@ const PlanDetail = () => {
     queryFn: async () => {
       const { data, error } = await supabaseDb
         .from("providers")
-        .select("id, name, description, avatar_url, gallery_urls")
+        .select("id, name, description, avatar_url, gallery_urls, category_key, archetype_key")
         .eq("id", plan!.providerId!)
         .maybeSingle();
       if (error) throw error;
       return data;
     },
   });
-
-  const ratings = useProviderRatings(plan?.providerId ? [plan.providerId] : []);
-  const rating = plan?.providerId ? ratings[plan.providerId] : null;
 
   // Options come from the offer this plan belongs to — the same bridge the
   // listing card uses, so the chips here match the "from $x" there.
@@ -203,6 +202,27 @@ const PlanDetail = () => {
     if (!isAuthenticated) openAuthModal("login", checkoutHref);
     else navigate(checkoutHref);
   };
+
+  /**
+   * The URL segment is not the archetype key — the beach club lives at
+   * /services/beach-club while its archetype is `entertainment`, so titling
+   * the page from the URL printed "beach-club" at the customer. The provider
+   * row knows which archetype it belongs to; ask it.
+   */
+  const providerArchetype = (providerQ.data as any)?.archetype_key as string | undefined;
+  const serviceLabel = useArchetypeLabel(providerArchetype ?? archetypeKey, archetypeKey);
+
+  const categoryKey = (providerQ.data as any)?.category_key as string | undefined;
+  const categoryQ = useQuery({
+    queryKey: ["plan-detail-category", categoryKey],
+    enabled: !!categoryKey,
+    queryFn: async () => {
+      const { data, error } = await supabaseDb
+        .from("service_categories").select("key, label").eq("key", categoryKey!).maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
 
   const gallery = useMemo(() => {
     const p: any = providerQ.data;
@@ -253,64 +273,133 @@ const PlanDetail = () => {
     archetypeKey === "food" ? "food" :
     archetypeKey === "beach-club" || archetypeKey === "entertainment" ? "beach" : null;
   const cover = gallery[0];
+
+  /**
+   * Provider › Service › Category, as the design draws it — three ways back
+   * out of a plan into the thing that contains it. Each crumb is dropped when
+   * there is nothing behind it to click, rather than rendered dead.
+   */
+  const listing = publicListingHref(
+    plan.source === "cleaning" ? "cleaning" : plan.source === "beach" ? "beach" : null,
+    archetypeKey,
+  );
+  const category = categoryQ.data as { key: string; label: string } | null | undefined;
+  const seenCrumbs = new Set<string>();
+  const breadcrumbs = ([
+    providerName && plan.providerId
+      ? { label: providerName, href: providerHref(archetypeKey, plan.providerId) }
+      : null,
+    listing ? { label: serviceLabel, href: listing } : null,
+    category && listing
+      ? { label: category.label, href: `${listing}?category=${encodeURIComponent(category.key)}` }
+      : null,
+  ].filter(Boolean) as Array<{ label: string; href: string }>)
+    .filter((c) => {
+      const key = c.label.trim().toLowerCase();
+      if (seenCrumbs.has(key)) return false;
+      seenCrumbs.add(key);
+      return true;
+    });
   // An offer's own price is the cheapest combination; once options are picked
   // the figure below is exact, so "From" only belongs on the unpicked case.
   const showFrom = !!offer && !chosen;
 
   return (
-    <div className="min-h-screen bg-background pb-40 md:pb-12">
+    <div className="min-h-screen bg-background pb-52 md:pb-12">
       <DesktopHeader />
-      <HomeHeader title={title} showBackButton onBack={() => navigate(-1)} bare />
 
-      <main className="market-content space-y-4 py-space-4 md:py-space-8">
-        {cover && (
-          <div className="overflow-hidden rounded-radius-md bg-card">
-            <img src={cover} alt="" className="h-52 w-full object-cover md:h-72" />
-          </div>
-        )}
+      {/*
+        The photo IS the header: 280px, rounded off at the bottom, with the
+        controls sitting on it over a top-down scrim. The scrim is what makes
+        white chrome legible on an unknown photograph — without it the back
+        arrow disappears into a bright sky.
+      */}
+      {cover ? (
+      <header className="relative h-[280px] w-full overflow-hidden rounded-b-radius-lg bg-muted shadow-figma md:hidden">
+        <img src={cover} alt="" className="absolute inset-0 h-full w-full object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/50 to-transparent" />
+        <div className="relative flex items-center justify-between p-2">
+          <button
+            type="button"
+            aria-label="Back"
+            onClick={() => navigate(-1)}
+            className="flex h-10 w-10 items-center justify-center rounded-full text-white transition-colors hover:bg-white/15"
+          >
+            <KeyboardArrowLeftIcon className="h-6 w-6" />
+          </button>
+          <span className="pointer-events-none absolute left-1/2 top-[18.5px] w-[60%] -translate-x-1/2 truncate text-center text-[16px] font-semibold tracking-[-0.32px] text-white">
+            {serviceLabel}
+          </span>
+          <button
+            type="button"
+            aria-label="Notifications"
+            onClick={() => (isAuthenticated ? navigate("/notifications") : openAuthModal("login", "/notifications"))}
+            className="flex h-10 w-10 items-center justify-center rounded-full text-white transition-colors hover:bg-white/15"
+          >
+            <NotificationsIcon className="h-6 w-6" />
+          </button>
+        </div>
+      </header>
+      ) : (
+        <div className="md:hidden">
+          <HomeHeader title={serviceLabel} showBackButton onBack={() => navigate(-1)} bare />
+        </div>
+      )}
 
-        <section className="rounded-radius-md bg-card p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <h1 className="text-[20px] font-semibold tracking-[-0.4px] text-foreground">{title}</h1>
-              {providerName && (
-                <p className="mt-0.5 text-[12px] tracking-[-0.24px] text-muted-foreground">{providerName}</p>
-              )}
-            </div>
-            <RatingLine rating={rating} className="mt-1 shrink-0" />
-          </div>
+      {/* Desktop keeps the ordinary title bar; the hero is a phone shape. */}
+      <div className="hidden md:block">
+        <HomeHeader title={title} showBackButton onBack={() => navigate(-1)} bare />
+      </div>
 
-          {description && (
-            <p className="mt-3 text-[16px] leading-[1.4] tracking-[-0.32px] text-muted-foreground">
-              {description}
-            </p>
+      <main className="market-content space-y-1 py-1 md:space-y-4 md:py-space-8">
+        <section className="space-y-3 rounded-radius-lg bg-card p-4 shadow-figma">
+          {breadcrumbs.length > 0 && (
+            <nav
+              aria-label="Breadcrumb"
+              className="-mx-4 flex items-start gap-2 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            >
+              {breadcrumbs.map((crumb) => (
+                <Link
+                  key={crumb.label}
+                  to={crumb.href}
+                  className="flex shrink-0 items-start gap-0.5 rounded-radius-md bg-background py-1 pl-2 pr-1 text-[12px] font-medium leading-4 tracking-[-0.24px] text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  <span className="max-w-[45vw] truncate">{crumb.label}</span>
+                  <KeyboardArrowRightIcon className="h-4 w-4 shrink-0" />
+                </Link>
+              ))}
+            </nav>
           )}
 
-          {plan.meta && (
-            <p className="mt-2 text-[12px] tracking-[-0.24px] text-muted-foreground">{plan.meta}</p>
+          <div className="space-y-2">
+            <h1 className="text-[24px] font-semibold leading-tight tracking-[-0.48px] text-foreground">{title}</h1>
+            {description && (
+              <p className="text-[16px] leading-[22px] tracking-[-0.32px] text-muted-foreground">{description}</p>
+            )}
+            {plan.meta && (
+              <p className="text-[12px] leading-4 tracking-[-0.24px] text-muted-foreground">{plan.meta}</p>
+            )}
+          </div>
+
+          {offer && offer.groups.length > 0 && (
+            <PlanOptionPicker offer={offer} selection={selection} onSelect={setSelection} />
+          )}
+
+          {offer && !chosen && (
+            <p className="text-[12px] tracking-[-0.24px] text-destructive">
+              That combination isn't offered — pick another.
+            </p>
           )}
         </section>
 
-        {offer && offer.groups.length > 0 && (
-          <section className="rounded-radius-md bg-card p-4">
-            <h2 className="mb-3 text-[16px] font-semibold tracking-[-0.32px] text-foreground">Choose your options</h2>
-            <PlanOptionPicker offer={offer} selection={selection} onSelect={setSelection} />
-            {!chosen && (
-              <p className="mt-3 text-[12px] tracking-[-0.24px] text-muted-foreground">
-                That combination isn't offered — pick another.
-              </p>
-            )}
-          </section>
-        )}
-
         {plan.features.length > 0 && (
-          <section className="rounded-radius-md bg-card p-4">
-            <h2 className="mb-3 text-[16px] font-semibold tracking-[-0.32px] text-foreground">What's included</h2>
+          <section className="space-y-3 rounded-radius-lg bg-card p-4 shadow-figma">
+            <h2 className="text-[20px] font-semibold tracking-[-0.4px] text-foreground">What's included</h2>
             <ul className="space-y-2">
               {plan.features.map((f, i) => (
-                <li key={i} className="flex items-start gap-2 text-[16px] tracking-[-0.32px] text-foreground">
-                  <Check className="mt-1 h-4 w-4 shrink-0 text-primary" />
-                  {f}
+                <li key={i} className="flex items-start gap-2">
+                  <CheckIcon className="h-[22px] w-[22px] shrink-0 text-primary" />
+                  <span className="flex-1 text-[16px] leading-[22px] tracking-[-0.32px] text-muted-foreground">{f}</span>
                 </li>
               ))}
             </ul>
@@ -318,33 +407,32 @@ const PlanDetail = () => {
         )}
 
         {plan.providerId && reviewService && (
-          <ProviderReviewsBlock providerId={plan.providerId} service={reviewService} />
+          <div className="rounded-radius-lg bg-card shadow-figma">
+            <ProviderReviewsBlock providerId={plan.providerId} service={reviewService} />
+          </div>
         )}
       </main>
 
-      {/* The price and the way to buy stay on screen while the page scrolls —
-          the one thing a customer is here to decide. */}
+      {/*
+        The price rides inside the button rather than beside it, because the
+        two were one decision pretending to be two: a customer reads "Pay
+        $99.00" and knows both what happens and what it costs.
+      */}
       <div
-        className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-card md:static md:mt-6 md:border-0"
+        className="fixed bottom-0 left-0 right-0 z-40 rounded-t-radius-lg bg-card md:static md:mt-6 md:rounded-none"
         style={{ paddingBottom: "calc(60px + env(safe-area-inset-bottom, 0px))" }}
       >
-        <div className="market-content flex items-center gap-3 py-3">
-          <div className="min-w-0 flex-1">
-            {typeof priceCents === "number" && priceCents > 0 ? (
-              <p className="flex items-end gap-1 whitespace-nowrap">
-                {showFrom && <span className="pb-px text-[12px] tracking-[-0.24px] text-muted-foreground">From</span>}
-                <span className="text-[20px] font-semibold tabular-nums tracking-[-0.4px] text-foreground">
-                  {formatUSD(priceCents)}
-                </span>
-                <span className="pb-px text-[12px] tracking-[-0.24px] text-muted-foreground">{plan.priceUnit}</span>
-              </p>
-            ) : (
-              <p className="text-[16px] font-semibold text-muted-foreground">Price on request</p>
-            )}
-          </div>
-          <Button className="shrink-0 px-8" onClick={subscribe} disabled={!!offer && !chosen}>
-            Subscribe
-          </Button>
+        <div className="market-content px-4 py-2">
+          <button
+            type="button"
+            onClick={subscribe}
+            disabled={!!offer && !chosen}
+            className="w-full rounded-radius-md bg-primary px-4 py-3 text-[16px] font-semibold leading-6 tracking-[-0.32px] text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
+          >
+            {typeof priceCents === "number" && priceCents > 0
+              ? `${showFrom ? "From " : "Pay "}${formatUSD(priceCents)}${plan.priceUnit ? ` ${plan.priceUnit}` : ""}`
+              : "Subscribe"}
+          </button>
         </div>
       </div>
 
