@@ -3,6 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { LocationSelector } from "@/components/LocationSelector";
 import { useCart } from "@/contexts/CartContext";
+import { prefetchRoute } from "@/lib/routeChunks";
 import { cn } from "@/lib/utils";
 import {
   KeyboardArrowLeftIcon, NotificationsIcon, SearchIcon, ShoppingBagIcon,
@@ -49,6 +50,7 @@ export function HomeHeader({ title, showBackButton = false, onBack, variant = "t
           <Link
             to="/cart"
             aria-label="Cart"
+            onPointerDown={() => prefetchRoute("/cart")}
             className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-primary transition-colors hover:bg-muted"
           >
             <ShoppingBagIcon className="h-6 w-6" />
@@ -65,6 +67,7 @@ export function HomeHeader({ title, showBackButton = false, onBack, variant = "t
           <button
             type="button"
             onClick={() => navigate("/search")}
+            onPointerDown={() => prefetchRoute("/search")}
             className="flex min-w-0 flex-1 items-center gap-2 rounded-radius-md bg-background px-3 py-2 text-left transition-colors hover:bg-muted"
           >
             <SearchIcon className="h-6 w-6 shrink-0 text-muted-foreground" />

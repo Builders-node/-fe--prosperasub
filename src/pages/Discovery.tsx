@@ -16,6 +16,7 @@ import { CategoryCarousel } from "@/components/discovery/CategoryCarousel";
 import { BusinessCenterIcon, QrCodeIcon } from "@/components/icons/FigmaIcons";
 import { useResidenceMatters } from "@/contexts/LocationContext";
 import { useI18n } from "@/i18n";
+import { prefetchRoute } from "@/lib/routeChunks";
 import { cn } from "@/lib/utils";
 
 // "My Subs" tile isn't a category, but sits alongside category tiles.
@@ -182,13 +183,16 @@ function ArchetypeTile({
   /** Active categories inside this service, in admin sort order. */
   categories?: TileCategory[];
 }) {
+  const href = publicListingHref(archetype.source_service_key, archetype.key) ?? "/discovery";
   return (
     // 120px tall, white, 16px radius, 16px padding, title pinned top and the
     // category list pinned bottom — the design's own card, and the reason the
     // grid reads as four equal things rather than four different heights.
     <Link
-      to={publicListingHref(archetype.source_service_key, archetype.key) ?? "/discovery"}
+      to={href}
       aria-label={archetype.label}
+      onPointerDown={() => prefetchRoute(href)}
+      onMouseEnter={() => prefetchRoute(href)}
       className="flex h-[120px] flex-col justify-between rounded-radius-md bg-card p-4 shadow-figma transition-colors active:scale-[0.98] hover:bg-muted/40"
     >
       <p className="line-clamp-2 text-[16px] font-semibold tracking-[-0.32px] text-foreground">

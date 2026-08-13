@@ -141,7 +141,16 @@ const App = () => {
             <TooltipProvider>
               <Toaster />
               <Sonner />
-              <BrowserRouter>
+              {/*
+                `v7_startTransition` is what stops a route change from blanking
+                the screen. Without it, navigating to a page whose chunk is not
+                loaded yet suspends outside a transition: React throws away the
+                whole tree and paints the full-screen fallback, so the header
+                and the tab bar disappear and come back. Inside a transition
+                React keeps the current screen on-screen until the new one is
+                ready, and the shell never moves.
+              */}
+              <BrowserRouter future={{ v7_startTransition: true }}>
                 <AuthModalProvider>
                 <LocationProvider>
                 <CartProvider>

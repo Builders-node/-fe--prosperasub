@@ -2,9 +2,10 @@ import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { getNavigationForRoles, isNavItemActive } from "@/config/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useCart } from "@/contexts/CartContext";
 import { ProfileModal } from "@/components/account/ProfileModal";
+import { prefetchRoute, prefetchShellRoutes } from "@/lib/routeChunks";
 import { cn } from "@/lib/utils";
 
 export function BottomNav() {
@@ -16,6 +17,13 @@ export function BottomNav() {
 
   const navItems = getNavigationForRoles(roles);
   const visibleNavItems = navItems.filter((item) => !(!isAuthenticated && item.requiresAuth));
+
+  // The tab bar is on screen the whole session and its four destinations are
+  // where most taps go, so their chunks are fetched once the app goes quiet.
+  useEffect(() => {
+    prefetchShellRoutes(visibleNavItems.map((i) => i.path));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleNavItems.length]);
 
   // Public browsing surfaces where bottom nav must stay reachable — otherwise
   // an unauthenticated user who taps a service tile gets stranded with no way
@@ -49,6 +57,9 @@ export function BottomNav() {
           // no weight change, no stroke change: the colour is the state.
           const tone = isActive ? "text-primary" : "text-muted-foreground";
           const className = "flex flex-1 flex-col items-center justify-center gap-1 p-2 transition-colors";
+          // A finger resting on the glass is ~100ms of free time before the
+          // click fires — enough for most chunks to arrive.
+          const warm = () => prefetchRoute(item.path);
           const isCart = item.path === "/cart";
           const inner = (
             <>
@@ -89,6 +100,7 @@ export function BottomNav() {
                 type="button"
                 className={className}
                 onClick={() => openAuthModal("login", item.path)}
+                onPointerDown={warm}
               >
                 {inner}
               </button>
@@ -96,7 +108,7 @@ export function BottomNav() {
           }
 
           return (
-            <Link key={item.path} to={item.path} className={className}>
+            <Link key={item.path} to={item.path} className={className} onPointerDown={warm} onMouseEnter={warm}>
               {inner}
             </Link>
           );
