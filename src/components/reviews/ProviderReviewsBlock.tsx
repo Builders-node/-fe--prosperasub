@@ -176,7 +176,7 @@ export function ProviderReviewsBlock({ providerId, service, ownerUserId, placeho
   return (
     <section className="space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-xl font-black tracking-tight text-foreground">Reviews</h2>
+        <h2 className="text-[20px] font-semibold tracking-[-0.4px] text-foreground">Reviews</h2>
         {reviews.length > 0 && (
           <div className="flex items-center gap-2">
             <StarRating value={avg} />

@@ -22,6 +22,7 @@ import { supabaseDb } from "@/integrations/supabase/client";
 import { isUuid } from "@/lib/cart/checkoutRows";
 import { resolveMonthlyPriceCents, formatFrequencyLabel } from "@/lib/cleaningPlanPricing";
 import { formatUSD } from "@/lib/pricing";
+import { cn } from "@/lib/utils";
 import { SearchX } from "lucide-react";
 
 /**
@@ -175,6 +176,19 @@ const PlanDetail = () => {
 
   const [selection, setSelection] = useState<Record<string, string>>({});
 
+  /**
+   * Has the hero scrolled past? The sticky bar is transparent over the photo
+   * and opaque over the page, because white icons on a white card cannot be
+   * seen. 220px is just before the 280px photo clears the 56px bar.
+   */
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 220);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   // Opening a plan that is one combination of an offer should show that
   // combination selected, not an empty picker.
   useEffect(() => {
@@ -305,44 +319,54 @@ const PlanDetail = () => {
   const showFrom = !!offer && !chosen;
 
   return (
-    <div className="min-h-screen bg-background pb-52 md:pb-12">
+    <div className="min-h-screen bg-background pb-32 md:pb-12">
       <DesktopHeader />
 
       {/*
-        The photo IS the header: 280px, rounded off at the bottom, with the
-        controls sitting on it over a top-down scrim. The scrim is what makes
-        white chrome legible on an unknown photograph — without it the back
-        arrow disappears into a bright sky.
+        The bar sticks, the photograph does not. Sticky-then-negative-margin
+        is what lets the photo start at the very top of the screen and slide
+        away underneath the controls, which is what the design shows and what
+        a customer expects from a hero.
+
+        The bar carries no background over the photo — the scrim below does
+        that job — and takes one once the photo has scrolled past, because
+        white icons on a white card are invisible.
       */}
-      {cover ? (
-      <header className="relative h-[280px] w-full overflow-hidden rounded-b-radius-lg bg-muted shadow-figma md:hidden">
-        <img src={cover} alt="" className="absolute inset-0 h-full w-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/50 to-transparent" />
-        <div className="relative flex items-center justify-between p-2">
+      <header
+        className={cn(
+          "sticky top-0 z-40 transition-colors md:hidden",
+          cover && !scrolled ? "text-white" : "bg-card text-foreground",
+          cover && "-mb-14",
+        )}
+      >
+        <div className="relative flex h-14 items-center justify-between p-2">
           <button
             type="button"
             aria-label="Back"
             onClick={() => navigate(-1)}
-            className="flex h-10 w-10 items-center justify-center rounded-full text-white transition-colors hover:bg-white/15"
+            className="flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-black/10"
           >
             <KeyboardArrowLeftIcon className="h-6 w-6" />
           </button>
-          <span className="pointer-events-none absolute left-1/2 top-[18.5px] w-[60%] -translate-x-1/2 truncate text-center text-[16px] font-semibold tracking-[-0.32px] text-white">
+          <span className="pointer-events-none absolute left-1/2 w-[60%] -translate-x-1/2 truncate text-center text-[16px] font-semibold tracking-[-0.32px]">
             {serviceLabel}
           </span>
           <button
             type="button"
             aria-label="Notifications"
             onClick={() => (isAuthenticated ? navigate("/notifications") : openAuthModal("login", "/notifications"))}
-            className="flex h-10 w-10 items-center justify-center rounded-full text-white transition-colors hover:bg-white/15"
+            className="flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-black/10"
           >
             <NotificationsIcon className="h-6 w-6" />
           </button>
         </div>
       </header>
-      ) : (
-        <div className="md:hidden">
-          <HomeHeader title={serviceLabel} showBackButton onBack={() => navigate(-1)} bare />
+
+      {cover && (
+        <div className="relative h-[280px] w-full overflow-hidden rounded-b-radius-lg bg-muted shadow-figma md:hidden">
+          <img src={cover} alt="" className="absolute inset-0 h-full w-full object-cover" />
+          {/* Without the scrim the back arrow disappears into a bright sky. */}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/50 to-transparent" />
         </div>
       )}
 
@@ -351,7 +375,13 @@ const PlanDetail = () => {
         <HomeHeader title={title} showBackButton onBack={() => navigate(-1)} bare />
       </div>
 
-      <main className="market-content space-y-1 py-1 md:space-y-4 md:py-space-8">
+      {/*
+        Full-bleed on a phone: the design gives the cards no side gutter, so
+        the 24px corners meet the screen edge and the 4px gaps are the only
+        separation. The page container comes back on a desktop, where a
+        1280px-wide card would be unreadable.
+      */}
+      <main className="flex flex-col gap-1 pt-1 md:mx-auto md:max-w-[1280px] md:gap-4 md:px-6 md:py-space-8">
         <section className="space-y-3 rounded-radius-lg bg-card p-4 shadow-figma">
           {breadcrumbs.length > 0 && (
             <nav
@@ -362,7 +392,7 @@ const PlanDetail = () => {
                 <Link
                   key={crumb.label}
                   to={crumb.href}
-                  className="flex shrink-0 items-start gap-0.5 rounded-radius-md bg-background py-1 pl-2 pr-1 text-[12px] font-medium leading-4 tracking-[-0.24px] text-muted-foreground transition-colors hover:text-foreground"
+                  className="flex shrink-0 items-start gap-0.5 rounded-radius-md bg-muted py-1 pl-2 pr-1 text-[12px] font-medium leading-4 tracking-[-0.24px] text-muted-foreground transition-colors hover:text-foreground"
                 >
                   <span className="max-w-[45vw] truncate">{crumb.label}</span>
                   <KeyboardArrowRightIcon className="h-4 w-4 shrink-0" />
@@ -407,22 +437,25 @@ const PlanDetail = () => {
         )}
 
         {plan.providerId && reviewService && (
-          <div className="rounded-radius-lg bg-card shadow-figma">
+          // The block is a bare <section>, so the card padding belongs here —
+          // full-bleed left its heading against the screen edge.
+          <div className="rounded-radius-lg bg-card p-4 shadow-figma">
             <ProviderReviewsBlock providerId={plan.providerId} service={reviewService} />
           </div>
         )}
       </main>
 
       {/*
-        The price rides inside the button rather than beside it, because the
-        two were one decision pretending to be two: a customer reads "Pay
-        $99.00" and knows both what happens and what it costs.
+        The design ends the screen here — no tab bar. A plan page is a decision,
+        and the way out is the back arrow or a breadcrumb, both of which are on
+        screen. The price rides inside the button rather than beside it: the two
+        were one decision pretending to be two.
       */}
       <div
         className="fixed bottom-0 left-0 right-0 z-40 rounded-t-radius-lg bg-card md:static md:mt-6 md:rounded-none"
-        style={{ paddingBottom: "calc(60px + env(safe-area-inset-bottom, 0px))" }}
+        style={{ paddingBottom: "calc(24px + env(safe-area-inset-bottom, 0px))" }}
       >
-        <div className="market-content px-4 py-2">
+        <div className="px-4 py-2 md:mx-auto md:max-w-[1280px] md:px-6">
           <button
             type="button"
             onClick={subscribe}
@@ -435,8 +468,6 @@ const PlanDetail = () => {
           </button>
         </div>
       </div>
-
-      <BottomNav />
     </div>
   );
 };
