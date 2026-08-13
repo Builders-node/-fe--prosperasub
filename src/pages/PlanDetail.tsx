@@ -16,7 +16,7 @@ import {
   CheckIcon, KeyboardArrowLeftIcon, KeyboardArrowRightIcon, NotificationsIcon,
 } from "@/components/icons/FigmaIcons";
 import { ProviderReviewsBlock, type ProviderReviewService } from "@/components/reviews/ProviderReviewsBlock";
-import { findVariant, selectionFor, usePlanOffers, type PlanOffer } from "@/hooks/usePlanOffers";
+import { findVariant, periodUnit, selectionFor, usePlanOffers, type PlanOffer } from "@/hooks/usePlanOffers";
 import { useArchetypeLabel } from "@/hooks/useServiceArchetypes";
 import { publicListingHref } from "@/lib/services/providerBridge";
 import { providerHref } from "@/lib/services/serviceUrls";
@@ -58,13 +58,13 @@ interface ResolvedPlan {
   meta: string | null;
   /** Food buys through its own screen, which is keyed by the legacy provider. */
   legacyProviderId?: string | null;
+  /** The plan's own photographs; the provider's are the fallback. */
+  gallery?: string[];
 }
 
 const asStringList = (value: unknown): string[] =>
   Array.isArray(value) ? value.filter((v): v is string => typeof v === "string" && !!v.trim()) : [];
 
-const periodUnit = (period: string | null | undefined) =>
-  period === "weekly" ? "/ week" : period === "yearly" ? "/ year" : "/ month";
 
 const PlanDetail = () => {
   const { archetypeKey = "", planId = "" } = useParams<{ archetypeKey: string; planId: string }>();
@@ -82,7 +82,7 @@ const PlanDetail = () => {
       if (isUuid(planId)) {
         const { data: universal, error } = await supabaseDb
           .from("provider_plans")
-          .select("id, provider_id, name, description, price_cents, period, features")
+          .select("id, provider_id, name, description, price_cents, period, features, gallery_urls")
           .eq("id", planId)
           .maybeSingle();
         if (error) throw error;
@@ -93,6 +93,7 @@ const PlanDetail = () => {
             title: universal.name,
             description: universal.description ?? null,
             features: asStringList(universal.features),
+            gallery: asStringList(universal.gallery_urls),
             priceCents: universal.price_cents ?? null,
             priceUnit: periodUnit(universal.period),
             providerId: universal.provider_id ? String(universal.provider_id) : null,
@@ -256,6 +257,12 @@ const PlanDetail = () => {
 
   /** What the customer is actually buying right now. */
   const priceCents = chosen?.priceCents ?? plan?.priceCents ?? null;
+  /**
+   * And on what terms. A variant may be billed differently from its offer —
+   * that is the whole point of a billing-period axis — so the unit beside the
+   * price has to come from the chosen combination.
+   */
+  const priceUnit = (chosen?.period && periodUnit(chosen.period)) || plan?.priceUnit || "";
   const buyableId = chosen
     ? (plan?.source === "universal" ? chosen.id : chosen.sourcePlanId ?? plan?.id ?? "")
     : plan?.id ?? "";
@@ -314,12 +321,18 @@ const PlanDetail = () => {
     },
   });
 
+  /**
+   * A plan shows its own photographs when it has any. Borrowing the
+   * provider's gallery made every plan a business sold look like every other
+   * one — the same pool photo above three different memberships.
+   */
   const gallery = useMemo(() => {
+    if (plan?.gallery?.length) return plan.gallery;
     const p: any = providerQ.data;
     if (!p) return [] as string[];
     const list = asStringList(p.gallery_urls);
     return list.length ? list : (p.avatar_url ? [p.avatar_url] : []);
-  }, [providerQ.data]);
+  }, [plan, providerQ.data]);
 
   if (planQ.isLoading) return <PageLoader />;
 
@@ -548,7 +561,7 @@ const PlanDetail = () => {
             className="w-full rounded-radius-md bg-primary px-4 py-3 text-[16px] font-semibold leading-6 tracking-[-0.32px] text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
           >
             {typeof priceCents === "number" && priceCents > 0
-              ? `${plan.source === "food" ? "Add to cart · " : showFrom ? "From " : "Pay "}${formatUSD(priceCents)}${plan.priceUnit ? ` ${plan.priceUnit}` : ""}`
+              ? `${plan.source === "food" ? "Add to cart · " : showFrom ? "From " : "Pay "}${formatUSD(priceCents)}${priceUnit ? ` ${priceUnit}` : ""}`
               : "Subscribe"}
           </button>
         </div>

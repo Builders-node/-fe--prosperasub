@@ -36,7 +36,33 @@ export interface PlanVariant {
   optionKeys: Record<string, string>;
   /** The legacy row this variant IS — food_meal_plans.id, cleaning_packages.id. */
   sourcePlanId: string | null;
+  /** monthly | weekly | yearly — a variant may be billed differently. */
+  period: string | null;
 }
+
+/**
+ * The axis a provider gets for free.
+ *
+ * "One plan, several prices depending on how often you pay" needs no new
+ * storage: a variant already has its own `period` and its own `price_cents`.
+ * When an offer's variants disagree about the period, that difference IS an
+ * axis, and it is presented like any other — so a provider adds a yearly price
+ * by adding a variant, not by learning a second concept.
+ */
+export const BILLING_PERIOD_GROUP = "billing_period";
+
+const PERIOD_LABELS: Record<string, string> = {
+  weekly: "Weekly", monthly: "Monthly", quarterly: "Quarterly", yearly: "Yearly",
+};
+
+/** "/ month" — what goes beside a price. */
+const PERIOD_UNITS: Record<string, string> = {
+  weekly: "/ week", monthly: "/ month", quarterly: "/ quarter", yearly: "/ year",
+};
+export const periodUnit = (p: string | null | undefined) => (p && PERIOD_UNITS[p]) || "";
+
+export const periodLabel = (p: string | null | undefined) =>
+  (p && PERIOD_LABELS[p]) || (p ? p[0].toUpperCase() + p.slice(1) : "");
 
 export interface PlanOffer {
   id: string;
@@ -130,6 +156,7 @@ export function usePlanOffers(
           status: r.status,
           optionKeys: asOptionKeys(r.option_keys),
           sourcePlanId: r.source_plan_id ? String(r.source_plan_id) : null,
+          period: r.period ?? null,
         });
         variantsByParent.set(String(r.parent_plan_id), list);
       });
@@ -163,6 +190,26 @@ export function usePlanOffers(
 
       return offerRows.map((r: any) => {
         const variants = variantsByParent.get(String(r.id)) ?? [];
+
+        /**
+         * Periods become a group only when they actually differ — an offer
+         * whose variants are all monthly must not grow a one-chip row saying
+         * "Monthly".
+         */
+        const periods = [...new Set(variants.map((v) => v.period).filter(Boolean))] as string[];
+        const periodGroup: PlanOptionGroup[] = periods.length > 1
+          ? [{
+              key: BILLING_PERIOD_GROUP,
+              label: "Billing period",
+              options: periods.map((p) => ({ key: p, label: periodLabel(p) })),
+            }]
+          : [];
+        // The variant has to answer for the axis it is being matched on.
+        if (periodGroup.length) {
+          variants.forEach((v) => {
+            if (v.period) v.optionKeys[BILLING_PERIOD_GROUP] = v.period;
+          });
+        }
         const prices = variants.map((v) => v.priceCents).filter((n) => n > 0);
         return {
           id: String(r.id),
@@ -171,7 +218,7 @@ export function usePlanOffers(
           description: r.description ?? null,
           period: r.period ?? null,
           sourceServiceKey: r.source_service_key ?? null,
-          groups: groupsByPlan.get(String(r.id)) ?? [],
+          groups: [...(groupsByPlan.get(String(r.id)) ?? []), ...periodGroup],
           variants,
           fromCents: prices.length ? Math.min(...prices) : null,
         };
