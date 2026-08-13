@@ -33,7 +33,7 @@ import { formatUSD, centsToDollars } from "@/lib/pricing";
 import { useBtcPrice } from "@/hooks/useBtcPrice";
 import { getMealTypesForPlan, formatWeekLabel } from "@/lib/foodUtils";
 import { MyRationView } from "@/components/food/MyRationView";
-import { MealSelectionPicker, defaultMealsForCount, type MealKey } from "@/components/food/MealSelectionPicker";
+import { MEAL_KEYS, defaultMealsForCount, type MealKey } from "@/components/food/MealSelectionPicker";
 import type { FoodProvider, FoodMealPlan, FoodWeeklyMenu, FoodMenuMeal } from "@/types/food";
 import { MEAL_TYPE_LABELS } from "@/types/food";
 import { toast } from "sonner";
@@ -127,7 +127,15 @@ const FoodPlanDetail = () => {
   // is coupled to the plan (not user-editable text): easier to reset when the
   // plan loads. Initialised empty so the customer must actively pick — unless
   // the plan is 3-meal, in which case the picker auto-locks all three.
-  const [selectedMeals, setSelectedMeals] = useState<MealKey[]>([]);
+  /**
+   * Chosen on the plan page and carried in the URL — picking them here as
+   * well was the same question asked twice, on two screens, with the second
+   * one silently winning.
+   */
+  const [selectedMeals, setSelectedMeals] = useState<MealKey[]>(() => {
+    const raw = new URLSearchParams(window.location.search).get("meals") ?? "";
+    return raw.split(",").filter((m): m is MealKey => MEAL_KEYS.includes(m as MealKey));
+  });
 
   // ─── Payment state ────────────────────────────────────────────────────────
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("lightning");
@@ -625,7 +633,7 @@ const FoodPlanDetail = () => {
   if (loadingPlan) {
     return (
       <div className="min-h-screen bg-background pb-24 md:pb-0">
-        <HomeHeader title="Meal Plan" showBackButton onBack={() => navigate(`/services/food/${providerId}`)} />
+        <HomeHeader title="Checkout" showBackButton onBack={() => navigate(`/services/food/plans/${planId}`)} />
         <DesktopHeader />
         <main className="market-content py-space-6 space-y-4">
           {[1, 2, 3].map((i) => <div key={i} className="h-24 animate-pulse rounded-2xl bg-muted" />)}
@@ -638,7 +646,7 @@ const FoodPlanDetail = () => {
   if (!plan) {
     return (
       <div className="min-h-screen bg-background pb-24 md:pb-0">
-        <HomeHeader title="Meal Plan" showBackButton onBack={() => navigate(`/services/food/${providerId}`)} />
+        <HomeHeader title="Checkout" showBackButton onBack={() => navigate(`/services/food/plans/${planId}`)} />
         <DesktopHeader />
         <main className="market-content flex flex-col items-center justify-center py-16">
           <ChefHat className="mb-4 h-12 w-12 text-muted-foreground/40" />
@@ -652,100 +660,20 @@ const FoodPlanDetail = () => {
   // ─── Render ───────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background pb-36 md:pb-32">
-      <HomeHeader title={plan.name} showBackButton onBack={() => navigate(`/services/food/${providerId}`)} />
+      <HomeHeader title="Checkout" showBackButton onBack={() => navigate(`/services/food/plans/${planId}`)} />
       <DesktopHeader />
 
       <main className="market-content py-space-6 md:py-space-12">
-        <div className="lg:grid lg:grid-cols-[380px_1fr] lg:gap-8 xl:grid-cols-[420px_1fr]">
+        <div>
 
-          {/* Left column — Plan info (sticky on desktop) */}
-          <section className="lg:sticky lg:top-20 lg:self-start">
-            <div className="overflow-hidden rounded-3xl bg-card">
-              {/* Dish photo hero */}
-              <div className="relative h-44 w-full overflow-hidden bg-muted/30 md:h-52">
-                {mealPhotos.length > 0 ? (
-                  <img src={mealPhotos[0]} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
-                ) : (
-                  <div className="flex h-full items-center justify-center">
-                    <UtensilsCrossed className="h-16 w-16 text-muted-foreground/15" />
-                  </div>
-                )}
-                {mealPhotos.length > 1 && (
-                  <span className="absolute bottom-3 right-3 rounded-full bg-background/85 px-2.5 py-1 text-xs font-bold text-foreground backdrop-blur-sm">
-                    {mealPhotos.length} dishes
-                  </span>
-                )}
-              </div>
-
-              <div className="p-5 md:p-7">
-                {provider && (
-                  <p className="flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.16em] text-primary">
-                    <ChefHat className="h-3 w-3" /> {provider.name}
-                  </p>
-                )}
-                <h1 className="mt-1 text-2xl font-black leading-tight tracking-tight text-foreground md:text-3xl">
-                  {offer?.name ?? plan.name}
-                </h1>
-                {plan.description && (
-                  <p className="mt-2 text-body text-muted-foreground">{plan.description}</p>
-                )}
-
-                {offer && (
-                  <PlanOptionPicker
-                    offer={offer}
-                    selection={selection}
-                    onSelect={chooseOptions}
-                    className="mt-5"
-                  />
-                )}
-
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {/* Already answered by the chips above when this plan is part
-                      of an offer — repeating it reads as a second control. */}
-                  {!offer && (
-                    <>
-                      <span className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1 text-sm font-medium text-muted-foreground">
-                        <UtensilsCrossed className="h-3.5 w-3.5" /> {plan.meals_per_day} meals/day
-                      </span>
-                      <span className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1 text-sm font-medium text-muted-foreground">
-                        <CalendarDays className="h-3.5 w-3.5" /> {plan.days_per_week} days/week
-                      </span>
-                    </>
-                  )}
-                  {mealTypes.map((t) => (
-                    <span key={t} className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
-                      {MEAL_TYPE_LABELS[t]}
-                    </span>
-                  ))}
-                </div>
-
-                {plan.highlights && plan.highlights.length > 0 && (
-                  <ul className="mt-4 flex flex-wrap gap-x-6 gap-y-1.5">
-                    {plan.highlights.map((h, i) => (
-                      <li key={i} className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Check className="h-3.5 w-3.5 shrink-0 text-primary" /> {h}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-
-                <div className="mt-5 flex items-baseline gap-1 border-t border-border/60 pt-4">
-                  <span className="text-4xl font-black tabular-nums text-foreground">
-                    {formatUSD(plan.weekly_price_cents)}
-                  </span>
-                  <span className="text-sm text-muted-foreground">/ week</span>
-                  {btcPrice && (
-                    <span className="ml-2 text-sm text-muted-foreground">
-                      ≈ {convertToSats(centsToDollars(plan.weekly_price_cents)).toLocaleString()} sats
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-          </section>
-
+          {/*
+            The plan's photo, name, description, option chips and price used to
+            be repeated here, one screen below the page that already showed
+            them. This is the till: what you are buying is settled, and all
+            that is left is for how long and by what means.
+          */}
           {/* Right column — This week's menu */}
-          <section className="mt-space-8 lg:mt-0">
+          <section>
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-xl font-black tracking-tight">This Week&apos;s Menu</h2>
               {weeklyMenu && (
@@ -972,16 +900,6 @@ const FoodPlanDetail = () => {
                   allowed (that's a separate plan); customer picks exactly
                   meals_per_day unique meals. Gated Pay button reads the same
                   `mealsValid` used for `checkoutValid`. */}
-              <section className="space-y-2">
-                <div className="px-1"><SectionOverline label="Your daily meals" /></div>
-                <div className="rounded-3xl bg-card p-5">
-                  <MealSelectionPicker
-                    value={selectedMeals}
-                    onChange={setSelectedMeals}
-                    mealsPerDay={requiredMeals}
-                  />
-                </div>
-              </section>
 
               {/* Summary — mobile-first: single card, subtle dividers between
                   breakdown rows, clear total row with primary emphasis. */}

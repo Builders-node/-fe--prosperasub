@@ -9,6 +9,7 @@ import { PageLoader } from "@/components/ui/spinner";
 import { QueryError } from "@/components/QueryError";
 import { YdEmptyState } from "@/components/yd/YdPrimitives";
 import { PlanOptionPicker } from "@/components/plans/PlanOptionPicker";
+import { MealSelectionPicker, defaultMealsForCount, type MealKey } from "@/components/food/MealSelectionPicker";
 import {
   CheckIcon, KeyboardArrowLeftIcon, KeyboardArrowRightIcon, NotificationsIcon,
 } from "@/components/icons/FigmaIcons";
@@ -233,6 +234,21 @@ const PlanDetail = () => {
 
   const chosen = offer ? findVariant(offer, selection) : null;
 
+  /**
+   * Which meals of the day, for food.
+   *
+   * This used to live on the checkout screen, one scroll below a second copy
+   * of everything already on this page. The count comes from the combination
+   * the customer just picked — three meals a day means three chips lit.
+   */
+  const mealsPerDay = plan?.source === "food"
+    ? Number(chosen?.optionKeys?.meals_per_day ?? selection.meals_per_day ?? 1) || 1
+    : 0;
+  const [meals, setMeals] = useState<MealKey[]>([]);
+  useEffect(() => {
+    if (mealsPerDay > 0) setMeals(defaultMealsForCount(mealsPerDay));
+  }, [mealsPerDay]);
+
   /** What the customer is actually buying right now. */
   const priceCents = chosen?.priceCents ?? plan?.priceCents ?? null;
   const buyableId = chosen
@@ -244,7 +260,8 @@ const PlanDetail = () => {
     plan.source === "beach"    ? `/services/beach-club/checkout/${buyableId}` :
     // Food keeps its own screen — the weekly menu and the delivery details
     // live there, and it is where the payment happens.
-    plan.source === "food"     ? `/services/food/${plan.legacyProviderId}/plans/${buyableId}` :
+    plan.source === "food"
+      ? `/services/food/${plan.legacyProviderId}/plans/${buyableId}?meals=${meals.join(",")}` :
     `/services/${archetypeKey}/checkout/plan/${buyableId}`;
 
   const subscribe = () => {
@@ -456,6 +473,12 @@ const PlanDetail = () => {
             <PlanOptionPicker offer={offer} selection={selection} onSelect={setSelection} />
           )}
 
+          {plan.source === "food" && mealsPerDay > 0 && (
+            <div className="rounded-radius-md bg-inset px-4 py-3">
+              <MealSelectionPicker value={meals} onChange={setMeals} mealsPerDay={mealsPerDay} />
+            </div>
+          )}
+
           {offer && !chosen && (
             <p className="text-[12px] tracking-[-0.24px] text-destructive">
               That combination isn't offered — pick another.
@@ -500,7 +523,7 @@ const PlanDetail = () => {
           <button
             type="button"
             onClick={subscribe}
-            disabled={!!offer && !chosen}
+            disabled={(!!offer && !chosen) || (mealsPerDay > 0 && meals.length !== Math.min(mealsPerDay, 3))}
             className="w-full rounded-radius-md bg-primary px-4 py-3 text-[16px] font-semibold leading-6 tracking-[-0.32px] text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
           >
             {typeof priceCents === "number" && priceCents > 0
