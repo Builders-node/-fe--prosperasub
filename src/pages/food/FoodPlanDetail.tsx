@@ -32,7 +32,6 @@ import { phoneError } from "@/components/patterns/CustomerPhone";
 import { formatUSD, centsToDollars } from "@/lib/pricing";
 import { useBtcPrice } from "@/hooks/useBtcPrice";
 import { getMealTypesForPlan, formatWeekLabel } from "@/lib/foodUtils";
-import { MyRationView } from "@/components/food/MyRationView";
 import { MEAL_KEYS, defaultMealsForCount, type MealKey } from "@/components/food/MealSelectionPicker";
 import type { FoodProvider, FoodMealPlan, FoodWeeklyMenu, FoodMenuMeal } from "@/types/food";
 import { MEAL_TYPE_LABELS } from "@/types/food";
@@ -687,29 +686,6 @@ const FoodPlanDetail = () => {
             them. This is the till: what you are buying is settled, and all
             that is left is for how long and by what means.
           */}
-          {/* Right column — This week's menu */}
-          <section>
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-xl font-black tracking-tight">This Week&apos;s Menu</h2>
-              {weeklyMenu && (
-                <Badge className="rounded-full bg-green-500/15 text-green-400">
-                  Week of {formatWeekLabel(weeklyMenu.menu.week_start_date)}
-                </Badge>
-              )}
-            </div>
-            {loadingMenu ? (
-              <div className="space-y-3">
-                {[1, 2, 3].map((i) => <div key={i} className="h-28 animate-pulse rounded-2xl bg-muted" />)}
-              </div>
-            ) : (
-              <MyRationView
-                meals={weeklyMenu?.meals ?? []}
-                mealTypes={mealTypes}
-                weekStartDate={weeklyMenu?.menu.week_start_date ?? ""}
-                hideDishes={!!weeklyMenu?.hidden}
-              />
-            )}
-          </section>
 
         </div>
       </main>

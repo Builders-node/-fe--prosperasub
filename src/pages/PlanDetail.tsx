@@ -10,8 +10,6 @@ import { QueryError } from "@/components/QueryError";
 import { YdEmptyState } from "@/components/yd/YdPrimitives";
 import { PlanOptionPicker } from "@/components/plans/PlanOptionPicker";
 import { MealSelectionPicker, defaultMealsForCount, type MealKey } from "@/components/food/MealSelectionPicker";
-import { WeeklyMenuDisplay } from "@/components/food/WeeklyMenuDisplay";
-import { useFoodWeeklyMenu } from "@/hooks/useFoodWeeklyMenu";
 import { useCart } from "@/contexts/CartContext";
 import { toast } from "sonner";
 import {
@@ -212,11 +210,6 @@ const PlanDetail = () => {
     return offerBySourcePlanId.get(plan.id) ?? null;
   }, [plan, offers, offerBySourcePlanId]);
 
-  // What is being cooked this week — the reason to buy, so it lives here.
-  const menuQ = useFoodWeeklyMenu(
-    plan?.source === "food" ? plan.id : undefined,
-    plan?.legacyProviderId ?? undefined,
-  );
 
   const { addItem: addToCart } = useCart();
 
@@ -527,16 +520,6 @@ const PlanDetail = () => {
           </section>
         )}
 
-        {menuQ.data && (
-          <section className="space-y-3 rounded-radius-lg bg-card p-4 shadow-figma">
-            <h2 className="text-[20px] font-semibold tracking-[-0.4px] text-foreground">This week's menu</h2>
-            <WeeklyMenuDisplay
-              meals={menuQ.data.meals}
-              mealTypes={(meals.length ? meals : defaultMealsForCount(mealsPerDay || 1)) as never}
-              weekStartDate={menuQ.data.menu.week_start_date}
-            />
-          </section>
-        )}
 
         {plan.providerId && reviewService && (
           // The block is a bare <section>, so the card padding belongs here —

@@ -10,7 +10,6 @@ import { UserLayout } from "@/components/layout/UserLayout";
 import { Button } from "@/components/ui/button";
 import { ResponsiveDialog } from "@/components/patterns/ResponsiveDialog";
 import { Badge } from "@/components/ui/badge";
-import { MyRationView } from "@/components/food/MyRationView";
 import { MealSelectionPicker, defaultMealsForCount, formatMeals, type MealKey } from "@/components/food/MealSelectionPicker";
 import { getMealTypesForPlan, formatWeekLabel } from "@/lib/foodUtils";
 import { formatUSD } from "@/lib/pricing";
@@ -374,11 +373,6 @@ export default function FoodSubscriptionDetail() {
                 </Badge>
               )}
             </div>
-            <MyRationView
-              meals={menu?.meals ?? []}
-              mealTypes={mealTypes}
-              weekStartDate={menu?.week_start_date ?? ""}
-            />
           </div>
         )}
       </div>
@@ -386,7 +380,7 @@ export default function FoodSubscriptionDetail() {
       {/* Change-your-meals sheet — same picker used at checkout, in a bottom
           sheet so it plays nicely with iOS one-hand. Save invalidates both
           the local `selected_meals` query and the parent `access` query so
-          any dependent UI (MyRationView filters, admin manifest) refetches. */}
+          any dependent UI (the admin manifest) refetches. */}
       <ResponsiveDialog
         open={mealsSheetOpen}
         onOpenChange={setMealsSheetOpen}

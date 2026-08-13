@@ -16,7 +16,6 @@ import { useMyCarRentals, type MyCarRental } from "@/hooks/useMyCarRentals";
 
 import { RestaurantInfoTab } from "@/components/food/admin/RestaurantInfoTab";
 import { RestaurantMealPlansTab } from "@/components/food/admin/RestaurantMealPlansTab";
-import { RestaurantWeeklyMenusTab } from "@/components/food/admin/RestaurantWeeklyMenusTab";
 import { RestaurantOperationsTab } from "@/components/food/admin/RestaurantOperationsTab";
 import { RestaurantStaffTab } from "@/components/food/admin/RestaurantStaffTab";
 import { FoodSubscriptionsList } from "@/components/food/FoodSubscriptionsList";
@@ -109,7 +108,6 @@ export const FOOD_TABS: PortalTab<MyRestaurant>[] = [
     <InnerPillTabs
       items={[
         { key: "plans", label: "Meal plans",   render: () => <RestaurantMealPlansTab providerId={r.id} /> },
-        { key: "weeks", label: "Weekly menus", render: () => <RestaurantWeeklyMenusTab providerId={r.id} providerName={r.name} /> },
         // Grouping plans into one offer works on the universal id, not the
         // legacy one — see lib/services/providerBridge.
         { key: "options", label: "Options", render: () => <LegacyPlanOptions legacyId={r.id} sourceKey="food" /> },

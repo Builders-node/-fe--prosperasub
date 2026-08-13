@@ -47,7 +47,6 @@ import { format, isPast, addWeeks, parseISO } from "date-fns";
 import { addDaysISO, addMonthsISO, addWeeksISO, formatDateHN, todayHN } from "@/lib/timezone";
 import { formatUSD } from "@/lib/pricing";
 import { UserLayout } from "@/components/layout/UserLayout";
-import { TodaysMeals } from "@/components/food/TodaysMeals";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { RenewPreviewDialog } from "@/components/subscriptions/RenewPreviewDialog";
 import { SubscriptionCard } from "@/components/subscriptions/SubscriptionCard";
@@ -1005,16 +1004,6 @@ const MySubscriptions = () => {
 
             {/* Active / Past — cleaning sections itself, so it opts out. */}
             <ScopeToggle scope={scope} onChange={setScope} />
-
-            {foodSubscriptions
-              .filter((s: any) => s.status === "active")
-              .map((s: any) => (
-                <TodaysMeals
-                  key={`today-${s.id}`}
-                  providerId={s.provider_id}
-                  mealPlanId={s.meal_plan_id ?? null}
-                />
-              ))}
 
             {foodSubsLoading ? (
               <Skeleton rows={3} />
