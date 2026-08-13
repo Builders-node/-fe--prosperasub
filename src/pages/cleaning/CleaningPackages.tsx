@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useArchetypeLabel } from "@/hooks/useServiceArchetypes";
 import { useNavigate } from "react-router-dom";
-import { SearchX, SparklesIcon, ShieldCheck, ChevronRight } from "lucide-react";
+import { SearchX, SparklesIcon, ChevronRight } from "lucide-react";
 import { providerHref } from "@/lib/services/serviceUrls";
 import { groupProvidersByCategory } from "@/lib/services/groupByCategory";
 import { ProviderRail, CategoryChips, ALL_CATEGORIES } from "@/components/listing/ListingNav";
@@ -402,20 +402,6 @@ const CleaningPackages = () => {
             the memo; also lets us surface the count in a future footer. */}
         {flatProviders.length === 0 && null}
 
-        {/* ─── Trust note (Cancel anytime) ─────────────────────────── */}
-        <section className="rounded-3xl bg-muted/40 p-5">
-          <div className="flex items-start gap-3">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15">
-              <ShieldCheck className="h-4 w-4 text-emerald-500" />
-            </span>
-            <div className="min-w-0">
-              <p className="font-bold text-foreground">Cancel anytime</p>
-              <p className="mt-1 text-sm text-muted-foreground leading-relaxed">
-                No long-term commitment — pause or cancel with 24h notice. Every plan includes the listed features. Extras (laundry, folding, specialised cleaning) are quoted separately on request.
-              </p>
-            </div>
-          </div>
-        </section>
       </main>
 
       <BottomNav />
