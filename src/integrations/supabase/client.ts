@@ -351,6 +351,31 @@ const _packageCache = new Map<string, { name: string; cleanings_per_month: numbe
  */
 const _providerGridCache = new Map<string, string | null>();
 
+/**
+ * The LEGACY provider id a package belongs to — what `cleaning_bookings.
+ * provider_id` holds, and what the provider workspace scopes every query by.
+ *
+ * Its absence was a silent, live bug: the customer booking paths never wrote
+ * this column, so 18 visits existed with no owner and the Car Wash owner's
+ * Bookings tab was empty while the work was scheduled. The admin dialog set
+ * it; the two paths a customer actually uses did not.
+ */
+const _legacyProviderCache = new Map<string, string | null>();
+const cleaningLegacyProviderId = async (packageId?: string | null): Promise<string | null> => {
+  if (!packageId) return null;
+  if (_legacyProviderCache.has(packageId)) return _legacyProviderCache.get(packageId) ?? null;
+  let legacyId: string | null = null;
+  try {
+    const { data: pkg } = await db
+      .from("cleaning_packages").select("provider_id").eq("id", packageId).maybeSingle();
+    legacyId = (pkg as { provider_id?: string } | null)?.provider_id ?? null;
+  } catch {
+    legacyId = null; // never fail a booking over its label
+  }
+  _legacyProviderCache.set(packageId, legacyId);
+  return legacyId;
+};
+
 const cleaningProviderGridId = async (packageId?: string | null): Promise<string | null> => {
   if (!packageId) return null;
   if (_providerGridCache.has(packageId)) return _providerGridCache.get(packageId) ?? null;
@@ -1360,6 +1385,9 @@ export const supabase = {
          * own rows when it keeps any, the shared grid otherwise.
          */
         const providerGridId = await cleaningProviderGridId(subData.package_id);
+        // Who the visit belongs to. Without it the booking exists and its
+        // provider cannot see it.
+        const legacyProviderId = await cleaningLegacyProviderId(subData.package_id);
         const allSlotRows: any[] = allSlots || [];
         const ownRows = providerGridId
           ? allSlotRows.filter((s: any) => s.provider_id === providerGridId)
@@ -1426,6 +1454,7 @@ export const supabase = {
           return {
             cleaning_subscription_id: subscriptionId,
             subscription_id: subscriptionId,
+            provider_id: legacyProviderId,
             slot_id: slot?.id,
             user_id: subData.user_id ?? getOwnedUserDetails()?.id ?? "unknown",
             status: "booked",
@@ -1570,6 +1599,7 @@ export const supabase = {
           .insert({
             cleaning_subscription_id: subscriptionId,
             subscription_id: subscriptionId,
+            provider_id: await cleaningLegacyProviderId(subData.package_id),
             slot_id: slotId,
             user_id: subData.user_id ?? getOwnedUserDetails()?.id ?? "unknown",
             status: "booked",
