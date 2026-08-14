@@ -25,13 +25,27 @@ export function normPeriod(period: string | null | undefined): PlanPeriod {
  * because null reads as "never expires" in every downstream lifecycle check —
  * the opposite of what "once" means.
  */
-export function endDateFor(startISO: string, period: string | null | undefined): Date {
+export function endDateFor(startISO: string, period: string | null | undefined, periods = 1): Date {
   const start = new Date(`${startISO}T00:00:00`);
+  const n = Math.max(1, Math.round(periods));
   switch (normPeriod(period)) {
-    case "weekly":    return addDays(start, 7);
-    case "quarterly": return addMonths(start, 3);
-    case "yearly":    return addYears(start, 1);
-    default:          return addMonths(start, 1);
+    case "weekly":    return addDays(start, 7 * n);
+    case "quarterly": return addMonths(start, 3 * n);
+    case "yearly":    return addYears(start, 1 * n);
+    default:          return addMonths(start, 1 * n);
+  }
+}
+
+/** "3 months", "2 weeks" — what N periods of this plan add up to. */
+export function termLabelFor(period: string | null | undefined, periods: number): string {
+  const n = Math.max(1, Math.round(periods));
+  if (n === 1) return termLabel(period);
+  switch (normPeriod(period)) {
+    case "weekly":    return `${n} weeks`;
+    case "quarterly": return `${n * 3} months`;
+    case "yearly":    return `${n} years`;
+    case "one_time":  return "One-time";
+    default:          return `${n} months`;
   }
 }
 

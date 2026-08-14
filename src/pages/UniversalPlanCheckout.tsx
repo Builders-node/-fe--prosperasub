@@ -28,7 +28,7 @@ import { InvoiceQrPanel } from "@/components/payment/InvoiceQrPanel";
 import { attachPaymentReference } from "@/lib/payments/pendingReference";
 import { useInvoicePayment } from "@/hooks/useInvoicePayment";
 import { serviceListingHref, serviceSlug } from "@/lib/services/serviceUrls";
-import { endDateFor, termLabel, includedLabel } from "@/lib/services/planPeriod";
+import { endDateFor, termLabel, termLabelFor, includedLabel } from "@/lib/services/planPeriod";
 
 /**
  * Checkout for a plan in the universal `provider_plans` table.
@@ -46,6 +46,10 @@ interface PlanRow {
   description: string | null;
   price_cents: number | null;
   period: string | null;
+  pricing_mode: string | null;
+  periods_default: number | null;
+  periods_min: number | null;
+  periods_max: number | null;
   included_quantity: number | null;
   included_unit: string | null;
   provider_name: string | null;
@@ -90,7 +94,7 @@ const UniversalPlanCheckout = () => {
     queryFn: async () => {
       const { data, error } = await supabaseDb
         .from("provider_plans")
-        .select("id, provider_id, name, description, price_cents, period, included_quantity, included_unit, providers(name)")
+        .select("id, provider_id, name, description, price_cents, period, included_quantity, included_unit, pricing_mode, periods_default, periods_min, periods_max, providers(name)")
         .eq("id", planId!)
         .eq("status", "active")
         .single();
@@ -101,11 +105,29 @@ const UniversalPlanCheckout = () => {
     enabled: !!planId,
   });
 
-  const totalCents = plan?.price_cents ?? 0;
+  /**
+   * How much of it, and for how long — read off the plan rather than assumed.
+   *
+   * Until now this checkout sold exactly one period at one price, because that
+   * was the only shape it knew. The plan now says how many periods it offers
+   * and whether the price is per person, so the arithmetic follows the plan
+   * instead of the plan following the arithmetic.
+   */
+  const periodsMin = Math.max(1, plan?.periods_min ?? 1);
+  const periodsMax = plan?.periods_max ?? null;
+  const [periods, setPeriods] = useState(1);
+  const [people, setPeople] = useState(1);
+  useEffect(() => {
+    if (plan) setPeriods(Math.max(periodsMin, plan.periods_default ?? 1));
+  }, [plan?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const perPerson = plan?.pricing_mode === "per_person";
+  const unitCents = plan?.price_cents ?? 0;
+  const totalCents = unitCents * periods * (perPerson ? Math.max(1, people) : 1);
   const effectiveTotalCents = addSurchargeCents(totalCents, paymentMethod);
   const feePct = surchargePercent(paymentMethod);
   const estimatedSats = convertToSats(centsToDollars(effectiveTotalCents));
-  const endDate = endDateFor(startDate, plan?.period ?? null);
+  const endDate = endDateFor(startDate, plan?.period ?? null, periods);
 
   const inv = useInvoicePayment({
     onPaid: (paymentRef, method) => {
@@ -136,6 +158,7 @@ const UniversalPlanCheckout = () => {
     start_date: startDate,
     end_date: format(endDate, "yyyy-MM-dd"),
     price_cents: totalCents,
+    periods_paid: periods,
     payment_status: "pending",
     payment_method: method,
     status: "pending",
@@ -145,6 +168,10 @@ const UniversalPlanCheckout = () => {
       plan_name: plan!.name,
       provider_name: plan!.provider_name,
       period: plan!.period,
+      periods: periods,
+      people: perPerson ? Math.max(1, people) : null,
+      unit_price_cents: unitCents,
+      pricing_mode: plan!.pricing_mode ?? "flat",
       included_quantity: plan!.included_quantity,
       included_unit: plan!.included_unit,
       customer_name: userData?.name || userData?.display_name || null,
@@ -224,7 +251,7 @@ const UniversalPlanCheckout = () => {
     client_name: userData?.name || userData?.display_name || userData?.email || undefined,
     client_email: userData?.email,
     plan_name: plan?.name,
-    duration: termLabel(plan?.period ?? null),
+    duration: termLabelFor(plan?.period ?? null, periods),
     booking_id: planId,
     admin_url: `${window.location.origin}/admin/marketplace/plans`,
     selected_date_time: startDate,
@@ -364,6 +391,30 @@ const UniversalPlanCheckout = () => {
                 <CalendarDays className="pointer-events-none absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
               </div>
 
+              {/* Only shown when the plan actually offers a choice — a plan
+                  sold one period at a time has nothing to step through. */}
+              {(periodsMax == null || periodsMax > periodsMin) && (
+                <>
+                  <Label className="mt-4 block text-xs text-muted-foreground">
+                    How long — {termLabelFor(plan.period, periods)}
+                  </Label>
+                  <Stepper
+                    value={periods}
+                    min={periodsMin}
+                    max={periodsMax ?? 24}
+                    onChange={setPeriods}
+                    unit={termLabel(plan.period)}
+                  />
+                </>
+              )}
+
+              {perPerson && (
+                <>
+                  <Label className="mt-4 block text-xs text-muted-foreground">People</Label>
+                  <Stepper value={people} min={1} max={20} onChange={setPeople} unit="person" />
+                </>
+              )}
+
               <Label htmlFor="up-phone" className="mt-4 block text-xs text-muted-foreground">
                 WhatsApp <span className="text-destructive">*</span>
               </Label>
@@ -391,7 +442,14 @@ const UniversalPlanCheckout = () => {
             {includedLabel(plan.included_quantity, plan.included_unit, plan.period) && (
               <SummaryRow label="Included" value={includedLabel(plan.included_quantity, plan.included_unit, plan.period)!} />
             )}
-            <SummaryRow label="Term" value={termLabel(plan.period)} />
+            <SummaryRow label="Term" value={termLabelFor(plan.period, periods)} />
+            {perPerson && <SummaryRow label="People" value={String(Math.max(1, people))} />}
+            {(periods > 1 || perPerson) && (
+              <SummaryRow
+                label="Price"
+                value={`${formatUSD(unitCents)} × ${periods}${perPerson ? ` × ${Math.max(1, people)}` : ""}`}
+              />
+            )}
             <SummaryRow label="Start date" value={format(new Date(`${startDate}T00:00:00`), "d MMM yyyy")} />
             <SummaryRow label="Ends" value={format(endDate, "d MMM yyyy")} />
           </div>
@@ -540,6 +598,30 @@ const UniversalPlanCheckout = () => {
     </UserLayout>
   );
 };
+
+/**
+ * Plus and minus, because a number a customer has to type is a number they can
+ * get wrong — and the bounds come from the plan, so the control cannot offer
+ * a quantity the provider does not sell.
+ */
+function Stepper({ value, min, max, unit, onChange }: {
+  value: number; min: number; max: number; unit: string; onChange: (n: number) => void;
+}) {
+  return (
+    <div className="mt-1.5 flex items-center gap-3">
+      <button type="button" aria-label="Fewer"
+        className="flex h-11 w-11 items-center justify-center rounded-radius-md bg-inset text-lg font-semibold text-foreground disabled:opacity-40"
+        disabled={value <= min} onClick={() => onChange(Math.max(min, value - 1))}>−</button>
+      <span className="min-w-[6ch] text-center text-[16px] font-semibold tabular-nums text-foreground">
+        {value}
+      </span>
+      <button type="button" aria-label="More"
+        className="flex h-11 w-11 items-center justify-center rounded-radius-md bg-inset text-lg font-semibold text-foreground disabled:opacity-40"
+        disabled={value >= max} onClick={() => onChange(Math.min(max, value + 1))}>+</button>
+      <span className="text-[12px] tracking-[-0.24px] text-muted-foreground">{unit}</span>
+    </div>
+  );
+}
 
 function SummaryRow({ label, value }: { label: string; value: string }) {
   return (
