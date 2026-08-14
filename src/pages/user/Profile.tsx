@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ComponentType, type SVGProps } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Bell, BellOff, Eye, EyeOff, KeyRound, MapPin, Pencil } from "lucide-react";
+import { Bell, BellOff, Eye, EyeOff, KeyRound, LogOut, MapPin, Pencil, Shield } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -87,7 +87,7 @@ function PasswordInput({ id, label, value, onChange, placeholder, error, autoFoc
           id={id} type={show ? "text" : "password"} value={value}
           onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
           autoFocus={autoFocus}
-          className="w-full rounded-radius-md bg-card px-4 py-3 pr-11 text-[16px] tracking-[-0.32px] text-foreground outline-none placeholder:text-muted-foreground"
+          className="w-full rounded-radius-md bg-card px-4 py-3 pr-11 text-[16px] tracking-[-0.32px] text-foreground shadow-figma outline-none placeholder:text-muted-foreground"
         />
         <button type="button" tabIndex={-1} onClick={() => setShow((s) => !s)}
           className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
@@ -110,7 +110,9 @@ function PillSelector<T extends string | number>({ options, value, onChange }: {
         <button key={String(opt.value)} type="button" onClick={() => onChange(opt.value)}
           className={cn(
             "flex-1 rounded-radius-md px-3 py-2 text-[12px] font-semibold tracking-[-0.24px] transition-colors",
-            value === opt.value ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:text-foreground",
+            value === opt.value
+              ? "bg-primary text-primary-foreground"
+              : "bg-card text-muted-foreground shadow-figma hover:text-foreground",
           )}
         >
           {opt.label}
@@ -133,28 +135,44 @@ function methodLabel(m: string) {
   return "All channels";
 }
 
-/** One row of the settings list — the shape the listings and the home screen use. */
+/**
+ * One row of a settings card.
+ *
+ * The shape is the home screen's shortcut row: a 40px tile with a 24px glyph,
+ * a 16px title and a 12px caption under it. The tile is `bg-inset` because the
+ * row sits INSIDE a white card — that is the one token that goes down in light
+ * and up in dark, which is what "inside a card" means (DESIGN.md, Layers).
+ * The rows used to separate with a hairline; separation here is the gap, the
+ * same way the design does it everywhere else.
+ */
 function Row({
-  icon: Icon, label, value, onClick, divided,
+  icon: Icon, label, value, onClick, tone = "default",
 }: {
   icon: ComponentType<SVGProps<SVGSVGElement>>;
   label: string;
   value?: React.ReactNode;
   onClick: () => void;
-  divided?: boolean;
+  tone?: "default" | "accent" | "danger";
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={cn(
-        "flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-muted/40",
-        divided && "border-t border-border",
-      )}
+      className="flex w-full items-center gap-3 rounded-radius-md p-3 text-left transition-colors hover:bg-inset"
     >
-      <Icon className="h-6 w-6 shrink-0 text-muted-foreground" />
+      <span className={cn(
+        "flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px]",
+        tone === "accent" ? "bg-primary text-primary-foreground"
+        : tone === "danger" ? "bg-destructive/10 text-destructive"
+        : "bg-inset text-muted-foreground",
+      )}>
+        <Icon className="h-6 w-6" />
+      </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[16px] font-semibold tracking-[-0.32px] text-foreground">{label}</span>
+        <span className={cn(
+          "block truncate text-[16px] font-semibold tracking-[-0.32px]",
+          tone === "danger" ? "text-destructive" : "text-foreground",
+        )}>{label}</span>
         {value && (
           <span className="block truncate text-[12px] tracking-[-0.24px] text-muted-foreground">{value}</span>
         )}
@@ -164,10 +182,17 @@ function Row({
   );
 }
 
+/** 20px semibold — the one heading size the design gives a section. */
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <h2 className="mt-space-6 px-1 text-[20px] font-semibold tracking-[-0.4px] text-foreground">{children}</h2>
+  );
+}
+
 const Profile = () => {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
-  const { userData, refreshUserData } = useAuth();
+  const { userData, refreshUserData, isAdmin, isAdminResolved, logout } = useAuth();
   const queryClient = useQueryClient();
   const { t } = useI18n();
 
@@ -331,24 +356,30 @@ const Profile = () => {
       <main className="market-content space-y-4 py-space-4 md:py-space-8">
         {section === "view" && (
           <>
-            <section className="flex flex-col items-center rounded-radius-md bg-card p-6 text-center">
-              <span className="flex h-16 w-16 items-center justify-center rounded-radius-md bg-primary text-[24px] font-semibold text-foreground">
+            {/* Who you are. One white card: avatar, name, email — the same
+                block the home screen opens with, not three stacked panels. */}
+            <section className="flex items-center gap-4 rounded-radius-md bg-card p-4 shadow-figma">
+              <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary text-[24px] font-semibold text-primary-foreground">
                 {avatarLabel}
               </span>
-              <p className="mt-3 text-[20px] font-semibold tracking-[-0.4px] text-foreground">{displayName}</p>
-              <p className="mt-0.5 text-[12px] tracking-[-0.24px] text-muted-foreground">{email}</p>
-              {isGoogle && (
-                <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-background px-2 py-1 text-[12px] tracking-[-0.24px] text-muted-foreground">
-                  <GoogleIcon /> Google account
-                </span>
-              )}
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[20px] font-semibold tracking-[-0.4px] text-foreground">{displayName}</p>
+                <p className="mt-0.5 truncate text-[12px] tracking-[-0.24px] text-muted-foreground">{email}</p>
+                {isGoogle && (
+                  <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-inset px-2 py-1 text-[12px] tracking-[-0.24px] text-muted-foreground">
+                    <GoogleIcon /> Google account
+                  </span>
+                )}
+              </div>
             </section>
 
             {contacts.length > 0 && (
-              <section className="overflow-hidden rounded-radius-md bg-card">
-                {contacts.map((c, i) => (
-                  <div key={c.key} className={cn("flex items-center gap-3 px-4 py-3.5", i > 0 && "border-t border-border")}>
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center">{c.icon}</span>
+              <section className="rounded-radius-md bg-card p-1.5 shadow-figma">
+                {contacts.map((c) => (
+                  <div key={c.key} className="flex items-center gap-3 rounded-radius-md p-3">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] bg-inset">
+                      {c.icon}
+                    </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[16px] font-semibold tracking-[-0.32px] text-foreground">{c.value}</span>
                       <span className="block text-[12px] tracking-[-0.24px] text-muted-foreground">{c.label}</span>
@@ -358,49 +389,73 @@ const Profile = () => {
               </section>
             )}
 
-            <section className="overflow-hidden rounded-radius-md bg-card">
+            <SectionTitle>Account</SectionTitle>
+            <section className="rounded-radius-md bg-card p-1.5 shadow-figma">
               <Row
                 icon={MapPin}
-                label={`Saved Locations${myLocations.length > 0 ? ` · ${myLocations.length}` : ""}`}
+                label="Saved locations"
                 value={defaultLocation ? defaultLocation.line : "Add a location"}
                 onClick={() => openSection("locations")}
               />
               <Row
-                divided
                 icon={prefs.reminder_enabled ? Bell : BellOff}
-                label="Cleaning Reminders"
+                label="Cleaning reminders"
                 value={prefs.reminder_enabled
                   ? `${reminderLabel(prefs.reminder_minutes_before)} · ${methodLabel(prefs.reminder_method)}`
                   : "Disabled"}
                 onClick={() => openSection("reminders")}
               />
-              <Row divided icon={Pencil} label="Edit Profile" onClick={() => openSection("edit")} />
+              <Row icon={Pencil} label="Edit profile"
+                value={contacts.length === 0 ? "Add your contact details" : undefined}
+                onClick={() => openSection("edit")} />
               {canChangePassword && (
-                <Row divided icon={KeyRound} label="Change Password" onClick={() => openSection("password")} />
+                <Row icon={KeyRound} label="Change password" onClick={() => openSection("password")} />
               )}
             </section>
 
-            {contacts.length === 0 && myLocations.length === 0 && (
-              <p className="text-center text-[12px] tracking-[-0.24px] text-muted-foreground">
-                Tap Edit Profile to add contact info
-              </p>
+            {/*
+              The way into the admin panel.
+              It lived only in the header dropdown, which is a hover target on
+              a desktop and two taps behind an avatar on a phone — so on a
+              phone the panel had no entrance at all. `isAdminResolved` gates
+              it because the RBAC check is a request: rendering on `isAdmin`
+              alone would flash the row for every user on every load.
+            */}
+            {isAdminResolved && isAdmin && (
+              <>
+                <SectionTitle>Platform</SectionTitle>
+                <section className="rounded-radius-md bg-card p-1.5 shadow-figma">
+                  <Row
+                    icon={Shield}
+                    tone="accent"
+                    label={t("profile.platformAdmin")}
+                    value={t("profile.platformAdminDescription")}
+                    onClick={() => navigate("/admin/dashboard")}
+                  />
+                </section>
+              </>
             )}
 
             {/* Staff scan this to check a subscription at the door. */}
-            <section className="rounded-radius-md bg-card p-4">
+            <SectionTitle>My access</SectionTitle>
+            <section className="rounded-radius-md bg-card p-4 shadow-figma">
               <AccessQrCode />
+            </section>
+
+            <section className="rounded-radius-md bg-card p-1.5 shadow-figma">
+              <Row icon={LogOut} tone="danger" label={t("profile.logOut")} onClick={() => void logout().then(() => navigate("/"))} />
             </section>
           </>
         )}
 
         {section === "edit" && (
-          <section className="space-y-3">
+          <section className="space-y-2">
             <Input ref={firstEditRef as any} id="e-name" label="Username" value={draftName} onChange={(e) => setDraftName(e.target.value)} placeholder="Your name" />
             <Input id="e-email" label="Email" type="email" value={email} readOnly className="cursor-default opacity-50" />
             <Input id="e-phone" label="Phone (optional)" type="tel" value={draftPhone} onChange={(e) => setDraftPhone(e.target.value)} placeholder="+1 234 567 8900" />
             <Input id="e-wa" label="WhatsApp (optional)" type="tel" value={draftWhatsApp} onChange={(e) => setDraftWhatsApp(e.target.value)} placeholder="+1 234 567 8900" leftIcon={<WhatsAppIcon className="h-4 w-4 text-green-500" />} />
             <Input id="e-tg" label="Telegram (optional)" value={draftTelegram} onChange={(e) => setDraftTelegram(e.target.value)} placeholder="@username" leftIcon={<TelegramIcon className="h-4 w-4 text-[#2AABEE]" />} />
-            <div className="flex gap-2 pt-1">
+            <div className="flex gap-2 pt-space-2">
               <Button variant="secondary" className="flex-1" onClick={back} disabled={saveMutation.isPending}>Cancel</Button>
               <Button className="flex-1" onClick={() => saveMutation.mutate()} loading={saveMutation.isPending} disabled={!hasChanges || saveMutation.isPending}>
                 {saveMutation.isPending ? <><Spinner size="sm" /> Saving…</> : "Save Changes"}
@@ -413,7 +468,7 @@ const Profile = () => {
 
         {section === "reminders" && (
           <section className="space-y-3">
-            <div className="flex items-center justify-between gap-3 rounded-radius-md bg-card px-4 py-3.5">
+            <div className="flex items-center justify-between gap-3 rounded-radius-md bg-card p-4 shadow-figma">
               <div>
                 <p className="text-[16px] font-semibold tracking-[-0.32px] text-foreground">Enable reminders</p>
                 <p className="text-[12px] tracking-[-0.24px] text-muted-foreground">Get notified before each cleaning</p>
@@ -424,7 +479,7 @@ const Profile = () => {
             {draftPrefs.reminder_enabled && (
               <>
                 <div>
-                  <p className="mb-2 text-[12px] tracking-[-0.24px] text-muted-foreground">Remind me</p>
+                  <p className="mb-2 px-1 text-[12px] tracking-[-0.24px] text-muted-foreground">Remind me</p>
                   <PillSelector
                     options={[{ value: 30, label: "30 min" }, { value: 60, label: "1 hour" }, { value: 120, label: "2 hours" }, { value: 1440, label: "1 day" }]}
                     value={draftPrefs.reminder_minutes_before}
@@ -432,7 +487,7 @@ const Profile = () => {
                   />
                 </div>
                 <div>
-                  <p className="mb-2 text-[12px] tracking-[-0.24px] text-muted-foreground">Notify via</p>
+                  <p className="mb-2 px-1 text-[12px] tracking-[-0.24px] text-muted-foreground">Notify via</p>
                   <PillSelector
                     options={[{ value: "all", label: "All" }, { value: "email", label: "Email" }, { value: "in_app", label: "In-app" }]}
                     value={draftPrefs.reminder_method}
@@ -443,15 +498,15 @@ const Profile = () => {
             )}
 
             <div>
-              <p className="mb-2 text-[12px] tracking-[-0.24px] text-muted-foreground">Access instructions</p>
+              <p className="mb-2 px-1 text-[12px] tracking-[-0.24px] text-muted-foreground">Access instructions</p>
               <textarea
                 value={draftPrefs.access_instructions ?? ""}
                 onChange={(e) => setDraftPrefs((p) => ({ ...p, access_instructions: e.target.value || null }))}
                 placeholder="e.g. Door will be open · Key under mat"
                 rows={3}
-                className="w-full resize-none rounded-radius-md bg-card px-4 py-3 text-[16px] tracking-[-0.32px] text-foreground outline-none placeholder:text-muted-foreground"
+                className="w-full resize-none rounded-radius-md bg-card p-4 text-[16px] tracking-[-0.32px] text-foreground shadow-figma outline-none placeholder:text-muted-foreground"
               />
-              <p className="mt-1 text-[12px] tracking-[-0.24px] text-muted-foreground">Shown in reminder notifications sent to you.</p>
+              <p className="mt-1 px-1 text-[12px] tracking-[-0.24px] text-muted-foreground">Shown in reminder notifications sent to you.</p>
             </div>
 
             <div className="flex gap-2">
