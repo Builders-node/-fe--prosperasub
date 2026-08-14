@@ -264,8 +264,8 @@ export function OfferEditor({ providerId, sourceKey }: { providerId: string; sou
         periods_min: numOrNull(sold.periodsMin) ?? 1,
         periods_max: numOrNull(sold.periodsMax),
         pricing_mode: sold.pricingMode,
-        provider_price_cents: sold.pricingMode === "derived" ? cents(sold.providerPrice) : null,
-        markup_cents: sold.pricingMode === "derived" ? cents(sold.markup) : null,
+        provider_price_cents: cents(sold.providerPrice) || null,
+        markup_cents: cents(sold.markup) || null,
         lead_time_minutes: numOrNull(sold.leadMinutes),
         window_minutes: numOrNull(sold.windowMinutes),
         tags: fromLines(includes.tags.replace(/,/g, "\n")),
@@ -280,7 +280,7 @@ export function OfferEditor({ providerId, sourceKey }: { providerId: string; sou
       // A derived price is two numbers the customer never sees separately.
       // The beach club has held them on its own row since before any of this,
       // and its checkout still reads them there.
-      if (sourceKey === "beach" && offer.source_plan_id && sold.pricingMode === "derived") {
+      if (sourceKey === "beach" && offer.source_plan_id && (sold.providerPrice || sold.markup)) {
         const { error } = await supabaseDb.from("beach_club_plans").update({
           provider_price_per_person_cents: cents(sold.providerPrice),
           extra_per_person_cents: cents(sold.markup),
@@ -488,11 +488,14 @@ export function OfferEditor({ providerId, sourceKey }: { providerId: string; sou
               <option value="flat">Flat</option>
               <option value="per_unit">Per unit</option>
               <option value="per_person">Per person</option>
-              <option value="derived">Provider price + platform markup</option>
+
             </select>
           </Field>
 
-          {sold.pricingMode === "derived" && (
+          {/* Independent of the mode above: a per-person price can also be a
+              marked-up one, which is exactly what the beach club is. Filling
+              these in is what makes a price derived. */}
+          {(sold.providerPrice || sold.markup || sold.pricingMode === "derived") && (
             <>
               <Field label="Provider is paid ($)">
                 <Input inputMode="decimal" className="h-9" value={sold.providerPrice}
@@ -665,7 +668,7 @@ const PRICING_HINT: Record<string, string> = {
   flat: "One price for the period.",
   per_unit: "Price × how many they take.",
   per_person: "Price × people on the booking.",
-  derived: "Customer pays the provider's price plus the platform's markup.",
+
 };
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {

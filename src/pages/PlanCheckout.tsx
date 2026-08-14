@@ -28,7 +28,9 @@ import { InvoiceQrPanel } from "@/components/payment/InvoiceQrPanel";
 import { attachPaymentReference } from "@/lib/payments/pendingReference";
 import { useInvoicePayment } from "@/hooks/useInvoicePayment";
 import { serviceListingHref, serviceSlug } from "@/lib/services/serviceUrls";
-import { endDateFor, termLabel, termLabelFor, includedLabel } from "@/lib/services/planPeriod";
+import { termLabel, termLabelFor, includedLabel } from "@/lib/services/planPeriod";
+import { resolveCheckoutPlan, totalFor } from "@/lib/checkout/planCheckoutModel";
+import { buildSubscriptionWrite, endDateOf } from "@/lib/checkout/subscriptionWriter";
 
 /**
  * Checkout for a plan in the universal `provider_plans` table.
@@ -90,19 +92,9 @@ const UniversalPlanCheckout = () => {
   const listingHref = serviceListingHref(serviceSegment ?? "");
 
   const { data: plan, isLoading: planLoading, isError: planError } = useQuery({
-    queryKey: ["universal-plan", planId],
-    queryFn: async () => {
-      const { data, error } = await supabaseDb
-        .from("provider_plans")
-        .select("id, provider_id, name, description, price_cents, period, included_quantity, included_unit, pricing_mode, periods_default, periods_min, periods_max, providers(name)")
-        .eq("id", planId!)
-        .eq("status", "active")
-        .single();
-      if (error) throw error;
-      const row = data as unknown as PlanRow & { providers?: { name?: string } | null };
-      return { ...row, provider_name: row.providers?.name ?? null } as PlanRow;
-    },
+    queryKey: ["checkout-plan", planId],
     enabled: !!planId,
+    queryFn: () => resolveCheckoutPlan(planId!),
   });
 
   /**
@@ -113,24 +105,29 @@ const UniversalPlanCheckout = () => {
    * and whether the price is per person, so the arithmetic follows the plan
    * instead of the plan following the arithmetic.
    */
-  const periodsMin = Math.max(1, plan?.periods_min ?? 1);
-  // Unset means one period. Offering more than the provider has said they sell
-  // would be this screen making a commercial decision on their behalf.
-  const periodsMax = plan?.periods_max ?? null;
-  const periodsCeiling = periodsMax ?? periodsMin;
+  const periodsMin = plan?.periodsMin ?? 1;
+  const periodsCeiling = plan?.periodsMax ?? periodsMin;
   const [periods, setPeriods] = useState(1);
   const [people, setPeople] = useState(1);
+  const [selections, setSelections] = useState<string[]>([]);
+  const [address, setAddress] = useState("");
+  const [area, setArea] = useState("");
   useEffect(() => {
-    if (plan) setPeriods(Math.max(periodsMin, plan.periods_default ?? 1));
-  }, [plan?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!plan) return;
+    setPeriods(plan.periodsDefault);
+    // Pre-pick as many options as the plan allows, in its own order: a
+    // customer who wants exactly what the plan implies should not have to
+    // assemble it themselves.
+    if (plan.selection) setSelections(plan.selection.options.slice(0, plan.selection.max).map((o) => o.key));
+  }, [plan?.universalId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const perPerson = plan?.pricing_mode === "per_person";
-  const unitCents = plan?.price_cents ?? 0;
-  const totalCents = unitCents * periods * (perPerson ? Math.max(1, people) : 1);
+  const perPerson = plan?.pricingMode === "per_person";
+  const unitCents = plan?.unitCents ?? 0;
+  const totalCents = plan ? totalFor(plan, periods, people) : 0;
   const effectiveTotalCents = addSurchargeCents(totalCents, paymentMethod);
   const feePct = surchargePercent(paymentMethod);
   const estimatedSats = convertToSats(centsToDollars(effectiveTotalCents));
-  const endDate = endDateFor(startDate, plan?.period ?? null, periods);
+  const endDate = plan ? endDateOf(plan, startDate, periods) : new Date(`${startDate}T00:00:00`);
 
   const inv = useInvoicePayment({
     onPaid: (paymentRef, method) => {
@@ -144,45 +141,34 @@ const UniversalPlanCheckout = () => {
     // tab that dies before the payment confirms still leaves something the
     // reconcile cron can verify. See lib/payments/pendingReference.
     onInvoiceReady: (paymentRef, method) => {
-      void attachPaymentReference(supabaseDb, "provider_subscriptions", pendingSubIdRef.current, paymentRef, method);
+      void attachPaymentReference(supabaseDb, subTable(), pendingSubIdRef.current, paymentRef, method);
     },
   });
 
   /**
-   * provider_subscriptions has no columns for plan name, customer name or the
-   * processing fee, so they go in `metadata`. Recording them at purchase time
-   * matters: the plan row can be renamed or deleted afterwards and the
-   * subscription still has to say what was actually bought.
+   * The one seam that is still per service: which table a purchase lands in.
+   * The answers are identical; only the row shape differs, and that lives in
+   * `buildSubscriptionWrite` rather than in four screens.
    */
-  const buildRow = (method: string) => ({
-    provider_id: plan!.provider_id,
-    plan_id: plan!.id,
-    user_id: userUuid,
-    start_date: startDate,
-    end_date: format(endDate, "yyyy-MM-dd"),
-    price_cents: totalCents,
-    periods_paid: periods,
-    payment_status: "pending",
-    payment_method: method,
-    status: "pending",
-    customer_whatsapp: phone.trim() || null,
-    notes: notes.trim() || null,
-    metadata: {
-      plan_name: plan!.name,
-      provider_name: plan!.provider_name,
-      period: plan!.period,
-      periods: periods,
-      people: perPerson ? Math.max(1, people) : null,
-      unit_price_cents: unitCents,
-      pricing_mode: plan!.pricing_mode ?? "flat",
-      included_quantity: plan!.included_quantity,
-      included_unit: plan!.included_unit,
-      customer_name: userData?.name || userData?.display_name || null,
-      customer_email: userData?.email || null,
-      surcharge_cents: effectiveTotalCents - totalCents,
-      total_charged_cents: effectiveTotalCents,
-    },
+  const write = (method: string) => buildSubscriptionWrite(plan!, {
+    userId: userData?.id ?? userUuid ?? "",
+    userUuid: userUuid ?? null,
+    startDate,
+    periods,
+    people,
+    totalCents,
+    chargedCents: effectiveTotalCents,
+    paymentMethod: method,
+    phone: phone.trim(),
+    notes: notes.trim(),
+    customerName: userData?.name || userData?.display_name || null,
+    customerEmail: userData?.email || null,
+    address: address.trim(),
+    area: area.trim(),
+    selections,
   });
+  const buildRow = (method: string) => write(method).row;
+  const subTable = () => write("lightning").table;
 
   /**
    * Reserve the row BEFORE payment starts, and update it afterwards. If the
@@ -194,13 +180,13 @@ const UniversalPlanCheckout = () => {
     try {
       if (pendingSubIdRef.current) {
         await supabaseDb
-          .from("provider_subscriptions")
+          .from(subTable())
           .update({ ...buildRow(method), updated_at: new Date().toISOString() })
           .eq("id", pendingSubIdRef.current);
         return pendingSubIdRef.current;
       }
       const { data, error } = await supabaseDb
-        .from("provider_subscriptions")
+        .from(subTable())
         .insert(buildRow(method))
         .select("id")
         .single();
@@ -225,13 +211,13 @@ const UniversalPlanCheckout = () => {
       };
       if (pendingSubIdRef.current) {
         const { data, error } = await supabaseDb
-          .from("provider_subscriptions")
+          .from(subTable())
           .update(patch).eq("id", pendingSubIdRef.current).select().single();
         if (error) throw error;
         return data;
       }
       const { data, error } = await supabaseDb
-        .from("provider_subscriptions")
+        .from(subTable())
         .insert({ ...buildRow(o.method), ...patch })
         .select().single();
       if (error) throw error;
@@ -250,7 +236,7 @@ const UniversalPlanCheckout = () => {
   });
 
   const paymentMeta = () => ({
-    service_name: plan?.provider_name ?? "Subscription",
+    service_name: plan?.providerName ?? "Subscription",
     client_name: userData?.name || userData?.display_name || userData?.email || undefined,
     client_email: userData?.email,
     plan_name: plan?.name,
@@ -264,6 +250,14 @@ const UniversalPlanCheckout = () => {
     if (!plan) return;
     if (totalCents <= 0) { toast.error("This plan has no price yet."); return; }
     if (!startDate) { toast.error("Choose a start date."); return; }
+    if (plan.needsAddress && !address.trim()) {
+      toast.error(plan.fulfilment === "deliveries" ? "Where should it be delivered?" : "Where should we come?");
+      return;
+    }
+    if (plan.selection && selections.length < plan.selection.min) {
+      toast.error(`Pick at least ${plan.selection.min} — ${plan.selection.label.toLowerCase()}.`);
+      return;
+    }
     // provider_subscriptions.user_id is a uuid column and the JWT id may be a
     // Google-format string; inserting that raises 22P02 and fails the whole
     // statement. Better to say so than to lose the sale to a Postgres error.
@@ -290,9 +284,9 @@ const UniversalPlanCheckout = () => {
         method: paymentMethod === "onchain" ? "onchain" : "lightning",
         amountCents: effectiveTotalCents,
         amountSats: sats,
-        description: `${plan.provider_name ?? "Plan"} - ${plan.name} - ${formatUSD(totalCents)}`,
+        description: `${plan.providerName ?? "Plan"} - ${plan.name} - ${formatUSD(totalCents)}`,
         context: "provider_subscription",
-        externalId: `psub-${plan.id}-${Date.now()}`.replace(/[^a-zA-Z0-9_-]/g, "-").slice(0, 100),
+        externalId: `sub-${plan.universalId}-${Date.now()}`.replace(/[^a-zA-Z0-9_-]/g, "-").slice(0, 100),
         meta: paymentMeta(),
       });
     } finally {
@@ -358,7 +352,7 @@ const UniversalPlanCheckout = () => {
     );
   }
 
-  const orderDescription = `${plan.provider_name ?? "Plan"} - ${plan.name} - ${formatUSD(effectiveTotalCents)}`;
+  const orderDescription = `${plan.providerName ?? "Plan"} - ${plan.name} - ${formatUSD(effectiveTotalCents)}`;
 
   return (
     <UserLayout title="Checkout" showBackButton backTo={listingHref} showBottomNav={false}>
@@ -374,7 +368,7 @@ const UniversalPlanCheckout = () => {
           <div className="p-5">
             <h2 className="text-xl font-black tracking-tight text-foreground">{plan.name}</h2>
             <p className="mt-0.5 text-sm text-muted-foreground">
-              {plan.provider_name ? `${plan.provider_name} · ` : ""}{termLabel(plan.period)}
+              {plan.providerName ? `${plan.providerName} · ` : ""}{termLabel(plan.period)}
             </p>
           </div>
 
@@ -418,6 +412,61 @@ const UniversalPlanCheckout = () => {
                 </>
               )}
 
+              {/* What the customer picks INSIDE the plan. It changes nothing
+                  about the price — that is what makes it a selection and not
+                  an axis — so it is stored on the subscription. The options and
+                  how many may be picked come from the plan, which is why this
+                  screen can serve meals without knowing what a meal is. */}
+              {plan.selection && (
+                <>
+                  <Label className="mt-4 block text-xs text-muted-foreground">
+                    {plan.selection.label} — pick {plan.selection.max}
+                  </Label>
+                  <div className="mt-1.5 flex flex-wrap gap-2">
+                    {plan.selection.options.map((opt) => {
+                      const on = selections.includes(opt.key);
+                      const full = selections.length >= plan.selection!.max;
+                      return (
+                        <button
+                          key={opt.key}
+                          type="button"
+                          onClick={() => setSelections((cur) =>
+                            cur.includes(opt.key)
+                              ? cur.filter((k) => k !== opt.key)
+                              : full ? cur : [...cur, opt.key])}
+                          disabled={!on && full}
+                          className={`rounded-radius-md px-3.5 py-2 text-[14px] font-semibold transition-colors disabled:opacity-40 ${
+                            on ? "bg-primary text-primary-foreground" : "bg-inset text-muted-foreground"
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+
+              {plan.needsArea && (
+                <>
+                  <Label htmlFor="pc-area" className="mt-4 block text-xs text-muted-foreground">Residence</Label>
+                  <Input id="pc-area" className="mt-1.5 h-12 rounded-2xl" value={area}
+                    placeholder="Duna Residences" onChange={(e) => setArea(e.target.value)} />
+                </>
+              )}
+
+              {plan.needsAddress && (
+                <>
+                  <Label htmlFor="pc-address" className="mt-4 block text-xs text-muted-foreground">
+                    {plan.fulfilment === "deliveries" ? "Delivery address" : "Where the visit happens"}
+                    <span className="text-destructive"> *</span>
+                  </Label>
+                  <Input id="pc-address" className="mt-1.5 h-12 rounded-2xl" value={address}
+                    placeholder="Building, unit, anything the driver needs"
+                    onChange={(e) => setAddress(e.target.value)} />
+                </>
+              )}
+
               <Label htmlFor="up-phone" className="mt-4 block text-xs text-muted-foreground">
                 WhatsApp <span className="text-destructive">*</span>
               </Label>
@@ -442,8 +491,8 @@ const UniversalPlanCheckout = () => {
 
           <div className="divide-y divide-border/60 border-t border-border/60">
             <SummaryRow label="Plan" value={plan.name} />
-            {includedLabel(plan.included_quantity, plan.included_unit, plan.period) && (
-              <SummaryRow label="Included" value={includedLabel(plan.included_quantity, plan.included_unit, plan.period)!} />
+            {includedLabel(plan.unitQuantity, plan.unitLabel, plan.period) && (
+              <SummaryRow label="Included" value={includedLabel(plan.unitQuantity, plan.unitLabel, plan.period)!} />
             )}
             <SummaryRow label="Term" value={termLabelFor(plan.period, periods)} />
             {perPerson && <SummaryRow label="People" value={String(Math.max(1, people))} />}
@@ -554,9 +603,9 @@ const UniversalPlanCheckout = () => {
             className="mb-2 w-full"
             line={{
               service: "plan",
-              providerId: plan.provider_id,
-              providerName: (plan as any).providers?.name ?? "Provider",
-              planId: plan.id,
+              providerId: plan.providerUniversalId,
+              providerName: plan.providerName ?? "Provider",
+              planId: plan.universalId,
               planName: plan.name,
               unitPriceCents: totalCents,
               periods: 1,

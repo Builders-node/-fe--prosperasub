@@ -45,12 +45,10 @@ const LegacyPortalRedirect = lazy(() => import("./pages/user/LegacyPortalRedirec
 
 // Beach Club
 const BeachClub = lazy(() => import("./pages/beach/BeachClub"));
-const BeachClubCheckout = lazy(() => import("./pages/beach/BeachClubCheckout"));
 const BeachCourts = lazy(() => import("./pages/beach/BeachCourts"));
 
 // Cleaning
 const CleaningPackages = lazy(() => import("./pages/cleaning/CleaningPackages"));
-const CleaningCheckout = lazy(() => import("./pages/cleaning/CleaningCheckout"));
 const CleaningBook = lazy(() => import("./pages/cleaning/CleaningBook"));
 
 
@@ -61,7 +59,7 @@ const SearchPage = lazy(() => import("./pages/Search"));
 // Public provider profile — generic for cleaning/entertainment. Food
 // keeps its own /services/food/:id detail page (richer legacy layout).
 const ProviderDetail = lazy(() => import("./pages/ProviderDetail"));
-const UniversalPlanCheckout = lazy(() => import("./pages/UniversalPlanCheckout"));
+const PlanCheckout = lazy(() => import("./pages/PlanCheckout"));
 const ServicePage = lazy(() => import("./pages/ServicePage"));
 const PlanDetail = lazy(() => import("./pages/PlanDetail"));
 
@@ -174,8 +172,8 @@ const App = () => {
 
               {/* Cleaning */}
               <Route path="/services/cleaning" element={<CleaningPackages />} />
-              <Route path="/services/cleaning/checkout/:packageId" element={
-                <ProtectedRoute><CleaningCheckout /></ProtectedRoute>
+              <Route path="/services/cleaning/checkout/:planId" element={
+                <ProtectedRoute><PlanCheckout /></ProtectedRoute>
               } />
               <Route path="/services/cleaning/book" element={
                 <ProtectedRoute><CleaningBook /></ProtectedRoute>
@@ -195,7 +193,7 @@ const App = () => {
                 <ProtectedRoute><BeachCourts /></ProtectedRoute>
               } />
               <Route path="/services/beach-club/checkout/:planId" element={
-                <ProtectedRoute><BeachClubCheckout /></ProtectedRoute>
+                <ProtectedRoute><PlanCheckout /></ProtectedRoute>
               } />
 
               {/* Generic listing for any archetype without a bespoke page.
@@ -210,12 +208,15 @@ const App = () => {
                   own renewal screen. */}
               <Route path="/services/:archetypeKey/plans/:planId" element={<PlanDetail />} />
 
-              {/* Checkout for a plan in the universal provider_plans table — the
-                  path a provider with no legacy table of its own takes. The
-                  segments differ ("checkout/plan" vs "providers"), so it cannot
-                  collide with the provider profile below. */}
+              {/* ── The checkout ────────────────────────────────────────────
+                  One screen for every service. The per-service paths below it
+                  are kept because customers have them open in tabs and in
+                  emails, and they all land here. */}
+              <Route path="/checkout/:planId" element={
+                <ProtectedRoute><PlanCheckout /></ProtectedRoute>
+              } />
               <Route path="/services/:archetypeKey/checkout/plan/:planId" element={
-                <ProtectedRoute><UniversalPlanCheckout /></ProtectedRoute>
+                <ProtectedRoute><PlanCheckout /></ProtectedRoute>
               } />
 
               {/* Public provider profile — cleaning / entertainment. Food has

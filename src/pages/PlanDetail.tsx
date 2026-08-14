@@ -270,14 +270,9 @@ const PlanDetail = () => {
     ? (plan?.source === "universal" ? chosen.id : chosen.sourcePlanId ?? plan?.id ?? "")
     : plan?.id ?? "";
 
-  const checkoutHref = !plan ? "" :
-    plan.source === "cleaning" ? `/services/cleaning/checkout/${buyableId}` :
-    plan.source === "beach"    ? `/services/beach-club/checkout/${buyableId}` :
-    // Food keeps its own screen — the weekly menu and the delivery details
-    // live there, and it is where the payment happens.
-    plan.source === "food"
-      ? `/services/food/${plan.legacyProviderId}/plans/${buyableId}?meals=${meals.join(",")}` :
-    `/services/${archetypeKey}/checkout/plan/${buyableId}`;
+  // One checkout, one URL shape. Every service used to have its own — and its
+  // own screen behind it — which is the thing this replaces.
+  const checkoutHref = !plan ? "" : `/checkout/${buyableId}`;
 
   const buyFood = () => {
     if (!plan) return;
