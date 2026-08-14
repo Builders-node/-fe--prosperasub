@@ -7,7 +7,6 @@ import { supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
 
-import { RestaurantOperationsTab } from "@/components/food/admin/RestaurantOperationsTab";
 import { FoodSubscriptionsList } from "@/components/food/FoodSubscriptionsList";
 import { useMyRestaurants, type MyRestaurant } from "@/hooks/useMyRestaurants";
 
@@ -15,13 +14,13 @@ import type { MyProviderRow } from "@/hooks/useMyProviders";
 import { CleaningSubscriptionsList } from "@/components/cleaning/CleaningSubscriptionsList";
 import { useMyProviders } from "@/hooks/useMyProviders";
 import { SERVICES as SERVICE_REGISTRY } from "@/lib/services/registry";
-import CleaningOperationsPage from "@/pages/admin/CleaningManagement";
 
 import BeachClubPlansPage from "@/pages/admin/BeachClubPlans";
 import BeachClubSubscriptionsPage from "@/pages/admin/BeachClubSubscriptions";
 import BeachClubCourtsPage from "@/pages/admin/BeachClubCourts";
 
 import { OfferEditor } from "@/components/provider/plans/OfferEditor";
+import { OperationsTab } from "@/components/provider/OperationsTab";
 import { useUniversalIdForLegacy as useUniversalId } from "@/lib/services/providerBridge";
 
 /**
@@ -31,6 +30,27 @@ import { useUniversalIdForLegacy as useUniversalId } from "@/lib/services/provid
  * ever hold the per-service id, so the bridge happens here rather than in the
  * editor — which should not have to know that two id-spaces exist.
  */
+/**
+ * The provider's day, on the universal occurrence table.
+ *
+ * It replaces three screens that asked the same question in three
+ * vocabularies — food's delivery run, cleaning's bookings-and-reports page,
+ * the beach's court grid. The per-service pages still exist at their own admin
+ * URLs; this is what the workspace mounts.
+ */
+function LegacyOperations({ legacyId, sourceKey }: { legacyId: string; sourceKey: string }) {
+  const { data: universalId, isLoading } = useUniversalId(sourceKey, legacyId);
+  if (isLoading) return <TabsSkeleton />;
+  if (!universalId) {
+    return (
+      <div className="rounded-2xl bg-card p-6 text-sm text-muted-foreground">
+        This business has no marketplace record yet, so its day can't be shown here.
+      </div>
+    );
+  }
+  return <OperationsTab providerId={universalId} />;
+}
+
 /**
  * Offerings for a legacy-backed provider.
  *
@@ -98,7 +118,7 @@ export const FOOD_TABS: PortalTab<MyRestaurant>[] = [
   { value: "offerings",     label: "Offerings",  icon: Package,         render: (r) => (
     <LegacyOfferings legacyId={r.id} sourceKey="food" />
   ) },
-  { value: "operations",    label: "Operations",  mobileLabel: "Ops.",  icon: Truck,           render: (r) => <RestaurantOperationsTab providerId={r.id} /> },
+  { value: "operations",    label: "Operations",  mobileLabel: "Ops.",  icon: Truck,           render: (r) => <LegacyOperations legacyId={r.id} sourceKey="food" /> },
 ];
 
 export const CLEANING_TABS: PortalTab<CleaningProviderRow>[] = [
@@ -109,7 +129,7 @@ export const CLEANING_TABS: PortalTab<CleaningProviderRow>[] = [
   { value: "offerings",     label: "Offerings",  icon: Package,         render: (p) => (
     <LegacyOfferings legacyId={p.id} sourceKey="cleaning" />
   ) },
-  { value: "operations",    label: "Operations", mobileLabel: "Ops.",   icon: Wrench,          render: (p) => <CleaningOperationsPage embedded providerId={p.id} /> },
+  { value: "operations",    label: "Operations", mobileLabel: "Ops.",   icon: Wrench,          render: (p) => <LegacyOperations legacyId={p.id} sourceKey="cleaning" /> },
 ];
 
 // Beach club shares Cleaning's "admin pages embedded as tabs" pattern. Beach
