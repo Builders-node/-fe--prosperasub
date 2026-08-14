@@ -59,36 +59,18 @@ const CleaningPackages = () => {
     queryFn: async () => {
       const { data, error } = await supabaseDb
         .from("providers")
-        .select("id, name, category_key, source_provider_id")
+        .select("id, name, category_key, source_provider_id, avatar_url, gallery_urls")
         .eq("archetype_key", "cleaning")
         .eq("status", "active")
         .order("sort_order", { ascending: true });
       if (error) throw error;
-      const universal = (data ?? []) as CleaningProvider[];
-
-      // Hydrate avatar + gallery from the LEGACY table (that's where the
-      // admin's Info-tab edits land). The universal `providers` row is the
-      // stable listing entity; the legacy row is the source of truth for the
-      // images owner-portal writes to. Bridge via source_provider_id.
-      const legacyIds = universal
-        .map((p) => p.source_provider_id)
-        .filter((id): id is string => !!id);
-      if (legacyIds.length === 0) return universal;
-      const { data: legacy } = await supabaseDb
-        .from("cleaning_providers")
-        .select("id, avatar_url, gallery_urls")
-        .in("id", legacyIds);
-      const byId = new Map<string, { avatar_url: string | null; gallery_urls: string[] }>();
-      (legacy ?? []).forEach((r: any) => {
-        byId.set(String(r.id), {
-          avatar_url: r.avatar_url ?? null,
-          gallery_urls: Array.isArray(r.gallery_urls) ? r.gallery_urls.filter(Boolean) : [],
-        });
-      });
-      return universal.map((p) => {
-        const enriched = p.source_provider_id ? byId.get(p.source_provider_id) : null;
-        return { ...p, avatar_url: enriched?.avatar_url ?? null, gallery_urls: enriched?.gallery_urls ?? [] };
-      });
+      // The profile lives on `providers` now — one row, one truth. This used
+      // to bridge to cleaning_providers because that was where the Info tab
+      // wrote; the tab writes here, so the detour is gone.
+      return (data ?? []).map((p: any) => ({
+        ...p,
+        gallery_urls: Array.isArray(p.gallery_urls) ? p.gallery_urls.filter(Boolean) : [],
+      })) as CleaningProvider[];
     },
   });
 

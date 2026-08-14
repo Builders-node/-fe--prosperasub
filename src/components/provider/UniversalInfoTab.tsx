@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Edit, MapPin, Clock, Info as InfoIcon, Phone, Mail } from "lucide-react";
+import { Edit, MapPin, Clock, Info as InfoIcon, Phone, Mail, Truck } from "lucide-react";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAuditEvent } from "@/lib/auditLog";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { ProviderEditDialog, type ProviderEditFields } from "@/components/provider/ProviderEditDialog";
 import { WorkingHoursEditor } from "@/components/provider/WorkingHoursEditor";
 import { formatWorkingHours, parseWorkingHours, type HoursSchedule } from "@/lib/workingHours";
@@ -31,14 +32,25 @@ export interface UniversalProviderRow {
   admin_user_id?: string | null;
   booking_settings?: unknown;
   gallery_urls?: string[] | null;
+  /** Shown only to providers that actually deliver — see `capabilities`. */
+  delivery_info?: string | null;
 }
 
 /**
- * The one universal tab. Works for any provider row in the new
- * `providers` table regardless of category. Legacy per-service Info tabs
- * (RestaurantInfoTab, ProviderInfoTab) live on for backward compat.
+ * The one Overview tab — every service, no exceptions.
+ *
+ * There used to be three of these (RestaurantInfoTab, CleaningInfoTab, this
+ * one) rendering the same six fields into three different tables. They have
+ * been deleted: the profile lives on `providers` now, so one tab writes it.
+ * What was genuinely per-service survives as two slots — `extra` for a whole
+ * panel (food's service locations) and the delivery field below, which shows
+ * itself only where `capabilities` says the business delivers.
  */
-export function UniversalInfoTab({ provider }: { provider: UniversalProviderRow }) {
+export function UniversalInfoTab({ provider, extra }: {
+  provider: UniversalProviderRow;
+  /** Rendered under the info card — service-specific panels go here. */
+  extra?: ReactNode;
+}) {
   const qc = useQueryClient();
   const { userData } = useAuth();
   const [open, setOpen] = useState(false);
@@ -48,10 +60,13 @@ export function UniversalInfoTab({ provider }: { provider: UniversalProviderRow 
    * "Mon-Fri 9 to 6" gives the booking calendar nothing to work with.
    */
   const [hours, setHours] = useState<HoursSchedule[]>(() => parseWorkingHours(provider.working_hours));
+  const [delivery, setDelivery] = useState(provider.delivery_info ?? "");
+  const delivers = (provider.capabilities ?? []).includes("delivery");
 
   const openEdit = () => {
     setForm(hydrate(provider));
     setHours(parseWorkingHours(provider.working_hours));
+    setDelivery(provider.delivery_info ?? "");
     setOpen(true);
   };
 
@@ -71,6 +86,7 @@ export function UniversalInfoTab({ provider }: { provider: UniversalProviderRow 
         status: form.status || "active",
         sort_order: form.sort_order ?? 0,
         gallery_urls: form.gallery_urls ?? [],
+        ...(delivers ? { delivery_info: delivery.trim() || null } : {}),
         updated_at: new Date().toISOString(),
       };
       if (!payload.name) throw new Error("Name is required");
@@ -115,7 +131,16 @@ export function UniversalInfoTab({ provider }: { provider: UniversalProviderRow 
         <Row icon={<Mail className="h-4 w-4 text-muted-foreground" />} label="Email">
           {provider.contact_email || <em className="text-muted-foreground/70">Not set</em>}
         </Row>
+        {delivers && (
+          <Row icon={<Truck className="h-4 w-4 text-muted-foreground" />} label="Delivery">
+            {provider.delivery_info
+              ? <span className="whitespace-pre-line">{provider.delivery_info}</span>
+              : <em className="text-muted-foreground/70">Not set</em>}
+          </Row>
+        )}
       </div>
+
+      {extra}
 
       <ProviderEditDialog
         open={open}
@@ -126,10 +151,23 @@ export function UniversalInfoTab({ provider }: { provider: UniversalProviderRow 
         onSave={() => save.mutate()}
         saving={save.isPending}
         extras={
-          <div className="space-y-2">
-            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Working hours</p>
-            <WorkingHoursEditor value={hours} onChange={setHours} />
-          </div>
+          <>
+            <div className="space-y-2">
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Working hours</p>
+              <WorkingHoursEditor value={hours} onChange={setHours} />
+            </div>
+            {delivers && (
+              <div className="space-y-2">
+                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Delivery</p>
+                <Textarea
+                  value={delivery}
+                  onChange={(e) => setDelivery(e.target.value)}
+                  rows={3}
+                  placeholder="Delivery windows, fees, minimum order…"
+                />
+              </div>
+            )}
+          </>
         }
       />
     </div>

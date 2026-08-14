@@ -19,6 +19,7 @@ import { InnerPillTabs } from "@/components/provider/InnerPillTabs";
 import { BookingsTab } from "@/components/provider/BookingsTab";
 import { ProviderTeamTab } from "@/components/provider/ProviderTeamTab";
 import { ScheduleAccordion } from "@/components/provider/ScheduleAccordion";
+import { ServiceLocationsSection } from "@/components/food/admin/ServiceLocationsSection";
 import { LegacyOwnerPortal, FOOD_SUBSCRIPTIONS_TAB_BODY, CLEANING_SUBSCRIPTIONS_TAB_BODY, BEACH_SUBSCRIPTIONS_TAB_BODY } from "@/components/provider/legacyPortalTabs";
 import { ProviderAnalyticsWidget } from "@/components/provider/ProviderAnalyticsWidget";
 import { ProviderReviewsPanel } from "@/components/provider/ProviderReviewsPanel";
@@ -142,17 +143,42 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
   //   • ProviderAnalyticsWidget rides above Overview — the KPIs are what "who I am" is measured by.
   // One uniform tab-prefix mechanism in LegacyOwnerPortal/CapabilityPortal drives both.
   const tabPrefixes: Record<string, React.ReactNode> = {
-    info: (
-      <div className="mb-6 space-y-3">
-        <ProviderAnalyticsWidget providerId={provider.id} legacyId={legacyId} sourceKey={sourceKey} />
-        {/* Reputation belongs with "how am I doing", right under the number it
-            explains — the KPI strip's Rating card. Renders nothing until
-            somebody has actually rated the business. */}
-        <ProviderReviewsPanel providerId={provider.id} />
-      </div>
-    ),
     offerings: <ScheduleAccordion provider={provider} />,
   };
+
+  /**
+   * Overview — one tab, built once, for every service.
+   *
+   * Food, cleaning and the beach each used to ship their own Info tab writing
+   * the same six fields to their own legacy table. They are gone: the profile
+   * lives on `providers`, so the tab is built here (where the universal row
+   * is) and injected into whichever portal renders. Food keeps its service
+   * locations through the `extra` slot — the one thing that was never generic.
+   */
+  const overviewTab: PortalTab<unknown> = {
+    value: INFO_TAB_META.tabValue,
+    label: INFO_TAB_META.tabLabel,
+    mobileLabel: INFO_TAB_META.tabMobileLabel,
+    icon: INFO_TAB_META.icon,
+    render: () => (
+      <>
+        <div className="mb-6 space-y-3">
+          <ProviderAnalyticsWidget providerId={provider.id} legacyId={legacyId} sourceKey={sourceKey} />
+          {/* Reputation belongs with "how am I doing", right under the number it
+              explains — the KPI strip's Rating card. Renders nothing until
+              somebody has actually rated the business. */}
+          <ProviderReviewsPanel providerId={provider.id} />
+        </div>
+        <UniversalInfoTab
+          provider={provider}
+          extra={sourceKey === "food" && legacyId
+            ? <ServiceLocationsSection providerId={legacyId} />
+            : undefined}
+        />
+      </>
+    ),
+  };
+  const headTabs: PortalTab<any>[] = [overviewTab];
 
   // Money — what came in, what the platform kept, what has been paid out.
   // Owner-only: the payout ledger is the owner's, and the endpoint behind it
@@ -192,6 +218,7 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
       tabPrefixes={tabPrefixes}
       extraTabs={extraTabs}
       tailTabs={tailTabs}
+      overviewTab={overviewTab}
     />
   );
 
@@ -243,7 +270,7 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
         </div>
 
         {isLegacyPortal
-          ? <LegacyOwnerPortal sourceKey={sourceKey} legacyId={legacyId} fallback={capabilityPortal} bookingsTab={bookingsTab} tabPrefixes={tabPrefixes} extraTabs={extraTabs} tailTabs={tailTabs} />
+          ? <LegacyOwnerPortal sourceKey={sourceKey} legacyId={legacyId} fallback={capabilityPortal} bookingsTab={bookingsTab} tabPrefixes={tabPrefixes} extraTabs={extraTabs} tailTabs={tailTabs} headTabs={headTabs} />
           : capabilityPortal}
       </div>
     </>
@@ -265,7 +292,7 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
  * Operations. One capability collapses to no sub-tabs at all, so a simple
  * provider sees a plain Plans editor rather than a pill row of one.
  */
-function CapabilityPortal({ provider, capabilityTabs, bookingsTab, tabPrefixes = {}, extraTabs = [], tailTabs = [] }: {
+function CapabilityPortal({ provider, capabilityTabs, bookingsTab, tabPrefixes = {}, extraTabs = [], tailTabs = [], overviewTab }: {
   provider: UniversalProviderRow;
   capabilityTabs: { key: CapabilityKey; meta: CapabilityMeta }[];
   bookingsTab: PortalTab<unknown>;
@@ -275,6 +302,8 @@ function CapabilityPortal({ provider, capabilityTabs, bookingsTab, tabPrefixes =
   extraTabs?: PortalTab<any>[];
   /** Appended last — Team, the same tab every service now gets. */
   tailTabs?: PortalTab<any>[];
+  /** Built by the workspace so legacy and universal portals show one Overview. */
+  overviewTab: PortalTab<unknown>;
 }) {
   const InfoIcon = INFO_TAB_META.icon;
   const BookingsIcon = bookingsTab.icon;
@@ -327,8 +356,7 @@ function CapabilityPortal({ provider, capabilityTabs, bookingsTab, tabPrefixes =
       </TabsList>
 
       <TabsContent value={INFO_TAB_META.tabValue}>
-        {tabPrefixes[INFO_TAB_META.tabValue]}
-        <UniversalInfoTab provider={provider} />
+        {overviewTab.render(null as never, true)}
       </TabsContent>
 
       {capabilityTabs.length > 0 && (

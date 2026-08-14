@@ -24,14 +24,17 @@ const FoodProviderDetail = () => {
   const { data: provider, isLoading: loadingProvider } = useQuery({
     queryKey: ["food-provider", id],
     queryFn: async () => {
+      // The profile is on `providers` now; the URL still carries the legacy
+      // id because the plans below are keyed by it, so bridge across.
       const { data, error } = await supabaseDb
-        .from("food_providers")
+        .from("providers")
         .select("*")
-        .eq("id", id!)
+        .eq("source_service_key", "food")
+        .eq("source_provider_id", id!)
         .eq("status", "active")
         .single();
       if (error) throw error;
-      return data as FoodProvider;
+      return data as unknown as FoodProvider;
     },
     enabled: !!id,
   });
