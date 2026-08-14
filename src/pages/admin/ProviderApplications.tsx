@@ -11,7 +11,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { supabaseDb } from "@/integrations/supabase/client";
+import { supabaseDb, adminApi } from "@/integrations/supabase/client";
 import { LEGACY_SERVICES, DEFAULT_CAPABILITIES, type LegacySourceKey } from "@/lib/services/providerBridge";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAuditEvent } from "@/lib/auditLog";
@@ -176,13 +176,31 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
       }).eq("id", app.id);
       if (uErr) throw uErr;
       await logAuditEvent(userData!.id, "approve", "provider_application", app.id, { service: app.service, createdProviderId });
-      return { table, alreadyApproved: false } as const;
+
+      // The provider does not bring a calendar — the platform makes one and
+      // shares it with them. Deliberately not fatal: a Google outage (or a
+      // deployment without Calendar credentials) must not leave a business
+      // approved-but-not-created. The endpoint is idempotent, so the repair is
+      // to call it again from the provider workspace.
+      let calendar: { calendarId?: string | null; skipped?: string } | null = null;
+      if (createdProviderId) {
+        try {
+          const { data } = await adminApi(`/admin/providers/${createdProviderId}/calendar/provision`, { method: "POST" });
+          calendar = data ?? null;
+        } catch (err) {
+          console.warn("[approve] calendar provisioning failed", err);
+        }
+      }
+      return { table, alreadyApproved: false, calendar } as const;
     },
     onSuccess: (r) => {
       if (r.alreadyApproved) {
         toast.info("Already approved — refreshed list");
       } else {
         toast.success(r.table ? "Approved — provider created. They can manage it from My Business." : "Approved (no auto-provider for this service — set up manually).");
+        if (r.calendar && !r.calendar.calendarId) {
+          toast.warning("No Google calendar was created — provision it from the provider's Overview tab.");
+        }
       }
       qc.invalidateQueries({ queryKey: ["admin-provider-applications"] });
     },

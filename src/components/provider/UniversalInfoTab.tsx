@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Edit, MapPin, Clock, Info as InfoIcon, Phone, Mail, Truck } from "lucide-react";
-import { supabaseDb } from "@/integrations/supabase/client";
+import { Edit, MapPin, Clock, Info as InfoIcon, Phone, Mail, Truck, CalendarCheck } from "lucide-react";
+import { supabaseDb, adminApi } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAuditEvent } from "@/lib/auditLog";
 import { toast } from "sonner";
@@ -34,6 +34,8 @@ export interface UniversalProviderRow {
   gallery_urls?: string[] | null;
   /** Shown only to providers that actually deliver — see `capabilities`. */
   delivery_info?: string | null;
+  /** Platform-owned Google calendar. Provisioned at approval, never by hand. */
+  google_calendar_id?: string | null;
 }
 
 /**
@@ -131,6 +133,11 @@ export function UniversalInfoTab({ provider, extra }: {
         <Row icon={<Mail className="h-4 w-4 text-muted-foreground" />} label="Email">
           {provider.contact_email || <em className="text-muted-foreground/70">Not set</em>}
         </Row>
+        <Row icon={<CalendarCheck className="h-4 w-4 text-muted-foreground" />} label="Booking calendar">
+          {provider.google_calendar_id
+            ? <span className="break-all">Connected · managed by EverySub</span>
+            : <ProvisionCalendar providerId={provider.id} />}
+        </Row>
         {delivers && (
           <Row icon={<Truck className="h-4 w-4 text-muted-foreground" />} label="Delivery">
             {provider.delivery_info
@@ -187,6 +194,38 @@ function hydrate(p: UniversalProviderRow): ProviderEditFields {
     sort_order: 0,
     gallery_urls: Array.isArray(p.gallery_urls) ? p.gallery_urls : [],
   };
+}
+
+/**
+ * A provider never types a calendar id here — the platform creates the
+ * calendar and shares it with them. This is the repair path for businesses
+ * approved before provisioning existed; the endpoint is idempotent, so
+ * pressing it twice cannot make a second calendar.
+ */
+function ProvisionCalendar({ providerId }: { providerId: string }) {
+  const qc = useQueryClient();
+  const run = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await adminApi(`/admin/providers/${providerId}/calendar/provision`, { method: "POST" });
+      if (error) throw new Error(String(error));
+      if (!data?.calendarId) throw new Error("Google Calendar is not configured on the server yet");
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Calendar created and shared with you");
+      qc.invalidateQueries({ queryKey: ["universal-provider", providerId] });
+    },
+    onError: (e: any) => toast.error(e?.message || "Could not create the calendar"),
+  });
+  return (
+    <span className="flex flex-wrap items-center gap-2">
+      <em className="text-muted-foreground/70">Not set up</em>
+      <Button size="sm" variant="outline" className="h-7 rounded-full px-3 text-xs"
+        onClick={() => run.mutate()} disabled={run.isPending}>
+        {run.isPending ? "Creating…" : "Create it"}
+      </Button>
+    </span>
+  );
 }
 
 function Row({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
