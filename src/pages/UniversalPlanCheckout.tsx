@@ -114,7 +114,10 @@ const UniversalPlanCheckout = () => {
    * instead of the plan following the arithmetic.
    */
   const periodsMin = Math.max(1, plan?.periods_min ?? 1);
+  // Unset means one period. Offering more than the provider has said they sell
+  // would be this screen making a commercial decision on their behalf.
   const periodsMax = plan?.periods_max ?? null;
+  const periodsCeiling = periodsMax ?? periodsMin;
   const [periods, setPeriods] = useState(1);
   const [people, setPeople] = useState(1);
   useEffect(() => {
@@ -393,7 +396,7 @@ const UniversalPlanCheckout = () => {
 
               {/* Only shown when the plan actually offers a choice — a plan
                   sold one period at a time has nothing to step through. */}
-              {(periodsMax == null || periodsMax > periodsMin) && (
+              {periodsCeiling > periodsMin && (
                 <>
                   <Label className="mt-4 block text-xs text-muted-foreground">
                     How long — {termLabelFor(plan.period, periods)}
@@ -401,7 +404,7 @@ const UniversalPlanCheckout = () => {
                   <Stepper
                     value={periods}
                     min={periodsMin}
-                    max={periodsMax ?? 24}
+                    max={periodsCeiling}
                     onChange={setPeriods}
                     unit={termLabel(plan.period)}
                   />

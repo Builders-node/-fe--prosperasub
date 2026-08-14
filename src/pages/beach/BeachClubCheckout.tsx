@@ -81,12 +81,47 @@ const BeachClubCheckout = () => {
     enabled: !!planId,
   });
 
-  const totalCents = (plan?.price_per_person_cents ?? 0) * people;
+  /**
+   * How many months, read off the plan.
+   *
+   * The beach club sold exactly one month because `addMonths(start, 1)` said
+   * so, not because anyone decided memberships last a month. The switches on
+   * the universal mirror of this plan now say what it offers, so the same
+   * stepper the universal checkout uses works here — and a member who wants
+   * the season can buy it in one go instead of renewing four times.
+   */
+  const { data: switches } = useQuery({
+    queryKey: ["beach-plan-switches", planId],
+    enabled: !!planId,
+    queryFn: async () => {
+      const { data } = await supabaseDb
+        .from("provider_plans")
+        .select("periods_default, periods_min, periods_max, period")
+        .eq("source_service_key", "beach").eq("source_plan_id", planId!)
+        .maybeSingle();
+      return (data ?? null) as {
+        periods_default: number | null; periods_min: number | null;
+        periods_max: number | null; period: string | null;
+      } | null;
+    },
+  });
+
+  const periodsMin = Math.max(1, switches?.periods_min ?? 1);
+  // An unset maximum means "nobody has said this is sold by the season", so it
+  // stays at one month — what the club sells today. The provider opens it up by
+  // setting "most they may buy" on the plan, which is a decision, not a default.
+  const periodsMax = switches?.periods_max ?? periodsMin;
+  const [periods, setPeriods] = useState(1);
+  useEffect(() => {
+    if (switches) setPeriods(Math.max(periodsMin, switches.periods_default ?? 1));
+  }, [switches?.periods_default, periodsMin]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const totalCents = (plan?.price_per_person_cents ?? 0) * people * periods;
   const effectiveTotalCents = addSurchargeCents(totalCents, paymentMethod);
   const feePct = surchargePercent(paymentMethod);
   const totalUsdDollars = centsToDollars(effectiveTotalCents);
   const estimatedSats = convertToSats(totalUsdDollars);
-  const endDate = addMonths(new Date(`${startDate}T00:00:00`), 1);
+  const endDate = addMonths(new Date(`${startDate}T00:00:00`), Math.max(1, periods));
 
   // Unified Lightning + on-chain invoice generation + polling.
   const inv = useInvoicePayment({
@@ -241,7 +276,7 @@ const BeachClubCheckout = () => {
     client_name: getClientName(),
     client_email: userData?.email,
     plan_name: plan?.name,
-    duration: `${people} ${people === 1 ? "person" : "people"} · 1 month`,
+    duration: `${people} ${people === 1 ? "person" : "people"} · ${periods} ${periods === 1 ? "month" : "months"}`,
     booking_id: planId,
     admin_url: `${window.location.origin}/admin/beach-club/plans`,
     selected_date_time: startDate,
@@ -366,6 +401,25 @@ const BeachClubCheckout = () => {
                       </Button>
                     </div>
                   </div>
+                  {/* Only where the plan offers more than one month. */}
+                  {periodsMax > periodsMin && (
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Months</Label>
+                      <div className="mt-1.5 flex items-center gap-3">
+                        <Button type="button" size="iconSm" variant="outline" className="rounded-full"
+                          disabled={periods <= periodsMin}
+                          onClick={() => setPeriods((n) => Math.max(periodsMin, n - 1))} aria-label="Fewer months">
+                          <Minus />
+                        </Button>
+                        <span className="w-10 text-center text-lg font-black tabular-nums">{periods}</span>
+                        <Button type="button" size="iconSm" variant="outline" className="rounded-full"
+                          disabled={periods >= periodsMax}
+                          onClick={() => setPeriods((n) => Math.min(periodsMax, n + 1))} aria-label="More months">
+                          <Plus />
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                   <div>
                     <Label htmlFor="bc-start" className="text-xs text-muted-foreground">Start date</Label>
                     <div className="relative mt-1.5">
@@ -405,7 +459,8 @@ const BeachClubCheckout = () => {
               <div className="divide-y divide-border/60 border-t border-border/60">
                 <SummaryRow label="Price / person" value={`${formatUSD(plan.price_per_person_cents)} / mo`} />
                 <SummaryRow label="People" value={String(people)} />
-                <SummaryRow label="Duration" value="1 month" />
+                <SummaryRow label="Duration" value={`${periods} ${periods === 1 ? "month" : "months"}`} />
+                <SummaryRow label="Ends" value={format(endDate, "d MMM yyyy")} />
                 <SummaryRow label="Start date" value={format(new Date(`${startDate}T00:00:00`), "d MMM yyyy")} />
               </div>
 
