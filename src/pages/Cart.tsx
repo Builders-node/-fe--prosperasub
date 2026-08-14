@@ -168,9 +168,19 @@ export default function Cart() {
    * shapes live in lib/cart/checkoutRows; this only decides how much of the
    * payment-method fee each line carries and writes the groups.
    */
+  /**
+   * Minted before payment, not during it: the notification that goes out when
+   * the money lands has to be able to name the order, and it is composed at
+   * invoice time. Previously it said "Booking ID: Not created yet" because
+   * this id did not exist yet.
+   */
+  const batchIdRef = useRef<string | null>(null);
+  const newBatchId = () =>
+    (crypto as any).randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+
   const createRecords = async (paymentRef: string, pending = false) => {
     const today = todayHN();
-    const batchId = (crypto as any).randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
+    const batchId = batchIdRef.current ?? newBatchId();
 
     // The fee is charged once on the cart total but stored per row, so spread
     // it in proportion to each line's price and put the rounding remainder on
@@ -275,11 +285,38 @@ export default function Cart() {
   /** The sticky bar and BottomNav share the bottom strip — never both. */
   const showStickyCheckout = step === "cart" && items.length > 0;
 
+  /**
+   * What this basket actually is, for the payment notification.
+   *
+   * It used to be the literal string "Food Cart" with no email, no plan and no
+   * duration — a leftover from when only food could be added. A $79 cleaning
+   * order therefore arrived announced as food, and whoever read it had to go
+   * digging. A basket knows all of this about itself.
+   */
+  const basketMeta = () => {
+    const services = [...new Set(items.map((i) => CART_SERVICES[i.service]?.label ?? i.service))];
+    const lines = items.map((i) => `${i.planName}${i.qty > 1 ? ` ×${i.qty}` : ""}`);
+    const durations = [...new Set(items.map((i) =>
+      `${i.periods} ${CART_SERVICES[i.service]?.periodNoun ?? "period"}${i.periods > 1 ? "s" : ""}`))];
+    return {
+      service_name: services.join(" + ") || "Cart",
+      client_name: form.customer_name.trim(),
+      client_email: userData?.email ?? undefined,
+      client_phone: form.customer_whatsapp.trim(),
+      plan_name: lines.join(", "),
+      duration: durations.join(" · "),
+      booking_id: batchIdRef.current ?? undefined,
+      selected_date_time: todayHN(),
+      admin_url: `${window.location.origin}/admin/marketplace/subscriptions`,
+    };
+  };
+
   const startCheckout = async () => {
     if (!isAuthenticated) { openAuthModal("login", "/cart"); return; }
     if (!formValid || items.length === 0) return;
     createdRef.current = false;
-    const description = `Cart - ${count} portion${count > 1 ? "s" : ""} - ${formatUSD(totalCents)}`;
+    batchIdRef.current = newBatchId();
+    const description = `${[...new Set(items.map((i) => CART_SERVICES[i.service]?.label ?? i.service))].join(" + ")} — ${count} item${count > 1 ? "s" : ""} — ${formatUSD(totalCents)}`;
 
     if (paymentMethod === "infinita" || paymentMethod === "paypal") {
       setStep("pay");
@@ -298,14 +335,9 @@ export default function Cart() {
         amountCents: effectiveTotalCents,
         amountSats: sats,
         description,
-        context: "food_cart",
-        externalId: `food-cart-${Date.now()}`.slice(0, 100),
-        meta: {
-          service_name: "Food Cart",
-          client_name: form.customer_name.trim(),
-          client_phone: form.customer_whatsapp.trim(),
-          admin_url: `${window.location.origin}/admin/marketplace/subscriptions`,
-        },
+        context: "cart",
+        externalId: `cart-${batchIdRef.current}`.slice(0, 100),
+        meta: basketMeta(),
       });
     } finally {
       setIsGenerating(false);
@@ -574,7 +606,7 @@ export default function Cart() {
 
             {/* Payment panels */}
             {step === "pay" && paymentMethod === "infinita" && (
-              <InfinitaPaymentPanel totalCents={effectiveTotalCents} serviceName="Food order" onPaid={(pid) => onPaidComplete(pid, false)} />
+              <InfinitaPaymentPanel totalCents={effectiveTotalCents} serviceName={basketMeta().service_name} onPaid={(pid) => onPaidComplete(pid, false)} />
             )}
             {step === "pay" && paymentMethod === "paypal" && (
               <PayPalPanel totalCents={effectiveTotalCents} onPaid={(cap) => onPaidComplete(cap)} />
