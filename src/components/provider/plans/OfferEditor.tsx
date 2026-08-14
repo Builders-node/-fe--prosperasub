@@ -129,12 +129,20 @@ export function OfferEditor({ providerId, sourceKey }: { providerId: string; sou
     rows.filter((r) => r.parent_plan_id === offer.id).forEach((v) => {
       seeded[comboKey(drafted, (v.option_keys ?? {}) as Record<string, string>)] = dollars(v.price_cents);
     });
+    if (!drafted.length) seeded[""] = dollars(offer.price_cents);
     setPrices(seeded);
   }, [offerId, data]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /** Every combination the axes allow, in the order the customer will see them. */
+  /**
+   * Every combination the axes allow, in the order the customer will see them.
+   *
+   * No axes is not an empty list — it is ONE combination, the empty one. A
+   * plain plan with a single price and a sized plan with six are then the same
+   * shape, and the editor needs no second mode for "simple".
+   */
   const combos = useMemo(() => {
-    if (!draftGroups.length || draftGroups.some((g) => !g.options.length)) return [];
+    if (!draftGroups.length) return [{}];
+    if (draftGroups.some((g) => !g.options.length)) return [];
     return draftGroups.reduce<Array<Record<string, string>>>(
       (acc, g) => acc.flatMap((base) => g.options.map((o) => ({ ...base, [g.key]: o.key }))),
       [{}],
@@ -144,8 +152,12 @@ export function OfferEditor({ providerId, sourceKey }: { providerId: string; sou
   const variantByCombo = useMemo(() => {
     const map = new Map<string, PlanRow>();
     variants.forEach((v) => map.set(comboKey(draftGroups, (v.option_keys ?? {}) as Record<string, string>), v));
+    // A plan with no axes prices ITSELF — there is no child row to hold the
+    // number, and inventing one would put a second plan in every list that
+    // reads them.
+    if (!draftGroups.length && offer) map.set("", offer);
     return map;
-  }, [variants, draftGroups]);
+  }, [variants, draftGroups, offer]);
 
   const priced = combos.filter((c) => cents(prices[comboKey(draftGroups, c)] ?? "") > 0);
   const fromCents = priced.length
@@ -157,10 +169,15 @@ export function OfferEditor({ providerId, sourceKey }: { providerId: string; sou
     mutationFn: async () => {
       if (!offer) throw new Error("Nothing to save yet.");
       if (!name.trim()) throw new Error("The plan needs a name.");
-      if (!priced.length) throw new Error("Give at least one combination a price.");
+      if (!priced.length) throw new Error(draftGroups.length
+        ? "Give at least one combination a price."
+        : "Give the plan a price.");
 
       // 1. The plan's own fields, written wherever that plan actually lives.
       await writePlanFields(offer, name.trim(), description.trim() || null, sourceKey);
+      // A plan is created as a draft so a nameless $0 row never reaches the
+      // storefront. Pricing it is what puts it on sale.
+      if (offer.status !== "active") await writeStatus(offer, "active", sourceKey);
 
       // 2. Axes, rewritten wholesale. The set is small and a diff would have to
       //    reason about a renamed key that priced rows still point at.
@@ -206,13 +223,18 @@ export function OfferEditor({ providerId, sourceKey }: { providerId: string; sou
             await writePrice(variant, amount, sourceKey);
             // Keep the binding current — an axis renamed above would otherwise
             // leave this row answering for a combination that no longer exists.
-            const { error } = await supabaseDb.from("provider_plans")
-              .update({ option_keys: combo, parent_plan_id: offer.id }).eq("id", variant.id);
-            if (error) throw error;
-          } else {
+            // Except when the row IS the plan: a plan with no choices prices
+            // itself, and making it its own parent would hide it from every
+            // list that asks for top-level plans.
+            if (variant.id !== offer.id) {
+              const { error } = await supabaseDb.from("provider_plans")
+                .update({ option_keys: combo, parent_plan_id: offer.id }).eq("id", variant.id);
+              if (error) throw error;
+            }
+          } else if (variant.id !== offer.id) {
             // Cleared, not deleted: somebody may be subscribed to it. Off sale
             // is a status, and the row keeps answering for their subscription.
-            await retire(variant, sourceKey);
+            await writeStatus(variant, "inactive", sourceKey);
           }
           continue;
         }
@@ -232,7 +254,7 @@ export function OfferEditor({ providerId, sourceKey }: { providerId: string; sou
       const live = new Set(combos.map((c) => comboKey(draftGroups, c)));
       for (const v of variants) {
         const fingerprint = comboKey(draftGroups, (v.option_keys ?? {}) as Record<string, string>);
-        if (!live.has(fingerprint) && v.status === "active") await retire(v, sourceKey);
+        if (!live.has(fingerprint) && v.status === "active") await writeStatus(v, "inactive", sourceKey);
       }
     },
     onSuccess: () => {
@@ -244,30 +266,80 @@ export function OfferEditor({ providerId, sourceKey }: { providerId: string; sou
     onError: (e: Error) => toast.error(e.message || "Couldn't save"),
   });
 
+  /**
+   * A second plan, a third, a tenth.
+   *
+   * It starts as a universal row with no choices and no price — the editor
+   * opens on it immediately and the provider fills it in. For a legacy-backed
+   * service the row that a subscription will point at is created on the first
+   * save, by the same path a new combination takes, so there is one way a
+   * sellable row comes into existence rather than two.
+   */
+  const addPlan = useMutation({
+    mutationFn: async () => {
+      const id = await createPlanRow({
+        providerId, sourceKey, name: "New plan", amount: 0,
+        sortOrder: offers.length, period: offers[0]?.period ?? null, draft: true,
+      });
+      if (!id) throw new Error("The plan was created but could not be opened — reload the page.");
+      return id;
+    },
+    onSuccess: async (id) => {
+      await qc.invalidateQueries({ queryKey: KEY });
+      setOfferId(id);
+      toast.success("Plan added — name it and set its price");
+    },
+    onError: (e: Error) => toast.error(e.message || "Couldn't add the plan"),
+  });
+
+  const archive = useMutation({
+    mutationFn: async (status: "active" | "inactive") => {
+      if (!offer) return;
+      await writeStatus(offer, status, sourceKey);
+    },
+    onSuccess: (_d, status) => {
+      toast.success(status === "active" ? "Back on sale" : "Taken off sale");
+      qc.invalidateQueries({ queryKey: KEY });
+      qc.invalidateQueries({ queryKey: ["plan-offers"] });
+    },
+    onError: (e: Error) => toast.error(e.message || "Couldn't change the plan"),
+  });
+
   if (isLoading) return <div className="flex justify-center py-12"><Spinner /></div>;
   if (!offer) {
     return (
-      <div className="rounded-2xl bg-card p-6 text-sm text-muted-foreground">
-        This business has no plan yet.
+      <div className="space-y-3 rounded-2xl bg-card p-6">
+        <p className="text-sm text-muted-foreground">
+          This business sells nothing yet. A plan is one product: a name, whatever the customer
+          gets to choose, and a price for each way of choosing it.
+        </p>
+        <Button className="gap-1.5 rounded-full" disabled={addPlan.isPending} onClick={() => addPlan.mutate()}>
+          <Plus className="h-4 w-4" /> {addPlan.isPending ? "Adding…" : "Add the first plan"}
+        </Button>
       </div>
     );
   }
 
   return (
     <div className="space-y-5">
-      {offers.length > 1 && (
-        <div className="flex flex-wrap gap-2">
-          {offers.map((o) => (
-            <button key={o.id} type="button" onClick={() => setOfferId(o.id)}
-              className={cn(
-                "rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors",
-                o.id === offerId ? "bg-foreground text-background" : "bg-muted/50 text-muted-foreground hover:text-foreground",
-              )}>
-              {o.name}
-            </button>
-          ))}
-        </div>
-      )}
+      {/* Every plan this business sells. A provider is not limited to one —
+          each is its own product with its own choices and prices. */}
+      <div className="flex flex-wrap items-center gap-2">
+        {offers.map((o) => (
+          <button key={o.id} type="button" onClick={() => setOfferId(o.id)}
+            className={cn(
+              "rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors",
+              o.id === offerId ? "bg-foreground text-background" : "bg-muted/50 text-muted-foreground hover:text-foreground",
+            )}>
+            {o.name}
+            {o.status !== "active" && <span className="ml-1.5 text-[10px] uppercase opacity-70">off</span>}
+          </button>
+        ))}
+        <Button variant="outline" size="sm" className="gap-1.5 rounded-full"
+          disabled={addPlan.isPending} onClick={() => addPlan.mutate()}>
+          <Plus className="h-4 w-4" /> {addPlan.isPending ? "Adding…" : "New plan"}
+        </Button>
+      </div>
 
       <section className="space-y-3 rounded-2xl bg-card p-4">
         <p className="text-xs font-black uppercase tracking-[0.14em] text-muted-foreground">The plan</p>
@@ -280,8 +352,9 @@ export function OfferEditor({ providerId, sourceKey }: { providerId: string; sou
           <Textarea className="mt-1" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
         </div>
         <p className="text-xs text-muted-foreground">
-          Customers see one card. Its price shows as “from {fromCents ? formatUSD(fromCents) : "—"}”, the cheapest
-          combination below.
+          {draftGroups.length
+            ? <>Customers see one card. Its price shows as “from {fromCents ? formatUSD(fromCents) : "—"}”, the cheapest combination below.</>
+            : <>Customers see one card at {fromCents ? formatUSD(fromCents) : "—"}.</>}
         </p>
       </section>
 
@@ -333,14 +406,16 @@ export function OfferEditor({ providerId, sourceKey }: { providerId: string; sou
       <section className="space-y-3 rounded-2xl bg-card p-4">
         <p className="text-xs font-black uppercase tracking-[0.14em] text-muted-foreground">Prices</p>
         {combos.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Add a choice and at least one value to price it.</p>
+          <p className="text-sm text-muted-foreground">Give every choice at least one value to price it.</p>
         ) : (
           <ul className="divide-y divide-border/60">
             {combos.map((combo) => {
               const fingerprint = comboKey(draftGroups, combo);
-              const label = draftGroups
-                .map((g) => g.options.find((o) => o.key === combo[g.key])?.label ?? combo[g.key])
-                .join(" · ");
+              const label = draftGroups.length
+                ? draftGroups
+                    .map((g) => g.options.find((o) => o.key === combo[g.key])?.label ?? combo[g.key])
+                    .join(" · ")
+                : "Price";
               return (
                 <li key={fingerprint} className="flex flex-wrap items-center justify-between gap-3 py-2.5">
                   <span className="text-sm font-semibold text-foreground">{label}</span>
@@ -360,14 +435,24 @@ export function OfferEditor({ providerId, sourceKey }: { providerId: string; sou
           </ul>
         )}
         <p className="text-xs text-muted-foreground">
-          Leave a price empty to take that combination off sale. Nothing is deleted — anyone already
-          subscribed to it keeps their plan.
+          {draftGroups.length
+            ? "Leave a price empty to take that combination off sale. Nothing is deleted — anyone already subscribed to it keeps their plan."
+            : "One price, because this plan has no choices yet. Add one above and it becomes a price per combination."}
         </p>
       </section>
 
-      <Button className="w-full rounded-full sm:w-auto" disabled={save.isPending} onClick={() => save.mutate()}>
-        {save.isPending ? "Saving…" : "Save plan"}
-      </Button>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button className="rounded-full" disabled={save.isPending} onClick={() => save.mutate()}>
+          {save.isPending ? "Saving…" : "Save plan"}
+        </Button>
+        {/* Off sale, not deleted: somebody may be subscribed to it, and a plan
+            that vanishes takes their subscription's name with it. */}
+        <Button variant="ghost" className="rounded-full text-muted-foreground"
+          disabled={archive.isPending}
+          onClick={() => archive.mutate(offer.status === "active" ? "inactive" : "active")}>
+          {offer.status === "active" ? "Take off sale" : "Put back on sale"}
+        </Button>
+      </div>
     </div>
   );
 }
@@ -459,55 +544,30 @@ async function writePrice(variant: PlanRow, amount: number, sourceKey: string) {
   if (error) throw error;
 }
 
-/** Off sale, never deleted — a subscription points at this row by id. */
-async function retire(variant: PlanRow, sourceKey: string) {
-  if (variant.source_plan_id && sourceKey === "food") {
-    const { error } = await supabaseDb.from("food_meal_plans")
-      .update({ status: "inactive", updated_at: new Date().toISOString() }).eq("id", variant.source_plan_id);
-    if (error) throw error;
-    return;
-  }
-  if (variant.source_plan_id && sourceKey === "cleaning") {
-    // `is_active` is derived from `status` by a BEFORE trigger, so writing the
-    // flag is a no-op — the status is the switch.
-    const { error } = await supabaseDb.from("cleaning_packages")
-      .update({ status: "inactive", updated_at: new Date().toISOString() }).eq("id", variant.source_plan_id);
-    if (error) throw error;
-    return;
-  }
-  const { error } = await supabaseDb.from("provider_plans")
-    .update({ status: "inactive", updated_at: new Date().toISOString() }).eq("id", variant.id);
-  if (error) throw error;
-}
-
 /**
- * A combination that has never been sold before.
+ * A sellable row that did not exist before — a new plan, or a new combination
+ * of an existing one. Both are the same act: for a legacy-backed service the
+ * row must exist in the legacy table, because that is the id a subscription
+ * will carry. The mirror trigger then writes the universal row, which this
+ * returns so the caller can name or bind it.
  *
- * For a legacy-backed service the row has to exist in the legacy table, because
- * that is the id a subscription will carry. The mirror trigger then creates the
- * universal row, which this returns so the caller can bind it to the offer.
+ * A `draft` is created off sale. A plan the provider has not priced yet must
+ * not appear on the storefront at $0 while they are still typing.
  */
-async function createVariant(input: {
-  offer: PlanRow;
+async function createPlanRow(input: {
   providerId: string;
   sourceKey: string;
-  combo: Record<string, string>;
-  groups: DraftGroup[];
+  name: string;
   amount: number;
   sortOrder: number;
+  period?: string | null;
+  draft?: boolean;
+  /** Fills the legacy columns a food plan needs when the axes are numeric. */
+  numeric?: (key: string) => number | null;
 }): Promise<string | null> {
-  const { offer, providerId, sourceKey, combo, groups, amount, sortOrder } = input;
-  const label = groups
-    .map((g) => g.options.find((o) => o.key === combo[g.key])?.label ?? combo[g.key])
-    .join(" · ");
-  const name = `${offer.name} — ${label}`;
-
-  /** An axis whose values are numbers can fill the legacy column of the same name. */
-  const numeric = (groupKey: string) => {
-    const raw = combo[groupKey];
-    const n = Number(raw);
-    return Number.isFinite(n) && n > 0 ? n : null;
-  };
+  const { providerId, sourceKey, name, amount, sortOrder, period, draft } = input;
+  const status = draft ? "inactive" : "active";
+  const numeric = input.numeric ?? (() => null);
 
   if (sourceKey === "food") {
     const { data: provider } = await supabaseDb.from("providers")
@@ -523,7 +583,7 @@ async function createVariant(input: {
       days_per_week: days,
       meals_per_day: meals,
       meals_per_week: days * meals,
-      status: "active",
+      status,
       sort_order: sortOrder,
     }).select("id").single();
     if (error) throw error;
@@ -541,7 +601,7 @@ async function createVariant(input: {
       pricing_mode: "fixed_monthly_price",
       frequency_unit: "month",
       frequency_count: 1,
-      status: "active",
+      status,
       sort_order: sortOrder,
     }).select("id").single();
     if (error) throw error;
@@ -552,13 +612,61 @@ async function createVariant(input: {
     provider_id: providerId,
     name,
     price_cents: amount,
-    period: offer.period ?? "monthly",
+    period: period ?? "monthly",
     currency: "USD",
-    status: "active",
+    status,
     sort_order: sortOrder,
   }).select("id").single();
   if (error) throw error;
   return String(created.id);
+}
+
+/** One combination of an existing plan, named after the choices it is. */
+async function createVariant(input: {
+  offer: PlanRow;
+  providerId: string;
+  sourceKey: string;
+  combo: Record<string, string>;
+  groups: DraftGroup[];
+  amount: number;
+  sortOrder: number;
+}): Promise<string | null> {
+  const { offer, providerId, sourceKey, combo, groups, amount, sortOrder } = input;
+  const label = groups
+    .map((g) => g.options.find((o) => o.key === combo[g.key])?.label ?? combo[g.key])
+    .join(" · ");
+  return createPlanRow({
+    providerId,
+    sourceKey,
+    name: label ? `${offer.name} — ${label}` : offer.name,
+    amount,
+    sortOrder,
+    period: offer.period,
+    /** An axis whose values are numbers can fill the legacy column of the same name. */
+    numeric: (groupKey: string) => {
+      const n = Number(combo[groupKey]);
+      return Number.isFinite(n) && n > 0 ? n : null;
+    },
+  });
+}
+
+/** Status goes where the plan lives — the mirror carries a legacy change back. */
+async function writeStatus(plan: PlanRow, status: "active" | "inactive", sourceKey: string) {
+  if (plan.source_plan_id && sourceKey === "food") {
+    const { error } = await supabaseDb.from("food_meal_plans")
+      .update({ status, updated_at: new Date().toISOString() }).eq("id", plan.source_plan_id);
+    if (error) throw error;
+    return;
+  }
+  if (plan.source_plan_id && sourceKey === "cleaning") {
+    const { error } = await supabaseDb.from("cleaning_packages")
+      .update({ status, updated_at: new Date().toISOString() }).eq("id", plan.source_plan_id);
+    if (error) throw error;
+    return;
+  }
+  const { error } = await supabaseDb.from("provider_plans")
+    .update({ status, updated_at: new Date().toISOString() }).eq("id", plan.id);
+  if (error) throw error;
 }
 
 /** The universal row the mirror trigger just wrote for a legacy insert. */
