@@ -80,7 +80,6 @@ const EMPTY_FORM = {
   description: "",
   sort_order: 0,
   external_ics_url: "",
-  google_calendar_id: "",
   // Per-court booking calendar override. NULL = inherit from provider.
   booking_settings: null as unknown | null,
 };
@@ -244,7 +243,6 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
       description: c.description ?? "",
       sort_order: c.sort_order,
       external_ics_url: c.external_ics_url ?? "",
-      google_calendar_id: c.google_calendar_id ?? "",
       booking_settings: (c as any).booking_settings ?? null,
     });
   };
@@ -268,7 +266,6 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
         description: form.description.trim() || null,
         sort_order: form.sort_order,
         external_ics_url: extUrl || null,
-        google_calendar_id: form.google_calendar_id.trim() || null,
         booking_settings: form.booking_settings,
       };
       if (editing === "new") {
@@ -702,24 +699,19 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
                   </p>
                 </div>
 
-                {/* Push to Google Calendar (writable) */}
-                <div>
-                  <Label className="text-xs">Google Calendar ID (write bookings here)</Label>
-                  <Input
-                    value={form.google_calendar_id}
-                    onChange={(e) => setForm((f) => ({ ...f, google_calendar_id: e.target.value }))}
-                    placeholder="your.calendar@group.calendar.google.com"
-                    className="font-mono text-xs"
-                  />
-                  <p className="mt-1 text-[11px] text-muted-foreground">
-                    New bookings on this court will be pushed to this Google Calendar in real time. Grant our service account edit access to it.
-                  </p>
-                </div>
+                {/* Push to Google Calendar (writable) — created by us, never typed.
+                    Reads the id off the live list, not off the row captured when
+                    the dialog opened, so it updates the moment we create one. */}
+                <CourtCalendar
+                  courtId={editing.id}
+                  calendarId={courts.find((c) => c.id === editing.id)?.google_calendar_id ?? editing.google_calendar_id}
+                />
               </div>
             )}
             {editing === "new" && (
               <p className="text-[11px] text-muted-foreground">
-                After creating the court you'll get an iCal feed URL to subscribe to (and to attach your personal calendar).
+                After creating the court you'll get an iCal feed URL to subscribe to, and you can
+                have the platform create its Google Calendar.
               </p>
             )}
             <div className="grid grid-cols-2 gap-3">
@@ -824,5 +816,56 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
     >
       {bodyContent}
     </SuperAdminLayout>
+  );
+}
+
+/**
+ * A court's booking calendar.
+ *
+ * It used to be a text field: paste a Google Calendar id here, then go and
+ * grant our service account edit access over there. Two manual steps, both
+ * invisible when wrong — a court with a mistyped id accepts bookings and syncs
+ * them nowhere. The platform creates the calendar itself now, the same way it
+ * does for a provider, and shares it with the club. The call is idempotent, so
+ * a court that already has one is left alone.
+ */
+function CourtCalendar({ courtId, calendarId }: { courtId: string; calendarId: string | null }) {
+  const qc = useQueryClient();
+  const create = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await adminApi(`/admin/beach-club/courts/${courtId}/calendar/provision`, { method: "POST" });
+      if (error) throw new Error(String(error));
+      if (!data?.calendarId) throw new Error("Google Calendar is not configured on the server yet");
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Calendar created — bookings will sync to it");
+      qc.invalidateQueries({ queryKey: ["admin-bc-courts"] });
+    },
+    onError: (e: any) => toast.error(e?.message || "Could not create the calendar"),
+  });
+
+  return (
+    <div>
+      <Label className="text-xs">Google Calendar</Label>
+      {calendarId ? (
+        <>
+          <p className="mt-1 truncate font-mono text-xs text-foreground">{calendarId}</p>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Created and owned by the platform. Bookings on this court are pushed to it in real time.
+          </p>
+        </>
+      ) : (
+        <div className="mt-1 flex flex-wrap items-center gap-2">
+          <Button size="sm" variant="outline" className="rounded-full"
+            onClick={() => create.mutate()} disabled={create.isPending}>
+            {create.isPending ? "Creating…" : "Create calendar"}
+          </Button>
+          <span className="text-[11px] text-muted-foreground">
+            We create it and share it with the club — nothing to paste.
+          </span>
+        </div>
+      )}
+    </div>
   );
 }
