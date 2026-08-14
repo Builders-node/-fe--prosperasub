@@ -1,3 +1,4 @@
+import { SUBSCRIBE } from "@/lib/checkout/ctaLabel";
 import { CalendarDays, ChefHat, UtensilsCrossed } from "lucide-react";
 import { PlanCard, type PlanCardRating } from "@/components/patterns/PlanCard";
 import type { PlanOffer } from "@/hooks/usePlanOffers";
@@ -87,7 +88,7 @@ export function MealPlanCard({
         unit: "/ week",
         from: !!offer,
       }}
-      cta={{ label: offer ? "Choose your plan" : "View menu", onClick: onOpen }}
+      cta={{ label: SUBSCRIBE, onClick: onOpen }}
       onOpen={onOpen}
     />
   );

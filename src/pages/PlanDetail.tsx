@@ -17,6 +17,7 @@ import {
 } from "@/components/icons/FigmaIcons";
 import { ProviderReviewsBlock, type ProviderReviewService } from "@/components/reviews/ProviderReviewsBlock";
 import { findVariant, periodUnit, selectionFor, usePlanOffers, type PlanOffer } from "@/hooks/usePlanOffers";
+import { ADD_TO_CART, SUBSCRIBE, fromLabel, normalizeUnit, payLabel } from "@/lib/checkout/ctaLabel";
 import { useArchetypeLabel } from "@/hooks/useServiceArchetypes";
 import { publicListingHref } from "@/lib/services/providerBridge";
 import { providerHref } from "@/lib/services/serviceUrls";
@@ -406,6 +407,22 @@ const PlanDetail = () => {
   // the figure below is exact, so "From" only belongs on the unpicked case.
   const showFrom = !!offer && !chosen;
 
+  /**
+   * What this button says — one of three things, and nothing else.
+   *
+   * Food goes to the basket, so it says so and carries no price: the amount is
+   * settled at the cart, not here. Everything else pays, and shows what it is
+   * about to charge per period. With no price to show — an unpriced plan, or an
+   * offer nobody has configured yet — the button falls back to the word for the
+   * act itself.
+   */
+  const unit = normalizeUnit(priceUnit);
+  const ctaLabel =
+    plan?.source === "food" ? ADD_TO_CART
+    : typeof priceCents === "number" && priceCents > 0 && !showFrom ? payLabel(priceCents, unit)
+    : SUBSCRIBE;
+  const fromRange = showFrom ? fromLabel(priceCents, unit) : null;
+
   return (
     <div className="min-h-screen bg-background pb-32 md:pb-12">
       <DesktopHeader />
@@ -551,15 +568,23 @@ const PlanDetail = () => {
         style={{ paddingBottom: "calc(24px + env(safe-area-inset-bottom, 0px))" }}
       >
         <div className="px-4 py-2 md:mx-auto md:max-w-[1280px] md:px-6">
+          {/* An offer whose variants disagree about price has no single price
+              to put in the button, so the range goes above it and the button
+              says the one thing it always says. */}
+          {showFrom && fromRange && (
+            <p className="mb-1.5 text-center text-[13px] text-muted-foreground">{fromRange}</p>
+          )}
           <button
             type="button"
             onClick={subscribe}
             disabled={(!!offer && !chosen) || (mealsPerDay > 0 && meals.length !== Math.min(mealsPerDay, 3))}
             className="w-full rounded-radius-md bg-primary px-4 py-3 text-[16px] font-semibold leading-6 tracking-[-0.32px] text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
           >
-            {typeof priceCents === "number" && priceCents > 0
-              ? `${plan.source === "food" ? "Add to cart · " : showFrom ? "From " : "Pay "}${formatUSD(priceCents)}${priceUnit ? ` ${priceUnit}` : ""}`
-              : "Subscribe"}
+            {/* Three actions, three labels. This button used to word itself
+                four ways — "Add to cart · $90.00 / week", "From $79.00 / month",
+                "Pay $80.00 / month", "Subscribe" — for what is, from the
+                customer's side, the same tap. */}
+            {ctaLabel}
           </button>
         </div>
       </div>

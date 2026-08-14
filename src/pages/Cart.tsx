@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useGoBack } from "@/hooks/useGoBack";
 import {
   ShoppingCart, Trash2, Minus, Plus, MapPin, MessageCircle, User as UserIcon,
-  Check, Zap, Bitcoin, UtensilsCrossed, X,
+  Check, UtensilsCrossed, X,
 } from "lucide-react";
 import { HomeHeader } from "@/components/HomeHeader";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
@@ -39,6 +39,7 @@ import { usePaymentMethods } from "@/hooks/usePaymentMethods";
 import { useResidences } from "@/hooks/useResidences";
 import { useSelectedResidence } from "@/contexts/LocationContext";
 import { formatUSD, centsToDollars } from "@/lib/pricing";
+import { payLabel } from "@/lib/checkout/ctaLabel";
 import { todayHN, addDaysISO } from "@/lib/timezone";
 import { DURATION_OPTIONS } from "@/lib/durations";
 import { CART_SERVICES, lineTotalCents, periodLabel, quantityLabel } from "@/lib/cart/cartItem";
@@ -656,7 +657,7 @@ export default function Cart() {
           {showBasketOnly ? (
             <Button size="lg" className="h-14 w-full rounded-2xl text-base font-bold"
               onClick={() => isAuthenticated ? navigate("/cart/checkout") : openAuthModal("login", "/cart/checkout")}>
-              {isAuthenticated ? `Checkout · ${formatUSD(totalCents)}` : "Log in to checkout"}
+              {isAuthenticated ? payLabel(totalCents) : "Log in to checkout"}
             </Button>
           ) : (
           <Button size="lg" className="h-14 w-full rounded-2xl text-base font-bold"
@@ -672,14 +673,10 @@ export default function Cart() {
               <><Spinner size="sm" className="mr-2" /> Starting…</>
             ) : !isAuthenticated ? (
               "Log in to checkout"
-            ) : paymentMethod === "infinita" ? (
-              <>Pay {formatUSD(effectiveTotalCents)} with LIVES</>
-            ) : paymentMethod === "paypal" ? (
-              <>Continue with PayPal</>
-            ) : paymentMethod === "onchain" ? (
-              <><Bitcoin className="mr-2 h-5 w-5" /> Pay {estimatedSats.toLocaleString()} sats</>
             ) : (
-              <><Zap className="mr-2 h-5 w-5" /> Pay {estimatedSats.toLocaleString()} sats</>
+              // Same words as every other pay button. The rail is picked right
+              // above this; spelling it out here gave one action four names.
+              payLabel(effectiveTotalCents)
             )}
           </Button>
           )}

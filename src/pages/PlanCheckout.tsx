@@ -5,7 +5,7 @@ import { CheckoutStickyFooter } from "@/components/patterns/CheckoutStickyFooter
 import { AddToCartButton } from "@/components/cart/AddToCartButton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Zap, CheckCircle2, RefreshCw, Wallet, Bitcoin, CalendarDays, Sparkles } from "lucide-react";
+import { CheckCircle2, RefreshCw, Wallet, CalendarDays, Sparkles } from "lucide-react";
 import { CheckoutSuccessPanel } from "@/components/patterns/CheckoutSuccessPanel";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabaseDb } from "@/integrations/supabase/client";
@@ -31,6 +31,7 @@ import { serviceListingHref, serviceSlug } from "@/lib/services/serviceUrls";
 import { termLabel, termLabelFor, includedLabel } from "@/lib/services/planPeriod";
 import { resolveCheckoutPlan, totalFor } from "@/lib/checkout/planCheckoutModel";
 import { buildSubscriptionWrite, endDateOf } from "@/lib/checkout/subscriptionWriter";
+import { payLabel } from "@/lib/checkout/ctaLabel";
 import { fetchRenewalSubject, renewalEndpoint, renewalWindow } from "@/lib/checkout/renewal";
 import { accountApi } from "@/integrations/supabase/client";
 
@@ -773,21 +774,10 @@ const UniversalPlanCheckout = () => {
               ((paymentMethod === "lightning" || paymentMethod === "onchain") && (isPriceLoading || !btcPrice))
             }
           >
-            {paymentMethod === "lightning" ? (
-              <>
-                {!isGenerating && <Zap className="h-5 w-5" />}
-                {isGenerating ? "Generating Invoice..." : isPriceLoading ? "Loading rate..." : `Pay ${estimatedSats.toLocaleString()} sats`}
-              </>
-            ) : paymentMethod === "onchain" ? (
-              <>
-                {!isGenerating && <Bitcoin className="h-5 w-5" />}
-                {isGenerating ? "Generating address..." : isPriceLoading ? "Loading rate..." : `Pay ${estimatedSats.toLocaleString()} sats on-chain`}
-              </>
-            ) : paymentMethod === "paypal" ? (
-              `Pay ${formatUSD(effectiveTotalCents)} · PayPal`
-            ) : (
-              isGenerating ? "Creating Payment..." : `Pay ${formatUSD(effectiveTotalCents)} · LIVES`
-            )}
+            {/* One label, whatever the rail. The method is chosen immediately
+                above and the sats equivalent is in the summary, so naming
+                either here only made the same button read four ways. */}
+            {payLabel(effectiveTotalCents)}
           </Button>
         </CheckoutStickyFooter>
       )}

@@ -1,3 +1,4 @@
+import { SUBSCRIBE } from "@/lib/checkout/ctaLabel";
 import { PlanCard, type PlanCardRating } from "@/components/patterns/PlanCard";
 import { includedLabel, periodNoun } from "@/lib/services/planPeriod";
 
@@ -65,7 +66,7 @@ export function UniversalPlanCard({
       // buy button made those unopenable.
       onOpen={() => onSubscribe(plan.id)}
       cta={{
-        label: "Subscribe",
+        label: SUBSCRIBE,
         onClick: () => onSubscribe(plan.id),
         disabled: !hasPrice,
         disabledLabel: "Not bookable yet",

@@ -1,3 +1,4 @@
+import { ADD_TO_CART } from "@/lib/checkout/ctaLabel";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Check, ShoppingCart } from "lucide-react";
@@ -20,7 +21,7 @@ export function AddToCartButton({
   qty = 1,
   className,
   disabled,
-  label = "Add to cart",
+  label = ADD_TO_CART,
 }: {
   line: Omit<CartItem, "key" | "qty">;
   qty?: number;

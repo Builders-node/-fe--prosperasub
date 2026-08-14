@@ -1,3 +1,4 @@
+import { SUBSCRIBE } from "@/lib/checkout/ctaLabel";
 import { CalendarDays } from "lucide-react";
 import { PlanCard, type PlanCardRating } from "@/components/patterns/PlanCard";
 import type { PlanOffer } from "@/hooks/usePlanOffers";
@@ -50,7 +51,7 @@ export function CleaningPackageCard({
         unit: "/ month",
         from: !!offer,
       }}
-      cta={{ label: offer ? "Choose your size" : "Subscribe", onClick: () => onSubscribe(pkg.id) }}
+      cta={{ label: SUBSCRIBE, onClick: () => onSubscribe(pkg.id) }}
     />
   );
 }
