@@ -85,17 +85,24 @@ export function NetProfitPanel() {
       const { data, error } = await adminApi("/admin/settings");
       if (error) throw error;
       const out = {} as Record<SrcKey, SrcCfg>;
+      const unset: SrcKey[] = [];
       for (const s of SOURCES) {
+        // A missing key is not the same as a saved one that happens to equal
+        // the default. For months every figure on this page — and every
+        // "owed" number a provider saw — came from a code default nobody had
+        // chosen, and nothing said so.
+        if (data[s.valueKey] == null || data[s.typeKey] == null) unset.push(s.key);
         out[s.key] = {
           type: (String(data[s.typeKey] ?? DEFAULT_TYPE[s.key]) as CostType),
           raw: Number(data[s.valueKey] ?? DEFAULT_RAW[s.key]),
         };
       }
-      return out;
+      return { cfg: out, unset };
     },
   });
 
-  const cfg = settings ?? fallbackCfg();
+  const cfg = settings?.cfg ?? fallbackCfg();
+  const unsetSources = settings?.unset ?? [];
 
   // Editable form mirrors saved settings, but the value is in *display* units
   // (whole percent for percent; dollars for fixed/person).
@@ -107,7 +114,7 @@ export function NetProfitPanel() {
     })) as Record<SrcKey, SrcForm>;
 
   const [form, setForm] = useState<Record<SrcKey, SrcForm>>(() => toForm(fallbackCfg()));
-  useEffect(() => { if (settings) setForm(toForm(settings)); }, [settings]);
+  useEffect(() => { if (settings) setForm(toForm(settings.cfg)); }, [settings]);
 
   const saveSettings = useMutation({
     mutationFn: async () => {
@@ -126,6 +133,14 @@ export function NetProfitPanel() {
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  const unsetNotice = unsetSources.length > 0 && (
+    <div className="mb-space-3 rounded-radius-md bg-amber-500/10 p-space-3 text-sm text-amber-600 dark:text-amber-400">
+      <b>Not set yet:</b> {unsetSources.join(", ")}. Those rates fall back to a
+      built-in default, so every profit figure here — and every “owed” amount a
+      provider sees — is a number nobody chose. Save below to make it real.
+    </div>
+  );
 
   // ── Revenue + counts (period-scoped, paid only) ─────────────────────────────
   // Revenue is recognized straight-line across each sub's service period, so a
@@ -373,6 +388,7 @@ export function NetProfitPanel() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-space-4">
+          {unsetNotice}
           <div className="grid grid-cols-1 gap-space-3 sm:grid-cols-2">
             {SOURCES.map((s) => {
               const f = form[s.key];

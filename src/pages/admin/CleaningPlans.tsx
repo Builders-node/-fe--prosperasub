@@ -320,7 +320,7 @@ const CleaningPlans = ({
   });
 
   const assignClientMutation = useMutation({
-    mutationFn: async (data: { plan_id: string; client_id: string; custom_price_cents?: number; notes?: string }) => {
+    mutationFn: async (data: { plan_id: string; client_id: string; notes?: string }) => {
       const { error } = await supabaseDb
         .from("cleaning_plan_client_assignments")
         .insert(data);
@@ -339,7 +339,7 @@ const CleaningPlans = ({
   const [assignmentToDelete, setAssignmentToDelete] = useState<{ id: string; label: string } | null>(null);
 
   const updateAssignmentMutation = useMutation({
-    mutationFn: async (data: { id: string; custom_price_cents?: number | null; notes?: string | null; status?: string }) => {
+    mutationFn: async (data: { id: string; notes?: string | null; status?: string }) => {
       const { id, ...fields } = data;
       const { error } = await supabaseDb
         .from("cleaning_plan_client_assignments")
@@ -530,7 +530,7 @@ const CleaningPlans = ({
                   </div>
                   <p className="mt-0.5 truncate text-xs text-muted-foreground">
                     {assignment.plan.name}
-                    {assignment.custom_price_cents ? ` · Custom: ${formatCents(assignment.custom_price_cents)}/mo` : ""}
+                    
                   </p>
                   {assignment.notes && <p className="mt-1 truncate text-xs text-muted-foreground">{assignment.notes}</p>}
                 </div>
@@ -637,15 +637,6 @@ const CleaningPlans = ({
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div>
-              <Label>Custom Price ($/month)</Label>
-              <Input
-                type="number" min={0} step={0.01} inputMode="decimal"
-                value={centsInputValue(editingAssignment?.custom_price_cents)}
-                onChange={(e) => setEditingAssignment((a: any) => ({ ...a, custom_price_cents: dollarsToCents(e.target.value) }))}
-                placeholder="Leave empty to use plan default"
-              />
-            </div>
-            <div>
               <Label>Notes</Label>
               <Textarea
                 value={editingAssignment?.notes ?? ""}
@@ -673,7 +664,6 @@ const CleaningPlans = ({
                 if (!editingAssignment) return;
                 updateAssignmentMutation.mutate({
                   id: editingAssignment.id,
-                  custom_price_cents: editingAssignment.custom_price_cents || null,
                   notes: editingAssignment.notes || null,
                   status: editingAssignment.status,
                 });
@@ -1014,7 +1004,6 @@ function AssignClientSheet({
 }) {
   const [planId, setPlanId] = useState("");
   const [clientId, setClientId] = useState("");
-  const [customPrice, setCustomPrice] = useState("");
   const [notes, setNotes] = useState("");
 
   const activePlans = allPlans.length > 0 ? allPlans : plans;
@@ -1053,20 +1042,6 @@ function AssignClientSheet({
           </div>
 
           <div>
-            <Label>Custom Price Override ($/month, optional)</Label>
-            <Input
-              type="number" min={0} step={0.01} inputMode="decimal"
-              value={customPrice} onChange={(e) => setCustomPrice(e.target.value)}
-              placeholder="Leave empty for default"
-            />
-            {customPrice && (
-              <p className="mt-1 text-xs text-muted-foreground">
-                = {formatCents(dollarsToCents(customPrice) ?? 0)}
-              </p>
-            )}
-          </div>
-
-          <div>
             <Label>Notes</Label>
             <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Internal notes about this assignment" />
           </div>
@@ -1077,7 +1052,6 @@ function AssignClientSheet({
             onClick={() => onAssign({
               plan_id: planId,
               client_id: clientId,
-              custom_price_cents: dollarsToCents(customPrice),
               notes: notes || null,
             })}
             loading={saving}

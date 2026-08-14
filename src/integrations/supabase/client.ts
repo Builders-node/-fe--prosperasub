@@ -782,9 +782,6 @@ class OwnedQueryBuilder {
     // ── GENERIC CLEANING + SUPPORT TABLES ──
     const genericSupportTables = [
       "cleaning_clients",
-      "cleaning_custom_plans",
-      "cleaning_recurring_schedules",
-      "cleaning_checklist_templates",
       "cleaning_completion_reports",
     ];
 
@@ -997,7 +994,6 @@ class OwnedQueryBuilder {
         *,
         cleaning_available_slots (id, date, start_time, end_time),
         cleaning_clients (*),
-        cleaning_custom_plans (*),
         cleaning_completion_reports (*)
       `);
       q = applyDbFilters(q, this.filters);
@@ -1020,33 +1016,6 @@ class OwnedQueryBuilder {
       return { data: data ?? [], error: error ?? null };
     }
 
-    // ── CLEANING_CUSTOM_PLANS ──
-    if (this.table === "cleaning_custom_plans") {
-      let q = db.from("cleaning_custom_plans").select(`*, cleaning_clients (*)`);
-      q = applyDbFilters(q, this.filters);
-      q = q.order("created_at", { ascending: false });
-      const { data, error } = await q;
-      return { data: data ?? [], error: error ?? null };
-    }
-
-    // ── CLEANING_RECURRING_SCHEDULES ──
-    if (this.table === "cleaning_recurring_schedules") {
-      let q = db
-        .from("cleaning_recurring_schedules")
-        .select(`*, cleaning_clients (*), cleaning_custom_plans (*)`);
-      q = applyDbFilters(q, this.filters);
-      q = q.order("created_at", { ascending: false });
-      const { data, error } = await q;
-      return { data: data ?? [], error: error ?? null };
-    }
-
-    // ── CLEANING_CHECKLIST_TEMPLATES ──
-    if (this.table === "cleaning_checklist_templates") {
-      let q = db.from("cleaning_checklist_templates").select("*");
-      q = applyDbFilters(q, this.filters);
-      const { data, error } = await q;
-      return { data: data ?? [], error: error ?? null };
-    }
 
     // ── CLEANING_COMPLETION_REPORTS ──
     if (this.table === "cleaning_completion_reports") {
@@ -1630,197 +1599,6 @@ export const supabase = {
         supabase._syncBookingToCalendar(booking.id);
 
         return { data: [{ id: booking.id }], error: null };
-      })();
-    }
-
-    if (name === "create_custom_cleaning_plan") {
-      return (async () => {
-        const payload = params || {};
-        const now = new Date().toISOString();
-
-        // Load existing clients
-        const { data: existingClients } = await db.from("cleaning_clients").select("*");
-        const clients: any[] = existingClients || [];
-
-        const requestedClient = payload.existing_client_id
-          ? clients.find((c: any) => c.id === payload.existing_client_id)
-          : null;
-        const duplicateClient = requestedClient ? null : findDuplicateCleaningClient(clients, payload);
-        const reusedClient = requestedClient || duplicateClient || null;
-
-        const clientId = reusedClient?.id ?? `cleaning-client-${Date.now()}`;
-        const planId     = `cleaning-custom-plan-${Date.now()}`;
-        const scheduleId = `cleaning-recurring-schedule-${Date.now()}`;
-
-        let client = reusedClient;
-        if (!reusedClient) {
-          const clientRow = {
-            id: clientId,
-            company_name: payload.company_name,
-            contact_person: payload.contact_person ?? null,
-            email: payload.email ?? null,
-            phone: payload.phone ?? null,
-            location: payload.location,
-            service_type: payload.service_type ?? null,
-            notes: payload.notes ?? null,
-            internal_admin_notes: payload.internal_admin_notes ?? null,
-            start_date: payload.start_date,
-            status: payload.status ?? "active",
-            client_type: "custom_cleaning_client",
-            visibility: "admin_only",
-            is_private: true,
-          };
-          const { data: insertedClient } = await db
-            .from("cleaning_clients")
-            .insert(clientRow)
-            .select()
-            .single();
-          client = insertedClient ?? clientRow;
-        }
-
-        const plan = {
-          id: planId,
-          client_id: clientId,
-          plan_name: payload.plan_name,
-          custom_price_cents: Number(payload.custom_price_cents ?? 0),
-          monthly_price_cents: Number(payload.monthly_price_cents ?? payload.custom_price_cents ?? payload.estimated_monthly_total_cents ?? 0),
-          price_per_cleaning_cents: payload.price_per_cleaning_cents ?? null,
-          frequency_unit: payload.frequency_unit ?? "custom",
-          frequency_count: payload.frequency_count ?? null,
-          custom_frequency_label: payload.custom_frequency_label ?? payload.service_frequency ?? "Custom schedule",
-          pricing_mode: payload.pricing_mode ?? "custom_manual",
-          billing_type: payload.billing_type ?? "custom",
-          monthly_invoice: Boolean(payload.monthly_invoice),
-          payment_timing: payload.payment_timing ?? "custom_terms",
-          custom_terms: payload.custom_terms ?? null,
-          service_frequency: payload.service_frequency ?? null,
-          days_of_week: payload.days_of_week ?? [],
-          deep_cleaning_add_on: Boolean(payload.deep_cleaning_add_on),
-          estimated_monthly_total_cents: Number(payload.estimated_monthly_total_cents ?? 0),
-          custom_checklist: payload.custom_checklist ?? [],
-          status: payload.status ?? "active",
-          is_private: true,
-          visibility: "admin_only",
-          client_type: "custom_cleaning_client",
-        };
-        await db.from("cleaning_custom_plans").insert(plan);
-
-        const schedule = {
-          id: scheduleId,
-          client_id: clientId,
-          custom_plan_id: planId,
-          start_date: payload.start_date,
-          end_date: payload.end_date || null,
-          days_of_week: payload.days_of_week ?? [],
-          preferred_start_time: payload.preferred_start_time,
-          preferred_end_time: payload.preferred_end_time,
-          assigned_cleaner: payload.assigned_cleaner ?? null,
-          location: payload.location,
-          service_duration_minutes: Number(payload.service_duration_minutes ?? 120),
-          repeat_frequency: payload.repeat_frequency ?? "weekly",
-          status: "active",
-        };
-        await db.from("cleaning_recurring_schedules").insert(schedule);
-
-        const templates = [
-          {
-            id: `cleaning-checklist-template-daily-${Date.now()}`,
-            client_id: clientId,
-            custom_plan_id: planId,
-            template_type: "daily_upkeep",
-            name: "Daily upkeep checklist",
-            items: payload.daily_checklist ?? [],
-            is_active: true,
-          },
-          {
-            id: `cleaning-checklist-template-deep-${Date.now() + 1}`,
-            client_id: clientId,
-            custom_plan_id: planId,
-            template_type: "deep_cleaning",
-            name: "Deep cleaning checklist",
-            items: payload.deep_cleaning_checklist ?? [],
-            is_active: true,
-          },
-        ];
-        await db.from("cleaning_checklist_templates").insert(templates);
-
-        // Generate bookings for recurring dates
-        const weekdays = normalizeWeekdays(payload.days_of_week ?? []);
-        const startDate   = new Date(`${payload.start_date}T00:00:00`);
-        const hardEndDate = payload.end_date
-          ? new Date(`${payload.end_date}T00:00:00`)
-          : addMonths(startDate, 2);
-
-        const generatedBookings: any[] = [];
-        const conflicts: string[] = [];
-
-        // Fetch existing active bookings to check conflicts
-        const { data: existingActiveBookings } = await db
-          .from("cleaning_bookings")
-          .select("slot_id, status")
-          .eq("status", "booked");
-        const bookedSlotIds = new Set((existingActiveBookings || []).map((b: any) => b.slot_id));
-
-        for (let date = new Date(startDate); date <= hardEndDate; date = addDays(date, 1)) {
-          if (!weekdays.includes(date.getDay())) continue;
-          const dateKey = formatDate(date);
-          const slot = await ensureCleaningSlot(
-            dateKey,
-            payload.preferred_start_time,
-            payload.preferred_end_time,
-          );
-
-          const alreadyBooked =
-            bookedSlotIds.has(slot.id) ||
-            generatedBookings.some((b) => b.slot_id === slot.id) ||
-            slot.current_bookings >= slot.max_bookings;
-
-          if (alreadyBooked) {
-            conflicts.push(dateKey);
-            continue;
-          }
-
-          generatedBookings.push({
-            slot_id: slot.id,
-            user_id: "admin-custom-cleaning",
-            client_id: clientId,
-            custom_plan_id: planId,
-            recurring_schedule_id: scheduleId,
-            status: "booked",
-            notes: payload.notes ?? null,
-            location: payload.location,
-            assigned_cleaner: payload.assigned_cleaner ?? null,
-            service_duration_minutes: Number(payload.service_duration_minutes ?? 120),
-            checklist_template_id: templates[0].id,
-            is_private: true,
-            visibility: "admin_only",
-            client_type: "custom_cleaning_client",
-            google_calendar_sync_status: "pending",
-          });
-          bookedSlotIds.add(slot.id);
-
-          // Increment the slot counter
-          await db
-            .from("cleaning_available_slots")
-            .update({ current_bookings: (slot.current_bookings || 0) + 1, updated_at: now })
-            .eq("id", slot.id);
-        }
-
-        if (generatedBookings.length > 0) {
-          await db.from("cleaning_bookings").insert(generatedBookings);
-        }
-
-        return {
-          data: [{
-            client,
-            plan,
-            schedule,
-            bookings_created: generatedBookings.length,
-            conflicts,
-            reused_client: Boolean(reusedClient),
-          }],
-          error: null,
-        };
       })();
     }
 

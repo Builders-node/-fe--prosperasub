@@ -247,7 +247,7 @@ const CleaningManagement = ({
       // OwnedQueryBuilder doesn't implement it.
       let bookingsQuery = supabaseDb
         .from("cleaning_bookings")
-        .select("*, cleaning_available_slots(id, date, start_time, end_time), cleaning_custom_plans(*), cleaning_completion_reports(*)")
+        .select("*, cleaning_available_slots(id, date, start_time, end_time), cleaning_completion_reports(*)")
         .order("created_at", { ascending: true });
       if (providerId) {
         const subIds = scopeSubIds ?? [];
@@ -480,7 +480,6 @@ const CleaningManagement = ({
           startTime: String(newSlot.start_time).slice(0, 5),
           endTime: String(newSlot.end_time).slice(0, 5),
           clientName: getBookingClientName(booking),
-          planName: booking.cleaning_custom_plans?.plan_name || undefined,
           location: booking.location || booking.cleaning_clients?.location || undefined,
           status: booking.status || "booked",
           notes: booking.notes || undefined,
@@ -518,7 +517,6 @@ const CleaningManagement = ({
           startTime: String(slot.start_time).slice(0, 5),
           endTime: String(slot.end_time).slice(0, 5),
           clientName: getBookingClientName(booking),
-          planName: booking.cleaning_custom_plans?.plan_name || undefined,
           location: booking.location || booking.cleaning_clients?.location || undefined,
           status: booking.status || "booked",
           notes: booking.notes || undefined,
@@ -574,7 +572,6 @@ const CleaningManagement = ({
           startTime: String(slot.start_time).slice(0, 5),
           endTime: String(slot.end_time).slice(0, 5),
           clientName: getBookingClientName(booking),
-          planName: booking.cleaning_custom_plans?.plan_name || undefined,
           location: booking.location || booking.cleaning_clients?.location || undefined,
           status: booking.status || "booked",
           notes: booking.notes || undefined,
@@ -981,9 +978,6 @@ const CleaningManagement = ({
                             <TableCell className="font-medium">{getBookingClientName(booking)}</TableCell>
                             <TableCell>
                               <span className="flex flex-wrap items-center gap-1.5">
-                                <Badge variant={booking.custom_plan_id ? "secondary" : "outline"}>
-                                  {booking.custom_plan_id ? "Private" : "Public"}
-                                </Badge>
                                 {/* Visits the partner booked, not us. */}
                                 <SaleOriginBadge source={booking.source} />
                               </span>
@@ -1391,9 +1385,6 @@ function BookingCard({
       </div>
 
       <div className="mt-space-3 flex flex-wrap items-center gap-space-2">
-        <Badge variant={booking.custom_plan_id ? "secondary" : "outline"}>
-          {booking.custom_plan_id ? "Private" : "Public"}
-        </Badge>
         <SaleOriginBadge source={booking.source} />
         <StatusPill
           status={booking.google_calendar_sync_status ?? "pending"}

@@ -468,25 +468,6 @@ const MySubscriptions = () => {
   });
 
   // Fetch custom plans for the linked client — no FK joins (they fail silently on type mismatch)
-  const { data: linkedClientPlans = [], isLoading: linkedPlansLoading } = useQuery({
-    queryKey: ["my-linked-client-plans", linkedClient?.id],
-    queryFn: async () => {
-      if (!linkedClient?.id) return [];
-      const { data, error } = await supabaseDb
-        .from("cleaning_custom_plans")
-        .select("id, plan_name, status, frequency_unit, frequency_count, custom_frequency_label, days_of_week, client_id, service_frequency")
-        .eq("client_id", linkedClient.id);
-      if (error) throw error;
-      // Exclude only explicitly archived or cancelled plans (default null = active)
-      return (data ?? []).filter((p: any) => {
-        const s = String(p.status ?? "active").toLowerCase();
-        return s !== "archived" && s !== "cancelled";
-      });
-    },
-    enabled: !!linkedClient?.id,
-  });
-
-  // Fetch subscriptions linked by client_id (private/custom plans may be in cleaning_subscriptions, not custom_plans)
   const { data: linkedClientSubscriptions = [] } = useQuery({
     queryKey: ["my-linked-client-subscriptions", linkedClient?.id],
     queryFn: async () => {
@@ -1124,7 +1105,7 @@ const MySubscriptions = () => {
               } : undefined}
             />
 
-            {cleaningSubsLoading || cleaningBookingsLoading || linkedPlansLoading ? (
+            {cleaningSubsLoading || cleaningBookingsLoading ? (
               <Skeleton rows={3} />
             ) : cleaningError ? (
               <QueryError title="Couldn't load your cleaning plans" onRetry={() => refetchCleaning()} />
@@ -1197,11 +1178,11 @@ const MySubscriptions = () => {
                 )}
 
                 {/* ── Active plan ── */}
-                {(activeCleaningSubs.length > 0 || linkedClientPlans.length > 0 || linkedClientSubscriptions.length > 0) && (
+                {(activeCleaningSubs.length > 0 || linkedClientSubscriptions.length > 0) && (
                   <section className="space-y-2">
                     <SectionOverline
                       label="Active plan"
-                      count={activeCleaningSubs.length + linkedClientPlans.length + linkedClientSubscriptions.length}
+                      count={activeCleaningSubs.length + linkedClientSubscriptions.length}
                     />
                     {activeCleaningSubs.map((sub) => {
                       const openRenewDialog = () => {
@@ -1262,23 +1243,6 @@ const MySubscriptions = () => {
                               customerName={userData?.name || userData?.display_name}
                             />
                           ) : undefined}
-                        />
-                      );
-                    })}
-                    {linkedClientPlans.map((plan: any) => {
-                      const hasWeeklySchedule =
-                        plan.frequency_unit === "week" ||
-                        plan.frequency_unit === "weekly" ||
-                        (plan.days_of_week && plan.days_of_week.length > 0) ||
-                        (plan.service_frequency ?? "").toLowerCase().includes("week");
-                      return (
-                        <SubscriptionCard
-                          key={plan.id}
-                          icon={SparklesIcon}
-                          iconTint="bg-primary/10"
-                          iconColor="text-primary"
-                          title={plan.plan_name}
-                          subtitle={hasWeeklySchedule ? "Weekly schedule active" : plan.custom_frequency_label || "Active plan"}
                         />
                       );
                     })}
@@ -1363,7 +1327,7 @@ const MySubscriptions = () => {
                 )}
 
                 {/* ── Door-access reminder alert ── */}
-                {(activeCleaningSubs.length > 0 || linkedClientPlans.length > 0 || linkedClientSubscriptions.length > 0) && (
+                {(activeCleaningSubs.length > 0 || linkedClientSubscriptions.length > 0) && (
                   <div className="flex items-start gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-4">
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/15">
                       <DoorOpen className="h-5 w-5 text-primary" />
@@ -1390,7 +1354,7 @@ const MySubscriptions = () => {
                 )}
 
                 {/* ── No plan empty state ── */}
-                {activeCleaningSubs.length === 0 && expiredCleaningSubs.length === 0 && pendingScheduleCleaningSubs.length === 0 && unpaidCleaningSubs.length === 0 && linkedClientPlans.length === 0 && linkedClientSubscriptions.length === 0 && (
+                {activeCleaningSubs.length === 0 && expiredCleaningSubs.length === 0 && pendingScheduleCleaningSubs.length === 0 && unpaidCleaningSubs.length === 0 && linkedClientSubscriptions.length === 0 && (
                   <TabEmptyState
                     icon={SparklesIcon}
                     title="No active cleaning plan"
