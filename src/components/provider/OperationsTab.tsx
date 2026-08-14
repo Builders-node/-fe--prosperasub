@@ -78,7 +78,7 @@ export function OperationsTab({ providerId }: { providerId: string }) {
     to:   `${day}T23:59:59-06:00`,
   }), [day]);
 
-  const { data: rows = [], isLoading } = useQuery({
+  const { data: rows = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: [...KEY, day, statusFilter],
     queryFn: async () => {
       const params = new URLSearchParams({ from, to });
@@ -193,6 +193,19 @@ export function OperationsTab({ providerId }: { providerId: string }) {
 
       {isLoading ? (
         <div className="flex justify-center py-12"><Spinner /></div>
+      ) : isError ? (
+        /* A failed read used to render as "nothing on this day", which is
+           indistinguishable from a quiet day — a provider would go looking for
+           work the screen had simply failed to fetch. */
+        <div className="space-y-3 rounded-2xl bg-destructive/10 p-6 text-center">
+          <p className="text-sm font-semibold text-destructive">Couldn't load this day</p>
+          <p className="text-xs text-muted-foreground">
+            {(error as Error)?.message || "The day's work could not be read."}
+          </p>
+          <Button variant="outline" size="sm" className="rounded-full" onClick={() => refetch()}>
+            Try again
+          </Button>
+        </div>
       ) : rows.length === 0 ? (
         <div className="rounded-2xl bg-card p-8 text-center">
           <p className="text-sm text-muted-foreground">
