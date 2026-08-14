@@ -349,7 +349,10 @@ const FoodProviderDetail = () => {
                   images={planImages[plan.id] ?? []}
                   offer={offerBySourcePlanId.get(String(plan.id)) ?? null}
                   rating={ratingCount ? { average: ratingAvg, count: ratingCount } : null}
-                  onOpen={() => navigate(`/services/food/${id}/plans/${plan.id}`)}
+                  /* The shared plan page, the same one every other service opens.
+                     Food's own screen survives only for renewal, which still
+                     needs the weekly-menu context it carries. */
+                  onOpen={() => navigate(`/services/food/plans/${plan.id}`)}
                 />
               ))}
             </div>
