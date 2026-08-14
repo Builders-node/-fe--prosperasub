@@ -9,8 +9,6 @@ import {
   MapPin, Phone, Mail, Clock, Star,
 } from "lucide-react";
 import { supabase, supabaseDb } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
-import { useAuthModal } from "@/contexts/AuthModalContext";
 import { HomeHeader } from "@/components/HomeHeader";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
 import { BottomNav } from "@/components/BottomNav";
@@ -176,8 +174,6 @@ const ProviderDetail = () => {
   // `beach-club` and `entertainment` are the same service. Resolve to the
   // canonical key once, here.
   const archetypeKey = archetypeFromSlug(serviceSegment);
-  const { isAuthenticated } = useAuth();
-  const { openAuthModal } = useAuthModal();
 
   const providerQ = useQuery({
     queryKey: ["provider-detail", providerId],
@@ -243,11 +239,16 @@ const ProviderDetail = () => {
     enabled: !!providerId,
   });
 
-  /** One checkout, so one destination — whatever the service. */
-  const onUniversalSub = (planId: string) => {
-    const href = `/checkout/${planId}`;
-    isAuthenticated ? navigate(href) : openAuthModal("login", href);
-  };
+  /**
+   * A card opens the plan, never the checkout.
+   *
+   * Going straight to payment skipped the page where the offer is actually
+   * described and where its options are chosen — so an offer sold in variants
+   * was bought before the customer picked one. It is also the rule everywhere
+   * else on the platform; this page was the exception. No sign-in gate here:
+   * reading what is on offer is public, and the checkout asks at its own door.
+   */
+  const openPlan = (planId: string) => navigate(`/services/${serviceSegment}/plans/${planId}`);
 
   // ── Loading / not-found (mirror FoodProviderDetail) ──────────────────────
   // An unknown service segment is a wrong URL, not an empty business. Saying so
@@ -418,7 +419,7 @@ const ProviderDetail = () => {
                   key={plan.id}
                   plan={plan}
                   featured={idx === 1 && (plansQ.data ?? []).length > 1}
-                  onSubscribe={onUniversalSub}
+                  onSubscribe={openPlan}
                 />
               ))}
             </div>

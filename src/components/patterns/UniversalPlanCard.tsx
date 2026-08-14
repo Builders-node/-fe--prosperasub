@@ -36,6 +36,7 @@ export function UniversalPlanCard({
   plan, onSubscribe, featured = false, rating, photos,
 }: {
   plan: UniversalPlan;
+  /** Opens the plan's own page. Every caller does this — none buys from here. */
   onSubscribe: (id: string) => void;
   featured?: boolean;
   rating?: PlanCardRating | null;
@@ -58,6 +59,11 @@ export function UniversalPlanCard({
       features={featureList(plan.features)}
       // A one-off says nothing rather than inventing a billing cycle.
       price={{ cents: plan.price_cents, unit: noun ? `/ ${noun}` : undefined }}
+      // Opening is not buying. A plan with no price yet still has a page worth
+      // reading — and an offer sold in variants has no price of its own at all,
+      // because the prices live on the variants. Tying the card's click to the
+      // buy button made those unopenable.
+      onOpen={() => onSubscribe(plan.id)}
       cta={{
         label: "Subscribe",
         onClick: () => onSubscribe(plan.id),
