@@ -19,8 +19,7 @@ import { Spinner } from "@/components/ui/spinner";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { PaymentMethodSelector, type PaymentMethod } from "@/components/payment/PaymentMethodSelector";
-import { SectionOverline } from "@/components/subscriptions/MySubsPrimitives";
+import type { PaymentMethod } from "@/components/payment/PaymentMethodSelector";
 import { InfinitaPaymentPanel } from "@/components/payment/InfinitaPaymentPanel";
 import { PayPalPanel } from "@/components/payment/PayPalPanel";
 import { InvoiceQrPanel } from "@/components/payment/InvoiceQrPanel";
@@ -40,6 +39,8 @@ import { useResidences } from "@/hooks/useResidences";
 import { useSelectedResidence } from "@/contexts/LocationContext";
 import { formatUSD, centsToDollars } from "@/lib/pricing";
 import { payLabel } from "@/lib/checkout/ctaLabel";
+import { CheckoutCard, CheckoutLineItem, PersonalDataCard, ResumeCard } from "@/components/checkout/CheckoutBlocks";
+import { PaymentMethodTiles } from "@/components/payment/PaymentMethodTiles";
 import { todayHN, addDaysISO } from "@/lib/timezone";
 import { DURATION_OPTIONS } from "@/lib/durations";
 import { CART_SERVICES, lineTotalCents, periodLabel, quantityLabel } from "@/lib/cart/cartItem";
@@ -129,6 +130,12 @@ export default function Cart() {
   // accepted anything non-blank, so a provider could be handed "dwqdwqd" as
   // the number to call about a delivery.
   const [phoneErr, setPhoneErr] = useState("");
+  /**
+   * The contact card is collapsed by default and opens itself while something
+   * required is missing — the same rule as the single-plan checkout, so the two
+   * screens behave identically.
+   */
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPaid, setIsPaid] = useState(false);
@@ -170,6 +177,12 @@ export default function Cart() {
     && !phoneError(form.customer_whatsapp)
     && form.delivery_address.trim()
     && !missingUuid;
+
+  /** What the Personal data card reports, and what makes it open itself. */
+  const missingDetails = !form.customer_name.trim()
+    || !form.customer_whatsapp.trim()
+    || !form.delivery_address.trim();
+  useEffect(() => { if (missingDetails) setDetailsOpen(true); }, [missingDetails]);
 
 
   // ─── Create every line's rows after a single payment ──────────────────────
@@ -366,7 +379,9 @@ export default function Cart() {
       <HomeHeader title={atCheckout ? "Checkout" : "Cart"} showBackButton onBack={goBack} />
       <DesktopHeader showBackButton breadcrumb="Cart" />
 
-      <main className="market-content space-y-5 py-space-4 md:py-space-6">
+      <main className={atCheckout
+        ? "mx-auto max-w-xl space-y-1 pb-4 pt-1 md:px-4 md:py-space-6"
+        : "market-content space-y-5 py-space-4 md:py-space-6"}>
         {step === "success" ? (
           <CheckoutSuccessPanel
             icon={UtensilsCrossed}
@@ -390,13 +405,24 @@ export default function Cart() {
           </div>
         ) : (
           <>
-            <h1 className="text-2xl font-black tracking-tight md:text-3xl">
-              {atCheckout ? "Checkout" : "Your cart"}
-            </h1>
+            {!atCheckout && (
+              <h1 className="text-2xl font-black tracking-tight md:text-3xl">Your cart</h1>
+            )}
 
             {/* Items — one card container with row dividers (Yandex Lavka pattern).
                 Left: 56px thumbnail tile · middle: name + provider + duration
                 chip + qty pill · right: total price + close X. */}
+            {atCheckout ? (
+              items.map((item) => (
+                <CheckoutLineItem
+                  key={item.key}
+                  title={item.planName}
+                  description={`${item.providerName} · ${periodLabel(item)}`}
+                  priceCents={cartLineTotal(item)}
+                  quantity={item.qty}
+                />
+              ))
+            ) : (
             <section className="overflow-hidden rounded-3xl bg-card divide-y divide-border/60">
               {items.map((item) => {
                 const shape = CART_SERVICES[item.service];
@@ -487,8 +513,10 @@ export default function Cart() {
                 );
               })}
             </section>
+            )}
 
-            {/* Summary */}
+            {/* Summary — the design's Resume once we are at the till. */}
+            {!atCheckout && (
             <section className="rounded-2xl bg-muted/40 p-4">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-sm font-bold text-foreground">
@@ -502,6 +530,7 @@ export default function Cart() {
                 </div>
               </div>
             </section>
+            )}
 
             {step === "cart" && atCheckout && (
               <>
@@ -509,11 +538,14 @@ export default function Cart() {
                     separated by divide-y, borderless inputs. Icon + label
                     left, input value fills the right. Matches iOS Settings /
                     Yandex Lavka form aesthetic. */}
-                <section className="space-y-2">
-                  <div className="px-1">
-                    <SectionOverline label="Delivery details" />
-                  </div>
-                  <div className="overflow-hidden rounded-3xl bg-card divide-y divide-border/40">
+                <PersonalDataCard
+                  name={form.customer_name || null}
+                  lines={[userData?.email, form.customer_whatsapp, form.residence, form.delivery_address]}
+                  open={detailsOpen}
+                  onEdit={() => setDetailsOpen((o) => !o)}
+                  incomplete={missingDetails}
+                >
+                  <div className="overflow-hidden rounded-radius-md bg-inset divide-y divide-border/40">
                     {/* Full name */}
                     <div className="flex items-center gap-3 px-4">
                       <UserIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -607,13 +639,22 @@ export default function Cart() {
                       placeholder="What should we know?"
                     />
                   </div>
-                </section>
+                </PersonalDataCard>
 
-                {/* Payment method */}
-                <section className="space-y-3">
-                  <SectionOverline label="Payment" />
-                  <PaymentMethodSelector value={paymentMethod} onChange={setPaymentMethod} available={enabledMethods} />
-                </section>
+                {/* The design's order: what you bought, who you are, what it
+                    costs, how you pay. The total belongs after the details it
+                    can still change — an address can add a delivery fee. */}
+                <ResumeCard
+                  goodsCents={totalCents}
+                  feeCents={Math.max(0, effectiveTotalCents - totalCents)}
+                  feeLabel={feePct > 0 ? `Fee · ${feePct}%` : "Fee"}
+                  totalCents={effectiveTotalCents}
+                  extra={[{ label: "Items", value: String(count) }]}
+                />
+
+                <CheckoutCard title="Payment method">
+                  <PaymentMethodTiles value={paymentMethod} onChange={setPaymentMethod} available={enabledMethods} />
+                </CheckoutCard>
               </>
             )}
 
@@ -655,12 +696,12 @@ export default function Cart() {
             </p>
           )}
           {showBasketOnly ? (
-            <Button size="lg" className="h-14 w-full rounded-2xl text-base font-bold"
+            <Button size="lg" className="h-12 w-full rounded-radius-md text-[16px] font-semibold tracking-[-0.02em]"
               onClick={() => isAuthenticated ? navigate("/cart/checkout") : openAuthModal("login", "/cart/checkout")}>
               {isAuthenticated ? payLabel(totalCents) : "Log in to checkout"}
             </Button>
           ) : (
-          <Button size="lg" className="h-14 w-full rounded-2xl text-base font-bold"
+          <Button size="lg" className="h-12 w-full rounded-radius-md text-[16px] font-semibold tracking-[-0.02em]"
             onClick={startCheckout}
             disabled={
               !formValid ||
