@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { formatWorkingHours } from "@/lib/workingHours";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { useGoBack } from "@/hooks/useGoBack";
 import { archetypeFromSlug, serviceMetaFromSlug, serviceSlug } from "@/lib/services/serviceUrls";
@@ -32,7 +33,8 @@ interface Provider {
   avatar_url: string | null;
   banner_url: string | null;
   location: string | null;
-  working_hours: string | null;
+  /** JSONB since the profile moved to `providers` — a schedule, not a string. */
+  working_hours: unknown;
   contact_phone: string | null;
   contact_email: string | null;
   archetype_key: string | null;
@@ -212,7 +214,16 @@ const ProviderDetail = () => {
   // rows too — so a cleaning provider would briefly fetch, and could render, a
   // duplicate set of plans it already shows from cleaning_packages.
   const isUniversal = !!providerQ.data && !providerQ.data.source_service_key;
-  const universalQ = useUniversalPlans(providerId, isUniversal);
+  /**
+   * One plans query, every service.
+   *
+   * There were three — a cleaning one, an entertainment one and this — because
+   * each service kept its plans in its own table. They are all mirrored into
+   * `provider_plans` now, offers and all, so the page stops asking which
+   * business it is looking at. Food used to be a fourth branch and got a whole
+   * second page instead; that fork is gone above.
+   */
+  const plansQ = useUniversalPlans(providerId, !!providerId);
 
   // Rating summary — must be declared BEFORE any early return to satisfy
   // Rules of Hooks. `enabled` gates the actual fetch until we have the id.
@@ -232,16 +243,9 @@ const ProviderDetail = () => {
     enabled: !!providerId,
   });
 
-  const onCleaningSub = (pkgId: string) =>
-    isAuthenticated
-      ? navigate(`/services/cleaning/checkout/${pkgId}`)
-      : openAuthModal("login", `/services/cleaning/checkout/${pkgId}`);
-  const onEntertainmentSub = (planId: string) =>
-    isAuthenticated
-      ? navigate(`/services/beach-club/checkout/${planId}`)
-      : openAuthModal("login", `/services/beach-club/checkout/${planId}`);
+  /** One checkout, so one destination — whatever the service. */
   const onUniversalSub = (planId: string) => {
-    const href = `/services/${serviceSlug(archetypeKey ?? "")}/checkout/plan/${planId}`;
+    const href = `/checkout/${planId}`;
     isAuthenticated ? navigate(href) : openAuthModal("login", href);
   };
 
@@ -298,51 +302,34 @@ const ProviderDetail = () => {
     );
   }
 
-  // Food has its own richer provider page (menus, gallery carousel, reviews),
-  // so /services/food/providers/:id hands off to it rather than rendering this
-  // generic shell with a "Plans" heading and no food block under it.
-  //
-  // The id has to be translated, not just the path: this route carries the
-  // UNIVERSAL providers.id while the food page reads the LEGACY
-  // food_providers.id. Redirecting the raw id landed on "Restaurant not
-  // found" — the id-space split CLAUDE.md calls the #1 source of bugs here.
-  if (archetypeKey === "food") {
-    const legacyId = (providerQ.data as { source_provider_id?: string | null }).source_provider_id;
-    return <Navigate to={legacyId ? `/services/food/${legacyId}` : "/services/food"} replace />;
-  }
-
   const p = providerQ.data;
 
-  // Stats derived per archetype so we can show meaningful numbers.
-  const cleaningPrices = (cleaningQ.data ?? []).map((r: any) => resolveMonthlyPriceCents(r)).filter(Boolean);
-  const entertainmentPrices = (entertainmentQ.data ?? []).map((r: any) => r.price_per_person_cents);
-
-  const universalPrices = (universalQ.data ?? [])
-    .map((r) => r.price_cents ?? 0)
-    .filter((n) => n > 0);
-
-  const offeringsCount = isUniversal
-    ? (universalQ.data?.length ?? 0)
-    : ({
-        cleaning:      cleaningQ.data?.length ?? 0,
-        entertainment: entertainmentQ.data?.length ?? 0,
-      }[archetypeKey ?? ""] ?? 0);
-
-  const fromPrice = isUniversal
-    ? Math.min(...(universalPrices.length ? universalPrices : [0]))
-    : archetypeKey === "cleaning"      ? Math.min(...(cleaningPrices.length      ? cleaningPrices      : [0])) :
-      archetypeKey === "entertainment" ? Math.min(...(entertainmentPrices.length ? entertainmentPrices : [0])) : 0;
-  // A universal plan carries its own period, and they need not agree inside one
-  // provider, so the strip stays silent rather than asserting "/ month".
-  const fromUnit = isUniversal ? "" :
-    archetypeKey === "cleaning"      ? "/ month" :
-    archetypeKey === "entertainment" ? "/ month" :
-    "";
-  const middleStatLabel = isUniversal ? "Plans"
-    : "Per Month";
-  const middleStatSub = isUniversal ? "Offered"
-    : archetypeKey === "entertainment" ? "Access" : "Cleanings";
-  const middleStatValue = offeringsCount;
+  const planPrices = (plansQ.data ?? []).map((r) => r.price_cents ?? 0).filter((n) => n > 0);
+  const offeringsCount = plansQ.data?.length ?? 0;
+  const fromPrice = Math.min(...(planPrices.length ? planPrices : [0]));
+  // A plan carries its own period and they need not agree inside one provider,
+  // so the strip stays silent rather than asserting "/ month".
+  const fromUnit = "";
+  /**
+   * The middle stat is what a period includes — "4 cleanings", "5 meals" —
+   * which is the number a customer compares between providers. It used to be
+   * a per-archetype label; the plan now carries the quantity and the noun, so
+   * the strip reads them instead of knowing the services.
+   */
+  const quantities = [...new Set(
+    (plansQ.data ?? []).map((r) => r.included_quantity ?? 0).filter((n) => n > 0),
+  )].sort((a, b) => a - b);
+  const includedUnit = (plansQ.data ?? []).find((r) => r.included_unit)?.included_unit ?? null;
+  // A range where the plans disagree, because one provider's plans can include
+  // 4 cleanings and 26. Picking the first would print whichever happened to
+  // sort first and call it the answer.
+  const middleStatLabel = quantities.length && includedUnit
+    ? `${includedUnit[0].toUpperCase()}${includedUnit.slice(1)}s`
+    : "Plans";
+  const middleStatSub = quantities.length ? "Per period" : "Offered";
+  const middleStatValue = quantities.length === 0 ? offeringsCount
+    : quantities.length === 1 ? quantities[0]
+    : `${quantities[0]}–${quantities[quantities.length - 1]}`;
 
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-0">
@@ -418,64 +405,23 @@ const ProviderDetail = () => {
             )}
           </h2>
 
-          {/* A universal provider ignores its archetype's legacy branch — that
-              branch queries a table this provider has no row in. */}
-          {isUniversal && (
-            universalQ.isLoading ? (
-              <SkeletonGrid />
-            ) : universalQ.isError ? (
-              <QueryError title="Couldn't load plans" onRetry={() => universalQ.refetch()} retrying={universalQ.isFetching} />
-            ) : (universalQ.data ?? []).length === 0 ? (
-              <TabEmptyState icon={Icon} title="No plans yet" subtitle="We're setting things up. Check back soon." />
-            ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {(universalQ.data ?? []).map((plan, idx) => (
-                  <UniversalPlanCard
-                    key={plan.id}
-                    plan={plan}
-                    featured={idx === 1 && (universalQ.data ?? []).length > 1}
-                    onSubscribe={onUniversalSub}
-                  />
-                ))}
-              </div>
-            )
-          )}
-
-          {!isUniversal && archetypeKey === "cleaning" && (
-            cleaningQ.isLoading ? (
-              <SkeletonGrid />
-            ) : cleaningQ.isError ? (
-              <QueryError title="Couldn't load plans" onRetry={() => cleaningQ.refetch()} retrying={cleaningQ.isFetching} />
-            ) : (cleaningQ.data ?? []).length === 0 ? (
-              <TabEmptyState icon={SparklesIcon} title="No plans yet" subtitle="We're setting things up. Check back soon." />
-            ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {(cleaningQ.data ?? []).map((pkg: any, idx: number) => (
-                  <CleaningPackageCard
-                    key={pkg.id}
-                    pkg={pkg}
-                    featured={idx === 1 && (cleaningQ.data ?? []).length > 1}
-                    onSubscribe={onCleaningSub}
-                  />
-                ))}
-              </div>
-            )
-          )}
-
-          {!isUniversal && archetypeKey === "entertainment" && (
-            entertainmentQ.isLoading ? (
-              <SkeletonGrid />
-            ) : entertainmentQ.isError ? (
-              <QueryError title="Couldn't load plans" onRetry={() => entertainmentQ.refetch()} retrying={entertainmentQ.isFetching} />
-            ) : (entertainmentQ.data ?? []).length === 0 ? (
-              <TabEmptyState icon={Waves} title="No plans yet" subtitle="We're setting things up. Check back soon." />
-            ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {(entertainmentQ.data ?? []).map((plan: any) => (
-                  <EntertainmentPlanCard key={plan.id} plan={plan} onSubscribe={onEntertainmentSub} />
-                ))}
-              </div>
-            )
+          {plansQ.isLoading ? (
+            <SkeletonGrid />
+          ) : plansQ.isError ? (
+            <QueryError title="Couldn't load plans" onRetry={() => plansQ.refetch()} retrying={plansQ.isFetching} />
+          ) : (plansQ.data ?? []).length === 0 ? (
+            <TabEmptyState icon={Icon} title="No plans yet" subtitle="We're setting things up. Check back soon." />
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {(plansQ.data ?? []).map((plan, idx) => (
+                <UniversalPlanCard
+                  key={plan.id}
+                  plan={plan}
+                  featured={idx === 1 && (plansQ.data ?? []).length > 1}
+                  onSubscribe={onUniversalSub}
+                />
+              ))}
+            </div>
           )}
 
         </section>
@@ -495,12 +441,12 @@ const ProviderDetail = () => {
         })()}
 
         {/* ─── Information ─────────────────────────────────────────────────── */}
-        {(p.working_hours || p.location || p.contact_phone || p.contact_email) && (
+        {(formatWorkingHours(p.working_hours) || p.location || p.contact_phone || p.contact_email) && (
           <section>
             <h2 className="mb-4 text-xl font-black tracking-tight">Information</h2>
             <div className="divide-y divide-border rounded-3xl bg-card">
-              {p.working_hours && (
-                <InfoRow icon={<Clock className="h-4 w-4" />} label="Operating Hours" value={p.working_hours} iconText="text-primary" />
+              {formatWorkingHours(p.working_hours) && (
+                <InfoRow icon={<Clock className="h-4 w-4" />} label="Operating Hours" value={formatWorkingHours(p.working_hours)} iconText="text-primary" />
               )}
               {p.location && (
                 <InfoRow icon={<MapPin className="h-4 w-4" />} label="Location" value={p.location} iconText="text-primary" />
