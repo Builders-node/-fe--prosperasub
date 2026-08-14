@@ -135,7 +135,11 @@ export function UniversalInfoTab({ provider, extra }: {
         </Row>
         <Row icon={<CalendarCheck className="h-4 w-4 text-muted-foreground" />} label="Booking calendar">
           {provider.google_calendar_id
-            ? <span className="break-all">Connected · managed by EverySub</span>
+            ? <CalendarDetails
+                providerId={provider.id}
+                calendarId={provider.google_calendar_id}
+                contactEmail={provider.contact_email ?? null}
+              />
             : <ProvisionCalendar providerId={provider.id} />}
         </Row>
         {delivers && (
@@ -224,6 +228,63 @@ function ProvisionCalendar({ providerId }: { providerId: string }) {
         onClick={() => run.mutate()} disabled={run.isPending}>
         {run.isPending ? "Creating…" : "Create it"}
       </Button>
+    </span>
+  );
+}
+
+/**
+ * The calendar, once it exists — its address, a way in, and the truth about
+ * who can actually see it.
+ *
+ * This row used to say "Connected · managed by EverySub" and stop there, which
+ * answers the wrong question: the calendar exists, fine, but where is it? The
+ * platform owns it through a service account, so unless it has been shared
+ * with someone, "connected" means connected to nobody — a real calendar,
+ * filling up with real visits, that no human has a link to.
+ */
+function CalendarDetails({
+  providerId, calendarId, contactEmail,
+}: { providerId: string; calendarId: string; contactEmail: string | null }) {
+  const qc = useQueryClient();
+  // `cid` is Google's own "add this calendar to mine" link. It only opens for
+  // an account the calendar has been shared with — hence the note below.
+  const href = `https://calendar.google.com/calendar/u/0/r?cid=${encodeURIComponent(calendarId)}`;
+
+  const share = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await adminApi(`/admin/providers/${providerId}/calendar/provision`, { method: "POST" });
+      if (error) throw new Error(String(error));
+      if (!data?.shared) throw new Error("Google accepted the request but didn't confirm the share");
+      return data;
+    },
+    onSuccess: () => {
+      toast.success(`Shared with ${contactEmail}`);
+      qc.invalidateQueries({ queryKey: ["universal-provider", providerId] });
+    },
+    onError: (e: any) => toast.error(e?.message || "Could not share the calendar"),
+  });
+
+  return (
+    <span className="block space-y-1.5">
+      <span className="block break-all font-mono text-xs text-muted-foreground">{calendarId}</span>
+      <span className="flex flex-wrap items-center gap-2">
+        <a href={href} target="_blank" rel="noreferrer"
+           className="text-sm font-semibold text-primary underline-offset-2 hover:underline">
+          Open in Google Calendar
+        </a>
+        {contactEmail ? (
+          <Button size="sm" variant="outline" className="h-7 rounded-full px-3 text-xs"
+            onClick={() => share.mutate()} disabled={share.isPending}>
+            {share.isPending ? "Sharing…" : `Share with ${contactEmail}`}
+          </Button>
+        ) : null}
+      </span>
+      {!contactEmail && (
+        <span className="block text-xs text-muted-foreground">
+          Nobody has access yet — the calendar belongs to EverySub. Add an email
+          above and share it, or the link opens an empty page.
+        </span>
+      )}
     </span>
   );
 }
