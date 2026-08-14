@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useQuery } from "@tanstack/react-query";
-import { Banknote, Info, TrendingUp, Wallet } from "lucide-react";
+import { Banknote, Info, TrendingUp, Wallet, ArrowUpRight } from "lucide-react";
 import { supabaseDb, accountApi } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/lib/supabasePaging";
 import { formatUSD } from "@/lib/pricing";
@@ -9,6 +10,10 @@ import {
 } from "@/lib/finance/platformTake";
 import { fetchEarned } from "@/lib/finance/providerEarnings";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ResponsiveDialog } from "@/components/patterns/ResponsiveDialog";
+import { toast } from "sonner";
 
 /**
  * What this business earned, and what of it has actually been paid.
@@ -31,6 +36,10 @@ import { cn } from "@/lib/utils";
  *    designing against.
  * 3. Payouts come from the ledger, not from a guess. If nothing has been
  *    recorded, the screen says nothing has been recorded.
+ * 4. Withdrawing is a request, not a transfer. The cap shown here is
+ *    recomputed by the server before anything is written — the browser's copy
+ *    is for reading, not for deciding — and an admin approves before money
+ *    moves. Money leaving the platform is not something a screen does alone.
  */
 
 type RangeKey = "month" | "last_month" | "quarter" | "year" | "all";
@@ -60,12 +69,103 @@ const AVG_DAYS_PER_MONTH = 365.25 / 12;
 interface PayoutRow {
   id: string;
   amount_cents: number;
+  status?: "requested" | "approved" | "paid" | "rejected";
+  requested_at?: string | null;
+  created_at?: string | null;
+  decision_note?: string | null;
   period_start: string | null;
   period_end: string | null;
   method: string | null;
   reference: string | null;
   note: string | null;
-  paid_at: string;
+  paid_at: string | null;
+}
+
+/**
+ * The withdraw affordance. Deliberately plain: an amount, a destination, and a
+ * request — no "instant payout" language for something a person still has to
+ * approve. The maximum is what the server says, not what the range picker
+ * above happens to be showing.
+ */
+function WithdrawPanel({ providerId, availableCents }: { providerId: string; availableCents: number }) {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [amount, setAmount] = useState("");
+  const [destination, setDestination] = useState("");
+
+  const submit = useMutation({
+    mutationFn: async () => {
+      const cents = Math.round(Number(amount) * 100);
+      if (!Number.isFinite(cents) || cents <= 0) throw new Error("Enter how much you want to withdraw");
+      const { data, error } = await accountApi(`/account/providers/${providerId}/payouts/request`, {
+        method: "POST",
+        body: JSON.stringify({ amountCents: cents, destination: destination.trim() }),
+      });
+      if (error) throw new Error(String(error));
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Requested — you'll be notified once it's sent");
+      setOpen(false); setAmount(""); setDestination("");
+      qc.invalidateQueries({ queryKey: ["provider-payouts", providerId] });
+      qc.invalidateQueries({ queryKey: ["provider-payout-available", providerId] });
+    },
+    onError: (e: any) => toast.error(e?.message || "Could not request the payout"),
+  });
+
+  return (
+    <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-card p-4">
+      <div className="min-w-0">
+        <p className="text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">Available to withdraw</p>
+        <p className="mt-1 text-2xl font-black tabular-nums leading-none text-foreground">{formatUSD(availableCents)}</p>
+        <p className="mt-1.5 text-xs text-muted-foreground">
+          Everything you have earned, less what you have already asked for or been sent.
+        </p>
+      </div>
+      <Button className="rounded-full gap-1.5" disabled={availableCents <= 0} onClick={() => setOpen(true)}>
+        <ArrowUpRight className="h-4 w-4" /> Withdraw
+      </Button>
+
+      <ResponsiveDialog open={open} onOpenChange={setOpen} title="Request a payout">
+        <div className="space-y-4 pb-2">
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Amount (USD)</label>
+            <Input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)}
+              placeholder={(availableCents / 100).toFixed(2)} />
+            <button type="button" className="text-xs font-semibold text-primary"
+              onClick={() => setAmount((availableCents / 100).toFixed(2))}>
+              Withdraw everything ({formatUSD(availableCents)})
+            </button>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Where to send it</label>
+            <Input value={destination} onChange={(e) => setDestination(e.target.value)}
+              placeholder="Lightning address or Bitcoin address" />
+          </div>
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            The request goes to the platform for approval. Nothing is sent until it is approved,
+            and you will see it here either way.
+          </p>
+          <Button className="w-full rounded-full" disabled={submit.isPending} onClick={() => submit.mutate()}>
+            {submit.isPending ? "Sending…" : "Request payout"}
+          </Button>
+        </div>
+      </ResponsiveDialog>
+    </section>
+  );
+}
+
+function PayoutStatus({ status }: { status?: string }) {
+  if (!status || status === "paid") return null;
+  const tone =
+    status === "requested" ? "bg-amber-500/15 text-amber-500" :
+    status === "approved"  ? "bg-sky-500/15 text-sky-500" :
+                             "bg-destructive/15 text-destructive";
+  return (
+    <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide", tone)}>
+      {status}
+    </span>
+  );
 }
 
 function MoneyCard({ label, value, hint, icon: Icon, tone = "muted" }: {
@@ -153,6 +253,20 @@ export function ProviderEarningsTab({ providerId, legacyId, sourceKey }: {
 
   const outstanding = split.providerCents - paidInRange;
 
+  // What the server will actually allow — all-time earned minus everything
+  // already requested or sent, which is a different question from the
+  // per-range figures above.
+  const { data: available } = useQuery({
+    queryKey: ["provider-payout-available", providerId],
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data, error } = await accountApi(`/account/providers/${providerId}/payouts/available`);
+      if (error) throw new Error(String(error));
+      return data as { availableCents: number; earnedCents: number; committedCents: number };
+    },
+  });
+  const availableCents = available?.availableCents ?? 0;
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap gap-2">
@@ -199,6 +313,8 @@ export function ProviderEarningsTab({ providerId, legacyId, sourceKey }: {
         />
       </div>
 
+      <WithdrawPanel providerId={providerId} availableCents={availableCents} />
+
       <section className="rounded-2xl bg-card p-4">
         <h3 className="text-sm font-black uppercase tracking-[0.14em] text-muted-foreground">Payouts</h3>
 
@@ -217,9 +333,10 @@ export function ProviderEarningsTab({ providerId, legacyId, sourceKey }: {
             {payouts.map((p) => (
               <li key={p.id} className="flex flex-wrap items-baseline justify-between gap-2 py-3">
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-foreground">
-                    {new Date(p.paid_at).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}
-                    {p.method && <span className="ml-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">{p.method}</span>}
+                  <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-foreground">
+                    {new Date(p.paid_at ?? p.requested_at ?? p.created_at).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}
+                    <PayoutStatus status={p.status} />
+                    {p.method && <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{p.method}</span>}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {p.period_start && p.period_end ? `Covers ${p.period_start} → ${p.period_end}` : "Ad-hoc payout"}

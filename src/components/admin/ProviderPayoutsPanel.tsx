@@ -34,7 +34,11 @@ interface PayoutRow {
   method: string | null;
   reference: string | null;
   note: string | null;
-  paid_at: string;
+  paid_at: string | null;
+  status?: "requested" | "approved" | "paid" | "rejected";
+  destination?: string | null;
+  requested_at?: string | null;
+  created_at?: string | null;
 }
 
 export function ProviderPayoutsPanel() {
@@ -121,6 +125,8 @@ export function ProviderPayoutsPanel() {
 
   return (
     <div className="space-y-space-4">
+      <PayoutRequestQueue providers={providers} />
+
       <div className="rounded-radius-lg bg-card p-space-4">
         <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Business</Label>
         <Select value={providerId} onValueChange={setProviderId}>
@@ -202,7 +208,7 @@ export function ProviderPayoutsPanel() {
                   <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 py-3">
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-foreground">
-                        {new Date(p.paid_at).toLocaleDateString()} · {formatUSD(p.amount_cents)}
+                        {new Date(p.paid_at ?? p.requested_at ?? p.created_at ?? Date.now()).toLocaleDateString()} · {formatUSD(p.amount_cents)}
                         {p.method && <span className="ml-2 text-xs uppercase text-muted-foreground">{p.method}</span>}
                       </p>
                       <p className="text-xs text-muted-foreground">
@@ -221,6 +227,100 @@ export function ProviderPayoutsPanel() {
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+/**
+ * The queue of providers waiting to be paid.
+ *
+ * A request is a claim, not a transfer: approving says the platform agrees it
+ * is owed, and "Mark sent" is the only action that says money moved — and the
+ * only one that stamps the ledger date. Keeping the two apart is what lets an
+ * admin approve today and pay when they are next at a wallet, without the
+ * provider's screen claiming they have been paid in the meantime.
+ *
+ * The amount was already capped server-side when the provider asked; nothing
+ * here can raise it.
+ */
+function PayoutRequestQueue({ providers }: { providers: Array<{ id: string; name: string }> }) {
+  const qc = useQueryClient();
+  const nameOf = (id: string) => providers.find((p) => p.id === id)?.name ?? id.slice(0, 8);
+
+  const { data: requests = [], isLoading } = useQuery({
+    queryKey: ["admin-payout-requests"],
+    refetchInterval: 60_000,
+    queryFn: async () => {
+      const { data, error } = await adminApi("/admin/payouts/requests");
+      if (error) throw new Error(String(error));
+      return (Array.isArray(data) ? data : []) as PayoutRow[];
+    },
+  });
+
+  const decide = useMutation({
+    mutationFn: async ({ id, decision }: { id: string; decision: "approved" | "rejected" | "paid" }) => {
+      const { data, error } = await adminApi(`/admin/payouts/${id}/decision`, {
+        method: "POST",
+        body: JSON.stringify({ decision }),
+      });
+      if (error) throw new Error(String(error));
+      return data;
+    },
+    onSuccess: (_d, v) => {
+      toast.success(v.decision === "paid" ? "Marked as sent" : `Request ${v.decision}`);
+      qc.invalidateQueries({ queryKey: ["admin-payout-requests"] });
+      qc.invalidateQueries({ queryKey: ["admin-provider-payouts"] });
+    },
+    onError: (e: any) => toast.error(e?.message || "Could not update the request"),
+  });
+
+  if (isLoading || requests.length === 0) return null;
+
+  return (
+    <div className="rounded-radius-lg bg-card p-space-4">
+      <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+        Payout requests ({requests.length})
+      </p>
+      <ul className="mt-space-3 divide-y divide-border/60">
+        {requests.map((r) => (
+          <li key={r.id} className="flex flex-wrap items-center justify-between gap-space-3 py-space-3">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-foreground">
+                {nameOf(r.provider_id)}
+                <span className="ml-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  {r.status}
+                </span>
+              </p>
+              <p className="truncate font-mono text-[11px] text-muted-foreground">{r.destination}</p>
+              {r.note && <p className="text-xs text-muted-foreground">{r.note}</p>}
+            </div>
+            <div className="flex items-center gap-space-2">
+              <span className="text-base font-black tabular-nums text-foreground">{formatUSD(r.amount_cents)}</span>
+              {r.status === "requested" && (
+                <>
+                  <Button size="sm" variant="outline" className="rounded-full"
+                    disabled={decide.isPending}
+                    onClick={() => decide.mutate({ id: r.id, decision: "rejected" })}>
+                    Reject
+                  </Button>
+                  <Button size="sm" className="rounded-full"
+                    disabled={decide.isPending}
+                    onClick={() => decide.mutate({ id: r.id, decision: "approved" })}>
+                    Approve
+                  </Button>
+                </>
+              )}
+              {r.status === "approved" && (
+                <Button size="sm" className="rounded-full"
+                  disabled={decide.isPending}
+                  onClick={() => decide.mutate({ id: r.id, decision: "paid" })}>
+                  Mark sent
+                </Button>
+              )}
+            </div>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
