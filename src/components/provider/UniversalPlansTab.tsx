@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 import { PlanForm, EMPTY_PLAN, cleanFeatures, type PlanFormValues } from "@/components/provider/plans/PlanForm";
-import { PlanOptionsEditor } from "@/components/provider/PlanOptionsEditor";
+import { OfferEditor } from "@/components/provider/plans/OfferEditor";
 import { includedLabel, normPeriod } from "@/lib/services/planPeriod";
 
 const AUDIT = "provider_plan";
@@ -218,16 +218,16 @@ export function UniversalPlansTab({ providerId }: { providerId: string }) {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Grouping plans into one offer the customer picks options on. Sits
-          under the list because it only makes sense once there are plans to
-          group — it says so itself when there aren't. */}
+      {/* One plan sold in a few sizes or frequencies: the axes and a price per
+          combination, on the plan itself. The same editor every service gets —
+          a provider moving between services meets one idea, not two. */}
       <section className="border-t border-border/60 pt-6">
-        <h2 className="text-xl font-black tracking-tight">Options</h2>
+        <h2 className="text-xl font-black tracking-tight">Sizes and prices</h2>
         <p className="mb-4 mt-1 text-sm text-muted-foreground">
-          Selling one thing in a few sizes or frequencies? Group those plans so customers see one
-          card and choose, instead of a card per combination.
+          Selling one thing in a few sizes or frequencies? Set them here and customers see one card
+          with a choice, instead of a card per combination.
         </p>
-        <PlanOptionsEditor providerId={providerId} />
+        <OfferEditor providerId={providerId} sourceKey="" />
       </section>
     </div>
   );

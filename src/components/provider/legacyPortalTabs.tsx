@@ -7,7 +7,6 @@ import { supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
 
-import { RestaurantMealPlansTab } from "@/components/food/admin/RestaurantMealPlansTab";
 import { RestaurantOperationsTab } from "@/components/food/admin/RestaurantOperationsTab";
 import { FoodSubscriptionsList } from "@/components/food/FoodSubscriptionsList";
 import { useMyRestaurants, type MyRestaurant } from "@/hooks/useMyRestaurants";
@@ -16,15 +15,13 @@ import type { MyProviderRow } from "@/hooks/useMyProviders";
 import { CleaningSubscriptionsList } from "@/components/cleaning/CleaningSubscriptionsList";
 import { useMyProviders } from "@/hooks/useMyProviders";
 import { SERVICES as SERVICE_REGISTRY } from "@/lib/services/registry";
-import CleaningPlansPage from "@/pages/admin/CleaningPlans";
 import CleaningOperationsPage from "@/pages/admin/CleaningManagement";
 
 import BeachClubPlansPage from "@/pages/admin/BeachClubPlans";
 import BeachClubSubscriptionsPage from "@/pages/admin/BeachClubSubscriptions";
 import BeachClubCourtsPage from "@/pages/admin/BeachClubCourts";
 
-import { InnerPillTabs } from "@/components/provider/InnerPillTabs";
-import { PlanOptionsEditor } from "@/components/provider/PlanOptionsEditor";
+import { OfferEditor } from "@/components/provider/plans/OfferEditor";
 import { useUniversalIdForLegacy as useUniversalId } from "@/lib/services/providerBridge";
 
 /**
@@ -34,17 +31,27 @@ import { useUniversalIdForLegacy as useUniversalId } from "@/lib/services/provid
  * ever hold the per-service id, so the bridge happens here rather than in the
  * editor — which should not have to know that two id-spaces exist.
  */
-function LegacyPlanOptions({ legacyId, sourceKey }: { legacyId: string; sourceKey: string }) {
+/**
+ * Offerings for a legacy-backed provider.
+ *
+ * It used to be two pills — the per-service plan list, and an Options screen
+ * that grouped six of those plans into one product. A provider selling one
+ * thing in six sizes therefore met six tariffs plus a merging tool, and edited
+ * a combination's price in whichever of the two owned that row. `OfferEditor`
+ * is the whole product on one screen: the plan once, the axes, and a price per
+ * combination.
+ */
+function LegacyOfferings({ legacyId, sourceKey }: { legacyId: string; sourceKey: string }) {
   const { data: universalId, isLoading } = useUniversalId(sourceKey, legacyId);
   if (isLoading) return <TabsSkeleton />;
   if (!universalId) {
     return (
       <div className="rounded-2xl bg-card p-6 text-sm text-muted-foreground">
-        This business has no marketplace record yet, so its plans can't be grouped into an offer.
+        This business has no marketplace record yet, so its plans can't be edited here.
       </div>
     );
   }
-  return <PlanOptionsEditor providerId={universalId} />;
+  return <OfferEditor providerId={universalId} sourceKey={sourceKey} />;
 }
 
 // Identity/bridge lives in one place — re-exported here so portal code has a
@@ -89,14 +96,7 @@ export const CLEANING_SUBSCRIPTIONS_TAB_BODY = (p: CleaningProviderRow) => <Clea
 
 export const FOOD_TABS: PortalTab<MyRestaurant>[] = [
   { value: "offerings",     label: "Offerings",  icon: Package,         render: (r) => (
-    <InnerPillTabs
-      items={[
-        { key: "plans", label: "Meal plans",   render: () => <RestaurantMealPlansTab providerId={r.id} /> },
-        // Grouping plans into one offer works on the universal id, not the
-        // legacy one — see lib/services/providerBridge.
-        { key: "options", label: "Options", render: () => <LegacyPlanOptions legacyId={r.id} sourceKey="food" /> },
-      ]}
-    />
+    <LegacyOfferings legacyId={r.id} sourceKey="food" />
   ) },
   { value: "operations",    label: "Operations",  mobileLabel: "Ops.",  icon: Truck,           render: (r) => <RestaurantOperationsTab providerId={r.id} /> },
 ];
@@ -107,12 +107,7 @@ export const CLEANING_TABS: PortalTab<CleaningProviderRow>[] = [
   // cleaning owner's Offerings and Operations tabs displayed (and could edit)
   // every other provider's data.
   { value: "offerings",     label: "Offerings",  icon: Package,         render: (p) => (
-    <InnerPillTabs
-      items={[
-        { key: "plans",   label: "Plans",   render: () => <CleaningPlansPage embedded providerId={p.id} /> },
-        { key: "options", label: "Options", render: () => <LegacyPlanOptions legacyId={p.id} sourceKey="cleaning" /> },
-      ]}
-    />
+    <LegacyOfferings legacyId={p.id} sourceKey="cleaning" />
   ) },
   { value: "operations",    label: "Operations", mobileLabel: "Ops.",   icon: Wrench,          render: (p) => <CleaningOperationsPage embedded providerId={p.id} /> },
 ];
