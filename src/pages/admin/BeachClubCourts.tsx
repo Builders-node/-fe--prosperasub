@@ -38,7 +38,6 @@ interface Court {
   close_hour: number;
   slot_minutes: number;
   description: string | null;
-  external_ics_url: string | null;
   ical_feed_token: string;
   google_calendar_id: string | null;
 }
@@ -79,7 +78,6 @@ const EMPTY_FORM = {
   slot_minutes: 60,
   description: "",
   sort_order: 0,
-  external_ics_url: "",
   // Per-court booking calendar override. NULL = inherit from provider.
   booking_settings: null as unknown | null,
 };
@@ -103,7 +101,7 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
     queryFn: async () => {
       const { data, error } = await supabaseDb
         .from("beach_club_courts")
-        .select("id, name, type, is_active, sort_order, open_hour, close_hour, slot_minutes, description, external_ics_url, ical_feed_token, google_calendar_id")
+        .select("id, name, type, is_active, sort_order, open_hour, close_hour, slot_minutes, description, ical_feed_token, google_calendar_id")
         .order("sort_order", { ascending: true });
       if (error) throw error;
       return (data ?? []) as Court[];
@@ -242,7 +240,6 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
       slot_minutes: c.slot_minutes,
       description: c.description ?? "",
       sort_order: c.sort_order,
-      external_ics_url: c.external_ics_url ?? "",
       booking_settings: (c as any).booking_settings ?? null,
     });
   };
@@ -252,10 +249,6 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
       const trimmed = form.name.trim();
       if (!trimmed) throw new Error("Name is required.");
       if (form.open_hour >= form.close_hour) throw new Error("Close hour must be after open hour.");
-      const extUrl = form.external_ics_url.trim();
-      if (extUrl && !/^https?:\/\//i.test(extUrl) && !/^webcal:\/\//i.test(extUrl)) {
-        throw new Error("External iCal URL must start with http(s):// or webcal://");
-      }
       const payload = {
         name: trimmed,
         type: form.type,
@@ -265,7 +258,6 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
         slot_minutes: form.slot_minutes,
         description: form.description.trim() || null,
         sort_order: form.sort_order,
-        external_ics_url: extUrl || null,
         booking_settings: form.booking_settings,
       };
       if (editing === "new") {
@@ -682,20 +674,6 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
                   </div>
                   <p className="mt-1 text-[11px] text-muted-foreground">
                     Anyone with this URL can see this court's bookings. Refreshes every 5 min.
-                  </p>
-                </div>
-
-                {/* Feed IN — bind personal iCal (external, read-only overlay) */}
-                <div className="mb-3">
-                  <Label className="text-xs">Personal iCal URL (optional, read-only overlay)</Label>
-                  <Input
-                    value={form.external_ics_url}
-                    onChange={(e) => setForm((f) => ({ ...f, external_ics_url: e.target.value }))}
-                    placeholder="https://calendar.google.com/calendar/ical/…/basic.ics"
-                    className="font-mono text-xs"
-                  />
-                  <p className="mt-1 text-[11px] text-muted-foreground">
-                    Read-only: we can show events from this URL alongside the court's schedule.
                   </p>
                 </div>
 
