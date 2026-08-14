@@ -532,7 +532,7 @@ const UniversalPlanCheckout = () => {
             <InfinitaPaymentPanel
               totalCents={effectiveTotalCents}
               onPaid={(id: string) => onExternalPaid(id, "crypto")}
-              onInvoiceReady={(paymentId: string) => attachPaymentReference(supabaseDb, "provider_subscriptions", pendingSubIdRef.current, paymentId, "crypto")}
+              onInvoiceReady={(paymentId: string) => attachPaymentReference(supabaseDb, subTable(), pendingSubIdRef.current, paymentId, "crypto")}
               orderMeta={{ description: orderDescription, ...paymentMeta() }}
             />
           </section>
