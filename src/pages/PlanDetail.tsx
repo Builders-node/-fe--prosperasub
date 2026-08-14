@@ -103,7 +103,7 @@ const PlanDetail = () => {
 
         const { data: food, error: foodError } = await supabaseDb
           .from("food_meal_plans")
-          .select("id, name, description, weekly_price_cents, meals_per_day, provider_id")
+          .select("id, name, description, weekly_price_cents, meals_per_day, provider_id, highlights")
           .eq("id", planId)
           .maybeSingle();
         if (foodError) throw foodError;
@@ -121,7 +121,10 @@ const PlanDetail = () => {
             id: String(food.id),
             title: food.name,
             description: food.description ?? null,
-            features: [],
+            // `highlights` is food's "what's included". The column has always
+            // existed and this page always sent an empty list, so a restaurant
+            // could fill it in and no customer ever saw it.
+            features: asStringList((food as any).highlights),
             priceCents: food.weekly_price_cents ?? null,
             priceUnit: "/ week",
             providerId: bridged?.id ? String(bridged.id) : null,

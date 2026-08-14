@@ -42,6 +42,20 @@ interface PlanRow {
   option_keys: Record<string, string> | null;
   source_plan_id: string | null;
   source_service_key: string | null;
+  pricing_mode: string | null;
+  fulfilment: string | null;
+  included_unit: string | null;
+  included_quantity: number | null;
+  periods_default: number | null;
+  periods_min: number | null;
+  periods_max: number | null;
+  provider_price_cents: number | null;
+  markup_cents: number | null;
+  lead_time_minutes: number | null;
+  window_minutes: number | null;
+  features: unknown;
+  excludes: unknown;
+  tags: string[] | null;
 }
 
 interface DraftOption { key: string; label: string }
@@ -55,6 +69,16 @@ const comboKey = (groups: DraftGroup[], combo: Record<string, string>) =>
   groups.map((g) => `${g.key}=${combo[g.key] ?? ""}`).join("|");
 
 const dollars = (cents: number) => (cents > 0 ? (cents / 100).toFixed(2) : "");
+
+/** A jsonb list of strings ⇄ one item per line, which is how a provider types. */
+const asLines = (value: unknown): string =>
+  Array.isArray(value) ? value.map((v) => String(v)).join("\n") : "";
+const fromLines = (text: string): string[] =>
+  text.split("\n").map((l) => l.trim()).filter(Boolean);
+const numOrNull = (text: string): number | null => {
+  const n = Number(String(text).trim());
+  return Number.isFinite(n) && n > 0 ? Math.round(n) : null;
+};
 const cents = (text: string) => {
   const n = Math.round(Number(String(text).replace(/[^0-9.]/g, "")) * 100);
   return Number.isFinite(n) && n > 0 ? n : 0;
@@ -69,7 +93,7 @@ export function OfferEditor({ providerId, sourceKey }: { providerId: string; sou
     queryFn: async () => {
       const { data: plans, error } = await supabaseDb
         .from("provider_plans")
-        .select("id, name, description, price_cents, status, period, parent_plan_id, option_keys, source_plan_id, source_service_key")
+        .select("*")
         .eq("provider_id", providerId)
         .order("sort_order", { ascending: true });
       if (error) throw error;
@@ -111,6 +135,14 @@ export function OfferEditor({ providerId, sourceKey }: { providerId: string; sou
   /** combination fingerprint → dollars typed in the grid. */
   const [prices, setPrices] = useState<Record<string, string>>({});
   const [newGroupLabel, setNewGroupLabel] = useState("");
+  /** The switches — what this plan IS, rather than what it is called. */
+  const [sold, setSold] = useState({
+    period: "monthly", unit: "", quantity: "",
+    periodsDefault: "1", periodsMin: "1", periodsMax: "",
+    pricingMode: "flat", providerPrice: "", markup: "",
+    leadMinutes: "", windowMinutes: "",
+  });
+  const [includes, setIncludes] = useState({ features: "", excludes: "", tags: "" });
 
   useEffect(() => {
     if (!offer || !data) return;
@@ -131,6 +163,25 @@ export function OfferEditor({ providerId, sourceKey }: { providerId: string; sou
     });
     if (!drafted.length) seeded[""] = dollars(offer.price_cents);
     setPrices(seeded);
+
+    setSold({
+      period: offer.period ?? "monthly",
+      unit: offer.included_unit ?? "",
+      quantity: offer.included_quantity != null ? String(offer.included_quantity) : "",
+      periodsDefault: String(offer.periods_default ?? 1),
+      periodsMin: String(offer.periods_min ?? 1),
+      periodsMax: offer.periods_max != null ? String(offer.periods_max) : "",
+      pricingMode: offer.pricing_mode ?? "flat",
+      providerPrice: dollars(offer.provider_price_cents ?? 0),
+      markup: dollars(offer.markup_cents ?? 0),
+      leadMinutes: offer.lead_time_minutes != null ? String(offer.lead_time_minutes) : "",
+      windowMinutes: offer.window_minutes != null ? String(offer.window_minutes) : "",
+    });
+    setIncludes({
+      features: asLines(offer.features),
+      excludes: asLines(offer.excludes),
+      tags: (offer.tags ?? []).join(", "),
+    });
   }, [offerId, data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
@@ -175,6 +226,31 @@ export function OfferEditor({ providerId, sourceKey }: { providerId: string; sou
 
       // 1. The plan's own fields, written wherever that plan actually lives.
       await writePlanFields(offer, name.trim(), description.trim() || null, sourceKey);
+
+      // 1b. The switches. These live only on `provider_plans` — no legacy
+      //     table has a column for "how is this sold" — except the two
+      //     attribute lists, which the storefront still reads from the legacy
+      //     row, so those are written there as well (see writeAttributes).
+      const { error: switchErr } = await supabaseDb.from("provider_plans").update({
+        period: sold.period,
+        included_unit: sold.unit.trim() || null,
+        included_quantity: numOrNull(sold.quantity),
+        periods_default: numOrNull(sold.periodsDefault) ?? 1,
+        periods_min: numOrNull(sold.periodsMin) ?? 1,
+        periods_max: numOrNull(sold.periodsMax),
+        pricing_mode: sold.pricingMode,
+        provider_price_cents: sold.pricingMode === "derived" ? cents(sold.providerPrice) : null,
+        markup_cents: sold.pricingMode === "derived" ? cents(sold.markup) : null,
+        lead_time_minutes: numOrNull(sold.leadMinutes),
+        window_minutes: numOrNull(sold.windowMinutes),
+        tags: fromLines(includes.tags.replace(/,/g, "\n")),
+        excludes: fromLines(includes.excludes),
+        features: fromLines(includes.features),
+        updated_at: new Date().toISOString(),
+      }).eq("id", offer.id);
+      if (switchErr) throw switchErr;
+
+      await writeAttributes(offer, sourceKey, fromLines(includes.features), fromLines(includes.excludes), fromLines(includes.tags.replace(/,/g, "\n")));
       // A plan is created as a draft so a nameless $0 row never reaches the
       // storefront. Pricing it is what puts it on sale.
       if (offer.status !== "active") await writeStatus(offer, "active", sourceKey);
@@ -359,6 +435,96 @@ export function OfferEditor({ providerId, sourceKey }: { providerId: string; sou
       </section>
 
       <section className="space-y-3 rounded-2xl bg-card p-4">
+        <p className="text-xs font-black uppercase tracking-[0.14em] text-muted-foreground">How it's sold</p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Billed every">
+            <select value={sold.period} onChange={(e) => setSold((v) => ({ ...v, period: e.target.value }))}
+              className="h-9 w-full rounded-radius-md bg-inset px-3 text-sm text-foreground outline-none">
+              {["weekly", "monthly", "quarterly", "yearly"].map((p) => (
+                <option key={p} value={p}>{p[0].toUpperCase() + p.slice(1)}</option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Price is" hint={PRICING_HINT[sold.pricingMode] ?? ""}>
+            <select value={sold.pricingMode} onChange={(e) => setSold((v) => ({ ...v, pricingMode: e.target.value }))}
+              className="h-9 w-full rounded-radius-md bg-inset px-3 text-sm text-foreground outline-none">
+              <option value="flat">Flat</option>
+              <option value="per_unit">Per unit</option>
+              <option value="per_person">Per person</option>
+              <option value="derived">Provider price + platform markup</option>
+            </select>
+          </Field>
+
+          {sold.pricingMode === "derived" && (
+            <>
+              <Field label="Provider is paid ($)">
+                <Input inputMode="decimal" className="h-9" value={sold.providerPrice}
+                  onChange={(e) => setSold((v) => ({ ...v, providerPrice: e.target.value }))} />
+              </Field>
+              <Field label="Platform adds ($)">
+                <Input inputMode="decimal" className="h-9" value={sold.markup}
+                  onChange={(e) => setSold((v) => ({ ...v, markup: e.target.value }))} />
+              </Field>
+            </>
+          )}
+
+          <Field label="What is counted" hint="cleaning · meal · session">
+            <Input className="h-9" value={sold.unit} placeholder="cleaning"
+              onChange={(e) => setSold((v) => ({ ...v, unit: e.target.value }))} />
+          </Field>
+          <Field label="How many per period">
+            <Input inputMode="numeric" className="h-9" value={sold.quantity} placeholder="4"
+              onChange={(e) => setSold((v) => ({ ...v, quantity: e.target.value }))} />
+          </Field>
+
+          <Field label="Periods offered by default">
+            <Input inputMode="numeric" className="h-9" value={sold.periodsDefault}
+              onChange={(e) => setSold((v) => ({ ...v, periodsDefault: e.target.value }))} />
+          </Field>
+          <Field label="Fewest / most they may buy">
+            <div className="flex items-center gap-2">
+              <Input inputMode="numeric" className="h-9" value={sold.periodsMin}
+                onChange={(e) => setSold((v) => ({ ...v, periodsMin: e.target.value }))} />
+              <span className="text-muted-foreground">–</span>
+              <Input inputMode="numeric" className="h-9" value={sold.periodsMax} placeholder="no limit"
+                onChange={(e) => setSold((v) => ({ ...v, periodsMax: e.target.value }))} />
+            </div>
+          </Field>
+
+          {offer.fulfilment === "deliveries" && (
+            <>
+              <Field label="Arrives after (minutes from midnight)" hint="600 = 10:00">
+                <Input inputMode="numeric" className="h-9" value={sold.leadMinutes} placeholder="660"
+                  onChange={(e) => setSold((v) => ({ ...v, leadMinutes: e.target.value }))} />
+              </Field>
+              <Field label="Window width (minutes)" hint="120 = a two-hour promise">
+                <Input inputMode="numeric" className="h-9" value={sold.windowMinutes} placeholder="120"
+                  onChange={(e) => setSold((v) => ({ ...v, windowMinutes: e.target.value }))} />
+              </Field>
+            </>
+          )}
+        </div>
+      </section>
+
+      <section className="space-y-3 rounded-2xl bg-card p-4">
+        <p className="text-xs font-black uppercase tracking-[0.14em] text-muted-foreground">What they get</p>
+        <Field label="Included" hint="One per line — shown on the plan page.">
+          <Textarea rows={4} value={includes.features}
+            onChange={(e) => setIncludes((v) => ({ ...v, features: e.target.value }))}
+            placeholder={"Full apartment cleaning\nBathroom and kitchen"} />
+        </Field>
+        <Field label="Not included" hint="One per line.">
+          <Textarea rows={3} value={includes.excludes}
+            onChange={(e) => setIncludes((v) => ({ ...v, excludes: e.target.value }))}
+            placeholder={"Windows from outside\nLaundry"} />
+        </Field>
+        <Field label="Tags" hint="Comma separated — what a customer can filter by.">
+          <Input value={includes.tags} placeholder="vegetarian, keto"
+            onChange={(e) => setIncludes((v) => ({ ...v, tags: e.target.value }))} />
+        </Field>
+      </section>
+
+      <section className="space-y-3 rounded-2xl bg-card p-4">
         <p className="text-xs font-black uppercase tracking-[0.14em] text-muted-foreground">What the customer chooses</p>
         {draftGroups.map((group, gi) => (
           <div key={group.key} className="rounded-radius-md bg-inset p-3">
@@ -453,6 +619,24 @@ export function OfferEditor({ providerId, sourceKey }: { providerId: string; sou
           {offer.status === "active" ? "Take off sale" : "Put back on sale"}
         </Button>
       </div>
+    </div>
+  );
+}
+
+/** How each pricing mode reads to the person picking it. */
+const PRICING_HINT: Record<string, string> = {
+  flat: "One price for the period.",
+  per_unit: "Price × how many they take.",
+  per_person: "Price × people on the booking.",
+  derived: "Customer pays the provider's price plus the platform's markup.",
+};
+
+function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <Label className="text-xs text-muted-foreground">{label}</Label>
+      <div className="mt-1">{children}</div>
+      {hint && <p className="mt-1 text-[11px] text-muted-foreground">{hint}</p>}
     </div>
   );
 }
@@ -648,6 +832,41 @@ async function createVariant(input: {
       return Number.isFinite(n) && n > 0 ? n : null;
     },
   });
+}
+
+/**
+ * "What you get" and "what you do not", written where the storefront reads it.
+ *
+ * The plan page takes `features` from `cleaning_packages`, `amenities` from
+ * `beach_club_plans` and `provider_plans.features` for a universal plan — so
+ * writing only the universal row would mean a provider types a list and no
+ * customer ever sees it. Food's `highlights` was the odd one out: the column
+ * existed and the plan page ignored it, which is fixed alongside this.
+ */
+async function writeAttributes(
+  plan: PlanRow, sourceKey: string, features: string[], excludes: string[], tags: string[],
+) {
+  if (plan.source_plan_id && sourceKey === "food") {
+    const { error } = await supabaseDb.from("food_meal_plans")
+      .update({ highlights: features, dietary_tags: tags, updated_at: new Date().toISOString() })
+      .eq("id", plan.source_plan_id);
+    if (error) throw error;
+    return;
+  }
+  if (plan.source_plan_id && sourceKey === "cleaning") {
+    const { error } = await supabaseDb.from("cleaning_packages")
+      .update({ features, not_included: excludes, updated_at: new Date().toISOString() })
+      .eq("id", plan.source_plan_id);
+    if (error) throw error;
+    return;
+  }
+  if (plan.source_plan_id && sourceKey === "beach") {
+    const { error } = await supabaseDb.from("beach_club_plans")
+      .update({ amenities: features, updated_at: new Date().toISOString() })
+      .eq("id", plan.source_plan_id);
+    if (error) throw error;
+  }
+  // A universal plan already had them written to `provider_plans` above.
 }
 
 /** Status goes where the plan lives — the mirror carries a legacy change back. */
