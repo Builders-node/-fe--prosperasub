@@ -126,7 +126,7 @@ const CleaningPackages = () => {
    * cheapest of them once, named for the offer. Picking the size happens at
    * checkout, where the customer is already telling us about their home.
    */
-  const { offerBySourcePlanId } = usePlanOffers(
+  const { offerBySourcePlanId, isLoading: offersLoading } = usePlanOffers(
     (providersQ.data ?? []).map((p: any) => p.id),
   );
   const visiblePackages = (packagesQ.data ?? [])
@@ -289,7 +289,10 @@ const CleaningPackages = () => {
           </>
         )}
 
-        {packagesQ.isLoading || providersQ.isLoading || categoriesQ.isLoading ? (
+        {/* `offersLoading` belongs in this list: without it the three sizes of
+            one plan each render as their own card until the offer lookup
+            lands, and the customer watches them collapse into one. */}
+        {packagesQ.isLoading || providersQ.isLoading || categoriesQ.isLoading || offersLoading ? (
           <section>
             <div className="grid gap-3 md:gap-4 md:grid-cols-2">
               {[1, 2, 3].map((i) => <div key={i} className="h-56 animate-pulse rounded-3xl bg-muted" />)}

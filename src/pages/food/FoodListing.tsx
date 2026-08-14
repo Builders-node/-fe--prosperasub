@@ -200,10 +200,20 @@ const FoodListing = () => {
    * the "from" price the customer sees, and tapping it opens the plan screen
    * where the option chips switch between siblings.
    */
-  const { offerBySourcePlanId } = usePlanOffers(
+  const { offerBySourcePlanId, isLoading: offersLoading } = usePlanOffers(
     (providers ?? []).map((p) => p.id),
     { legacyService: "food" },
   );
+
+  /**
+   * The catalog and the offer lookup are two queries, and the catalog wins.
+   * Rendering on the first one alone meant every combination appeared as its
+   * own card for as long as the second was in flight — six meal plans, then a
+   * blink, then the one card that was always the answer. The grid waits for
+   * both; the rail and the header do not, because neither changes when the
+   * offers land.
+   */
+  const plansLoading = isLoading || offersLoading;
 
   const allPlans = visibleProviders
     .filter((p) => scopedProviderIds.size === 0 || scopedProviderIds.has(p.id))
@@ -323,13 +333,18 @@ const FoodListing = () => {
         ) : null}
 
         {/* ─── Meal Plans ──────────────────────────────────────────── */}
-        {allPlans.length > 0 && (
+        {(plansLoading || allPlans.length > 0) && (
           <>
             <h2 className="mb-3 mt-space-8 text-[20px] font-semibold tracking-[-0.4px] text-foreground">
               Meal Plans
-              <span className="ml-2 text-base font-normal text-muted-foreground">
-                ({dietaryFilter || search.isActive ? search.results.length : allPlans.length})
-              </span>
+              {/* No count until the offers land. It is computed from a list that
+                  still has one row per combination, so it would say six and
+                  then one — the very flicker the skeleton below prevents. */}
+              {!plansLoading && (
+                <span className="ml-2 text-base font-normal text-muted-foreground">
+                  ({dietaryFilter || search.isActive ? search.results.length : allPlans.length})
+                </span>
+              )}
             </h2>
 
             {/* Dietary filter row — only shown when at least one plan carries
@@ -376,7 +391,13 @@ const FoodListing = () => {
             )}
 
 
-            {search.results.length > 0 ? (
+            {plansLoading ? (
+              <div className="grid gap-3 md:gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-[120px] animate-pulse rounded-radius-lg bg-muted" />
+                ))}
+              </div>
+            ) : search.results.length > 0 ? (
               <div className="grid gap-3 md:gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {search.results.map(({ plan, provider }) => (
                   <MealPlanCard

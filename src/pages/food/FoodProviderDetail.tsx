@@ -71,7 +71,7 @@ const FoodProviderDetail = () => {
    * variant, carrying the offer's name and "from" price. The option chips live
    * on the plan screen behind it.
    */
-  const { offerBySourcePlanId } = usePlanOffers([id], { legacyService: "food" });
+  const { offerBySourcePlanId, isLoading: offersLoading } = usePlanOffers([id], { legacyService: "food" });
   const visiblePlans = allowedPlans.filter((plan) => {
     const offer = offerBySourcePlanId.get(String(plan.id));
     if (!offer) return true;
@@ -321,7 +321,9 @@ const FoodProviderDetail = () => {
             )}
           </h2>
 
-          {loadingPlans ? (
+          {/* Waiting on the offer lookup too: the plans query alone would show
+              every combination as its own card until it lands. */}
+          {loadingPlans || offersLoading ? (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {[1, 2, 3].map((i) => <div key={i} className="h-64 animate-pulse rounded-3xl bg-muted" />)}
             </div>
