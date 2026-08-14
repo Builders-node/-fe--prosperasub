@@ -204,8 +204,9 @@ const App = () => {
               <Route path="/services/:archetypeKey" element={<ServicePage />} />
 
               {/* The plan's own page — what a card in a listing opens. Food's
-                  four-segment route above is more specific, so food keeps its
-                  own renewal screen. */}
+                  longer route above is more specific and still matches first,
+                  but it only forwards here (or to the checkout for a renewal),
+                  so a food plan is read on this page like every other. */}
               <Route path="/services/:archetypeKey/plans/:planId" element={<PlanDetail />} />
 
               {/* ── The checkout ────────────────────────────────────────────
