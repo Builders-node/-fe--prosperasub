@@ -20,7 +20,7 @@ import { formatUSD, centsToDollars } from "@/lib/pricing";
 import { NotesField } from "@/components/patterns/NotesField";
 import { phoneError } from "@/components/patterns/CustomerPhone";
 import { usePhonePrefill } from "@/hooks/useAccountPhone";
-import { PaymentMethodSelector, type PaymentMethod } from "@/components/payment/PaymentMethodSelector";
+import type { PaymentMethod } from "@/components/payment/PaymentMethodSelector";
 import { usePaymentMethods } from "@/hooks/usePaymentMethods";
 import { InfinitaPaymentPanel } from "@/components/payment/InfinitaPaymentPanel";
 import { PayPalPanel } from "@/components/payment/PayPalPanel";
@@ -32,6 +32,8 @@ import { termLabel, termLabelFor, includedLabel } from "@/lib/services/planPerio
 import { resolveCheckoutPlan, totalFor } from "@/lib/checkout/planCheckoutModel";
 import { buildSubscriptionWrite, endDateOf } from "@/lib/checkout/subscriptionWriter";
 import { payLabel } from "@/lib/checkout/ctaLabel";
+import { CheckoutLineItem, PersonalDataCard, ResumeCard } from "@/components/checkout/CheckoutBlocks";
+import { PaymentMethodTiles } from "@/components/payment/PaymentMethodTiles";
 import { fetchRenewalSubject, renewalEndpoint, renewalWindow } from "@/lib/checkout/renewal";
 import { accountApi } from "@/integrations/supabase/client";
 
@@ -125,6 +127,8 @@ const UniversalPlanCheckout = () => {
   const [selections, setSelections] = useState<string[]>([]);
   const [address, setAddress] = useState("");
   const [area, setArea] = useState("");
+  /** The contact card starts closed and opens itself when something is missing. */
+  const [detailsOpen, setDetailsOpen] = useState(false);
   /**
    * What is being renewed. Loaded from the plan's own service, because that is
    * what says which table the subscription lives in — the same seam the writer
@@ -160,6 +164,15 @@ const UniversalPlanCheckout = () => {
     // assemble it themselves.
     if (plan.selection) setSelections(plan.selection.options.slice(0, plan.selection.max).map((o) => o.key));
   }, [plan?.universalId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /**
+   * Collapsed is the resting state, but a card that says "needed before you can
+   * pay" and hides the field behind a chevron is a dead end. So it opens itself
+   * the moment we know something required is missing, and stays under the
+   * customer's control after that.
+   */
+  const missingDetails = !phone.trim() || (!!plan?.needsAddress && !address.trim());
+  useEffect(() => { if (missingDetails) setDetailsOpen(true); }, [missingDetails]);
 
   const perPerson = plan?.pricingMode === "per_person";
   const unitCents = plan?.unitCents ?? 0;
@@ -466,32 +479,27 @@ const UniversalPlanCheckout = () => {
       backTo={renewing ? "/my-subscriptions" : listingHref}
       showBottomNav={false}
     >
-      <div className="mx-auto max-w-xl space-y-4 px-4 py-4 pb-32 md:py-8">
-        <section>
-          <p className="text-xs font-bold uppercase tracking-[0.16em] text-primary">
-            {renewing ? "Renewal" : "Step 2 of 2"}
+      <div className="mx-auto max-w-xl space-y-2 px-3 py-3 pb-32 md:py-8">
+        {renewing && (
+          <p className="px-1 pb-1 text-sm text-muted-foreground">
+            Extends the same subscription — nothing new is created, and the new
+            period starts when the current one ends.
           </p>
-          <h1 className="mt-1 text-2xl font-black tracking-tight text-foreground md:text-3xl">
-            {showPayment ? "Complete payment" : renewing ? "Renew & pay" : "Review & pay"}
-          </h1>
-          {renewing && (
-            <p className="mt-1 text-sm text-muted-foreground">
-              Extends the same subscription — nothing new is created, and the new
-              period starts when the current one ends.
-            </p>
-          )}
-        </section>
+        )}
 
-        <section className="overflow-hidden rounded-3xl bg-card">
-          <div className="p-5">
-            <h2 className="text-xl font-black tracking-tight text-foreground">{plan.name}</h2>
-            <p className="mt-0.5 text-sm text-muted-foreground">
-              {plan.providerName ? `${plan.providerName} · ` : ""}{termLabel(plan.period)}
-            </p>
-          </div>
+        {/* 1 — what is being bought. */}
+        <CheckoutLineItem
+          title={plan.name}
+          description={plan.providerName ? `${plan.providerName} · ${termLabel(plan.period)}` : termLabel(plan.period)}
+          priceCents={totalCents}
+          image={plan.image}
+        />
 
-          {!showPayment && (
-            <div className="px-5 pb-4">
+        {/* 2 — the questions this order asks. Not personal details: when it
+            starts, how long for, how many, which options. */}
+        {!showPayment && (
+          <section className="rounded-radius-md bg-card p-4">
+            <div>
               {/* A renewal has no start date to pick and no term to change: it
                   continues the period that exists, for the term it was bought
                   for. Offering either control would let the screen promise
@@ -585,6 +593,21 @@ const UniversalPlanCheckout = () => {
                 </>
               )}
 
+            </div>
+          </section>
+        )}
+
+        {/* 3 — who it is for. Collapsed to a summary, opened to be corrected:
+            the same details every time, so showing them back beats asking. */}
+        {!showPayment && (
+          <PersonalDataCard
+            name={userData?.name || userData?.display_name || null}
+            lines={[userData?.email, phone, area, address]}
+            open={detailsOpen}
+            onEdit={() => setDetailsOpen((o) => !o)}
+            incomplete={missingDetails}
+          >
+            <div>
               {plan.needsArea && (
                 <>
                   <Label htmlFor="pc-area" className="mt-4 block text-xs text-muted-foreground">Residence</Label>
@@ -625,50 +648,30 @@ const UniversalPlanCheckout = () => {
                 <NotesField value={notes} onChange={setNotes} />
               </div>
             </div>
-          )}
+          </PersonalDataCard>
+        )}
 
-          <div className="divide-y divide-border/60 border-t border-border/60">
-            <SummaryRow label="Plan" value={plan.name} />
-            {includedLabel(plan.unitQuantity, plan.unitLabel, plan.period) && (
-              <SummaryRow label="Included" value={includedLabel(plan.unitQuantity, plan.unitLabel, plan.period)!} />
-            )}
-            <SummaryRow label="Term" value={termLabelFor(plan.period, periods)} />
-            {perPerson && <SummaryRow label="People" value={String(Math.max(1, people))} />}
-            {(periods > 1 || perPerson) && (
-              <SummaryRow
-                label="Price"
-                value={`${formatUSD(unitCents)} × ${periods}${perPerson ? ` × ${Math.max(1, people)}` : ""}`}
-              />
-            )}
-            <SummaryRow
-              label={renewing ? "Renews from" : "Start date"}
-              value={format(new Date(`${effectiveStart}T00:00:00`), "d MMM yyyy")}
-            />
-            <SummaryRow label="Ends" value={format(endDate, "d MMM yyyy")} />
-          </div>
-
-          <div className="flex items-center justify-between gap-3 border-t border-border/60 p-5">
-            <span className="text-lg font-black text-foreground">Total today</span>
-            <div className="text-right">
-              <p className="text-2xl font-black leading-none tabular-nums text-foreground">
-                {formatUSD(effectiveTotalCents)}
-              </p>
-              {feePct > 0 && (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Base {formatUSD(totalCents)} + {feePct}% processing fee
-                </p>
-              )}
-              {btcPrice && (
-                <p className="mt-1 text-sm text-muted-foreground">
-                  ≈ {(inv.state.sats ?? estimatedSats).toLocaleString()} sats
-                </p>
-              )}
-            </div>
-          </div>
-        </section>
+        {/* 4 — what it adds up to. The processing fee is a line of its own:
+            a number that appears only in the total is a surprise. */}
+        <ResumeCard
+          goodsCents={totalCents}
+          feeCents={Math.max(0, effectiveTotalCents - totalCents)}
+          feeLabel={feePct > 0 ? `Fee · ${feePct}%` : "Fee"}
+          totalCents={effectiveTotalCents}
+          extra={[
+            ...(includedLabel(plan.unitQuantity, plan.unitLabel, plan.period)
+              ? [{ label: "Included", value: includedLabel(plan.unitQuantity, plan.unitLabel, plan.period)! }]
+              : []),
+            { label: "Term", value: termLabelFor(plan.period, periods) },
+            ...(perPerson ? [{ label: "People", value: String(Math.max(1, people)) }] : []),
+            { label: renewing ? "Renews from" : "Start date",
+              value: format(new Date(`${effectiveStart}T00:00:00`), "d MMM yyyy") },
+            { label: "Ends", value: format(endDate, "d MMM yyyy") },
+          ]}
+        />
 
         {showPayment && paymentMethod === "infinita" ? (
-          <section className="overflow-hidden rounded-3xl bg-card p-5">
+          <section className="overflow-hidden rounded-radius-md bg-card p-4">
             <h2 className="mb-4 text-xl font-black tracking-tight text-foreground">Pay with LIVES</h2>
             <InfinitaPaymentPanel
               totalCents={effectiveTotalCents}
@@ -678,7 +681,7 @@ const UniversalPlanCheckout = () => {
             />
           </section>
         ) : showPayment && paymentMethod === "paypal" ? (
-          <section className="overflow-hidden rounded-3xl bg-card p-5">
+          <section className="overflow-hidden rounded-radius-md bg-card p-4">
             <h2 className="mb-4 text-xl font-black tracking-tight text-foreground">Pay with PayPal</h2>
             {isPaid ? (
               <div className="flex items-center justify-center gap-2 rounded-2xl bg-green-500/10 p-4">
@@ -707,34 +710,36 @@ const UniversalPlanCheckout = () => {
             successLabel="Activating subscription…"
           />
         ) : !showPayment ? (
-          <div className="space-y-3">
-            <h2 className="text-xl font-black tracking-tight text-foreground">Payment method</h2>
-            <PaymentMethodSelector value={paymentMethod} onChange={setPaymentMethod} available={enabledMethods} />
+          <section className="rounded-radius-md bg-card p-4">
+            <h2 className="mb-3 text-[20px] font-black tracking-tight text-foreground">Payment method</h2>
+            <PaymentMethodTiles value={paymentMethod} onChange={setPaymentMethod} available={enabledMethods} />
 
+            {/* The sats figure lives here rather than in the button: it moves
+                with the exchange rate, and a total that changes while you read
+                it belongs next to the rate that changed it. */}
             {(paymentMethod === "lightning" || paymentMethod === "onchain") && btcPrice && (
-              <div className="flex items-center justify-between rounded-2xl bg-muted/40 p-3 text-sm text-muted-foreground">
-                <span>1 BTC = ${btcPrice.toLocaleString()}</span>
+              <div className="mt-3 flex items-center justify-between rounded-radius-sm bg-inset px-3 py-2.5 text-sm text-muted-foreground">
+                <span>
+                  ≈ {(inv.state.sats ?? estimatedSats).toLocaleString()} sats
+                  <span className="mx-1.5 opacity-40">·</span>
+                  1 BTC = ${btcPrice.toLocaleString()}
+                </span>
                 <Button variant="tertiary" size="iconSm" onClick={refreshPrice} aria-label="Refresh Bitcoin price">
                   <RefreshCw className="h-3 w-3" />
                 </Button>
               </div>
             )}
             {paymentMethod === "infinita" && (
-              <div className="flex items-center gap-2 rounded-2xl bg-purple-500/10 p-3 text-sm">
-                <Wallet className="h-4 w-4 shrink-0 text-purple-500" />
-                <span className="text-muted-foreground">
-                  Pay with <span className="font-medium text-foreground">LIVES</span> via SimpleFi checkout.
-                </span>
-              </div>
+              <p className="mt-3 rounded-radius-sm bg-inset px-3 py-2.5 text-sm text-muted-foreground">
+                Paid in <span className="font-semibold text-foreground">LIVES</span> through the SimpleFi checkout.
+              </p>
             )}
             {paymentMethod === "paypal" && (
-              <div className="flex items-center gap-2 rounded-2xl bg-[#0070ba]/10 p-3 text-sm">
-                <span className="text-muted-foreground">
-                  Pay <span className="font-medium text-foreground">{formatUSD(effectiveTotalCents)}</span> securely with PayPal or card.
-                </span>
-              </div>
+              <p className="mt-3 rounded-radius-sm bg-inset px-3 py-2.5 text-sm text-muted-foreground">
+                Card or PayPal balance, on PayPal's own checkout.
+              </p>
             )}
-          </div>
+          </section>
         ) : null}
       </div>
 
@@ -763,7 +768,7 @@ const UniversalPlanCheckout = () => {
           )}
           <Button
             size="lg"
-            className="h-14 w-full rounded-2xl bg-primary text-base font-bold text-black hover:bg-[hsl(var(--brand-accent-hover))]"
+            className="h-14 w-full rounded-radius-md bg-primary text-base font-bold text-primary-foreground hover:bg-[hsl(var(--brand-accent-hover))]"
             onClick={startPayment}
             loading={isGenerating}
             disabled={
@@ -805,15 +810,6 @@ function Stepper({ value, min, max, unit, onChange }: {
         className="flex h-11 w-11 items-center justify-center rounded-radius-md bg-inset text-lg font-semibold text-foreground disabled:opacity-40"
         disabled={value >= max} onClick={() => onChange(Math.min(max, value + 1))}>+</button>
       <span className="text-[12px] tracking-[-0.24px] text-muted-foreground">{unit}</span>
-    </div>
-  );
-}
-
-function SummaryRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-4 px-5 py-3">
-      <span className="text-sm text-muted-foreground">{label}</span>
-      <span className="text-right text-sm font-medium tabular-nums text-foreground">{value}</span>
     </div>
   );
 }

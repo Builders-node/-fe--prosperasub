@@ -55,6 +55,8 @@ export interface CheckoutPlan {
   /** What one period is called, for the summary line. */
   unitLabel: string | null;
   unitQuantity: number | null;
+  /** The plan's own photograph, for the line item at the till. */
+  image: string | null;
 }
 
 const asSelection = (value: unknown): SelectionGroup | null => {
@@ -123,6 +125,9 @@ export async function resolveCheckoutPlan(planId: string): Promise<CheckoutPlan 
     needsArea: service === "food",
     unitLabel: row.included_unit ?? null,
     unitQuantity: row.included_quantity ?? null,
+    image: Array.isArray(row.gallery_urls) && typeof row.gallery_urls[0] === "string"
+      ? String(row.gallery_urls[0])
+      : null,
   };
 }
 
