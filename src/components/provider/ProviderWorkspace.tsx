@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { ExternalLink, CalendarClock, Package, Wallet } from "lucide-react";
+import { CalendarClock, ExternalLink, Package, Users, Wallet } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { StatusPill } from "@/components/patterns/StatusPill";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import { UniversalInfoTab, type UniversalProviderRow } from "@/components/provid
 import { UniversalPlansTab } from "@/components/provider/UniversalPlansTab";
 import { InnerPillTabs } from "@/components/provider/InnerPillTabs";
 import { BookingsTab } from "@/components/provider/BookingsTab";
+import { ProviderTeamTab } from "@/components/provider/ProviderTeamTab";
 import { ScheduleAccordion } from "@/components/provider/ScheduleAccordion";
 import { LegacyOwnerPortal, FOOD_SUBSCRIPTIONS_TAB_BODY, CLEANING_SUBSCRIPTIONS_TAB_BODY, BEACH_SUBSCRIPTIONS_TAB_BODY } from "@/components/provider/legacyPortalTabs";
 import { ProviderAnalyticsWidget } from "@/components/provider/ProviderAnalyticsWidget";
@@ -167,6 +168,22 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
   };
   const extraTabs: PortalTab<any>[] = [moneyTab];
 
+  /**
+   * Team — one tab for every service now that `provider_members` exists.
+   * Built here rather than inside each service's bundle because it needs the
+   * UNIVERSAL provider id, which the legacy bundles never carry.
+   */
+  const teamTab: PortalTab<unknown> = {
+    value: "team",
+    label: "Team",
+    icon: Users,
+    ownerOnly: true,
+    render: () => (
+      <ProviderTeamTab providerId={provider.id} ownerUserId={provider.admin_user_id ?? null} />
+    ),
+  };
+  const tailTabs: PortalTab<any>[] = [teamTab];
+
   const capabilityPortal = (
     <CapabilityPortal
       provider={provider}
@@ -174,6 +191,7 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
       bookingsTab={bookingsTab}
       tabPrefixes={tabPrefixes}
       extraTabs={extraTabs}
+      tailTabs={tailTabs}
     />
   );
 
@@ -225,7 +243,7 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
         </div>
 
         {isLegacyPortal
-          ? <LegacyOwnerPortal sourceKey={sourceKey} legacyId={legacyId} fallback={capabilityPortal} bookingsTab={bookingsTab} tabPrefixes={tabPrefixes} extraTabs={extraTabs} />
+          ? <LegacyOwnerPortal sourceKey={sourceKey} legacyId={legacyId} fallback={capabilityPortal} bookingsTab={bookingsTab} tabPrefixes={tabPrefixes} extraTabs={extraTabs} tailTabs={tailTabs} />
           : capabilityPortal}
       </div>
     </>
@@ -247,7 +265,7 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
  * Operations. One capability collapses to no sub-tabs at all, so a simple
  * provider sees a plain Plans editor rather than a pill row of one.
  */
-function CapabilityPortal({ provider, capabilityTabs, bookingsTab, tabPrefixes = {}, extraTabs = [] }: {
+function CapabilityPortal({ provider, capabilityTabs, bookingsTab, tabPrefixes = {}, extraTabs = [], tailTabs = [] }: {
   provider: UniversalProviderRow;
   capabilityTabs: { key: CapabilityKey; meta: CapabilityMeta }[];
   bookingsTab: PortalTab<unknown>;
@@ -255,6 +273,8 @@ function CapabilityPortal({ provider, capabilityTabs, bookingsTab, tabPrefixes =
   /** Same extras the legacy portals get, so a universal provider isn't a
    *  second-class one — see legacyPortalTabs.assembleTabs. */
   extraTabs?: PortalTab<any>[];
+  /** Appended last — Team, the same tab every service now gets. */
+  tailTabs?: PortalTab<any>[];
 }) {
   const InfoIcon = INFO_TAB_META.icon;
   const BookingsIcon = bookingsTab.icon;
@@ -295,7 +315,7 @@ function CapabilityPortal({ provider, capabilityTabs, bookingsTab, tabPrefixes =
           <span className="hidden sm:inline">{bookingsTab.label}</span>
           <span className="sm:hidden">{bookingsTab.mobileLabel ?? bookingsTab.label}</span>
         </TabsTrigger>
-        {extraTabs.map((t) => {
+        {[...extraTabs, ...tailTabs].map((t) => {
           const ExtraIcon = t.icon;
           return (
             <TabsTrigger key={t.value} value={t.value} equalWidth className="gap-2 px-2 sm:px-space-4">
@@ -319,10 +339,10 @@ function CapabilityPortal({ provider, capabilityTabs, bookingsTab, tabPrefixes =
       )}
 
       <TabsContent value={bookingsTab.value}>
-        {bookingsTab.render(null as never)}
+        {bookingsTab.render(null as never, true)}
       </TabsContent>
 
-      {extraTabs.map((t) => (
+      {[...extraTabs, ...tailTabs].map((t) => (
         <TabsContent key={t.value} value={t.value}>
           {t.render(null as never, true)}
         </TabsContent>

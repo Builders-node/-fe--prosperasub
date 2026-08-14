@@ -28,6 +28,7 @@ export interface UniversalProviderRow {
   capabilities?: string[];
   source_service_key?: string | null;
   source_provider_id?: string | null;
+  admin_user_id?: string | null;
   booking_settings?: unknown;
   gallery_urls?: string[] | null;
 }

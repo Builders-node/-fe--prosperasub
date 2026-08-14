@@ -10,12 +10,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { RestaurantInfoTab } from "@/components/food/admin/RestaurantInfoTab";
 import { RestaurantMealPlansTab } from "@/components/food/admin/RestaurantMealPlansTab";
 import { RestaurantOperationsTab } from "@/components/food/admin/RestaurantOperationsTab";
-import { RestaurantStaffTab } from "@/components/food/admin/RestaurantStaffTab";
 import { FoodSubscriptionsList } from "@/components/food/FoodSubscriptionsList";
 import { useMyRestaurants, type MyRestaurant } from "@/hooks/useMyRestaurants";
 
 import { CleaningInfoTab, type CleaningProviderRow } from "@/components/cleaning/CleaningInfoTab";
-import { CleaningStaffTab } from "@/components/cleaning/CleaningStaffTab";
 import { CleaningSubscriptionsList } from "@/components/cleaning/CleaningSubscriptionsList";
 import { useMyProviders } from "@/hooks/useMyProviders";
 import { SERVICES as SERVICE_REGISTRY } from "@/lib/services/registry";
@@ -28,7 +26,6 @@ import BeachClubCourtsPage from "@/pages/admin/BeachClubCourts";
 
 import { InnerPillTabs } from "@/components/provider/InnerPillTabs";
 import { UniversalInfoTab } from "@/components/provider/UniversalInfoTab";
-import { UniversalStaffTab } from "@/components/provider/UniversalStaffTab";
 import { PlanOptionsEditor } from "@/components/provider/PlanOptionsEditor";
 import { useUniversalIdForLegacy as useUniversalId } from "@/lib/services/providerBridge";
 
@@ -93,7 +90,6 @@ export const FOOD_TABS: PortalTab<MyRestaurant>[] = [
     />
   ) },
   { value: "operations",    label: "Operations",  mobileLabel: "Ops.",  icon: Truck,           render: (r) => <RestaurantOperationsTab providerId={r.id} /> },
-  { value: "team",          label: "Team",                                icon: Users, ownerOnly: true, render: (r) => <RestaurantStaffTab restaurant={r} /> },
 ];
 
 export const CLEANING_TABS: PortalTab<CleaningProviderRow>[] = [
@@ -111,33 +107,18 @@ export const CLEANING_TABS: PortalTab<CleaningProviderRow>[] = [
     />
   ) },
   { value: "operations",    label: "Operations", mobileLabel: "Ops.",   icon: Wrench,          render: (p) => <CleaningOperationsPage embedded providerId={p.id} /> },
-  { value: "team",          label: "Team",                               icon: Users, ownerOnly: true, render: (p) => <CleaningStaffTab provider={p} /> },
 ];
 
 // Beach club shares Cleaning's "admin pages embedded as tabs" pattern. Beach
 // is platform-owned (there's only one provider) so we mount the same admin
 // surfaces the platform admin uses. Info + Staff are the universal
 // tabs — Info uses UniversalInfoTab against the `providers` row, Staff
-// uses UniversalStaffTab against the new `beach_provider_managers` table.
 export const BEACH_SUBSCRIPTIONS_TAB_BODY = () => <BeachClubSubscriptionsPage embedded />;
 
 export const BEACH_TABS: PortalTab<{ id: string; admin_user_id?: string | null }>[] = [
   { value: "info",          label: "Overview",   icon: LayoutDashboard, render: (p) => <UniversalInfoTab provider={p as any} /> },
   { value: "offerings",     label: "Offerings",  icon: Package,         render: () => <BeachClubPlansPage embedded /> },
   { value: "operations",    label: "Operations", mobileLabel: "Ops.",  icon: Wrench,          render: () => <BeachClubCourtsPage embedded /> },
-  { value: "team",          label: "Team",                               icon: Users, ownerOnly: true, render: (p) => (
-    <UniversalStaffTab
-      providerId={p.id}
-      ownerUserId={p.admin_user_id ?? null}
-      providerTable="providers"
-      managerTable="beach_provider_managers"
-      entityLabel="beach club"
-      auditEntityProvider="provider"
-      auditEntityManager="beach_provider_manager"
-      hasRoleColumn
-      invalidateKeysOnOwnerChange={[["admin-legacy-provider-row"]]}
-    />
-  ) },
 ];
 
 // ── Owner-scoped rich tabs, mounted inside the universal portal ───────────────
@@ -177,6 +158,8 @@ function assembleTabs<T>(
   bookingsTab: PortalTab<any> | undefined,
   extraTabs: PortalTab<any>[],
   tabPrefixes: Record<string, ReactNode> = {},
+  /** Appended last — Team is the owner-only tail of every strip. */
+  tailTabs: PortalTab<any>[] = [],
 ): PortalTab<T>[] {
   const withPrefixes: PortalTab<T>[] = baseTabs.map((t) => {
     const prefix = tabPrefixes[t.value];
@@ -201,14 +184,14 @@ function assembleTabs<T>(
     const at = opsIdx >= 0 ? opsIdx : withPrefixes.length;
     const out = [...withPrefixes];
     out.splice(at, 0, ...(extraTabs as PortalTab<T>[]));
-    return out;
+    return [...out, ...(tailTabs as PortalTab<T>[])];
   }
   const overviewIdx = withPrefixes.findIndex((t) => t.value === "info");
   const offeringsIdx = withPrefixes.findIndex((t) => t.value === "offerings");
   const insertAfter = offeringsIdx >= 0 ? offeringsIdx : overviewIdx;
   const result = [...withPrefixes];
   result.splice(insertAfter + 1, 0, bookingsTab as PortalTab<T>, ...(extraTabs as PortalTab<T>[]));
-  return result;
+  return [...result, ...(tailTabs as PortalTab<T>[])];
 }
 
 // Access-revoked panel — shown to a non-admin whose owner/manager row was
@@ -226,7 +209,7 @@ function AccessRevokedPanel() {
   );
 }
 
-function FoodOwnerTabs({ legacyId, fallback, bookingsTab, tabPrefixes, extraTabs }: OwnerTabsProps) {
+function FoodOwnerTabs({ legacyId, fallback, bookingsTab, tabPrefixes, extraTabs, tailTabs }: OwnerTabsProps) {
   const { isAdmin } = useAuth();
   const { restaurants, isLoading } = useMyRestaurants();
   const owned = restaurants.find((p) => p.id === legacyId) ?? null;
@@ -235,14 +218,14 @@ function FoodOwnerTabs({ legacyId, fallback, bookingsTab, tabPrefixes, extraTabs
   if (isLoading || (needAdmin && admin.isLoading)) return <TabsSkeleton />;
   const row = owned ?? admin.data ?? null;
   if (!row) return isAdmin ? <>{fallback}</> : <AccessRevokedPanel />;
-  return <PortalTabsView tabs={assembleTabs(FOOD_TABS, bookingsTab, extraTabs, tabPrefixes)} provider={row} isOwner={owned ? owned.myRole === "owner" : true} />;
+  return <PortalTabsView tabs={assembleTabs(FOOD_TABS, bookingsTab, extraTabs, tabPrefixes, tailTabs)} provider={row} isOwner={owned ? owned.myRole === "owner" : true} />;
 }
 
 const CLEANING_SERVICE = SERVICE_REGISTRY.cleaning as typeof SERVICE_REGISTRY.cleaning & {
   providers: NonNullable<typeof SERVICE_REGISTRY.cleaning["providers"]>;
 };
 
-function CleaningOwnerTabs({ legacyId, fallback, bookingsTab, tabPrefixes, extraTabs }: OwnerTabsProps) {
+function CleaningOwnerTabs({ legacyId, fallback, bookingsTab, tabPrefixes, extraTabs, tailTabs }: OwnerTabsProps) {
   const { isAdmin } = useAuth();
   const { providers, isLoading } = useMyProviders<CleaningProviderRow>(CLEANING_SERVICE);
   const owned = providers.find((p) => p.id === legacyId) ?? null;
@@ -251,12 +234,12 @@ function CleaningOwnerTabs({ legacyId, fallback, bookingsTab, tabPrefixes, extra
   if (isLoading || (needAdmin && admin.isLoading)) return <TabsSkeleton />;
   const row = owned ?? admin.data ?? null;
   if (!row) return isAdmin ? <>{fallback}</> : <AccessRevokedPanel />;
-  return <PortalTabsView tabs={assembleTabs(CLEANING_TABS, bookingsTab, extraTabs, tabPrefixes)} provider={row} isOwner={owned ? (owned.myRole === "owner") : true} />;
+  return <PortalTabsView tabs={assembleTabs(CLEANING_TABS, bookingsTab, extraTabs, tabPrefixes, tailTabs)} provider={row} isOwner={owned ? (owned.myRole === "owner") : true} />;
 }
 
 // Beach is unique: it lives on the *universal* `providers` row itself (no
 // per-service beach_providers table), so we look up the row by universal id.
-function BeachOwnerTabs({ legacyId, fallback, bookingsTab, tabPrefixes, extraTabs }: OwnerTabsProps) {
+function BeachOwnerTabs({ legacyId, fallback, bookingsTab, tabPrefixes, extraTabs, tailTabs }: OwnerTabsProps) {
   const { isAdmin } = useAuth();
   // For beach, `legacyId` is the universal providers.id — that's the only id
   // that exists for this service. Admins get access via `isAdmin`; anyone
@@ -265,7 +248,7 @@ function BeachOwnerTabs({ legacyId, fallback, bookingsTab, tabPrefixes, extraTab
   if (isAdmin && admin.isLoading) return <TabsSkeleton />;
   if (!isAdmin) return <>{fallback}</>;
   const row = admin.data ?? { id: legacyId };
-  return <PortalTabsView tabs={assembleTabs(BEACH_TABS, bookingsTab, extraTabs, tabPrefixes)} provider={row} isOwner={true} />;
+  return <PortalTabsView tabs={assembleTabs(BEACH_TABS, bookingsTab, extraTabs, tabPrefixes, tailTabs)} provider={row} isOwner={true} />;
 }
 
 interface OwnerTabsProps {
@@ -278,6 +261,7 @@ interface OwnerTabsProps {
   tabPrefixes?: Record<string, ReactNode>;
   /** Extra tabs, spliced in right after Bookings. */
   extraTabs: PortalTab<any>[];
+  tailTabs: PortalTab<any>[];
 }
 
 /**
@@ -287,13 +271,15 @@ interface OwnerTabsProps {
  * the universal capability view rather than showing an empty owner portal.
  * `extraTabs` are appended for every service (Booking setup, etc.).
  */
-export function LegacyOwnerPortal({ sourceKey, legacyId, fallback, bookingsTab, tabPrefixes, extraTabs = [] }: {
+export function LegacyOwnerPortal({ sourceKey, legacyId, fallback, bookingsTab, tabPrefixes, extraTabs = [], tailTabs = [] }: {
   sourceKey: string; legacyId: string; fallback: ReactNode;
   bookingsTab?: PortalTab<any>;
   tabPrefixes?: Record<string, ReactNode>;
   extraTabs?: PortalTab<any>[];
+  /** Appended after the service's own tabs — Team, which is no longer one of them. */
+  tailTabs?: PortalTab<any>[];
 }) {
-  const props = { legacyId, fallback, bookingsTab, tabPrefixes, extraTabs };
+  const props = { legacyId, fallback, bookingsTab, tabPrefixes, extraTabs, tailTabs };
   if (sourceKey === "food") return <FoodOwnerTabs {...props} />;
   if (sourceKey === "cleaning") return <CleaningOwnerTabs {...props} />;
   if (sourceKey === "beach" || sourceKey === "beach_club")
