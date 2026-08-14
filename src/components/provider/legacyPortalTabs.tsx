@@ -1,4 +1,4 @@
-import { LayoutDashboard, Package, Users, Wrench, Truck } from "lucide-react";
+import { LandPlot, LayoutDashboard, Package, Users, Wrench, Truck } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import type { PortalTab } from "@/components/provider/ProviderPortalShell";
@@ -15,7 +15,6 @@ import { CleaningSubscriptionsList } from "@/components/cleaning/CleaningSubscri
 import { useMyProviders } from "@/hooks/useMyProviders";
 import { SERVICES as SERVICE_REGISTRY } from "@/lib/services/registry";
 
-import BeachClubPlansPage from "@/pages/admin/BeachClubPlans";
 import BeachClubSubscriptionsPage from "@/pages/admin/BeachClubSubscriptions";
 import BeachClubCourtsPage from "@/pages/admin/BeachClubCourts";
 
@@ -137,9 +136,24 @@ export const CLEANING_TABS: PortalTab<CleaningProviderRow>[] = [
 // surfaces the platform admin uses.
 export const BEACH_SUBSCRIPTIONS_TAB_BODY = () => <BeachClubSubscriptionsPage embedded />;
 
+/**
+ * The beach club was the last service still on its own screens, which is the
+ * whole reason this bundle looked different from the other two.
+ *
+ * Its `id` IS the universal `providers.id` — beach never had a legacy provider
+ * table — so Offerings and Operations mount the shared components directly,
+ * no bridge needed.
+ *
+ * Courts stay their own tab, and that is not an exception being kept: a court
+ * is a bookable RESOURCE, and managing resources (hours, slot length, the
+ * calendar) is a different job from running the day's work. The proposal calls
+ * this the `resource_hours` capability; any provider that gets one will get
+ * this tab too.
+ */
 export const BEACH_TABS: PortalTab<{ id: string; admin_user_id?: string | null }>[] = [
-  { value: "offerings",     label: "Offerings",  icon: Package,         render: () => <BeachClubPlansPage embedded /> },
-  { value: "operations",    label: "Operations", mobileLabel: "Ops.",  icon: Wrench,          render: () => <BeachClubCourtsPage embedded /> },
+  { value: "offerings",     label: "Offerings",  icon: Package,         render: (p) => <OfferEditor providerId={p.id} sourceKey="beach" /> },
+  { value: "operations",    label: "Operations", mobileLabel: "Ops.",  icon: Wrench,          render: (p) => <OperationsTab providerId={p.id} /> },
+  { value: "resources",     label: "Courts",     icon: LandPlot,        render: () => <BeachClubCourtsPage embedded /> },
 ];
 
 // ── Owner-scoped rich tabs, mounted inside the universal portal ───────────────

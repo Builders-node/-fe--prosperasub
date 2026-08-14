@@ -112,7 +112,31 @@ export function OfferEditor({ providerId, sourceKey }: { providerId: string; sou
             .in("group_id", groupIds).order("sort_order", { ascending: true })
         : { data: [] as any[] };
 
-      return { rows, groups: groups ?? [], options: options ?? [] };
+      // Attributes live on the LEGACY row for every service that has one, and
+      // that is where the storefront reads them. Seeding the editor from the
+      // universal mirror instead would show an empty list and then save it
+      // over the real one — the beach club's six amenities would have gone on
+      // the first save.
+      const legacyAttrs = new Map<string, { features: unknown; excludes: unknown; tags: string[] }>();
+      const twinned = rows.filter((r) => r.source_plan_id);
+      for (const row of twinned) {
+        const id = row.source_plan_id!;
+        if (row.source_service_key === "food") {
+          const { data } = await supabaseDb.from("food_meal_plans")
+            .select("highlights, dietary_tags").eq("id", id).maybeSingle();
+          legacyAttrs.set(row.id, { features: data?.highlights ?? [], excludes: [], tags: data?.dietary_tags ?? [] });
+        } else if (row.source_service_key === "cleaning") {
+          const { data } = await supabaseDb.from("cleaning_packages")
+            .select("features, not_included").eq("id", id).maybeSingle();
+          legacyAttrs.set(row.id, { features: data?.features ?? [], excludes: data?.not_included ?? [], tags: [] });
+        } else if (row.source_service_key === "beach") {
+          const { data } = await supabaseDb.from("beach_club_plans")
+            .select("amenities").eq("id", id).maybeSingle();
+          legacyAttrs.set(row.id, { features: data?.amenities ?? [], excludes: [], tags: [] });
+        }
+      }
+
+      return { rows, groups: groups ?? [], options: options ?? [], legacyAttrs };
     },
   });
 
@@ -177,10 +201,11 @@ export function OfferEditor({ providerId, sourceKey }: { providerId: string; sou
       leadMinutes: offer.lead_time_minutes != null ? String(offer.lead_time_minutes) : "",
       windowMinutes: offer.window_minutes != null ? String(offer.window_minutes) : "",
     });
+    const attrs = data.legacyAttrs?.get(offer.id);
     setIncludes({
-      features: asLines(offer.features),
-      excludes: asLines(offer.excludes),
-      tags: (offer.tags ?? []).join(", "),
+      features: asLines(attrs ? attrs.features : offer.features),
+      excludes: asLines(attrs ? attrs.excludes : offer.excludes),
+      tags: (attrs ? attrs.tags : (offer.tags ?? [])).join(", "),
     });
   }, [offerId, data]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -251,6 +276,18 @@ export function OfferEditor({ providerId, sourceKey }: { providerId: string; sou
       if (switchErr) throw switchErr;
 
       await writeAttributes(offer, sourceKey, fromLines(includes.features), fromLines(includes.excludes), fromLines(includes.tags.replace(/,/g, "\n")));
+
+      // A derived price is two numbers the customer never sees separately.
+      // The beach club has held them on its own row since before any of this,
+      // and its checkout still reads them there.
+      if (sourceKey === "beach" && offer.source_plan_id && sold.pricingMode === "derived") {
+        const { error } = await supabaseDb.from("beach_club_plans").update({
+          provider_price_per_person_cents: cents(sold.providerPrice),
+          extra_per_person_cents: cents(sold.markup),
+          updated_at: new Date().toISOString(),
+        }).eq("id", offer.source_plan_id);
+        if (error) throw error;
+      }
       // A plan is created as a draft so a nameless $0 row never reaches the
       // storefront. Pricing it is what puts it on sale.
       if (offer.status !== "active") await writeStatus(offer, "active", sourceKey);
@@ -691,6 +728,14 @@ async function writePlanFields(offer: PlanRow, name: string, description: string
     if (error) throw error;
     return;
   }
+  if (offer.source_plan_id && sourceKey === "beach") {
+    // The beach club calls a plan's description its tagline.
+    const { error } = await supabaseDb.from("beach_club_plans")
+      .update({ name, tagline: description, updated_at: new Date().toISOString() })
+      .eq("id", offer.source_plan_id);
+    if (error) throw error;
+    return;
+  }
   const { error } = await supabaseDb.from("provider_plans")
     .update({ name, description, updated_at: new Date().toISOString() })
     .eq("id", offer.id);
@@ -720,6 +765,16 @@ async function writePrice(variant: PlanRow, amount: number, sourceKey: string) {
       : { monthly_price_cents: amount };
     const { error } = await supabaseDb.from("cleaning_packages")
       .update({ ...patch, updated_at: new Date().toISOString() }).eq("id", variant.source_plan_id);
+    if (error) throw error;
+    return;
+  }
+  if (variant.source_plan_id && sourceKey === "beach") {
+    // Per person, per month. Where the plan is `derived`, this is the total
+    // the customer pays; the two halves it is made of are written beside it
+    // by the switches, so the row can never say one thing and mean another.
+    const { error } = await supabaseDb.from("beach_club_plans")
+      .update({ price_per_person_cents: amount, updated_at: new Date().toISOString() })
+      .eq("id", variant.source_plan_id);
     if (error) throw error;
     return;
   }
@@ -790,6 +845,18 @@ async function createPlanRow(input: {
     }).select("id").single();
     if (error) throw error;
     return findMirror("cleaning", String(created.id));
+  }
+
+  if (sourceKey === "beach") {
+    const { data: created, error } = await supabaseDb.from("beach_club_plans").insert({
+      owner_provider_id: providerId,
+      name,
+      price_per_person_cents: amount,
+      is_active: !draft,
+      sort_order: sortOrder,
+    }).select("id").single();
+    if (error) throw error;
+    return findMirror("beach", String(created.id));
   }
 
   const { data: created, error } = await supabaseDb.from("provider_plans").insert({
@@ -880,6 +947,14 @@ async function writeStatus(plan: PlanRow, status: "active" | "inactive", sourceK
   if (plan.source_plan_id && sourceKey === "cleaning") {
     const { error } = await supabaseDb.from("cleaning_packages")
       .update({ status, updated_at: new Date().toISOString() }).eq("id", plan.source_plan_id);
+    if (error) throw error;
+    return;
+  }
+  if (plan.source_plan_id && sourceKey === "beach") {
+    // Beach has no `status` column — being on sale is a boolean there.
+    const { error } = await supabaseDb.from("beach_club_plans")
+      .update({ is_active: status === "active", updated_at: new Date().toISOString() })
+      .eq("id", plan.source_plan_id);
     if (error) throw error;
     return;
   }
