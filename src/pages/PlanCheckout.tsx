@@ -32,7 +32,7 @@ import { termLabel, termLabelFor, includedLabel } from "@/lib/services/planPerio
 import { resolveCheckoutPlan, totalFor } from "@/lib/checkout/planCheckoutModel";
 import { buildSubscriptionWrite, endDateOf } from "@/lib/checkout/subscriptionWriter";
 import { payLabel } from "@/lib/checkout/ctaLabel";
-import { CheckoutLineItem, PersonalDataCard, ResumeCard } from "@/components/checkout/CheckoutBlocks";
+import { CheckoutCard, CheckoutLineItem, PersonalDataCard, ResumeCard } from "@/components/checkout/CheckoutBlocks";
 import { PaymentMethodTiles } from "@/components/payment/PaymentMethodTiles";
 import { fetchRenewalSubject, renewalEndpoint, renewalWindow } from "@/lib/checkout/renewal";
 import { accountApi } from "@/integrations/supabase/client";
@@ -479,7 +479,7 @@ const UniversalPlanCheckout = () => {
       backTo={renewing ? "/my-subscriptions" : listingHref}
       showBottomNav={false}
     >
-      <div className="mx-auto max-w-xl space-y-2 px-3 py-3 pb-32 md:py-8">
+      <div className="mx-auto max-w-xl space-y-1 pb-40 pt-1 md:px-4 md:py-8">
         {renewing && (
           <p className="px-1 pb-1 text-sm text-muted-foreground">
             Extends the same subscription — nothing new is created, and the new
@@ -498,7 +498,7 @@ const UniversalPlanCheckout = () => {
         {/* 2 — the questions this order asks. Not personal details: when it
             starts, how long for, how many, which options. */}
         {!showPayment && (
-          <section className="rounded-radius-md bg-card p-4">
+          <CheckoutCard>
             <div>
               {/* A renewal has no start date to pick and no term to change: it
                   continues the period that exists, for the term it was bought
@@ -594,7 +594,7 @@ const UniversalPlanCheckout = () => {
               )}
 
             </div>
-          </section>
+          </CheckoutCard>
         )}
 
         {/* 3 — who it is for. Collapsed to a summary, opened to be corrected:
@@ -710,8 +710,7 @@ const UniversalPlanCheckout = () => {
             successLabel="Activating subscription…"
           />
         ) : !showPayment ? (
-          <section className="rounded-radius-md bg-card p-4">
-            <h2 className="mb-3 text-[20px] font-black tracking-tight text-foreground">Payment method</h2>
+          <CheckoutCard title="Payment method">
             <PaymentMethodTiles value={paymentMethod} onChange={setPaymentMethod} available={enabledMethods} />
 
             {/* The sats figure lives here rather than in the button: it moves
@@ -739,7 +738,7 @@ const UniversalPlanCheckout = () => {
                 Card or PayPal balance, on PayPal's own checkout.
               </p>
             )}
-          </section>
+          </CheckoutCard>
         ) : null}
       </div>
 
@@ -768,7 +767,7 @@ const UniversalPlanCheckout = () => {
           )}
           <Button
             size="lg"
-            className="h-14 w-full rounded-radius-md bg-primary text-base font-bold text-primary-foreground hover:bg-[hsl(var(--brand-accent-hover))]"
+            className="h-12 w-full rounded-radius-md bg-primary text-[16px] font-semibold tracking-[-0.02em] text-primary-foreground hover:bg-[hsl(var(--brand-accent-hover))]"
             onClick={startPayment}
             loading={isGenerating}
             disabled={

@@ -17,10 +17,12 @@ interface Props {
 export function CheckoutStickyFooter({ children }: Props) {
   return (
     <div
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-border/40 bg-background md:left-[var(--sidebar-width,0px)]"
+      // A card, like everything above it: white, rounded across the top, and
+      // no hairline — the design separates the bar by surface, not by a border.
+      className="fixed inset-x-0 bottom-0 z-40 rounded-t-radius-lg bg-card md:left-[var(--sidebar-width,0px)]"
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
     >
-      <div className="market-content px-4 py-3">
+      <div className="market-content px-4 pb-6 pt-2">
         {children}
       </div>
     </div>

@@ -3,17 +3,18 @@ import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 
 /**
- * The checkout, as four cards.
+ * The checkout, as cards — measured off the Figma frame rather than guessed.
  *
- * The old screen was one long card that mixed what you are buying with the
- * questions being asked about it — a start date, an address, a phone number, a
- * notes box — and then a summary of the same thing further down. The redesign
- * separates them: what you bought, who you are, what it costs, how you pay.
- * Each is a card, in that order, and none of them explains another.
+ * The numbers here are the design's own: cards run full-bleed at 4px apart, a
+ * line item is padded 8/16/8/8 around a 104px thumbnail at radius 8, a section
+ * card is radius 24 with 16px of vertical padding and its rows inset 16.
+ * The type ramp is five styles and no more — Semi Bold 20 for a card heading,
+ * Semi Bold 16 for a title or a price, Semi Bold 14 for a row label, Regular 14
+ * for its value, Regular 12 for a description — all tracked at -2%.
  *
- * These are presentational on purpose. Every screen that sells something feeds
- * them the same four shapes, which is what stops the cart and the single-plan
- * checkout from drifting apart again.
+ * The colours needed no translation: #2a2a2a, #7d7d7d, #f6f6f6 and #f7a21b are
+ * already `--card-foreground`, `--muted-foreground`, `--inset` and the brand
+ * accent, so these use the tokens and follow the theme at night.
  */
 
 /** One thing being bought — a plan, a basket line, a renewal. */
@@ -28,30 +29,46 @@ export function CheckoutLineItem({
   quantity?: number;
 }) {
   return (
-    <div className="flex gap-3 rounded-radius-md bg-card p-3">
+    <div className="flex gap-4 rounded-radius-md bg-card py-2 pl-2 pr-4 tracking-[-0.02em]">
       {/* No placeholder when there is no photograph: an empty grey square reads
           as a picture that failed to load, and most plans have no picture. */}
       {image && (
         <img
           src={image}
           alt=""
-          className="h-[72px] w-[72px] shrink-0 rounded-radius-sm object-cover"
+          className="h-[104px] w-[104px] shrink-0 rounded-[8px] object-cover"
           loading="lazy"
         />
       )}
-      <div className="flex min-w-0 flex-1 flex-col">
-        <p className="truncate text-[16px] font-bold leading-tight text-foreground">{title}</p>
+      <div className="flex min-w-0 flex-1 flex-col py-2">
+        <p className="truncate text-[16px] font-semibold leading-tight text-foreground">{title}</p>
         {description && (
-          <p className="mt-1 line-clamp-2 text-[14px] text-muted-foreground">{description}</p>
+          <p className="mt-1 line-clamp-2 text-[12px] leading-snug text-muted-foreground">{description}</p>
         )}
-        <p className="mt-auto pt-3 text-right text-[18px] font-bold tabular-nums text-foreground">
+        <p className="mt-auto pt-2 text-right text-[16px] font-semibold tabular-nums text-foreground">
           {quantity && quantity > 1 && (
-            <span className="mr-2 text-[14px] font-semibold text-muted-foreground">× {quantity}</span>
+            <span className="mr-2 text-[12px] font-normal text-muted-foreground">× {quantity}</span>
           )}
           {formatUSD(priceCents)}
         </p>
       </div>
     </div>
+  );
+}
+
+/** A section card: radius 24, 16 top and bottom, rows inset 16. */
+export function CheckoutCard({ title, children, className }: {
+  title?: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <section className={cn("rounded-radius-lg bg-card py-4 tracking-[-0.02em]", className)}>
+      {title && (
+        <h2 className="px-4 text-[20px] font-semibold leading-none text-foreground">{title}</h2>
+      )}
+      <div className={cn("px-4", title && "mt-3")}>{children}</div>
+    </section>
   );
 }
 
@@ -78,41 +95,40 @@ export function PersonalDataCard({
 }) {
   const shown = lines.filter((l): l is string => !!l && !!l.trim());
   return (
-    <section className="rounded-radius-md bg-card p-4">
-      <h2 className="text-[20px] font-black tracking-tight text-foreground">Personal data</h2>
+    <CheckoutCard title="Personal data">
       <button
         type="button"
         onClick={onEdit}
         aria-expanded={children ? !!open : undefined}
-        className="mt-3 flex w-full items-center gap-3 text-left"
+        className="flex w-full items-center gap-3 text-left"
       >
         <span className="min-w-0 flex-1">
           <span className={cn(
-            "block text-[16px] font-bold",
+            "block text-[16px] font-semibold",
             name ? "text-foreground" : "text-muted-foreground",
           )}>
             {name || "Add your details"}
           </span>
           {shown.map((line) => (
-            <span key={line} className="mt-0.5 block truncate text-[13px] text-muted-foreground">
+            <span key={line} className="mt-0.5 block truncate text-[12px] text-muted-foreground">
               {line}
             </span>
           ))}
           {incomplete && (
-            <span className="mt-1 block text-[13px] font-semibold text-destructive">
+            <span className="mt-1 block text-[12px] font-semibold text-destructive">
               Needed before you can pay
             </span>
           )}
         </span>
         <ChevronRight
           className={cn(
-            "h-5 w-5 shrink-0 text-muted-foreground transition-transform",
+            "h-6 w-6 shrink-0 text-muted-foreground transition-transform",
             children && open && "rotate-90",
           )}
         />
       </button>
       {children && open && <div className="mt-4 space-y-4">{children}</div>}
-    </section>
+    </CheckoutCard>
   );
 }
 
@@ -128,28 +144,27 @@ export function ResumeCard({
   extra?: Array<{ label: string; value: string }>;
 }) {
   return (
-    <section className="rounded-radius-md bg-card p-4">
-      <h2 className="text-[20px] font-black tracking-tight text-foreground">Resume</h2>
-      <dl className="mt-3 space-y-2.5">
+    <CheckoutCard title="Resume">
+      <dl className="space-y-2">
         {extra?.map((row) => (
           <Line key={row.label} label={row.label} value={row.value} />
         ))}
         <Line label="Goods" value={formatUSD(goodsCents)} />
         {feeCents > 0 && <Line label={feeLabel} value={formatUSD(feeCents)} />}
-        <div className="flex items-center justify-between border-t border-border/60 pt-2.5">
-          <dt className="text-[16px] font-bold text-foreground">Total</dt>
-          <dd className="text-[18px] font-black tabular-nums text-foreground">{formatUSD(totalCents)}</dd>
+        <div className="flex items-center justify-between border-t border-border/60 pt-2">
+          <dt className="text-[14px] font-semibold text-foreground">Total</dt>
+          <dd className="text-[16px] font-semibold tabular-nums text-foreground">{formatUSD(totalCents)}</dd>
         </div>
       </dl>
-    </section>
+    </CheckoutCard>
   );
 }
 
 function Line({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <dt className="text-[15px] text-foreground">{label}</dt>
-      <dd className="text-[15px] tabular-nums text-muted-foreground">{value}</dd>
+      <dt className="text-[14px] font-semibold text-foreground">{label}</dt>
+      <dd className="text-[14px] tabular-nums text-muted-foreground">{value}</dd>
     </div>
   );
 }

@@ -67,7 +67,7 @@ export function PaymentMethodTiles({ value, onChange, disabled, available }: Pro
             onClick={() => onChange(m)}
             aria-pressed={active}
             className={cn(
-              "flex min-h-[124px] flex-col justify-between rounded-radius-md p-3 text-left transition-colors",
+              "flex h-[120px] flex-col justify-between rounded-radius-md p-2 text-left tracking-[-0.02em] transition-colors",
               active ? "bg-primary" : "bg-inset hover:bg-muted",
               disabled && "pointer-events-none opacity-50",
             )}
@@ -75,30 +75,30 @@ export function PaymentMethodTiles({ value, onChange, disabled, available }: Pro
             <span className="flex items-start justify-between gap-2">
               <span
                 className={cn(
-                  "flex h-11 w-11 shrink-0 items-center justify-center rounded-radius-sm",
+                  "flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px]",
                   // White in both themes: it sits on the amber fill, which does
                   // not change with the theme, so `bg-card` would have gone
                   // black at night and swallowed the glyph.
                   active ? "bg-white" : tile,
                 )}
               >
-                <Icon className={cn("h-5 w-5", active ? glyph : "text-white")} />
+                <Icon className={cn("h-[22px] w-[22px]", active ? glyph : "text-white")} />
               </span>
               {/* The radio is the only thing that says "chosen" on a tile whose
                   colour a colour-blind eye may not separate from its neighbour. */}
               <span
                 className={cn(
-                  "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2",
+                  "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2",
                   active ? "border-white" : "border-muted-foreground/50",
                 )}
                 aria-hidden
               >
-                {active && <span className="h-2 w-2 rounded-full bg-white" />}
+                {active && <span className="h-2.5 w-2.5 rounded-full bg-white" />}
               </span>
             </span>
             <span
               className={cn(
-                "mt-3 block text-[15px] font-bold leading-tight",
+                "block text-[14px] font-semibold leading-tight",
                 active ? "text-primary-foreground" : "text-foreground",
               )}
             >
