@@ -132,9 +132,9 @@ export default function FoodSubscriptionDetail() {
         navigate(`/services/food/${sub.provider_id}`);
         return;
       }
-      navigate(`/services/food/${sub.provider_id}/plans/${sub.meal_plan_id}?renew=${sub.id}`);
+      navigate(`/checkout/${sub.meal_plan_id}?renew=${sub.id}`);
     } catch {
-      navigate(`/services/food/${sub.provider_id}/plans/${sub.meal_plan_id}?renew=${sub.id}`);
+      navigate(`/checkout/${sub.meal_plan_id}?renew=${sub.id}`);
     } finally {
       setRenewChecking(false);
     }

@@ -38,7 +38,6 @@ import {
 import { QRCodeSVG } from "qrcode.react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
-import { serviceSlug } from "@/lib/services/serviceUrls";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { accountApi, supabase, supabaseDb } from "@/integrations/supabase/client";
@@ -912,10 +911,10 @@ const MySubscriptions = () => {
                         newStartDate: preview.newStart,
                         newEndDate: preview.newEnd,
                         amountCents: (s.weekly_price_cents || 0) * (s.commitment_weeks || 1),
-                        targetUrl: `/services/food/${s.provider_id}/plans/${s.meal_plan_id}?renew=${s.id}`,
+                        targetUrl: `/checkout/${s.meal_plan_id}?renew=${s.id}`,
                       });
                     } else {
-                      navigate(`/services/food/${s.provider_id}/plans/${s.meal_plan_id}?renew=${s.id}`);
+                      navigate(`/checkout/${s.meal_plan_id}?renew=${s.id}`);
                     }
                   };
                   return (
@@ -997,10 +996,10 @@ const MySubscriptions = () => {
                           newStartDate: preview.newStart,
                           newEndDate: preview.newEnd,
                           amountCents: s.total_cents || 0,
-                          targetUrl: `/services/beach-club/checkout/${s.plan_id}?renew=${s.id}`,
+                          targetUrl: `/checkout/${s.plan_id}?renew=${s.id}`,
                         });
                       } else {
-                        navigate(`/services/beach-club/checkout/${s.plan_id}?renew=${s.id}`);
+                        navigate(`/checkout/${s.plan_id}?renew=${s.id}`);
                       }
                     };
 
@@ -1081,7 +1080,7 @@ const MySubscriptions = () => {
                           label: "Renew",
                           icon: RefreshCw,
                           variant: "secondary" as const,
-                          onClick: () => navigate(`/services/${serviceSlug(s.providers?.archetype_key ?? activeTab)}/checkout/plan/${s.plan_id}`),
+                          onClick: () => navigate(`/checkout/${s.plan_id}?renew=${s.id}`),
                         }] : []),
                         ...cancelAction("plan", s, s.provider_plans?.name ?? "subscription"),
                       ]}
@@ -1196,10 +1195,10 @@ const MySubscriptions = () => {
                             newStartDate: preview.newStart,
                             newEndDate: preview.newEnd,
                             amountCents: (sub.monthly_price_cents || 0) * (sub.billing_period_months || 1),
-                            targetUrl: `/services/cleaning/checkout/${sub.package_id}?renew=${sub.id}`,
+                            targetUrl: `/checkout/${sub.package_id}?renew=${sub.id}`,
                           });
                         } else {
-                          navigate(`/services/cleaning/checkout/${sub.package_id}?renew=${sub.id}`);
+                          navigate(`/checkout/${sub.package_id}?renew=${sub.id}`);
                         }
                       };
                       const actions: any[] = [
@@ -1299,10 +1298,10 @@ const MySubscriptions = () => {
                             newStartDate: preview.newStart,
                             newEndDate: preview.newEnd,
                             amountCents: (sub.monthly_price_cents || 0) * (sub.billing_period_months || 1),
-                            targetUrl: `/services/cleaning/checkout/${sub.package_id}?renew=${sub.id}`,
+                            targetUrl: `/checkout/${sub.package_id}?renew=${sub.id}`,
                           });
                         } else {
-                          navigate(`/services/cleaning/checkout/${sub.package_id}?renew=${sub.id}`);
+                          navigate(`/checkout/${sub.package_id}?renew=${sub.id}`);
                         }
                       };
                       return (

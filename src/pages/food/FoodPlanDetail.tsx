@@ -1163,4 +1163,18 @@ const FoodPlanDetail = () => {
   );
 };
 
-export default FoodPlanDetail;
+/**
+ * Food's renewal used to happen here, on food's own screen, because food was
+ * the only service that had one. Renewing is the same act everywhere now, so
+ * the link that still carries the old shape lands on the shared checkout —
+ * bookmarks and emails keep working, and there is one renewal flow, not two.
+ */
+const FoodPlanDetailRoute = () => {
+  const [sp] = useSearchParams();
+  const { planId } = useParams<{ planId: string }>();
+  const renew = sp.get("renew");
+  if (renew && planId) return <Navigate to={`/checkout/${planId}?renew=${renew}`} replace />;
+  return <FoodPlanDetail />;
+};
+
+export default FoodPlanDetailRoute;

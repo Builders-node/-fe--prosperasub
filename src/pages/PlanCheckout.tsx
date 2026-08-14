@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { CheckoutStickyFooter } from "@/components/patterns/CheckoutStickyFooter";
 import { AddToCartButton } from "@/components/cart/AddToCartButton";
@@ -31,6 +31,8 @@ import { serviceListingHref, serviceSlug } from "@/lib/services/serviceUrls";
 import { termLabel, termLabelFor, includedLabel } from "@/lib/services/planPeriod";
 import { resolveCheckoutPlan, totalFor } from "@/lib/checkout/planCheckoutModel";
 import { buildSubscriptionWrite, endDateOf } from "@/lib/checkout/subscriptionWriter";
+import { fetchRenewalSubject, renewalEndpoint, renewalWindow } from "@/lib/checkout/renewal";
+import { accountApi } from "@/integrations/supabase/client";
 
 /**
  * Checkout for a plan in the universal `provider_plans` table.
@@ -59,6 +61,14 @@ interface PlanRow {
 
 const UniversalPlanCheckout = () => {
   const { archetypeKey: serviceSegment, planId } = useParams<{ archetypeKey: string; planId: string }>();
+  const [searchParams] = useSearchParams();
+  /**
+   * `?renew=<subId>` turns this screen from a purchase into an extension. Every
+   * question is the same and every payment method is the same — what changes is
+   * that nothing is inserted: the server extends the row that exists, once,
+   * against a payment it verified itself.
+   */
+  const renewSubId = searchParams.get("renew");
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { userData } = useAuth();
@@ -79,6 +89,8 @@ const UniversalPlanCheckout = () => {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("lightning");
   const mutationCalledRef = useRef(false);
   const pendingSubIdRef = useRef<string | null>(null);
+  /** Minted once per screen, so a retried call extends the period once. */
+  const renewKeyRef = useRef<string | null>(null);
 
   const { btcPrice, isLoading: isPriceLoading, convertToSats, refreshPrice } = useBtcPrice();
   const { enabled: enabledMethods, addSurchargeCents, surchargePercent } = usePaymentMethods();
@@ -112,8 +124,35 @@ const UniversalPlanCheckout = () => {
   const [selections, setSelections] = useState<string[]>([]);
   const [address, setAddress] = useState("");
   const [area, setArea] = useState("");
+  /**
+   * What is being renewed. Loaded from the plan's own service, because that is
+   * what says which table the subscription lives in — the same seam the writer
+   * uses, read from instead of written to.
+   */
+  const { data: renewSubject, isLoading: renewLoading } = useQuery({
+    queryKey: ["checkout-renewal", plan?.service, renewSubId],
+    enabled: !!renewSubId && !!plan,
+    queryFn: () => fetchRenewalSubject(plan!.service, renewSubId!),
+  });
+  const renewing = !!renewSubId && !!renewSubject;
+  const renewWindow = plan && renewSubject ? renewalWindow(plan, renewSubject) : null;
+
   useEffect(() => {
-    if (!plan) return;
+    if (!renewSubject) return;
+    // A renewal is the same subscription again: same term, same people, same
+    // answers. Asking for them a second time invites a different answer, and
+    // the server would extend by the original term regardless.
+    setPeriods(renewSubject.periods);
+    setPeople(renewSubject.people);
+    if (renewSubject.phone) setPhone(renewSubject.phone);
+    if (renewSubject.notes) setNotes(renewSubject.notes);
+    if (renewSubject.address) setAddress(renewSubject.address);
+    if (renewSubject.area) setArea(renewSubject.area);
+    if (renewSubject.selections.length) setSelections(renewSubject.selections);
+  }, [renewSubject]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!plan || renewSubId) return;
     setPeriods(plan.periodsDefault);
     // Pre-pick as many options as the plan allows, in its own order: a
     // customer who wants exactly what the plan implies should not have to
@@ -127,7 +166,11 @@ const UniversalPlanCheckout = () => {
   const effectiveTotalCents = addSurchargeCents(totalCents, paymentMethod);
   const feePct = surchargePercent(paymentMethod);
   const estimatedSats = convertToSats(centsToDollars(effectiveTotalCents));
-  const endDate = plan ? endDateOf(plan, startDate, periods) : new Date(`${startDate}T00:00:00`);
+  // A renewal does not get to choose when it starts: it starts the day the
+  // current period ends, or today if that has already passed.
+  const effectiveStart = renewWindow?.start ?? startDate;
+  const endDate = renewWindow?.end
+    ?? (plan ? endDateOf(plan, startDate, periods) : new Date(`${startDate}T00:00:00`));
 
   const inv = useInvoicePayment({
     onPaid: (paymentRef, method) => {
@@ -141,6 +184,9 @@ const UniversalPlanCheckout = () => {
     // tab that dies before the payment confirms still leaves something the
     // reconcile cron can verify. See lib/payments/pendingReference.
     onInvoiceReady: (paymentRef, method) => {
+      // A renewal reserved nothing, so there is nothing to attach it to. The
+      // audit row carries the reference instead, written by the server.
+      if (renewSubId) return;
       void attachPaymentReference(supabaseDb, subTable(), pendingSubIdRef.current, paymentRef, method);
     },
   });
@@ -177,6 +223,9 @@ const UniversalPlanCheckout = () => {
    */
   const reservePending = async (method: string): Promise<string | null> => {
     if (!plan) return null;
+    // Nothing is reserved for a renewal — the row already exists, and inserting
+    // a second one is exactly the bug this replaces.
+    if (renewSubId) return renewSubId;
     try {
       if (pendingSubIdRef.current) {
         await supabaseDb
@@ -202,6 +251,28 @@ const UniversalPlanCheckout = () => {
   const createSubscription = useMutation({
     mutationFn: async (o: { paymentRef: string; status: "paid" | "pending"; method: string }) => {
       if (!plan) throw new Error("Missing plan data");
+
+      if (renewSubId) {
+        // The server verifies the reference with the payment provider before it
+        // moves the dates — a token alone cannot extend a period for free — and
+        // the idempotency key makes a retried call return the same outcome
+        // instead of buying a second term.
+        const idempotencyKey = renewKeyRef.current ?? crypto.randomUUID();
+        renewKeyRef.current = idempotencyKey;
+        const { error } = await accountApi(renewalEndpoint(plan.service, renewSubId), {
+          method: "POST",
+          body: JSON.stringify({
+            payment_method: o.method,
+            payment_reference: o.paymentRef,
+            amount_cents: totalCents,
+            surcharge_cents: Math.max(0, effectiveTotalCents - totalCents),
+            idempotency_key: idempotencyKey,
+          }),
+        });
+        if (error) throw new Error(error.message || "Renewal failed");
+        return { id: renewSubId };
+      }
+
       const patch = {
         payment_status: o.status,
         payment_method: o.method,
@@ -227,6 +298,13 @@ const UniversalPlanCheckout = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["my-universal-subscriptions"] });
       queryClient.invalidateQueries({ queryKey: ["admin-marketplace-subscriptions"] });
+      // A renewal changes a row the subscriptions page is already showing, and
+      // the whole point is that the new end date appears when they land there.
+      if (renewSubId) {
+        queryClient.invalidateQueries({ queryKey: ["checkout-renewal"] });
+        ["my-food-subscriptions", "my-cleaning-subscriptions-all", "my-beach-subs", "my-linked-client-subscriptions"]
+          .forEach((key) => queryClient.invalidateQueries({ queryKey: [key] }));
+      }
       setShowSuccess(true);
     },
     onError: (e: Error) => {
@@ -261,7 +339,9 @@ const UniversalPlanCheckout = () => {
     // provider_subscriptions.user_id is a uuid column and the JWT id may be a
     // Google-format string; inserting that raises 22P02 and fails the whole
     // statement. Better to say so than to lose the sale to a Postgres error.
-    if (!userUuid) { toast.error("We couldn't verify your account. Please sign in again."); return; }
+    // A renewal inserts nothing, so it has no such constraint to satisfy.
+    if (!renewSubId && !userUuid) { toast.error("We couldn't verify your account. Please sign in again."); return; }
+    if (renewSubId && !renewSubject) { toast.error("We couldn't load the subscription you're renewing."); return; }
 
     setIsGenerating(true);
     try {
@@ -302,7 +382,7 @@ const UniversalPlanCheckout = () => {
     }
   };
 
-  if (planLoading) {
+  if (planLoading || (!!renewSubId && renewLoading)) {
     return (
       <UserLayout title="Checkout" showBackButton backTo={listingHref} showBottomNav={false}>
         <div className="mx-auto max-w-xl space-y-4 px-4 py-6">
@@ -330,6 +410,24 @@ const UniversalPlanCheckout = () => {
     );
   }
 
+  if (renewSubId && !renewSubject) {
+    return (
+      <UserLayout title="Renew" showBackButton backTo="/my-subscriptions" showBottomNav={false}>
+        <div className="mx-auto max-w-xl px-4 py-16 text-center">
+          <RefreshCw className="mx-auto mb-4 h-12 w-12 text-muted-foreground/40" />
+          <p className="font-semibold text-foreground">Subscription not found</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            We couldn't find the subscription you're renewing. Open it from your
+            subscriptions and try again.
+          </p>
+          <Button variant="outline" className="mt-4 rounded-full" onClick={() => navigate("/my-subscriptions")}>
+            My subscriptions
+          </Button>
+        </div>
+      </UserLayout>
+    );
+  }
+
   if (showSuccess) {
     return (
       <UserLayout title="Checkout" showBackButton={false} showBottomNav={false}>
@@ -337,10 +435,16 @@ const UniversalPlanCheckout = () => {
           <CheckoutSuccessPanel
             icon={Sparkles}
             amount={formatUSD(effectiveTotalCents)}
-            eyebrow={paymentMethod === "infinita" ? "Payment submitted" : "Subscription confirmed"}
+            eyebrow={
+              paymentMethod === "infinita" ? "Payment submitted"
+              : renewing ? "Subscription extended"
+              : "Subscription confirmed"
+            }
             subtitle={
               paymentMethod === "infinita"
-                ? `An admin will verify your LIVES transaction and activate your ${plan.name} subscription.`
+                ? `An admin will verify your LIVES transaction and ${renewing ? "extend" : "activate"} your ${plan.name} subscription.`
+                : renewing
+                ? `Your ${plan.name} now runs through ${format(endDate, "d MMM yyyy")}.`
                 : `Your ${plan.name} subscription is active. We'll be in touch with the details.`
             }
             ctaLabel="View my subscriptions"
@@ -355,13 +459,26 @@ const UniversalPlanCheckout = () => {
   const orderDescription = `${plan.providerName ?? "Plan"} - ${plan.name} - ${formatUSD(effectiveTotalCents)}`;
 
   return (
-    <UserLayout title="Checkout" showBackButton backTo={listingHref} showBottomNav={false}>
+    <UserLayout
+      title={renewing ? "Renew" : "Checkout"}
+      showBackButton
+      backTo={renewing ? "/my-subscriptions" : listingHref}
+      showBottomNav={false}
+    >
       <div className="mx-auto max-w-xl space-y-4 px-4 py-4 pb-32 md:py-8">
         <section>
-          <p className="text-xs font-bold uppercase tracking-[0.16em] text-primary">Step 2 of 2</p>
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-primary">
+            {renewing ? "Renewal" : "Step 2 of 2"}
+          </p>
           <h1 className="mt-1 text-2xl font-black tracking-tight text-foreground md:text-3xl">
-            {showPayment ? "Complete payment" : "Review & pay"}
+            {showPayment ? "Complete payment" : renewing ? "Renew & pay" : "Review & pay"}
           </h1>
+          {renewing && (
+            <p className="mt-1 text-sm text-muted-foreground">
+              Extends the same subscription — nothing new is created, and the new
+              period starts when the current one ends.
+            </p>
+          )}
         </section>
 
         <section className="overflow-hidden rounded-3xl bg-card">
@@ -374,23 +491,43 @@ const UniversalPlanCheckout = () => {
 
           {!showPayment && (
             <div className="px-5 pb-4">
-              <Label htmlFor="up-start" className="text-xs text-muted-foreground">Start date</Label>
-              <div className="relative mt-1.5">
-                <Input
-                  id="up-start"
-                  type="date"
-                  className="h-12 w-full rounded-2xl pr-11 text-left [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-date-and-time-value]:text-left"
-                  value={startDate}
-                  min={format(nowHN(), "yyyy-MM-dd")}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  onClick={(e) => (e.currentTarget as HTMLInputElement & { showPicker?: () => void }).showPicker?.()}
-                />
-                <CalendarDays className="pointer-events-none absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
-              </div>
+              {/* A renewal has no start date to pick and no term to change: it
+                  continues the period that exists, for the term it was bought
+                  for. Offering either control would let the screen promise
+                  something the server will not do. */}
+              {renewing ? (
+                <div className="rounded-2xl bg-inset p-3.5">
+                  <p className="text-xs text-muted-foreground">Renewing</p>
+                  <p className="mt-0.5 text-sm font-semibold text-foreground">
+                    {renewSubject!.currentEnd
+                      ? `Current period ends ${format(new Date(`${renewSubject!.currentEnd}T00:00:00`), "d MMM yyyy")}`
+                      : "Current period"}
+                  </p>
+                  <p className="mt-0.5 text-sm text-muted-foreground">
+                    New period {format(new Date(`${effectiveStart}T00:00:00`), "d MMM")} → {format(endDate, "d MMM yyyy")}
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <Label htmlFor="up-start" className="text-xs text-muted-foreground">Start date</Label>
+                  <div className="relative mt-1.5">
+                    <Input
+                      id="up-start"
+                      type="date"
+                      className="h-12 w-full rounded-2xl pr-11 text-left [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-date-and-time-value]:text-left"
+                      value={startDate}
+                      min={format(nowHN(), "yyyy-MM-dd")}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      onClick={(e) => (e.currentTarget as HTMLInputElement & { showPicker?: () => void }).showPicker?.()}
+                    />
+                    <CalendarDays className="pointer-events-none absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+                  </div>
+                </>
+              )}
 
               {/* Only shown when the plan actually offers a choice — a plan
                   sold one period at a time has nothing to step through. */}
-              {periodsCeiling > periodsMin && (
+              {!renewing && periodsCeiling > periodsMin && (
                 <>
                   <Label className="mt-4 block text-xs text-muted-foreground">
                     How long — {termLabelFor(plan.period, periods)}
@@ -405,7 +542,7 @@ const UniversalPlanCheckout = () => {
                 </>
               )}
 
-              {perPerson && (
+              {perPerson && !renewing && (
                 <>
                   <Label className="mt-4 block text-xs text-muted-foreground">People</Label>
                   <Stepper value={people} min={1} max={20} onChange={setPeople} unit="person" />
@@ -502,7 +639,10 @@ const UniversalPlanCheckout = () => {
                 value={`${formatUSD(unitCents)} × ${periods}${perPerson ? ` × ${Math.max(1, people)}` : ""}`}
               />
             )}
-            <SummaryRow label="Start date" value={format(new Date(`${startDate}T00:00:00`), "d MMM yyyy")} />
+            <SummaryRow
+              label={renewing ? "Renews from" : "Start date"}
+              value={format(new Date(`${effectiveStart}T00:00:00`), "d MMM yyyy")}
+            />
             <SummaryRow label="Ends" value={format(endDate, "d MMM yyyy")} />
           </div>
 
@@ -599,6 +739,9 @@ const UniversalPlanCheckout = () => {
 
       {!showPayment && (
         <CheckoutStickyFooter>
+          {/* A renewal is not a basket item — it extends one specific row and
+              only the server can do it. */}
+          {!renewing && (
           <AddToCartButton
             className="mb-2 w-full"
             line={{
@@ -611,6 +754,7 @@ const UniversalPlanCheckout = () => {
               periods: 1,
             }}
           />
+          )}
           {enabledMethods.length === 0 && (
             <p className="mb-2 rounded-xl bg-amber-500/10 px-3 py-2 text-center text-xs text-amber-400">
               Payments are temporarily unavailable. Try again in a few minutes.
