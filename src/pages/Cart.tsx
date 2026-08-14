@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useGoBack } from "@/hooks/useGoBack";
 import {
   ShoppingCart, Trash2, Minus, Plus, MapPin, MessageCircle, User as UserIcon,
@@ -85,6 +85,15 @@ export default function Cart() {
   const { data: residences = [] } = useResidences();
   const { residence: globalResidence } = useSelectedResidence();
 
+  /**
+   * The basket and the checkout are two screens, not one scroll.
+   *
+   * Everything used to live at `/cart`: the items, the delivery form and the
+   * payment method, so "review what I am buying" and "pay for it" were the
+   * same page and there was no way back from one to the other. They are two
+   * URLs now, which also means the phone's back button walks between them.
+   */
+  const atCheckout = useLocation().pathname.replace(/\/$/, "").endsWith("/checkout");
   const [step, setStep] = useState<Step>("cart");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("lightning");
 
@@ -284,6 +293,7 @@ export default function Cart() {
 
   /** The sticky bar and BottomNav share the bottom strip — never both. */
   const showStickyCheckout = step === "cart" && items.length > 0;
+  const showBasketOnly = step === "cart" && !atCheckout;
 
   /**
    * What this basket actually is, for the payment notification.
@@ -352,7 +362,7 @@ export default function Cart() {
   // ─── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background pb-28 md:pb-12">
-      <HomeHeader title="Cart" showBackButton onBack={goBack} />
+      <HomeHeader title={atCheckout ? "Checkout" : "Cart"} showBackButton onBack={goBack} />
       <DesktopHeader showBackButton breadcrumb="Cart" />
 
       <main className="market-content space-y-5 py-space-4 md:py-space-6">
@@ -379,7 +389,9 @@ export default function Cart() {
           </div>
         ) : (
           <>
-            <h1 className="text-2xl font-black tracking-tight md:text-3xl">Your cart</h1>
+            <h1 className="text-2xl font-black tracking-tight md:text-3xl">
+              {atCheckout ? "Checkout" : "Your cart"}
+            </h1>
 
             {/* Items — one card container with row dividers (Yandex Lavka pattern).
                 Left: 56px thumbnail tile · middle: name + provider + duration
@@ -490,7 +502,7 @@ export default function Cart() {
               </div>
             </section>
 
-            {step === "cart" && (
+            {step === "cart" && atCheckout && (
               <>
                 {/* Delivery details — mobile-first pattern: one card, rows
                     separated by divide-y, borderless inputs. Icon + label
@@ -641,6 +653,12 @@ export default function Cart() {
               Payments are temporarily unavailable. Try again in a few minutes.
             </p>
           )}
+          {showBasketOnly ? (
+            <Button size="lg" className="h-14 w-full rounded-2xl text-base font-bold"
+              onClick={() => isAuthenticated ? navigate("/cart/checkout") : openAuthModal("login", "/cart/checkout")}>
+              {isAuthenticated ? `Checkout · ${formatUSD(totalCents)}` : "Log in to checkout"}
+            </Button>
+          ) : (
           <Button size="lg" className="h-14 w-full rounded-2xl text-base font-bold"
             onClick={startCheckout}
             disabled={
@@ -664,7 +682,8 @@ export default function Cart() {
               <><Zap className="mr-2 h-5 w-5" /> Pay {estimatedSats.toLocaleString()} sats</>
             )}
           </Button>
-          {!formValid && (
+          )}
+          {!showBasketOnly && !formValid && (
             <p className="mt-1.5 flex items-center justify-center gap-1 text-center text-[11px] text-muted-foreground">
               <Check className="h-3 w-3" />
               {missingUuid

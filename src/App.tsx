@@ -237,7 +237,11 @@ const App = () => {
               <Route path="/beach-club/checkout/:planId" element={<LegacyRewrite from="/beach-club" to="/services/beach-club" />} />
 
               {/* Cart */}
+              {/* The basket and the checkout are two screens: one to review
+                  what you are buying, one to pay for it. Same component, two
+                  URLs, so the phone's back button walks between them. */}
               <Route path="/cart" element={<Cart />} />
+              <Route path="/cart/checkout" element={<Cart />} />
               {/* "Search on Everysub" — one field over the whole catalogue.
                   Public: browsing is what a search is for. */}
               <Route path="/search" element={<SearchPage />} />
