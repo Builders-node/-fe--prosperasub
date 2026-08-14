@@ -58,7 +58,12 @@ export function endDateOf(plan: CheckoutPlan, startISO: string, periods: number)
   }
 }
 
-export function buildSubscriptionWrite(plan: CheckoutPlan, a: CheckoutAnswers): SubscriptionWrite {
+export function buildSubscriptionWrite(
+  plan: CheckoutPlan,
+  a: CheckoutAnswers,
+  /** Merged over the row — the cart's batch id, a payment reference, a paid status. */
+  extra: Record<string, unknown> = {},
+): SubscriptionWrite {
   const end = format(endDateOf(plan, a.startDate, a.periods), "yyyy-MM-dd");
   const surcharge = Math.max(0, a.chargedCents - a.totalCents);
   const included = (plan.unitQuantity ?? 0) * Math.max(1, a.periods);
@@ -66,7 +71,7 @@ export function buildSubscriptionWrite(plan: CheckoutPlan, a: CheckoutAnswers): 
   if (plan.service === "food") {
     return {
       table: "food_subscriptions",
-      row: {
+      row: withExtra({
         user_id: a.userId,
         provider_id: plan.providerLegacyId,
         meal_plan_id: plan.subjectPlanId,
@@ -84,14 +89,14 @@ export function buildSubscriptionWrite(plan: CheckoutPlan, a: CheckoutAnswers): 
         delivery_address: a.address || null,
         notes: a.notes || null,
         selected_meals: a.selections.length ? a.selections : null,
-      },
+      }, extra),
     };
   }
 
   if (plan.service === "cleaning") {
     return {
       table: "cleaning_subscriptions",
-      row: {
+      row: withExtra({
         user_id: a.userId,
         package_id: plan.subjectPlanId,
         start_date: a.startDate,
@@ -113,14 +118,14 @@ export function buildSubscriptionWrite(plan: CheckoutPlan, a: CheckoutAnswers): 
         subscription_status: "pending_payment",
         apartment_note: a.address || null,
         customer_whatsapp: a.phone || null,
-      },
+      }, extra),
     };
   }
 
   if (plan.service === "beach") {
     return {
       table: "beach_club_subscriptions",
-      row: {
+      row: withExtra({
         plan_id: plan.subjectPlanId,
         // The name is snapshotted: a plan can be renamed and the receipt must
         // still say what was bought.
@@ -139,13 +144,13 @@ export function buildSubscriptionWrite(plan: CheckoutPlan, a: CheckoutAnswers): 
         payment_method: a.paymentMethod,
         status: "pending",
         notes: a.notes || null,
-      },
+      }, extra),
     };
   }
 
   return {
     table: "provider_subscriptions",
-    row: {
+    row: withExtra({
       provider_id: plan.providerUniversalId,
       plan_id: plan.universalId,
       user_id: a.userUuid,
@@ -177,6 +182,8 @@ export function buildSubscriptionWrite(plan: CheckoutPlan, a: CheckoutAnswers): 
         surcharge_cents: surcharge,
         total_charged_cents: a.chargedCents,
       },
-    },
+    }, extra),
   };
 }
+
+const withExtra = (row: Record<string, unknown>, extra: Record<string, unknown>) => ({ ...row, ...extra });

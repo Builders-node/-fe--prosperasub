@@ -43,6 +43,7 @@ import { todayHN, addDaysISO } from "@/lib/timezone";
 import { DURATION_OPTIONS } from "@/lib/durations";
 import { CART_SERVICES, lineTotalCents, periodLabel, quantityLabel } from "@/lib/cart/cartItem";
 import { CART_TABLES, buildRows, paidPatch, needsUuidUser, isUuid } from "@/lib/cart/checkoutRows";
+import { resolveCheckoutPlan, type CheckoutPlan } from "@/lib/checkout/planCheckoutModel";
 import type { CartService } from "@/lib/cart/cartItem";
 import { Sparkles, Waves, Package } from "lucide-react";
 
@@ -177,6 +178,17 @@ export default function Cart() {
     const totalSurchargeCents = effectiveTotalCents - totalCents;
     let surchargeAssigned = 0;
 
+    // Resolve every line's plan first: the row builder needs what the plan
+    // says about itself (how many visits a period includes, what the customer
+    // picked inside it) and that is a query, not a lookup.
+    const plans = new Map<string, CheckoutPlan>();
+    for (const item of items) {
+      if (plans.has(item.planId)) continue;
+      const resolved = await resolveCheckoutPlan(item.planId);
+      if (!resolved) throw new Error(`"${item.planName}" is no longer on sale.`);
+      plans.set(item.planId, resolved);
+    }
+
     const byTable = new Map<string, any[]>();
     items.forEach((item, index) => {
       const lineBase = cartLineTotal(item);
@@ -186,7 +198,7 @@ export default function Cart() {
         : (totalCents > 0 ? Math.round((totalSurchargeCents * lineBase) / totalCents) : 0);
       surchargeAssigned += lineSurcharge;
 
-      const rows = buildRows(item, {
+      const rows = buildRows(item, plans.get(item.planId)!, {
         userId: userIdForRows,
         today,
         batchId,

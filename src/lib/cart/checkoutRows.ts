@@ -1,6 +1,8 @@
 import { addDaysISO, addMonthsISO } from "@/lib/timezone";
 import { CART_SERVICES, lineTotalCents, type CartItem, type CartService } from "@/lib/cart/cartItem";
 import { MEAL_KEYS, type MealKey } from "@/components/food/MealSelectionPicker";
+import { buildSubscriptionWrite, type CheckoutAnswers } from "@/lib/checkout/subscriptionWriter";
+import type { CheckoutPlan } from "@/lib/checkout/planCheckoutModel";
 
 /**
  * Turning cart lines into subscription rows.
@@ -69,109 +71,57 @@ export function servicePeriodEnd(item: CartItem, startISO: string): string {
  * kitchen cooks and delivers per subscription. Everywhere else quantity is a
  * number ON the row — three people on one beach membership is one membership.
  */
-export function buildRows(item: CartItem, ctx: RowContext): Record<string, unknown>[] {
-  const base = item.unitPriceCents * item.periods;
+/**
+ * A cart line becomes the same row a single-item checkout would write.
+ *
+ * These were four adapters of their own, and the copies drifted exactly as
+ * copies do: a cleaning subscription bought from the cart was written without
+ * `cleanings_remaining`, so a customer who paid for four visits owned a
+ * subscription that said none were left. One builder, one shape, whether the
+ * basket holds one thing or five.
+ *
+ * `plan` is resolved by the caller because it is a query and this is not.
+ */
+export function buildRows(item: CartItem, plan: CheckoutPlan, ctx: RowContext): Record<string, unknown>[] {
   const endISO = servicePeriodEnd(item, ctx.today);
+  const paidBits = {
+    batch_id: ctx.batchId,
+    payment_reference: ctx.paymentReference,
+    ...(ctx.paid ? paidPatch(item.service, ctx.paymentReference ?? "") : {}),
+  };
 
+  const answers = (surcharge: number, selections: string[]): CheckoutAnswers => ({
+    userId: ctx.userId,
+    userUuid: isUuid(ctx.userId) ? ctx.userId : null,
+    startDate: ctx.today,
+    periods: item.periods,
+    people: item.qty,
+    totalCents: lineTotalCents(item),
+    chargedCents: lineTotalCents(item) + surcharge,
+    paymentMethod: ctx.paymentMethod,
+    phone: ctx.customerWhatsapp,
+    notes: ctx.notes ?? "",
+    customerName: ctx.customerName,
+    customerEmail: ctx.customerEmail,
+    address: ctx.address ?? "",
+    area: ctx.residence ?? "",
+    selections,
+  });
+
+  // Food is the one service where a quantity means separate subscriptions
+  // rather than a bigger one — two portions are two people eating.
   if (item.service === "food") {
-    const perPortionSurcharge = Math.round(ctx.surchargeCents / Math.max(1, item.qty));
-    return Array.from({ length: item.qty }, (_, index) => ({
-      user_id: ctx.userId,
-      provider_id: item.providerId,
-      meal_plan_id: item.planId,
-      weekly_price_cents: item.unitPriceCents,
+    const per = Math.round(ctx.surchargeCents / Math.max(1, item.qty));
+    const meals = MEAL_KEYS.slice(0, Math.max(1, Math.min(item.mealsPerDay || 3, 3))) as MealKey[];
+    return Array.from({ length: item.qty }, (_, index) => {
       // The remainder rides on the first portion so the rows sum to the fee
       // that was actually charged.
-      surcharge_cents: index === 0
-        ? ctx.surchargeCents - perPortionSurcharge * (item.qty - 1)
-        : perPortionSurcharge,
-      commitment_weeks: item.periods,
-      started_at: ctx.today,
-      end_date: endISO,
-      status: ctx.paid ? "active" : "pending",
-      payment_status: ctx.paid ? "paid" : "pending",
-      payment_method: ctx.paymentMethod,
-      payment_reference: ctx.paymentReference,
-      periods_paid: 1,
-      batch_id: ctx.batchId,
-      customer_name: ctx.customerName,
-      customer_whatsapp: ctx.customerWhatsapp,
-      residence: ctx.residence,
-      delivery_address: ctx.address,
-      notes: ctx.notes,
-      // The kitchen reads this and the cart has no picker, so seed the plan's
-      // default: the first `mealsPerDay` meals in canonical day order.
-      selected_meals: MEAL_KEYS.slice(
-        0, Math.max(1, Math.min(item.mealsPerDay || 3, 3)),
-      ) as MealKey[],
-    }));
+      const surcharge = index === 0 ? ctx.surchargeCents - per * (item.qty - 1) : per;
+      return buildSubscriptionWrite(plan, { ...answers(surcharge, meals), people: 1 }, paidBits).row;
+    });
   }
 
-  if (item.service === "cleaning") {
-    return [{
-      user_id: ctx.userId,
-      package_id: item.planId,
-      start_date: ctx.today,
-      end_date: endISO,
-      service_start_date: ctx.today,
-      service_end_date: endISO,
-      paid_until: endISO,
-      billing_period_months: item.periods,
-      monthly_price_cents: item.unitPriceCents,
-      total_price_cents: base,
-      surcharge_cents: ctx.surchargeCents,
-      payment_status: ctx.paid ? "paid" : "pending",
-      payment_method: ctx.paymentMethod,
-      payment_reference: ctx.paymentReference,
-      is_active: ctx.paid,
-      // Paid but not yet scheduled is a real state with a screen behind it —
-      // the customer picks their weekday and time in /services/cleaning/book.
-      subscription_status: ctx.paid ? "pending_schedule" : "pending_payment",
-      batch_id: ctx.batchId,
-      // Required: the cleaner has to know which door. The cart form makes the
-      // address mandatory as soon as a cleaning line is in the basket.
-      apartment_note: ctx.address ?? "",
-      customer_whatsapp: ctx.customerWhatsapp,
-    }];
-  }
-
-  if (item.service === "beach") {
-    return [{
-      plan_id: item.planId,
-      plan_name: item.planName,
-      user_id: ctx.userId,
-      customer_name: ctx.customerName,
-      customer_email: ctx.customerEmail,
-      customer_whatsapp: ctx.customerWhatsapp,
-      notes: ctx.notes,
-      people: item.qty,
-      start_date: ctx.today,
-      end_date: endISO,
-      price_per_person_cents: item.unitPriceCents,
-      total_cents: lineTotalCents(item),
-      surcharge_cents: ctx.surchargeCents,
-      payment_status: ctx.paid ? "paid" : "pending",
-      payment_method: ctx.paymentMethod,
-      payment_reference: ctx.paymentReference,
-      status: ctx.paid ? "active" : "pending",
-      batch_id: ctx.batchId,
-    }];
-  }
-
-  return [{
-    provider_id: item.providerId,
-    plan_id: item.planId,
-    user_id: ctx.userId,
-    start_date: ctx.today,
-    end_date: endISO,
-    status: ctx.paid ? "active" : "pending",
-    payment_status: ctx.paid ? "paid" : "pending",
-    payment_method: ctx.paymentMethod,
-    payment_reference: ctx.paymentReference,
-    customer_whatsapp: ctx.customerWhatsapp,
-    notes: ctx.notes,
-    batch_id: ctx.batchId,
-  }];
+  return [buildSubscriptionWrite(plan, answers(ctx.surchargeCents, []), paidBits).row];
 }
 
 /**
