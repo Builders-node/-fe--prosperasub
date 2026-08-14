@@ -171,8 +171,8 @@ function InfoRow({
 const ProviderDetail = () => {
   const navigate = useNavigate();
   const { archetypeKey: serviceSegment, providerId } = useParams<{ archetypeKey: string; providerId: string }>();
-  // `beach-club` and `entertainment` are the same service; so are `cars` and
-  // `rental`. Resolve to the canonical key once, here.
+  // `beach-club` and `entertainment` are the same service. Resolve to the
+  // canonical key once, here.
   const archetypeKey = archetypeFromSlug(serviceSegment);
   const { isAuthenticated } = useAuth();
   const { openAuthModal } = useAuthModal();
@@ -240,7 +240,6 @@ const ProviderDetail = () => {
     isAuthenticated
       ? navigate(`/services/beach-club/checkout/${planId}`)
       : openAuthModal("login", `/services/beach-club/checkout/${planId}`);
-  const onVehicleOpen = (id: string) => navigate(`/services/rental/${id}`);
   const onUniversalSub = (planId: string) => {
     const href = `/services/${serviceSlug(archetypeKey ?? "")}/checkout/plan/${planId}`;
     isAuthenticated ? navigate(href) : openAuthModal("login", href);
@@ -490,7 +489,6 @@ const ProviderDetail = () => {
           if (isUniversal) return null;
           const reviewService: ProviderReviewService | null =
             archetypeKey === "cleaning" ? "cleaning" :
-            archetypeKey === "rental"   ? "rental" :
             archetypeKey === "entertainment" ? "beach" : null;
           if (!reviewService) return null;
           return <ProviderReviewsBlock providerId={p.id} service={reviewService} />;

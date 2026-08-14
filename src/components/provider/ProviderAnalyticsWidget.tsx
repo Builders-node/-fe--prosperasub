@@ -2,7 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Activity, CalendarClock, DollarSign, Star } from "lucide-react";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { formatUSD } from "@/lib/pricing";
-import { todayHN, addDaysISO, monthStartHNiso } from "@/lib/timezone";
+import { todayHN, addDaysISO } from "@/lib/timezone";
+import { fetchEarned } from "@/lib/finance/providerEarnings";
 import { cn } from "@/lib/utils";
 
 /**
@@ -13,7 +14,12 @@ import { cn } from "@/lib/utils";
  * Stats (per service):
  *  • Active subs / bookings   — total live customer relationships
  *  • Upcoming (7 days)        — what's about to happen this week
- *  • Revenue MTD              — booked/paid revenue for the current month
+ *  • Earned this month        — straight-line recognized revenue, the same
+ *                               number the Money tab and the admin's Finance
+ *                               page show. It used to be a separate cash-basis
+ *                               sum living in this file, which meant one screen
+ *                               could show $300 while the tab below it showed
+ *                               $100 for the same plan.
  *  • Rating                   — average of provider_reviews (if any)
  *
  * The query bindings differ per service because each legacy table has its own
@@ -58,7 +64,6 @@ function StatCard({ label, value, icon: Icon, tint = "primary" }: Stat) {
 
 // All date boundaries here are Honduras-local so KPIs match what appears on the
 // Finance page and don't drift for admins sitting in positive-offset TZs.
-const monthStartISO = () => monthStartHNiso();
 const daysFromNowISO = (days: number) => addDaysISO(todayHN(), days);
 const todayISO = () => todayHN();
 
@@ -75,7 +80,7 @@ async function fetchCleaningStats(legacyId: string) {
     .select("id")
     .eq("provider_id", legacyId);
   const packageIds = (pkgs ?? []).map((p: any) => p.id);
-  if (!packageIds.length) return { active: 0, upcoming: 0, revenueCents: 0 };
+  if (!packageIds.length) return { active: 0, upcoming: 0 };
 
   // Subscription ids scoped to this provider's packages — used to bound the
   // "Upcoming 7d" bookings query. Without this scope, every cleaning owner
@@ -97,21 +102,14 @@ async function fetchCleaningStats(legacyId: string) {
         .lte("cleaning_available_slots.date", daysFromNowISO(7))
     : Promise.resolve({ count: 0 } as any);
 
-  const [{ count: active }, { count: upcoming }, { data: revRows }] = await Promise.all([
+  const [{ count: active }, { count: upcoming }] = await Promise.all([
     supabaseDb.from("cleaning_subscriptions")
       .select("id", { count: "exact", head: true })
       .in("package_id", packageIds)
       .eq("subscription_status", "active"),
     upcomingQuery,
-    supabaseDb.from("cleaning_subscriptions")
-      .select("total_price_cents,monthly_price_cents,created_at")
-      .in("package_id", packageIds)
-      .eq("payment_status", "paid")
-      .gte("created_at", monthStartISO()),
   ]);
-  const revenueCents = (revRows ?? []).reduce((s: number, r: any) =>
-    s + Number(r.total_price_cents || r.monthly_price_cents || 0), 0);
-  return { active: active ?? 0, upcoming: upcoming ?? 0, revenueCents };
+  return { active: active ?? 0, upcoming: upcoming ?? 0 };
 }
 
 async function fetchFoodStats(legacyId: string) {
@@ -120,7 +118,7 @@ async function fetchFoodStats(legacyId: string) {
   // overlaps the next 7 days (started_at <= today+7 AND end_date >= today).
   const today = todayISO();
   const in7 = daysFromNowISO(7);
-  const [{ count: active }, { count: upcoming }, { data: revRows }] = await Promise.all([
+  const [{ count: active }, { count: upcoming }] = await Promise.all([
     supabaseDb.from("food_subscriptions")
       .select("id", { count: "exact", head: true })
       .eq("provider_id", legacyId)
@@ -133,55 +131,15 @@ async function fetchFoodStats(legacyId: string) {
       .eq("payment_status", "paid")
       .lte("started_at", in7)
       .gte("end_date", today),
-    supabaseDb.from("food_subscriptions")
-      .select("weekly_price_cents,commitment_weeks,created_at")
-      .eq("provider_id", legacyId)
-      .eq("payment_status", "paid")
-      .gte("created_at", monthStartISO()),
   ]);
-  const revenueCents = (revRows ?? []).reduce((s: number, r: any) =>
-    s + Number(r.weekly_price_cents || 0) * Number(r.commitment_weeks || 1), 0);
-  return { active: active ?? 0, upcoming: upcoming ?? 0, revenueCents };
-}
-
-async function fetchCarsStats(legacyId: string) {
-  const { data: vehicles } = await supabaseDb
-    .from("rental_vehicles")
-    .select("id")
-    .eq("provider_id", legacyId);
-  const vehicleIds = (vehicles ?? []).map((v: any) => v.id);
-  if (!vehicleIds.length) return { active: 0, upcoming: 0, revenueCents: 0 };
-
-  const [{ count: active }, { count: upcoming }, { data: revRows }] = await Promise.all([
-    supabaseDb.from("rental_bookings")
-      .select("id", { count: "exact", head: true })
-      .in("vehicle_id", vehicleIds)
-      .in("status", ["confirmed", "in_progress"]),
-    supabaseDb.from("rental_bookings")
-      .select("id", { count: "exact", head: true })
-      .in("vehicle_id", vehicleIds)
-      .gte("start_date", todayISO())
-      .lte("start_date", daysFromNowISO(7))
-      .neq("status", "cancelled"),
-    supabaseDb.from("rental_bookings")
-      // total_cents, not total_price_cents — cleaning uses the longer name,
-      // rentals don't, and asking for a column that isn't there makes
-      // PostgREST 400 the whole request, so this card read $0.00 forever.
-      .select("total_cents,created_at")
-      .in("vehicle_id", vehicleIds)
-      .eq("payment_status", "paid")
-      .gte("created_at", monthStartISO()),
-  ]);
-  const revenueCents = (revRows ?? []).reduce((s: number, r: any) =>
-    s + Number(r.total_cents || 0), 0);
-  return { active: active ?? 0, upcoming: upcoming ?? 0, revenueCents };
+  return { active: active ?? 0, upcoming: upcoming ?? 0 };
 }
 
 async function fetchBeachStats() {
   // Beach is platform-owned (one provider), so stats are global. Real column
   // names on beach_club_* tables: `date` (not booking_date), `total_cents`
   // (not total_price_cents), `people` (not people_count).
-  const [{ count: active }, { count: upcoming }, { data: revRows }] = await Promise.all([
+  const [{ count: active }, { count: upcoming }] = await Promise.all([
     supabaseDb.from("beach_club_subscriptions")
       .select("id", { count: "exact", head: true })
       .eq("status", "active"),
@@ -190,21 +148,15 @@ async function fetchBeachStats() {
       .gte("date", todayISO())
       .lte("date", daysFromNowISO(7))
       .neq("status", "cancelled"),
-    supabaseDb.from("beach_club_subscriptions")
-      .select("total_cents,created_at")
-      .eq("payment_status", "paid")
-      .gte("created_at", monthStartISO()),
   ]);
-  const revenueCents = (revRows ?? []).reduce((s: number, r: any) => s + Number(r.total_cents || 0), 0);
-  return { active: active ?? 0, upcoming: upcoming ?? 0, revenueCents };
+  return { active: active ?? 0, upcoming: upcoming ?? 0 };
 }
 
 async function fetchStats(sourceKey: string, legacyId: string) {
   if (sourceKey === "cleaning") return fetchCleaningStats(legacyId);
   if (sourceKey === "food")     return fetchFoodStats(legacyId);
-  if (sourceKey === "cars")     return fetchCarsStats(legacyId);
   if (sourceKey === "beach" || sourceKey === "beach_club") return fetchBeachStats();
-  return { active: 0, upcoming: 0, revenueCents: 0 };
+  return { active: 0, upcoming: 0 };
 }
 
 async function fetchRating(universalProviderId: string) {
@@ -231,6 +183,17 @@ export function ProviderAnalyticsWidget({ providerId, legacyId, sourceKey }: Pro
     queryFn: () => fetchStats(sourceKey, legacyId),
     staleTime: 60_000,
   });
+  // Same window the Money tab opens on: the current calendar month.
+  const { data: earned, isLoading: earnedLoading } = useQuery({
+    queryKey: ["provider-earned-mtd", sourceKey, legacyId],
+    staleTime: 60_000,
+    queryFn: () => {
+      const now = new Date();
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+      return fetchEarned(sourceKey, legacyId, start, end);
+    },
+  });
   const { data: rating } = useQuery({
     queryKey: ["provider-rating", providerId],
     queryFn: () => fetchRating(providerId),
@@ -251,8 +214,8 @@ export function ProviderAnalyticsWidget({ providerId, legacyId, sourceKey }: Pro
       tint: "primary",
     },
     {
-      label: "Revenue MTD",
-      value: isLoading ? "—" : formatUSD(stats?.revenueCents ?? 0),
+      label: "Earned this month",
+      value: earnedLoading ? "—" : formatUSD(earned?.revenue ?? 0),
       icon: DollarSign,
       tint: "emerald",
     },

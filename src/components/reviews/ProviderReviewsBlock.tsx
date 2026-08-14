@@ -11,7 +11,7 @@ import { StarRating } from "@/components/food/StarRating";
 import { CommentIcon, InfoIcon, StarIcon } from "@/components/icons/FigmaIcons";
 import { toast } from "sonner";
 
-export type ProviderReviewService = "cleaning" | "rental" | "beach" | "food";
+export type ProviderReviewService = "cleaning" | "beach" | "food";
 
 interface ProviderReviewRow {
   id: string;
@@ -42,7 +42,7 @@ interface Props {
 
 /**
  * Shared reviews block used on every public provider profile page (cleaning /
- * rental / entertainment). Same UX pattern as FoodReviews — customer-only
+ * entertainment). Same UX pattern as FoodReviews — customer-only
  * posting, one review per (provider, user), owner/admin can moderate.
  *
  * Reads and writes go to `provider_reviews` (universal). Legacy `food_reviews`
@@ -74,7 +74,7 @@ export function ProviderReviewsBlock({ providerId, service, ownerUserId, placeho
   // subscription table for a row owned by this user against this universal
   // provider. Path is service-specific because the legacy tables aren't linked
   // to universal providers.id directly — we use the owner_provider_id bridge
-  // I added earlier (cleaning_packages/rental_vehicles/beach_club_plans).
+  // I added earlier (cleaning_packages/beach_club_plans).
   const { data: isCustomer = false } = useQuery({
     queryKey: ["provider-reviews-is-customer", service, providerId, uuid, userData?.id],
     enabled: !!providerId && (!!uuid || !!userData?.id),
@@ -100,16 +100,6 @@ export function ProviderReviewsBlock({ providerId, service, ownerUserId, placeho
         if (!planIds.length) return false;
         const { data } = await supabaseDb.from("beach_club_subscriptions")
           .select("id").in("user_id", ids).in("plan_id", planIds).limit(1);
-        return (data?.length ?? 0) > 0;
-      }
-      if (service === "rental") {
-        // rental_bookings → rental_vehicles.owner_provider_id
-        const { data: vehicles } = await supabaseDb.from("rental_vehicles")
-          .select("id").eq("owner_provider_id", providerId);
-        const vehicleIds = (vehicles ?? []).map((v: any) => v.id);
-        if (!vehicleIds.length) return false;
-        const { data } = await supabaseDb.from("rental_bookings")
-          .select("id").in("user_id", ids).in("vehicle_id", vehicleIds).limit(1);
         return (data?.length ?? 0) > 0;
       }
       // food falls back to false (food uses food_reviews, not this block)
@@ -171,7 +161,6 @@ export function ProviderReviewsBlock({ providerId, service, ownerUserId, placeho
 
   const defaultPlaceholder =
     service === "cleaning" ? "How was the cleaning? Reliability, thoroughness…"
-    : service === "rental" ? "How was the vehicle and pickup process?"
     : service === "beach"  ? "How was your membership experience?"
     : "Share how it went…";
 

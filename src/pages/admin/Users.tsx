@@ -38,9 +38,8 @@ const SERVICE_META: Record<string, { label: string; icon: React.ComponentType<an
   cleaning: { label: "Cleaning", icon: Sparkles,         tint: "bg-blue-500/15 text-blue-400" },
   food:     { label: "Food",     icon: UtensilsCrossed,  tint: "bg-orange-500/15 text-orange-400" },
   beach:    { label: "Beach",    icon: Waves,            tint: "bg-cyan-500/15 text-cyan-400" },
-  rental:   { label: "Rental",   icon: Car,              tint: "bg-amber-500/15 text-amber-400" },
 };
-const SERVICE_ORDER = ["cleaning", "food", "beach", "rental"] as const;
+const SERVICE_ORDER = ["cleaning", "food", "beach"] as const;
 type ServiceKey = (typeof SERVICE_ORDER)[number];
 
 function initials(name?: string | null, email?: string | null) {
@@ -116,17 +115,6 @@ const AdminUsers = () => {
       return await fetchAllRows<any>(() => supabaseDb
         .from("beach_club_subscriptions")
         .select("id, user_id, status, customer_email").order("id"));
-    },
-    staleTime: 15_000,
-  });
-
-  const { data: rentalBookings = [] } = useQuery({
-    queryKey: ["admin-people-rental-bookings"],
-    queryFn: async () => {
-      return await fetchAllRows<any>(() => supabaseDb
-        .from("rental_bookings")
-        .select("id, user_id, status")
-        .is("deleted_at", null).order("id"));
     },
     staleTime: 15_000,
   });
@@ -209,9 +197,6 @@ const AdminUsers = () => {
     (beachSubs as any[]).forEach((s: any) => {
       if (norm(s.status) === "active") { addByUser(s.user_id, "beach"); addByEmail(s.customer_email, "beach"); }
     });
-    (rentalBookings as any[]).forEach((s: any) => {
-      if (["booked", "active", "confirmed"].includes(norm(s.status))) addByUser(s.user_id, "rental");
-    });
 
     return (users as any[]).map((u: any) => {
       const email = norm(u.email);
@@ -230,7 +215,7 @@ const AdminUsers = () => {
         raw: u,
       };
     }).sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
-  }, [users, foodSubs, beachSubs, rentalBookings]);
+  }, [users, foodSubs, beachSubs]);
 
   const stats = useMemo(() => ({
     total: people.length,
@@ -593,13 +578,13 @@ function EditUserForm({ user, auditLogs, onSave, onSoftDelete, saving, deleting 
   });
 
   // Full subscription history across ALL services (the backend payload only
-  // includes cleaning subs — fetch food / beach club / car rentals too).
+  // includes cleaning subs — fetch food and beach club too).
   const { data: allSubscriptions = [], isLoading: subsLoading } = useQuery({
     queryKey: ["admin-user-all-subscriptions", user.id],
     enabled: !!user.id,
     queryFn: async () => {
       const uid = user.id;
-      const [cleaning, food, beach, rentals] = await Promise.all([
+      const [cleaning, food, beach] = await Promise.all([
         supabaseDb
           .from("cleaning_subscriptions")
           .select("id, package_id, subscription_status, payment_status, is_active, total_price_cents, created_at, service_end_date")
@@ -613,28 +598,20 @@ function EditUserForm({ user, auditLogs, onSave, onSoftDelete, saving, deleting 
           .from("beach_club_subscriptions")
           .select("id, plan_name, status, payment_status, start_date, end_date, total_cents, created_at")
           .eq("user_id", uid),
-        supabaseDb
-          .from("rental_bookings")
-          .select("id, vehicle_id, status, payment_status, start_date, end_date, total_cents, created_at")
-          .eq("user_id", uid)
-          .is("deleted_at", null),
       ]);
 
       // Resolve names that need a second lookup.
       const pkgIds = [...new Set((cleaning.data ?? []).map((r: any) => r.package_id).filter(Boolean))];
       const planIds = [...new Set((food.data ?? []).map((r: any) => r.meal_plan_id).filter(Boolean))];
       const provIds = [...new Set((food.data ?? []).map((r: any) => r.provider_id).filter(Boolean))];
-      const vehIds = [...new Set((rentals.data ?? []).map((r: any) => r.vehicle_id).filter(Boolean))];
-      const [pkgs, plans, provs, vehs] = await Promise.all([
+      const [pkgs, plans, provs] = await Promise.all([
         pkgIds.length ? supabaseDb.from("cleaning_packages").select("id, name").in("id", pkgIds) : Promise.resolve({ data: [] as any[] }),
         planIds.length ? supabaseDb.from("food_meal_plans").select("id, name").in("id", planIds) : Promise.resolve({ data: [] as any[] }),
         provIds.length ? supabaseDb.from("food_providers").select("id, name").in("id", provIds) : Promise.resolve({ data: [] as any[] }),
-        vehIds.length ? supabaseDb.from("rental_vehicles").select("id, name").in("id", vehIds) : Promise.resolve({ data: [] as any[] }),
       ]);
       const pkgMap = new Map((pkgs.data ?? []).map((p: any) => [p.id, p.name]));
       const planMap = new Map((plans.data ?? []).map((p: any) => [p.id, p.name]));
       const provMap = new Map((provs.data ?? []).map((p: any) => [p.id, p.name]));
-      const vehMap = new Map((vehs.data ?? []).map((p: any) => [p.id, p.name]));
 
       const norm: Array<{
         id: string; service: string; name: string; status: string;
@@ -660,13 +637,6 @@ function EditUserForm({ user, auditLogs, onSave, onSoftDelete, saving, deleting 
         name: r.plan_name || "Beach Club membership",
         status: `${r.status ?? "—"} · ${r.payment_status ?? "—"}`,
         active: String(r.status).toLowerCase() === "active" && r.payment_status === "paid",
-        amountCents: r.total_cents ?? null, created_at: r.created_at ?? null,
-      }));
-      (rentals.data ?? []).forEach((r: any) => norm.push({
-        id: `rental-${r.id}`, service: "Car Rental",
-        name: vehMap.get(r.vehicle_id) || "Car rental",
-        status: `${r.status ?? "—"} · ${r.payment_status ?? "—"}`,
-        active: r.payment_status === "paid" && ["confirmed", "active", "in_progress"].includes(String(r.status).toLowerCase()),
         amountCents: r.total_cents ?? null, created_at: r.created_at ?? null,
       }));
 

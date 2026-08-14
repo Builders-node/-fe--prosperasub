@@ -21,7 +21,7 @@
 import { supabaseDb } from "@/integrations/supabase/client";
 import { logAuditEvent, type AuditAction, type EntityType } from "@/lib/auditLog";
 
-export type ApproveService = "cleaning" | "food" | "beach" | "cars";
+export type ApproveService = "cleaning" | "food" | "beach";
 
 interface TableMeta {
   table: string;
@@ -52,13 +52,6 @@ const META: Record<ApproveService, TableMeta> = {
     auditEntity: "beach_subscription",
     statusField: "status",
     activeValue: "active",
-  },
-  cars: {
-    table: "rental_bookings",
-    auditEntity: "rental_booking",
-    statusField: "status",
-    // Cars uses booking-model verbs (confirmed = the rental will happen).
-    activeValue: "confirmed",
   },
 };
 

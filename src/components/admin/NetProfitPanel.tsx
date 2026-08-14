@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { startOfMonth, endOfMonth, format } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import {
-  Sparkles, Car, UtensilsCrossed, Waves, Wallet, TrendingUp, TrendingDown,
+  Sparkles, UtensilsCrossed, Waves, Wallet, TrendingUp, TrendingDown,
   Calendar as CalendarIcon, Settings2, PiggyBank, type LucideIcon,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -23,7 +23,7 @@ import { toast } from "sonner";
 
 type RangeKey = "month" | "custom";
 type CostType = "percent" | "fixed" | "person";
-type SrcKey = "cleaning" | "beach" | "cars" | "food";
+type SrcKey = "cleaning" | "beach" | "food";
 
 interface Source {
   key: SrcKey;
@@ -38,13 +38,12 @@ interface Source {
 const SOURCES: Source[] = [
   { key: "cleaning", label: "Cleaning",       icon: Sparkles,        unit: "subscription", kind: "cost", valueKey: "finance_cleaning_cost_cents", typeKey: "finance_cleaning_type" },
   { key: "beach",    label: "Beach Club",     icon: Waves,           unit: "person",       kind: "take", valueKey: "finance_beach_extra_cents",   typeKey: "finance_beach_type" },
-  { key: "cars",     label: "Car Rentals",    icon: Car,             unit: "booking",      kind: "take", valueKey: "finance_car_commission_pct",  typeKey: "finance_car_type" },
   { key: "food",     label: "Food Orders",    icon: UtensilsCrossed, unit: "order",        kind: "take", valueKey: "finance_food_commission_pct", typeKey: "finance_food_type" },
 ];
 
 // Raw value is stored in cents for fixed/person types, and as a whole percent for percent.
-const DEFAULT_TYPE: Record<SrcKey, CostType> = { cleaning: "fixed", beach: "person", cars: "percent", food: "percent" };
-const DEFAULT_RAW: Record<SrcKey, number> = { cleaning: 75000, beach: 1000, cars: 10, food: 10 };
+const DEFAULT_TYPE: Record<SrcKey, CostType> = { cleaning: "fixed", beach: "person", food: "percent" };
+const DEFAULT_RAW: Record<SrcKey, number> = { cleaning: 75000, beach: 1000, food: 10 };
 
 type SrcCfg = { type: CostType; raw: number };
 const fallbackCfg = () =>
@@ -137,16 +136,13 @@ export function NetProfitPanel() {
     queryKey: ["finance-profit-revenue", startISO, endISO],
     queryFn: async () => {
       // Paged — see lib/supabasePaging.ts. These feed the Net Profit figure.
-      const [cleaning, beach, rental, food] = await Promise.all([
+      const [cleaning, beach, food] = await Promise.all([
         fetchAllRows<any>(() => supabaseDb.from("cleaning_subscriptions")
           .select("total_price_cents, monthly_price_cents, created_at, service_start_date, service_end_date, start_date, end_date")
           .eq("payment_status", "paid").is("deleted_at", null).order("id")),
         fetchAllRows<any>(() => supabaseDb.from("beach_club_subscriptions")
           .select("total_cents, people, created_at, start_date, end_date")
           .eq("payment_status", "paid").order("id")),
-        fetchAllRows<any>(() => supabaseDb.from("rental_bookings")
-          .select("total_cents, created_at, start_date, end_date")
-          .eq("payment_status", "paid").is("deleted_at", null).order("id")),
         fetchAllRows<any>(() => supabaseDb.from("food_subscriptions")
           // Same discipline as the other three tables — a food sub with
           // payment_status != 'paid' (Infinita/crypto that never reconciled) is
@@ -188,12 +184,6 @@ export function NetProfitPanel() {
           serviceEnd: r.end_date,
           fallbackDays: 30,
         }), (r) => r.people || 0),
-        cars: acc(rental, (r) => ({
-          totalCents: r.total_cents || 0,
-          serviceStart: r.start_date || r.created_at,
-          serviceEnd: r.end_date,
-          fallbackDays: 1,
-        })),
         food: acc(food, (r) => {
           const weeks = (r.commitment_weeks || 1) * (r.periods_paid || 1);
           const startDay = r.started_at || r.created_at;
@@ -208,7 +198,7 @@ export function NetProfitPanel() {
     },
   });
 
-  const r = rev ?? { cleaning: { revenue: 0, count: 0 }, beach: { revenue: 0, count: 0 }, cars: { revenue: 0, count: 0 }, food: { revenue: 0, count: 0 } };
+  const r = rev ?? { cleaning: { revenue: 0, count: 0 }, beach: { revenue: 0, count: 0 }, food: { revenue: 0, count: 0 } };
 
   // ── Profit model ────────────────────────────────────────────────────────────
   // The configured value is computed into an "amount": for a cost source it's

@@ -4,11 +4,10 @@ import { Banknote, Info, TrendingUp, Wallet } from "lucide-react";
 import { supabaseDb, accountApi } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/lib/supabasePaging";
 import { formatUSD } from "@/lib/pricing";
-import { addDaysISO } from "@/lib/timezone";
-import { overlapDays, recognizedCents } from "@/lib/revenueRecognition";
 import {
   FINANCE_SOURCES, financeSourceFor, readTakeConfig, splitTake,
 } from "@/lib/finance/platformTake";
+import { fetchEarned } from "@/lib/finance/providerEarnings";
 import { cn } from "@/lib/utils";
 
 /**
@@ -67,98 +66,6 @@ interface PayoutRow {
   reference: string | null;
   note: string | null;
   paid_at: string;
-}
-
-/** Provider-scoped paid rows, per service, in the shape revenue recognition wants. */
-async function fetchEarned(sourceKey: string, legacyId: string, start: Date, end: Date) {
-  const source = financeSourceFor(sourceKey);
-  const acc = (
-    rows: any[],
-    toInput: (r: any) => Parameters<typeof recognizedCents>[0],
-    unit?: (r: any) => number,
-  ) => {
-    let revenue = 0;
-    let units = 0;
-    (rows ?? []).forEach((r) => {
-      const input = toInput(r);
-      if (overlapDays(input, start, end) <= 0) return;
-      revenue += recognizedCents(input, start, end);
-      units += unit ? unit(r) : 1;
-    });
-    return { revenue, units };
-  };
-
-  if (source === "cleaning") {
-    const pkgs = await fetchAllRows<any>(() =>
-      supabaseDb.from("cleaning_packages").select("id").eq("provider_id", legacyId).order("id"));
-    const ids = (pkgs ?? []).map((p) => p.id);
-    if (!ids.length) return { revenue: 0, units: 0 };
-    const rows = await fetchAllRows<any>(() =>
-      supabaseDb.from("cleaning_subscriptions")
-        .select("total_price_cents, monthly_price_cents, created_at, service_start_date, service_end_date, start_date, end_date")
-        .in("package_id", ids).eq("payment_status", "paid").is("deleted_at", null).order("id"));
-    return acc(rows, (r) => {
-      const total = Number(r.total_price_cents || 0);
-      const monthly = Number(r.monthly_price_cents || 0);
-      const months = monthly > 0 && total >= monthly ? Math.max(1, Math.round(total / monthly)) : 1;
-      return {
-        totalCents: total || monthly,
-        serviceStart: r.service_start_date || r.start_date || r.created_at,
-        serviceEnd: r.service_end_date || r.end_date,
-        fallbackDays: months * 30,
-      };
-    });
-  }
-
-  if (source === "food") {
-    const rows = await fetchAllRows<any>(() =>
-      supabaseDb.from("food_subscriptions")
-        .select("weekly_price_cents, commitment_weeks, periods_paid, created_at, started_at")
-        .eq("provider_id", legacyId)
-        .in("status", ["active", "paused", "expired"])
-        .eq("payment_status", "paid").order("id"));
-    return acc(rows, (r) => {
-      const weeks = (r.commitment_weeks || 1) * (r.periods_paid || 1);
-      const startDay = r.started_at || r.created_at;
-      return {
-        totalCents: (r.weekly_price_cents || 0) * weeks,
-        serviceStart: startDay,
-        serviceEnd: startDay ? addDaysISO(startDay, weeks * 7) : null,
-        fallbackDays: weeks * 7,
-      };
-    });
-  }
-
-  if (source === "cars") {
-    const vehicles = await fetchAllRows<any>(() =>
-      supabaseDb.from("rental_vehicles").select("id").eq("provider_id", legacyId).order("id"));
-    const ids = (vehicles ?? []).map((v) => v.id);
-    if (!ids.length) return { revenue: 0, units: 0 };
-    const rows = await fetchAllRows<any>(() =>
-      supabaseDb.from("rental_bookings")
-        .select("total_cents, created_at, start_date, end_date")
-        .in("vehicle_id", ids).eq("payment_status", "paid").is("deleted_at", null).order("id"));
-    return acc(rows, (r) => ({
-      totalCents: r.total_cents || 0,
-      serviceStart: r.start_date || r.created_at,
-      serviceEnd: r.end_date,
-      fallbackDays: 1,
-    }));
-  }
-
-  if (source === "beach") {
-    // Beach is platform-owned and there is exactly one club, so this is not
-    // scoped further — the same assumption the KPI widget makes.
-    const rows = await fetchAllRows<any>(() =>
-      supabaseDb.from("beach_club_subscriptions")
-        .select("total_cents, people, created_at, start_date, end_date")
-        .eq("payment_status", "paid").order("id"));
-    return acc(rows,
-      (r) => ({ totalCents: r.total_cents || 0, serviceStart: r.start_date || r.created_at, serviceEnd: r.end_date, fallbackDays: 30 }),
-      (r) => r.people || 0);
-  }
-
-  return { revenue: 0, units: 0 };
 }
 
 function MoneyCard({ label, value, hint, icon: Icon, tone = "muted" }: {

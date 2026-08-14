@@ -24,7 +24,7 @@ import { fetchAllRows } from "@/lib/supabasePaging";
  * cron all read.
  */
 
-export type SaleService = "food" | "cleaning" | "beach" | "rental";
+export type SaleService = "food" | "cleaning" | "beach";
 
 export interface SaleRow {
   id: string;
@@ -59,12 +59,11 @@ export interface SaleSource {
   endCol: string;
   priceCol: string;
   /**
-   * Value of `providers.source_service_key` for this service. NOT always the
-   * service name: car rental is bridged as "cars", so keying the lookup off
-   * "rental" silently resolved every rental to no provider at all.
+   * Value of `providers.source_service_key` for this service. Not necessarily
+   * the service name — keep them separate, they have drifted before.
    */
   bridgeKey: string;
-  /** Plan/vehicle table, used for the plan name and as a provider fallback. */
+  /** Plan table, used for the plan name and as a provider fallback. */
   planTable: string;
 }
 
@@ -89,13 +88,6 @@ export const SALE_SOURCES: Record<SaleService, SaleSource> = {
     statusCol: "status", startCol: "start_date", endCol: "end_date",
     priceCol: "total_cents",
     bridgeKey: "beach", planTable: "beach_club_plans",
-  },
-  rental: {
-    service: "rental", table: "rental_bookings", kind: "booking",
-    statusCol: "status", startCol: "start_date", endCol: "end_date",
-    priceCol: "total_cents",
-    // "cars", not "rental" — the bridge row predates the archetype rename.
-    bridgeKey: "cars", planTable: "rental_vehicles",
   },
 };
 
@@ -162,19 +154,18 @@ async function loadPlans(table: string): Promise<Map<string, { name: string | nu
 }
 
 /**
- * Read every sale across all four services.
+ * Read every sale across every service.
  *
  * Paged: this feeds counts and totals in the header, and a plain `.select()`
  * is silently truncated at 1000 rows with a 200 — the arithmetic would just
  * quietly be wrong.
  */
 export async function fetchMarketplaceSales(): Promise<SaleRow[]> {
-  const [bridge, mealPlans, packages, beachPlans, vehicles, cleaningClients] = await Promise.all([
+  const [bridge, mealPlans, packages, beachPlans, cleaningClients] = await Promise.all([
     buildProviderBridge(),
     loadPlans("food_meal_plans"),
     loadPlans("cleaning_packages"),
     loadPlans("beach_club_plans"),
-    loadPlans("rental_vehicles"),
     // Company bookings have no user at all — the name lives on the client
     // record, and without it those rows rendered as a bare "—".
     supabaseDb.from("cleaning_clients").select("id,company_name,contact_person")
@@ -182,7 +173,7 @@ export async function fetchMarketplaceSales(): Promise<SaleRow[]> {
         [String(c.id), (c.company_name || c.contact_person || null) as string | null]))),
   ]);
 
-  const [food, cleaning, beach, rental] = await Promise.all([
+  const [food, cleaning, beach] = await Promise.all([
     fetchAllRows<any>(() => supabaseDb
       .from("food_subscriptions")
       .select("id,provider_id,meal_plan_id,user_id,customer_name,status,payment_status,payment_method,payment_reference,started_at,end_date,weekly_price_cents,commitment_weeks,created_at")
@@ -194,10 +185,6 @@ export async function fetchMarketplaceSales(): Promise<SaleRow[]> {
     fetchAllRows<any>(() => supabaseDb
       .from("beach_club_subscriptions")
       .select("id,plan_id,plan_name,user_id,customer_name,status,payment_status,payment_method,payment_reference,start_date,end_date,total_cents,created_at")
-      .order("created_at", { ascending: false }).order("id", { ascending: false })),
-    fetchAllRows<any>(() => supabaseDb
-      .from("rental_bookings")
-      .select("id,vehicle_id,user_id,status,payment_status,payment_method,payment_reference,start_date,end_date,total_cents,created_at,deleted_at")
       .order("created_at", { ascending: false }).order("id", { ascending: false })),
   ]);
 
@@ -256,25 +243,6 @@ export async function fetchMarketplaceSales(): Promise<SaleRow[]> {
     payment_reference: r.payment_reference ?? null,
     source_service_key: "beach", created_at: r.created_at,
   }));
-
-  rental
-    // Soft-deleted rentals are gone as far as every other surface is concerned.
-    .filter((r) => !r.deleted_at)
-    .forEach((r) => rows.push({
-      id: r.id, kind: "booking",
-      provider_id: bridge.resolve("rental", vehicles.get(String(r.vehicle_id))?.provider_id),
-      plan_id: r.vehicle_id ?? null,
-      plan_name: vehicles.get(String(r.vehicle_id))?.name ?? null,
-      user_id: r.user_id ?? null,
-      customer_name: null,
-      start_date: day(r.start_date), end_date: day(r.end_date),
-      status: r.status ?? "unknown",
-      payment_status: r.payment_status ?? "pending",
-      payment_method: r.payment_method ?? null,
-      price_cents: num(r.total_cents),
-      payment_reference: r.payment_reference ?? null,
-      source_service_key: "rental", created_at: r.created_at,
-    }));
 
   // One list, newest first, so the table's default sort is meaningful across
   // services rather than grouped by whichever query returned first.

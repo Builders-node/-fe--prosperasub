@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { ArrowUpRight, Car, CheckCircle2, SparklesIcon, UtensilsCrossed, Waves } from "lucide-react";
+import { ArrowUpRight, CheckCircle2, SparklesIcon, UtensilsCrossed, Waves } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -27,13 +27,12 @@ import { fetchUsersByIds, fetchClientNames, customerNameFrom } from "@/lib/admin
 
 const formatCents = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 
-type ServiceKey = "cleaning" | "food" | "beach" | "cars";
+type ServiceKey = "cleaning" | "food" | "beach";
 
 const SERVICE_META: Record<ServiceKey, { label: string; icon: typeof SparklesIcon; href: string }> = {
   cleaning: { label: "Cleaning",   icon: SparklesIcon,     href: "/admin/analytics?service=cleaning" },
   food:     { label: "Food",       icon: UtensilsCrossed,  href: "/admin/analytics?service=food" },
   beach:    { label: "Beach Club", icon: Waves,            href: "/admin/analytics?service=beach" },
-  cars:     { label: "Car Rental", icon: Car,              href: "/admin/analytics?service=cars" },
 };
 
 interface PendingRow {
@@ -56,15 +55,13 @@ const AdminDashboard = () => {
       // Paged, not plain selects: these rows are reduced into the revenue
       // tiles, and PostgREST silently truncates at 1000 rows — past that the
       // totals would just stop growing. See lib/supabasePaging.ts.
-      const [usersRes, cleaning, beach, rental, food] = await Promise.all([
+      const [usersRes, cleaning, beach, food] = await Promise.all([
         supabaseDb.from("users").select("id", { count: "exact", head: true }).is("deleted_at", null),
         fetchAllRows<any>(() => supabaseDb.from("cleaning_subscriptions")
           .select("payment_status, subscription_status, is_active, total_price_cents, monthly_price_cents")
           .is("deleted_at", null).order("id")),
         fetchAllRows<any>(() => supabaseDb.from("beach_club_subscriptions")
           .select("payment_status, status, total_cents").order("id")),
-        fetchAllRows<any>(() => supabaseDb.from("rental_bookings")
-          .select("payment_status, status, total_cents").is("deleted_at", null).order("id")),
         fetchAllRows<any>(() => supabaseDb.from("food_subscriptions")
           .select("status, payment_status, weekly_price_cents, commitment_weeks, periods_paid").order("id")),
       ]);
@@ -73,7 +70,6 @@ const AdminDashboard = () => {
         cleaning: { active: 0, revenueCents: 0 },
         food:     { active: 0, revenueCents: 0 },
         beach:    { active: 0, revenueCents: 0 },
-        cars:     { active: 0, revenueCents: 0 },
       };
       let pending = 0;
 
@@ -93,7 +89,7 @@ const AdminDashboard = () => {
         if (r.payment_status !== "paid" && !["cancelled", "expired"].includes(r.subscription_status)) pending++;
       });
       // Food revenue must gate on payment_status='paid' — same as cleaning/
-      // beach/cars. Otherwise Infinita/crypto subs that never reconciled inflate
+      // beach. Otherwise Infinita/crypto subs that never reconciled inflate
       // the per-service Revenue tile on this page.
       food.forEach((r: any) => {
         const s = String(r.status ?? "").toLowerCase();
@@ -107,11 +103,6 @@ const AdminDashboard = () => {
       beach.forEach((r: any) => {
         if (isRevenue(r.payment_status, r.status)) byService.beach.revenueCents += r.total_cents || 0;
         if (r.payment_status === "paid" && String(r.status).toLowerCase() === "active") byService.beach.active++;
-        if (r.payment_status !== "paid" && r.status !== "cancelled") pending++;
-      });
-      rental.forEach((r: any) => {
-        if (isRevenue(r.payment_status, r.status)) byService.cars.revenueCents += r.total_cents || 0;
-        if (r.payment_status === "paid" && ["confirmed", "active", "in_progress"].includes(String(r.status).toLowerCase())) byService.cars.active++;
         if (r.payment_status !== "paid" && r.status !== "cancelled") pending++;
       });
 
@@ -129,7 +120,7 @@ const AdminDashboard = () => {
   const { data: pendingQueue = [] } = useQuery<PendingRow[]>({
     queryKey: ["super-admin-pending-queue"],
     queryFn: async () => {
-      const [cleaningSubs, foodSubs, beachSubs, rentalBookings] = await Promise.all([
+      const [cleaningSubs, foodSubs, beachSubs] = await Promise.all([
         supabaseDb.from("cleaning_subscriptions")
           .select("id, user_id, client_id, total_price_cents, monthly_price_cents, created_at, payment_status, subscription_status")
           .is("deleted_at", null).neq("payment_status", "paid").neq("payment_status", "refunded")
@@ -145,18 +136,12 @@ const AdminDashboard = () => {
           .neq("payment_status", "paid").neq("payment_status", "refunded")
           .not("status", "in", "(cancelled,expired)")
           .order("created_at", { ascending: false }).limit(20),
-        supabaseDb.from("rental_bookings")
-          .select("id, user_id, total_cents, created_at, payment_status, status")
-          .is("deleted_at", null).neq("payment_status", "paid").neq("payment_status", "refunded")
-          .not("status", "in", "(cancelled,expired)")
-          .order("created_at", { ascending: false }).limit(20),
       ]);
 
       const userIds = [...new Set([
         ...(cleaningSubs.data ?? []).map((r: any) => r.user_id),
         ...(foodSubs.data ?? []).map((r: any) => r.user_id),
         ...(beachSubs.data ?? []).map((r: any) => r.user_id),
-        ...(rentalBookings.data ?? []).map((r: any) => r.user_id),
       ].filter(Boolean))] as string[];
       // fetchUsersByIds drops ids that `users.id` (a uuid column) can't hold.
       // One Google-sub id in the batch made PostgREST reject the whole query
@@ -194,12 +179,6 @@ const AdminDashboard = () => {
         amountCents: Number(r.total_cents) || 0,
         createdAt: r.created_at,
       }));
-      (rentalBookings.data ?? []).forEach((r: any) => rows.push({
-        id: r.id, service: "cars", serviceLabel: "Car Rental", ServiceIcon: Car,
-        userLabel: label(r.user_id),
-        amountCents: Number(r.total_cents) || 0,
-        createdAt: r.created_at,
-      }));
 
       // Newest-first so a fresh pending sub jumps to the top of the queue
       // — the admin's "just came in" is what they want to see first.
@@ -228,18 +207,16 @@ const AdminDashboard = () => {
   const { data: recentActivity = [] } = useQuery({
     queryKey: ["admin-recent-activity-subscriptions"],
     queryFn: async () => {
-      const [cleaningSubs, foodSubs, beachSubs, rentalBookings] = await Promise.all([
+      const [cleaningSubs, foodSubs, beachSubs] = await Promise.all([
         supabaseDb.from("cleaning_subscriptions").select("id, user_id, client_id, payment_status, total_price_cents, monthly_price_cents, created_at").is("deleted_at", null).order("created_at", { ascending: false }).limit(6),
         supabaseDb.from("food_subscriptions").select("id, user_id, status, customer_name, weekly_price_cents, commitment_weeks, created_at").order("created_at", { ascending: false }).limit(6),
         supabaseDb.from("beach_club_subscriptions").select("id, user_id, status, payment_status, customer_name, total_cents, created_at").order("created_at", { ascending: false }).limit(6),
-        supabaseDb.from("rental_bookings").select("id, user_id, status, payment_status, total_cents, created_at").is("deleted_at", null).order("created_at", { ascending: false }).limit(6),
       ]);
 
       const userIds = [...new Set([
         ...(cleaningSubs.data ?? []).map((r: any) => r.user_id),
         ...(foodSubs.data ?? []).map((r: any) => r.user_id),
         ...(beachSubs.data ?? []).map((r: any) => r.user_id),
-        ...(rentalBookings.data ?? []).map((r: any) => r.user_id),
       ].filter(Boolean))];
       const [usersMap, clientsMap] = await Promise.all([
         fetchUsersByIds(userIds),
@@ -276,12 +253,6 @@ const AdminDashboard = () => {
         label: `${nameOf(s.user_id, s.customer_name)} — Beach Club membership`,
         detail: s.payment_status === "paid" ? formatCents(s.total_cents || 0) : "Awaiting payment",
         date: s.created_at, href: "/admin/beach-club/subscriptions",
-      }));
-      (rentalBookings.data ?? []).forEach((b: any) => out.push({
-        id: `rbook-${b.id}`, service: "cars", tone: b.payment_status === "paid" ? "paid" : "pending",
-        label: `${nameOf(b.user_id)} — Car rental`,
-        detail: b.payment_status === "paid" ? formatCents(b.total_cents || 0) : "Awaiting payment",
-        date: b.created_at, href: "/admin/car-rentals/reservations",
       }));
 
       return out

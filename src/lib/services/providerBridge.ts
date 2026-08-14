@@ -6,12 +6,12 @@
  * ── TWO ID SPACES (this is the #1 source of bugs) ────────────────────────────
  *  • universal  `providers.id`            — used by /my-provider/:id, /admin/marketplace/*
  *  • legacy     `<service>_providers.id`  — used by the real service data
- *                                           (rental_vehicles, food_subscriptions,
+ *                                           (food_subscriptions,
  *                                            cleaning_subscriptions, …)
  *
  * They are DIFFERENT uuids for the same real business, bridged by two columns
  * on the universal row:
- *  • `providers.source_service_key`  → which legacy service ("cars"|"food"|"cleaning")
+ *  • `providers.source_service_key`  → which legacy service ("food"|"cleaning")
  *  • `providers.source_provider_id`  → the legacy `<service>_providers.id`
  *
  * Rule of thumb: anything that touches legacy service data must use the LEGACY
@@ -21,7 +21,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabaseDb } from "@/integrations/supabase/client";
 
-export type LegacySourceKey = "cars" | "food" | "cleaning";
+export type LegacySourceKey = "food" | "cleaning";
 
 export interface LegacyServiceMeta {
   sourceKey: LegacySourceKey;
@@ -46,10 +46,6 @@ export interface LegacyServiceMeta {
 
 /** One declarative entry per legacy-backed service. Add a service here + its tab set in legacyPortalTabs.tsx. */
 export const LEGACY_SERVICES: Record<LegacySourceKey, LegacyServiceMeta> = {
-  cars: {
-    sourceKey: "cars", legacyTable: "rental_providers", universalCategoryKey: "vehicle_rental",
-    publicRoute: "/services/rental", legacyPortalRoute: (id) => `/my-car-rental?providerId=${id}`,
-  },
   food: {
     sourceKey: "food", legacyTable: "food_providers", universalCategoryKey: "meal_subscription",
     publicRoute: "/services/food", legacyPortalRoute: (id) => `/my-restaurant?providerId=${id}`,
@@ -75,7 +71,6 @@ export const LEGACY_PORTAL_SOURCE_KEYS = new Set<string>([
  * portal entry above but still uses a short public path.
  */
 const PUBLIC_LISTING_HREF: Record<string, string> = {
-  cars: "/services/rental",
   food: "/services/food",
   cleaning: "/services/cleaning",
   beach: "/services/beach-club",
@@ -113,7 +108,6 @@ export function publicListingHref(
 // every provider now gets the shared UnifiedBookingCalendar regardless of
 // capability. Only real business-type caps stay here.
 export const DEFAULT_CAPABILITIES: Record<LegacySourceKey, string[]> = {
-  cars: ["catalog_items"],
   food: ["subscription_plans", "catalog_items", "delivery"],
   cleaning: ["subscription_plans"],
 };

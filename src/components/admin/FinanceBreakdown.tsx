@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, format } from "date-fns";
 import type { DateRange } from "react-day-picker";
-import { Sparkles, Car, UtensilsCrossed, Waves, TrendingUp, CalendarRange, Calendar as CalendarIcon, Download, FileSpreadsheet } from "lucide-react";
+import { Sparkles, UtensilsCrossed, Waves, TrendingUp, CalendarRange, Calendar as CalendarIcon, Download, FileSpreadsheet } from "lucide-react";
 import { fetchAllRows } from "@/lib/supabasePaging";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -31,7 +31,6 @@ type MethodKey = (typeof METHODS)[number]["key"];
 const CATEGORIES = [
   { key: "cleaning", label: "Cleaning", icon: Sparkles, color: "text-muted-foreground" },
   { key: "food", label: "Food", icon: UtensilsCrossed, color: "text-muted-foreground" },
-  { key: "cars", label: "Car Rental", icon: Car, color: "text-muted-foreground" },
   { key: "beach", label: "Beach Club", icon: Waves, color: "text-muted-foreground" },
 ] as const;
 type CategoryKey = (typeof CATEGORIES)[number]["key"];
@@ -57,7 +56,6 @@ function rangeFor(key: RangeKey, customStart: string, customEnd: string) {
 const emptyMatrix = (): Record<CategoryKey, Record<MethodKey, number>> => ({
   cleaning: { lightning: 0, onchain: 0, lives: 0, paypal: 0, other: 0 },
   food: { lightning: 0, onchain: 0, lives: 0, paypal: 0, other: 0 },
-  cars: { lightning: 0, onchain: 0, lives: 0, paypal: 0, other: 0 },
   beach: { lightning: 0, onchain: 0, lives: 0, paypal: 0, other: 0 },
 });
 
@@ -85,7 +83,7 @@ export function FinanceBreakdown() {
     // the portion that falls inside [start, end].
     queryKey: ["admin-finance-breakdown", startISO, endISO],
     queryFn: async () => {
-      const [cleaning, beach, rental, food] = await Promise.all([
+      const [cleaning, beach, food] = await Promise.all([
         pageAll(() => supabaseDb
           .from("cleaning_subscriptions")
           .select("total_price_cents, monthly_price_cents, payment_method, created_at, service_start_date, service_end_date, start_date, end_date")
@@ -96,13 +94,8 @@ export function FinanceBreakdown() {
           .select("total_cents, payment_method, created_at, start_date, end_date")
           .eq("payment_status", "paid").order("id")),
         pageAll(() => supabaseDb
-          .from("rental_bookings")
-          .select("total_cents, payment_method, created_at, start_date, end_date")
-          .eq("payment_status", "paid")
-          .is("deleted_at", null).order("id")),
-        pageAll(() => supabaseDb
           .from("food_subscriptions")
-          // Match the payment_status='paid' gate used for cleaning/beach/cars —
+          // Match the payment_status='paid' gate used for cleaning/beach —
           // unpaid food subs should never land in a revenue matrix.
           .select("weekly_price_cents, commitment_weeks, status, payment_method, periods_paid, created_at, started_at")
           .in("status", ["active", "paused", "expired"])
@@ -137,14 +130,6 @@ export function FinanceBreakdown() {
           fallbackDays: 30,
         }, start, end));
       });
-      (rental.data ?? []).forEach((r: any) => {
-        add("cars", r.payment_method, recognizedCents({
-          totalCents: r.total_cents || 0,
-          serviceStart: r.start_date || r.created_at,
-          serviceEnd: r.end_date,
-          fallbackDays: 1,
-        }, start, end));
-      });
       (food.data ?? []).forEach((r: any) => {
         // Food is weekly: total = weekly × commitment_weeks × periods_paid, spread
         // across that many weeks from the start.
@@ -173,7 +158,7 @@ export function FinanceBreakdown() {
   const exportDetailedCsv = async () => {
     setDetailedLoading(true);
     try {
-      const [cleaning, food, cars, beach] = await Promise.all([
+      const [cleaning, food, beach] = await Promise.all([
         pageAll(() => supabaseDb
           .from("cleaning_subscriptions")
           .select("id, user_id, client_id, package_id, total_price_cents, monthly_price_cents, payment_method, payment_reference, payment_status, subscription_status, created_at, service_start_date, service_end_date, apartment_note")
@@ -186,11 +171,6 @@ export function FinanceBreakdown() {
           .eq("payment_status", "paid")
           .gte("created_at", startISO).lte("created_at", endISO).order("id")),
         pageAll(() => supabaseDb
-          .from("rental_bookings")
-          .select("id, user_id, vehicle_id, total_cents, payment_method, payment_reference, payment_status, status, created_at, start_date, end_date")
-          .eq("payment_status", "paid").is("deleted_at", null)
-          .gte("created_at", startISO).lte("created_at", endISO).order("id")),
-        pageAll(() => supabaseDb
           .from("beach_club_subscriptions")
           .select("id, user_id, customer_name, customer_email, plan_name, people, total_cents, payment_method, payment_reference, payment_status, status, created_at, start_date, end_date")
           .eq("payment_status", "paid")
@@ -201,22 +181,19 @@ export function FinanceBreakdown() {
       const userIds = [...new Set([
         ...(cleaning.data ?? []).map((r: any) => r.user_id),
         ...(food.data ?? []).map((r: any) => r.user_id),
-        ...(cars.data ?? []).map((r: any) => r.user_id),
         ...(beach.data ?? []).map((r: any) => r.user_id),
       ].filter(Boolean))];
       const clientIds = [...new Set((cleaning.data ?? []).map((r: any) => r.client_id).filter(Boolean))];
       const pkgIds    = [...new Set((cleaning.data ?? []).map((r: any) => r.package_id).filter(Boolean))];
       const mealIds   = [...new Set((food.data ?? []).map((r: any) => r.meal_plan_id).filter(Boolean))];
       const provIds   = [...new Set((food.data ?? []).map((r: any) => r.provider_id).filter(Boolean))];
-      const vehIds    = [...new Set((cars.data ?? []).map((r: any) => r.vehicle_id).filter(Boolean))];
 
-      const [users, clients, pkgs, meals, provs, vehs] = await Promise.all([
+      const [users, clients, pkgs, meals, provs] = await Promise.all([
         fetchUsersByIds(userIds).then((m) => ({ data: [...m.values()] })),
         clientIds.length ? supabaseDb.from("cleaning_clients").select("id,company_name,email").in("id", clientIds) : Promise.resolve({ data: [] as any[] }),
         pkgIds.length    ? supabaseDb.from("cleaning_packages").select("id,name").in("id", pkgIds) : Promise.resolve({ data: [] as any[] }),
         mealIds.length   ? supabaseDb.from("food_meal_plans").select("id,name").in("id", mealIds) : Promise.resolve({ data: [] as any[] }),
         provIds.length   ? supabaseDb.from("food_providers").select("id,name").in("id", provIds) : Promise.resolve({ data: [] as any[] }),
-        vehIds.length    ? supabaseDb.from("rental_vehicles").select("id,name").in("id", vehIds) : Promise.resolve({ data: [] as any[] }),
       ]);
 
       const userMap   = new Map((users.data ?? []).map((u: any) => [u.id, u]));
@@ -224,7 +201,6 @@ export function FinanceBreakdown() {
       const pkgMap    = new Map((pkgs.data ?? []).map((p: any) => [p.id, p.name]));
       const mealMap   = new Map((meals.data ?? []).map((p: any) => [p.id, p.name]));
       const provMap   = new Map((provs.data ?? []).map((p: any) => [p.id, p.name]));
-      const vehMap    = new Map((vehs.data ?? []).map((v: any) => [v.id, v.name]));
 
       type Row = {
         service: string; user: string; email: string; plan: string;
@@ -271,21 +247,6 @@ export function FinanceBreakdown() {
           amountUsd: (cents / 100).toFixed(2),
           reference: r.payment_reference || "",
           periodStart: iso(r.started_at),
-          periodEnd: iso(r.end_date),
-          createdAt: iso(r.created_at),
-          status: r.status || "",
-        });
-      });
-      (cars.data ?? []).forEach((r: any) => {
-        const who = nameOf(r.user_id);
-        rows.push({
-          service: "Car Rental",
-          user: who.name, email: who.email,
-          plan: vehMap.get(r.vehicle_id) || "Vehicle rental",
-          method: String(r.payment_method || ""),
-          amountUsd: ((r.total_cents || 0) / 100).toFixed(2),
-          reference: r.payment_reference || "",
-          periodStart: iso(r.start_date),
           periodEnd: iso(r.end_date),
           createdAt: iso(r.created_at),
           status: r.status || "",

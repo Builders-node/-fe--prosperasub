@@ -34,7 +34,7 @@ import { SearchX } from "lucide-react";
  *
  * Cleaning, the beach club and every universal plan used to go from a card in
  * the listing straight into checkout: the first screen after "this looks
- * interesting" asked for a payment method. Food and rental always had a page
+ * interesting" asked for a payment method. Food always had a page
  * in between — what you get, what it costs, what the options are — and this is
  * that page for the other three.
  *
@@ -373,7 +373,6 @@ const PlanDetail = () => {
     plan.source === "beach" ? "beach" :
     plan.source === "food" ? "food" :
     archetypeKey === "cleaning" ? "cleaning" :
-    archetypeKey === "rental" ? "rental" :
     archetypeKey === "food" ? "food" :
     archetypeKey === "beach-club" || archetypeKey === "entertainment" ? "beach" : null;
   const cover = gallery[0];

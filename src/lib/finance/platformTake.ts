@@ -14,7 +14,7 @@
  */
 
 export type TakeType = "percent" | "fixed" | "person";
-export type FinanceSourceKey = "cleaning" | "beach" | "cars" | "food";
+export type FinanceSourceKey = "cleaning" | "beach" | "food";
 
 export interface FinanceSource {
   key: FinanceSourceKey;
@@ -33,16 +33,15 @@ export interface FinanceSource {
 export const FINANCE_SOURCES: FinanceSource[] = [
   { key: "cleaning", label: "Cleaning",    unit: "subscription", kind: "cost", valueKey: "finance_cleaning_cost_cents", typeKey: "finance_cleaning_type" },
   { key: "beach",    label: "Beach Club",  unit: "person",       kind: "take", valueKey: "finance_beach_extra_cents",   typeKey: "finance_beach_type" },
-  { key: "cars",     label: "Car Rentals", unit: "booking",      kind: "take", valueKey: "finance_car_commission_pct",  typeKey: "finance_car_type" },
   { key: "food",     label: "Food Orders", unit: "order",        kind: "take", valueKey: "finance_food_commission_pct", typeKey: "finance_food_type" },
 ];
 
 export const DEFAULT_TAKE_TYPE: Record<FinanceSourceKey, TakeType> = {
-  cleaning: "fixed", beach: "person", cars: "percent", food: "percent",
+  cleaning: "fixed", beach: "person", food: "percent",
 };
 
 export const DEFAULT_TAKE_RAW: Record<FinanceSourceKey, number> = {
-  cleaning: 75000, beach: 1000, cars: 10, food: 10,
+  cleaning: 75000, beach: 1000, food: 10,
 };
 
 export interface TakeConfig { type: TakeType; raw: number }
@@ -70,7 +69,6 @@ export function financeSourceFor(sourceKey: string | null | undefined): FinanceS
   const k = String(sourceKey ?? "").toLowerCase();
   if (k === "cleaning") return "cleaning";
   if (k === "food") return "food";
-  if (k === "cars" || k === "rental") return "cars";
   if (k === "beach" || k === "beach_club" || k === "entertainment") return "beach";
   return null;
 }

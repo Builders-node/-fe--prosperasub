@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
-  SparklesIcon, UtensilsCrossed, Car, Waves, LandPlot, Receipt, RefreshCw,
+  SparklesIcon, UtensilsCrossed, Waves, LandPlot, Receipt, RefreshCw,
 } from "lucide-react";
 import { format } from "date-fns";
 import { UserLayout } from "@/components/layout/UserLayout";
@@ -19,7 +19,7 @@ import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 
 // ─── Unified entry shape ────────────────────────────────────────────────────
-type ServiceKey = "cleaning" | "food" | "entertainment" | "rental" | "court";
+type ServiceKey = "cleaning" | "food" | "entertainment" | "court";
 type EntryKind = "purchase" | "renewal";
 
 interface HistoryEntry {
@@ -28,7 +28,7 @@ interface HistoryEntry {
   kind: EntryKind;
   service: ServiceKey;
   serviceLabel: string;
-  subtitle: string;        // plan / vehicle / court name / period-extension summary
+  subtitle: string;        // plan / court name / period-extension summary
   amountCents: number | null;
   paymentMethod: string | null;
   paymentStatus: string | null;
@@ -41,7 +41,6 @@ const SERVICE_META: Record<ServiceKey, {
   cleaning:      { label: "Cleaning",      icon: SparklesIcon },
   food:          { label: "Food",          icon: UtensilsCrossed },
   entertainment: { label: "Entertainment", icon: Waves },
-  rental:        { label: "Rental",        icon: Car },
   court:         { label: "Court booking", icon: LandPlot },
 };
 
@@ -63,7 +62,7 @@ function useUserHistory() {
       const ids = [userUuid, userData?.id].filter(Boolean) as string[];
       if (ids.length === 0) return [];
 
-      const [cleaning, food, beach, rental, courts, renewals] = await Promise.all([
+      const [cleaning, food, beach, courts, renewals] = await Promise.all([
         supabaseDb.from("cleaning_subscriptions")
           .select("id,created_at,package_id,total_price_cents,monthly_price_cents,payment_method,payment_status")
           .in("user_id", ids).order("created_at", { ascending: false }),
@@ -73,9 +72,6 @@ function useUserHistory() {
         supabaseDb.from("beach_club_subscriptions")
           .select("id,created_at,plan_id,total_cents,payment_method,payment_status")
           .in("user_id", ids).order("created_at", { ascending: false }),
-        supabaseDb.from("rental_bookings")
-          .select("id,created_at,vehicle_id,total_cents,payment_method,payment_status")
-          .in("user_id", ids).is("deleted_at", null).order("created_at", { ascending: false }),
         supabaseDb.from("beach_club_court_bookings")
           .select("id,created_at,court_id")
           .in("user_id", ids).order("created_at", { ascending: false }),
@@ -88,7 +84,7 @@ function useUserHistory() {
 
       // Resolve item names — one round-trip per legacy item table for whatever
       // ids actually showed up. Empty ids skip the query.
-      const [pkgs, meals, plans, vehicles, courtRows] = await Promise.all([
+      const [pkgs, meals, plans, courtRows] = await Promise.all([
         idsFrom(cleaning.data, "package_id").length
           ? supabaseDb.from("cleaning_packages").select("id,name").in("id", idsFrom(cleaning.data, "package_id"))
           : Promise.resolve({ data: [] as any[] }),
@@ -97,9 +93,6 @@ function useUserHistory() {
           : Promise.resolve({ data: [] as any[] }),
         idsFrom(beach.data, "plan_id").length
           ? supabaseDb.from("beach_club_plans").select("id,name").in("id", idsFrom(beach.data, "plan_id"))
-          : Promise.resolve({ data: [] as any[] }),
-        idsFrom(rental.data, "vehicle_id").length
-          ? supabaseDb.from("rental_vehicles").select("id,name").in("id", idsFrom(rental.data, "vehicle_id"))
           : Promise.resolve({ data: [] as any[] }),
         idsFrom(courts.data, "court_id").length
           ? supabaseDb.from("beach_club_courts").select("id,name").in("id", idsFrom(courts.data, "court_id"))
@@ -116,7 +109,6 @@ function useUserHistory() {
         if (svc === "beach") return "entertainment";
         if (svc === "food") return "food";
         if (svc === "cleaning") return "cleaning";
-        if (svc === "rental") return "rental";
         return "court";
       };
 
@@ -150,17 +142,6 @@ function useUserHistory() {
           service: "entertainment",
           serviceLabel: SERVICE_META.entertainment.label,
           subtitle: nameOf(plans.data, r.plan_id, "Beach Club plan"),
-          amountCents: r.total_cents ?? null,
-          paymentMethod: r.payment_method,
-          paymentStatus: r.payment_status,
-        })),
-        ...(rental.data ?? []).map((r: any): HistoryEntry => ({
-          id: `rental:${r.id}`,
-          createdAt: r.created_at,
-          kind: "purchase",
-          service: "rental",
-          serviceLabel: SERVICE_META.rental.label,
-          subtitle: nameOf(vehicles.data, r.vehicle_id, "Vehicle"),
           amountCents: r.total_cents ?? null,
           paymentMethod: r.payment_method,
           paymentStatus: r.payment_status,

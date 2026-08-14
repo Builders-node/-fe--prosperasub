@@ -23,7 +23,7 @@ import { cn } from "@/lib/utils";
  * read `provider_reviews`, so a customer who rated their restaurant saw their
  * stars vanish. One table now, reached from every entry point.
  */
-type Service = "cleaning" | "rental" | "beach" | "food" | "food_provider" | "cleaning_booking";
+type Service = "cleaning" | "beach" | "food" | "food_provider" | "cleaning_booking";
 
 interface Props {
   service: Service;
@@ -48,7 +48,7 @@ interface Props {
  * The universal `providers.id` behind whatever id the caller happens to hold.
  *
  * Three shapes, because the entry points genuinely differ:
- *   - a plan/vehicle row that already carries `owner_provider_id`
+ *   - a plan row that already carries `owner_provider_id`
  *   - a food meal plan, which only knows its LEGACY food_providers id and has
  *     to cross the id-space bridge
  *   - a cleaning BOOKING, which is three hops from its provider
@@ -86,7 +86,6 @@ async function resolveProviderId(service: Service, itemId: string): Promise<stri
 
   const table =
     service === "cleaning" ? "cleaning_packages" :
-    service === "rental"   ? "rental_vehicles"   :
                              "beach_club_plans";
   const { data: link } = await supabaseDb
     .from(table).select("owner_provider_id").eq("id", itemId).maybeSingle();
@@ -194,7 +193,6 @@ export function RateProviderButton({ service, itemId, subscriptionId, customerNa
   const idlePrompt = myReview
     ? "Your rating · tap to edit"
     : service === "cleaning" ? "How was your cleaning?"
-      : service === "rental" ? "How was the rental?"
         : "How was your visit?";
 
   return (
@@ -254,7 +252,6 @@ export function RateProviderButton({ service, itemId, subscriptionId, customerNa
               maxLength={500}
               placeholder={
                 service === "cleaning" ? "How was the cleaning? Reliability, thoroughness…"
-                  : service === "rental" ? "How was the vehicle and pickup process?"
                     : "How was your membership experience?"
               }
             />

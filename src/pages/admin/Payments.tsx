@@ -119,14 +119,12 @@ const AdminPayments = () => {
     queryFn: async () => {
       // Paged — these reduce to the all-time revenue figure, and a plain select
       // stops at PostgREST's 1000-row cap without erroring.
-      const [cleaning, beach, rental, food] = await Promise.all([
+      const [cleaning, beach, food] = await Promise.all([
         fetchAllRows<any>(() => supabaseDb.from("cleaning_subscriptions")
           .select("payment_status, subscription_status, total_price_cents, monthly_price_cents")
           .is("deleted_at", null).order("id")),
         fetchAllRows<any>(() => supabaseDb.from("beach_club_subscriptions")
           .select("payment_status, status, total_cents").order("id")),
-        fetchAllRows<any>(() => supabaseDb.from("rental_bookings")
-          .select("payment_status, status, total_cents").is("deleted_at", null).order("id")),
         fetchAllRows<any>(() => supabaseDb.from("food_subscriptions")
           .select("status, payment_status, weekly_price_cents, commitment_weeks, periods_paid").order("id")),
       ]);
@@ -136,10 +134,6 @@ const AdminPayments = () => {
         else if (!["cancelled", "expired"].includes(r.subscription_status)) pending++;
       });
       beach.forEach((r: any) => {
-        if (r.payment_status === "paid") { paid++; revenueCents += r.total_cents || 0; }
-        else if (r.status !== "cancelled") pending++;
-      });
-      rental.forEach((r: any) => {
         if (r.payment_status === "paid") { paid++; revenueCents += r.total_cents || 0; }
         else if (r.status !== "cancelled") pending++;
       });
@@ -442,7 +436,7 @@ const AdminPayments = () => {
               Payment methods
             </CardTitle>
             <CardDescription>
-              Turn a method on or off. When off, it's hidden from all checkouts (cleaning, food, cars).
+              Turn a method on or off. When off, it's hidden from all checkouts (cleaning, food, beach).
             </CardDescription>
           </CardHeader>
           <CardContent className="divide-y divide-border/60 p-0">
