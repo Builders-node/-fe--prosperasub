@@ -479,7 +479,7 @@ const UniversalPlanCheckout = () => {
       backTo={renewing ? "/my-subscriptions" : listingHref}
       showBottomNav={false}
     >
-      <div className="mx-auto max-w-xl space-y-1 pb-40 pt-1 md:px-4 md:py-8">
+      <div className="mx-auto max-w-xl space-y-1 pt-1 pb-[calc(var(--checkout-footer-h,180px)+16px)] md:px-4 md:py-8">
         {renewing && (
           <p className="px-1 pb-1 text-sm text-muted-foreground">
             Extends the same subscription — nothing new is created, and the new
