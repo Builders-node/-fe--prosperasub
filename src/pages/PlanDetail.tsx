@@ -80,14 +80,26 @@ const PlanDetail = () => {
     queryFn: async (): Promise<ResolvedPlan | null> => {
       // A cleaning package id is text, so it must never be handed to a uuid
       // column — PostgREST answers that with a 400, not an empty result.
+      // Which row this page should speak for.
+      //
+      // A legacy plan exists twice: in its own table, and mirrored into
+      // `provider_plans` so cross-service queries can see it. The mirror is
+      // thinner — the beach membership's six amenities and its per-person price
+      // live only on the original — so which id a link happened to carry
+      // decided which of two different pages the customer got for the same
+      // product. A mirror now hands over to what it mirrors.
+      let subjectId = planId;
+
       if (isUuid(planId)) {
         const { data: universal, error } = await supabaseDb
           .from("provider_plans")
-          .select("id, provider_id, name, description, price_cents, period, features, gallery_urls")
+          .select("id, provider_id, name, description, price_cents, period, features, gallery_urls, source_service_key, source_plan_id")
           .eq("id", planId)
           .maybeSingle();
         if (error) throw error;
-        if (universal) {
+        if (universal?.source_service_key && universal.source_plan_id) {
+          subjectId = String(universal.source_plan_id);
+        } else if (universal) {
           return {
             source: "universal",
             id: String(universal.id),
@@ -105,7 +117,7 @@ const PlanDetail = () => {
         const { data: food, error: foodError } = await supabaseDb
           .from("food_meal_plans")
           .select("id, name, description, weekly_price_cents, meals_per_day, provider_id, highlights")
-          .eq("id", planId)
+          .eq("id", subjectId)
           .maybeSingle();
         if (foodError) throw foodError;
         if (food) {
@@ -137,7 +149,7 @@ const PlanDetail = () => {
         const { data: beach, error: beachError } = await supabaseDb
           .from("beach_club_plans")
           .select("id, name, tagline, price_per_person_cents, amenities, owner_provider_id")
-          .eq("id", planId)
+          .eq("id", subjectId)
           .maybeSingle();
         if (beachError) throw beachError;
         if (beach) {
@@ -158,7 +170,7 @@ const PlanDetail = () => {
       const { data: cleaning, error: cleaningError } = await supabaseDb
         .from("cleaning_packages")
         .select("id, name, description, short_description, features, monthly_price_cents, price_per_cleaning_cents, cleanings_per_month, frequency_unit, frequency_count, custom_frequency_label, owner_provider_id")
-        .eq("id", planId)
+        .eq("id", subjectId)
         .maybeSingle();
       if (cleaningError) throw cleaningError;
       if (cleaning) {
