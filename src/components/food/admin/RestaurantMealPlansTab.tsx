@@ -139,6 +139,8 @@ export function RestaurantMealPlansTab({ providerId }: Props) {
     unit: "meal",
     features: form.highlights,
     status: form.status,
+    // This table has no visibility column; the mirror publishes it.
+    visibility: "public",
     sortOrder: form.sort_order,
   };
 
@@ -346,6 +348,7 @@ export function RestaurantMealPlansTab({ providerId }: Props) {
               the same order in both. Everything food-specific goes through
               `extras`, in one predictable place. */}
           <PlanForm
+            hideVisibility
             values={planFormValues}
             onChange={applyPlanFormPatch}
             priceLabel="Price / week"

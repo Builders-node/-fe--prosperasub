@@ -119,6 +119,8 @@ function useUniversalPlans(providerId: string | undefined, enabled: boolean) {
         .select("id, name, description, price_cents, currency, period, features, included_quantity, included_unit, source_plan_id")
         .eq("provider_id", providerId!)
         .eq("status", "active")
+        // Private plans sell by link, not from the provider's public page.
+        .eq("visibility", "public")
         // Offers only. A variant is reached by picking options on its offer.
         .is("parent_plan_id", null)
         .order("sort_order", { ascending: true });

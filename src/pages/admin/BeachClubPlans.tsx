@@ -201,6 +201,7 @@ export default function BeachClubPlans({ embedded = false }: { embedded?: boolea
             <DialogTitle>{editing ? "Edit Plan" : "New Plan"}</DialogTitle>
           </DialogHeader>
           <PlanForm
+            hideVisibility
             values={{
               name: form.name,
               description: form.tagline,
@@ -212,6 +213,8 @@ export default function BeachClubPlans({ embedded = false }: { embedded?: boolea
               unit: "",
               features: form.amenities.split("\n"),
               status: form.is_active ? "active" : "inactive",
+              // This table has no visibility column; the mirror publishes it.
+              visibility: "public",
               sortOrder: form.sort_order,
             }}
             onChange={(patch) => setForm((f) => ({

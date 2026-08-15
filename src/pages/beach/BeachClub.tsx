@@ -145,6 +145,7 @@ const BeachClub = () => {
         .eq("providers.archetype_key", "entertainment")
         .is("providers.source_service_key", null)
         .eq("status", "active")
+        .eq("visibility", "public")
         .is("parent_plan_id", null)
         .order("sort_order", { ascending: true });
       if (error) throw error;

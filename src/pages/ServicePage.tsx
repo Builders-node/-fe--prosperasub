@@ -106,6 +106,8 @@ const ServicePage = () => {
         .select("id, provider_id, name, description, price_cents, currency, period, features, included_quantity, included_unit, providers!inner(name, archetype_key, category_key)")
         .eq("providers.archetype_key", archetypeKey!)
         .eq("status", "active")
+        // Private plans sell by link, not from the listing.
+        .eq("visibility", "public")
         // Variants are reached by picking options on their offer, never listed
         // beside it — see hooks/usePlanOffers.
         .is("parent_plan_id", null)

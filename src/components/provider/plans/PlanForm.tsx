@@ -37,6 +37,13 @@ export interface PlanFormValues {
   /** Bullet list shown on the public card. */
   features: string[];
   status: string;
+  /**
+   * `public` — on the storefront. `private` — unlisted: it stays out of every
+   * listing and search result, and a direct link still opens and still sells.
+   * That is what makes it useful: a price quoted to one client, sent as a link,
+   * without putting it in front of everyone.
+   */
+  visibility: "public" | "private";
   sortOrder: number;
 }
 
@@ -55,6 +62,12 @@ export interface PlanFormProps {
    * one that might sell massages, classes or washes — needs to type it.
    */
   fixedUnit?: string;
+  /**
+   * Services whose plans live in a legacy table with no `visibility` column —
+   * food and the beach club — hide the control rather than offer a switch that
+   * cannot be saved.
+   */
+  hideVisibility?: boolean;
   /** Some services are billed on one cycle only; passing one period hides the selector. */
   periods?: readonly PlanPeriod[];
   /** Hide the counter entirely for services that don't meter anything (beach memberships). */
@@ -101,6 +114,7 @@ export function PlanForm({
   featuresLabel = "What's included",
   featuresPlaceholder = "One per line",
   statuses = DEFAULT_STATUSES,
+  hideVisibility = false,
   extras,
   footer,
 }: PlanFormProps) {
@@ -217,7 +231,20 @@ export function PlanForm({
 
       {footer}
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className={hideVisibility ? "grid grid-cols-2 gap-3" : "grid grid-cols-3 gap-3"}>
+        {!hideVisibility && (
+        <div>
+          <Label>Visibility</Label>
+          <select
+            className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            value={values.visibility}
+            onChange={(e) => onChange({ visibility: e.target.value as "public" | "private" })}
+          >
+            <option value="public">Public — listed</option>
+            <option value="private">Private — link only</option>
+          </select>
+        </div>
+        )}
         <div>
           <Label>Status</Label>
           <select
@@ -251,5 +278,5 @@ export function cleanFeatures(features: string[]): string[] {
 export const EMPTY_PLAN: PlanFormValues = {
   name: "", description: "", priceCents: 0,
   quantity: null, period: "monthly", unit: "",
-  features: [], status: "active", sortOrder: 0,
+  features: [], status: "active", visibility: "public", sortOrder: 0,
 };

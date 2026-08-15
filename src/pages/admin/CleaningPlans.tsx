@@ -779,6 +779,9 @@ function PlanFormSheet({
     unit: "cleaning",
     features: featuresText.split("\n"),
     status: form.status ?? "active",
+    // The column cleaning has had all along, now edited through the shared
+    // control instead of a switch of its own.
+    visibility: form.visibility === "private" ? "private" : "public",
     sortOrder: Number(form.sort_order) || 0,
   };
 
@@ -790,6 +793,7 @@ function PlanFormSheet({
       ...(patch.description !== undefined && { description: patch.description }),
       ...(patch.priceCents !== undefined && { monthly_price_cents: patch.priceCents }),
       ...(patch.status !== undefined && { status: patch.status }),
+      ...(patch.visibility !== undefined && { visibility: patch.visibility }),
       ...(patch.sortOrder !== undefined && { sort_order: patch.sortOrder }),
     }));
     // quantity / period / unit are not editable here — the schedule is set by
@@ -931,16 +935,6 @@ function PlanFormSheet({
                   <p className="mt-1 text-xs text-muted-foreground">Each line becomes an ✗ item in the collapsible "Not included" section.</p>
                 </div>
 
-                <div>
-                  <Label>Visibility</Label>
-                  <Select value={form.visibility} onValueChange={(v) => set("visibility", v)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="public">Public — listed on the storefront</SelectItem>
-                      <SelectItem value="private">Private — direct link only</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
               </>
             }
           />

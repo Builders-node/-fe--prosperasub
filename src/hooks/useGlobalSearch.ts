@@ -65,7 +65,8 @@ export function useGlobalSearch(query: string) {
         // offer should open.
         supabaseDb.from("provider_plans")
           .select("id, provider_id, name, description, price_cents, period, parent_plan_id, source_service_key, source_plan_id")
-          .eq("status", "active"),
+          // Private plans are unlisted, which includes being unsearchable.
+          .eq("status", "active").eq("visibility", "public"),
         supabaseDb.from("cleaning_packages")
           .select("id, name, description, owner_provider_id, monthly_price_cents, price_per_cleaning_cents, cleanings_per_month")
           .eq("status", "active").is("deleted_at", null).eq("visibility", "public"),

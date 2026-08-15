@@ -81,7 +81,10 @@ export function useCategoryHighlights() {
         supabaseDb.from("beach_club_plans")
           .select("owner_provider_id, price_per_person_cents").eq("is_active", true),
         supabaseDb.from("provider_plans")
-          .select("provider_id, price_cents, period").eq("status", "active"),
+          // Unlisted plans do not set a category's "from" price — quoting a
+          // number nobody can find is worse than quoting none.
+          .select("provider_id, price_cents, period")
+          .eq("status", "active").eq("visibility", "public"),
 
         // ── Photos ──
         // The banner is photo-first, so every category needs one real picture.

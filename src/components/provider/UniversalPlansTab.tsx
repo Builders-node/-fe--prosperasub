@@ -38,6 +38,8 @@ interface Plan {
   included_quantity: number | null;
   /** Singular noun for what is counted — "massage", "wash", "class". */
   included_unit: string | null;
+  /** `private` keeps it off every listing; the direct link still sells it. */
+  visibility?: string | null;
   features: unknown;
 }
 
@@ -79,6 +81,7 @@ export function UniversalPlansTab({ providerId }: { providerId: string }) {
         ? (p.features as unknown[]).filter((f): f is string => typeof f === "string")
         : [],
       status: p.status,
+      visibility: p.visibility === "private" ? "private" : "public",
       sortOrder: p.sort_order,
     });
   };
@@ -95,6 +98,7 @@ export function UniversalPlansTab({ providerId }: { providerId: string }) {
         period: form.period,
         features,
         status: form.status,
+        visibility: form.visibility,
         sort_order: form.sortOrder,
         // A blank box means "unmetered", not zero — the DB rejects <= 0.
         included_quantity: form.quantity && form.quantity > 0 ? form.quantity : null,
