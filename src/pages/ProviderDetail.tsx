@@ -7,9 +7,11 @@ import { archetypeFromSlug, planHref, serviceMetaFromSlug, serviceSlug } from "@
 import { Button } from "@/components/ui/button";
 import {
   SparklesIcon, Waves, Car,
-  MapPin, Phone, Mail, Clock, Star, ChevronRight,
+  MapPin, Phone, Mail, Clock, Star, ChevronRight, ChevronLeft, Bell,
 } from "lucide-react";
 import { supabase, supabaseDb } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useAuthModal } from "@/contexts/AuthModalContext";
 import { HomeHeader } from "@/components/HomeHeader";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
 import { BottomNav } from "@/components/BottomNav";
@@ -184,6 +186,9 @@ type TabKey = (typeof TABS)[number]["key"];
 const ProviderDetail = () => {
   const navigate = useNavigate();
   const [tab, setTab] = useState<TabKey>("plans");
+  // The bell on the banner goes where the app's bell always goes.
+  const { isAuthenticated } = useAuth();
+  const { openAuthModal } = useAuthModal();
   const { archetypeKey: serviceSegment, providerId } = useParams<{ archetypeKey: string; providerId: string }>();
   // `beach-club` and `entertainment` are the same service. Resolve to the
   // canonical key once, here.
@@ -370,18 +375,56 @@ const ProviderDetail = () => {
 
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-0">
-      <HomeHeader title={p.name} showBackButton onBack={goBack} />
       <DesktopHeader />
 
-      {/* The banner is the page's first 280px, edge to edge. */}
-      <div className="relative h-[280px] w-full overflow-hidden bg-inset">
+      {/*
+        The banner IS the header.
+        280px of photograph with its bottom corners rounded to 24, a scrim that
+        fades from half-black at the top to nothing, and the chrome floating on
+        it: back on the left, the bell on the right, the service named in the
+        middle in white. The opaque bar this replaces sat above the picture and
+        repeated the provider's name, which the card underneath already says in
+        24px — so the page opened with the same words twice and 56px less
+        photograph.
+      */}
+      <div className="relative h-[280px] w-full overflow-hidden rounded-b-radius-lg bg-inset">
         {p.banner_url ? (
-          <img src={p.banner_url} alt="" className="h-full w-full object-cover" />
+          <img src={p.banner_url} alt="" className="absolute inset-0 h-full w-full object-cover" />
         ) : (
           <div className="flex h-full items-center justify-center">
             <Icon className="h-20 w-20 text-muted-foreground/15" />
           </div>
         )}
+        {/* The scrim is what makes white chrome legible on a photograph nobody
+            vetted — a bright sky would otherwise swallow the back button. */}
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-black/50 to-transparent" />
+
+        <div
+          className="absolute inset-x-0 top-0 flex items-center justify-between p-2"
+          style={{ paddingTop: "max(env(safe-area-inset-top, 0px), 8px)" }}
+        >
+          <button
+            type="button"
+            onClick={goBack}
+            aria-label="Back"
+            className="flex h-10 w-10 items-center justify-center rounded-full text-white transition-colors hover:bg-white/15"
+          >
+            <ChevronLeft className="h-6 w-6" />
+          </button>
+
+          <span className="pointer-events-none absolute left-1/2 -translate-x-1/2 text-[16px] font-semibold tracking-[-0.02em] text-white">
+            {serviceLabel}
+          </span>
+
+          <button
+            type="button"
+            onClick={() => isAuthenticated ? navigate("/notifications") : openAuthModal("login", "/notifications")}
+            aria-label="Notifications"
+            className="flex h-10 w-10 items-center justify-center rounded-full text-white transition-colors hover:bg-white/15"
+          >
+            <Bell className="h-6 w-6" />
+          </button>
+        </div>
       </div>
 
       <main className="mx-auto max-w-xl space-y-1 pb-8 pt-1 md:max-w-3xl md:px-4 md:py-8">
