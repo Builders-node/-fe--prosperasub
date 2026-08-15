@@ -25,6 +25,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { isUuid } from "@/lib/cart/checkoutRows";
+import { fetchPlanGallery } from "@/lib/plans/planGallery";
 import { resolveMonthlyPriceCents, formatFrequencyLabel } from "@/lib/cleaningPlanPricing";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
@@ -90,6 +91,11 @@ const PlanDetail = () => {
       // decided which of two different pages the customer got for the same
       // product. A mirror now hands over to what it mirrors.
       let subjectId = planId;
+      // Photographs live on the mirror for every service. Arriving by the
+      // mirror's own id hands them over directly; arriving by the canonical
+      // legacy id — which is what every link now carries — means asking for
+      // them by `source_plan_id`.
+      let mirrorGallery: string[] = [];
 
       if (isUuid(planId)) {
         const { data: universal, error } = await supabaseDb
@@ -100,6 +106,10 @@ const PlanDetail = () => {
         if (error) throw error;
         if (universal?.source_service_key && universal.source_plan_id) {
           subjectId = String(universal.source_plan_id);
+          // The photographs are the one thing the mirror owns: legacy tables
+          // have no image column, so a plan's pictures are saved here for every
+          // service. Carry them over rather than losing them in the hand-off.
+          mirrorGallery = asStringList(universal.gallery_urls);
         } else if (universal) {
           return {
             source: "universal",
@@ -132,6 +142,7 @@ const PlanDetail = () => {
             .maybeSingle();
           return {
             source: "food",
+            gallery: mirrorGallery.length ? mirrorGallery : await fetchPlanGallery("food", subjectId),
             id: String(food.id),
             title: food.name,
             description: food.description ?? null,
@@ -156,6 +167,7 @@ const PlanDetail = () => {
         if (beach) {
           return {
             source: "beach",
+            gallery: mirrorGallery.length ? mirrorGallery : await fetchPlanGallery("beach", subjectId),
             id: String(beach.id),
             title: beach.name,
             description: beach.tagline ?? null,
@@ -177,6 +189,7 @@ const PlanDetail = () => {
       if (cleaning) {
         return {
           source: "cleaning",
+          gallery: mirrorGallery.length ? mirrorGallery : await fetchPlanGallery("cleaning", subjectId),
           id: String(cleaning.id),
           title: cleaning.name,
           description: cleaning.description ?? cleaning.short_description ?? null,

@@ -1,3 +1,4 @@
+import { GalleryField } from "@/components/patterns/GalleryField";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -44,6 +45,12 @@ export interface PlanFormValues {
    * without putting it in front of everyone.
    */
   visibility: "public" | "private";
+  /**
+   * Photographs of the thing being sold. They live on the universal plan row
+   * for every service — `provider_plans.gallery_urls` — because that is the row
+   * the plan page, the provider page and the till all read.
+   */
+  gallery: string[];
   sortOrder: number;
 }
 
@@ -229,6 +236,14 @@ export function PlanForm({
         />
       </div>
 
+      <GalleryField
+        label="Photos"
+        value={values.gallery}
+        onChange={(next) => onChange({ gallery: next })}
+        pathPrefix="plans/gallery"
+        max={8}
+      />
+
       {footer}
 
       <div className={hideVisibility ? "grid grid-cols-2 gap-3" : "grid grid-cols-3 gap-3"}>
@@ -278,5 +293,5 @@ export function cleanFeatures(features: string[]): string[] {
 export const EMPTY_PLAN: PlanFormValues = {
   name: "", description: "", priceCents: 0,
   quantity: null, period: "monthly", unit: "",
-  features: [], status: "active", visibility: "public", sortOrder: 0,
+  features: [], status: "active", visibility: "public", gallery: [], sortOrder: 0,
 };

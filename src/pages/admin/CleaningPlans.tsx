@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { fetchPlanGallery, savePlanGallery } from "@/lib/plans/planGallery";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Archive, Copy, Edit3, Package, Plus, RotateCcw, SparklesIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -228,7 +229,7 @@ const CleaningPlans = ({
 
   const savePlanMutation = useMutation({
     mutationFn: async (plan: Partial<Plan> & { id?: string }) => {
-      const { id, created_at, updated_at, is_active: _ignored, ...fields } = plan as any;
+      const { id, created_at, updated_at, is_active: _ignored, __gallery, ...fields } = plan as any;
       // Derived, never typed. The form's Status select is the only control for
       // "is this plan live", but is_active was stripped from every payload —
       // so a plan switched off in the database could not be switched back on
@@ -250,6 +251,9 @@ const CleaningPlans = ({
         if (providerId) q = q.eq("provider_id", providerId);
         const { error } = await q;
         if (error) throw error;
+        // The photographs belong to the mirror, not to this table — the trigger
+        // never overwrites them, so they survive every later edit here.
+        if (__gallery) await savePlanGallery("cleaning", id, __gallery);
         await logAuditEvent(adminId, "edit", "plan", id, fields);
       } else {
         const { data, error } = await supabaseDb
@@ -258,6 +262,7 @@ const CleaningPlans = ({
           .select()
           .single();
         if (error) throw error;
+        if (__gallery && data?.id) await savePlanGallery("cleaning", data.id, __gallery);
         await logAuditEvent(adminId, "create", "plan", data?.id, fields);
       }
     },
@@ -712,6 +717,12 @@ function PlanFormSheet({
   const [form, setForm] = useState<any>({ ...EMPTY_PLAN });
   const [featuresText, setFeaturesText] = useState("");
   const [notIncludedText, setNotIncludedText] = useState("");
+  /**
+   * The plan's photographs. They live on the universal mirror rather than on
+   * `cleaning_packages`, so they are loaded and saved beside the row instead of
+   * with it — see lib/plans/planGallery.
+   */
+  const [gallery, setGallery] = useState<string[]>([]);
 
   useEffect(() => {
     if (!open) return;
@@ -725,9 +736,11 @@ function PlanFormSheet({
       });
       setFeaturesText((plan.features || []).join("\n"));
       setNotIncludedText((plan.not_included || []).join("\n"));
+      void fetchPlanGallery("cleaning", plan.id).then(setGallery);
       return;
     }
     setForm({ ...EMPTY_PLAN });
+    setGallery([]);
     setFeaturesText("");
     setNotIncludedText("");
   }, [open, plan]);
@@ -758,6 +771,7 @@ function PlanFormSheet({
       ...normalized,
       features,
       not_included,
+      __gallery: gallery,
       cleanings_per_month: monthlyCleaningEstimate(normalized) || Number(form.cleanings_per_month) || 0,
       sort_order: Number(form.sort_order) || 0,
     });
@@ -778,6 +792,7 @@ function PlanFormSheet({
     period: "monthly",
     unit: "cleaning",
     features: featuresText.split("\n"),
+    gallery,
     status: form.status ?? "active",
     // The column cleaning has had all along, now edited through the shared
     // control instead of a switch of its own.
@@ -786,6 +801,7 @@ function PlanFormSheet({
   };
 
   const applyPlanFormPatch = (patch: Partial<PlanFormValues>) => {
+    if (patch.gallery !== undefined) setGallery(patch.gallery);
     if (patch.features !== undefined) setFeaturesText(patch.features.join("\n"));
     setForm((f: any) => ({
       ...f,

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { fetchPlanGallery, savePlanGallery } from "@/lib/plans/planGallery";
 import { PlanForm } from "@/components/provider/plans/PlanForm";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Pencil, Trash2, Waves } from "lucide-react";
@@ -50,6 +51,8 @@ export default function BeachClubPlans({ embedded = false }: { embedded?: boolea
   const [editing, setEditing] = useState<BeachPlan | null>(null);
   const [form, setForm] = useState(blankForm);
   const [deleteTarget, setDeleteTarget] = useState<BeachPlan | null>(null);
+  /** Photographs of the plan. They live on the universal mirror. */
+  const [gallery, setGallery] = useState<string[]>([]);
 
   const { data: plans = [], isLoading } = useQuery({
     queryKey: ["admin-beach-club-plans"],
@@ -65,9 +68,10 @@ export default function BeachClubPlans({ embedded = false }: { embedded?: boolea
 
   const plansPager = usePagination(plans, 20);
 
-  const openCreate = () => { setEditing(null); setForm(blankForm); setOpen(true); };
+  const openCreate = () => { setEditing(null); setForm(blankForm); setGallery([]); setOpen(true); };
   const openEdit = (p: BeachPlan) => {
     setEditing(p);
+    void fetchPlanGallery("beach", p.id).then(setGallery);
     setForm({
       name: p.name,
       tagline: p.tagline ?? "",
@@ -100,9 +104,13 @@ export default function BeachClubPlans({ embedded = false }: { embedded?: boolea
       if (editing) {
         const { error } = await supabaseDb.from("beach_club_plans").update(payload).eq("id", editing.id);
         if (error) throw error;
+        // Photographs live on the mirror; the trigger never overwrites them.
+        await savePlanGallery("beach", editing.id, gallery);
       } else {
-        const { error } = await supabaseDb.from("beach_club_plans").insert(payload);
+        const { data, error } = await supabaseDb
+          .from("beach_club_plans").insert(payload).select("id").single();
         if (error) throw error;
+        if (data?.id) await savePlanGallery("beach", data.id, gallery);
       }
     },
     onSuccess: () => {
@@ -215,16 +223,21 @@ export default function BeachClubPlans({ embedded = false }: { embedded?: boolea
               status: form.is_active ? "active" : "inactive",
               // This table has no visibility column; the mirror publishes it.
               visibility: "public",
+              // Photographs live on the universal mirror — see lib/plans/planGallery.
+              gallery,
               sortOrder: form.sort_order,
             }}
-            onChange={(patch) => setForm((f) => ({
+            onChange={(patch) => {
+              if (patch.gallery !== undefined) setGallery(patch.gallery);
+              setForm((f) => ({
               ...f,
               ...(patch.name !== undefined ? { name: patch.name } : {}),
               ...(patch.description !== undefined ? { tagline: patch.description } : {}),
               ...(patch.features !== undefined ? { amenities: patch.features.join("\n") } : {}),
               ...(patch.status !== undefined ? { is_active: patch.status === "active" } : {}),
               ...(patch.sortOrder !== undefined ? { sort_order: patch.sortOrder } : {}),
-            }))}
+              }));
+            }}
             hidePrice
             hideQuantity
             periods={["monthly"]}

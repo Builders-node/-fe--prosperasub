@@ -121,7 +121,7 @@ function useUniversalPlans(providerId: string | undefined, enabled: boolean) {
     queryFn: async () => {
       const { data, error } = await supabaseDb
         .from("provider_plans")
-        .select("id, name, description, price_cents, currency, period, features, included_quantity, included_unit, source_plan_id")
+        .select("id, name, description, price_cents, currency, period, features, included_quantity, included_unit, source_plan_id, gallery_urls")
         .eq("provider_id", providerId!)
         .eq("status", "active")
         // Private plans sell by link, not from the provider's public page.
@@ -485,7 +485,10 @@ const ProviderDetail = () => {
               <PlanRow
                 key={plan.id}
                 plan={plan}
-                image={gallery[0] ?? p.avatar_url ?? null}
+                // The plan's own photograph first. The provider's is a fallback,
+                // and using it alone made every plan a business sells look
+                // identical to every other.
+                image={planPhoto(plan) ?? gallery[0] ?? p.avatar_url ?? null}
                 onOpen={() => openPlan(plan.id)}
               />
             ))
@@ -545,6 +548,13 @@ const ProviderDetail = () => {
     </div>
   );
 };
+
+/** The plan's first photograph, if it has one. */
+function planPhoto(plan: UniversalPlan & { gallery_urls?: unknown }): string | null {
+  const list = Array.isArray(plan.gallery_urls) ? plan.gallery_urls : [];
+  const first = list.find((u): u is string => typeof u === "string" && !!u.trim());
+  return first ?? null;
+}
 
 /** A breadcrumb chip: 12px medium on the inset fill, radius 16. */
 function Crumb({ children, to }: { children: React.ReactNode; to?: string }) {

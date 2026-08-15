@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { fetchPlanGallery, savePlanGallery } from "@/lib/plans/planGallery";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Edit, Trash2, Eye, EyeOff } from "lucide-react";
 import { StatusPill } from "@/components/patterns/StatusPill";
@@ -57,6 +58,8 @@ export function RestaurantMealPlansTab({ providerId }: Props) {
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [planResidenceIds, setPlanResidenceIds] = useState<string[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<FoodMealPlan | null>(null);
+  /** Photographs of the plan. They live on the universal mirror. */
+  const [gallery, setGallery] = useState<string[]>([]);
 
   const { data: residences = [] } = useResidences();
 
@@ -97,10 +100,12 @@ export function RestaurantMealPlansTab({ providerId }: Props) {
     setIsNew(true);
     setEditPlan(null);
     setForm({ ...EMPTY_FORM });
+    setGallery([]);
     setPlanResidenceIds([]);
   };
 
   const openEdit = (plan: FoodMealPlan) => {
+    void fetchPlanGallery("food", plan.id).then(setGallery);
     setIsNew(false);
     setEditPlan(plan);
     setForm({
@@ -141,10 +146,13 @@ export function RestaurantMealPlansTab({ providerId }: Props) {
     status: form.status,
     // This table has no visibility column; the mirror publishes it.
     visibility: "public",
+    // Photographs live on the universal mirror — see lib/plans/planGallery.
+    gallery,
     sortOrder: form.sort_order,
   };
 
   const applyPlanFormPatch = (patch: Partial<PlanFormValues>) => {
+    if (patch.gallery !== undefined) setGallery(patch.gallery);
     setForm((f) => ({
       ...f,
       ...(patch.name !== undefined && { name: patch.name }),
@@ -215,6 +223,10 @@ export function RestaurantMealPlansTab({ providerId }: Props) {
         if (error) throw error;
         await logAuditEvent(userData!.id, "edit", "food_meal_plan", editPlan!.id, payload);
       }
+
+      // The photographs belong to the mirror, not to this table — the trigger
+      // never overwrites them, so they survive every later edit here.
+      await savePlanGallery("food", planId, gallery);
 
       // Sync plan → locations (empty selection = available everywhere).
       const { error: delErr } = await supabaseDb

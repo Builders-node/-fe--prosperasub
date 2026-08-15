@@ -40,6 +40,8 @@ interface Plan {
   included_unit: string | null;
   /** `private` keeps it off every listing; the direct link still sells it. */
   visibility?: string | null;
+  /** Photographs of the plan itself, not of the business. */
+  gallery_urls?: unknown;
   features: unknown;
 }
 
@@ -82,6 +84,9 @@ export function UniversalPlansTab({ providerId }: { providerId: string }) {
         : [],
       status: p.status,
       visibility: p.visibility === "private" ? "private" : "public",
+      gallery: Array.isArray(p.gallery_urls)
+        ? (p.gallery_urls as unknown[]).filter((u): u is string => typeof u === "string")
+        : [],
       sortOrder: p.sort_order,
     });
   };
@@ -99,6 +104,7 @@ export function UniversalPlansTab({ providerId }: { providerId: string }) {
         features,
         status: form.status,
         visibility: form.visibility,
+        gallery_urls: form.gallery,
         sort_order: form.sortOrder,
         // A blank box means "unmetered", not zero — the DB rejects <= 0.
         included_quantity: form.quantity && form.quantity > 0 ? form.quantity : null,
