@@ -272,17 +272,18 @@ function CalendarDetails({
            className="text-sm font-semibold text-primary underline-offset-2 hover:underline">
           Open in Google Calendar
         </a>
-        {contactEmail ? (
-          <Button size="sm" variant="outline" className="h-7 rounded-full px-3 text-xs"
-            onClick={() => share.mutate()} disabled={share.isPending}>
-            {share.isPending ? "Sharing…" : `Share with ${contactEmail}`}
-          </Button>
-        ) : null}
+        {/* Always offered: the platform owner is shared on every calendar, so
+            there is someone to grant access to even when the provider has not
+            given an address. */}
+        <Button size="sm" variant="outline" className="h-7 rounded-full px-3 text-xs"
+          onClick={() => share.mutate()} disabled={share.isPending}>
+          {share.isPending ? "Sharing…" : contactEmail ? `Share with ${contactEmail}` : "Grant access"}
+        </Button>
       </span>
       {!contactEmail && (
         <span className="block text-xs text-muted-foreground">
-          Nobody has access yet — the calendar belongs to EverySub. Add an email
-          above and share it, or the link opens an empty page.
+          Shared with the platform owner. Add an email above to give this
+          provider access too.
         </span>
       )}
     </span>
