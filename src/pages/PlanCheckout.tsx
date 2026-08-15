@@ -5,7 +5,7 @@ import { CheckoutStickyFooter } from "@/components/patterns/CheckoutStickyFooter
 import { AddToCartButton } from "@/components/cart/AddToCartButton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CheckCircle2, RefreshCw, Wallet, CalendarDays, Sparkles } from "lucide-react";
+import { CheckCircle2, RefreshCw, Wallet, CalendarDays, Sparkles, MapPin, MessageCircle } from "lucide-react";
 import { CheckoutSuccessPanel } from "@/components/patterns/CheckoutSuccessPanel";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabaseDb } from "@/integrations/supabase/client";
@@ -32,7 +32,9 @@ import { termLabel, termLabelFor, includedLabel } from "@/lib/services/planPerio
 import { resolveCheckoutPlan, totalFor } from "@/lib/checkout/planCheckoutModel";
 import { buildSubscriptionWrite, endDateOf } from "@/lib/checkout/subscriptionWriter";
 import { payLabel } from "@/lib/checkout/ctaLabel";
-import { CheckoutCard, CheckoutLineItem, PersonalDataCard, ResumeCard } from "@/components/checkout/CheckoutBlocks";
+import {
+  CheckoutCard, CheckoutLineItem, FieldRow, FieldRows, PersonalDataCard, ResumeCard, fieldInputClass,
+} from "@/components/checkout/CheckoutBlocks";
 import { PaymentMethodTiles } from "@/components/payment/PaymentMethodTiles";
 import { fetchRenewalSubject, renewalEndpoint, renewalWindow } from "@/lib/checkout/renewal";
 import { accountApi } from "@/integrations/supabase/client";
@@ -517,21 +519,19 @@ const UniversalPlanCheckout = () => {
                   </p>
                 </div>
               ) : (
-                <>
-                  <Label htmlFor="up-start" className="text-xs text-muted-foreground">Start date</Label>
-                  <div className="relative mt-1.5">
-                    <Input
+                <FieldRows>
+                  <FieldRow icon={<CalendarDays className="h-4 w-4" />} label="Start date" required>
+                    <input
                       id="up-start"
                       type="date"
-                      className="h-12 w-full rounded-2xl pr-11 text-left [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-date-and-time-value]:text-left"
+                      className={`${fieldInputClass} [&::-webkit-date-and-time-value]:text-left`}
                       value={startDate}
                       min={format(nowHN(), "yyyy-MM-dd")}
                       onChange={(e) => setStartDate(e.target.value)}
                       onClick={(e) => (e.currentTarget as HTMLInputElement & { showPicker?: () => void }).showPicker?.()}
                     />
-                    <CalendarDays className="pointer-events-none absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
-                  </div>
-                </>
+                  </FieldRow>
+                </FieldRows>
               )}
 
               {/* Only shown when the plan actually offers a choice — a plan
@@ -607,47 +607,52 @@ const UniversalPlanCheckout = () => {
             onEdit={() => setDetailsOpen((o) => !o)}
             incomplete={missingDetails}
           >
-            <div>
+            <FieldRows>
               {plan.needsArea && (
-                <>
-                  <Label htmlFor="pc-area" className="mt-4 block text-xs text-muted-foreground">Residence</Label>
-                  <Input id="pc-area" className="mt-1.5 h-12 rounded-2xl" value={area}
-                    placeholder="Duna Residences" onChange={(e) => setArea(e.target.value)} />
-                </>
+                <FieldRow icon={<MapPin className="h-4 w-4" />} label="Residence">
+                  <input
+                    id="pc-area"
+                    value={area}
+                    onChange={(e) => setArea(e.target.value)}
+                    placeholder="Duna Residences"
+                    className={fieldInputClass}
+                  />
+                </FieldRow>
               )}
 
               {plan.needsAddress && (
-                <>
-                  <Label htmlFor="pc-address" className="mt-4 block text-xs text-muted-foreground">
-                    {plan.fulfilment === "deliveries" ? "Delivery address" : "Where the visit happens"}
-                    <span className="text-destructive"> *</span>
-                  </Label>
-                  <Input id="pc-address" className="mt-1.5 h-12 rounded-2xl" value={address}
+                <FieldRow
+                  icon={<MapPin className="h-4 w-4" />}
+                  label={plan.fulfilment === "deliveries" ? "Delivery address" : "Where the visit happens"}
+                  required
+                >
+                  <input
+                    id="pc-address"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
                     placeholder="Building, unit, anything the driver needs"
-                    onChange={(e) => setAddress(e.target.value)} />
-                </>
+                    className={fieldInputClass}
+                  />
+                </FieldRow>
               )}
 
-              <Label htmlFor="up-phone" className="mt-4 block text-xs text-muted-foreground">
-                WhatsApp <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="up-phone"
-                type="tel"
-                inputMode="tel"
-                autoComplete="tel"
-                className="mt-1.5 h-12 rounded-2xl"
-                placeholder="+504 1234 5678"
-                value={phone}
-                onChange={(e) => { setPhone(e.target.value); if (phoneErr) setPhoneErr(""); }}
-                onBlur={() => setPhoneErr(phone.trim() ? (phoneError(phone) ?? "") : "")}
-              />
-              {phoneErr && <p className="mt-1 text-xs text-destructive">{phoneErr}</p>}
+              <FieldRow icon={<MessageCircle className="h-4 w-4" />} label="WhatsApp" required>
+                <input
+                  id="up-phone"
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  placeholder="+504 1234 5678"
+                  value={phone}
+                  onChange={(e) => { setPhone(e.target.value); if (phoneErr) setPhoneErr(""); }}
+                  onBlur={() => setPhoneErr(phone.trim() ? (phoneError(phone) ?? "") : "")}
+                  className={fieldInputClass}
+                />
+                {phoneErr && <p className="pb-2 text-xs text-destructive">{phoneErr}</p>}
+              </FieldRow>
 
-              <div className="mt-4">
-                <NotesField value={notes} onChange={setNotes} />
-              </div>
-            </div>
+              <NotesField value={notes} onChange={setNotes} />
+            </FieldRows>
           </PersonalDataCard>
         )}
 
