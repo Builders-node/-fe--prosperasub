@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { formatWorkingHours } from "@/lib/workingHours";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { useGoBack } from "@/hooks/useGoBack";
-import { archetypeFromSlug, serviceMetaFromSlug, serviceSlug } from "@/lib/services/serviceUrls";
+import { archetypeFromSlug, planHref, serviceMetaFromSlug, serviceSlug } from "@/lib/services/serviceUrls";
 import { Button } from "@/components/ui/button";
 import {
   SparklesIcon, Waves, Car,
@@ -116,7 +116,7 @@ function useUniversalPlans(providerId: string | undefined, enabled: boolean) {
     queryFn: async () => {
       const { data, error } = await supabaseDb
         .from("provider_plans")
-        .select("id, name, description, price_cents, currency, period, features, included_quantity, included_unit")
+        .select("id, name, description, price_cents, currency, period, features, included_quantity, included_unit, source_plan_id")
         .eq("provider_id", providerId!)
         .eq("status", "active")
         // Offers only. A variant is reached by picking options on its offer.
@@ -248,7 +248,18 @@ const ProviderDetail = () => {
    * else on the platform; this page was the exception. No sign-in gate here:
    * reading what is on offer is public, and the checkout asks at its own door.
    */
-  const openPlan = (planId: string) => navigate(`/services/${serviceSegment}/plans/${planId}`);
+  /**
+   * Link by the plan's ORIGINAL id where it has one.
+   *
+   * These rows come from `provider_plans`, and for a legacy plan that row is a
+   * mirror with an id of its own. Linking by it sent the customer to the same
+   * product under a second address; the page corrects it, but a link that is
+   * right to begin with beats a redirect.
+   */
+  const openPlan = (planId: string) => {
+    const row = (plansQ.data ?? []).find((p) => p.id === planId) as { source_plan_id?: string | null } | undefined;
+    navigate(planHref(serviceSegment ?? "", row?.source_plan_id ? String(row.source_plan_id) : planId));
+  };
 
   // ── Loading / not-found (mirror FoodProviderDetail) ──────────────────────
   // An unknown service segment is a wrong URL, not an empty business. Saying so

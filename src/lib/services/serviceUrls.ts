@@ -67,6 +67,17 @@ export const serviceListingHref = (keyOrSlug: string) => `/services/${serviceSlu
 export const providerHref = (keyOrSlug: string, providerId: string) =>
   `/services/${serviceSlug(keyOrSlug)}/providers/${providerId}`;
 
+/**
+ * The one address a plan has.
+ *
+ * A legacy plan is also mirrored into `provider_plans`, so it has two ids and
+ * could be linked two ways — and the same product then appeared at two URLs.
+ * Pass the ORIGINAL id where one exists (`source_plan_id`), the universal id
+ * otherwise, and every link lands on the same page.
+ */
+export const planHref = (keyOrSlug: string, planId: string) =>
+  `/services/${serviceSlug(keyOrSlug)}/plans/${planId}`;
+
 /** Per-service display metadata for the shared provider page. */
 export interface ServiceMeta {
   /** Heading over the provider's offerings list. */

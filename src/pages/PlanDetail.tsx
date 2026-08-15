@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useGoBack } from "@/hooks/useGoBack";
 import { useQuery } from "@tanstack/react-query";
 import { HomeHeader } from "@/components/HomeHeader";
@@ -20,7 +20,7 @@ import { findVariant, periodUnit, selectionFor, usePlanOffers, type PlanOffer } 
 import { ADD_TO_CART, SUBSCRIBE, fromLabel, normalizeUnit, payLabel } from "@/lib/checkout/ctaLabel";
 import { useArchetypeLabel } from "@/hooks/useServiceArchetypes";
 import { publicListingHref } from "@/lib/services/providerBridge";
-import { providerHref } from "@/lib/services/serviceUrls";
+import { planHref, providerHref } from "@/lib/services/serviceUrls";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { supabaseDb } from "@/integrations/supabase/client";
@@ -70,6 +70,7 @@ const asStringList = (value: unknown): string[] =>
 const PlanDetail = () => {
   const { archetypeKey = "", planId = "" } = useParams<{ archetypeKey: string; planId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const goBack = useGoBack("/discovery");
   const { isAuthenticated } = useAuth();
   const { openAuthModal } = useAuthModal();
@@ -344,6 +345,25 @@ const PlanDetail = () => {
     const list = asStringList(p.gallery_urls);
     return list.length ? list : (p.avatar_url ? [p.avatar_url] : []);
   }, [plan, providerQ.data]);
+
+  /**
+   * One plan, one address.
+   *
+   * A legacy plan carries two ids — its own and its mirror's — and the service
+   * has two spellings, so the same membership could be reached at four URLs.
+   * Whichever one the visitor arrives on, they end up at the canonical one:
+   * the original id under the public service slug. Replace, not push, so Back
+   * still leaves the page rather than bouncing between spellings.
+   */
+  const canonicalKey =
+    plan?.source === "beach" ? "entertainment"
+    : plan?.source === "cleaning" ? "cleaning"
+    : plan?.source === "food" ? "food"
+    : (providerQ.data?.archetype_key ?? archetypeKey);
+  const canonical = plan ? planHref(canonicalKey, plan.id) : null;
+  if (canonical && canonical !== location.pathname) {
+    return <Navigate to={`${canonical}${location.search}`} replace />;
+  }
 
   if (planQ.isLoading) return <PageLoader />;
 
