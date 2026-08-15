@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { formatWorkingHours } from "@/lib/workingHours";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
@@ -6,7 +7,7 @@ import { archetypeFromSlug, planHref, serviceMetaFromSlug, serviceSlug } from "@
 import { Button } from "@/components/ui/button";
 import {
   SparklesIcon, Waves, Car,
-  MapPin, Phone, Mail, Clock, Star,
+  MapPin, Phone, Mail, Clock, Star, ChevronRight,
 } from "lucide-react";
 import { supabase, supabaseDb } from "@/integrations/supabase/client";
 import { HomeHeader } from "@/components/HomeHeader";
@@ -22,6 +23,7 @@ import {
   type ProviderReviewService,
 } from "@/components/reviews/ProviderReviewsBlock";
 import { resolveMonthlyPriceCents } from "@/lib/cleaningPlanPricing";
+import { formatUSD } from "@/lib/pricing";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 interface Provider {
@@ -38,6 +40,7 @@ interface Provider {
   archetype_key: string | null;
   /** Null means the provider has no legacy table — its offer is in provider_plans. */
   source_service_key: string | null;
+  gallery_urls?: string[] | null;
 }
 
 // ── Per-archetype meta (icon + heading + fallback route) ────────────────────
@@ -170,8 +173,17 @@ function InfoRow({
 // ═══════════════════════════════════════════════════════════════════════════
 // Page
 // ═══════════════════════════════════════════════════════════════════════════
+/** The three faces of a provider, in the design's order. */
+const TABS = [
+  { key: "plans", label: "Plans" },
+  { key: "reviews", label: "Reviews" },
+  { key: "gallery", label: "Gallery" },
+] as const;
+type TabKey = (typeof TABS)[number]["key"];
+
 const ProviderDetail = () => {
   const navigate = useNavigate();
+  const [tab, setTab] = useState<TabKey>("plans");
   const { archetypeKey: serviceSegment, providerId } = useParams<{ archetypeKey: string; providerId: string }>();
   // `beach-club` and `entertainment` are the same service. Resolve to the
   // canonical key once, here.
@@ -184,7 +196,7 @@ const ProviderDetail = () => {
         .from("providers")
         // source_provider_id is needed to hand food off to its legacy page — see the
         // redirect below.
-        .select("id, name, description, avatar_url, banner_url, location, working_hours, contact_phone, contact_email, archetype_key, source_provider_id, source_service_key")
+        .select("id, name, description, avatar_url, banner_url, location, working_hours, contact_phone, contact_email, archetype_key, source_provider_id, source_service_key, gallery_urls")
         .eq("id", providerId!).single();
       if (error) throw error;
       return data as Provider;
@@ -345,13 +357,24 @@ const ProviderDetail = () => {
     : quantities.length === 1 ? quantities[0]
     : `${quantities[0]}–${quantities[quantities.length - 1]}`;
 
+  const reviewService: ProviderReviewService | null =
+    archetypeKey === "cleaning" ? "cleaning" :
+    archetypeKey === "entertainment" ? "beach" : null;
+  // "Cleaning", "Food", "Beach Club" — the word the customer arrived through.
+  const serviceLabel = serviceSlug(archetypeKey ?? "")
+    .split("-").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+  const gallery = Array.isArray(p.gallery_urls)
+    ? p.gallery_urls.filter((u): u is string => typeof u === "string" && !!u.trim())
+    : [];
+  const hours = formatWorkingHours(p.working_hours);
+
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-0">
       <HomeHeader title={p.name} showBackButton onBack={goBack} />
       <DesktopHeader />
 
-      {/* ─── Full-width banner ───────────────────────────────────────────── */}
-      <div className="relative h-52 w-full overflow-hidden md:h-72 bg-gradient-to-br from-primary/25 via-primary/10 to-transparent">
+      {/* The banner is the page's first 280px, edge to edge. */}
+      <div className="relative h-[280px] w-full overflow-hidden bg-inset">
         {p.banner_url ? (
           <img src={p.banner_url} alt="" className="h-full w-full object-cover" />
         ) : (
@@ -361,115 +384,114 @@ const ProviderDetail = () => {
         )}
       </div>
 
-      <main className="market-content py-space-6 md:py-space-12 space-y-space-8">
-
-        {/* ─── Product header (below banner) ───────────────────────────────── */}
-        <section className="rounded-3xl bg-card p-5 md:p-7">
-          <div className="flex items-start gap-4">
-            <div className="h-20 w-20 shrink-0 overflow-hidden rounded-[1.4rem] border border-border bg-muted md:h-24 md:w-24">
-              {p.avatar_url ? (
-                <img src={p.avatar_url} alt={p.name} loading="lazy" decoding="async" className="h-full w-full object-cover" />
-              ) : (
-                <div className="flex h-full items-center justify-center bg-primary/10">
-                  <Icon className="h-9 w-9 text-primary" />
-                </div>
-              )}
-            </div>
-
-            <div className="min-w-0 flex-1">
-              <h1 className="text-2xl font-black leading-tight tracking-tight md:text-3xl">{p.name}</h1>
-              {p.location && (
-                <p className="mt-1 truncate text-sm text-muted-foreground">{p.location}</p>
-              )}
-            </div>
+      <main className="mx-auto max-w-xl space-y-1 pb-8 pt-1 md:max-w-3xl md:px-4 md:py-8">
+        {/* ─── Who this is ─────────────────────────────────────────────────
+            Card radius 24 at 16 of padding, per the design; the trail, the
+            name, and the three lines that describe the business. */}
+        <section className="rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
+          {/* Service → where → who. A crumb that repeats the one before it is
+              dropped: the Beach Club is its own service, and "Beach Club ›
+              Beach Club" tells the customer nothing twice. */}
+          <div className="flex flex-wrap gap-2">
+            {[serviceLabel, p.location, p.name]
+              .filter((c): c is string => !!c && !!c.trim())
+              .filter((c, i, all) => all.findIndex((o) => o.toLowerCase() === c.toLowerCase()) === i)
+              .map((c, i) => (
+                <Crumb key={c} to={i === 0 ? meta.listingRoute : undefined}>{c}</Crumb>
+              ))}
           </div>
 
-          {p.description && (
-            <p className="mt-4 text-body text-muted-foreground">{p.description}</p>
-          )}
-        </section>
-
-        {/* ─── Stats strip ─────────────────────────────────────────────────── */}
-        <section className="grid grid-cols-4 divide-x divide-border rounded-3xl bg-card py-4">
-          <Stat
-            label={(ratingSummaryQ.data?.count ?? 0) > 0
-              ? `${ratingSummaryQ.data!.count} ${ratingSummaryQ.data!.count === 1 ? "Rating" : "Ratings"}`
-              : "Ratings"}
-            value={(ratingSummaryQ.data?.count ?? 0) > 0 ? (
-              <span className="inline-flex items-baseline gap-1">
-                {ratingSummaryQ.data!.avg.toFixed(1)}
-                <Star className="h-4 w-4 translate-y-px fill-current" />
-              </span>
-            ) : "New"}
-            sub={(ratingSummaryQ.data?.count ?? 0) > 0
-              ? <span className="text-primary">Verified</span>
-              : <span className="inline-flex items-center gap-0.5"><Star className="h-3 w-3" /> No reviews</span>}
-          />
-          <Stat label={meta.offeringsHeading} value={String(offeringsCount)} sub="Available" />
-          <Stat label={middleStatLabel} value={String(middleStatValue)} sub={middleStatSub} />
-          <Stat label="From" value={fromPrice > 0 ? `$${Math.round(fromPrice / 100)}` : "—"} sub={fromUnit} />
-        </section>
-
-        {/* ─── Offerings ───────────────────────────────────────────────────── */}
-        <section id="offerings" className="scroll-mt-24">
-          <h2 className="mb-4 flex flex-wrap items-center gap-2 text-xl font-black tracking-tight">
-            {meta.offeringsHeading}
-            {offeringsCount > 0 && (
-              <span className="text-base font-normal text-muted-foreground">({offeringsCount})</span>
+          <div className="mt-3 space-y-2">
+            <h1 className="text-[24px] font-semibold leading-tight text-foreground">{p.name}</h1>
+            {p.description && (
+              <p className="text-[16px] leading-[22px] text-muted-foreground">{p.description}</p>
             )}
-          </h2>
+            {hours && <p className="text-[16px] leading-[22px] text-muted-foreground">{hours}</p>}
+            {p.location && <p className="text-[16px] leading-[22px] text-muted-foreground">{p.location}</p>}
+          </div>
 
-          {plansQ.isLoading ? (
-            <SkeletonGrid />
+          {/* One segmented control instead of three stacked sections: the page
+              had plans, reviews and pictures all scrolling past each other. */}
+          <div className="mt-3 flex rounded-[18px] bg-inset p-0.5">
+            {TABS.map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => setTab(t.key)}
+                className={`flex-1 rounded-radius-md px-4 py-2 text-center text-[16px] font-semibold leading-[22px] transition-colors ${
+                  tab === t.key ? "bg-card text-foreground" : "text-foreground/70 hover:text-foreground"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {tab === "plans" && (
+          plansQ.isLoading ? (
+            <div className="space-y-1">
+              {[1, 2, 3].map((i) => <div key={i} className="h-[120px] animate-pulse rounded-radius-md bg-card" />)}
+            </div>
           ) : plansQ.isError ? (
             <QueryError title="Couldn't load plans" onRetry={() => plansQ.refetch()} retrying={plansQ.isFetching} />
           ) : (plansQ.data ?? []).length === 0 ? (
             <TabEmptyState icon={Icon} title="No plans yet" subtitle="We're setting things up. Check back soon." />
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {(plansQ.data ?? []).map((plan, idx) => (
-                <UniversalPlanCard
-                  key={plan.id}
-                  plan={plan}
-                  featured={idx === 1 && (plansQ.data ?? []).length > 1}
-                  onSubscribe={openPlan}
-                />
-              ))}
-            </div>
-          )}
+            (plansQ.data ?? []).map((plan) => (
+              <PlanRow
+                key={plan.id}
+                plan={plan}
+                image={gallery[0] ?? p.avatar_url ?? null}
+                onOpen={() => openPlan(plan.id)}
+              />
+            ))
+          )
+        )}
 
-        </section>
+        {tab === "reviews" && (
+          reviewService ? (
+            // The block draws its own heading and rating — the same two things
+            // the design puts at the top of this card — so wrapping it is all
+            // that is needed. A second "Reviews" above it was just a duplicate.
+            <section className="rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
+              <ProviderReviewsBlock providerId={p.id} service={reviewService} />
+            </section>
+          ) : (
+            <TabEmptyState icon={Star} title="No reviews yet" subtitle="This service doesn't collect reviews." />
+          )
+        )}
 
-        {/* ─── Reviews ─────────────────────────────────────────────────────
-            Shown for every archetype that maps to provider_reviews.service. */}
-        {(() => {
-          // provider_reviews.service is a legacy-service enum. A universal
-          // provider maps to none of its values, so it gets no review block
-          // rather than one filed under a service it isn't.
-          if (isUniversal) return null;
-          const reviewService: ProviderReviewService | null =
-            archetypeKey === "cleaning" ? "cleaning" :
-            archetypeKey === "entertainment" ? "beach" : null;
-          if (!reviewService) return null;
-          return <ProviderReviewsBlock providerId={p.id} service={reviewService} />;
-        })()}
+        {tab === "gallery" && (
+          gallery.length === 0 ? (
+            <TabEmptyState icon={Icon} title="No photos yet" subtitle="The provider hasn't added pictures." />
+          ) : (
+            <section className="rounded-radius-lg bg-card p-4">
+              <div className="grid grid-cols-2 gap-2">
+                {gallery.map((src) => (
+                  <img key={src} src={src} alt="" loading="lazy"
+                    className="aspect-square w-full rounded-radius-md object-cover" />
+                ))}
+              </div>
+            </section>
+          )
+        )}
 
-        {/* ─── Information ─────────────────────────────────────────────────── */}
-        {(formatWorkingHours(p.working_hours) || p.location || p.contact_phone || p.contact_email) && (
-          <section>
-            <h2 className="mb-4 text-xl font-black tracking-tight">Information</h2>
-            <div className="divide-y divide-border rounded-3xl bg-card">
-              {formatWorkingHours(p.working_hours) && (
-                <InfoRow icon={<Clock className="h-4 w-4" />} label="Operating Hours" value={formatWorkingHours(p.working_hours)} iconText="text-primary" />
-              )}
-              {p.location && (
-                <InfoRow icon={<MapPin className="h-4 w-4" />} label="Location" value={p.location} iconText="text-primary" />
-              )}
+        {/* Contact stays below the tabs — it belongs to the business, not to
+            one of its three faces. */}
+        {(p.contact_phone || p.contact_email) && (
+          <section className="rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
+            <h2 className="text-[20px] font-semibold text-foreground">Contact</h2>
+            <div className="mt-3 space-y-2">
               {p.contact_phone && (
-                <InfoRow icon={<Phone className="h-4 w-4" />} label="Phone" value={p.contact_phone} iconText="text-primary" />
+                <p className="flex items-center gap-2 text-[16px] leading-[22px] text-muted-foreground">
+                  <Phone className="h-4 w-4 shrink-0" /> {p.contact_phone}
+                </p>
               )}
               {p.contact_email && (
-                <InfoRow icon={<Mail className="h-4 w-4" />} label="Email" value={p.contact_email} iconText="text-primary" />
+                <p className="flex items-center gap-2 text-[16px] leading-[22px] text-muted-foreground">
+                  <Mail className="h-4 w-4 shrink-0" /> {p.contact_email}
+                </p>
               )}
             </div>
           </section>
@@ -480,6 +502,63 @@ const ProviderDetail = () => {
     </div>
   );
 };
+
+/** A breadcrumb chip: 12px medium on the inset fill, radius 16. */
+function Crumb({ children, to }: { children: React.ReactNode; to?: string }) {
+  const inner = (
+    <span className="inline-flex items-center gap-0.5 rounded-radius-md bg-inset px-2 py-1 text-[12px] font-medium leading-4 tracking-[-0.02em] text-muted-foreground">
+      {children}
+      <ChevronRight className="h-4 w-4" />
+    </span>
+  );
+  return to ? <Link to={to}>{inner}</Link> : inner;
+}
+
+/**
+ * A plan, as the design draws it: a 104px picture, the name, two lines of
+ * description, and the price pinned to the bottom right after the word "From".
+ *
+ * The grid card this replaces was built for a listing of many providers; on a
+ * provider's own page the rows are all the same business, and a row shows more
+ * of what distinguishes them in less height.
+ */
+function PlanRow({ plan, image, onOpen }: {
+  plan: UniversalPlan;
+  image: string | null;
+  onOpen: () => void;
+}) {
+  const hasPrice = typeof plan.price_cents === "number" && plan.price_cents > 0;
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="flex w-full gap-4 rounded-radius-md bg-card py-2 pl-2 pr-4 text-left tracking-[-0.02em]"
+    >
+      {image ? (
+        <img src={image} alt="" loading="lazy"
+          className="h-[104px] w-[104px] shrink-0 rounded-[8px] object-cover" />
+      ) : (
+        <span className="flex h-[104px] w-[104px] shrink-0 items-center justify-center rounded-[8px] bg-inset">
+          <SparklesIcon className="h-8 w-8 text-muted-foreground/30" />
+        </span>
+      )}
+      <span className="flex min-w-0 flex-1 flex-col gap-1 py-2">
+        <span className="truncate text-[16px] font-semibold text-foreground">{plan.name}</span>
+        <span className="flex flex-1 flex-col justify-end gap-1">
+          {plan.description && (
+            <span className="line-clamp-2 text-[12px] text-muted-foreground">{plan.description}</span>
+          )}
+          <span className="flex items-end justify-end gap-1">
+            {hasPrice && <span className="text-[12px] text-muted-foreground">From</span>}
+            <span className="text-[16px] font-semibold text-foreground">
+              {hasPrice ? formatUSD(plan.price_cents!) : "Price on request"}
+            </span>
+          </span>
+        </span>
+      </span>
+    </button>
+  );
+}
 
 // ─── Reusable states ────────────────────────────────────────────────────────
 function SkeletonGrid() {
