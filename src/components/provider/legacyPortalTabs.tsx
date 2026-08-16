@@ -4,27 +4,24 @@ import { PortalTabsView } from "@/components/provider/PortalTabsView";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
-import { FoodSubscriptionsList } from "@/components/food/FoodSubscriptionsList";
 import { useMyRestaurants, type MyRestaurant } from "@/hooks/useMyRestaurants";
 
 import type { MyProviderRow } from "@/hooks/useMyProviders";
-import { CleaningSubscriptionsList } from "@/components/cleaning/CleaningSubscriptionsList";
 import { useMyProviders } from "@/hooks/useMyProviders";
 import { SERVICES as SERVICE_REGISTRY } from "@/lib/services/registry";
-
-import BeachClubSubscriptionsPage from "@/pages/admin/BeachClubSubscriptions";
 
 // Identity/bridge lives in one place — re-exported here so portal code has a
 // single import surface. See lib/services/providerBridge.ts for the id-space docs.
 export { LEGACY_PORTAL_SOURCE_KEYS, useUniversalIdForLegacy, isLegacySource, legacyIdOf } from "@/lib/services/providerBridge";
 
 /**
- * What is left of the per-service portals: the membership check, and the two
- * subscription lists a service shows under Bookings' "by customer" view.
+ * All that is left of the per-service portals: the membership check.
  *
- * The tab strip itself is assembled once by ProviderWorkspace — see the
- * comment there. Anything that used to live here as a per-service bundle is
- * gone, because nothing in it was per-service any more.
+ * The tab strip is assembled once by ProviderWorkspace, and the tab bodies —
+ * plans, the day's work, calendars, subscribers — are one component each for
+ * every service. Nothing here was per-service any more except who is allowed
+ * in, and that still is: a cleaning manager is a row in `cleaning_*`, not in
+ * `provider_members`.
  */
 
 /** Shape of a `cleaning_providers` row as the owner hooks return it. */
@@ -39,9 +36,6 @@ export interface CleaningProviderRow extends MyProviderRow {
   gallery_urls?: string[] | null;
 }
 
-export const FOOD_SUBSCRIPTIONS_TAB_BODY = (r: MyRestaurant) => <FoodSubscriptionsList providerId={r.id} />;
-export const CLEANING_SUBSCRIPTIONS_TAB_BODY = (p: CleaningProviderRow) => <CleaningSubscriptionsList providerId={p.id} />;
-export const BEACH_SUBSCRIPTIONS_TAB_BODY = () => <BeachClubSubscriptionsPage embedded />;
 
 // ── Owner-scoped rich tabs, mounted inside the universal portal ───────────────
 function TabsSkeleton() {
