@@ -78,7 +78,7 @@ export default function BeachClubAnalytics({ embedded = false }: { embedded?: bo
   if (subs.length === 0) {
     return (
       <AnalyticsShell embedded={embedded} title="Beach Club — Analytics">
-        <div className="rounded-2xl bg-card p-10 text-center text-muted-foreground">
+        <div className="rounded-radius-lg bg-card p-10 tracking-[-0.02em] text-center text-muted-foreground">
           <Waves className="mx-auto mb-2 h-8 w-8 opacity-40" />
           No memberships yet — analytics will populate as people subscribe.
         </div>
@@ -99,8 +99,8 @@ export default function BeachClubAnalytics({ embedded = false }: { embedded?: bo
 
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Status breakdown */}
-          <div className="space-y-4 rounded-2xl bg-card p-5">
-            <h2 className="flex items-center gap-2 font-black text-foreground">
+          <div className="space-y-4 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
+            <h2 className="flex items-center gap-2 text-[20px] font-semibold leading-[26px] text-foreground">
               <Waves className="h-5 w-5 text-cyan-400" /> Membership Status
             </h2>
             <div className="space-y-3">
@@ -110,13 +110,13 @@ export default function BeachClubAnalytics({ embedded = false }: { embedded?: bo
             </div>
             <div className="flex items-center justify-between border-t border-border/60 pt-3 text-sm">
               <span className="text-muted-foreground">Revenue this month</span>
-              <span className="font-black tabular-nums text-foreground">{formatUSD(monthRevenueCents)}</span>
+              <span className="font-semibold tabular-nums text-foreground">{formatUSD(monthRevenueCents)}</span>
             </div>
           </div>
 
           {/* Revenue by plan */}
-          <div className="space-y-4 rounded-2xl bg-card p-5">
-            <h2 className="flex items-center gap-2 font-black text-foreground">
+          <div className="space-y-4 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
+            <h2 className="flex items-center gap-2 text-[20px] font-semibold leading-[26px] text-foreground">
               <TrendingUp className="h-5 w-5 text-green-400" /> Revenue by Plan
             </h2>
             {planRows.length === 0 ? (
@@ -129,7 +129,7 @@ export default function BeachClubAnalytics({ embedded = false }: { embedded?: bo
                       <p className="truncate text-sm font-bold text-foreground">{name}</p>
                       <p className="text-xs text-muted-foreground">{st.subs} membership{st.subs !== 1 ? "s" : ""}</p>
                     </div>
-                    <span className="shrink-0 font-black tabular-nums text-foreground">{formatUSD(st.revenue)}</span>
+                    <span className="shrink-0 font-semibold tabular-nums text-foreground">{formatUSD(st.revenue)}</span>
                   </div>
                 ))}
               </div>

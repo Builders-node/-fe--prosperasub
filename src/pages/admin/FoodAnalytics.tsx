@@ -238,8 +238,8 @@ const FoodAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
         {/* Status breakdown + Monthly chart */}
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Subscription status */}
-          <div className="rounded-2xl bg-card p-5 space-y-4">
-            <h2 className="flex items-center gap-2 font-black text-foreground">
+          <div className="rounded-radius-lg bg-card p-4 tracking-[-0.02em] space-y-4">
+            <h2 className="flex items-center gap-2 text-[20px] font-semibold leading-[26px] text-foreground">
               <RefreshCw className="h-5 w-5 text-orange-400" />
               Subscription Status
             </h2>
@@ -276,8 +276,8 @@ const FoodAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
           </div>
 
           {/* Monthly revenue bar chart */}
-          <div className="rounded-2xl bg-card p-5 space-y-4">
-            <h2 className="flex items-center gap-2 font-black text-foreground">
+          <div className="rounded-radius-lg bg-card p-4 tracking-[-0.02em] space-y-4">
+            <h2 className="flex items-center gap-2 text-[20px] font-semibold leading-[26px] text-foreground">
               <BarChart3 className="h-5 w-5 text-orange-400" />
               Revenue (last 6 months)
             </h2>
@@ -292,8 +292,8 @@ const FoodAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
         {/* Plan + Restaurant performance */}
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Plan performance */}
-          <div className="rounded-2xl bg-card p-5 space-y-4">
-            <h2 className="flex items-center gap-2 font-black text-foreground">
+          <div className="rounded-radius-lg bg-card p-4 tracking-[-0.02em] space-y-4">
+            <h2 className="flex items-center gap-2 text-[20px] font-semibold leading-[26px] text-foreground">
               <BookOpen className="h-5 w-5 text-orange-400" />
               Top Meal Plans
             </h2>
@@ -311,8 +311,8 @@ const FoodAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
           </div>
 
           {/* Restaurant performance */}
-          <div className="rounded-2xl bg-card p-5 space-y-4">
-            <h2 className="flex items-center gap-2 font-black text-foreground">
+          <div className="rounded-radius-lg bg-card p-4 tracking-[-0.02em] space-y-4">
+            <h2 className="flex items-center gap-2 text-[20px] font-semibold leading-[26px] text-foreground">
               <ChefHat className="h-5 w-5 text-orange-400" />
               Restaurants
             </h2>
@@ -332,8 +332,8 @@ const FoodAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
 
         {/* By location */}
         {locationList.length > 0 && (
-          <div className="rounded-2xl bg-card p-5">
-            <h2 className="mb-1 flex items-center gap-2 font-black text-foreground">
+          <div className="rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
+            <h2 className="mb-1 flex items-center gap-2 text-[20px] font-semibold leading-[26px] text-foreground">
               <MapPin className="h-4 w-4 text-orange-400" /> Revenue by location
             </h2>
             <p className="mb-4 text-xs text-muted-foreground">
@@ -354,8 +354,8 @@ const FoodAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
         )}
 
         {/* Summary stats */}
-        <div className="rounded-2xl bg-card p-5">
-          <h2 className="mb-4 font-black text-foreground">Overview</h2>
+        <div className="rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
+          <h2 className="mb-4 text-[20px] font-semibold leading-[26px] text-foreground">Overview</h2>
           <dl className="grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
             <StatItem label="Total Subs" value={String(subscriptions.length)} />
             <StatItem label="Active" value={String(activeSubs.length)} />

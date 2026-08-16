@@ -8,6 +8,12 @@ import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
  * byte-identical in every one, `StatItem` in three, `StatusBar` in two, and
  * the 6-month bar chart in three with only the bar tint differing. A fix to
  * one (empty-state handling, a NaN width guard) never reached the others.
+ *
+ * They now speak the platform's type: 24 semibold for a figure, 20 for the
+ * name of a section, 16 muted for what a figure is — the ramp the provider
+ * workspace uses. The old micro-labels (11px uppercase with wide tracking,
+ * values in black weight, an icon plate in a different tint per metric) were
+ * the last screen still shouting in a language of its own.
  */
 
 // ─── KPI card ───────────────────────────────────────────────────────────────
@@ -20,13 +26,13 @@ export function KpiCard({
   accent: string;
 }) {
   return (
-    <div className="flex items-start gap-4 rounded-2xl bg-card p-5">
-      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted ${accent}`}>
+    <div className="flex items-center gap-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
+      <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-radius-md bg-inset ${accent}`}>
         <Icon className="h-5 w-5" />
-      </div>
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
-        <p className="mt-1 text-2xl font-black tabular-nums text-foreground">{value}</p>
+      </span>
+      <div className="min-w-0">
+        <p className="truncate text-[16px] leading-[22px] text-muted-foreground">{label}</p>
+        <p className="mt-0.5 text-[24px] font-semibold leading-[29px] tabular-nums text-foreground">{value}</p>
       </div>
     </div>
   );
@@ -35,9 +41,9 @@ export function KpiCard({
 // ─── Small labelled figure ──────────────────────────────────────────────────
 export function StatItem({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl bg-[hsl(var(--app-rail))] p-3">
-      <dt className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</dt>
-      <dd className="mt-1 text-xl font-black text-foreground">{value}</dd>
+    <div className="rounded-radius-md bg-inset p-3 tracking-[-0.02em]">
+      <dt className="text-[16px] leading-[22px] text-muted-foreground">{label}</dt>
+      <dd className="mt-1 text-[24px] font-semibold leading-[29px] tabular-nums text-foreground">{value}</dd>
     </div>
   );
 }
@@ -56,8 +62,8 @@ export function StatusBar({
   const pct = total > 0 ? Math.round((count / total) * 100) : 0;
   return (
     <div>
-      <div className="mb-1 flex items-center justify-between text-sm">
-        <span className={`flex items-center gap-1.5 font-medium ${textColor}`}>{icon}{label}</span>
+      <div className="mb-1.5 flex items-center justify-between text-[16px] leading-[22px] tracking-[-0.02em]">
+        <span className={`flex items-center gap-1.5 ${textColor}`}>{icon}{label}</span>
         <span className="tabular-nums text-muted-foreground">{count} · {pct}%</span>
       </div>
       <div className="h-2 overflow-hidden rounded-full bg-muted">
@@ -86,7 +92,7 @@ export function MonthlyRevenueChart({
   const max = Math.max(...months.map((m) => m.rev), 0);
   if (max === 0) {
     return (
-      <p className="py-8 text-center text-sm text-muted-foreground">
+      <p className="py-8 text-center text-[16px] leading-[22px] text-muted-foreground">
         No revenue recorded in the last 6 months.
       </p>
     );
@@ -95,14 +101,14 @@ export function MonthlyRevenueChart({
     <div className="flex h-48 items-end justify-between gap-2">
       {months.map((m) => (
         <div key={m.label} className="flex flex-1 flex-col items-center gap-2">
-          <span className="text-[10px] tabular-nums text-muted-foreground">
+          <span className="text-[12px] tabular-nums text-muted-foreground">
             {m.rev > 0 ? formatValue(m.rev) : ""}
           </span>
           <div
-            className={`w-full rounded-t-lg ${barClass}`}
+            className={`w-full rounded-t-radius-sm ${barClass}`}
             style={{ height: `${Math.max((m.rev / max) * 100, 2)}%` }}
           />
-          <span className="text-[10px] font-medium text-muted-foreground">{m.label}</span>
+          <span className="text-[14px] text-muted-foreground">{m.label}</span>
         </div>
       ))}
     </div>
@@ -130,18 +136,20 @@ export function RankedBarList({
   const visible = includeZero ? rows : rows.filter((r) => r.value > 0);
   const max = Math.max(...visible.map((r) => r.value), 0);
   if (visible.length === 0 || max === 0) {
-    return <p className="py-6 text-center text-sm text-muted-foreground">{emptyMessage}</p>;
+    return <p className="py-6 text-center text-[16px] leading-[22px] text-muted-foreground">{emptyMessage}</p>;
   }
   return (
     <div className="space-y-3">
       {visible.map((r) => (
         <div key={r.key}>
-          <div className="mb-1 flex items-center justify-between gap-3 text-sm">
-            <span className="min-w-0 truncate font-medium text-foreground">
+          <div className="mb-1.5 flex items-center justify-between gap-3 tracking-[-0.02em]">
+            <span className="min-w-0 truncate text-[16px] leading-[22px] text-foreground">
               {r.label}
-              {r.sublabel && <span className="ml-1.5 text-xs text-muted-foreground">{r.sublabel}</span>}
+              {r.sublabel && <span className="ml-1.5 text-[14px] text-muted-foreground">{r.sublabel}</span>}
             </span>
-            <span className="shrink-0 tabular-nums text-muted-foreground">{formatValue(r.value)}</span>
+            <span className="shrink-0 text-[16px] font-semibold tabular-nums text-foreground">
+              {formatValue(r.value)}
+            </span>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-muted">
             <div className={`h-full rounded-full ${barClass}`} style={{ width: `${(r.value / max) * 100}%` }} />

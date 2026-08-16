@@ -148,8 +148,8 @@ const CleaningAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
 
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Monthly revenue bar chart */}
-          <div className="rounded-2xl bg-card p-5 space-y-4">
-            <h2 className="flex items-center gap-2 font-black text-foreground">
+          <div className="rounded-radius-lg bg-card p-4 tracking-[-0.02em] space-y-4">
+            <h2 className="flex items-center gap-2 text-[20px] font-semibold leading-[26px] text-foreground">
               <BarChart3 className="h-5 w-5 text-primary" />
               Monthly Revenue (last 6 months)
             </h2>
@@ -157,8 +157,8 @@ const CleaningAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
           </div>
 
           {/* Plan performance */}
-          <div className="rounded-2xl bg-card p-5 space-y-4">
-            <h2 className="flex items-center gap-2 font-black text-foreground">
+          <div className="rounded-radius-lg bg-card p-4 tracking-[-0.02em] space-y-4">
+            <h2 className="flex items-center gap-2 text-[20px] font-semibold leading-[26px] text-foreground">
               <Sparkles className="h-5 w-5 text-primary" />
               Plan Performance
             </h2>
@@ -176,8 +176,8 @@ const CleaningAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
         </div>
 
         {/* Bookings overview */}
-        <div className="rounded-2xl bg-card p-5">
-          <h2 className="mb-4 flex items-center gap-2 font-black text-foreground">
+        <div className="rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
+          <h2 className="mb-4 flex items-center gap-2 text-[20px] font-semibold leading-[26px] text-foreground">
             <ClipboardList className="h-5 w-5 text-primary" />
             Bookings & Subscriptions Overview
           </h2>
