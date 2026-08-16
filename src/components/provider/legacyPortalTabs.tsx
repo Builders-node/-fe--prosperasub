@@ -80,12 +80,12 @@ function AccessRevokedPanel() {
   );
 }
 
-function FoodOwnerTabs({ legacyId, tabs, isOwner }: OwnerTabsProps) {
+function FoodOwnerTabs({ legacyId, tabs, isOwner, isMember }: OwnerTabsProps) {
   const { isAdmin } = useAuth();
   const { restaurants, isLoading } = useMyRestaurants();
   const owned = restaurants.find((p) => p.id === legacyId) ?? null;
   if (isLoading) return <TabsSkeleton />;
-  if (!owned && !isAdmin) return <AccessRevokedPanel />;
+  if (!owned && !isMember && !isOwner && !isAdmin) return <AccessRevokedPanel />;
   return <PortalTabsView tabs={tabs} provider={null} isOwner={isOwner || isAdmin || owned?.myRole === "owner"} />;
 }
 
@@ -93,12 +93,12 @@ const CLEANING_SERVICE = SERVICE_REGISTRY.cleaning as typeof SERVICE_REGISTRY.cl
   providers: NonNullable<typeof SERVICE_REGISTRY.cleaning["providers"]>;
 };
 
-function CleaningOwnerTabs({ legacyId, tabs, isOwner }: OwnerTabsProps) {
+function CleaningOwnerTabs({ legacyId, tabs, isOwner, isMember }: OwnerTabsProps) {
   const { isAdmin } = useAuth();
   const { providers, isLoading } = useMyProviders<CleaningProviderRow>(CLEANING_SERVICE);
   const owned = providers.find((p) => p.id === legacyId) ?? null;
   if (isLoading) return <TabsSkeleton />;
-  if (!owned && !isAdmin) return <AccessRevokedPanel />;
+  if (!owned && !isMember && !isOwner && !isAdmin) return <AccessRevokedPanel />;
   return <PortalTabsView tabs={tabs} provider={null} isOwner={isOwner || isAdmin || owned?.myRole === "owner"} />;
 }
 
@@ -108,6 +108,8 @@ interface OwnerTabsProps {
   tabs: PortalTab<unknown>[];
   /** Ownership as the universal row sees it — `providers.admin_user_id`. */
   isOwner: boolean;
+  /** A row in `provider_members` — what the Team tab writes. */
+  isMember: boolean;
 }
 
 /**
@@ -123,13 +125,14 @@ interface OwnerTabsProps {
  * still per-service: a cleaning manager is a row in `cleaning_*`, not in
  * `provider_members`, and dropping this check would hand them Money and Team.
  */
-export function LegacyOwnerPortal({ sourceKey, legacyId, tabs, isOwner }: {
+export function LegacyOwnerPortal({ sourceKey, legacyId, tabs, isOwner, isMember }: {
   sourceKey: string;
   legacyId: string;
   tabs: PortalTab<unknown>[];
   isOwner: boolean;
+  isMember: boolean;
 }) {
-  const props = { legacyId, tabs, isOwner };
+  const props = { legacyId, tabs, isOwner, isMember };
   if (sourceKey === "food") return <FoodOwnerTabs {...props} />;
   if (sourceKey === "cleaning") return <CleaningOwnerTabs {...props} />;
   // The beach has no per-service provider table and therefore no per-service

@@ -4,69 +4,73 @@ import { StatusPill } from "@/components/patterns/StatusPill";
 import { UserLayout } from "@/components/layout/UserLayout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useMyBusinesses } from "@/hooks/useMyBusinesses";
-import type { MyProviderRow } from "@/hooks/useMyProviders";
-import type { ServiceConfig, ProviderConfig } from "@/lib/services/registry";
+import { useMyBusinesses, type MyBusiness as Business } from "@/hooks/useMyBusinesses";
+import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
 
-function BusinessRow({
-  row, service, onClick,
-}: {
-  row: MyProviderRow;
-  service: ServiceConfig & { providers: ProviderConfig };
-  onClick?: () => void;
+/**
+ * One list, one destination.
+ *
+ * The businesses used to be grouped by legacy service and each row navigated
+ * through that service's own `portalRoute`. There is one workspace now —
+ * /my-provider/:id — and one kind of id to reach it with, so the grouping was
+ * describing a distinction the app no longer makes.
+ */
+function BusinessRow({ row, icon: Icon, onClick }: {
+  row: Business;
+  icon: React.ComponentType<{ className?: string }>;
+  onClick: () => void;
 }) {
-  const Icon = service.icon;
-  const clickable = !!onClick;
   return (
     <button
       type="button"
       onClick={onClick}
-      disabled={!clickable}
-      className="flex w-full items-center gap-4 rounded-3xl bg-card p-4 text-left transition-colors hover:bg-muted/30 disabled:cursor-not-allowed disabled:opacity-70"
+      className="flex w-full items-center gap-3 rounded-radius-lg bg-card p-4 text-left tracking-[-0.02em] transition-colors hover:bg-muted/30"
     >
-      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-muted">
-        <Icon className={`h-6 w-6 ${service.chip.replace("bg-", "text-")}`} />
+      <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-radius-md bg-inset">
+        {row.avatarUrl
+          ? <img src={row.avatarUrl} alt="" className="h-full w-full object-cover" />
+          : <Icon className="h-6 w-6 text-muted-foreground" />}
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <p className="truncate font-bold text-foreground">{row.name}</p>
-          {row.status && (
-            <StatusPill status={row.status} />
-          )}
-          <Badge variant="secondary" className="rounded-full text-xs capitalize">{row.myRole}</Badge>
-          {!clickable && (
-            <Badge variant="outline" className="rounded-full text-[10px]">portal soon</Badge>
-          )}
+          <p className="truncate text-[16px] font-semibold leading-[22px] text-foreground">{row.name}</p>
+          {row.status && row.status !== "active" && <StatusPill status={row.status} />}
+          <Badge variant="secondary" className="rounded-full text-[12px] capitalize">{row.role}</Badge>
         </div>
-        {row.description && <p className="mt-0.5 truncate text-sm text-muted-foreground">{row.description}</p>}
+        {row.description && (
+          <p className="mt-0.5 truncate text-[14px] leading-[18px] text-muted-foreground">{row.description}</p>
+        )}
       </div>
-      {clickable && <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground/50" />}
+      <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground/50" />
     </button>
   );
 }
 
 export default function MyBusiness() {
   const navigate = useNavigate();
-  const { groups, isLoading, hasAny } = useMyBusinesses();
+  const { businesses, isLoading, hasAny } = useMyBusinesses();
+  const { archetypes } = useServiceArchetypes(false);
 
   return (
     <UserLayout title="My Business">
-      <div className="app-container space-y-6 py-6">
-        <div>
-          <h1 className="text-2xl font-black tracking-tight text-foreground sm:text-3xl">My Business</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Manage the businesses you own or help run.</p>
-        </div>
+      <div className="app-container space-y-1 py-6">
+        <section className="rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
+          <h1 className="text-[24px] font-semibold leading-[29px] text-foreground">My Business</h1>
+          <p className="mt-1 text-[16px] leading-[22px] text-muted-foreground">
+            The businesses you own or help run.
+          </p>
+        </section>
 
         {isLoading ? (
-          <div className="space-y-3">
-            <div className="h-20 animate-pulse rounded-3xl bg-muted" />
-            <div className="h-20 animate-pulse rounded-3xl bg-muted" />
-          </div>
+          <>
+            <div className="h-20 animate-pulse rounded-radius-lg bg-card" />
+            <div className="h-20 animate-pulse rounded-radius-lg bg-card" />
+          </>
         ) : !hasAny ? (
-          <div className="flex flex-col items-center justify-center rounded-3xl bg-card px-4 py-16 text-center">
+          <div className="flex flex-col items-center justify-center rounded-radius-lg bg-card px-4 py-16 text-center">
             <Store className="mb-3 h-12 w-12 text-muted-foreground/40" />
-            <p className="font-semibold text-foreground">No businesses yet</p>
-            <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+            <p className="text-[16px] font-semibold text-foreground">No businesses yet</p>
+            <p className="mt-1 max-w-sm text-[14px] leading-[18px] text-muted-foreground">
               Want to offer your service on EverySub? Apply to become a provider — once approved,
               your business appears here to manage.
             </p>
@@ -75,20 +79,13 @@ export default function MyBusiness() {
             </Button>
           </div>
         ) : (
-          groups.map(({ service, rows }) => (
-            <section key={service.key} className="space-y-3">
-              <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">
-                {service.providers.labels.plural}
-              </h2>
-              {rows.map((r) => (
-                <BusinessRow
-                  key={r.id}
-                  row={r}
-                  service={service}
-                  onClick={service.providers.portalRoute ? () => navigate(service.providers.portalRoute!(r.id)) : undefined}
-                />
-              ))}
-            </section>
+          businesses.map((row) => (
+            <BusinessRow
+              key={row.id}
+              row={row}
+              icon={archetypes.find((a) => a.key === row.archetypeKey)?.Icon ?? Store}
+              onClick={() => navigate(`/my-provider/${row.id}`)}
+            />
           ))
         )}
       </div>

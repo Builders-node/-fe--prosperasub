@@ -159,8 +159,15 @@ export const SERVICES: Record<ServiceKey, ServiceConfig> = {
   },
 };
 
-/** Convenience: services that accept third-party provider applications. */
-export const PROVIDER_SERVICES: ServiceConfig[] = Object.values(SERVICES).filter(
+/**
+ * Convenience: services that accept third-party provider applications.
+ *
+ * The type says `providers` is present, because the predicate below has
+ * already proved it. Annotating this `ServiceConfig[]` threw that proof away
+ * and every caller had to re-assert it — which is where two of the tree's
+ * standing type errors came from.
+ */
+export const PROVIDER_SERVICES: Array<ServiceConfig & { providers: ProviderConfig }> = Object.values(SERVICES).filter(
   (s): s is ServiceConfig & { providers: ProviderConfig } => Boolean(s.providers),
 );
 

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { WorkspaceTabsCard } from "@/components/provider/WorkspaceTabsCard";
 import { WorkspaceStat } from "@/components/provider/WorkspaceUI";
 import { useUserUuid } from "@/hooks/useUserUuid";
+import { useAuth } from "@/contexts/AuthContext";
 import { accountApi } from "@/integrations/supabase/client";
 import { useProviderKpis } from "@/components/provider/ProviderAnalyticsWidget";
 import { formatUSD } from "@/lib/pricing";
@@ -82,7 +83,36 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
    * a figure should be.
    */
   const myUuid = useUserUuid();
-  const isOwner = !!myUuid && !!provider?.admin_user_id && provider.admin_user_id === myUuid;
+  const { userData } = useAuth();
+  const myEmail = userData?.email ?? null;
+
+  /**
+   * The Team tab's own record of who runs this business.
+   *
+   * It has to be read here as well as in the ownership check, because a
+   * manager added through that tab exists in `provider_members` and nowhere
+   * else — the legacy portals ask their own per-service manager tables, and
+   * would have shown this person "access was removed".
+   */
+  const membershipQ = useQuery({
+    queryKey: ["provider-membership", provider?.id, myUuid, myEmail],
+    enabled: !!provider && !!myUuid,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabaseDb
+        .from("provider_members")
+        .select("role")
+        .eq("provider_id", provider!.id)
+        .or(myEmail ? `user_id.eq.${myUuid},user_email.eq.${myEmail}` : `user_id.eq.${myUuid}`)
+        .maybeSingle();
+      if (error) throw error;
+      return (data ?? null) as { role: string | null } | null;
+    },
+  });
+  const isMember = !!membershipQ.data;
+  const isOwner =
+    (!!myUuid && !!provider?.admin_user_id && provider.admin_user_id === myUuid)
+    || membershipQ.data?.role === "owner";
 
   const kpis = useProviderKpis({
     providerId: provider?.id ?? "",
@@ -331,7 +361,7 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
             says: it answers "may this person be here, and are they the owner",
             and hands the same strip to the same view. */}
         {isLegacyPortal
-          ? <LegacyOwnerPortal sourceKey={sourceKey} legacyId={legacyId} tabs={tabs} isOwner={isOwner} />
+          ? <LegacyOwnerPortal sourceKey={sourceKey} legacyId={legacyId} tabs={tabs} isOwner={isOwner} isMember={isMember} />
           : <PortalTabsView tabs={tabs} provider={null} isOwner={isOwner} />}
       </div>
     </>

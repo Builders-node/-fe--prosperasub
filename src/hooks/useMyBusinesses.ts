@@ -1,24 +1,56 @@
 import { useQuery } from "@tanstack/react-query";
-import { useMyProviders, type MyProviderRow } from "@/hooks/useMyProviders";
-import { PROVIDER_SERVICES, type ServiceConfig, type ProviderConfig } from "@/lib/services/registry";
+import { useMyProviders } from "@/hooks/useMyProviders";
+import { PROVIDER_SERVICES } from "@/lib/services/registry";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserUuid } from "@/hooks/useUserUuid";
 
-export interface BusinessGroup {
-  service: ServiceConfig & { providers: ProviderConfig };
-  rows: MyProviderRow[];
+export interface MyBusiness {
+  /** Universal `providers.id` — what /my-provider/:id takes. */
+  id: string;
+  name: string;
+  description: string | null;
+  status: string | null;
+  avatarUrl: string | null;
+  archetypeKey: string | null;
+  sourceKey: string | null;
+  role: "owner" | "manager";
+}
+
+interface ProviderRow {
+  id: string;
+  name: string;
+  description: string | null;
+  status: string | null;
+  avatar_url: string | null;
+  archetype_key: string | null;
+  source_service_key: string | null;
+  source_provider_id: string | null;
+  admin_user_id: string | null;
 }
 
 /**
- * All businesses the current user owns or manages, grouped by service.
+ * Every business the current user owns or helps run, as one list.
  *
- * Registry-driven: adding a new marketplace category (with a providerConfig)
- * automatically shows up here — no code change needed in MyBusiness or in
- * the "AccountMenu → My Business" dropdown gating.
+ * Membership is recorded in THREE places, and this hook is the only thing that
+ * knows it:
+ *
+ *   1. `providers.admin_user_id`      — the universal owner.
+ *   2. `provider_members`             — what the workspace's Team tab writes.
+ *   3. the per-service manager tables — `food_restaurant_managers` and friends,
+ *      which predate `provider_members` and still hold live rows.
+ *
+ * Only (1) and (3) were ever read. So somebody added through the Team tab —
+ * the platform's own way of adding a manager — got no "My business" card, no
+ * entry in this list, and "access was removed" if they typed the URL. The
+ * feature wrote a row nothing consulted.
+ *
+ * The list is universal ids, because the workspace is one page for every
+ * service now; a legacy row is resolved to its universal twin through
+ * (source_service_key, source_provider_id).
  */
 export function useMyBusinesses() {
-  const groups: BusinessGroup[] = [];
+  const legacyGroups: Array<{ key: string; rows: Array<{ id: string; myRole: "owner" | "manager" }> }> = [];
   let isLoading = false;
 
   for (const service of PROVIDER_SERVICES) {
@@ -27,43 +59,82 @@ export function useMyBusinesses() {
     // eslint-disable-next-line react-hooks/rules-of-hooks
     const q = useMyProviders(service);
     if (q.isLoading) isLoading = true;
-    if (q.hasAny) groups.push({ service, rows: q.providers });
+    if (q.hasAny) legacyGroups.push({ key: service.key, rows: q.providers });
   }
 
-  /**
-   * Businesses that live only in the universal `providers` table.
-   *
-   * PROVIDER_SERVICES is the registry's three legacy services — cars, food,
-   * cleaning — so a beach club owner, or the owner of a universal-only
-   * provider like Massage, came back as owning nothing. That is the difference
-   * between the home screen offering them "My business" and pitching them to
-   * become a provider they already are.
-   */
   const { userData } = useAuth();
   const userUuid = useUserUuid();
-  const ownerId = userUuid ?? userData?.id ?? null;
-  const legacyKeys = PROVIDER_SERVICES.map((s) => s.key);
+  const me = userUuid ?? userData?.id ?? null;
+  const email = userData?.email ?? null;
+  // The legacy answer changes what this query returns, so it is part of the key
+  // — otherwise a slow per-service hook resolves after the join and its rows
+  // never make it into the list.
+  const legacyKey = legacyGroups.map((g) => `${g.key}:${g.rows.map((r) => `${r.id}:${r.myRole}`).join(",")}`).join("|");
 
-  const universal = useQuery({
-    queryKey: ["my-universal-providers", ownerId],
-    enabled: !!ownerId,
+  const q = useQuery({
+    queryKey: ["my-businesses", me, email, legacyKey],
+    enabled: !!me,
     staleTime: 60_000,
-    queryFn: async () => {
-      const { data, error } = await supabaseDb
-        .from("providers")
-        .select("id, name, source_service_key, status")
-        .eq("admin_user_id", ownerId!)
-        .eq("status", "active");
-      if (error) throw error;
-      // Anything the registry already covers is counted above — this only adds
-      // what nothing else would find.
-      return (data ?? []).filter((p: any) => !legacyKeys.includes(p.source_service_key));
+    queryFn: async (): Promise<MyBusiness[]> => {
+      const [providersRes, membersRes] = await Promise.all([
+        supabaseDb
+          .from("providers")
+          .select("id, name, description, status, avatar_url, archetype_key, source_service_key, source_provider_id, admin_user_id")
+          .order("name", { ascending: true }),
+        supabaseDb
+          .from("provider_members")
+          .select("provider_id, role")
+          // By email as well as by id: a manager can be invited before they
+          // have ever signed in, and the row is keyed by what was typed.
+          .or(email ? `user_id.eq.${me},user_email.eq.${email}` : `user_id.eq.${me}`),
+      ]);
+      if (providersRes.error) throw providersRes.error;
+      if (membersRes.error) throw membersRes.error;
+
+      const providers = (providersRes.data ?? []) as ProviderRow[];
+      const byLegacy = new Map<string, ProviderRow>();
+      providers.forEach((p) => {
+        if (p.source_service_key && p.source_provider_id) {
+          byLegacy.set(`${p.source_service_key}:${p.source_provider_id}`, p);
+        }
+      });
+
+      /** universal id → role, strongest wins. */
+      const roles = new Map<string, "owner" | "manager">();
+      const claim = (id: string, role: "owner" | "manager") => {
+        if (role === "owner" || !roles.has(id)) roles.set(id, role);
+      };
+
+      providers.forEach((p) => { if (p.admin_user_id && p.admin_user_id === me) claim(p.id, "owner"); });
+      (membersRes.data ?? []).forEach((m: { provider_id: string; role: string | null }) => {
+        claim(m.provider_id, m.role === "owner" ? "owner" : "manager");
+      });
+      legacyGroups.forEach(({ key, rows }) => {
+        rows.forEach((r) => {
+          const universal = byLegacy.get(`${key}:${r.id}`);
+          if (universal) claim(universal.id, r.myRole);
+        });
+      });
+
+      return providers
+        .filter((p) => roles.has(p.id))
+        .map((p) => ({
+          id: p.id,
+          name: p.name,
+          description: p.description,
+          status: p.status,
+          avatarUrl: p.avatar_url,
+          archetypeKey: p.archetype_key,
+          sourceKey: p.source_service_key,
+          role: roles.get(p.id)!,
+        }));
     },
   });
 
+  const businesses = q.data ?? [];
   return {
-    groups,
-    isLoading: isLoading || universal.isLoading,
-    hasAny: groups.length > 0 || (universal.data?.length ?? 0) > 0,
+    businesses,
+    isLoading: isLoading || q.isLoading,
+    hasAny: businesses.length > 0,
   };
 }
