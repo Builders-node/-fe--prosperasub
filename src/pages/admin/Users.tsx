@@ -113,8 +113,9 @@ const AdminUsers = () => {
     queryKey: ["admin-people-beach-subs"],
     queryFn: async () => {
       return await fetchAllRows<any>(() => supabaseDb
-        .from("beach_club_subscriptions")
-        .select("id, user_id, status, customer_email").order("id"));
+        .from("provider_subscriptions")
+        .select("id, user_id, status, customer_email:metadata->>customer_email")
+        .eq("source_service_key", "beach").order("id"));
     },
     staleTime: 15_000,
   });
@@ -595,8 +596,9 @@ function EditUserForm({ user, auditLogs, onSave, onSoftDelete, saving, deleting 
           .select("id, status, meal_plan_id, provider_id, started_at, commitment_weeks, weekly_price_cents, created_at")
           .eq("user_id", uid),
         supabaseDb
-          .from("beach_club_subscriptions")
-          .select("id, plan_name, status, payment_status, start_date, end_date, total_cents, created_at")
+          .from("provider_subscriptions")
+          .select("id, status, payment_status, start_date, end_date, created_at, plan_name:metadata->>plan_name, total_cents:price_cents")
+          .eq("source_service_key", "beach")
           .eq("user_id", uid),
       ]);
 

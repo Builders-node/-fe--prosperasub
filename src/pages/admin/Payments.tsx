@@ -123,8 +123,9 @@ const AdminPayments = () => {
         fetchAllRows<any>(() => supabaseDb.from("cleaning_subscriptions")
           .select("payment_status, subscription_status, total_price_cents, monthly_price_cents")
           .is("deleted_at", null).order("id")),
-        fetchAllRows<any>(() => supabaseDb.from("beach_club_subscriptions")
-          .select("payment_status, status, total_cents").order("id")),
+        fetchAllRows<any>(() => supabaseDb.from("provider_subscriptions")
+          .select("payment_status, status, total_cents:price_cents")
+          .eq("source_service_key", "beach").order("id")),
         fetchAllRows<any>(() => supabaseDb.from("food_subscriptions")
           .select("status, payment_status, weekly_price_cents, commitment_weeks, periods_paid").order("id")),
       ]);

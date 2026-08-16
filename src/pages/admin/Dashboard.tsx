@@ -60,8 +60,9 @@ const AdminDashboard = () => {
         fetchAllRows<any>(() => supabaseDb.from("cleaning_subscriptions")
           .select("payment_status, subscription_status, is_active, total_price_cents, monthly_price_cents")
           .is("deleted_at", null).order("id")),
-        fetchAllRows<any>(() => supabaseDb.from("beach_club_subscriptions")
-          .select("payment_status, status, total_cents").order("id")),
+        fetchAllRows<any>(() => supabaseDb.from("provider_subscriptions")
+          .select("payment_status, status, total_cents:price_cents")
+          .eq("source_service_key", "beach").order("id")),
         fetchAllRows<any>(() => supabaseDb.from("food_subscriptions")
           .select("status, payment_status, weekly_price_cents, commitment_weeks, periods_paid").order("id")),
       ]);
@@ -131,8 +132,9 @@ const AdminDashboard = () => {
           .neq("payment_status", "paid").neq("payment_status", "refunded")
           .not("status", "in", "(cancelled,expired)")
           .order("created_at", { ascending: false }).limit(20),
-        supabaseDb.from("beach_club_subscriptions")
-          .select("id, user_id, customer_name, total_cents, created_at, payment_status, status")
+        supabaseDb.from("provider_subscriptions")
+          .select("id, user_id, created_at, payment_status, status, total_cents:price_cents, customer_name:metadata->>customer_name")
+          .eq("source_service_key", "beach")
           .neq("payment_status", "paid").neq("payment_status", "refunded")
           .not("status", "in", "(cancelled,expired)")
           .order("created_at", { ascending: false }).limit(20),
@@ -210,7 +212,7 @@ const AdminDashboard = () => {
       const [cleaningSubs, foodSubs, beachSubs] = await Promise.all([
         supabaseDb.from("cleaning_subscriptions").select("id, user_id, client_id, payment_status, total_price_cents, monthly_price_cents, created_at").is("deleted_at", null).order("created_at", { ascending: false }).limit(6),
         supabaseDb.from("food_subscriptions").select("id, user_id, status, customer_name, weekly_price_cents, commitment_weeks, created_at").order("created_at", { ascending: false }).limit(6),
-        supabaseDb.from("beach_club_subscriptions").select("id, user_id, status, payment_status, customer_name, total_cents, created_at").order("created_at", { ascending: false }).limit(6),
+        supabaseDb.from("provider_subscriptions").select("id, user_id, status, payment_status, created_at, total_cents:price_cents, customer_name:metadata->>customer_name").eq("source_service_key", "beach").order("created_at", { ascending: false }).limit(6),
       ]);
 
       const userIds = [...new Set([

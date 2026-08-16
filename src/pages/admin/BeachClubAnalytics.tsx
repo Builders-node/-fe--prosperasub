@@ -11,7 +11,8 @@ import { formatUSD } from "@/lib/pricing";
 interface BeachSub {
   id: string;
   plan_name: string | null;
-  people: number;
+  /** Read out of the row's metadata, so json until it is counted. */
+  people: number | string | null;
   total_cents: number | null;
   payment_status: string | null;
   status: string;
@@ -24,9 +25,12 @@ export default function BeachClubAnalytics({ embedded = false }: { embedded?: bo
     queryFn: async () => {
       // Paged — these rows are reduced into revenue/count figures and
       // PostgREST truncates a plain select at 1000 rows without erroring.
+      // The generated row type cannot express an aliased json path, so the
+      // shape is asserted here rather than fought with at every call site.
       return await fetchAllRows<BeachSub>(() => supabaseDb
-        .from("beach_club_subscriptions")
-        .select("id, plan_name, people, total_cents, payment_status, status, created_at").order("id"));
+        .from("provider_subscriptions")
+        .select("id, payment_status, status, created_at, plan_name:metadata->>plan_name, people:metadata->people, total_cents:price_cents")
+        .eq("source_service_key", "beach").order("id") as never);
     },
   });
 
@@ -51,7 +55,7 @@ export default function BeachClubAnalytics({ embedded = false }: { embedded?: bo
   // "Total People" is a live-membership headcount, so only paid + active
   // members count. Including cancelled/pending rows inflated the number and
   // disagreed with every other tile on this page.
-  const totalMembers = active.reduce((sum, s) => sum + (s.people ?? 0), 0);
+  const totalMembers = active.reduce((sum, s) => sum + (Number(s.people) || 0), 0);
   const avgOrderCents = paid.length ? Math.round(totalRevenueCents / paid.length) : 0;
 
   // Revenue for the current month.

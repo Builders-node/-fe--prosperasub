@@ -69,8 +69,9 @@ function useUserHistory() {
         supabaseDb.from("food_subscriptions")
           .select("id,created_at,meal_plan_id,weekly_price_cents,payment_method,payment_status")
           .in("user_id", ids).order("created_at", { ascending: false }),
-        supabaseDb.from("beach_club_subscriptions")
-          .select("id,created_at,plan_id,total_cents,payment_method,payment_status")
+        supabaseDb.from("provider_subscriptions")
+          .select("id,created_at,plan_id,payment_method,payment_status,total_cents:price_cents")
+          .eq("source_service_key", "beach")
           .in("user_id", ids).order("created_at", { ascending: false }),
         // Bookings live in the engine's own table, which the browser cannot
         // read — it is service-role only. The legacy court table this used to
