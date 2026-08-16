@@ -40,6 +40,8 @@ interface Court {
   description: string | null;
   ical_feed_token: string;
   google_calendar_id: string | null;
+  /** Everything else the calendar row carries — merged back on save. */
+  metadata?: Record<string, unknown>;
 }
 
 const SUPABASE_URL = "https://igbytraidldkhhamsfdo.supabase.co";
@@ -96,15 +98,38 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [deleteTarget, setDeleteTarget] = useState<Court | null>(null);
 
+  /**
+   * The courts, read as what they are: rows in `bookable_resources`.
+   *
+   * This page used to read `beach_club_courts` and then bridge each id to the
+   * calendar the engine actually books against — two ids for one thing, and a
+   * legacy table in the middle of a screen whose bookings had already moved.
+   * The id here IS the calendar's, so the bridge is gone; the legacy row is
+   * still written by the mirror for whatever has not moved yet.
+   */
   const { data: courts = [], isLoading: courtsLoading } = useQuery({
     queryKey: ["admin-bc-courts"],
     queryFn: async () => {
       const { data, error } = await supabaseDb
-        .from("beach_club_courts")
-        .select("id, name, type, is_active, sort_order, open_hour, close_hour, slot_minutes, description, ical_feed_token, google_calendar_id")
+        .from("bookable_resources")
+        .select("id, name, type, status, sort_order, hours, metadata, provider_id")
+        .eq("source_service_key", "beach")
         .order("sort_order", { ascending: true });
       if (error) throw error;
-      return (data ?? []) as Court[];
+      return ((data ?? []) as any[]).map((r): Court => ({
+        id: r.id,
+        name: r.name,
+        type: r.type,
+        is_active: r.status === "active",
+        sort_order: r.sort_order ?? 0,
+        open_hour: r.hours?.open_hour ?? 8,
+        close_hour: r.hours?.close_hour ?? 19,
+        slot_minutes: r.hours?.slot_minutes ?? 60,
+        description: r.metadata?.description ?? null,
+        ical_feed_token: r.metadata?.ical_feed_token ?? null,
+        google_calendar_id: r.metadata?.google_calendar_id ?? null,
+        metadata: r.metadata ?? {},
+      } as Court));
     },
   });
 
@@ -120,19 +145,8 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
     return Array.from({ length: n }, (_, i) => start + i);
   }, [activeCourt]);
 
-  // DDD cutover — bridge legacy court id → engine bookable_resources.id (once).
-  const { data: resourceId = "" } = useQuery({
-    queryKey: ["admin-bc-court-resource", activeCourtId],
-    enabled: !!activeCourtId,
-    queryFn: async () => {
-      const { data, error } = await supabaseDb
-        .from("bookable_resources").select("id")
-        .eq("source_service_key", "beach")
-        .eq("source_resource_id", activeCourtId).maybeSingle();
-      if (error) throw error;
-      return (data?.id ?? "") as string;
-    },
-  });
+  // No bridge any more: the court IS the calendar the engine books against.
+  const resourceId = activeCourtId;
 
   const bookingsQueryKey = ["admin-bc-engine-bookings", resourceId, date] as const;
   const { data: bookings = [], isLoading: bookingsLoading } = useQuery({
@@ -249,22 +263,31 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
       const trimmed = form.name.trim();
       if (!trimmed) throw new Error("Name is required.");
       if (form.open_hour >= form.close_hour) throw new Error("Close hour must be after open hour.");
+      // Written where a calendar lives. The legacy court row follows by
+      // trigger, for the readers that have not moved yet.
+      const existingMeta = (editing !== "new" && editing ? (editing as any).metadata : null) ?? {};
       const payload = {
         name: trimmed,
         type: form.type,
-        is_active: form.is_active,
-        open_hour: form.open_hour,
-        close_hour: form.close_hour,
-        slot_minutes: form.slot_minutes,
-        description: form.description.trim() || null,
+        status: form.is_active ? "active" : "paused",
+        hours: {
+          open_hour: form.open_hour,
+          close_hour: form.close_hour,
+          slot_minutes: form.slot_minutes,
+        },
         sort_order: form.sort_order,
-        booking_settings: form.booking_settings,
+        // Merge: the iCal token and the Google calendar id live in here.
+        metadata: { ...existingMeta, description: form.description.trim() || null },
       };
       if (editing === "new") {
-        const { error } = await supabaseDb.from("beach_club_courts").insert(payload);
+        const club = await supabaseDb.from("providers")
+          .select("id").eq("source_service_key", "beach").limit(1).maybeSingle();
+        if (!club.data?.id) throw new Error("The beach club provider is missing.");
+        const { error } = await supabaseDb.from("bookable_resources")
+          .insert({ ...payload, provider_id: club.data.id, source_service_key: "beach" });
         if (error) throw error;
       } else if (editing) {
-        const { error } = await supabaseDb.from("beach_club_courts").update(payload).eq("id", editing.id);
+        const { error } = await supabaseDb.from("bookable_resources").update(payload).eq("id", editing.id);
         if (error) throw error;
       }
     },
@@ -278,8 +301,8 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
 
   const toggleActive = useMutation({
     mutationFn: async (c: Court) => {
-      const { error } = await supabaseDb.from("beach_club_courts")
-        .update({ is_active: !c.is_active })
+      const { error } = await supabaseDb.from("bookable_resources")
+        .update({ status: c.is_active ? "paused" : "active" })
         .eq("id", c.id);
       if (error) throw error;
     },
@@ -313,7 +336,7 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
 
   const deleteCourt = useMutation({
     mutationFn: async (c: Court) => {
-      const { error } = await supabaseDb.from("beach_club_courts").delete().eq("id", c.id);
+      const { error } = await supabaseDb.from("bookable_resources").delete().eq("id", c.id);
       if (error) throw error;
     },
     onSuccess: () => {
