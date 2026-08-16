@@ -25,7 +25,7 @@ function Section({ icon: Icon, title, subtitle, children }: {
   icon: typeof Clock; title: string; subtitle?: string; children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-2xl bg-card p-4 sm:p-5">
+    <section className="rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
       <div className="mb-4 flex items-start gap-3">
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
           <Icon className="h-4 w-4" />
@@ -353,7 +353,7 @@ export function BookingSettingsForm({ provider }: { provider: UniversalProviderR
   return (
     <div className="pb-24">
       <BookingSettingsEditor value={s} onChange={setS} />
-      <div className="sticky bottom-4 z-10 mt-4 flex items-center justify-between gap-3 rounded-2xl bg-card/95 p-3 backdrop-blur supports-[backdrop-filter]:bg-card/80">
+      <div className="sticky bottom-4 z-10 mt-4 flex items-center justify-between gap-3 rounded-radius-lg bg-card/95 p-3 backdrop-blur supports-[backdrop-filter]:bg-card/80">
         <span className="text-sm text-muted-foreground">{dirty ? "Unsaved changes" : "All changes saved"}</span>
         <div className="flex gap-2">
           {dirty && (

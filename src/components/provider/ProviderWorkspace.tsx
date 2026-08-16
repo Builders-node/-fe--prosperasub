@@ -7,9 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { WorkspaceTabsCard } from "@/components/provider/WorkspaceTabsCard";
+import { WorkspaceStat } from "@/components/provider/WorkspaceUI";
 import { useUserUuid } from "@/hooks/useUserUuid";
 import { accountApi } from "@/integrations/supabase/client";
-import { fetchProviderStats } from "@/components/provider/ProviderAnalyticsWidget";
+import { useProviderKpis } from "@/components/provider/ProviderAnalyticsWidget";
 import { formatUSD } from "@/lib/pricing";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
@@ -19,14 +20,13 @@ import {
   type CapabilityKey, type CapabilityMeta,
 } from "@/components/provider/capabilities";
 import { UniversalInfoTab, type UniversalProviderRow } from "@/components/provider/UniversalInfoTab";
-import { UniversalPlansTab } from "@/components/provider/UniversalPlansTab";
+import { PlansTab } from "@/components/provider/plans/PlansTab";
 import { InnerPillTabs } from "@/components/provider/InnerPillTabs";
 import { BookingsTab } from "@/components/provider/BookingsTab";
 import { ProviderTeamTab } from "@/components/provider/ProviderTeamTab";
 import { ScheduleAccordion } from "@/components/provider/ScheduleAccordion";
 import { ServiceLocationsSection } from "@/components/food/admin/ServiceLocationsSection";
 import { LegacyOwnerPortal, FOOD_SUBSCRIPTIONS_TAB_BODY, CLEANING_SUBSCRIPTIONS_TAB_BODY, BEACH_SUBSCRIPTIONS_TAB_BODY } from "@/components/provider/legacyPortalTabs";
-import { ProviderAnalyticsWidget } from "@/components/provider/ProviderAnalyticsWidget";
 import { ProviderReviewsPanel } from "@/components/provider/ProviderReviewsPanel";
 import { ProviderEarningsTab } from "@/components/provider/ProviderEarningsTab";
 import type { PortalTab } from "@/components/provider/ProviderPortalShell";
@@ -87,13 +87,10 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
   const myUuid = useUserUuid();
   const isOwner = !!myUuid && !!provider?.admin_user_id && provider.admin_user_id === myUuid;
 
-  const statsQ = useQuery({
-    // Same key the analytics strip inside Overview uses, so the customer count
-    // up here and the one down there are one fetch and can never disagree.
-    queryKey: ["provider-analytics", provider?.source_service_key ?? "", legacyIdOf(provider ?? {} as never)],
-    enabled: !!provider,
-    staleTime: 60_000,
-    queryFn: () => fetchProviderStats(provider!.source_service_key ?? "", legacyIdOf(provider!)),
+  const kpis = useProviderKpis({
+    providerId: provider?.id ?? "",
+    legacyId: provider ? legacyIdOf(provider) : "",
+    sourceKey: provider?.source_service_key ?? "",
   });
 
   const balanceQ = useQuery({
@@ -176,10 +173,8 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
     render: () => <BookingsTab providerId={legacyId} sourceKey={sourceKey} byCustomer={byCustomer} />,
   };
 
-  // Batches 3 + 4: dedicated Schedule tab and floating KPI strip both retired.
-  //   • ScheduleAccordion rides above Offerings — the rules apply to what's below.
-  //   • ProviderAnalyticsWidget rides above Overview — the KPIs are what "who I am" is measured by.
-  // One uniform tab-prefix mechanism in LegacyOwnerPortal/CapabilityPortal drives both.
+  // ScheduleAccordion rides above Offerings — the rules apply to what's below.
+  // (The KPI strip that used to ride above Overview is now the header card.)
   const tabPrefixes: Record<string, React.ReactNode> = {
     offerings: <ScheduleAccordion provider={provider} />,
   };
@@ -199,21 +194,17 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
     mobileLabel: INFO_TAB_META.tabMobileLabel,
     icon: INFO_TAB_META.icon,
     render: () => (
-      <>
-        <div className="mb-6 space-y-3">
-          <ProviderAnalyticsWidget providerId={provider.id} legacyId={legacyId} sourceKey={sourceKey} />
-          {/* Reputation belongs with "how am I doing", right under the number it
-              explains — the KPI strip's Rating card. Renders nothing until
-              somebody has actually rated the business. */}
-          <ProviderReviewsPanel providerId={provider.id} />
-        </div>
+      <div className="space-y-1">
+        {/* Reputation, right under the header's Rating tile that it explains.
+            Renders nothing until somebody has actually rated the business. */}
+        <ProviderReviewsPanel providerId={provider.id} />
         <UniversalInfoTab
           provider={provider}
           extra={sourceKey === "food" && legacyId
             ? <ServiceLocationsSection providerId={legacyId} />
             : undefined}
         />
-      </>
+      </div>
     ),
   };
   const headTabs: PortalTab<any>[] = [overviewTab];
@@ -299,18 +290,26 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
           )}
         </section>
 
-        {/* How it is doing. */}
-        <section className="flex gap-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
+        {/* How it is doing. The four figures that used to be a strip of
+            icon-plated cards under the tabs, in the design's tiles and above
+            them — where a business looks before choosing where to go. */}
+        <section className="grid grid-cols-2 gap-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
           {isOwner && (
             <WorkspaceStat
               label="Balance"
               value={balanceQ.isPending ? "—" : formatUSD(balanceQ.data?.availableCents ?? 0)}
             />
           )}
-          <WorkspaceStat
-            label="Customers"
-            value={statsQ.isPending ? "—" : String(statsQ.data?.active ?? 0)}
-          />
+          <WorkspaceStat label="Customers" value={kpis.isPending ? "—" : String(kpis.active)} />
+          <WorkspaceStat label="Upcoming 7d" value={kpis.isPending ? "—" : String(kpis.upcoming)} />
+          {/* Three tiles without a Balance would leave a hole in the second
+              row, so the last one takes the width instead. */}
+          <div className={isOwner ? "contents" : "col-span-2 flex"}>
+            <WorkspaceStat
+              label={kpis.ratingCount ? `Rating · ${kpis.ratingCount}` : "Rating"}
+              value={kpis.rating != null ? kpis.rating.toFixed(1) : "—"}
+            />
+          </div>
         </section>
 
         {isLegacyPortal
@@ -318,16 +317,6 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
           : capabilityPortal}
       </div>
     </>
-  );
-}
-
-/** One number on the inset fill: 16 of label over 24 of figure. */
-function WorkspaceStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex flex-1 flex-col rounded-radius-md bg-inset p-3">
-      <span className="text-[16px] leading-[22px] text-muted-foreground">{label}</span>
-      <span className="mt-1 text-[24px] font-semibold leading-[29px] tabular-nums text-foreground">{value}</span>
-    </div>
   );
 }
 
@@ -361,7 +350,7 @@ function CapabilityPortal({ provider, capabilityTabs, bookingsTab, tabPrefixes =
 }) {
   const renderCapability = (key: CapabilityKey, meta: CapabilityMeta) =>
     key === "subscription_plans"
-      ? <UniversalPlansTab providerId={provider.id} />
+      ? <PlansTab providerId={provider.id} sourceKey="" />
       : <ComingSoonTab capability={meta} />;
 
   const offerings = capabilityTabs.length === 1

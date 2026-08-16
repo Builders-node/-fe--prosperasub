@@ -18,7 +18,7 @@ import { SERVICES as SERVICE_REGISTRY } from "@/lib/services/registry";
 import BeachClubSubscriptionsPage from "@/pages/admin/BeachClubSubscriptions";
 import BeachClubCourtsPage from "@/pages/admin/BeachClubCourts";
 
-import { OfferEditor } from "@/components/provider/plans/OfferEditor";
+import { PlansTab } from "@/components/provider/plans/PlansTab";
 import { OperationsTab } from "@/components/provider/OperationsTab";
 import { useUniversalIdForLegacy as useUniversalId } from "@/lib/services/providerBridge";
 
@@ -42,7 +42,7 @@ function LegacyOperations({ legacyId, sourceKey }: { legacyId: string; sourceKey
   if (isLoading) return <TabsSkeleton />;
   if (!universalId) {
     return (
-      <div className="rounded-2xl bg-card p-6 text-sm text-muted-foreground">
+      <div className="rounded-radius-lg bg-card p-6 text-[16px] leading-[22px] text-muted-foreground">
         This business has no marketplace record yet, so its day can't be shown here.
       </div>
     );
@@ -56,21 +56,21 @@ function LegacyOperations({ legacyId, sourceKey }: { legacyId: string; sourceKey
  * It used to be two pills — the per-service plan list, and an Options screen
  * that grouped six of those plans into one product. A provider selling one
  * thing in six sizes therefore met six tariffs plus a merging tool, and edited
- * a combination's price in whichever of the two owned that row. `OfferEditor`
- * is the whole product on one screen: the plan once, the axes, and a price per
- * combination.
+ * a combination's price in whichever of the two owned that row. `PlansTab` is
+ * a card per product; opening one gives the plan once, the axes, and a price
+ * per combination, in a sheet.
  */
 function LegacyOfferings({ legacyId, sourceKey }: { legacyId: string; sourceKey: string }) {
   const { data: universalId, isLoading } = useUniversalId(sourceKey, legacyId);
   if (isLoading) return <TabsSkeleton />;
   if (!universalId) {
     return (
-      <div className="rounded-2xl bg-card p-6 text-sm text-muted-foreground">
+      <div className="rounded-radius-lg bg-card p-6 text-[16px] leading-[22px] text-muted-foreground">
         This business has no marketplace record yet, so its plans can't be edited here.
       </div>
     );
   }
-  return <OfferEditor providerId={universalId} sourceKey={sourceKey} />;
+  return <PlansTab providerId={universalId} sourceKey={sourceKey} />;
 }
 
 // Identity/bridge lives in one place — re-exported here so portal code has a
@@ -151,14 +151,14 @@ export const BEACH_SUBSCRIPTIONS_TAB_BODY = () => <BeachClubSubscriptionsPage em
  * this tab too.
  */
 export const BEACH_TABS: PortalTab<{ id: string; admin_user_id?: string | null }>[] = [
-  { value: "offerings",     label: "Offerings",  icon: Package,         render: (p) => <OfferEditor providerId={p.id} sourceKey="beach" /> },
+  { value: "offerings",     label: "Offerings",  icon: Package,         render: (p) => <PlansTab providerId={p.id} sourceKey="beach" /> },
   { value: "operations",    label: "Operations", mobileLabel: "Ops.",  icon: Wrench,          render: (p) => <OperationsTab providerId={p.id} /> },
   { value: "resources",     label: "Courts",     icon: LandPlot,        render: () => <BeachClubCourtsPage embedded /> },
 ];
 
 // ── Owner-scoped rich tabs, mounted inside the universal portal ───────────────
 function TabsSkeleton() {
-  return <div className="h-96 animate-pulse rounded-2xl bg-muted" />;
+  return <div className="h-96 animate-pulse rounded-radius-lg bg-muted" />;
 }
 
 /**
@@ -242,7 +242,7 @@ function assembleTabs<T>(
 // business they no longer have any relationship to.
 function AccessRevokedPanel() {
   return (
-    <div className="rounded-2xl bg-card p-8 text-center">
+    <div className="rounded-radius-lg bg-card p-8 text-center">
       <p className="font-semibold text-foreground">Access to this workspace was removed</p>
       <p className="mt-1 text-sm text-muted-foreground">
         The owner may have revoked your manager role. Refresh or head back to My business.

@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ProviderEditDialog, type ProviderEditFields } from "@/components/provider/ProviderEditDialog";
+import { WorkspaceRow, WorkspaceSection } from "@/components/provider/WorkspaceUI";
 import { WorkingHoursEditor } from "@/components/provider/WorkingHoursEditor";
 import { formatWorkingHours, parseWorkingHours, type HoursSchedule } from "@/lib/workingHours";
 
@@ -106,18 +107,17 @@ export function UniversalInfoTab({ provider, extra }: {
   });
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-black tracking-tight">Information</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Business details shown to customers</p>
-        </div>
-        <Button onClick={openEdit} variant="outline" className="gap-2 rounded-full">
-          <Edit className="h-4 w-4" /> Edit
-        </Button>
-      </div>
-
-      <div className="rounded-2xl bg-card p-5 space-y-4">
+    <div className="space-y-1">
+      <WorkspaceSection
+        title="Information"
+        subtitle="Business details shown to customers"
+        action={
+          <Button onClick={openEdit} variant="outline" className="gap-2 rounded-full">
+            <Edit className="h-4 w-4" /> Edit
+          </Button>
+        }
+        bodyClassName="space-y-4"
+      >
         <Row icon={<InfoIcon className="h-4 w-4 text-muted-foreground" />} label="Description">
           {provider.description || <em className="text-muted-foreground/70">No description</em>}
         </Row>
@@ -149,7 +149,7 @@ export function UniversalInfoTab({ provider, extra }: {
               : <em className="text-muted-foreground/70">Not set</em>}
           </Row>
         )}
-      </div>
+      </WorkspaceSection>
 
       {extra}
 
@@ -164,12 +164,12 @@ export function UniversalInfoTab({ provider, extra }: {
         extras={
           <>
             <div className="space-y-2">
-              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Working hours</p>
+              <p className="text-[16px] leading-[22px] text-muted-foreground">Working hours</p>
               <WorkingHoursEditor value={hours} onChange={setHours} />
             </div>
             {delivers && (
               <div className="space-y-2">
-                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Delivery</p>
+                <p className="text-[16px] leading-[22px] text-muted-foreground">Delivery</p>
                 <Textarea
                   value={delivery}
                   onChange={(e) => setDelivery(e.target.value)}
@@ -290,14 +290,5 @@ function CalendarDetails({
   );
 }
 
-function Row({ icon, label, children }: { icon: React.ReactNode; label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex items-start gap-3">
-      <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted">{icon}</span>
-      <div className="min-w-0 flex-1">
-        <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{label}</p>
-        <p className="mt-0.5 text-sm text-foreground">{children}</p>
-      </div>
-    </div>
-  );
-}
+/** The shared row — kept as a local alias so the call sites read unchanged. */
+const Row = WorkspaceRow;

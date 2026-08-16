@@ -1,28 +1,18 @@
 import { useQuery } from "@tanstack/react-query";
-import { CalendarClock, Star } from "lucide-react";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { todayHN, addDaysISO } from "@/lib/timezone";
-import { cn } from "@/lib/utils";
 
 /**
- * Owner-facing "business at a glance" widget. Mounts at the top of every
- * provider workspace so the owner sees the KPIs that actually matter before
- * digging into tabs.
+ * Where the workspace header's numbers come from.
  *
  * Stats (per service):
  *  • Active subs / bookings   — total live customer relationships
  *  • Upcoming (7 days)        — what's about to happen this week
- *  • Earned this month        — straight-line recognized revenue, the same
- *                               number the Money tab and the admin's Finance
- *                               page show. It used to be a separate cash-basis
- *                               sum living in this file, which meant one screen
- *                               could show $300 while the tab below it showed
- *                               $100 for the same plan.
  *  • Rating                   — average of provider_reviews (if any)
  *
  * The query bindings differ per service because each legacy table has its own
- * shape (see CLAUDE.md). One widget, four adapters — kept in this file so a
- * new metric only touches one place per service.
+ * shape (see CLAUDE.md). Four adapters, kept in this file so a new metric only
+ * touches one place per service.
  */
 
 interface Props {
@@ -32,32 +22,6 @@ interface Props {
   legacyId: string;
   /** Which legacy service this provider belongs to. */
   sourceKey: string;
-}
-
-interface Stat {
-  label: string;
-  value: string;
-  icon: React.ComponentType<{ className?: string }>;
-  tint?: "primary" | "amber" | "emerald" | "muted";
-}
-
-function StatCard({ label, value, icon: Icon, tint = "primary" }: Stat) {
-  const tintCls =
-    tint === "amber"   ? "bg-amber-500/15 text-amber-500"     :
-    tint === "emerald" ? "bg-emerald-500/15 text-emerald-500" :
-    tint === "muted"   ? "bg-muted text-muted-foreground"     :
-                         "bg-primary/15 text-primary";
-  return (
-    <div className="flex items-center gap-3 rounded-2xl bg-card p-4">
-      <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl", tintCls)}>
-        <Icon className="h-5 w-5" />
-      </span>
-      <div className="min-w-0">
-        <p className="text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
-        <p className="mt-0.5 text-lg font-black leading-tight tabular-nums text-foreground">{value}</p>
-      </div>
-    </div>
-  );
 }
 
 // All date boundaries here are Honduras-local so KPIs match what appears on the
@@ -182,40 +146,31 @@ async function fetchRating(universalProviderId: string) {
   return { avg: sum / nums.length, count: nums.length };
 }
 
-export function ProviderAnalyticsWidget({ providerId, legacyId, sourceKey }: Props) {
-  const { data: stats, isLoading } = useQuery({
+/**
+ * The four figures a provider is measured by, for the KPI card in the
+ * workspace header.
+ *
+ * This used to render its own strip of four icon-plated cards under the tabs —
+ * uppercase micro-labels, values in black weight, a tint per metric. The
+ * header above it then showed two of the same numbers in the redesign's type.
+ * The strip is gone; what is left is where the numbers come from.
+ */
+export function useProviderKpis({ providerId, legacyId, sourceKey }: Props) {
+  const stats = useQuery({
     queryKey: ["provider-analytics", sourceKey, legacyId],
     queryFn: () => fetchProviderStats(sourceKey, legacyId),
     staleTime: 60_000,
   });
-  const { data: rating } = useQuery({
+  const rating = useQuery({
     queryKey: ["provider-rating", providerId],
     queryFn: () => fetchRating(providerId),
     staleTime: 60_000,
   });
-
-  // Active customers and money earned are no longer here: they are the two
-  // figures in the workspace header, above the tabs, where the owner meets
-  // them before choosing where to go. Printing them again three centimetres
-  // lower made the same number look like two different measurements.
-  const cards: Stat[] = [
-    {
-      label: "Upcoming 7d",
-      value: isLoading ? "—" : String(stats?.upcoming ?? 0),
-      icon: CalendarClock,
-      tint: "primary",
-    },
-    {
-      label: rating?.count ? `Rating · ${rating.count}` : "Rating",
-      value: rating?.avg != null ? rating.avg.toFixed(1) : "—",
-      icon: Star,
-      tint: "amber",
-    },
-  ];
-
-  return (
-    <section className="grid grid-cols-2 gap-3">
-      {cards.map((c) => <StatCard key={c.label} {...c} />)}
-    </section>
-  );
+  return {
+    active: stats.data?.active ?? 0,
+    upcoming: stats.data?.upcoming ?? 0,
+    rating: rating.data?.avg ?? null,
+    ratingCount: rating.data?.count ?? 0,
+    isPending: stats.isPending,
+  };
 }

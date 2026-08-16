@@ -154,14 +154,14 @@ export function OperationsTab({ providerId }: { providerId: string }) {
     <div className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="text-xl font-black tracking-tight">Today's work</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <h2 className="text-[20px] font-semibold leading-[26px] text-foreground">Today's work</h2>
+          <p className="mt-1 text-[16px] leading-[22px] text-muted-foreground">
             Every visit, delivery and booking for this day — mark it, move it, or say who is doing it.
           </p>
         </div>
         <div className="flex flex-wrap items-end gap-2">
           <div>
-            <Label className="text-xs text-muted-foreground">Day</Label>
+            <Label className="text-[14px] text-muted-foreground">Day</Label>
             <div className="mt-1 flex items-center gap-2">
               <Input type="date" value={day} onChange={(e) => setDay(e.target.value)} className="h-9 w-[170px]" />
               {day !== todayHN() && (
@@ -197,7 +197,7 @@ export function OperationsTab({ providerId }: { providerId: string }) {
         /* A failed read used to render as "nothing on this day", which is
            indistinguishable from a quiet day — a provider would go looking for
            work the screen had simply failed to fetch. */
-        <div className="space-y-3 rounded-2xl bg-destructive/10 p-6 text-center">
+        <div className="space-y-3 rounded-radius-lg bg-destructive/10 p-6 text-center">
           <p className="text-sm font-semibold text-destructive">Couldn't load this day</p>
           <p className="text-xs text-muted-foreground">
             {(error as Error)?.message || "The day's work could not be read."}
@@ -207,8 +207,8 @@ export function OperationsTab({ providerId }: { providerId: string }) {
           </Button>
         </div>
       ) : rows.length === 0 ? (
-        <div className="rounded-2xl bg-card p-8 text-center">
-          <p className="text-sm text-muted-foreground">
+        <div className="rounded-radius-lg bg-card p-8 text-center">
+          <p className="text-[16px] leading-[22px] text-muted-foreground">
             Nothing on this day. If work should be here, use <b>Schedule ahead</b> — deliveries are
             planned in advance rather than appearing when they are marked.
           </p>
@@ -218,7 +218,7 @@ export function OperationsTab({ providerId }: { providerId: string }) {
           {rows.map((r) => {
             const meta = STATUS_META[r.status] ?? STATUS_META.scheduled;
             return (
-              <li key={r.id} className="rounded-2xl bg-card p-4">
+              <li key={r.id} className="rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="flex flex-wrap items-center gap-2 text-[16px] font-semibold tracking-[-0.32px] text-foreground">
@@ -228,7 +228,7 @@ export function OperationsTab({ providerId }: { providerId: string }) {
                           {ITEM_LABEL[r.item_key] ?? r.item_key}
                         </span>
                       )}
-                      <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-black uppercase tracking-wide", meta.tint)}>
+                      <span className={cn("rounded-full px-2 py-0.5 text-[12px] font-semibold", meta.tint)}>
                         {meta.label}
                       </span>
                     </p>

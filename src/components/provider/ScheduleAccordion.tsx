@@ -21,7 +21,7 @@ export function ScheduleAccordion({ provider }: { provider: UniversalProviderRow
   const summary = summarize(provider.booking_settings);
 
   return (
-    <section className="mb-4 overflow-hidden rounded-2xl bg-card">
+    <section className="mb-1 overflow-hidden rounded-radius-lg bg-card tracking-[-0.02em]">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -30,8 +30,8 @@ export function ScheduleAccordion({ provider }: { provider: UniversalProviderRow
       >
         <SlidersHorizontal className="h-4 w-4 shrink-0 text-muted-foreground" />
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Booking rules</p>
-          <p className="mt-0.5 truncate text-sm text-foreground">{summary}</p>
+          <p className="text-[16px] leading-[22px] text-muted-foreground">Booking rules</p>
+          <p className="mt-0.5 truncate text-[16px] leading-[22px] text-foreground">{summary}</p>
         </div>
         <ChevronDown className={cn("h-4 w-4 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")} />
       </button>

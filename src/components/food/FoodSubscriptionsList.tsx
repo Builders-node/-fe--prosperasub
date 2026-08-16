@@ -198,7 +198,7 @@ export function FoodSubscriptionsList({ providerId }: { providerId: string }) {
     // "isPendingPayment is not a function" the moment renderRow ran.
     const pendingPayment = s.payment_status && s.payment_status !== "paid" && st !== "cancelled";
     return (
-      <div key={s.id} className="flex items-center gap-3 rounded-2xl bg-card p-4">
+      <div key={s.id} className="flex items-center gap-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
         <div className="min-w-0 flex-1">
           {/* flex-wrap so badges drop under the title on narrow screens
               instead of squeezing the plan name into "Standar…" ellipsis. */}
@@ -206,7 +206,7 @@ export function FoodSubscriptionsList({ providerId }: { providerId: string }) {
             <p className="text-sm font-bold text-foreground">{s.plan_name}</p>
             <StatusPill status={st} />
             {pendingPayment && (
-              <Badge className="rounded-full text-[10px] bg-amber-500/15 text-amber-500">Awaiting payment</Badge>
+              <Badge className="rounded-full bg-amber-500/15 text-[12px] text-amber-500">Awaiting payment</Badge>
             )}
             {/* Which of these the provider onboarded themselves, and which came
                 through the partner. Renders nothing for an ordinary sale. */}

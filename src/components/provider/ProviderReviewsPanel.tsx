@@ -81,17 +81,17 @@ export function ProviderReviewsPanel({ providerId }: { providerId: string }) {
   const shown = expanded ? reviews : reviews.slice(0, 3);
 
   return (
-    <section className="rounded-2xl bg-card p-4">
+    <section className="rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
       <div className="flex items-center gap-2">
         <MessageSquare className="h-4 w-4 text-muted-foreground" />
-        <h2 className="text-sm font-black uppercase tracking-[0.14em] text-muted-foreground">
+        <h2 className="text-[20px] font-semibold leading-[26px] text-foreground">
           What customers said
         </h2>
       </div>
 
       <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center">
         <div className="flex items-center gap-3 sm:w-40 sm:shrink-0">
-          <span className="text-4xl font-black tabular-nums leading-none text-foreground">
+          <span className="text-[32px] font-semibold tabular-nums leading-none text-foreground">
             {average.toFixed(1)}
           </span>
           <div>
@@ -143,7 +143,7 @@ export function ProviderReviewsPanel({ providerId }: { providerId: string }) {
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          className="mt-3 inline-flex items-center gap-1 text-xs font-bold text-primary transition-opacity hover:opacity-80"
+          className="mt-3 inline-flex items-center gap-1 text-[14px] font-semibold text-primary transition-opacity hover:opacity-80"
         >
           {expanded ? "Show less" : `Show all ${reviews.length}`}
           <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", expanded && "rotate-180")} />

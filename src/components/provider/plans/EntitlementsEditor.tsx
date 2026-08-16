@@ -38,7 +38,7 @@ export function EntitlementsEditor({ value, onChange, planPeriod }: {
       </div>
 
       {value.length === 0 ? (
-        <p className="mt-1.5 text-xs text-muted-foreground">
+        <p className="mt-1.5 text-[14px] leading-[18px] text-muted-foreground">
           Nothing beyond what's above. Add a line to bundle something else into
           this plan — court hours, a deep clean, a session.
         </p>
@@ -47,7 +47,7 @@ export function EntitlementsEditor({ value, onChange, planPeriod }: {
           {value.map((e, i) => (
             <div key={i} className="flex items-end gap-2">
               <div className="w-24">
-                <span className="text-[11px] text-muted-foreground">How many</span>
+                <span className="text-[14px] text-muted-foreground">How many</span>
                 <Input
                   type="number" min={1} inputMode="numeric" placeholder="∞"
                   value={e.quantity ?? ""}
@@ -58,7 +58,7 @@ export function EntitlementsEditor({ value, onChange, planPeriod }: {
                 />
               </div>
               <div className="flex-1">
-                <span className="text-[11px] text-muted-foreground">Of what</span>
+                <span className="text-[14px] text-muted-foreground">Of what</span>
                 <Input
                   value={e.unit}
                   onChange={(ev) => patch(i, { unit: ev.target.value })}
@@ -66,7 +66,7 @@ export function EntitlementsEditor({ value, onChange, planPeriod }: {
                 />
               </div>
               <div className="w-32">
-                <span className="text-[11px] text-muted-foreground">How often</span>
+                <span className="text-[14px] text-muted-foreground">How often</span>
                 <select
                   className="h-10 w-full rounded-md border border-input bg-background px-2 text-sm"
                   value={e.period ?? ""}
@@ -85,7 +85,7 @@ export function EntitlementsEditor({ value, onChange, planPeriod }: {
               </Button>
             </div>
           ))}
-          <p className="text-xs text-muted-foreground">
+          <p className="text-[14px] leading-[18px] text-muted-foreground">
             Empty count = unlimited. Use <code className="font-mono">{ACCESS_UNIT}</code> as
             the unit for plain entry with nothing to count. Lines refresh every{" "}
             {planPeriod.replace("ly", "")} unless you say otherwise.

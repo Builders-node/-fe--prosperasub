@@ -84,7 +84,20 @@ const cents = (text: string) => {
   return Number.isFinite(n) && n > 0 ? n : 0;
 };
 
-export function OfferEditor({ providerId, sourceKey }: { providerId: string; sourceKey: string }) {
+export function OfferEditor({ providerId, sourceKey, planId, onSaved }: {
+  providerId: string;
+  sourceKey: string;
+  /**
+   * Edit exactly this plan, with no picker of its own.
+   *
+   * The editor grew up as the whole Offerings tab and therefore carried its
+   * own list of plans. Mounted in a sheet opened FROM a list, that second list
+   * is the same choice offered twice.
+   */
+  planId?: string;
+  /** Called after a successful save — the sheet closes on it. */
+  onSaved?: () => void;
+}) {
   const qc = useQueryClient();
   const KEY = ["offer-editor", providerId] as const;
 
@@ -142,12 +155,15 @@ export function OfferEditor({ providerId, sourceKey }: { providerId: string; sou
 
   const rows = data?.rows ?? [];
   const offers = rows.filter((r) => !r.parent_plan_id);
-  const [offerId, setOfferId] = useState("");
+  const [pickedId, setPickedId] = useState("");
+  const offerId = planId ?? pickedId;
+  const setOfferId = setPickedId;
   useEffect(() => {
-    if (offerId && offers.some((o) => o.id === offerId)) return;
+    if (planId) return;
+    if (pickedId && offers.some((o) => o.id === pickedId)) return;
     const withVariants = offers.find((o) => rows.some((r) => r.parent_plan_id === o.id));
-    setOfferId((withVariants ?? offers[0])?.id ?? "");
-  }, [rows.length]); // eslint-disable-line react-hooks/exhaustive-deps
+    setPickedId((withVariants ?? offers[0])?.id ?? "");
+  }, [rows.length, planId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const offer = offers.find((o) => o.id === offerId) ?? null;
   const variants = rows.filter((r) => r.parent_plan_id === offerId);
@@ -375,6 +391,7 @@ export function OfferEditor({ providerId, sourceKey }: { providerId: string; sou
       qc.invalidateQueries({ queryKey: KEY });
       qc.invalidateQueries({ queryKey: ["plan-offers"] });
       qc.invalidateQueries({ queryKey: ["food-meal-plans"] });
+      onSaved?.();
     },
     onError: (e: Error) => toast.error(e.message || "Couldn't save"),
   });
@@ -419,10 +436,17 @@ export function OfferEditor({ providerId, sourceKey }: { providerId: string; sou
   });
 
   if (isLoading) return <div className="flex justify-center py-12"><Spinner /></div>;
+  if (!offer && planId) {
+    return (
+      <div className="rounded-radius-lg bg-card p-6 text-[16px] leading-[22px] text-muted-foreground">
+        This plan is no longer here. It may have been deleted in another window.
+      </div>
+    );
+  }
   if (!offer) {
     return (
-      <div className="space-y-3 rounded-2xl bg-card p-6">
-        <p className="text-sm text-muted-foreground">
+      <div className="space-y-3 rounded-radius-lg bg-card p-6 tracking-[-0.02em]">
+        <p className="text-[16px] leading-[22px] text-muted-foreground">
           This business sells nothing yet. A plan is one product: a name, whatever the customer
           gets to choose, and a price for each way of choosing it.
         </p>
@@ -435,9 +459,9 @@ export function OfferEditor({ providerId, sourceKey }: { providerId: string; sou
 
   return (
     <div className="space-y-5">
-      {/* Every plan this business sells. A provider is not limited to one —
-          each is its own product with its own choices and prices. */}
-      <div className="flex flex-wrap items-center gap-2">
+      {/* Every plan this business sells — only when nobody outside has already
+          chosen one. Opened from a plan card, the card WAS the choice. */}
+      <div className={cn("flex flex-wrap items-center gap-2", planId && "hidden")}>
         {offers.map((o) => (
           <button key={o.id} type="button" onClick={() => setOfferId(o.id)}
             className={cn(
@@ -445,7 +469,7 @@ export function OfferEditor({ providerId, sourceKey }: { providerId: string; sou
               o.id === offerId ? "bg-foreground text-background" : "bg-muted/50 text-muted-foreground hover:text-foreground",
             )}>
             {o.name}
-            {o.status !== "active" && <span className="ml-1.5 text-[10px] uppercase opacity-70">off</span>}
+            {o.status !== "active" && <span className="ml-1.5 text-[12px] opacity-70">off</span>}
           </button>
         ))}
         <Button variant="outline" size="sm" className="gap-1.5 rounded-full"
@@ -454,8 +478,8 @@ export function OfferEditor({ providerId, sourceKey }: { providerId: string; sou
         </Button>
       </div>
 
-      <section className="space-y-3 rounded-2xl bg-card p-4">
-        <p className="text-xs font-black uppercase tracking-[0.14em] text-muted-foreground">The plan</p>
+      <section className="space-y-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
+        <p className="text-[20px] font-semibold leading-[26px] text-foreground">The plan</p>
         <div>
           <Label className="text-xs">Name</Label>
           <Input className="mt-1" value={name} onChange={(e) => setName(e.target.value)} />
@@ -471,8 +495,8 @@ export function OfferEditor({ providerId, sourceKey }: { providerId: string; sou
         </p>
       </section>
 
-      <section className="space-y-3 rounded-2xl bg-card p-4">
-        <p className="text-xs font-black uppercase tracking-[0.14em] text-muted-foreground">How it's sold</p>
+      <section className="space-y-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
+        <p className="text-[20px] font-semibold leading-[26px] text-foreground">How it's sold</p>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Billed every">
             <select value={sold.period} onChange={(e) => setSold((v) => ({ ...v, period: e.target.value }))}
@@ -546,8 +570,8 @@ export function OfferEditor({ providerId, sourceKey }: { providerId: string; sou
         </div>
       </section>
 
-      <section className="space-y-3 rounded-2xl bg-card p-4">
-        <p className="text-xs font-black uppercase tracking-[0.14em] text-muted-foreground">What they get</p>
+      <section className="space-y-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
+        <p className="text-[20px] font-semibold leading-[26px] text-foreground">What they get</p>
         <Field label="Included" hint="One per line — shown on the plan page.">
           <Textarea rows={4} value={includes.features}
             onChange={(e) => setIncludes((v) => ({ ...v, features: e.target.value }))}
@@ -564,8 +588,8 @@ export function OfferEditor({ providerId, sourceKey }: { providerId: string; sou
         </Field>
       </section>
 
-      <section className="space-y-3 rounded-2xl bg-card p-4">
-        <p className="text-xs font-black uppercase tracking-[0.14em] text-muted-foreground">What the customer chooses</p>
+      <section className="space-y-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
+        <p className="text-[20px] font-semibold leading-[26px] text-foreground">What the customer chooses</p>
         {draftGroups.map((group, gi) => (
           <div key={group.key} className="rounded-radius-md bg-inset p-3">
             <div className="flex items-center gap-2">
@@ -609,8 +633,8 @@ export function OfferEditor({ providerId, sourceKey }: { providerId: string; sou
         </div>
       </section>
 
-      <section className="space-y-3 rounded-2xl bg-card p-4">
-        <p className="text-xs font-black uppercase tracking-[0.14em] text-muted-foreground">Prices</p>
+      <section className="space-y-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
+        <p className="text-[20px] font-semibold leading-[26px] text-foreground">Prices</p>
         {combos.length === 0 ? (
           <p className="text-sm text-muted-foreground">Give every choice at least one value to price it.</p>
         ) : (
@@ -663,6 +687,28 @@ export function OfferEditor({ providerId, sourceKey }: { providerId: string; sou
   );
 }
 
+/**
+ * A new, unpriced, off-sale plan — the row a list's "New plan" button needs
+ * before it can open the editor on something.
+ *
+ * Off sale on purpose: a plan nobody has priced yet must not appear on the
+ * storefront at $0 while its owner is still typing.
+ */
+export async function createDraftPlan(input: {
+  providerId: string; sourceKey: string; sortOrder: number; name?: string;
+}): Promise<string> {
+  const id = await createPlanRow({
+    providerId: input.providerId,
+    sourceKey: input.sourceKey,
+    name: input.name ?? "New plan",
+    amount: 0,
+    sortOrder: input.sortOrder,
+    draft: true,
+  });
+  if (!id) throw new Error("The plan was created but could not be opened — reload the page.");
+  return id;
+}
+
 /** How each pricing mode reads to the person picking it. */
 const PRICING_HINT: Record<string, string> = {
   flat: "One price for the period.",
@@ -674,9 +720,9 @@ const PRICING_HINT: Record<string, string> = {
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <div>
-      <Label className="text-xs text-muted-foreground">{label}</Label>
+      <Label className="text-[14px] font-normal text-muted-foreground">{label}</Label>
       <div className="mt-1">{children}</div>
-      {hint && <p className="mt-1 text-[11px] text-muted-foreground">{hint}</p>}
+      {hint && <p className="mt-1 text-[14px] leading-[18px] text-muted-foreground">{hint}</p>}
     </div>
   );
 }

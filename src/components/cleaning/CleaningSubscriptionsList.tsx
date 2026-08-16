@@ -238,7 +238,7 @@ export function CleaningSubscriptionsList({ providerId }: { providerId: string }
     const end = s.paid_until || s.service_end_date || s.end_date;
     const start = s.service_start_date;
     return (
-      <div key={s.id} className="flex items-center gap-3 rounded-2xl bg-card p-4">
+      <div key={s.id} className="flex items-center gap-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
         <div className="min-w-0 flex-1">
           {/* flex-wrap so badges drop under the title on narrow screens
               instead of squeezing the package name into an ellipsis. */}

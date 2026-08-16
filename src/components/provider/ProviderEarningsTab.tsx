@@ -10,6 +10,7 @@ import {
 } from "@/lib/finance/platformTake";
 import { fetchEarned } from "@/lib/finance/providerEarnings";
 import { cn } from "@/lib/utils";
+import { WorkspaceStat } from "@/components/provider/WorkspaceUI";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ResponsiveDialog } from "@/components/patterns/ResponsiveDialog";
@@ -114,11 +115,11 @@ function WithdrawPanel({ providerId, availableCents }: { providerId: string; ava
   });
 
   return (
-    <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-card p-4">
+    <section className="flex flex-wrap items-center justify-between gap-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
       <div className="min-w-0">
-        <p className="text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">Available to withdraw</p>
-        <p className="mt-1 text-2xl font-black tabular-nums leading-none text-foreground">{formatUSD(availableCents)}</p>
-        <p className="mt-1.5 text-xs text-muted-foreground">
+        <p className="text-[16px] leading-[22px] text-muted-foreground">Available to withdraw</p>
+        <p className="mt-1 text-[24px] font-semibold leading-[29px] tabular-nums text-foreground">{formatUSD(availableCents)}</p>
+        <p className="mt-1 text-[14px] leading-[18px] text-muted-foreground">
           Everything you have earned, less what you have already asked for or been sent.
         </p>
       </div>
@@ -129,7 +130,7 @@ function WithdrawPanel({ providerId, availableCents }: { providerId: string; ava
       <ResponsiveDialog open={open} onOpenChange={setOpen} title="Request a payout">
         <div className="space-y-4 pb-2">
           <div className="space-y-1.5">
-            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Amount (USD)</label>
+            <label className="text-[16px] leading-[22px] text-muted-foreground">Amount (USD)</label>
             <Input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)}
               placeholder={(availableCents / 100).toFixed(2)} />
             <button type="button" className="text-xs font-semibold text-primary"
@@ -138,7 +139,7 @@ function WithdrawPanel({ providerId, availableCents }: { providerId: string; ava
             </button>
           </div>
           <div className="space-y-1.5">
-            <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Where to send it</label>
+            <label className="text-[16px] leading-[22px] text-muted-foreground">Where to send it</label>
             <Input value={destination} onChange={(e) => setDestination(e.target.value)}
               placeholder="Lightning address or Bitcoin address" />
           </div>
@@ -162,33 +163,19 @@ function PayoutStatus({ status }: { status?: string }) {
     status === "approved"  ? "bg-sky-500/15 text-sky-500" :
                              "bg-destructive/15 text-destructive";
   return (
-    <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide", tone)}>
+    <span className={cn("rounded-full px-2 py-0.5 text-[12px] font-semibold capitalize", tone)}>
       {status}
     </span>
   );
 }
 
-function MoneyCard({ label, value, hint, icon: Icon, tone = "muted" }: {
-  label: string; value: string; hint?: string;
-  icon: React.ComponentType<{ className?: string }>;
-  tone?: "muted" | "emerald" | "amber";
-}) {
-  const tint =
-    tone === "emerald" ? "bg-emerald-500/15 text-emerald-500" :
-    tone === "amber"   ? "bg-amber-500/15 text-amber-500" :
-                         "bg-muted text-muted-foreground";
-  return (
-    <div className="rounded-2xl bg-card p-4">
-      <div className="flex items-center gap-2">
-        <span className={cn("flex h-8 w-8 items-center justify-center rounded-xl", tint)}>
-          <Icon className="h-4 w-4" />
-        </span>
-        <p className="text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
-      </div>
-      <p className="mt-2 text-2xl font-black tabular-nums leading-none text-foreground">{value}</p>
-      {hint && <p className="mt-1.5 text-xs text-muted-foreground">{hint}</p>}
-    </div>
-  );
+/**
+ * A figure on the Money tab, in the same tile as the header's — label 16
+ * muted over 24 semibold. The icon plate and its tint went with the old look:
+ * a coloured square never told anyone which number they were reading.
+ */
+function MoneyCard({ label, value, hint }: { label: string; value: string; hint?: string }) {
+  return <WorkspaceStat label={label} value={value} hint={hint} />;
 }
 
 export function ProviderEarningsTab({ providerId, legacyId, sourceKey }: {
@@ -268,8 +255,8 @@ export function ProviderEarningsTab({ providerId, legacyId, sourceKey }: {
   const availableCents = available?.availableCents ?? 0;
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap gap-2">
+    <div className="space-y-1">
+      <div className="flex flex-wrap gap-2 rounded-radius-lg bg-card p-4">
         {RANGES.map((r) => (
           <button
             key={r.key}
@@ -285,38 +272,32 @@ export function ProviderEarningsTab({ providerId, legacyId, sourceKey }: {
         ))}
       </div>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em] lg:grid-cols-4">
         <MoneyCard
           label="Customers paid"
           value={isLoading ? "—" : formatUSD(revenue)}
           hint="Spread across the days each plan covers"
-          icon={TrendingUp}
         />
         <MoneyCard
           label={sourceMeta?.kind === "cost" ? "Platform margin" : "Platform fee"}
           value={isLoading ? "—" : formatUSD(split.platformCents)}
           hint={split.explanation}
-          icon={Info}
         />
         <MoneyCard
           label="You earned"
           value={isLoading ? "—" : formatUSD(split.providerCents)}
-          icon={Banknote}
-          tone="emerald"
         />
         <MoneyCard
           label={outstanding >= 0 ? "Owed to you" : "Paid ahead"}
           value={isLoading ? "—" : formatUSD(Math.abs(outstanding))}
           hint={paidInRange ? `${formatUSD(paidInRange)} already paid` : "Nothing paid out for this period"}
-          icon={Wallet}
-          tone={outstanding > 0 ? "amber" : "muted"}
         />
       </div>
 
       <WithdrawPanel providerId={providerId} availableCents={availableCents} />
 
-      <section className="rounded-2xl bg-card p-4">
-        <h3 className="text-sm font-black uppercase tracking-[0.14em] text-muted-foreground">Payouts</h3>
+      <section className="rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
+        <h3 className="text-[20px] font-semibold leading-[26px] text-foreground">Payouts</h3>
 
         {payoutsFailed ? (
           <p className="mt-3 text-sm text-muted-foreground">
@@ -336,7 +317,7 @@ export function ProviderEarningsTab({ providerId, legacyId, sourceKey }: {
                   <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-foreground">
                     {new Date(p.paid_at ?? p.requested_at ?? p.created_at).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}
                     <PayoutStatus status={p.status} />
-                    {p.method && <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{p.method}</span>}
+                    {p.method && <span className="text-[14px] capitalize text-muted-foreground">{p.method}</span>}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {p.period_start && p.period_end ? `Covers ${p.period_start} → ${p.period_end}` : "Ad-hoc payout"}
@@ -346,7 +327,7 @@ export function ProviderEarningsTab({ providerId, legacyId, sourceKey }: {
                     <p className="truncate font-mono text-[11px] text-muted-foreground/70">{p.reference}</p>
                   )}
                 </div>
-                <span className="text-base font-black tabular-nums text-foreground">{formatUSD(p.amount_cents)}</span>
+                <span className="text-[16px] font-semibold tabular-nums text-foreground">{formatUSD(p.amount_cents)}</span>
               </li>
             ))}
           </ul>

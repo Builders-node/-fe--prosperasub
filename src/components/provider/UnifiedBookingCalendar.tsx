@@ -152,7 +152,7 @@ export function UnifiedBookingCalendar({ providerId, sourceKey }: Props) {
   return (
     <div className="space-y-3">
       {/* Nav bar */}
-      <div className="flex items-center justify-between gap-2 rounded-2xl bg-card p-2">
+      <div className="flex items-center justify-between gap-2 rounded-radius-lg bg-card p-2">
         <Button
           variant="ghost" size="iconSm"
           onClick={() => setWeekStart((d) => addDays(d, -7))}
@@ -188,7 +188,7 @@ export function UnifiedBookingCalendar({ providerId, sourceKey }: Props) {
             type="button"
             onClick={() => setStatusFilter(null)}
             className={cn(
-              "rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wider transition-colors",
+              "rounded-full px-3 py-1 text-[14px] font-semibold transition-colors",
               statusFilter === null
                 ? "bg-primary/15 text-primary ring-1 ring-primary"
                 : "bg-muted/40 text-muted-foreground hover:text-foreground",
@@ -204,7 +204,7 @@ export function UnifiedBookingCalendar({ providerId, sourceKey }: Props) {
                 type="button"
                 onClick={() => setStatusFilter(s)}
                 className={cn(
-                  "rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wider transition-colors",
+                  "rounded-full px-3 py-1 text-[14px] font-semibold transition-colors",
                   statusFilter === s
                     ? "bg-primary/15 text-primary ring-1 ring-primary"
                     : "bg-muted/40 text-muted-foreground hover:text-foreground",
@@ -233,7 +233,7 @@ export function UnifiedBookingCalendar({ providerId, sourceKey }: Props) {
             if (rows.length === 0) return null;
             const isToday = isSameDay(day, new Date());
             return (
-              <section key={dayISO} className="rounded-2xl bg-card p-4">
+              <section key={dayISO} className="rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
                 <div className="mb-2 flex items-center justify-between">
                   <SectionOverline
                     label={`${format(day, "EEE d MMM")}${isToday ? " · Today" : ""}`}

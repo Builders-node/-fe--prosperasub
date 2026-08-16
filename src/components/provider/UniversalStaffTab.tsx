@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, Crown, UserPlus, Mail, Shield } from "lucide-react";
+import { Plus, Trash2, UserPlus, Mail } from "lucide-react";
+import { WorkspaceEmpty, WorkspaceSection } from "@/components/provider/WorkspaceUI";
 import { Spinner } from "@/components/ui/spinner";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -207,29 +208,20 @@ export function UniversalStaffTab({
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-black tracking-tight">Staff</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Owner and managers who can access this {entityLabel}.
-        </p>
-      </div>
-
+    <div className="space-y-1">
       {/* Owner */}
-      <section className="rounded-2xl bg-card p-5">
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Crown className="h-4 w-4 text-primary" />
-            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Owner</h3>
-          </div>
-          <Button size="sm" variant="outline" className="gap-2 rounded-full" onClick={openOwnerDialog}>
+      <WorkspaceSection
+        title="Owner"
+        subtitle={`Who this ${entityLabel} belongs to.`}
+        action={
+          <Button size="sm" variant="outline" className="shrink-0 gap-2 rounded-full" onClick={openOwnerDialog}>
             {owner ? "Change" : "Set Owner"}
           </Button>
-        </div>
-
+        }
+      >
         {owner ? (
-          <div className="flex items-center gap-3 rounded-xl bg-muted/30 p-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/15 font-bold text-primary">
+          <div className="flex items-center gap-3 rounded-radius-md bg-inset p-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-radius-md bg-primary/15 font-semibold text-primary">
               {(owner.display_name ?? owner.name ?? owner.email ?? "?")[0].toUpperCase()}
             </div>
             <div className="min-w-0 flex-1">
@@ -239,35 +231,30 @@ export function UniversalStaffTab({
             <Badge className="rounded-full bg-primary/15 text-primary">Owner</Badge>
           </div>
         ) : (
-          <p className="text-sm italic text-muted-foreground">
+          <WorkspaceEmpty>
             No owner assigned. Set one to grant {entityLabel}-level access.
-          </p>
+          </WorkspaceEmpty>
         )}
-      </section>
+      </WorkspaceSection>
 
       {/* Managers */}
-      <section className="rounded-2xl bg-card p-5">
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Shield className="h-4 w-4 text-primary" />
-            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              Managers ({managers.length})
-            </h3>
-          </div>
-          <Button size="sm" variant="outline" className="gap-2 rounded-full" onClick={() => setManagerDialog(true)}>
-            <UserPlus className="h-3.5 w-3.5" />
-            Add Manager
+      <WorkspaceSection
+        title={`Managers (${managers.length})`}
+        subtitle={`They can run the ${entityLabel} but not its money.`}
+        action={
+          <Button size="sm" variant="outline" className="shrink-0 gap-2 rounded-full" onClick={() => setManagerDialog(true)}>
+            <UserPlus className="h-3.5 w-3.5" /> Add
           </Button>
-        </div>
-
+        }
+      >
         {isLoading ? (
           <div className="space-y-2">
-            {[1, 2].map((i) => <div key={i} className="h-12 animate-pulse rounded-xl bg-muted" />)}
+            {[1, 2].map((i) => <div key={i} className="h-12 animate-pulse rounded-radius-md bg-inset" />)}
           </div>
         ) : managers.length === 0 ? (
-          <p className="text-sm italic text-muted-foreground">
+          <WorkspaceEmpty>
             No managers yet. Add team members who can manage this {entityLabel}.
-          </p>
+          </WorkspaceEmpty>
         ) : (
           <div className="space-y-2">
             {managers.map((m) => {
@@ -275,13 +262,13 @@ export function UniversalStaffTab({
               const displayName = m.user_name ?? profile?.display_name ?? profile?.name ?? "Unnamed";
               const email = m.user_email ?? profile?.email ?? m.user_id;
               return (
-                <div key={m.id} className="flex items-center gap-3 rounded-xl bg-muted/30 p-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted font-bold text-muted-foreground">
+                <div key={m.id} className="flex items-center gap-3 rounded-radius-md bg-inset p-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-radius-md bg-muted font-semibold text-muted-foreground">
                     {(displayName ?? email ?? "?")[0].toUpperCase()}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="font-semibold text-foreground">{displayName}</p>
-                    <p className="flex items-center gap-1 truncate text-sm text-muted-foreground">
+                    <p className="text-[16px] font-semibold leading-[22px] text-foreground">{displayName}</p>
+                    <p className="flex items-center gap-1 truncate text-[14px] leading-[18px] text-muted-foreground">
                       <Mail className="h-3 w-3" />
                       {email}
                     </p>
@@ -300,11 +287,11 @@ export function UniversalStaffTab({
             })}
           </div>
         )}
-      </section>
+      </WorkspaceSection>
 
       {/* Permissions note — same wording across services keeps ops training simple. */}
-      <section className="rounded-2xl border border-primary/20 bg-primary/5 p-4 text-sm">
-        <p className="mb-1 font-semibold text-primary">About Permissions</p>
+      <section className="rounded-radius-lg bg-card p-4 text-[14px] leading-[18px] tracking-[-0.02em]">
+        <p className="mb-1 text-[16px] font-semibold leading-[22px] text-foreground">About permissions</p>
         <ul className="space-y-1 text-muted-foreground">
           <li>• <span className="font-medium text-foreground">Platform Admins</span> can manage every {entityLabel}</li>
           <li>• <span className="font-medium text-foreground">Owner</span> can only access their own {entityLabel}</li>
