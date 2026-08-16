@@ -351,13 +351,25 @@ const MySubscriptions = () => {
     queryFn: async () => {
       const ids = [userUuid, userData?.id].filter(Boolean) as string[];
       if (!ids.length) return [];
+      // The membership itself is a universal subscription now. It is read
+      // back under the names this card already uses — including the legacy
+      // subscription and plan ids, because renewing and rating still speak
+      // those, and a screen is the wrong place to start a second vocabulary.
       const { data, error } = await supabaseDb
-        .from("beach_club_subscriptions")
-        .select("*")
+        .from("provider_subscriptions")
+        .select("*, provider_plans(source_plan_id)")
+        .eq("source_service_key", "beach")
         .in("user_id", ids)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []).map((r: any) => ({
+        ...r,
+        id: r.source_subscription_id ?? r.id,
+        plan_id: r.provider_plans?.source_plan_id ?? r.plan_id,
+        plan_name: r.metadata?.plan_name ?? "Beach Club Membership",
+        people: Number(r.metadata?.people) || 1,
+        total_cents: r.price_cents ?? 0,
+      }));
     },
     enabled: (!!userUuid || !!userData?.id) && activeTab === "entertainment",
   });
