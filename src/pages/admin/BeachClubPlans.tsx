@@ -1,3 +1,4 @@
+import type { Entitlement } from "@/lib/plans/entitlements";
 import { useState } from "react";
 import { fetchPlanGallery, savePlanGallery } from "@/lib/plans/planGallery";
 import { PlanForm } from "@/components/provider/plans/PlanForm";
@@ -55,6 +56,8 @@ export default function BeachClubPlans({ embedded = false }: { embedded?: boolea
   const [gallery, setGallery] = useState<string[]>([]);
   /** Which courts/rooms this plan opens. Empty = all of them. */
   const [resourceIds, setResourceIds] = useState<string[]>([]);
+  /** Lines beyond the first — the first is this form's quantity/unit. */
+  const [extraEntitlements, setExtraEntitlements] = useState<Entitlement[]>([]);
   /**
    * The club's universal provider row — the courts hang off it.
    * Beach plans are keyed by `owner_provider_id`, which this screen never had
@@ -243,11 +246,14 @@ export default function BeachClubPlans({ embedded = false }: { embedded?: boolea
               // Photographs live on the universal mirror — see lib/plans/planGallery.
               gallery,
               resourceIds,
+              extraEntitlements,
               sortOrder: form.sort_order,
             }}
             onChange={(patch) => {
               if (patch.gallery !== undefined) setGallery(patch.gallery);
               if (patch.resourceIds !== undefined) setResourceIds(patch.resourceIds);
+              if (patch.extraEntitlements !== undefined) setExtraEntitlements(patch.extraEntitlements);
+    if (patch.extraEntitlements !== undefined) setExtraEntitlements(patch.extraEntitlements);
     if (patch.resourceIds !== undefined) setResourceIds(patch.resourceIds);
               setForm((f) => ({
               ...f,

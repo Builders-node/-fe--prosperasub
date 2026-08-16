@@ -1,3 +1,4 @@
+import type { Entitlement } from "@/lib/plans/entitlements";
 import { useEffect, useMemo, useState } from "react";
 import { fetchPlanGallery, savePlanGallery } from "@/lib/plans/planGallery";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -725,6 +726,8 @@ function PlanFormSheet({
   const [gallery, setGallery] = useState<string[]>([]);
   /** Which courts/rooms this plan opens. Empty = all of them. */
   const [resourceIds, setResourceIds] = useState<string[]>([]);
+  /** Lines beyond the first — the first is this form's quantity/unit. */
+  const [extraEntitlements, setExtraEntitlements] = useState<Entitlement[]>([]);
 
   useEffect(() => {
     if (!open) return;
@@ -796,6 +799,7 @@ function PlanFormSheet({
     features: featuresText.split("\n"),
     gallery,
     resourceIds,
+    extraEntitlements,
     status: form.status ?? "active",
     // The column cleaning has had all along, now edited through the shared
     // control instead of a switch of its own.
@@ -806,6 +810,7 @@ function PlanFormSheet({
   const applyPlanFormPatch = (patch: Partial<PlanFormValues>) => {
     if (patch.gallery !== undefined) setGallery(patch.gallery);
     if (patch.resourceIds !== undefined) setResourceIds(patch.resourceIds);
+    if (patch.extraEntitlements !== undefined) setExtraEntitlements(patch.extraEntitlements);
     if (patch.features !== undefined) setFeaturesText(patch.features.join("\n"));
     setForm((f: any) => ({
       ...f,

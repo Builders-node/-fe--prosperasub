@@ -1,3 +1,4 @@
+import { ACCESS_UNIT, readEntitlements, serializeEntitlements } from "@/lib/plans/entitlements";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Pencil, Plus, Trash2 } from "lucide-react";
@@ -44,6 +45,8 @@ interface Plan {
   gallery_urls?: unknown;
   /** Bookable resources this plan opens. Empty = all of the provider's. */
   resource_ids?: unknown;
+  /** What the plan grants, one line per thing. */
+  entitlements?: unknown;
   features: unknown;
 }
 
@@ -92,6 +95,8 @@ export function UniversalPlansTab({ providerId }: { providerId: string }) {
       resourceIds: Array.isArray(p.resource_ids)
         ? (p.resource_ids as unknown[]).map(String)
         : [],
+      // The first line is the quantity/unit fields above; the rest is the list.
+      extraEntitlements: readEntitlements(p).slice(1),
       sortOrder: p.sort_order,
     });
   };
@@ -111,6 +116,18 @@ export function UniversalPlansTab({ providerId }: { providerId: string }) {
         visibility: form.visibility,
         gallery_urls: form.gallery,
         resource_ids: form.resourceIds,
+        // Line one restates the quantity/unit the form already writes, so the
+        // column and the legacy fields can never disagree about what a plan
+        // includes.
+        entitlements: serializeEntitlements([
+          {
+            unit: form.unit.trim() || ACCESS_UNIT,
+            quantity: form.quantity && form.quantity > 0 ? form.quantity : null,
+            period: null,
+            resourceIds: form.resourceIds,
+          },
+          ...form.extraEntitlements,
+        ]),
         sort_order: form.sortOrder,
         // A blank box means "unmetered", not zero — the DB rejects <= 0.
         included_quantity: form.quantity && form.quantity > 0 ? form.quantity : null,

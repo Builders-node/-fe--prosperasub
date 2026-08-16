@@ -1,3 +1,4 @@
+import { describeEntitlement, readEntitlements } from "@/lib/plans/entitlements";
 import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useGoBack } from "@/hooks/useGoBack";
@@ -25,7 +26,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { isUuid } from "@/lib/cart/checkoutRows";
-import { fetchPlanGallery } from "@/lib/plans/planGallery";
+import { fetchPlanMirrorExtras } from "@/lib/plans/planGallery";
 import { resolveMonthlyPriceCents, formatFrequencyLabel } from "@/lib/cleaningPlanPricing";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
@@ -58,10 +59,26 @@ interface ResolvedPlan {
   providerId: string | null;
   /** A line the service wants under the title — cleaning's frequency. */
   meta: string | null;
+  /** What the plan grants — from the universal row, or a legacy plan's mirror. */
+  entitlements?: unknown;
   /** Food buys through its own screen, which is keyed by the legacy provider. */
   legacyProviderId?: string | null;
   /** The plan's own photographs; the provider's are the fallback. */
   gallery?: string[];
+}
+
+/**
+ * The mirror's half of a legacy plan. Arriving by the mirror's own id hands
+ * both over directly; arriving by the canonical legacy id — which every link
+ * now carries — means asking for them.
+ */
+async function mirrorExtras(
+  service: string, subjectId: string, gallery: string[], entitlements: unknown,
+): Promise<{ gallery: string[]; entitlements: unknown }> {
+  if (gallery.length || (Array.isArray(entitlements) && entitlements.length)) {
+    return { gallery, entitlements };
+  }
+  return fetchPlanMirrorExtras(service, subjectId);
 }
 
 const asStringList = (value: unknown): string[] =>
@@ -96,11 +113,12 @@ const PlanDetail = () => {
       // legacy id — which is what every link now carries — means asking for
       // them by `source_plan_id`.
       let mirrorGallery: string[] = [];
+      let mirrorEntitlements: unknown = null;
 
       if (isUuid(planId)) {
         const { data: universal, error } = await supabaseDb
           .from("provider_plans")
-          .select("id, provider_id, name, description, price_cents, period, features, gallery_urls, source_service_key, source_plan_id")
+          .select("id, provider_id, name, description, price_cents, period, features, gallery_urls, entitlements, source_service_key, source_plan_id")
           .eq("id", planId)
           .maybeSingle();
         if (error) throw error;
@@ -110,6 +128,7 @@ const PlanDetail = () => {
           // have no image column, so a plan's pictures are saved here for every
           // service. Carry them over rather than losing them in the hand-off.
           mirrorGallery = asStringList(universal.gallery_urls);
+          mirrorEntitlements = universal.entitlements;
         } else if (universal) {
           return {
             source: "universal",
@@ -118,6 +137,7 @@ const PlanDetail = () => {
             description: universal.description ?? null,
             features: asStringList(universal.features),
             gallery: asStringList(universal.gallery_urls),
+            entitlements: universal.entitlements,
             priceCents: universal.price_cents ?? null,
             priceUnit: periodUnit(universal.period),
             providerId: universal.provider_id ? String(universal.provider_id) : null,
@@ -142,7 +162,7 @@ const PlanDetail = () => {
             .maybeSingle();
           return {
             source: "food",
-            gallery: mirrorGallery.length ? mirrorGallery : await fetchPlanGallery("food", subjectId),
+            ...(await mirrorExtras("food", subjectId, mirrorGallery, mirrorEntitlements)),
             id: String(food.id),
             title: food.name,
             description: food.description ?? null,
@@ -167,7 +187,7 @@ const PlanDetail = () => {
         if (beach) {
           return {
             source: "beach",
-            gallery: mirrorGallery.length ? mirrorGallery : await fetchPlanGallery("beach", subjectId),
+            ...(await mirrorExtras("beach", subjectId, mirrorGallery, mirrorEntitlements)),
             id: String(beach.id),
             title: beach.name,
             description: beach.tagline ?? null,
@@ -189,7 +209,7 @@ const PlanDetail = () => {
       if (cleaning) {
         return {
           source: "cleaning",
-          gallery: mirrorGallery.length ? mirrorGallery : await fetchPlanGallery("cleaning", subjectId),
+          ...(await mirrorExtras("cleaning", subjectId, mirrorGallery, mirrorEntitlements)),
           id: String(cleaning.id),
           title: cleaning.name,
           description: cleaning.description ?? cleaning.short_description ?? null,
@@ -378,6 +398,19 @@ const PlanDetail = () => {
     return <Navigate to={`${canonical}${location.search}`} replace />;
   }
 
+  /**
+   * What this plan grants, in its own words. An access line says "unlimited
+   * access" rather than pretending to a count, and a line with no period of
+   * its own inherits the plan's.
+   */
+  const entitlementLines = useMemo(() => {
+    const raw = planQ.data?.entitlements;
+    const list = readEntitlements({ entitlements: raw });
+    return list
+      .map((e) => describeEntitlement(e, chosen?.period ?? null))
+      .filter((l) => l && !/^Unlimited access$/i.test(l));
+  }, [planQ.data, chosen]);
+
   if (planQ.isLoading) return <PageLoader />;
 
   if (planQ.isError) {
@@ -420,6 +453,8 @@ const PlanDetail = () => {
     archetypeKey === "food" ? "food" :
     archetypeKey === "beach-club" || archetypeKey === "entertainment" ? "beach" : null;
   const cover = gallery[0];
+
+
 
   /**
    * Provider › Service › Category, as the design draws it — three ways back
@@ -578,10 +613,20 @@ const PlanDetail = () => {
           )}
         </section>
 
-        {plan.features.length > 0 && (
+        {(plan.features.length > 0 || entitlementLines.length > 0) && (
           <section className="space-y-3 rounded-radius-lg bg-card p-4 shadow-figma">
             <h2 className="text-[20px] font-semibold tracking-[-0.4px] text-foreground">What's included</h2>
             <ul className="space-y-2">
+              {/* What the plan GRANTS comes first and in the plan's own words —
+                  "4 cleanings a month", "4 hours a month" — because a package
+                  of two things was previously describable only in the feature
+                  list, by hand, where nothing enforced it. */}
+              {entitlementLines.map((line) => (
+                <li key={line} className="flex items-start gap-2">
+                  <CheckIcon className="h-[22px] w-[22px] shrink-0 text-primary" />
+                  <span className="flex-1 text-[16px] font-semibold leading-[22px] tracking-[-0.32px] text-foreground">{line}</span>
+                </li>
+              ))}
               {plan.features.map((f, i) => (
                 <li key={i} className="flex items-start gap-2">
                   <CheckIcon className="h-[22px] w-[22px] shrink-0 text-primary" />

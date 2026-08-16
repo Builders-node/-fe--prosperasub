@@ -1,3 +1,4 @@
+import type { Entitlement } from "@/lib/plans/entitlements";
 import { useState } from "react";
 import { fetchPlanGallery, savePlanGallery } from "@/lib/plans/planGallery";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -62,6 +63,8 @@ export function RestaurantMealPlansTab({ providerId }: Props) {
   const [gallery, setGallery] = useState<string[]>([]);
   /** Which courts/rooms this plan opens. Empty = all of them. */
   const [resourceIds, setResourceIds] = useState<string[]>([]);
+  /** Lines beyond the first — the first is this form's quantity/unit. */
+  const [extraEntitlements, setExtraEntitlements] = useState<Entitlement[]>([]);
 
   const { data: residences = [] } = useResidences();
 
@@ -151,12 +154,14 @@ export function RestaurantMealPlansTab({ providerId }: Props) {
     // Photographs live on the universal mirror — see lib/plans/planGallery.
     gallery,
     resourceIds,
+    extraEntitlements,
     sortOrder: form.sort_order,
   };
 
   const applyPlanFormPatch = (patch: Partial<PlanFormValues>) => {
     if (patch.gallery !== undefined) setGallery(patch.gallery);
     if (patch.resourceIds !== undefined) setResourceIds(patch.resourceIds);
+    if (patch.extraEntitlements !== undefined) setExtraEntitlements(patch.extraEntitlements);
     setForm((f) => ({
       ...f,
       ...(patch.name !== undefined && { name: patch.name }),

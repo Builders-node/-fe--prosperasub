@@ -1,3 +1,5 @@
+import { EntitlementsEditor } from "@/components/provider/plans/EntitlementsEditor";
+import type { Entitlement } from "@/lib/plans/entitlements";
 import { PlanResourcePicker } from "@/components/provider/plans/PlanResourcePicker";
 import { GalleryField } from "@/components/patterns/GalleryField";
 import { Input } from "@/components/ui/input";
@@ -57,6 +59,12 @@ export interface PlanFormValues {
    * Empty = all of them, now and in future.
    */
   resourceIds: string[];
+  /**
+   * Everything the plan includes BEYOND the quantity/unit above — which is
+   * itself the first entitlement, and the one every existing reader uses.
+   * A second line is what makes a plan a package rather than a single thing.
+   */
+  extraEntitlements: Entitlement[];
   sortOrder: number;
 }
 
@@ -245,6 +253,12 @@ export function PlanForm({
         />
       </div>
 
+      <EntitlementsEditor
+        value={values.extraEntitlements}
+        onChange={(next) => onChange({ extraEntitlements: next })}
+        planPeriod={values.period}
+      />
+
       {providerId && (
         <PlanResourcePicker
           providerId={providerId}
@@ -310,5 +324,6 @@ export function cleanFeatures(features: string[]): string[] {
 export const EMPTY_PLAN: PlanFormValues = {
   name: "", description: "", priceCents: 0,
   quantity: null, period: "monthly", unit: "",
-  features: [], status: "active", visibility: "public", gallery: [], resourceIds: [], sortOrder: 0,
+  features: [], status: "active", visibility: "public", gallery: [],
+  resourceIds: [], extraEntitlements: [], sortOrder: 0,
 };

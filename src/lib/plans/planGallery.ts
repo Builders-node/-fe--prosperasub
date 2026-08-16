@@ -16,6 +16,25 @@ import { supabaseDb } from "@/integrations/supabase/client";
 const asUrls = (value: unknown): string[] =>
   Array.isArray(value) ? value.filter((u): u is string => typeof u === "string" && !!u.trim()) : [];
 
+/**
+ * Everything a legacy plan keeps on its mirror rather than in its own table:
+ * the photographs and what the plan grants. One query, because the plan page
+ * needs both and a second round trip for the second is waste.
+ */
+export async function fetchPlanMirrorExtras(
+  sourceServiceKey: string,
+  sourcePlanId: string | null | undefined,
+): Promise<{ gallery: string[]; entitlements: unknown }> {
+  if (!sourcePlanId) return { gallery: [], entitlements: [] };
+  const { data } = await supabaseDb
+    .from("provider_plans")
+    .select("gallery_urls, entitlements")
+    .eq("source_service_key", sourceServiceKey)
+    .eq("source_plan_id", String(sourcePlanId))
+    .maybeSingle();
+  return { gallery: asUrls(data?.gallery_urls), entitlements: data?.entitlements ?? [] };
+}
+
 /** The photographs on a legacy plan's mirror, or none. */
 export async function fetchPlanGallery(
   sourceServiceKey: string,
