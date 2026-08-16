@@ -53,6 +53,22 @@ export default function BeachClubPlans({ embedded = false }: { embedded?: boolea
   const [deleteTarget, setDeleteTarget] = useState<BeachPlan | null>(null);
   /** Photographs of the plan. They live on the universal mirror. */
   const [gallery, setGallery] = useState<string[]>([]);
+  /** Which courts/rooms this plan opens. Empty = all of them. */
+  const [resourceIds, setResourceIds] = useState<string[]>([]);
+  /**
+   * The club's universal provider row — the courts hang off it.
+   * Beach plans are keyed by `owner_provider_id`, which this screen never had
+   * in scope, so it is asked for rather than assumed.
+   */
+  const { data: beachProviderId } = useQuery({
+    queryKey: ["beach-universal-provider-id"],
+    queryFn: async () => {
+      const { data } = await supabaseDb
+        .from("providers").select("id")
+        .eq("source_service_key", "beach").maybeSingle();
+      return (data?.id ?? null) as string | null;
+    },
+  });
 
   const { data: plans = [], isLoading } = useQuery({
     queryKey: ["admin-beach-club-plans"],
@@ -209,6 +225,7 @@ export default function BeachClubPlans({ embedded = false }: { embedded?: boolea
             <DialogTitle>{editing ? "Edit Plan" : "New Plan"}</DialogTitle>
           </DialogHeader>
           <PlanForm
+            providerId={beachProviderId}
             hideVisibility
             values={{
               name: form.name,
@@ -225,10 +242,13 @@ export default function BeachClubPlans({ embedded = false }: { embedded?: boolea
               visibility: "public",
               // Photographs live on the universal mirror — see lib/plans/planGallery.
               gallery,
+              resourceIds,
               sortOrder: form.sort_order,
             }}
             onChange={(patch) => {
               if (patch.gallery !== undefined) setGallery(patch.gallery);
+              if (patch.resourceIds !== undefined) setResourceIds(patch.resourceIds);
+    if (patch.resourceIds !== undefined) setResourceIds(patch.resourceIds);
               setForm((f) => ({
               ...f,
               ...(patch.name !== undefined ? { name: patch.name } : {}),

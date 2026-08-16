@@ -42,6 +42,8 @@ interface Plan {
   visibility?: string | null;
   /** Photographs of the plan itself, not of the business. */
   gallery_urls?: unknown;
+  /** Bookable resources this plan opens. Empty = all of the provider's. */
+  resource_ids?: unknown;
   features: unknown;
 }
 
@@ -87,6 +89,9 @@ export function UniversalPlansTab({ providerId }: { providerId: string }) {
       gallery: Array.isArray(p.gallery_urls)
         ? (p.gallery_urls as unknown[]).filter((u): u is string => typeof u === "string")
         : [],
+      resourceIds: Array.isArray(p.resource_ids)
+        ? (p.resource_ids as unknown[]).map(String)
+        : [],
       sortOrder: p.sort_order,
     });
   };
@@ -105,6 +110,7 @@ export function UniversalPlansTab({ providerId }: { providerId: string }) {
         status: form.status,
         visibility: form.visibility,
         gallery_urls: form.gallery,
+        resource_ids: form.resourceIds,
         sort_order: form.sortOrder,
         // A blank box means "unmetered", not zero — the DB rejects <= 0.
         included_quantity: form.quantity && form.quantity > 0 ? form.quantity : null,
@@ -188,6 +194,7 @@ export function UniversalPlansTab({ providerId }: { providerId: string }) {
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>{editing === "new" ? "New plan" : "Edit plan"}</DialogTitle></DialogHeader>
           <PlanForm
+            providerId={providerId}
             values={form}
             onChange={(patch) => setForm((f) => ({ ...f, ...patch }))}
             priceLabel="Price (USD)"

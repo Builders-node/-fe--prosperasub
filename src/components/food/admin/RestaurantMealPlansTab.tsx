@@ -60,6 +60,8 @@ export function RestaurantMealPlansTab({ providerId }: Props) {
   const [deleteTarget, setDeleteTarget] = useState<FoodMealPlan | null>(null);
   /** Photographs of the plan. They live on the universal mirror. */
   const [gallery, setGallery] = useState<string[]>([]);
+  /** Which courts/rooms this plan opens. Empty = all of them. */
+  const [resourceIds, setResourceIds] = useState<string[]>([]);
 
   const { data: residences = [] } = useResidences();
 
@@ -148,11 +150,13 @@ export function RestaurantMealPlansTab({ providerId }: Props) {
     visibility: "public",
     // Photographs live on the universal mirror — see lib/plans/planGallery.
     gallery,
+    resourceIds,
     sortOrder: form.sort_order,
   };
 
   const applyPlanFormPatch = (patch: Partial<PlanFormValues>) => {
     if (patch.gallery !== undefined) setGallery(patch.gallery);
+    if (patch.resourceIds !== undefined) setResourceIds(patch.resourceIds);
     setForm((f) => ({
       ...f,
       ...(patch.name !== undefined && { name: patch.name }),

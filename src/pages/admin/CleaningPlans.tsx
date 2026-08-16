@@ -723,6 +723,8 @@ function PlanFormSheet({
    * with it — see lib/plans/planGallery.
    */
   const [gallery, setGallery] = useState<string[]>([]);
+  /** Which courts/rooms this plan opens. Empty = all of them. */
+  const [resourceIds, setResourceIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (!open) return;
@@ -793,6 +795,7 @@ function PlanFormSheet({
     unit: "cleaning",
     features: featuresText.split("\n"),
     gallery,
+    resourceIds,
     status: form.status ?? "active",
     // The column cleaning has had all along, now edited through the shared
     // control instead of a switch of its own.
@@ -802,6 +805,7 @@ function PlanFormSheet({
 
   const applyPlanFormPatch = (patch: Partial<PlanFormValues>) => {
     if (patch.gallery !== undefined) setGallery(patch.gallery);
+    if (patch.resourceIds !== undefined) setResourceIds(patch.resourceIds);
     if (patch.features !== undefined) setFeaturesText(patch.features.join("\n"));
     setForm((f: any) => ({
       ...f,

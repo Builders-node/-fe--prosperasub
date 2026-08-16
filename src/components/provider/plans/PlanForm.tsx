@@ -1,3 +1,4 @@
+import { PlanResourcePicker } from "@/components/provider/plans/PlanResourcePicker";
 import { GalleryField } from "@/components/patterns/GalleryField";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -51,6 +52,11 @@ export interface PlanFormValues {
    * the plan page, the provider page and the till all read.
    */
   gallery: string[];
+  /**
+   * Which of the provider's bookable resources this plan opens.
+   * Empty = all of them, now and in future.
+   */
+  resourceIds: string[];
   sortOrder: number;
 }
 
@@ -75,6 +81,8 @@ export interface PlanFormProps {
    * cannot be saved.
    */
   hideVisibility?: boolean;
+  /** Lets the form offer the provider's own courts, rooms or tables. */
+  providerId?: string | null;
   /** Some services are billed on one cycle only; passing one period hides the selector. */
   periods?: readonly PlanPeriod[];
   /** Hide the counter entirely for services that don't meter anything (beach memberships). */
@@ -122,6 +130,7 @@ export function PlanForm({
   featuresPlaceholder = "One per line",
   statuses = DEFAULT_STATUSES,
   hideVisibility = false,
+  providerId,
   extras,
   footer,
 }: PlanFormProps) {
@@ -236,6 +245,14 @@ export function PlanForm({
         />
       </div>
 
+      {providerId && (
+        <PlanResourcePicker
+          providerId={providerId}
+          value={values.resourceIds}
+          onChange={(next) => onChange({ resourceIds: next })}
+        />
+      )}
+
       <GalleryField
         label="Photos"
         value={values.gallery}
@@ -293,5 +310,5 @@ export function cleanFeatures(features: string[]): string[] {
 export const EMPTY_PLAN: PlanFormValues = {
   name: "", description: "", priceCents: 0,
   quantity: null, period: "monthly", unit: "",
-  features: [], status: "active", visibility: "public", gallery: [], sortOrder: 0,
+  features: [], status: "active", visibility: "public", gallery: [], resourceIds: [], sortOrder: 0,
 };
