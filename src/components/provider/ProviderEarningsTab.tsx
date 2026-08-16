@@ -296,6 +296,15 @@ export function ProviderEarningsTab({ providerId, legacyId, sourceKey }: {
         />
       </div>
 
+      {/* A service the finance model does not know earns nothing, forever, and
+          the withdraw panel would just refuse without saying why. */}
+      {!sourceMeta && (
+        <div className="rounded-radius-lg bg-card p-4 text-[16px] leading-[22px] tracking-[-0.02em] text-muted-foreground">
+          No commission model is set up for this service yet, so nothing can be
+          calculated or withdrawn. An admin sets one in Finance → Net Profit.
+        </div>
+      )}
+
       <WithdrawPanel providerId={providerId} availableCents={availableCents} />
 
       <section className="rounded-radius-lg bg-card p-4 tracking-[-0.02em]">

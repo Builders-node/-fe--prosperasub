@@ -56,14 +56,17 @@ export const LEGACY_SERVICES: Record<LegacySourceKey, LegacyServiceMeta> = {
   },
 };
 
-/** Source keys that have a rich legacy portal mounted inside /my-provider/:id.
- *  Beach isn't in LEGACY_SERVICES (no beach_providers table) but its owner
- *  workspace mounts admin pages via BEACH_TABS, so it belongs here too. */
-export const LEGACY_PORTAL_SOURCE_KEYS = new Set<string>([
-  ...Object.keys(LEGACY_SERVICES),
-  "beach",
-  "beach_club",
-]);
+/**
+ * Source keys whose workspace needs a per-service membership check.
+ *
+ * Not "which tabs" any more — the strip is assembled once for everybody. This
+ * is only about who is allowed in, and that is still per-service for food and
+ * cleaning, whose managers are rows in their own legacy tables. The beach was
+ * in this set too and fell straight through to the same universal render, so
+ * it is out: its owner is the universal row's owner, which the caller already
+ * knows.
+ */
+export const LEGACY_PORTAL_SOURCE_KEYS = new Set<string>(Object.keys(LEGACY_SERVICES));
 
 /**
  * Public listing URL for a legacy-backed archetype. Short paths are canonical
@@ -101,15 +104,15 @@ export function publicListingHref(
 }
 
 /**
- * Default universal capabilities to stamp on the mirror row when a legacy
- * provider is approved, so it shows up correctly in the unified marketplace.
+ * What to stamp on a newly approved provider.
+ *
+ * Only capabilities something reads — see components/provider/capabilities.tsx.
+ * This used to seed "subscription_plans" and "catalog_items" as well, which no
+ * screen has ever branched on: the workspace gives every provider the same tabs.
  */
-// Booking-related caps (hourly_bookings / date_range_booking) were retired —
-// every provider now gets the shared UnifiedBookingCalendar regardless of
-// capability. Only real business-type caps stay here.
 export const DEFAULT_CAPABILITIES: Record<LegacySourceKey, string[]> = {
-  food: ["subscription_plans", "catalog_items", "delivery"],
-  cleaning: ["subscription_plans"],
+  food: ["delivery"],
+  cleaning: [],
 };
 
 export function isLegacySource(key: string | null | undefined): key is LegacySourceKey {

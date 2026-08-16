@@ -18,7 +18,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { accountApi, supabaseDb } from "@/integrations/supabase/client";
+import { accountApi, adminApi, supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAuditEvent } from "@/lib/auditLog";
 import { toast } from "sonner";
@@ -202,6 +202,28 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
     onError: (e: any) => toast.error(e?.message || "Could not save"),
   });
 
+  /**
+   * The platform makes the calendar; nobody pastes one in.
+   *
+   * The field here was a free-text box, which is the one way a business ends
+   * up pointing at a calendar the service account cannot write to — and the
+   * endpoint that does it properly (idempotent, shares it with the provider's
+   * contact address) already existed and was only called at approval.
+   */
+  const provisionCalendar = useMutation({
+    mutationFn: async (p: ProviderRow) => {
+      const { data, error } = await adminApi(`/admin/providers/${p.id}/calendar/provision`, { method: "POST" });
+      if (error) throw error;
+      return data as { calendarId?: string | null; skipped?: string } | null;
+    },
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: QUERY_KEY });
+      if (r?.calendarId) toast.success("Calendar provisioned");
+      else toast.warning(r?.skipped || "No calendar was created — check the Google credentials.");
+    },
+    onError: (e: any) => toast.error(e?.message || "Could not provision a calendar"),
+  });
+
   const createProvider = useMutation({
     mutationFn: async (payload: Record<string, unknown>) => {
       // Bump sort_order past the current max so the new row lands at the bottom.
@@ -319,7 +341,11 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
               {visible.map((p) => {
                 const arche = archetypes.find((a) => a.key === p.archetype_key);
                 const AIcon = arche?.Icon ?? Building2;
-                const caps = p.capabilities ?? [];
+                // Only what the app still branches on. The column keeps older
+                // values (subscription_plans, catalog_items…) that nothing has
+                // read for months, and printing them raw advertised switches
+                // that do not exist.
+                const caps = (p.capabilities ?? []).filter((c): c is CapabilityKey => c in CAPABILITIES);
 
                 const providerCell = (
                   <div className="flex min-w-0 items-center gap-3">
@@ -342,14 +368,11 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
                       )}
                       {caps.length > 0 && (
                         <div className="mt-1 flex flex-wrap gap-1">
-                          {caps.slice(0, 3).map((c) => (
+                          {caps.map((c) => (
                             <span key={c} className="inline-flex rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
-                              {c}
+                              {CAPABILITIES[c].label}
                             </span>
                           ))}
-                          {caps.length > 3 && (
-                            <span className="text-[10px] text-muted-foreground/70">+{caps.length - 3}</span>
-                          )}
                         </div>
                       )}
                     </div>
@@ -489,6 +512,8 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
               categories={categories}
               saving={saveEdit.isPending}
               onSave={(patch) => saveEdit.mutate({ p: editRow, patch })}
+              onProvisionCalendar={() => provisionCalendar.mutate(editRow)}
+              provisioning={provisionCalendar.isPending}
             />
           )}
         </SheetContent>
@@ -547,23 +572,23 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
 };
 
 function EditProviderForm({
-  provider, archetypes, categories, saving, onSave,
+  provider, archetypes, categories, saving, onSave, onProvisionCalendar, provisioning,
 }: {
   provider: ProviderRow;
   archetypes: ReturnType<typeof useServiceArchetypes>["archetypes"];
   categories: Array<{ key: string; label: string; archetype_key: string }>;
   saving: boolean;
   onSave: (patch: Record<string, unknown>) => void;
+  onProvisionCalendar: () => void;
+  provisioning: boolean;
 }) {
   const [name, setName] = useState(provider.name);
   const [archetypeKey, setArchetypeKey] = useState(provider.archetype_key ?? "__none");
   const [categoryKey, setCategoryKey] = useState(provider.category_key ?? "__none");
   const [caps, setCaps] = useState<Set<string>>(new Set(provider.capabilities ?? []));
-  /** Legacy-backed providers get a bespoke tab bundle; capabilities don't reach it. */
-  const isLegacyBacked = !!provider.source_service_key;
   const [contactEmail, setContactEmail] = useState(provider.contact_email ?? "");
   const [contactPhone, setContactPhone] = useState(provider.contact_phone ?? "");
-  const [calendarId, setCalendarId] = useState(provider.google_calendar_id ?? "");
+  const calendarId = provider.google_calendar_id ?? "";
   /**
    * Who owns this business.
    *
@@ -601,9 +626,6 @@ function EditProviderForm({
       name: name.trim() || provider.name,
       contact_email: contactEmail.trim() || null,
       contact_phone: contactPhone.trim() || null,
-      // Empty means "use the shared calendar", which is what the sync reads
-      // a null as — not "no calendar at all".
-      google_calendar_id: calendarId.trim() || null,
       capabilities: Array.from(caps),
     };
     if (nextArchetype !== (provider.archetype_key ?? null)) {
@@ -692,23 +714,31 @@ function EditProviderForm({
           every business into one shared calendar, so a car wash and an apartment
           clean sat side by side and each business saw the other's schedule. */}
       <div>
-        <Label>Google Calendar ID</Label>
-        <Input
-          value={calendarId}
-          onChange={(e) => setCalendarId(e.target.value)}
-          placeholder="abc123@group.calendar.google.com"
-        />
-        <p className="mt-1 text-xs text-muted-foreground">
+        <Label>Google Calendar</Label>
+        <div className="mt-1.5 flex items-center gap-2">
+          <Input value={calendarId} readOnly placeholder="Not provisioned yet" className="font-mono text-xs" />
+          <Button
+            type="button"
+            variant="outline"
+            className="shrink-0 rounded-full"
+            disabled={provisioning}
+            onClick={onProvisionCalendar}
+          >
+            {provisioning ? "Working…" : calendarId.trim() ? "Repair" : "Provision"}
+          </Button>
+        </div>
+        <p className="mt-1.5 text-xs text-muted-foreground">
           {calendarId.trim()
             ? "This provider's bookings sync here."
-            : "Empty — bookings go to the shared cleaning calendar. Share a calendar with the service account, then paste its ID."}
+            : "Empty — bookings go to the shared cleaning calendar."}{" "}
+          The platform creates the calendar and shares it with the contact address; the
+          button is idempotent, so it is also the repair.
         </p>
       </div>
-      {/* Capabilities decide which Offerings editors a provider gets — but only
-          for providers with no legacy table. The four legacy services render a
-          fixed, bespoke tab bundle (legacyPortalTabs.tsx never reads this
-          field), so toggling it there changed nothing at all and simply lied
-          to whoever clicked. It is shown read-only for those, with the reason. */}
+      {/* One capability is left, and it works the same for every service — the
+          food provider is exactly who needs it. These were disabled for
+          legacy-backed businesses because the list also held two switches that
+          nothing read; those are gone (components/provider/capabilities.tsx). */}
       <div>
         <Label>Capabilities</Label>
         <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -720,12 +750,10 @@ function EditProviderForm({
               <button
                 key={cap}
                 type="button"
-                disabled={isLegacyBacked}
-                onClick={() => !isLegacyBacked && toggleCap(cap)}
+                onClick={() => toggleCap(cap)}
                 className={cn(
-                  "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition",
+                  "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition hover:text-foreground",
                   on ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground",
-                  isLegacyBacked ? "cursor-not-allowed opacity-60" : "hover:text-foreground",
                 )}
                 title={meta.description}
               >
@@ -735,9 +763,7 @@ function EditProviderForm({
           })}
         </div>
         <p className="mt-1.5 text-xs text-muted-foreground">
-          {isLegacyBacked
-            ? `${provider.name} runs on the built-in ${provider.source_service_key} workspace, whose tabs are fixed. These are shown for reference and can't be changed here.`
-            : "Each one adds an editor under this provider's Offerings tab."}
+          Delivery adds the delivery details block to this business's public profile.
         </p>
       </div>
 

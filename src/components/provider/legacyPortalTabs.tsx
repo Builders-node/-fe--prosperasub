@@ -129,8 +129,7 @@ export function LegacyOwnerPortal({ sourceKey, legacyId, tabs, isOwner, isMember
   const props = { legacyId, tabs, isOwner, isMember };
   if (sourceKey === "food") return <FoodOwnerTabs {...props} />;
   if (sourceKey === "cleaning") return <CleaningOwnerTabs {...props} />;
-  // The beach has no per-service provider table and therefore no per-service
-  // membership: the universal row's owner IS its owner, which the caller has
-  // already worked out.
+  // Nothing else reaches here — a service without its own manager table is
+  // routed to the universal render by the caller.
   return <PortalTabsView tabs={tabs} provider={null} isOwner={isOwner} />;
 }

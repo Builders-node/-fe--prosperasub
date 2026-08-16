@@ -166,9 +166,9 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
   const archetype = archetypes.find((a) => a.key === provider.archetype_key);
   const sourceKey = provider.source_service_key ?? "";
   const legacyId = legacyIdOf(provider);
-  // Use LEGACY_PORTAL_SOURCE_KEYS (includes beach/beach_club) so beach owners
-  // get BEACH_TABS. isLegacySource() only covers cars|food|cleaning; picking
-  // it here left the beach workspace on the empty CapabilityPortal.
+  // Whether this service keeps its managers in its own legacy table, which is
+  // the only reason left to route through LegacyOwnerPortal — see
+  // lib/services/providerBridge.ts.
   const isLegacyPortal = LEGACY_PORTAL_SOURCE_KEYS.has(sourceKey);
 
   // Bookings tab — single answer to "who booked what?" backed by two views:
