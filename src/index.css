@@ -917,3 +917,23 @@
     font-feature-settings: var(--font-features-body);
   }
 }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   The page's own header, while a dialog or a sheet is open.
+
+   Radix locks scrolling by putting `overflow: hidden` on <body> and `clip`
+   on <html>. That also destroys `position: sticky` for anything whose scroll
+   container is the page: the header stops being pinned and scrolls out of
+   view behind the overlay, so opening a select or a sheet looked like it took
+   the top menu away with it.
+
+   Pinning it for the duration keeps the app where it was. `data-scroll-locked`
+   is set by the same library that locks the scroll, so this lasts exactly as
+   long as the lock does.
+   ───────────────────────────────────────────────────────────────────────── */
+body[data-scroll-locked] header.sticky {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+}
