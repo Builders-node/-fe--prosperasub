@@ -31,6 +31,11 @@ interface TableMeta {
   activeValue: string;
   /** For cleaning, also flip is_active TRUE. */
   extraOnApprove?: Record<string, unknown>;
+  /**
+   * Set when the row lives in the universal table but the screens still hand
+   * out the legacy id it was migrated from.
+   */
+  legacySource?: string;
 }
 
 const META: Record<ApproveService, TableMeta> = {
@@ -54,6 +59,7 @@ const META: Record<ApproveService, TableMeta> = {
     auditEntity: "beach_subscription",
     statusField: "status",
     activeValue: "active",
+    legacySource: "beach",
   },
 };
 
@@ -84,13 +90,29 @@ export async function approvePayment(
   const meta = META[service];
   const activate = opts.activate ?? true;
 
+  /**
+   * The id the admin screens hand out is still the legacy one for beach,
+   * because those lists have not moved yet. Resolve it to the row that is now
+   * approved — otherwise the update matches nothing and reports success.
+   */
+  let rowId = id;
+  if (meta.legacySource) {
+    const { data } = await supabaseDb
+      .from(meta.table)
+      .select("id")
+      .eq("source_service_key", meta.legacySource)
+      .eq("source_subscription_id", id)
+      .maybeSingle();
+    if (data?.id) rowId = data.id as string;
+  }
+
   // Read current row so we only stamp payment_method when it's missing (never
   // overwrite an existing method), and so we don't uselessly flip active on
   // already-active rows.
   const { data: existing, error: readErr } = await supabaseDb
     .from(meta.table)
     .select(`payment_method, payment_status, ${meta.statusField}`)
-    .eq("id", id)
+    .eq("id", rowId)
     .maybeSingle();
   if (readErr) throw readErr;
 
@@ -106,7 +128,7 @@ export async function approvePayment(
     if (meta.extraOnApprove) Object.assign(patch, meta.extraOnApprove);
   }
 
-  const { error } = await supabaseDb.from(meta.table).update(patch).eq("id", id);
+  const { error } = await supabaseDb.from(meta.table).update(patch).eq("id", rowId);
   if (error) throw error;
 
   if (opts.adminUserId) {
