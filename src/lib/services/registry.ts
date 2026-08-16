@@ -154,7 +154,7 @@ export const SERVICES: Record<ServiceKey, ServiceConfig> = {
     tileHref: "/services/beach-club",
     adminRootHref: "/admin/beach-club/plans",
     visibilityKey: "category_beach_visible",
-    subscriptionsTable: "beach_club_subscriptions",
+    subscriptionsTable: "provider_subscriptions",
     statusField: "status",
   },
 };

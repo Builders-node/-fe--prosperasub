@@ -93,13 +93,11 @@ export function ProviderReviewsBlock({ providerId, service, ownerUserId, placeho
         return (data?.length ?? 0) > 0;
       }
       if (service === "beach") {
-        // beach_club_subscriptions → beach_club_plans.owner_provider_id
-        const { data: plans } = await supabaseDb.from("beach_club_plans")
-          .select("id").eq("owner_provider_id", providerId);
-        const planIds = (plans ?? []).map((p: any) => p.id);
-        if (!planIds.length) return false;
-        const { data } = await supabaseDb.from("beach_club_subscriptions")
-          .select("id").in("user_id", ids).in("plan_id", planIds).limit(1);
+        // A membership is a universal subscription to a universal provider,
+        // so "did this customer buy from this business" is one query now
+        // rather than a hop through the legacy plans to find its owner.
+        const { data } = await supabaseDb.from("provider_subscriptions")
+          .select("id").eq("provider_id", providerId).in("user_id", ids).limit(1);
         return (data?.length ?? 0) > 0;
       }
       // food falls back to false (food uses food_reviews, not this block)

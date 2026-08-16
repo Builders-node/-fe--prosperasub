@@ -84,7 +84,8 @@ export const SALE_SOURCES: Record<SaleService, SaleSource> = {
     bridgeKey: "cleaning", planTable: "cleaning_packages",
   },
   beach: {
-    service: "beach", table: "beach_club_subscriptions", kind: "subscription",
+    // Universal row, read under the legacy names (see the query below).
+    service: "beach", table: "provider_subscriptions", kind: "subscription",
     statusCol: "status", startCol: "start_date", endCol: "end_date",
     priceCol: "total_cents",
     bridgeKey: "beach", planTable: "beach_club_plans",
@@ -183,8 +184,11 @@ export async function fetchMarketplaceSales(): Promise<SaleRow[]> {
       .select("id,provider_id,package_id,user_id,client_id,subscription_status,payment_status,payment_method,payment_reference,service_start_date,service_end_date,paid_until,end_date,total_price_cents,monthly_price_cents,created_at")
       .order("created_at", { ascending: false }).order("id", { ascending: false })),
     fetchAllRows<any>(() => supabaseDb
-      .from("beach_club_subscriptions")
-      .select("id,plan_id,plan_name,user_id,customer_name,status,payment_status,payment_method,payment_reference,start_date,end_date,total_cents,created_at")
+      .from("provider_subscriptions")
+      // Aliased: the row keeps the plan name, the buyer and the headcount in
+      // one metadata object, and this file's mapping speaks legacy columns.
+      .select("id,user_id,status,payment_status,payment_method,payment_reference,start_date,end_date,created_at,total_cents:price_cents,plan_name:metadata->>plan_name,customer_name:metadata->>customer_name,provider_plans(source_plan_id)")
+      .eq("source_service_key", "beach")
       .order("created_at", { ascending: false }).order("id", { ascending: false })),
   ]);
 
@@ -231,8 +235,9 @@ export async function fetchMarketplaceSales(): Promise<SaleRow[]> {
   beach.forEach((r) => rows.push({
     id: r.id, kind: "subscription",
     provider_id: bridge.resolve("beach", null),
-    plan_id: r.plan_id ?? null,
-    plan_name: r.plan_name ?? beachPlans.get(String(r.plan_id))?.name ?? null,
+    // The legacy plan id, which is what every other sale row here carries.
+    plan_id: r.provider_plans?.source_plan_id ?? null,
+    plan_name: r.plan_name ?? beachPlans.get(String(r.provider_plans?.source_plan_id))?.name ?? null,
     user_id: r.user_id ?? null,
     customer_name: r.customer_name ?? null,
     start_date: day(r.start_date), end_date: day(r.end_date),

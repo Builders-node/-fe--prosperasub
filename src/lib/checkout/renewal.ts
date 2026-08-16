@@ -40,7 +40,7 @@ export interface RenewalSubject {
 const TABLE: Record<CheckoutService, string> = {
   food: "food_subscriptions",
   cleaning: "cleaning_subscriptions",
-  beach: "beach_club_subscriptions",
+  beach: "provider_subscriptions",
   universal: "provider_subscriptions",
 };
 
