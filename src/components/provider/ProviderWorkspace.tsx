@@ -24,7 +24,8 @@ import { BookingsTab } from "@/components/provider/BookingsTab";
 import { ProviderTeamTab } from "@/components/provider/ProviderTeamTab";
 import { ScheduleAccordion } from "@/components/provider/ScheduleAccordion";
 import { ServiceLocationsSection } from "@/components/food/admin/ServiceLocationsSection";
-import { LegacyOwnerPortal, FOOD_SUBSCRIPTIONS_TAB_BODY, CLEANING_SUBSCRIPTIONS_TAB_BODY, BEACH_SUBSCRIPTIONS_TAB_BODY } from "@/components/provider/legacyPortalTabs";
+import { LegacyOwnerPortal, FOOD_SUBSCRIPTIONS_TAB_BODY, CLEANING_SUBSCRIPTIONS_TAB_BODY } from "@/components/provider/legacyPortalTabs";
+import { SubscribersList } from "@/components/provider/SubscribersList";
 import { ProviderReviewsPanel } from "@/components/provider/ProviderReviewsPanel";
 import { ProviderEarningsTab } from "@/components/provider/ProviderEarningsTab";
 import type { PortalTab } from "@/components/provider/ProviderPortalShell";
@@ -183,10 +184,12 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
     if (sourceKey === "cleaning") {
       return CLEANING_SUBSCRIPTIONS_TAB_BODY({ id: legacyId } as any);
     }
-    if (sourceKey === "beach" || sourceKey === "beach_club") {
-      return BEACH_SUBSCRIPTIONS_TAB_BODY();
-    }
-    return undefined; // cars → calendar-only
+    // Beach and any universal-only business share the same list, because
+    // their rows are the same rows. It replaces the admin PAGE — table,
+    // pagination and all — that used to be mounted inside this tab for the
+    // beach alone, which is why one business answered "who is subscribed" with
+    // cards and another with a spreadsheet.
+    return <SubscribersList providerId={provider.id} sourceKey={sourceKey} />;
   })();
 
   const bookingsTab: PortalTab<unknown> = {
