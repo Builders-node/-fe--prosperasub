@@ -3,6 +3,7 @@ import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import CleaningAnalytics from "./CleaningAnalytics";
 import FoodAnalytics from "./FoodAnalytics";
 import BeachClubAnalytics from "./BeachClubAnalytics";
+import { PlatformAnalytics } from "@/components/admin/analytics/PlatformAnalytics";
 import { DomainEventBusPanel } from "@/components/admin/DomainEventBusPanel";
 
 const SERVICES = [
@@ -14,21 +15,6 @@ const SERVICES = [
   { id: "beach", label: "Beach Club" },
 ] as const;
 type ServiceId = (typeof SERVICES)[number]["id"];
-
-/** A service's own analytics, named when several are stacked. */
-function ServiceBlock({ show, label, children }: {
-  show: boolean; label: string; children: React.ReactNode;
-}) {
-  if (!show) return <>{children}</>;
-  return (
-    <section className="mb-space-6">
-      <h2 className="mb-space-3 text-[20px] font-semibold leading-[26px] tracking-[-0.02em] text-foreground">
-        {label}
-      </h2>
-      {children}
-    </section>
-  );
-}
 
 const Analytics = () => {
   const [params, setParams] = useSearchParams();
@@ -63,27 +49,16 @@ const Analytics = () => {
         </select>
       </div>
 
-      {/* "All" is every service's own analytics, in order, each under its own
-          name — not a fourth set of totals computed a fourth way. The figures
-          on this page come from per-service adapters that know what a visit,
-          a delivery and a membership are; adding them up here would be a new
-          definition of revenue sitting next to the three that already agree
-          with the Finance page. */}
-      {(service === "all" || service === "cleaning") && (
-        <ServiceBlock show={service === "all"} label="Cleaning">
-          <CleaningAnalytics embedded />
-        </ServiceBlock>
-      )}
-      {(service === "all" || service === "food") && (
-        <ServiceBlock show={service === "all"} label="Food">
-          <FoodAnalytics embedded />
-        </ServiceBlock>
-      )}
-      {(service === "all" || service === "beach") && (
-        <ServiceBlock show={service === "all"} label="Beach Club">
-          <BeachClubAnalytics embedded />
-        </ServiceBlock>
-      )}
+      {/* "All" is the platform summed once, not the three service pages
+          stacked. The rule it sums by lives in lib/analytics/platformRollup.ts
+          and is the same one the Overview reduces — so this page cannot become
+          a fourth definition of revenue sitting next to the three that already
+          agree with Finance. Picking a service swaps in that service's own
+          analytics, which know what a visit, a delivery and a court hour are. */}
+      {service === "all" && <PlatformAnalytics />}
+      {service === "cleaning" && <CleaningAnalytics embedded />}
+      {service === "food" && <FoodAnalytics embedded />}
+      {service === "beach" && <BeachClubAnalytics embedded />}
 
       <DomainEventBusPanel />
     </SuperAdminLayout>

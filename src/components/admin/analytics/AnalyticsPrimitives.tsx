@@ -115,6 +115,83 @@ export function MonthlyRevenueChart({
   );
 }
 
+// ─── 6-month revenue chart, split by service ────────────────────────────────
+export interface RevenueSeries {
+  key: string;
+  label: string;
+  /** One value per month, same order and length as `months`. */
+  values: number[];
+  /** Tailwind background class for this series' segment. */
+  barClass: string;
+}
+
+/**
+ * The platform-wide version of `MonthlyRevenueChart`: one column per month,
+ * stacked so the column height reads as the platform total while the segments
+ * still say which service earned it. Three separate charts answered "how is
+ * cleaning doing" three times and "how is the platform doing" never.
+ */
+export function StackedRevenueChart({
+  months, series, formatValue,
+}: {
+  months: string[];
+  series: RevenueSeries[];
+  formatValue: (cents: number) => string;
+}) {
+  const totals = months.map((_, i) => series.reduce((s, r) => s + (r.values[i] ?? 0), 0));
+  const max = Math.max(...totals, 0);
+  if (max === 0) {
+    return (
+      <p className="py-8 text-center text-[16px] leading-[22px] text-muted-foreground">
+        No revenue recorded in the last 6 months.
+      </p>
+    );
+  }
+  return (
+    <div className="space-y-4">
+      <div className="flex h-48 items-end justify-between gap-2">
+        {months.map((label, i) => (
+          <div key={label} className="flex h-full flex-1 flex-col items-center justify-end gap-2">
+            <span className="text-[12px] tabular-nums text-muted-foreground">
+              {totals[i] > 0 ? formatValue(totals[i]) : ""}
+            </span>
+            {/* The column is one stack: segments share a rounded top so it
+                reads as a single bar, not three bars that happen to touch.
+                A 1px gap lets the card show through between them — adjacent
+                weights of one accent otherwise blur into a gradient. */}
+            <div
+              className="flex w-full flex-col-reverse gap-px overflow-hidden rounded-t-radius-sm"
+              style={{ height: `${Math.max((totals[i] / max) * 100, 2)}%` }}
+            >
+              {series.map((s) => {
+                const v = s.values[i] ?? 0;
+                if (v <= 0) return null;
+                return (
+                  <div
+                    key={s.key}
+                    className={s.barClass}
+                    style={{ height: `${(v / totals[i]) * 100}%` }}
+                    title={`${s.label} · ${formatValue(v)}`}
+                  />
+                );
+              })}
+            </div>
+            <span className="text-[14px] text-muted-foreground">{label}</span>
+          </div>
+        ))}
+      </div>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+        {series.map((s) => (
+          <span key={s.key} className="flex items-center gap-1.5 text-[14px] text-muted-foreground">
+            <span className={`h-2.5 w-2.5 rounded-sm ${s.barClass}`} />
+            {s.label}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── Ranked list with proportion bars ───────────────────────────────────────
 export interface RankedRow { key: string; label: string; sublabel?: string; value: number }
 

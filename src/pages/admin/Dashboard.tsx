@@ -3,7 +3,7 @@ import { ArrowUpRight, CheckCircle2, SparklesIcon, UtensilsCrossed, Waves } from
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { fetchAllRows } from "@/lib/supabasePaging";
+import { fetchPlatformRollup } from "@/lib/analytics/platformRollup";
 import { supabaseDb } from "@/integrations/supabase/client";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { SectionOverline } from "@/components/subscriptions/MySubsPrimitives";
@@ -52,65 +52,26 @@ const AdminDashboard = () => {
   const { data: stats } = useQuery({
     queryKey: ["super-admin-stats-all"],
     queryFn: async () => {
-      // Paged, not plain selects: these rows are reduced into the revenue
-      // tiles, and PostgREST silently truncates at 1000 rows — past that the
-      // totals would just stop growing. See lib/supabasePaging.ts.
-      const [usersRes, cleaning, beach, food] = await Promise.all([
+      // Revenue, active and awaiting-payment are counted once, in
+      // lib/analytics/platformRollup.ts, and shared with the Analytics page.
+      // This used to be a hand-written reduce per service here and another one
+      // there; they agreed only for as long as someone kept checking.
+      const [usersRes, rollup] = await Promise.all([
         supabaseDb.from("users").select("id", { count: "exact", head: true }).is("deleted_at", null),
-        fetchAllRows<any>(() => supabaseDb.from("cleaning_subscriptions")
-          .select("payment_status, subscription_status, is_active, total_price_cents, monthly_price_cents")
-          .is("deleted_at", null).order("id")),
-        fetchAllRows<any>(() => supabaseDb.from("provider_subscriptions")
-          .select("payment_status, status, total_cents:price_cents")
-          .eq("source_service_key", "beach").order("id")),
-        fetchAllRows<any>(() => supabaseDb.from("food_subscriptions")
-          .select("status, payment_status, weekly_price_cents, commitment_weeks, periods_paid").order("id")),
+        fetchPlatformRollup(),
       ]);
 
-      const byService: Record<ServiceKey, { active: number; revenueCents: number }> = {
-        cleaning: { active: 0, revenueCents: 0 },
-        food:     { active: 0, revenueCents: 0 },
-        beach:    { active: 0, revenueCents: 0 },
+      const byService = Object.fromEntries(
+        rollup.services.map((s) => [s.key, { active: s.active, revenueCents: s.revenueCents }]),
+      ) as Record<ServiceKey, { active: number; revenueCents: number }>;
+
+      return {
+        users: usersRes.count || 0,
+        revenueCents: rollup.totals.revenueCents,
+        activeSubs: rollup.totals.active,
+        pending: rollup.totals.awaitingPayment,
+        byService,
       };
-      let pending = 0;
-
-      // One revenue rule across every service and every admin page:
-      //   paid AND not cancelled.
-      // `payment_status === "paid"` alone counted cancelled bookings as
-      // revenue here while the per-service Analytics pages excluded them, so
-      // Dashboard always read higher than Analytics for the same period.
-      // (A genuine refund lands as payment_status='refunded', so it drops out
-      // of the "paid" side regardless.)
-      const isRevenue = (paymentStatus: unknown, lifecycle: unknown) =>
-        paymentStatus === "paid" && String(lifecycle ?? "").toLowerCase() !== "cancelled";
-
-      cleaning.forEach((r: any) => {
-        if (isRevenue(r.payment_status, r.subscription_status)) byService.cleaning.revenueCents += r.total_price_cents || r.monthly_price_cents || 0;
-        if (r.payment_status === "paid" && r.is_active && r.subscription_status === "active") byService.cleaning.active++;
-        if (r.payment_status !== "paid" && !["cancelled", "expired"].includes(r.subscription_status)) pending++;
-      });
-      // Food revenue must gate on payment_status='paid' — same as cleaning/
-      // beach. Otherwise Infinita/crypto subs that never reconciled inflate
-      // the per-service Revenue tile on this page.
-      food.forEach((r: any) => {
-        const s = String(r.status ?? "").toLowerCase();
-        const isPaid = r.payment_status === "paid";
-        if (isPaid && ["active", "paused", "expired"].includes(s)) {
-          byService.food.revenueCents += (r.weekly_price_cents || 0) * (r.commitment_weeks || 1) * (r.periods_paid || 1);
-        }
-        if (isPaid && s === "active") byService.food.active++;
-        if (!isPaid && s !== "cancelled") pending++;
-      });
-      beach.forEach((r: any) => {
-        if (isRevenue(r.payment_status, r.status)) byService.beach.revenueCents += r.total_cents || 0;
-        if (r.payment_status === "paid" && String(r.status).toLowerCase() === "active") byService.beach.active++;
-        if (r.payment_status !== "paid" && r.status !== "cancelled") pending++;
-      });
-
-      const revenueCents = Object.values(byService).reduce((s, v) => s + v.revenueCents, 0);
-      const activeSubs = Object.values(byService).reduce((s, v) => s + v.active, 0);
-
-      return { users: usersRes.count || 0, revenueCents, activeSubs, pending, byService };
     },
   });
 
