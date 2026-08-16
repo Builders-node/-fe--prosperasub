@@ -166,3 +166,31 @@ export function formatDateHN(
     return String(value);
   }
 }
+
+/**
+ * A service period as one short string: "Aug 3 → Sep 3".
+ *
+ * The year is dropped when both ends fall in the current one, which is nearly
+ * always — on a phone the subscription row shares its line with the price, and
+ * "Aug 3, 2026 → Sep 3, 20…" spent its width on two digits nobody reads.
+ */
+export function formatRangeHN(
+  start: string | Date | null | undefined,
+  end: string | Date | null | undefined,
+): string | null {
+  if (!start && !end) return null;
+  const thisYear = nowHN().getFullYear();
+  const yearOf = (v: string | Date | null | undefined) => {
+    if (!v) return thisYear;
+    const iso = typeof v === "string" ? v : v.toISOString();
+    const y = Number(iso.slice(0, 4));
+    return Number.isFinite(y) ? y : thisYear;
+  };
+  const sameYear = yearOf(start) === thisYear && yearOf(end) === thisYear;
+  const opts: Intl.DateTimeFormatOptions = sameYear
+    ? { month: "short", day: "numeric" }
+    : { year: "numeric", month: "short", day: "numeric" };
+  if (!start) return `until ${formatDateHN(end, opts)}`;
+  if (!end) return `from ${formatDateHN(start, opts)}`;
+  return `${formatDateHN(start, opts)} → ${formatDateHN(end, opts)}`;
+}

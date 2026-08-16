@@ -39,6 +39,14 @@ interface Props {
   providerId?: string | null;
   /** Overrides the idle line ("How was your cleaning on 14 Aug?"). */
   prompt?: string;
+  /**
+   * Render nothing until there is a rating to show.
+   *
+   * Asking is the review prompt's job — it asks once, about a job that
+   * actually finished. A subscription card carrying its own "how was it?"
+   * asked again on every card, forever, and still collected nothing.
+   */
+  onlyIfRated?: boolean;
 }
 
 /**
@@ -101,7 +109,8 @@ async function resolveProviderId(service: Service, itemId: string): Promise<stri
 }
 
 export function RateProviderButton({
-  service, itemId, subscriptionId, customerName, className, providerId: knownProviderId, prompt,
+  service, itemId, subscriptionId, customerName, className,
+  providerId: knownProviderId, prompt, onlyIfRated = false,
 }: Props) {
   const qc = useQueryClient();
   const { userData } = useAuth();
@@ -202,6 +211,7 @@ export function RateProviderButton({
   };
 
   const displayRating = myReview?.rating ?? 0;
+  if (onlyIfRated && !myReview) return null;
   const idlePrompt = myReview
     ? "Your rating · tap to edit"
     : prompt
@@ -212,11 +222,16 @@ export function RateProviderButton({
       <div
         onClick={(e) => e.stopPropagation()}
         className={cn(
-          "flex items-center justify-between gap-3 rounded-2xl bg-muted/40 p-4",
+          // An inset row inside a card — 16px radius, not the 24 that
+          // `rounded-2xl` maps to here, and the page's own inset grey.
+          "flex items-center justify-between gap-3 rounded-radius-md bg-inset px-3.5 py-3 tracking-[-0.02em]",
           className,
         )}
       >
-        <p className="min-w-0 truncate text-xs font-semibold text-muted-foreground">
+        <p className={cn(
+          "min-w-0 truncate text-[13px] font-semibold",
+          myReview ? "text-muted-foreground" : "text-foreground",
+        )}>
           {idlePrompt}
         </p>
         <div className="flex shrink-0 items-center gap-0.5">

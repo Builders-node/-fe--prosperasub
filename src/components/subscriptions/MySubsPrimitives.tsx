@@ -1,42 +1,6 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-// ─── TabHeaderCTA ──────────────────────────────────────────────────────────
-// One-per-tab "Browse Plans / Vehicles / Restaurants" button. Optional
-// secondary action shown as a filled foreground button next to it — used e.g.
-// for "Book a court" (Beach) or "Set Schedule" (Cleaning).
-
-interface TabHeaderProps {
-  primary: { label: string; icon: React.ComponentType<{ className?: string }>; onClick: () => void };
-  secondary?: { label: string; icon: React.ComponentType<{ className?: string }>; onClick: () => void };
-}
-export function TabHeaderCTA({ primary, secondary }: TabHeaderProps) {
-  const PIcon = primary.icon;
-  const SIcon = secondary?.icon;
-  return (
-    <div className={cn("grid gap-2", secondary ? "grid-cols-2" : "grid-cols-1")}>
-      <button
-        type="button"
-        onClick={primary.onClick}
-        className="flex items-center justify-center gap-2 rounded-2xl bg-card py-3 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
-      >
-        <PIcon className="h-4 w-4" />
-        {primary.label}
-      </button>
-      {secondary && SIcon && (
-        <button
-          type="button"
-          onClick={secondary.onClick}
-          className="flex items-center justify-center gap-2 rounded-2xl bg-foreground py-3 text-sm font-bold text-background transition-colors hover:bg-foreground/90"
-        >
-          <SIcon className="h-4 w-4" />
-          {secondary.label}
-        </button>
-      )}
-    </div>
-  );
-}
-
 // ─── SectionOverline ───────────────────────────────────────────────────────
 // The compact "ACTIVE PLAN · 1" / "UPCOMING · 0" / "HISTORY · 7" overlines
 // Cleaning already uses. Bringing them to every tab makes the page scannable

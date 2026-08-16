@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format, isToday, isYesterday, parseISO } from "date-fns";
 import { accountApi } from "@/integrations/supabase/client";
@@ -5,13 +6,17 @@ import { RateProviderButton } from "@/components/reviews/RateProviderButton";
 import { useAuth } from "@/contexts/AuthContext";
 
 /**
- * "How did that go?" — asked after the job, not filed under the subscription.
+ * "How was it?" — one line per business, above everything else.
  *
- * The rating widget has lived on every subscription card for months and has
- * collected one review, because a card you open when something is wrong is not
- * where a satisfied customer goes. This asks about work that actually
- * happened: a visit, a delivery or a booked hour that finished in the last
- * month, for a business this customer has not rated. Answer it and it is gone.
+ * The first version was a titled card with an explanatory paragraph and one
+ * truncated row inside it: three quarters of a phone screen spent asking a
+ * single question, and the business's name cut off mid-word. It also grew a
+ * whole card per pending ask, so a customer of three services would have
+ * scrolled past half a screen of invitations to reach their subscriptions.
+ *
+ * Now it is what it is: a row. Name, what we did and when, five stars. Two
+ * rows at most; the rest sit behind "N more" for whoever wants them. Answering
+ * removes the row.
  *
  * The list comes from the server — `service_occurrences` is service-role only,
  * since it holds addresses.
@@ -27,14 +32,17 @@ interface Prompt {
   subscriptionId: string | null;
 }
 
-const WHEN = (iso: string) => {
+/** How many asks are worth showing before they become a wall. */
+const VISIBLE = 2;
+
+const when = (iso: string) => {
   const d = parseISO(iso);
   if (isToday(d)) return "today";
   if (isYesterday(d)) return "yesterday";
-  return `on ${format(d, "MMM d")}`;
+  return format(d, "MMM d");
 };
 
-const NOUN: Record<string, string> = {
+const noun: Record<string, string> = {
   cleaning: "cleaning",
   food: "delivery",
   beach: "visit",
@@ -42,6 +50,7 @@ const NOUN: Record<string, string> = {
 
 export function ReviewPromptCard() {
   const { isAuthenticated } = useAuth();
+  const [expanded, setExpanded] = useState(false);
 
   const { data: prompts = [] } = useQuery({
     queryKey: ["pending-reviews"],
@@ -55,27 +64,33 @@ export function ReviewPromptCard() {
   });
 
   if (!prompts.length) return null;
+  const shown = expanded ? prompts : prompts.slice(0, VISIBLE);
+  const hidden = prompts.length - shown.length;
 
   return (
-    <section className="space-y-2 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
-      <h2 className="text-[20px] font-semibold leading-[26px] text-foreground">
-        {prompts.length === 1 ? "How did it go?" : "How did they go?"}
-      </h2>
-      <p className="text-[16px] leading-[22px] text-muted-foreground">
-        A rating takes one tap and helps everyone else in Próspera choose.
-      </p>
-      <div className="space-y-2 pt-1">
-        {prompts.map((p) => (
-          <RateProviderButton
-            key={p.occurrenceId}
-            service={(p.service === "food" || p.service === "beach" ? p.service : "cleaning") as "cleaning" | "food" | "beach"}
-            itemId={null}
-            providerId={p.providerId}
-            subscriptionId={p.subscriptionId ?? ""}
-            prompt={`${p.providerName} · ${p.itemLabel ? `${p.itemLabel}, ` : ""}${NOUN[p.service] ?? "visit"} ${WHEN(p.happenedAt)}`}
-          />
-        ))}
-      </div>
+    <section className="space-y-2 rounded-radius-md bg-card p-4 tracking-[-0.02em]">
+      {shown.map((p) => (
+        <RateProviderButton
+          key={p.occurrenceId}
+          service={(p.service === "food" || p.service === "beach" ? p.service : "cleaning") as "cleaning" | "food" | "beach"}
+          itemId={null}
+          providerId={p.providerId}
+          subscriptionId={p.subscriptionId ?? ""}
+          // The business is never the part that gets cut: what it did and when
+          // is the detail, and the detail is what the row can afford to lose.
+          prompt={`${p.providerName} · ${noun[p.service] ?? "visit"} ${when(p.happenedAt)}`}
+        />
+      ))}
+
+      {hidden > 0 && (
+        <button
+          type="button"
+          onClick={() => setExpanded(true)}
+          className="w-full py-1 text-[12px] leading-[16px] text-muted-foreground transition-colors hover:text-foreground"
+        >
+          {hidden} more to rate
+        </button>
+      )}
     </section>
   );
 }

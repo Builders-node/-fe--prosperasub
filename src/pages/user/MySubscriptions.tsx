@@ -43,14 +43,14 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { accountApi, supabase, supabaseDb } from "@/integrations/supabase/client";
 import { useUserUuid } from "@/hooks/useUserUuid";
 import { format, isPast, addWeeks, parseISO } from "date-fns";
-import { addDaysISO, addMonthsISO, addWeeksISO, formatDateHN, todayHN } from "@/lib/timezone";
+import { addDaysISO, addMonthsISO, addWeeksISO, formatDateHN, formatRangeHN, todayHN } from "@/lib/timezone";
 import { formatUSD } from "@/lib/pricing";
 import { UserLayout } from "@/components/layout/UserLayout";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { RenewPreviewDialog } from "@/components/subscriptions/RenewPreviewDialog";
 import { SubscriptionCard } from "@/components/subscriptions/SubscriptionCard";
 import {
-  TabHeaderCTA, SectionGroup, TabEmptyState, SectionOverline,
+  SectionGroup, TabEmptyState, SectionOverline,
 } from "@/components/subscriptions/MySubsPrimitives";
 import { RateProviderButton } from "@/components/reviews/RateProviderButton";
 import { ReviewPromptCard } from "@/components/reviews/ReviewPromptCard";
@@ -101,6 +101,38 @@ interface PendingRenewal {
  * `bg-muted/50` track, the selected segment filled, inactive segments carrying
  * no border and no fill.
  */
+/**
+ * Active/Past, and the way out to the catalogue, on one line.
+ *
+ * These used to be two full-width rows stacked under the service tabs — a
+ * "Browse plans" block and a segmented control — so a phone showed four rows
+ * of chrome (prompt, tabs, buttons, toggle) before the first subscription.
+ * The browse action is a link at the end of the same line now: it is how you
+ * leave this page, not the thing the page is for.
+ */
+function ListControls({
+  scope, onChange, browse,
+}: {
+  scope: "active" | "past";
+  onChange: (s: "active" | "past") => void;
+  browse?: { label: string; onClick: () => void };
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <ScopeToggle scope={scope} onChange={onChange} />
+      {browse && (
+        <button
+          type="button"
+          onClick={browse.onClick}
+          className="shrink-0 text-[13px] font-semibold tracking-[-0.02em] text-muted-foreground transition-colors hover:text-foreground"
+        >
+          {browse.label} →
+        </button>
+      )}
+    </div>
+  );
+}
+
 function ScopeToggle({
   scope, onChange,
 }: {
@@ -108,14 +140,14 @@ function ScopeToggle({
   onChange: (s: "active" | "past") => void;
 }) {
   return (
-    <div className="inline-flex gap-1 rounded-2xl bg-muted/50 p-1">
+    <div className="inline-flex gap-1 rounded-full bg-inset p-1">
       {([["active", "Active"], ["past", "Past"]] as const).map(([key, label]) => (
         <button
           key={key}
           type="button"
           aria-pressed={scope === key}
           onClick={() => onChange(key)}
-          className={`rounded-xl px-4 py-1.5 text-sm font-semibold transition-colors ${
+          className={`rounded-full px-4 py-1.5 text-[13px] font-semibold tracking-[-0.02em] transition-colors ${
             scope === key
               ? "bg-foreground text-background"
               : "text-muted-foreground hover:text-foreground"
@@ -675,7 +707,8 @@ const MySubscriptions = () => {
       key: "cancel",
       label: "Cancel",
       icon: X,
-      variant: "secondary" as const,
+      // Nobody opens this page to cancel — it stays reachable, not prominent.
+      variant: "ghost" as const,
       onClick: () => setCancelTarget({
         service,
         id: sub.id,
@@ -869,7 +902,10 @@ const MySubscriptions = () => {
         </div>
 
         {/* ── Service tabs ────────────────────────────────────────── */}
-        <div className="mb-5 flex gap-1 overflow-x-auto rounded-2xl bg-muted/50 p-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+        {/* Pills sized to their label, not to a third of the screen: the
+            services list is data, and `flex-1` across six of them squeezes
+            every label into an ellipsis. It scrolls instead. */}
+        <div className="mb-4 flex gap-1 overflow-x-auto rounded-full bg-inset p-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           {archetypes.map(({ key: id, label, Icon }) => {
             const active = activeTab === id;
             return (
@@ -877,13 +913,13 @@ const MySubscriptions = () => {
                 key={id}
                 type="button"
                 onClick={() => changeTab(id)}
-                className={`flex shrink-0 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-2 text-xs font-bold transition-colors sm:py-2.5 sm:text-sm ${
+                className={`flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-4 py-2 text-[13px] font-semibold tracking-[-0.02em] transition-colors ${
                   active
                     ? "bg-foreground text-background"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
-                <Icon className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" />
+                <Icon className="h-4 w-4 shrink-0" />
                 <span>{label}</span>
               </button>
             );
@@ -893,12 +929,11 @@ const MySubscriptions = () => {
         {/* ─── FOOD tab content ──────────────────────────────────── */}
         {activeTab === "food" && (
           <div className="space-y-5">
-            <TabHeaderCTA
-              primary={{ label: "Browse Restaurants", icon: UtensilsCrossed, onClick: () => navigate("/services/food") }}
+            <ListControls
+              scope={scope}
+              onChange={setScope}
+              browse={{ label: "Browse restaurants", onClick: () => navigate("/services/food") }}
             />
-
-            {/* Active / Past — cleaning sections itself, so it opts out. */}
-            <ScopeToggle scope={scope} onChange={setScope} />
 
             {foodSubsLoading ? (
               <Skeleton rows={3} />
@@ -940,11 +975,9 @@ const MySubscriptions = () => {
                     <SubscriptionCard
                       key={s.id}
                       icon={UtensilsCrossed}
-                      iconTint="bg-emerald-500/15"
-                      iconColor="text-emerald-600"
                       title={s.customer_name ?? "Weekly meal plan"}
                       subtitle={s.started_at
-                        ? `${formatDateHN(s.started_at)} → ${formatDateHN(foodEnd(s))}`
+                        ? formatRangeHN(s.started_at, foodEnd(s))
                         : undefined}
                       statusBadge={<StatusPill status={s.status} />}
                       metadata={<span className="tabular-nums">{formatUSD((s.weekly_price_cents || 0) * (s.commitment_weeks || 1))}</span>}
@@ -967,17 +1000,13 @@ const MySubscriptions = () => {
         {/* ─── BEACH CLUB tab content ──────────────────────────── */}
         {activeTab === "entertainment" && (() => {
           const today = todayHN();
-          const hasActive = beachSubs.some((s: any) =>
-            String(s.status).toLowerCase() === "active" && (!s.end_date || s.end_date >= today));
           return (
             <div className="space-y-5">
-              <TabHeaderCTA
-                primary={{ label: "Browse Plans", icon: Waves, onClick: () => navigate("/services/beach-club") }}
-                secondary={hasActive ? { label: "Book a court", icon: LandPlot, onClick: () => navigate("/services/beach-club/courts") } : undefined}
+              <ListControls
+                scope={scope}
+                onChange={setScope}
+                browse={{ label: "Browse plans", onClick: () => navigate("/services/beach-club") }}
               />
-
-              {/* Active / Past — cleaning sections itself, so it opts out. */}
-              <ScopeToggle scope={scope} onChange={setScope} />
 
               {beachSubsLoading ? (
                 <Skeleton rows={3} />
@@ -1026,18 +1055,23 @@ const MySubscriptions = () => {
                       <SubscriptionCard
                         key={s.id}
                         icon={Waves}
-                        iconTint="bg-cyan-500/15"
-                        iconColor="text-cyan-400"
                         title={s.plan_name || "Beach Club Membership"}
                         subtitle={<>
                           {s.people || 1} {(s.people || 1) === 1 ? "person" : "people"}
-                          {s.start_date && s.end_date && ` · ${formatDateHN(s.start_date)} → ${formatDateHN(s.end_date)}`}
+                          {s.start_date && s.end_date && ` · ${formatRangeHN(s.start_date, s.end_date)}`}
                         </>}
                         metadata={<span className="tabular-nums">{formatUSD(s.total_cents || 0)}</span>}
                         statusBadge={
                           <StatusPill status={label} />
                         }
                         actions={[
+                          // Booking a court is something this membership lets
+                          // you do — it was a page-wide button that appeared
+                          // when any membership was active and said nothing
+                          // about which one.
+                          ...(st === "active" && !expired ? [
+                            { key: "court", label: "Book a court", icon: LandPlot, onClick: () => navigate("/services/beach-club/courts"), variant: "primary" as const },
+                          ] : []),
                           ...(canRenew ? [
                             { key: "renew", label: "Renew", icon: RefreshCw, onClick: openRenewDialog, variant: "secondary" as const },
                           ] : []),
@@ -1049,6 +1083,7 @@ const MySubscriptions = () => {
                             itemId={s.plan_id}
                             subscriptionId={s.id}
                             customerName={userData?.name || userData?.display_name}
+                            onlyIfRated
                           />
                         ) : undefined}
                       />
@@ -1084,12 +1119,10 @@ const MySubscriptions = () => {
                     <SubscriptionCard
                       key={s.id}
                       icon={LayoutGrid}
-                      iconTint="bg-rose-500/15"
-                      iconColor="text-rose-400"
                       title={planName}
                       subtitle={<>
                         {providerName}
-                        {s.start_date && s.end_date && `${providerName ? " · " : ""}${formatDateHN(s.start_date)} → ${formatDateHN(s.end_date)}`}
+                        {s.start_date && s.end_date && `${providerName ? " · " : ""}${formatRangeHN(s.start_date, s.end_date)}`}
                       </>}
                       metadata={<span className="tabular-nums">{formatUSD(s.price_cents || 0)}</span>}
                       statusBadge={<StatusPill status={label} />}
@@ -1114,14 +1147,15 @@ const MySubscriptions = () => {
         {/* ─── CLEANING tab content (existing) ─────────────────── */}
         {activeTab === "cleaning" && (
         <div className="space-y-5">
-            <TabHeaderCTA
-              primary={{ label: "Browse Plans", icon: SparklesIcon, onClick: () => navigate("/services/cleaning") }}
-              secondary={pendingScheduleCleaningSubs.length > 0 ? {
-                label: "Set Schedule",
-                icon: CalendarDays,
-                onClick: () => navigate(`/services/cleaning/book?subscriptionId=${pendingScheduleCleaningSubs[0].id}`),
-              } : undefined}
-            />
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => navigate("/services/cleaning")}
+                className="text-[13px] font-semibold tracking-[-0.02em] text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Browse plans →
+              </button>
+            </div>
 
             {cleaningSubsLoading || cleaningBookingsLoading ? (
               <Skeleton rows={3} />
@@ -1243,8 +1277,6 @@ const MySubscriptions = () => {
                         <SubscriptionCard
                           key={sub.id}
                           icon={SparklesIcon}
-                          iconTint="bg-primary/10"
-                          iconColor="text-primary"
                           title={(sub as any).cleaning_packages?.name}
                           subtitle={(sub as any).recurring_day_of_week != null
                             ? "Weekly schedule active"
@@ -1259,6 +1291,7 @@ const MySubscriptions = () => {
                               itemId={sub.package_id}
                               subscriptionId={sub.id}
                               customerName={userData?.name || userData?.display_name}
+                              onlyIfRated
                             />
                           ) : undefined}
                         />
@@ -1270,8 +1303,6 @@ const MySubscriptions = () => {
                         <SubscriptionCard
                           key={sub.id}
                           icon={SparklesIcon}
-                          iconTint="bg-primary/10"
-                          iconColor="text-primary"
                           title={sub.cleaning_packages?.name ?? "Cleaning plan"}
                           subtitle={sub.recurring_day_of_week != null
                             ? "Weekly schedule active"
@@ -1327,11 +1358,9 @@ const MySubscriptions = () => {
                         <SubscriptionCard
                           key={sub.id}
                           icon={SparklesIcon}
-                          iconTint="bg-muted"
-                          iconColor="text-muted-foreground"
                           title={(sub as any).cleaning_packages?.name ?? "Cleaning plan"}
                           subtitle={sub.service_start_date || sub.start_date
-                            ? `${formatDateHN(sub.service_start_date || sub.start_date)} → ${formatDateHN(sub.service_end_date || sub.end_date)}`
+                            ? formatRangeHN(sub.service_start_date || sub.start_date, sub.service_end_date || sub.end_date)
                             : undefined}
                           statusBadge={<StatusPill status="expired" />}
                           metadata={<span className="tabular-nums">{formatUSD((sub.monthly_price_cents || 0) * (sub.billing_period_months || 1))}</span>}
