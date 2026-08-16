@@ -13,6 +13,10 @@ import { fetchUsersByIds } from "@/lib/admin/customerNames";
 import { formatUSD } from "@/lib/pricing";
 import { formatDateHN } from "@/lib/timezone";
 import { WorkspaceCard, WorkspaceEmpty, WorkspaceSection } from "@/components/provider/WorkspaceUI";
+import { CustomerPhone, pickPhone } from "@/components/patterns/CustomerPhone";
+import { SaleOriginBadge } from "@/components/patterns/SaleOrigin";
+import { cancelCleaningBookings } from "@/lib/cleaning/cancelBooking";
+import { todayHN } from "@/lib/timezone";
 import { MoreHorizontal, PauseCircle, PlayCircle, XCircle } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
@@ -53,6 +57,9 @@ export interface SubscriberRow {
   paymentStatus: string | null;
   /** One line of whatever this service cares about — a headcount, an address. */
   detail?: string | null;
+  phone?: string | null;
+  /** Tells a walk-in sale from a platform one — the badge reads it. */
+  paymentReference?: string | null;
 }
 
 export function SubscribersList({ providerId, legacyId, sourceKey }: {
@@ -101,11 +108,34 @@ export function SubscribersList({ providerId, legacyId, sourceKey }: {
    * function and not three screens.
    */
   const setStatus = async (row: SubscriberRow, next: "active" | "paused" | "cancelled") => {
-    const { error } = await supabaseDb
-      .from(shape.table)
-      .update({ [shape.statusCol]: next, updated_at: new Date().toISOString() })
-      .eq("id", row.id);
+    const patch: Record<string, unknown> = {
+      [shape.statusCol]: next,
+      updated_at: new Date().toISOString(),
+    };
+    // Food records WHEN it was paused, and clears that on resume.
+    if (sourceKey === "food") patch.paused_at = next === "paused" ? todayHN() : null;
+
+    const { error } = await supabaseDb.from(shape.table).update(patch).eq("id", row.id);
     if (error) { toast.error(error.message); return; }
+
+    /**
+     * Cancelling a cleaning subscription has to cancel the visits it booked.
+     *
+     * Each future visit is holding a seat in a slot; flipping the
+     * subscription's status alone leaves them booked for ever and those slots
+     * looking permanently full. This is why the cleaning list could not simply
+     * be replaced by a generic one that writes a column.
+     */
+    if (next === "cancelled" && sourceKey === "cleaning") {
+      const { data: future } = await supabaseDb
+        .from("cleaning_bookings")
+        .select("id, cleaning_available_slots!inner(date)")
+        .eq("subscription_id", row.id)
+        .eq("status", "booked")
+        .gte("cleaning_available_slots.date", todayHN());
+      const ids = (future ?? []).map((b: any) => b.id);
+      if (ids.length) await cancelCleaningBookings(supabaseDb, ids);
+    }
     toast.success(next === "cancelled" ? "Cancelled" : next === "paused" ? "Paused" : "Resumed");
     qc.invalidateQueries({ queryKey: KEY });
   };
@@ -145,6 +175,7 @@ export function SubscribersList({ providerId, legacyId, sourceKey }: {
                   {r.customerName || r.customerEmail || "Customer"}
                 </span>
                 <StatusPill status={r.status} />
+                <SaleOriginBadge paymentReference={r.paymentReference ?? null} />
                 {isPendingPayment({ payment_status: r.paymentStatus }) && (
                   <Button size="sm" variant="outline" className="h-7 rounded-full px-3 text-[12px]"
                     onClick={() => approve(r)}>
@@ -156,6 +187,7 @@ export function SubscribersList({ providerId, legacyId, sourceKey }: {
                 {r.plan}
                 {r.start && r.end && ` · ${formatDateHN(r.start)} → ${formatDateHN(r.end)}`}
               </p>
+              {r.phone && <CustomerPhone phone={r.phone} className="mt-0.5" />}
               {r.detail && (
                 <p className="mt-0.5 text-[14px] leading-[18px] text-muted-foreground">{r.detail}</p>
               )}
@@ -213,7 +245,7 @@ async function fetchCleaning(legacyProviderId: string): Promise<SubscriberRow[]>
   if (!names.size) return [];
   const { data } = await supabaseDb
     .from("cleaning_subscriptions")
-    .select("id,package_id,user_id,subscription_status,payment_status,total_price_cents,service_start_date,service_end_date,start_date,end_date,apartment_note")
+    .select("id,package_id,user_id,subscription_status,payment_status,payment_reference,customer_whatsapp,total_price_cents,service_start_date,service_end_date,start_date,end_date,apartment_note")
     .in("package_id", [...names.keys()])
     .order("service_start_date", { ascending: false });
   const rows = (data ?? []) as any[];
@@ -231,6 +263,8 @@ async function fetchCleaning(legacyProviderId: string): Promise<SubscriberRow[]>
       status: String(r.subscription_status ?? ""),
       paymentStatus: r.payment_status ?? null,
       detail: r.apartment_note ?? null,
+      phone: pickPhone(r.customer_whatsapp),
+      paymentReference: r.payment_reference ?? null,
     };
   });
 }
@@ -239,7 +273,7 @@ async function fetchCleaning(legacyProviderId: string): Promise<SubscriberRow[]>
 async function fetchFood(legacyProviderId: string): Promise<SubscriberRow[]> {
   const { data } = await supabaseDb
     .from("food_subscriptions")
-    .select("id,meal_plan_id,user_id,status,payment_status,weekly_price_cents,commitment_weeks,periods_paid,started_at,end_date,delivery_address,customer_name")
+    .select("id,meal_plan_id,user_id,status,payment_status,payment_reference,customer_whatsapp,weekly_price_cents,commitment_weeks,periods_paid,started_at,end_date,delivery_address,customer_name")
     .eq("provider_id", legacyProviderId)
     .order("started_at", { ascending: false });
   const rows = (data ?? []) as any[];
@@ -263,6 +297,8 @@ async function fetchFood(legacyProviderId: string): Promise<SubscriberRow[]> {
       status: String(r.status ?? ""),
       paymentStatus: r.payment_status ?? null,
       detail: r.delivery_address ?? null,
+      phone: pickPhone(r.customer_whatsapp),
+      paymentReference: r.payment_reference ?? null,
     };
   });
 }
@@ -271,7 +307,7 @@ async function fetchUniversal(providerId: string, sourceKey: string): Promise<Su
   const isBeach = sourceKey === "beach" || sourceKey === "beach_club";
   let query = supabaseDb
     .from("provider_subscriptions")
-    .select("id, user_id, status, payment_status, start_date, end_date, price_cents, metadata, provider_plans(name)")
+    .select("id, user_id, status, payment_status, payment_reference, customer_whatsapp, start_date, end_date, price_cents, metadata, provider_plans(name)")
     .eq("provider_id", providerId)
     .order("start_date", { ascending: false });
   query = isBeach
@@ -301,6 +337,8 @@ async function fetchUniversal(providerId: string, sourceKey: string): Promise<Su
       status: String(r.status ?? ""),
       paymentStatus: r.payment_status ?? null,
       detail: people > 1 ? `${people} people` : people === 1 ? "1 person" : null,
+      phone: pickPhone(r.customer_whatsapp),
+      paymentReference: r.payment_reference ?? null,
     };
   });
 }
