@@ -3,10 +3,11 @@ import { TrendingUp, Users, Waves, CheckCircle2, Clock, XCircle } from "lucide-r
 import { fetchAllRows } from "@/lib/supabasePaging";
 import { supabaseDb } from "@/integrations/supabase/client";
 import {
-  AnalyticsShell, KpiCard, StatusBar,
+  AnalyticsShell, KpiCard, StatusBar, MonthlyRevenueChart,
 } from "@/components/admin/analytics/AnalyticsPrimitives";
 import { PageLoader } from "@/components/ui/spinner";
 import { formatUSD } from "@/lib/pricing";
+import { endOfMonth, format, parseISO, startOfMonth } from "date-fns";
 
 interface BeachSub {
   id: string;
@@ -58,8 +59,29 @@ export default function BeachClubAnalytics({ embedded = false }: { embedded?: bo
   const totalMembers = active.reduce((sum, s) => sum + (Number(s.people) || 0), 0);
   const avgOrderCents = paid.length ? Math.round(totalRevenueCents / paid.length) : 0;
 
+
+
   // Revenue for the current month.
   const now = new Date();
+
+  /**
+   * The last six months, computed the way the other analytics pages compute
+   * them — same window, same bucketing by `created_at`, same formatter. The
+   * beach was the one service with no revenue chart at all, so the three
+   * pages did not even have the same sections, let alone the same order.
+   */
+  const last6 = Array.from({ length: 6 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - 5 + i, 1);
+    const start = startOfMonth(d);
+    const end = endOfMonth(d);
+    const rev = paid
+      .filter((s) => {
+        const sd = parseISO(String(s.created_at));
+        return sd >= start && sd <= end;
+      })
+      .reduce((sum, s) => sum + (s.total_cents ?? 0), 0);
+    return { label: format(d, "MMM"), rev };
+  });
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const monthRevenueCents = paid
     .filter((s) => new Date(s.created_at) >= monthStart)
@@ -95,6 +117,14 @@ export default function BeachClubAnalytics({ embedded = false }: { embedded?: bo
           <KpiCard icon={Waves} label="Active Memberships" value={String(active.length)} accent="text-cyan-400" />
           <KpiCard icon={Users} label="Total People" value={String(totalMembers)} accent="text-violet-400" />
           <KpiCard icon={TrendingUp} label="Avg Order" value={formatUSD(avgOrderCents)} accent="text-blue-400" />
+        </div>
+
+        {/* Revenue over time — second on every service's page. */}
+        <div className="rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
+          <h2 className="mb-4 flex items-center gap-2 text-[20px] font-semibold leading-[26px] text-foreground">
+            <TrendingUp className="h-5 w-5 text-green-400" /> Monthly Revenue (last 6 months)
+          </h2>
+          <MonthlyRevenueChart months={last6} barClass="bg-cyan-500/60" formatValue={formatUSD} />
         </div>
 
         <div className="grid gap-6 lg:grid-cols-2">
