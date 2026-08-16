@@ -31,6 +31,14 @@ interface Props {
   subscriptionId: string;
   customerName?: string | null;
   className?: string;
+  /**
+   * The universal `providers.id`, when the caller already knows it — the
+   * review prompt does, because it comes from an occurrence. Skips the
+   * id-space lookups below entirely.
+   */
+  providerId?: string | null;
+  /** Overrides the idle line ("How was your cleaning on 14 Aug?"). */
+  prompt?: string;
 }
 
 /**
@@ -92,7 +100,9 @@ async function resolveProviderId(service: Service, itemId: string): Promise<stri
   return (link as { owner_provider_id?: string } | null)?.owner_provider_id ?? null;
 }
 
-export function RateProviderButton({ service, itemId, subscriptionId, customerName, className }: Props) {
+export function RateProviderButton({
+  service, itemId, subscriptionId, customerName, className, providerId: knownProviderId, prompt,
+}: Props) {
   const qc = useQueryClient();
   const { userData } = useAuth();
   const uuid = useUserUuid();
@@ -106,11 +116,11 @@ export function RateProviderButton({ service, itemId, subscriptionId, customerNa
   // Runs even when the dialog is closed so we can show the current stars
   // filled at rest — same UX as any "your rating" widget.
   const inlineReviewQ = useQuery({
-    queryKey: ["my-provider-review-inline", service, itemId, uid],
-    enabled: !!itemId && !!uid,
+    queryKey: ["my-provider-review-inline", service, itemId, knownProviderId, uid],
+    enabled: (!!itemId || !!knownProviderId) && !!uid,
     queryFn: async () => {
-      if (!itemId || !uid) return null;
-      const providerId = await resolveProviderId(service, itemId);
+      if (!uid) return null;
+      const providerId = knownProviderId ?? (itemId ? await resolveProviderId(service, itemId) : null);
       if (!providerId) return null;
       const { data: review } = await supabaseDb
         .from("provider_reviews").select("*")
@@ -160,6 +170,8 @@ export function RateProviderButton({ service, itemId, subscriptionId, customerNa
       qc.invalidateQueries({ queryKey: ["my-provider-review-inline", service, itemId] });
       qc.invalidateQueries({ queryKey: ["provider-reviews", providerId] });
       qc.invalidateQueries({ queryKey: ["provider-rating-summary", providerId] });
+      // The prompt that sent them here has been answered.
+      qc.invalidateQueries({ queryKey: ["pending-reviews"] });
       setOpen(false);
     },
     onError: (e: Error) => toast.error(e.message),
@@ -192,8 +204,8 @@ export function RateProviderButton({ service, itemId, subscriptionId, customerNa
   const displayRating = myReview?.rating ?? 0;
   const idlePrompt = myReview
     ? "Your rating · tap to edit"
-    : service === "cleaning" ? "How was your cleaning?"
-        : "How was your visit?";
+    : prompt
+      ?? (service === "cleaning" ? "How was your cleaning?" : "How was your visit?");
 
   return (
     <>

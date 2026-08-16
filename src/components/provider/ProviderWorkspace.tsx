@@ -16,6 +16,7 @@ import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
 import { providerHref } from "@/lib/services/serviceUrls";
 import { INFO_TAB_META } from "@/components/provider/capabilities";
 import { UniversalInfoTab, type UniversalProviderRow } from "@/components/provider/UniversalInfoTab";
+import { ProfileCompletenessCard } from "@/components/provider/ProfileCompletenessCard";
 import { PlansTab } from "@/components/provider/plans/PlansTab";
 import { OperationsTab } from "@/components/provider/OperationsTab";
 import { PortalTabsView } from "@/components/provider/PortalTabsView";
@@ -205,6 +206,10 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
     icon: INFO_TAB_META.icon,
     render: () => (
       <div className="space-y-1">
+        {/* What is still missing from the public profile, first — every
+            provider on the platform went live without contacts, and two
+            without hours or an address. Renders nothing once it is complete. */}
+        {isOwner && <ProfileCompletenessCard provider={provider} />}
         {/* Reputation, right under the header's Rating tile that it explains.
             Renders nothing until somebody has actually rated the business. */}
         <ProviderReviewsPanel providerId={provider.id} />

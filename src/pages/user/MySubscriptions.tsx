@@ -53,6 +53,7 @@ import {
   TabHeaderCTA, SectionGroup, TabEmptyState, SectionOverline,
 } from "@/components/subscriptions/MySubsPrimitives";
 import { RateProviderButton } from "@/components/reviews/RateProviderButton";
+import { ReviewPromptCard } from "@/components/reviews/ReviewPromptCard";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { to12h as format12h } from "@/lib/booking/bookingSettings";
@@ -860,6 +861,12 @@ const MySubscriptions = () => {
       <div className="app-container pb-28 pt-5">
 
         {/* Page title lives in the mobile header — no inline H1 needed. */}
+
+        {/* Above the tabs on purpose: it is about a job that happened, not
+            about one of the services below, and it disappears once answered. */}
+        <div className="mb-5">
+          <ReviewPromptCard />
+        </div>
 
         {/* ── Service tabs ────────────────────────────────────────── */}
         <div className="mb-5 flex gap-1 overflow-x-auto rounded-2xl bg-muted/50 p-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">

@@ -1,12 +1,7 @@
 import { endOfMonth, format, parseISO, startOfMonth } from "date-fns";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/lib/supabasePaging";
-import {
-  effectiveBeachStatus,
-  effectiveCleaningStatus,
-  effectiveFoodStatus,
-} from "@/lib/subscriptionLifecycle";
-import { nowHN, todayHN } from "@/lib/timezone";
+import { nowHN } from "@/lib/timezone";
 
 /**
  * The platform's subscriptions, normalized once.
@@ -15,6 +10,11 @@ import { nowHN, todayHN } from "@/lib/timezone";
  * module existed, three hand-written copies of the same reduce loop (Overview,
  * Finance, and whatever the next page needed). They agreed only because
  * someone kept noticing when they stopped.
+ *
+ * The normalisation itself now lives in the database, as the
+ * `subscriptions_unified` view: one row shape for all three tables, which any
+ * reader — SQL, this app, the backend — can use without repeating the rules.
+ * This module is what turns those rows into the figures a screen shows.
  *
  * One rule, applied to every service:
  *
@@ -144,64 +144,29 @@ export function groupRevenue(
 }
 
 export async function fetchPlatformRollup(): Promise<PlatformRollup> {
-  // Paged, not plain selects: every one of these rows is reduced into a money
-  // figure, and PostgREST truncates a plain `.select()` at 1000 rows with a
-  // perfectly cheerful HTTP 200. See lib/supabasePaging.ts.
-  const [cleaning, food, beach] = await Promise.all([
-    fetchAllRows<any>(() => supabaseDb
-      .from("cleaning_subscriptions")
-      .select("user_id, created_at, payment_status, subscription_status, is_active, total_price_cents, monthly_price_cents, service_end_date, end_date, paid_until, package_id, provider_id")
-      .is("deleted_at", null).order("id")),
-    fetchAllRows<any>(() => supabaseDb
-      .from("food_subscriptions")
-      .select("user_id, created_at, payment_status, status, weekly_price_cents, commitment_weeks, periods_paid, end_date, meal_plan_id, provider_id, residence")
-      .order("id")),
-    fetchAllRows<any>(() => supabaseDb
-      .from("provider_subscriptions")
-      .select("user_id, created_at, payment_status, status, price_cents, end_date, plan_id, provider_id")
-      .eq("source_service_key", "beach").order("id")),
-  ]);
-
-  const today = todayHN();
-  const rows: NormRow[] = [
-    ...cleaning.map((r: any): NormRow => ({
-      service: "cleaning",
-      // A cleaning sub carries the whole plan in `total_price_cents`; the
-      // monthly figure is the fallback for the older single-month rows.
-      valueCents: num(r.total_price_cents) || num(r.monthly_price_cents),
-      paid: r.payment_status === "paid",
-      status: effectiveCleaningStatus(r, today),
-      createdAt: r.created_at,
-      customerKey: r.user_id ? String(r.user_id) : null,
-      planKey: r.package_id ? String(r.package_id) : null,
-      providerKey: r.provider_id ? String(r.provider_id) : null,
-      locationKey: null,
-    })),
-    ...food.map((r: any): NormRow => ({
-      service: "food",
-      // Food is priced by the week: weekly × the weeks committed to × the
-      // number of times that commitment has been paid for (renewals).
-      valueCents: num(r.weekly_price_cents) * (num(r.commitment_weeks) || 1) * (num(r.periods_paid) || 1),
-      paid: r.payment_status === "paid",
-      status: effectiveFoodStatus(r, today),
-      createdAt: r.created_at,
-      customerKey: r.user_id ? String(r.user_id) : null,
-      planKey: r.meal_plan_id ? String(r.meal_plan_id) : null,
-      providerKey: r.provider_id ? String(r.provider_id) : null,
-      locationKey: String(r.residence ?? "").trim() || null,
-    })),
-    ...beach.map((r: any): NormRow => ({
-      service: "beach",
+  // One query, one shape. `subscriptions_unified` is the DB view that folds
+  // the three subscription tables into a single row shape — full committed
+  // value, effective status, universal provider id — so this module no longer
+  // reimplements three price formulas and three status vocabularies in
+  // TypeScript. See the view's COMMENT for the rules it applies.
+  //
+  // Paged: every row here is reduced into a money figure, and PostgREST
+  // truncates a plain select at 1000 rows with a cheerful HTTP 200.
+  const rows: NormRow[] = (await fetchAllRows<any>(() => supabaseDb
+    .from("subscriptions_unified")
+    .select("service, id, provider_id, plan_id, user_id, price_cents, paid, status, created_at, location")
+    .order("id")))
+    .map((r: any): NormRow => ({
+      service: r.service as RollupServiceKey,
       valueCents: num(r.price_cents),
-      paid: r.payment_status === "paid",
-      status: effectiveBeachStatus(r, today),
+      paid: !!r.paid,
+      status: String(r.status ?? ""),
       createdAt: r.created_at,
       customerKey: r.user_id ? String(r.user_id) : null,
       planKey: r.plan_id ? String(r.plan_id) : null,
       providerKey: r.provider_id ? String(r.provider_id) : null,
-      locationKey: null,
-    })),
-  ];
+      locationKey: r.location ? String(r.location) : null,
+    }));
 
   // Month boundaries follow Honduras wall-clock — the browser's timezone rolls
   // the month over at the wrong moment for an admin who is travelling.

@@ -25,6 +25,7 @@ import { toast } from "sonner";
 import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
 import { CAPABILITIES, type CapabilityKey } from "@/components/provider/capabilities";
 import { UserPicker } from "@/components/UserPicker";
+import { profileCompleteness } from "@/lib/providerProfile";
 import { AdminPageTabs } from "@/components/admin/AdminPageTabs";
 import { cn } from "@/lib/utils";
 
@@ -91,6 +92,8 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
       // Hard cap at 200 — pre-cap `.select("*")` returned unbounded, which
        // rendered every row and pinned the browser on large tenants. Real
        // pagination is on the roadmap; this is the safety floor until then.
+      // select("*") — the completeness score reads description, media, hours
+      // and contacts, and they are all on this row already.
       const { data, error } = await supabaseDb.from("providers").select("*")
         .order("sort_order", { ascending: true })
         .order("name", { ascending: true })
@@ -397,6 +400,7 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
                   </div>
                 ) : <span className="text-xs text-muted-foreground">—</span>;
 
+                const profile = profileCompleteness(p as any);
                 const contactCell = (
                   <div className="min-w-0 space-y-0.5 text-xs">
                     {p.contact_email ? (
@@ -413,6 +417,15 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
                     ) : null}
                     {!p.contact_email && !p.contact_phone && (
                       <span className="text-muted-foreground">No contact info</span>
+                    )}
+                    {/* How finished the public profile is. Every business here
+                        went live without contacts; two also have no hours and
+                        no address, which the booking calendar and the calendar
+                        provisioning both need. */}
+                    {profile.missing.length > 0 && (
+                      <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-amber-500">
+                        Profile {profile.percent}%
+                      </span>
                     )}
                   </div>
                 );
