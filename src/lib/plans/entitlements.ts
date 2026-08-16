@@ -91,6 +91,19 @@ export function serializeEntitlements(list: Entitlement[]): unknown[] {
 }
 
 /**
+ * English plurals, to the depth this needs: a provider types the unit and the
+ * platform reads it back to a customer, and "Unlimited deliverys a week" is
+ * the sort of thing that makes a shop look unfinished.
+ */
+function plural(unit: string): string {
+  const u = unit.trim();
+  if (!u) return u;
+  if (/(s|x|z|ch|sh)$/i.test(u)) return `${u}es`;
+  if (/[^aeiou]y$/i.test(u)) return `${u.slice(0, -1)}ies`;
+  return `${u}s`;
+}
+
+/**
  * "4 cleanings a month · 2 hours a month" — what the customer is told.
  *
  * An access line says so instead of pretending to a quantity, and a line
@@ -103,7 +116,7 @@ export function describeEntitlement(e: Entitlement, planPeriod: string | null): 
     : period === "quarterly" ? "a quarter"
     : period === "yearly" ? "a year" : "";
   if (e.unit === ACCESS_UNIT) return per ? `Unlimited access ${per}` : "Unlimited access";
-  if (e.quantity == null) return per ? `Unlimited ${e.unit}s ${per}` : `Unlimited ${e.unit}s`;
-  const noun = e.quantity === 1 ? e.unit : `${e.unit}s`;
+  if (e.quantity == null) return per ? `Unlimited ${plural(e.unit)} ${per}` : `Unlimited ${plural(e.unit)}`;
+  const noun = e.quantity === 1 ? e.unit : plural(e.unit);
   return per ? `${e.quantity} ${noun} ${per}` : `${e.quantity} ${noun}`;
 }
