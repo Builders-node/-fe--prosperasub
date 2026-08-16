@@ -188,6 +188,7 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
     period: "monthly", unit: "", quantity: "",
     periodsDefault: "1", periodsMin: "1", periodsMax: "",
     pricingMode: "flat", providerPrice: "", markup: "",
+    fulfilment: "none",
     leadMinutes: "", windowMinutes: "",
   });
   const [includes, setIncludes] = useState({ features: "", excludes: "", tags: "" });
@@ -229,6 +230,7 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
       periodsMin: String(offer.periods_min ?? 1),
       periodsMax: offer.periods_max != null ? String(offer.periods_max) : "",
       pricingMode: offer.pricing_mode ?? "flat",
+      fulfilment: offer.fulfilment ?? "none",
       providerPrice: dollars(offer.provider_price_cents ?? 0),
       markup: dollars(offer.markup_cents ?? 0),
       leadMinutes: offer.lead_time_minutes != null ? String(offer.lead_time_minutes) : "",
@@ -298,6 +300,7 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
         periods_min: numOrNull(sold.periodsMin) ?? 1,
         periods_max: numOrNull(sold.periodsMax),
         pricing_mode: sold.pricingMode,
+        fulfilment: sold.fulfilment,
         provider_price_cents: cents(sold.providerPrice) || null,
         markup_cents: cents(sold.markup) || null,
         lead_time_minutes: numOrNull(sold.leadMinutes),
@@ -549,6 +552,23 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
             </select>
           </Field>
 
+          {/*
+            What has to happen after the sale — and the only place it is ever
+            written. Checkout reads it to decide whether to ask for an address
+            (`planCheckoutModel.needsAddress`), so a plan left at "nothing"
+            takes a delivery order with nowhere to deliver it. Every plan
+            created before this defaulted to NULL, which reads the same way.
+          */}
+          <Field label="Fulfilment" hint={FULFILMENT_HINT[sold.fulfilment] ?? ""}>
+            <select value={sold.fulfilment} onChange={(e) => setSold((v) => ({ ...v, fulfilment: e.target.value }))}
+              className="h-9 w-full rounded-radius-md bg-inset px-3 text-sm text-foreground outline-none">
+              <option value="none">Nothing to schedule</option>
+              <option value="visits">Visits</option>
+              <option value="deliveries">Deliveries</option>
+              <option value="resource_hours">Booked hours</option>
+            </select>
+          </Field>
+
           {/* Independent of the mode above: a per-person price can also be a
               marked-up one, which is exactly what the beach club is. Filling
               these in is what makes a price derived. */}
@@ -588,7 +608,7 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
             </div>
           </Field>
 
-          {offer.fulfilment === "deliveries" && (
+          {sold.fulfilment === "deliveries" && (
             <>
               <Field label="Arrives after (minutes from midnight)" hint="600 = 10:00">
                 <Input inputMode="numeric" className="h-9" value={sold.leadMinutes} placeholder="660"
@@ -749,6 +769,20 @@ export async function createDraftPlan(input: {
 }
 
 /** How each pricing mode reads to the person picking it. */
+/** What a new plan's service usually has to do; editable right after. */
+const DEFAULT_FULFILMENT: Record<string, string> = {
+  cleaning: "visits",
+  food: "deliveries",
+  beach: "none",
+};
+
+const FULFILMENT_HINT: Record<string, string> = {
+  none: "Access or membership — nobody comes, nothing ships.",
+  visits: "Somebody comes to an address.",
+  deliveries: "Something ships to an address.",
+  resource_hours: "Hours on a calendar.",
+};
+
 const PRICING_HINT: Record<string, string> = {
   flat: "One price for the period.",
   per_unit: "Price × how many they take.",
@@ -955,6 +989,11 @@ async function createPlanRow(input: {
     currency: "USD",
     status,
     sort_order: sortOrder,
+    // Classified from the start. A NULL here reads as "nothing to schedule" at
+    // checkout, so a delivery plan created and sold before anyone opened the
+    // "How it's sold" panel would never ask for an address.
+    pricing_mode: "flat",
+    fulfilment: DEFAULT_FULFILMENT[sourceKey] ?? "none",
   }).select("id").single();
   if (error) throw error;
   return String(created.id);

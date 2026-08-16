@@ -18,12 +18,13 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { supabaseDb } from "@/integrations/supabase/client";
+import { accountApi, supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAuditEvent } from "@/lib/auditLog";
 import { toast } from "sonner";
 import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
 import { CAPABILITIES, type CapabilityKey } from "@/components/provider/capabilities";
+import { UserPicker } from "@/components/UserPicker";
 import { AdminPageTabs } from "@/components/admin/AdminPageTabs";
 import { cn } from "@/lib/utils";
 
@@ -41,6 +42,7 @@ interface ProviderRow {
   status: string;
   sort_order: number;
   capabilities: string[] | null;
+  admin_user_id: string | null;
   is_platform_owned: boolean;
   source_service_key: string | null;
   source_provider_id: string | null;
@@ -177,8 +179,23 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
 
   const saveEdit = useMutation({
     mutationFn: async ({ p, patch }: { p: ProviderRow; patch: Record<string, unknown> }) => {
-      const { error } = await supabaseDb.from("providers").update(patch).eq("id", p.id);
-      if (error) throw error;
+      // The owner is not a column this form may write: `providers.admin_user_id`
+      // is what the payout endpoint calls ownership, so it goes through the API
+      // (which checks who is asking) and the table rejects it from here.
+      const { ownerUserId, ...columns } = patch as { ownerUserId?: string | null };
+      const ownerChanged = "ownerUserId" in patch && (ownerUserId ?? null) !== (p.admin_user_id ?? null);
+
+      if (Object.keys(columns).length) {
+        const { error } = await supabaseDb.from("providers").update(columns).eq("id", p.id);
+        if (error) throw error;
+      }
+      if (ownerChanged) {
+        const { error } = await accountApi(`/account/providers/${p.id}/owner`, {
+          method: "PUT",
+          body: JSON.stringify({ userId: ownerUserId ?? null }),
+        });
+        if (error) throw error;
+      }
       if (userData?.id) await logAuditEvent(userData.id, "edit", AUDIT_ENTITY, p.id, patch);
     },
     onSuccess: () => { toast.success("Saved"); setEditRow(null); qc.invalidateQueries({ queryKey: QUERY_KEY }); },
@@ -401,7 +418,7 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
                           <ExternalLink className="mr-2 h-3.5 w-3.5" /> Open workspace
                         </DropdownMenuItem>
                         <DropdownMenuItem onSelect={() => setEditRow(p)}>
-                          <Pencil className="mr-2 h-3.5 w-3.5" /> Edit service & capabilities
+                          <Pencil className="mr-2 h-3.5 w-3.5" /> Edit provider
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
@@ -547,6 +564,15 @@ function EditProviderForm({
   const [contactEmail, setContactEmail] = useState(provider.contact_email ?? "");
   const [contactPhone, setContactPhone] = useState(provider.contact_phone ?? "");
   const [calendarId, setCalendarId] = useState(provider.google_calendar_id ?? "");
+  /**
+   * Who owns this business.
+   *
+   * There was no field for it anywhere in the admin — a provider only ever got
+   * an owner by approving an application, so the two created here (Car Wash,
+   * Massage) had nobody who could open their workspace, and no way to fix it
+   * short of SQL.
+   */
+  const [ownerUserId, setOwnerUserId] = useState<string | null>(provider.admin_user_id ?? null);
 
   // Only offer categories that belong to the selected archetype.
   const scopedCategories = archetypeKey === "__none"
@@ -590,6 +616,7 @@ function EditProviderForm({
         patch.capabilities = Array.from(new Set(patch.capabilities as string[]));
       }
     }
+    patch.ownerUserId = ownerUserId;
     // Always write category_key when it changed (it no longer auto-derives
     // from archetype_key — since one archetype can have many categories).
     const nextCategory = categoryKey === "__none" ? null : categoryKey;
@@ -634,6 +661,22 @@ function EditProviderForm({
             No categories under this service yet — add one in Settings → Services.
           </p>
         )}
+      </div>
+      <div>
+        <Label>Owner</Label>
+        <div className="mt-1.5">
+          <UserPicker
+            value={ownerUserId ?? ""}
+            onSelect={(u) => setOwnerUserId(u?.id ?? null)}
+            placeholder="Nobody — platform-run"
+            allowClear
+            clearLabel="Nobody — platform-run"
+          />
+        </div>
+        <p className="mt-1.5 text-xs text-muted-foreground">
+          The owner sees this business under My Business, with its Money and Team tabs.
+          Leave empty for a business the platform runs itself.
+        </p>
       </div>
       <div className="grid gap-3 md:grid-cols-2">
         <div>
@@ -765,6 +808,17 @@ function CreateProviderForm({
    *   null value in column "category_key" violates not-null constraint
    * The button now says what is missing instead.
    */
+  /**
+   * An archetype with a `source_service_key` is shown to customers by a
+   * bespoke legacy listing (food, cleaning, the beach club), and those pages
+   * read their own tables — they do not list universal providers. A business
+   * created under one is real, manageable and invisible, which is exactly how
+   * the Massage provider sat on the Lifestyle tile for a week with nobody able
+   * to reach it.
+   */
+  const pickedArchetype = archetypes.find((a) => a.key === archetypeKey);
+  const bespokeListing = pickedArchetype?.source_service_key ?? null;
+
   const missing =
     name.trim().length === 0        ? "Name is required"
     : archetypeKey === "__none"     ? "Pick a service"
@@ -805,6 +859,13 @@ function CreateProviderForm({
         {archetypeKey !== "__none" && (
           <p className="mt-1 text-xs text-muted-foreground">
             Capabilities were pre-filled from archetype defaults — tweak below.
+          </p>
+        )}
+        {bespokeListing && (
+          <p className="mt-1 text-xs text-amber-400">
+            Customers see this service through the built-in {bespokeListing} page, which lists
+            its own businesses only. A provider created here is manageable but will not appear
+            on that page.
           </p>
         )}
       </div>
