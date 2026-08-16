@@ -89,9 +89,12 @@ export function FinanceBreakdown() {
           .select("total_price_cents, monthly_price_cents, payment_method, created_at, service_start_date, service_end_date, start_date, end_date")
           .eq("payment_status", "paid")
           .is("deleted_at", null).order("id")),
+        // The membership rows are universal now; the legacy table is a copy
+        // kept for readers that have not moved.
         pageAll(() => supabaseDb
-          .from("beach_club_subscriptions")
-          .select("total_cents, payment_method, created_at, start_date, end_date")
+          .from("provider_subscriptions")
+          .select("price_cents, payment_method, created_at, start_date, end_date")
+          .eq("source_service_key", "beach")
           .eq("payment_status", "paid").order("id")),
         pageAll(() => supabaseDb
           .from("food_subscriptions")
@@ -124,7 +127,7 @@ export function FinanceBreakdown() {
       });
       (beach.data ?? []).forEach((r: any) => {
         add("beach", r.payment_method, recognizedCents({
-          totalCents: r.total_cents || 0,
+          totalCents: r.price_cents || 0,
           serviceStart: r.start_date || r.created_at,
           serviceEnd: r.end_date,
           fallbackDays: 30,
@@ -171,8 +174,9 @@ export function FinanceBreakdown() {
           .eq("payment_status", "paid")
           .gte("created_at", startISO).lte("created_at", endISO).order("id")),
         pageAll(() => supabaseDb
-          .from("beach_club_subscriptions")
-          .select("id, user_id, customer_name, customer_email, plan_name, people, total_cents, payment_method, payment_reference, payment_status, status, created_at, start_date, end_date")
+          .from("provider_subscriptions")
+          .select("id, user_id, metadata, price_cents, payment_method, payment_reference, payment_status, status, created_at, start_date, end_date")
+          .eq("source_service_key", "beach")
           .eq("payment_status", "paid")
           .gte("created_at", startISO).lte("created_at", endISO).order("id")),
       ]);
@@ -253,13 +257,16 @@ export function FinanceBreakdown() {
         });
       });
       (beach.data ?? []).forEach((r: any) => {
-        const who = nameOf(r.user_id, r.customer_name, r.customer_email);
+        // The universal row keeps the buyer's name, their email and the
+        // headcount in one metadata object rather than in four columns.
+        const meta = r.metadata ?? {};
+        const who = nameOf(r.user_id, meta.customer_name, meta.customer_email);
         rows.push({
           service: "Beach Club",
           user: who.name, email: who.email,
-          plan: r.plan_name ? `${r.plan_name} (${r.people || 1} person)` : "Beach Club membership",
+          plan: meta.plan_name ? `${meta.plan_name} (${meta.people || 1} person)` : "Beach Club membership",
           method: String(r.payment_method || ""),
-          amountUsd: ((r.total_cents || 0) / 100).toFixed(2),
+          amountUsd: ((r.price_cents || 0) / 100).toFixed(2),
           reference: r.payment_reference || "",
           periodStart: iso(r.start_date),
           periodEnd: iso(r.end_date),

@@ -81,13 +81,17 @@ export async function fetchEarned(sourceKey: string, legacyId: string, start: Da
   if (source === "beach") {
     // Beach is platform-owned and there is exactly one club, so this is not
     // scoped further — the same assumption the KPI widget makes.
+    // The membership rows moved to `provider_subscriptions`; the legacy twin
+    // is a copy kept for readers that have not. Counting the copy would be
+    // counting the same money in the same place twice once they all have.
     const rows = await fetchAllRows<any>(() =>
-      supabaseDb.from("beach_club_subscriptions")
-        .select("total_cents, people, created_at, start_date, end_date")
+      supabaseDb.from("provider_subscriptions")
+        .select("price_cents, metadata, created_at, start_date, end_date")
+        .eq("source_service_key", "beach")
         .eq("payment_status", "paid").order("id"));
     return acc(rows,
-      (r) => ({ totalCents: r.total_cents || 0, serviceStart: r.start_date || r.created_at, serviceEnd: r.end_date, fallbackDays: 30 }),
-      (r) => r.people || 0);
+      (r) => ({ totalCents: r.price_cents || 0, serviceStart: r.start_date || r.created_at, serviceEnd: r.end_date, fallbackDays: 30 }),
+      (r) => Number(r.metadata?.people) || 0);
   }
 
   return { revenue: 0, units: 0 };

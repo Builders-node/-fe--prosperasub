@@ -103,8 +103,9 @@ async function fetchBeachStats(universalProviderId: string) {
   // has been empty since the cutover, so this KPI has been reporting 0 on a
   // club that takes bookings every day.
   const [{ count: active }, upcoming] = await Promise.all([
-    supabaseDb.from("beach_club_subscriptions")
+    supabaseDb.from("provider_subscriptions")
       .select("id", { count: "exact", head: true })
+      .eq("source_service_key", "beach")
       .eq("status", "active"),
     countEngineBookings(universalProviderId),
   ]);

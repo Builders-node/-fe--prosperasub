@@ -155,8 +155,11 @@ export function NetProfitPanel() {
         fetchAllRows<any>(() => supabaseDb.from("cleaning_subscriptions")
           .select("total_price_cents, monthly_price_cents, created_at, service_start_date, service_end_date, start_date, end_date")
           .eq("payment_status", "paid").is("deleted_at", null).order("id")),
-        fetchAllRows<any>(() => supabaseDb.from("beach_club_subscriptions")
-          .select("total_cents, people, created_at, start_date, end_date")
+        // Beach memberships live on the universal row now; the legacy table
+        // is its shadow.
+        fetchAllRows<any>(() => supabaseDb.from("provider_subscriptions")
+          .select("price_cents, metadata, created_at, start_date, end_date")
+          .eq("source_service_key", "beach")
           .eq("payment_status", "paid").order("id")),
         fetchAllRows<any>(() => supabaseDb.from("food_subscriptions")
           // Same discipline as the other three tables — a food sub with
@@ -194,11 +197,11 @@ export function NetProfitPanel() {
           };
         }),
         beach: acc(beach, (r) => ({
-          totalCents: r.total_cents || 0,
+          totalCents: r.price_cents || 0,
           serviceStart: r.start_date || r.created_at,
           serviceEnd: r.end_date,
           fallbackDays: 30,
-        }), (r) => r.people || 0),
+        }), (r) => Number(r.metadata?.people) || 0),
         food: acc(food, (r) => {
           const weeks = (r.commitment_weeks || 1) * (r.periods_paid || 1);
           const startDay = r.started_at || r.created_at;
