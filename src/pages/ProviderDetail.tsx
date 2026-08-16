@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { formatWorkingHours } from "@/lib/workingHours";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
@@ -186,6 +186,20 @@ type TabKey = (typeof TABS)[number]["key"];
 const ProviderDetail = () => {
   const navigate = useNavigate();
   const [tab, setTab] = useState<TabKey>("plans");
+  /**
+   * Whether the bar has left the photograph behind.
+   *
+   * Measured off the window rather than an observer on the banner: the banner
+   * unmounts and remounts as the provider loads, and an observer attached to a
+   * node that disappears reports nothing for ever after.
+   */
+  const [pinned, setPinned] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setPinned(window.scrollY > 280 - 56);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
   // The bell on the banner goes where the app's bell always goes.
   const { isAuthenticated } = useAuth();
   const { openAuthModal } = useAuthModal();
@@ -398,33 +412,55 @@ const ProviderDetail = () => {
         {/* The scrim is what makes white chrome legible on a photograph nobody
             vetted — a bright sky would otherwise swallow the back button. */}
         <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-black/50 to-transparent" />
+      </div>
 
-        <div
-          className="absolute inset-x-0 top-0 flex items-center justify-between p-2"
-          style={{ paddingTop: "max(env(safe-area-inset-top, 0px), 8px)" }}
+      {/*
+        The bar stays.
+        It is pulled back over the top of the banner and stuck to the viewport,
+        so scrolling never takes the way out with it — on a long list of plans
+        the back button was 900px above the fold. It sits OUTSIDE the banner
+        because `position: sticky` is bounded by the nearest clipping ancestor,
+        and the banner clips its own photograph.
+
+        Over the picture it is transparent and white, exactly as drawn; once the
+        picture has scrolled past it takes the card surface, because white on
+        white is not a header, it is a missing one.
+      */}
+      <div
+        className={`sticky top-0 z-40 -mt-[280px] mb-[224px] flex h-[56px] items-center justify-between px-2 transition-colors ${
+          pinned ? "bg-card/95 backdrop-blur" : ""
+        }`}
+        style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
+      >
+        <button
+          type="button"
+          onClick={goBack}
+          aria-label="Back"
+          className={`flex h-10 w-10 items-center justify-center rounded-full transition-colors ${
+            pinned ? "text-foreground hover:bg-muted" : "text-white hover:bg-white/15"
+          }`}
         >
-          <button
-            type="button"
-            onClick={goBack}
-            aria-label="Back"
-            className="flex h-10 w-10 items-center justify-center rounded-full text-white transition-colors hover:bg-white/15"
-          >
-            <ChevronLeft className="h-6 w-6" />
-          </button>
+          <ChevronLeft className="h-6 w-6" />
+        </button>
 
-          <span className="pointer-events-none absolute left-1/2 -translate-x-1/2 text-[16px] font-semibold tracking-[-0.02em] text-white">
-            {serviceLabel}
-          </span>
+        <span
+          className={`pointer-events-none absolute left-1/2 -translate-x-1/2 truncate px-14 text-[16px] font-semibold tracking-[-0.02em] ${
+            pinned ? "text-foreground" : "text-white"
+          }`}
+        >
+          {pinned ? p.name : serviceLabel}
+        </span>
 
-          <button
-            type="button"
-            onClick={() => isAuthenticated ? navigate("/notifications") : openAuthModal("login", "/notifications")}
-            aria-label="Notifications"
-            className="flex h-10 w-10 items-center justify-center rounded-full text-white transition-colors hover:bg-white/15"
-          >
-            <Bell className="h-6 w-6" />
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => isAuthenticated ? navigate("/notifications") : openAuthModal("login", "/notifications")}
+          aria-label="Notifications"
+          className={`flex h-10 w-10 items-center justify-center rounded-full transition-colors ${
+            pinned ? "text-foreground hover:bg-muted" : "text-white hover:bg-white/15"
+          }`}
+        >
+          <Bell className="h-6 w-6" />
+        </button>
       </div>
 
       <main className="mx-auto max-w-xl space-y-1 pb-8 pt-1 md:max-w-3xl md:px-4 md:py-8">
