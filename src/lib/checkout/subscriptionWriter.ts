@@ -123,27 +123,38 @@ export function buildSubscriptionWrite(
   }
 
   if (plan.service === "beach") {
+    // A beach membership is a universal subscription now. The legacy row is
+    // still created — by a database trigger, from this one — for the readers
+    // that have not moved yet, which is why nothing here writes it directly.
     return {
-      table: "beach_club_subscriptions",
+      table: "provider_subscriptions",
       row: withExtra({
-        plan_id: plan.subjectPlanId,
-        // The name is snapshotted: a plan can be renamed and the receipt must
-        // still say what was bought.
-        plan_name: plan.name,
-        user_id: a.userId,
-        customer_name: a.customerName,
-        customer_email: a.customerEmail,
-        customer_whatsapp: a.phone || null,
-        people: Math.max(1, a.people),
+        provider_id: plan.providerUniversalId,
+        plan_id: plan.universalId,
+        user_id: a.userUuid,
         start_date: a.startDate,
         end_date: end,
-        price_per_person_cents: plan.unitCents,
-        total_cents: a.totalCents,
-        surcharge_cents: surcharge,
+        price_cents: a.totalCents,
+        periods_paid: a.periods,
         payment_status: "pending",
         payment_method: a.paymentMethod,
-        status: "pending",
+        status: "pending_payment",
+        customer_whatsapp: a.phone || null,
         notes: a.notes || null,
+        source_service_key: "beach",
+        // The mirror reads these to fill the legacy row's own columns: it has
+        // a name, an email and a headcount where the universal table has one
+        // metadata object.
+        metadata: {
+          plan_name: plan.name,
+          provider_name: plan.providerName,
+          period: plan.period,
+          periods: a.periods,
+          people: Math.max(1, a.people),
+          customer_name: a.customerName,
+          customer_email: a.customerEmail,
+          surcharge_cents: surcharge,
+        },
       }, extra),
     };
   }

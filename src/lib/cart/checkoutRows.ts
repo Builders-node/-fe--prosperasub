@@ -46,14 +46,25 @@ export interface RowContext {
  * uuid is known (useUserUuid resolves it by email).
  */
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-export const needsUuidUser = (service: CartService) => service === "plan";
+/**
+ * Which services store the buyer as a real uuid.
+ *
+ * The universal table does; the legacy ones accepted whatever the session
+ * carried, which is why one beach membership in production is owned by a
+ * Google sub string. Beach writes universal now, so it joins the list — a
+ * Google-login customer must be resolved to their `users.id` before the row
+ * can be written, which is exactly what the checkout already does for plans.
+ */
+export const needsUuidUser = (service: CartService) => service === "plan" || service === "beach";
 export const isUuid = (value: string | null | undefined) => !!value && UUID_RE.test(value);
 
 /** Which table each service's rows go to. */
 export const CART_TABLES: Record<CartService, string> = {
   food: "food_subscriptions",
   cleaning: "cleaning_subscriptions",
-  beach: "beach_club_subscriptions",
+  // A membership bought in the cart is a universal subscription; the legacy
+  // twin is created from it by a database trigger.
+  beach: "provider_subscriptions",
   plan: "provider_subscriptions",
 };
 

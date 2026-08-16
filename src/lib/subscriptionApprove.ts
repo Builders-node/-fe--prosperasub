@@ -48,7 +48,9 @@ const META: Record<ApproveService, TableMeta> = {
     activeValue: "active",
   },
   beach: {
-    table: "beach_club_subscriptions",
+    // Universal, like the rest. The legacy row follows by trigger, so
+    // approving here approves the record the platform actually reads.
+    table: "provider_subscriptions",
     auditEntity: "beach_subscription",
     statusField: "status",
     activeValue: "active",
