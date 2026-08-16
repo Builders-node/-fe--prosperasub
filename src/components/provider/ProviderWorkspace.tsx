@@ -83,7 +83,7 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
    * a figure should be.
    */
   const myUuid = useUserUuid();
-  const { userData } = useAuth();
+  const { userData, isAdmin } = useAuth();
   const myEmail = userData?.email ?? null;
 
   /**
@@ -110,8 +110,17 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
     },
   });
   const isMember = !!membershipQ.data;
+  /**
+   * Owner, or the platform acting as one.
+   *
+   * A platform-owned business — the beach club — has no `admin_user_id`, so an
+   * admin looking at it saw a workspace with no Money and no Team while the
+   * same admin saw both on a business that happens to name an owner. Same
+   * person, same rights, two different pages.
+   */
   const isOwner =
-    (!!myUuid && !!provider?.admin_user_id && provider.admin_user_id === myUuid)
+    isAdmin
+    || (!!myUuid && !!provider?.admin_user_id && provider.admin_user_id === myUuid)
     || membershipQ.data?.role === "owner";
 
   const kpis = useProviderKpis({
