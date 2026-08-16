@@ -24,7 +24,7 @@ import { BookingsTab } from "@/components/provider/BookingsTab";
 import { ProviderTeamTab } from "@/components/provider/ProviderTeamTab";
 import { ScheduleAccordion } from "@/components/provider/ScheduleAccordion";
 import { ServiceLocationsSection } from "@/components/food/admin/ServiceLocationsSection";
-import { LegacyOwnerPortal, FOOD_SUBSCRIPTIONS_TAB_BODY, CLEANING_SUBSCRIPTIONS_TAB_BODY } from "@/components/provider/legacyPortalTabs";
+import { LegacyOwnerPortal } from "@/components/provider/legacyPortalTabs";
 import { SubscribersList } from "@/components/provider/SubscribersList";
 import { ProviderReviewsPanel } from "@/components/provider/ProviderReviewsPanel";
 import { ProviderEarningsTab } from "@/components/provider/ProviderEarningsTab";
@@ -175,22 +175,12 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
   //   • By day       → week calendar (UnifiedBookingCalendar)
   //   • By customer  → subscription list, service-specific body (undefined for
   //     cars, where booking IS the subscription so the toggle would be nonsense)
-  const byCustomer = (() => {
-    if (sourceKey === "food") {
-      // FoodSubs component wants the MyRestaurant row shape — we pass legacyId
-      // which is the food_providers.id; it looks up the rest itself.
-      return FOOD_SUBSCRIPTIONS_TAB_BODY({ id: legacyId } as any);
-    }
-    if (sourceKey === "cleaning") {
-      return CLEANING_SUBSCRIPTIONS_TAB_BODY({ id: legacyId } as any);
-    }
-    // Beach and any universal-only business share the same list, because
-    // their rows are the same rows. It replaces the admin PAGE — table,
-    // pagination and all — that used to be mounted inside this tab for the
-    // beach alone, which is why one business answered "who is subscribed" with
-    // cards and another with a spreadsheet.
-    return <SubscribersList providerId={provider.id} sourceKey={sourceKey} />;
-  })();
+  // Who is subscribed — one list for every service. It used to be three: two
+  // card lists and, for the beach, an entire admin page with a data table
+  // mounted inside the tab.
+  const byCustomer = (
+    <SubscribersList providerId={provider.id} legacyId={legacyId} sourceKey={sourceKey} />
+  );
 
   const bookingsTab: PortalTab<unknown> = {
     value: "bookings",

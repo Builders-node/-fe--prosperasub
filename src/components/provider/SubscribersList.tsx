@@ -13,6 +13,10 @@ import { fetchUsersByIds } from "@/lib/admin/customerNames";
 import { formatUSD } from "@/lib/pricing";
 import { formatDateHN } from "@/lib/timezone";
 import { WorkspaceCard, WorkspaceEmpty, WorkspaceSection } from "@/components/provider/WorkspaceUI";
+import { MoreHorizontal, PauseCircle, PlayCircle, XCircle } from "lucide-react";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 /**
  * Who is subscribed to this business.
@@ -23,10 +27,18 @@ import { WorkspaceCard, WorkspaceEmpty, WorkspaceSection } from "@/components/pr
  * mounted inside a tab. Same question, same tab, colossally different answer
  * depending on which business an admin happened to open.
  *
- * This is the card list, for the services whose rows need no service-specific
- * verbs. Cleaning and food keep their own for now because theirs carry pause,
- * resume and cancel, which mean different things in each.
+ * One list for all of them. What differs per service is where the rows are
+ * and what its status column is called — a table below, not a screen.
  */
+
+/** Where a service keeps its subscriptions, and what it calls a status. */
+const SHAPES: Record<string, { table: string; statusCol: string; approve: "cleaning" | "food" | "beach" }> = {
+  cleaning: { table: "cleaning_subscriptions", statusCol: "subscription_status", approve: "cleaning" },
+  food:     { table: "food_subscriptions",     statusCol: "status",              approve: "food" },
+  beach:    { table: "provider_subscriptions", statusCol: "status",              approve: "beach" },
+};
+const shapeOf = (sourceKey: string) =>
+  SHAPES[sourceKey === "beach_club" ? "beach" : sourceKey] ?? SHAPES.beach;
 
 export interface SubscriberRow {
   id: string;
@@ -43,19 +55,23 @@ export interface SubscriberRow {
   detail?: string | null;
 }
 
-export function SubscribersList({ providerId, sourceKey }: {
+export function SubscribersList({ providerId, legacyId, sourceKey }: {
+  /** Universal `providers.id` — where beach and universal rows hang. */
   providerId: string;
+  /** Per-service id, for the services whose subscriptions still hang off it. */
+  legacyId?: string;
   sourceKey: string;
 }) {
   const qc = useQueryClient();
   const { userData } = useAuth();
   const [q, setQ] = useState("");
-  const KEY = ["provider-subscribers", providerId, sourceKey] as const;
+  const KEY = ["provider-subscribers", providerId, legacyId ?? "", sourceKey] as const;
+  const shape = shapeOf(sourceKey);
 
   const { data: rows = [], isLoading } = useQuery({
     queryKey: KEY,
     enabled: !!providerId,
-    queryFn: () => fetchSubscribers(providerId, sourceKey),
+    queryFn: () => fetchSubscribers(providerId, legacyId ?? providerId, sourceKey),
   });
 
   const filtered = useMemo(() => {
@@ -71,12 +87,27 @@ export function SubscribersList({ providerId, sourceKey }: {
 
   const approve = async (row: SubscriberRow) => {
     try {
-      await approvePayment("beach", row.id, { adminUserId: userData?.id });
+      await approvePayment(shape.approve, row.id, { adminUserId: userData?.id });
       toast.success("Marked as paid");
       qc.invalidateQueries({ queryKey: KEY });
     } catch (e) {
       toast.error((e as Error).message || "Could not mark it paid");
     }
+  };
+
+  /**
+   * Pause, resume, cancel. The word for "running" is `active` in every one of
+   * these tables; only the column it sits in differs, which is why this is one
+   * function and not three screens.
+   */
+  const setStatus = async (row: SubscriberRow, next: "active" | "paused" | "cancelled") => {
+    const { error } = await supabaseDb
+      .from(shape.table)
+      .update({ [shape.statusCol]: next, updated_at: new Date().toISOString() })
+      .eq("id", row.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success(next === "cancelled" ? "Cancelled" : next === "paused" ? "Paused" : "Resumed");
+    qc.invalidateQueries({ queryKey: KEY });
   };
 
   if (isLoading) return <PageLoader />;
@@ -132,6 +163,30 @@ export function SubscribersList({ providerId, sourceKey }: {
             <span className="shrink-0 text-[16px] font-semibold tabular-nums text-foreground">
               {formatUSD(r.amountCents)}
             </span>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="ghost" className="h-8 w-8 shrink-0 p-0" aria-label="Actions">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {r.status === "active" && (
+                  <DropdownMenuItem onClick={() => setStatus(r, "paused")}>
+                    <PauseCircle className="mr-2 h-4 w-4" /> Pause
+                  </DropdownMenuItem>
+                )}
+                {r.status === "paused" && (
+                  <DropdownMenuItem onClick={() => setStatus(r, "active")}>
+                    <PlayCircle className="mr-2 h-4 w-4" /> Resume
+                  </DropdownMenuItem>
+                )}
+                {r.status !== "cancelled" && (
+                  <DropdownMenuItem className="text-destructive" onClick={() => setStatus(r, "cancelled")}>
+                    <XCircle className="mr-2 h-4 w-4" /> Cancel
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </article>
         ))
       )}
@@ -144,7 +199,75 @@ export function SubscribersList({ providerId, sourceKey }: {
  * on `provider_subscriptions`; the difference is only which rows belong to
  * this business.
  */
-async function fetchSubscribers(providerId: string, sourceKey: string): Promise<SubscriberRow[]> {
+async function fetchSubscribers(providerId: string, legacyId: string, sourceKey: string): Promise<SubscriberRow[]> {
+  if (sourceKey === "cleaning") return fetchCleaning(legacyId);
+  if (sourceKey === "food") return fetchFood(legacyId);
+  return fetchUniversal(providerId, sourceKey);
+}
+
+/** Cleaning: the subscription hangs off the package, the package off the provider. */
+async function fetchCleaning(legacyProviderId: string): Promise<SubscriberRow[]> {
+  const { data: pkgs } = await supabaseDb
+    .from("cleaning_packages").select("id,name").eq("provider_id", legacyProviderId);
+  const names = new Map((pkgs ?? []).map((p: any) => [p.id, p.name]));
+  if (!names.size) return [];
+  const { data } = await supabaseDb
+    .from("cleaning_subscriptions")
+    .select("id,package_id,user_id,subscription_status,payment_status,total_price_cents,service_start_date,service_end_date,start_date,end_date,apartment_note")
+    .in("package_id", [...names.keys()])
+    .order("service_start_date", { ascending: false });
+  const rows = (data ?? []) as any[];
+  const users = await fetchUsersByIds(rows.map((r) => r.user_id));
+  return rows.map((r) => {
+    const u = users.get(String(r.user_id));
+    return {
+      id: r.id,
+      plan: names.get(r.package_id) ?? "Cleaning plan",
+      customerName: u?.display_name ?? u?.name ?? null,
+      customerEmail: u?.email ?? null,
+      start: r.service_start_date ?? r.start_date ?? null,
+      end: r.service_end_date ?? r.end_date ?? null,
+      amountCents: r.total_price_cents ?? 0,
+      status: String(r.subscription_status ?? ""),
+      paymentStatus: r.payment_status ?? null,
+      detail: r.apartment_note ?? null,
+    };
+  });
+}
+
+/** Food: the subscription names its provider and its meal plan directly. */
+async function fetchFood(legacyProviderId: string): Promise<SubscriberRow[]> {
+  const { data } = await supabaseDb
+    .from("food_subscriptions")
+    .select("id,meal_plan_id,user_id,status,payment_status,weekly_price_cents,commitment_weeks,periods_paid,started_at,end_date,delivery_address,customer_name")
+    .eq("provider_id", legacyProviderId)
+    .order("started_at", { ascending: false });
+  const rows = (data ?? []) as any[];
+  const planIds = [...new Set(rows.map((r) => r.meal_plan_id).filter(Boolean))];
+  const { data: plans } = planIds.length
+    ? await supabaseDb.from("food_meal_plans").select("id,name").in("id", planIds)
+    : { data: [] as any[] };
+  const names = new Map((plans ?? []).map((p: any) => [p.id, p.name]));
+  const users = await fetchUsersByIds(rows.map((r) => r.user_id));
+  return rows.map((r) => {
+    const u = users.get(String(r.user_id));
+    const weeks = (r.commitment_weeks || 1) * (r.periods_paid || 1);
+    return {
+      id: r.id,
+      plan: names.get(r.meal_plan_id) ?? "Meal plan",
+      customerName: r.customer_name ?? u?.display_name ?? u?.name ?? null,
+      customerEmail: u?.email ?? null,
+      start: r.started_at ?? null,
+      end: r.end_date ?? null,
+      amountCents: (r.weekly_price_cents ?? 0) * weeks,
+      status: String(r.status ?? ""),
+      paymentStatus: r.payment_status ?? null,
+      detail: r.delivery_address ?? null,
+    };
+  });
+}
+
+async function fetchUniversal(providerId: string, sourceKey: string): Promise<SubscriberRow[]> {
   const isBeach = sourceKey === "beach" || sourceKey === "beach_club";
   let query = supabaseDb
     .from("provider_subscriptions")
