@@ -105,21 +105,34 @@ export default function BeachClubSubscriptions({ embedded = false }: { embedded?
   const createMutation = useMutation({
     mutationFn: async () => {
       if (!selectedPlan) throw new Error("Choose a plan");
-      const { error } = await supabaseDb.from("beach_club_subscriptions").insert({
-        plan_id: selectedPlan.id,
-        plan_name: selectedPlan.name,
+      // A membership added by hand is a universal subscription like any
+      // other; the legacy row is created from it by the mirror. The plan is
+      // chosen from the legacy list, so it is resolved to its universal twin
+      // here rather than teaching that picker a second id.
+      const { data: plan } = await supabaseDb
+        .from("provider_plans").select("id, provider_id")
+        .eq("source_service_key", "beach")
+        .eq("source_plan_id", String(selectedPlan.id)).maybeSingle();
+      if (!plan?.id) throw new Error("That plan has no marketplace record yet.");
+
+      const { error } = await supabaseDb.from("provider_subscriptions").insert({
+        provider_id: plan.provider_id,
+        plan_id: plan.id,
         user_id: form.user_id || null,
-        customer_name: form.customer_name.trim() || null,
-        customer_email: form.customer_email.trim() || null,
-        people: form.people,
         start_date: form.start_date,
         end_date: addMonthsISO(form.start_date, 1),
-        price_per_person_cents: selectedPlan.price_per_person_cents,
-        total_cents: newTotalCents,
+        price_cents: newTotalCents,
         payment_method: form.payment_method,
         payment_status: form.payment_status,
         payment_reference: form.payment_reference.trim() || null,
-        status: form.status,
+        status: form.status === "pending" ? "pending_payment" : form.status,
+        source_service_key: "beach",
+        metadata: {
+          plan_name: selectedPlan.name,
+          people: form.people,
+          customer_name: form.customer_name.trim() || null,
+          customer_email: form.customer_email.trim() || null,
+        },
       });
       if (error) throw error;
       // Period history is recorded automatically by a DB trigger.
@@ -138,8 +151,9 @@ export default function BeachClubSubscriptions({ embedded = false }: { embedded?
     queryKey: ["admin-beach-club-subscriptions"],
     queryFn: async () => {
       const { data, error } = await supabaseDb
-        .from("beach_club_subscriptions")
-        .select("*")
+        .from("provider_subscriptions")
+        .select("*, total_cents:price_cents, plan_name:metadata->>plan_name, people:metadata->people, customer_name:metadata->>customer_name, customer_email:metadata->>customer_email")
+        .eq("source_service_key", "beach")
         .order("created_at", { ascending: false });
       if (error) throw error;
       // Keep raw DB `status` for the Select trigger — shadcn's Select shows a
@@ -164,7 +178,7 @@ export default function BeachClubSubscriptions({ embedded = false }: { embedded?
   const statusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
       const { error } = await supabaseDb
-        .from("beach_club_subscriptions")
+        .from("provider_subscriptions")
         .update({ status, updated_at: new Date().toISOString() })
         .eq("id", id);
       if (error) throw error;
@@ -196,7 +210,7 @@ export default function BeachClubSubscriptions({ embedded = false }: { embedded?
       const prevEnd = (s.end_date || "").slice(0, 10);
       const start = prevEnd && prevEnd >= today ? addDaysISO(prevEnd, 1) : today;
       const end = addMonthsISO(start, 1);
-      const { error } = await supabaseDb.from("beach_club_subscriptions")
+      const { error } = await supabaseDb.from("provider_subscriptions")
         .update({
           start_date: start, end_date: end, status: "active",
           payment_status: "paid", payment_method: "manual",
@@ -240,7 +254,7 @@ export default function BeachClubSubscriptions({ embedded = false }: { embedded?
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabaseDb.from("beach_club_subscriptions").delete().eq("id", id);
+      const { error } = await supabaseDb.from("provider_subscriptions").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
