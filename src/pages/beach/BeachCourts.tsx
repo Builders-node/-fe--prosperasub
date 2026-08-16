@@ -167,6 +167,11 @@ const BeachCourts = () => {
         const friendly =
           raw === "slot_unavailable" ? "That time isn't bookable — pick another slot."
           : raw === "resource_not_found" ? "This court isn't available for booking yet."
+          // The provider's own rules, refused server-side. Saying which one was
+          // hit beats a code, and beats a button that simply does nothing.
+          : raw === "membership_required" ? "Court booking is for members — subscribe first."
+          : raw === "too_many_bookings" ? "You've reached your limit of upcoming bookings. Cancel one to book another."
+          : raw === "daily_limit_reached" ? "You've booked your maximum for that day."
           : raw || "Could not hold slot";
         throw new Error(friendly);
       }
@@ -191,7 +196,14 @@ const BeachCourts = () => {
       const { error } = await accountApi(`/booking/bookings/${id}/cancel`, {
         method: "POST", body: JSON.stringify({}),
       });
-      if (error) throw new Error(error.message || "Could not cancel");
+      if (error) {
+        const raw = error.message || "";
+        throw new Error(
+          raw === "cancel_window_passed" ? "It's too late to cancel this one — call the club."
+          : raw === "not_your_booking" ? "That booking isn't yours."
+          : raw || "Could not cancel",
+        );
+      }
     },
     onSuccess: () => { toast.success("Booking cancelled"); qc.invalidateQueries({ queryKey: bookingsQueryKey }); },
     onError: (e: Error) => toast.error(e.message),

@@ -79,7 +79,32 @@ export interface BookingSettings {
   blockedDates: string[];
   /** Partial-day blocks. */
   blockedRanges: BlockedRange[];
+  /**
+   * Who may book, and how much. The rest of this object says WHEN a slot
+   * exists; this says who is allowed to take one. Enforced server-side — the
+   * page showing or hiding a button is a courtesy, not a rule.
+   */
+  policy: BookingPolicy;
 }
+
+export interface BookingPolicy {
+  /** Only customers with a live subscription to this provider may book. */
+  requiresMembership: boolean;
+  /** Upcoming bookings one customer may hold at once. 0 = no limit. */
+  maxActiveBookings: number;
+  /** Slots one customer may take on a single day. 0 = no limit. */
+  maxPerDay: number;
+  /** How close to the start they may still cancel, in hours. 0 = any time. */
+  cancelNoticeHours: number;
+}
+
+/** Every restriction off: turning one on is a decision the provider makes. */
+export const DEFAULT_POLICY: BookingPolicy = {
+  requiresMembership: false,
+  maxActiveBookings: 0,
+  maxPerDay: 0,
+  cancelNoticeHours: 0,
+};
 
 export const DURATION_PRESETS = [15, 30, 45, 60, 90, 120] as const;
 
@@ -104,6 +129,7 @@ export const DEFAULT_BOOKING_SETTINGS: BookingSettings = {
   maxAdvanceDays: 30,
   blockedDates: [],
   blockedRanges: [],
+  policy: DEFAULT_POLICY,
 };
 
 /** "HH:MM" → minutes since midnight. Returns NaN for malformed input. */
@@ -168,6 +194,19 @@ export function normalizeBookingSettings(raw: unknown): BookingSettings {
           .filter((r): r is BlockedRange => !!r && typeof r.from === "string" && typeof r.to === "string")
           .map((r) => ({ ...r, date: typeof r.date === "string" && r.date !== "" ? r.date : null }))
       : [],
+    policy: normalizePolicy(s.policy),
+  };
+}
+
+/** Absent or malformed reads as "no restriction", never as "locked out". */
+export function normalizePolicy(raw: unknown): BookingPolicy {
+  const p = (raw ?? {}) as Partial<BookingPolicy>;
+  const count = (v: unknown) => (Number(v) > 0 ? Math.floor(Number(v)) : 0);
+  return {
+    requiresMembership: p.requiresMembership === true,
+    maxActiveBookings: count(p.maxActiveBookings),
+    maxPerDay: count(p.maxPerDay),
+    cancelNoticeHours: Math.max(0, Number(p.cancelNoticeHours) || 0),
   };
 }
 

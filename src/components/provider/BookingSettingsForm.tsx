@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { CalendarClock, Clock, CalendarX2, Timer, Plus, Trash2, CalendarDays, Save } from "lucide-react";
+import { CalendarClock, Clock, CalendarX2, Timer, Plus, Trash2, CalendarDays, Save, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
@@ -185,6 +185,49 @@ export function BookingSettingsEditor({
           <NumberField label="Minimum notice" suffix="hrs" value={s.minNoticeHours} onChange={(n) => patch({ minNoticeHours: n })} />
           <NumberField label="Book up to" suffix="days" value={s.maxAdvanceDays} min={1} onChange={(n) => patch({ maxAdvanceDays: Math.max(1, n) })} />
         </div>
+      </Section>
+
+      {/* Who may book */}
+      <Section
+        icon={ShieldCheck}
+        title="Who may book"
+        subtitle="Leave a limit at 0 and there is none — an empty box is not a lockout."
+      >
+        <label className="flex items-start gap-3">
+          <input
+            type="checkbox"
+            className="mt-1 h-4 w-4"
+            checked={s.policy.requiresMembership}
+            onChange={(e) => patch({ policy: { ...s.policy, requiresMembership: e.target.checked } })}
+          />
+          <span>
+            <span className="block text-sm font-semibold text-foreground">Subscribers only</span>
+            <span className="mt-0.5 block text-xs text-muted-foreground">
+              Only customers with a live subscription to you may book. Courts included
+              with a membership want this on; something sold by the hour to anybody does not.
+            </span>
+          </span>
+        </label>
+
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:max-w-md">
+          <NumberField
+            label="Max upcoming per customer" value={s.policy.maxActiveBookings}
+            onChange={(n) => patch({ policy: { ...s.policy, maxActiveBookings: n } })}
+          />
+          <NumberField
+            label="Max per day per customer" value={s.policy.maxPerDay}
+            onChange={(n) => patch({ policy: { ...s.policy, maxPerDay: n } })}
+          />
+          <NumberField
+            label="Cancel up to" suffix="hrs before" value={s.policy.cancelNoticeHours}
+            onChange={(n) => patch({ policy: { ...s.policy, cancelNoticeHours: n } })}
+          />
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">
+          {s.policy.cancelNoticeHours > 0
+            ? `A customer can cancel until ${s.policy.cancelNoticeHours}h before the start; after that the slot is theirs. You can still cancel it for them.`
+            : "Customers can cancel at any time, including a minute before the start."}
+        </p>
       </Section>
 
       {/* Blocked days + ranges */}
