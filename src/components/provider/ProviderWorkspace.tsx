@@ -1,16 +1,21 @@
 import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { CalendarClock, ExternalLink, Package, Users, Wallet } from "lucide-react";
+import { CalendarClock, ExternalLink, Users, Wallet } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { StatusPill } from "@/components/patterns/StatusPill";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
+import { WorkspaceTabsCard } from "@/components/provider/WorkspaceTabsCard";
+import { useUserUuid } from "@/hooks/useUserUuid";
+import { accountApi } from "@/integrations/supabase/client";
+import { fetchProviderStats } from "@/components/provider/ProviderAnalyticsWidget";
+import { formatUSD } from "@/lib/pricing";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
 import { providerHref } from "@/lib/services/serviceUrls";
 import {
-  ALL_CAPABILITIES, CAPABILITIES, ComingSoonTab, INFO_TAB_META,
+  ALL_CAPABILITIES, ComingSoonTab, INFO_TAB_META,
   type CapabilityKey, type CapabilityMeta,
 } from "@/components/provider/capabilities";
 import { UniversalInfoTab, type UniversalProviderRow } from "@/components/provider/UniversalInfoTab";
@@ -72,6 +77,39 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
   const resolvedPublicHref =
     publicHref
     ?? (provider?.archetype_key ? providerHref(provider.archetype_key, provider.id) : "/discovery");
+
+  /**
+   * Whose business this is. The two numbers below are the owner's — a manager
+   * runs the day but is not owed the money, and the payout endpoint refuses
+   * them anyway, so asking for it on their behalf would render an error where
+   * a figure should be.
+   */
+  const myUuid = useUserUuid();
+  const isOwner = !!myUuid && !!provider?.admin_user_id && provider.admin_user_id === myUuid;
+
+  const statsQ = useQuery({
+    // Same key the analytics strip inside Overview uses, so the customer count
+    // up here and the one down there are one fetch and can never disagree.
+    queryKey: ["provider-analytics", provider?.source_service_key ?? "", legacyIdOf(provider ?? {} as never)],
+    enabled: !!provider,
+    staleTime: 60_000,
+    queryFn: () => fetchProviderStats(provider!.source_service_key ?? "", legacyIdOf(provider!)),
+  });
+
+  const balanceQ = useQuery({
+    // And the same key as the Money tab's own figure — "Balance" is what the
+    // platform will actually release: earned all-time minus what has been
+    // requested or already sent. Anything else under that word is a promise
+    // the payout screen would then refuse.
+    queryKey: ["provider-payout-available", provider?.id],
+    enabled: isOwner && !!provider,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data, error } = await accountApi(`/account/providers/${provider!.id}/payouts/available`);
+      if (error) throw new Error(String(error));
+      return data as { availableCents: number };
+    },
+  });
 
   const capabilityTabs = useMemo(() => {
     if (!provider?.capabilities) return [];
@@ -224,56 +262,72 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
 
   return (
     <>
-      {provider.banner_url && (
-        <div className="relative h-40 w-full overflow-hidden bg-gradient-to-br from-primary/25 via-primary/10 to-transparent md:h-56">
-          <img src={provider.banner_url} alt="" className="h-full w-full object-cover" />
-        </div>
-      )}
+      {/* The banner IS the header — 280 tall, its own bottom corners rounded,
+          with the one control the design leaves off the cards floating on it. */}
+      <div className="relative h-[280px] w-full overflow-hidden rounded-b-radius-lg bg-muted">
+        {provider.banner_url
+          ? <img src={provider.banner_url} alt="" className="h-full w-full object-cover" />
+          : <div className="h-full w-full bg-gradient-to-br from-primary/25 via-primary/10 to-transparent" />}
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/35 to-transparent" />
+        <button
+          type="button"
+          onClick={() => window.open(resolvedPublicHref, "_blank")}
+          className="absolute right-4 top-4 flex items-center gap-1.5 rounded-full bg-black/35 px-3.5 py-2 text-[14px] font-semibold text-white backdrop-blur transition-colors hover:bg-black/50"
+        >
+          <ExternalLink className="h-4 w-4" /> View public
+        </button>
+      </div>
 
-      <div className="app-container space-y-6 py-6">
-        <div className="flex flex-wrap items-start gap-3 rounded-2xl bg-card p-4 sm:gap-4">
-          <div className="h-12 w-12 shrink-0 overflow-hidden rounded-2xl border border-border bg-muted sm:h-14 sm:w-14">
-            {provider.avatar_url ? (
-              <img src={provider.avatar_url} alt={provider.name} className="h-full w-full object-cover" />
-            ) : archetype ? (
-              <div className="flex h-full items-center justify-center"><archetype.Icon className="h-6 w-6 text-muted-foreground/40" /></div>
-            ) : null}
-          </div>
-          <div className="min-w-0 flex-1">
-            <h1 className="text-xl font-black leading-tight tracking-tight sm:text-2xl">{provider.name}</h1>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              {provider.status && (
-                <StatusPill status={provider.status} />
-              )}
+      <div className="app-container space-y-1 pb-8 pt-1">
+        {/* Who this is. Name and description only, as in the frame: the avatar
+            and the capability chips said nothing to the person who owns the
+            business and already knows both. */}
+        <section className="rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
+          <h1 className="text-[24px] font-semibold leading-[29px] text-foreground">{provider.name}</h1>
+          {provider.description && (
+            <p className="mt-2 text-[16px] leading-[22px] text-muted-foreground">{provider.description}</p>
+          )}
+          {/* A business still under review needs telling; an approved one does
+              not need a badge saying so on every visit. */}
+          {provider.status && !["approved", "active"].includes(provider.status) && (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <StatusPill status={provider.status} />
               {archetype && (
                 <Badge className={`rounded-full text-xs ${archetype.accent} text-white`}>{archetype.label}</Badge>
               )}
-              {/* Capability chips are meaningful only for universal-only providers
-                  (where they actually gate which tabs render). For legacy-backed
-                  providers the tab set comes from CAR_TABS/FOOD_TABS/CLEANING_TABS/
-                  BEACH_TABS — showing "Delivery / Catalog" chips there implies a
-                  toggle that has no effect. Hide them for legacy sources. */}
-              {!isLegacyPortal && provider.capabilities?.map((cap) => {
-                const meta = CAPABILITIES[cap as CapabilityKey];
-                if (!meta) return null;
-                return <Badge key={cap} variant="outline" className="rounded-full text-[10px]">{meta.label}</Badge>;
-              })}
             </div>
-            {provider.description && (
-              <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{provider.description}</p>
-            )}
-          </div>
-          <Button variant="outline" size="sm" className="order-last w-full shrink-0 gap-1.5 rounded-full sm:order-none sm:w-auto"
-            onClick={() => window.open(resolvedPublicHref, "_blank")}>
-            <ExternalLink className="h-3.5 w-3.5" /> View Public
-          </Button>
-        </div>
+          )}
+        </section>
+
+        {/* How it is doing. */}
+        <section className="flex gap-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
+          {isOwner && (
+            <WorkspaceStat
+              label="Balance"
+              value={balanceQ.isPending ? "—" : formatUSD(balanceQ.data?.availableCents ?? 0)}
+            />
+          )}
+          <WorkspaceStat
+            label="Customers"
+            value={statsQ.isPending ? "—" : String(statsQ.data?.active ?? 0)}
+          />
+        </section>
 
         {isLegacyPortal
           ? <LegacyOwnerPortal sourceKey={sourceKey} legacyId={legacyId} fallback={capabilityPortal} bookingsTab={bookingsTab} tabPrefixes={tabPrefixes} extraTabs={extraTabs} tailTabs={tailTabs} headTabs={headTabs} />
           : capabilityPortal}
       </div>
     </>
+  );
+}
+
+/** One number on the inset fill: 16 of label over 24 of figure. */
+function WorkspaceStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-1 flex-col rounded-radius-md bg-inset p-3">
+      <span className="text-[16px] leading-[22px] text-muted-foreground">{label}</span>
+      <span className="mt-1 text-[24px] font-semibold leading-[29px] tabular-nums text-foreground">{value}</span>
+    </div>
   );
 }
 
@@ -305,9 +359,6 @@ function CapabilityPortal({ provider, capabilityTabs, bookingsTab, tabPrefixes =
   /** Built by the workspace so legacy and universal portals show one Overview. */
   overviewTab: PortalTab<unknown>;
 }) {
-  const InfoIcon = INFO_TAB_META.icon;
-  const BookingsIcon = bookingsTab.icon;
-
   const renderCapability = (key: CapabilityKey, meta: CapabilityMeta) =>
     key === "subscription_plans"
       ? <UniversalPlansTab providerId={provider.id} />
@@ -325,53 +376,34 @@ function CapabilityPortal({ provider, capabilityTabs, bookingsTab, tabPrefixes =
       />
     );
 
-  return (
-    <Tabs defaultValue={INFO_TAB_META.tabValue}>
-      <TabsList equalWidth className="mb-6 w-full">
-        <TabsTrigger value={INFO_TAB_META.tabValue} equalWidth className="gap-2 px-2 sm:px-space-4">
-          <InfoIcon className="hidden h-4 w-4 sm:block" />
-          <span className="hidden sm:inline">{INFO_TAB_META.tabLabel}</span>
-          <span className="sm:hidden">{INFO_TAB_META.tabMobileLabel}</span>
-        </TabsTrigger>
-        {capabilityTabs.length > 0 && (
-          <TabsTrigger value="offerings" equalWidth className="gap-2 px-2 sm:px-space-4">
-            <Package className="hidden h-4 w-4 sm:block" />
-            <span>Offerings</span>
-          </TabsTrigger>
-        )}
-        <TabsTrigger value={bookingsTab.value} equalWidth className="gap-2 px-2 sm:px-space-4">
-          <BookingsIcon className="hidden h-4 w-4 sm:block" />
-          <span className="hidden sm:inline">{bookingsTab.label}</span>
-          <span className="sm:hidden">{bookingsTab.mobileLabel ?? bookingsTab.label}</span>
-        </TabsTrigger>
-        {[...extraTabs, ...tailTabs].map((t) => {
-          const ExtraIcon = t.icon;
-          return (
-            <TabsTrigger key={t.value} value={t.value} equalWidth className="gap-2 px-2 sm:px-space-4">
-              <ExtraIcon className="hidden h-4 w-4 sm:block" />
-              <span>{t.label}</span>
-            </TabsTrigger>
-          );
-        })}
-      </TabsList>
+  const stripTabs = [
+    { value: INFO_TAB_META.tabValue, label: INFO_TAB_META.tabLabel },
+    ...(capabilityTabs.length > 0 ? [{ value: "offerings", label: "Offerings" }] : []),
+    { value: bookingsTab.value, label: bookingsTab.label },
+    ...[...extraTabs, ...tailTabs].map((t) => ({ value: t.value, label: t.label })),
+  ];
 
-      <TabsContent value={INFO_TAB_META.tabValue}>
+  return (
+    <Tabs defaultValue={INFO_TAB_META.tabValue} className="space-y-1">
+      <WorkspaceTabsCard tabs={stripTabs} />
+
+      <TabsContent value={INFO_TAB_META.tabValue} className="mt-1">
         {overviewTab.render(null as never, true)}
       </TabsContent>
 
       {capabilityTabs.length > 0 && (
-        <TabsContent value="offerings">
+        <TabsContent value="offerings" className="mt-1">
           {tabPrefixes.offerings}
           {offerings}
         </TabsContent>
       )}
 
-      <TabsContent value={bookingsTab.value}>
+      <TabsContent value={bookingsTab.value} className="mt-1">
         {bookingsTab.render(null as never, true)}
       </TabsContent>
 
       {[...extraTabs, ...tailTabs].map((t) => (
-        <TabsContent key={t.value} value={t.value}>
+        <TabsContent key={t.value} value={t.value} className="mt-1">
           {t.render(null as never, true)}
         </TabsContent>
       ))}

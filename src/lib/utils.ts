@@ -9,8 +9,24 @@ import { extendTailwindMerge } from "tailwind-merge";
 const SPACE = ["space-1", "space-2", "space-3", "space-4", "space-5", "space-6", "space-8"];
 const RADIUS = ["radius-xs", "radius-sm", "radius-md", "radius-lg", "radius-xl", "radius-full"];
 
+/**
+ * The semantic type ramp (see tailwind.config `fontSize`). These are font
+ * sizes, but tailwind-merge cannot tell `text-control` from a colour, so it
+ * kept BOTH `text-control` and a later `text-[16px]` — and which one won was
+ * then decided by the order Tailwind happened to emit them, not by the
+ * component doing the overriding. Naming them makes a size override actually
+ * override, the same reason the spacing and radius scales are listed above.
+ */
+const FONT_SIZE = [
+  "caption", "label", "control", "body", "body-lg",
+  "card-title", "panel-title", "section-title", "page-title",
+];
+
 const twMerge = extendTailwindMerge({
   extend: {
+    classGroups: {
+      "font-size": [{ text: FONT_SIZE }],
+    },
     theme: {
       spacing: SPACE,
       padding: SPACE,

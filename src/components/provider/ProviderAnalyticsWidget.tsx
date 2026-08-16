@@ -1,9 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { Activity, CalendarClock, DollarSign, Star } from "lucide-react";
+import { CalendarClock, Star } from "lucide-react";
 import { supabaseDb } from "@/integrations/supabase/client";
-import { formatUSD } from "@/lib/pricing";
 import { todayHN, addDaysISO } from "@/lib/timezone";
-import { fetchEarned } from "@/lib/finance/providerEarnings";
 import { cn } from "@/lib/utils";
 
 /**
@@ -152,7 +150,14 @@ async function fetchBeachStats() {
   return { active: active ?? 0, upcoming: upcoming ?? 0 };
 }
 
-async function fetchStats(sourceKey: string, legacyId: string) {
+/**
+ * Active customer relationships and what is coming in the next week.
+ *
+ * Exported because the workspace header shows the same customer count above
+ * the tabs. It shares this function AND its query key, so the number in the
+ * header and the number in the Overview strip are one fetch and cannot drift.
+ */
+export async function fetchProviderStats(sourceKey: string, legacyId: string) {
   if (sourceKey === "cleaning") return fetchCleaningStats(legacyId);
   if (sourceKey === "food")     return fetchFoodStats(legacyId);
   if (sourceKey === "beach" || sourceKey === "beach_club") return fetchBeachStats();
@@ -180,19 +185,8 @@ async function fetchRating(universalProviderId: string) {
 export function ProviderAnalyticsWidget({ providerId, legacyId, sourceKey }: Props) {
   const { data: stats, isLoading } = useQuery({
     queryKey: ["provider-analytics", sourceKey, legacyId],
-    queryFn: () => fetchStats(sourceKey, legacyId),
+    queryFn: () => fetchProviderStats(sourceKey, legacyId),
     staleTime: 60_000,
-  });
-  // Same window the Money tab opens on: the current calendar month.
-  const { data: earned, isLoading: earnedLoading } = useQuery({
-    queryKey: ["provider-earned-mtd", sourceKey, legacyId],
-    staleTime: 60_000,
-    queryFn: () => {
-      const now = new Date();
-      const start = new Date(now.getFullYear(), now.getMonth(), 1);
-      const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-      return fetchEarned(sourceKey, legacyId, start, end);
-    },
   });
   const { data: rating } = useQuery({
     queryKey: ["provider-rating", providerId],
@@ -200,24 +194,16 @@ export function ProviderAnalyticsWidget({ providerId, legacyId, sourceKey }: Pro
     staleTime: 60_000,
   });
 
+  // Active customers and money earned are no longer here: they are the two
+  // figures in the workspace header, above the tabs, where the owner meets
+  // them before choosing where to go. Printing them again three centimetres
+  // lower made the same number look like two different measurements.
   const cards: Stat[] = [
-    {
-      label: "Active",
-      value: isLoading ? "—" : String(stats?.active ?? 0),
-      icon: Activity,
-      tint: "primary",
-    },
     {
       label: "Upcoming 7d",
       value: isLoading ? "—" : String(stats?.upcoming ?? 0),
       icon: CalendarClock,
       tint: "primary",
-    },
-    {
-      label: "Earned this month",
-      value: earnedLoading ? "—" : formatUSD(earned?.revenue ?? 0),
-      icon: DollarSign,
-      tint: "emerald",
     },
     {
       label: rating?.count ? `Rating · ${rating.count}` : "Rating",
@@ -228,7 +214,7 @@ export function ProviderAnalyticsWidget({ providerId, legacyId, sourceKey }: Pro
   ];
 
   return (
-    <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
+    <section className="grid grid-cols-2 gap-3">
       {cards.map((c) => <StatCard key={c.label} {...c} />)}
     </section>
   );

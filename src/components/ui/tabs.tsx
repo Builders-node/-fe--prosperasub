@@ -4,7 +4,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
 
-type TabsVariant = "primary" | "secondary" | "pills" | "icon" | "iconOnly";
+type TabsVariant = "primary" | "secondary" | "pills" | "icon" | "iconOnly" | "segment";
 type TabsSize = "sm" | "md" | "lg";
 
 const TabsContext = React.createContext<{
@@ -25,6 +25,9 @@ const tabsListVariants = cva(
         pills: "h-12 rounded-radius-lg bg-[hsl(var(--app-control))] p-space-2",
         icon: "h-12 rounded-radius-lg bg-[hsl(var(--app-control))] p-space-2",
         iconOnly: "h-11 rounded-radius-md bg-[hsl(var(--app-control))] p-space-1",
+        /* The redesign's segmented control: a 42-high inset track with 2 of
+           padding, the same one the public provider page uses. */
+        segment: "h-[42px] w-full justify-start rounded-[18px] bg-inset p-0.5",
       },
       size: {
         sm: "",
@@ -77,6 +80,8 @@ const tabsTriggerVariants = cva(
           "gap-space-2 rounded-radius-md text-muted-foreground hover:text-foreground data-[state=active]:bg-[hsl(var(--app-rail-active))] data-[state=active]:text-[hsl(var(--app-rail-active-foreground))] [&>svg]:h-4 [&>svg]:w-4",
         iconOnly:
           "rounded-radius-sm text-muted-foreground hover:text-foreground data-[state=active]:bg-[hsl(var(--app-rail-active))] data-[state=active]:text-[hsl(var(--app-rail-active-foreground))] [&>svg]:h-5 [&>svg]:w-5",
+        segment:
+          "h-[38px] rounded-radius-md px-4 text-[16px] leading-[22px] tracking-[-0.02em] text-foreground/70 hover:text-foreground data-[state=active]:bg-card data-[state=active]:text-foreground",
       },
       size: {
         sm: "h-8 px-space-3 text-control [&>svg]:h-3.5 [&>svg]:w-3.5",
@@ -94,6 +99,11 @@ const tabsTriggerVariants = cva(
       { variant: "iconOnly", size: "sm", className: "h-8 w-8 px-0" },
       { variant: "iconOnly", size: "md", className: "h-9 w-9 px-0" },
       { variant: "iconOnly", size: "lg", className: "h-11 w-11 px-0" },
+      /* The size scale would otherwise drop `text-control` (13px) on top of
+         the segment's own 16 — the design's size, not the control ramp's. */
+      { variant: "segment", size: "sm", className: "h-[38px] px-4 text-[16px]" },
+      { variant: "segment", size: "md", className: "h-[38px] px-4 text-[16px]" },
+      { variant: "segment", size: "lg", className: "h-[38px] px-4 text-[16px]" },
     ],
     defaultVariants: {
       variant: "pills",
