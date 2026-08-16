@@ -1,5 +1,3 @@
-import { useUserUuid } from "@/hooks/useUserUuid";
-import { fetchEarned } from "@/lib/finance/providerEarnings";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { formatWorkingHours } from "@/lib/workingHours";
@@ -44,9 +42,6 @@ interface Provider {
   archetype_key: string | null;
   /** Null means the provider has no legacy table — its offer is in provider_plans. */
   source_service_key: string | null;
-  source_provider_id?: string | null;
-  /** Whose business this is — the owner sees their own numbers on it. */
-  admin_user_id?: string | null;
   gallery_urls?: string[] | null;
 }
 
@@ -182,10 +177,9 @@ function InfoRow({
 // ═══════════════════════════════════════════════════════════════════════════
 /** The three faces of a provider, in the design's order. */
 const TABS = [
-  { key: "plans", label: "Plans", ownerLabel: "Offerings" },
-  { key: "operations", label: null, ownerLabel: "Operations" },
-  { key: "reviews", label: "Reviews", ownerLabel: "Reviews" },
-  { key: "gallery", label: "Gallery", ownerLabel: "Gallery" },
+  { key: "plans", label: "Plans" },
+  { key: "reviews", label: "Reviews" },
+  { key: "gallery", label: "Gallery" },
 ] as const;
 type TabKey = (typeof TABS)[number]["key"];
 
@@ -200,7 +194,6 @@ const ProviderDetail = () => {
    * node that disappears reports nothing for ever after.
    */
   const [pinned, setPinned] = useState(false);
-  const myUuid = useUserUuid();
   useEffect(() => {
     const onScroll = () => setPinned(window.scrollY > 280 - 56);
     onScroll();
@@ -222,7 +215,7 @@ const ProviderDetail = () => {
         .from("providers")
         // source_provider_id is needed to hand food off to its legacy page — see the
         // redirect below.
-        .select("id, name, description, avatar_url, banner_url, location, working_hours, contact_phone, contact_email, archetype_key, source_provider_id, source_service_key, gallery_urls, admin_user_id")
+        .select("id, name, description, avatar_url, banner_url, location, working_hours, contact_phone, contact_email, archetype_key, source_provider_id, source_service_key, gallery_urls")
         .eq("id", providerId!).single();
       if (error) throw error;
       return data as Provider;
@@ -300,40 +293,6 @@ const ProviderDetail = () => {
     const row = (plansQ.data ?? []).find((p) => p.id === planId) as { source_plan_id?: string | null } | undefined;
     navigate(planHref(serviceSegment ?? "", row?.source_plan_id ? String(row.source_plan_id) : planId));
   };
-
-  /**
-   * The same page, seen by the business that owns it.
-   *
-   * The owner used to get a separate screen; the design gives them this one
-   * with two numbers on top and more tabs — which is right, because the thing
-   * they most need to check is what their customers are looking at.
-   */
-  const isOwner = !!myUuid && !!providerQ.data && providerQ.data.admin_user_id === myUuid;
-
-  const ownerStatsQ = useQuery({
-    queryKey: ["provider-owner-stats", providerId, providerQ.data?.source_service_key],
-    enabled: isOwner && !!providerId,
-    queryFn: async () => {
-      const p = providerQ.data!;
-      const legacyId = p.source_provider_id ?? p.id;
-      const now = new Date();
-      const from = new Date(now.getFullYear(), now.getMonth(), 1);
-      // The same recognition the Money tab and the admin Finance page use —
-      // a second definition of "earned" on the owner's own front page would be
-      // the fastest way to make two screens disagree about their income.
-      const earned = p.source_service_key
-        ? await fetchEarned(p.source_service_key, String(legacyId), from, now)
-        : { revenue: 0, units: 0 };
-
-      const { count } = await supabaseDb
-        .from("provider_subscriptions")
-        .select("user_id", { count: "exact", head: true })
-        .eq("provider_id", p.id)
-        .eq("status", "active");
-
-      return { balanceCents: earned.revenue, customers: count ?? 0 };
-    },
-  });
 
   // ── Loading / not-found (mirror FoodProviderDetail) ──────────────────────
   // An unknown service segment is a wrong URL, not an empty business. Saying so
@@ -512,7 +471,7 @@ const ProviderDetail = () => {
           {/* Service → where → who. A crumb that repeats the one before it is
               dropped: the Beach Club is its own service, and "Beach Club ›
               Beach Club" tells the customer nothing twice. */}
-          <div className={`flex flex-wrap gap-2 ${isOwner ? "hidden" : ""}`}>
+          <div className="flex flex-wrap gap-2">
             {[serviceLabel, p.location, p.name]
               .filter((c): c is string => !!c && !!c.trim())
               .filter((c, i, all) => all.findIndex((o) => o.toLowerCase() === c.toLowerCase()) === i)
@@ -532,47 +491,21 @@ const ProviderDetail = () => {
 
           {/* One segmented control instead of three stacked sections: the page
               had plans, reviews and pictures all scrolling past each other. */}
-        </section>
-
-        {isOwner && (
-          <section className="flex gap-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
-            <OwnerStat label="Balance" value={formatUSD(ownerStatsQ.data?.balanceCents ?? 0)} />
-            <OwnerStat label="Customers" value={String(ownerStatsQ.data?.customers ?? 0)} />
-          </section>
-        )}
-
-        <section className="rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
-          {/* The owner gets Operations too, which makes the row wider than the
-              screen — so it scrolls rather than squeezing five labels into 343
-              points. A customer's three still divide the width evenly. */}
-          <div className={`flex rounded-[18px] bg-inset p-0.5 ${isOwner ? "overflow-x-auto" : ""}`}>
-            {TABS.filter((t) => isOwner || t.label).map((t) => (
+          <div className="mt-3 flex rounded-[18px] bg-inset p-0.5">
+            {TABS.map((t) => (
               <button
                 key={t.key}
                 type="button"
                 onClick={() => setTab(t.key)}
-                className={`rounded-radius-md px-4 py-2 text-center text-[16px] font-semibold leading-[22px] transition-colors ${
-                  isOwner ? "shrink-0" : "flex-1"
-                } ${tab === t.key ? "bg-card text-foreground" : "text-foreground/70 hover:text-foreground"}`}
+                className={`flex-1 rounded-radius-md px-4 py-2 text-center text-[16px] font-semibold leading-[22px] transition-colors ${
+                  tab === t.key ? "bg-card text-foreground" : "text-foreground/70 hover:text-foreground"
+                }`}
               >
-                {isOwner ? t.ownerLabel : t.label}
+                {t.label}
               </button>
             ))}
           </div>
         </section>
-
-        {tab === "operations" && (
-          <section className="rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
-            <h2 className="text-[20px] font-semibold text-foreground">Operations</h2>
-            <p className="mt-2 text-[16px] leading-[22px] text-muted-foreground">
-              The day's work — bookings, the calendar, completion reports — lives
-              in your workspace, where it has the room it needs.
-            </p>
-            <Button asChild className="mt-3 rounded-radius-md">
-              <Link to={`/my-provider/${p.id}`}>Open workspace</Link>
-            </Button>
-          </section>
-        )}
 
         {tab === "plans" && (
           plansQ.isLoading ? (
@@ -657,16 +590,6 @@ function planPhoto(plan: UniversalPlan & { gallery_urls?: unknown }): string | n
   const list = Array.isArray(plan.gallery_urls) ? plan.gallery_urls : [];
   const first = list.find((u): u is string => typeof u === "string" && !!u.trim());
   return first ?? null;
-}
-
-/** One of the owner's two numbers: label 16 regular over 24 semibold, on the inset fill. */
-function OwnerStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex flex-1 flex-col gap-1 rounded-radius-md bg-inset p-3">
-      <span className="text-[16px] leading-[22px] text-muted-foreground">{label}</span>
-      <span className="text-[24px] font-semibold leading-tight tabular-nums text-foreground">{value}</span>
-    </div>
-  );
 }
 
 /** A breadcrumb chip: 12px medium on the inset fill, radius 16. */
