@@ -16,8 +16,8 @@ import { WorkspaceCard, WorkspaceEmpty, WorkspaceSection } from "@/components/pr
 import { CustomerPhone, pickPhone } from "@/components/patterns/CustomerPhone";
 import { SaleOriginBadge } from "@/components/patterns/SaleOrigin";
 import { cancelCleaningBookings } from "@/lib/cleaning/cancelBooking";
-import { todayHN } from "@/lib/timezone";
-import { MoreHorizontal, PauseCircle, PlayCircle, XCircle } from "lucide-react";
+import { todayHN, addDaysISO, addMonthsISO } from "@/lib/timezone";
+import { MoreHorizontal, PauseCircle, PlayCircle, RefreshCcw, XCircle } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -58,6 +58,9 @@ export interface SubscriberRow {
   /** One line of whatever this service cares about — a headcount, an address. */
   detail?: string | null;
   phone?: string | null;
+  /** How long one paid period runs, in this service's own unit. */
+  periodLength?: number;
+  periodsPaid?: number;
   /** Tells a walk-in sale from a platform one — the badge reads it. */
   paymentReference?: string | null;
 }
@@ -89,8 +92,27 @@ export function SubscribersList({ providerId, legacyId, sourceKey }: {
     );
   }, [rows, q]);
 
-  const active = filtered.filter((r) => r.status === "active");
-  const rest = filtered.filter((r) => r.status !== "active");
+  /**
+   * Three groups, because an owner reads this list with three questions: who
+   * is running, whose period is about to lapse, and who is over. A flat list
+   * hides the middle one, which is the only group that needs acting on.
+   */
+  const groups = useMemo(() => {
+    const soon = addDaysISO(todayHN(), 7);
+    const running: SubscriberRow[] = [];
+    const ending: SubscriberRow[] = [];
+    const past: SubscriberRow[] = [];
+    for (const r of filtered) {
+      if (r.status !== "active") { past.push(r); continue; }
+      const end = (r.end ?? "").slice(0, 10);
+      (end && end <= soon ? ending : running).push(r);
+    }
+    return [
+      { key: "ending", label: "Ending within a week", rows: ending },
+      { key: "active", label: "Active", rows: running },
+      { key: "past", label: "Past", rows: past },
+    ].filter((g) => g.rows.length);
+  }, [filtered]);
 
   const approve = async (row: SubscriberRow) => {
     try {
@@ -100,6 +122,58 @@ export function SubscribersList({ providerId, legacyId, sourceKey }: {
     } catch (e) {
       toast.error((e as Error).message || "Could not mark it paid");
     }
+  };
+
+  /**
+   * Off-platform renewal: somebody paid outside the platform and the period
+   * has to move. Continuous by construction — the next period starts the day
+   * after the last one ended, or today if that is already past, so a late
+   * renewal never silently backdates access.
+   *
+   * It was written twice, once per service, differing only in which columns
+   * carry the period.
+   */
+  const renew = async (row: SubscriberRow) => {
+    const today = todayHN();
+    const prevEnd = (row.end ?? "").slice(0, 10);
+    const start = prevEnd && prevEnd >= today ? addDaysISO(prevEnd, 1) : today;
+    const length = Math.max(row.periodLength || 1, 1);
+
+    let patch: Record<string, unknown>;
+    if (sourceKey === "cleaning") {
+      const end = addMonthsISO(start, length);
+      patch = {
+        subscription_status: "active", is_active: true,
+        payment_status: "paid", payment_method: "manual",
+        service_start_date: start, service_end_date: end, paid_until: end, end_date: end,
+      };
+    } else if (sourceKey === "food") {
+      patch = {
+        status: "active", paused_at: null, cancelled_at: null,
+        started_at: start, end_date: addDaysISO(start, length * 7),
+        payment_status: "paid", payment_method: "manual",
+        periods_paid: (row.periodsPaid || 1) + 1,
+        updated_at: new Date().toISOString(),
+      };
+    } else {
+      patch = {
+        status: "active",
+        payment_status: "paid", payment_method: "manual",
+        start_date: start, end_date: addMonthsISO(start, length),
+        periods_paid: (row.periodsPaid || 1) + 1,
+        updated_at: new Date().toISOString(),
+      };
+    }
+
+    const { error } = await supabaseDb.from(shape.table).update(patch).eq("id", row.id);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Renewed — payment recorded", sourceKey === "cleaning" ? {
+      // The recurrence engine seeds visits on create, not on renew.
+      description: "Add visits for the new period from the Bookings tab.",
+    } : undefined);
+    qc.invalidateQueries({ queryKey: KEY });
+    qc.invalidateQueries({ queryKey: ["provider-analytics"] });
+    qc.invalidateQueries({ queryKey: ["unified-bookings"] });
   };
 
   /**
@@ -167,7 +241,11 @@ export function SubscribersList({ providerId, legacyId, sourceKey }: {
           </WorkspaceEmpty>
         </WorkspaceCard>
       ) : (
-        [...active, ...rest].map((r) => (
+        groups.flatMap((g) => [
+          <p key={g.key} className="px-1 pt-3 text-[14px] font-semibold uppercase tracking-wide text-muted-foreground">
+            {g.label} · {g.rows.length}
+          </p>,
+          ...g.rows.map((r) => (
           <article key={r.id} className="flex items-center gap-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
@@ -202,6 +280,9 @@ export function SubscribersList({ providerId, legacyId, sourceKey }: {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => renew(r)}>
+                  <RefreshCcw className="mr-2 h-4 w-4" /> Renew — paid off platform
+                </DropdownMenuItem>
                 {r.status === "active" && (
                   <DropdownMenuItem onClick={() => setStatus(r, "paused")}>
                     <PauseCircle className="mr-2 h-4 w-4" /> Pause
@@ -220,7 +301,8 @@ export function SubscribersList({ providerId, legacyId, sourceKey }: {
               </DropdownMenuContent>
             </DropdownMenu>
           </article>
-        ))
+          )),
+        ])
       )}
     </div>
   );
@@ -245,7 +327,7 @@ async function fetchCleaning(legacyProviderId: string): Promise<SubscriberRow[]>
   if (!names.size) return [];
   const { data } = await supabaseDb
     .from("cleaning_subscriptions")
-    .select("id,package_id,user_id,subscription_status,payment_status,payment_reference,customer_whatsapp,total_price_cents,service_start_date,service_end_date,start_date,end_date,apartment_note")
+    .select("id,package_id,user_id,subscription_status,payment_status,payment_reference,customer_whatsapp,total_price_cents,billing_period_months,service_start_date,service_end_date,paid_until,start_date,end_date,apartment_note")
     .in("package_id", [...names.keys()])
     .order("service_start_date", { ascending: false });
   const rows = (data ?? []) as any[];
@@ -258,13 +340,15 @@ async function fetchCleaning(legacyProviderId: string): Promise<SubscriberRow[]>
       customerName: u?.display_name ?? u?.name ?? null,
       customerEmail: u?.email ?? null,
       start: r.service_start_date ?? r.start_date ?? null,
-      end: r.service_end_date ?? r.end_date ?? null,
+      // Renewal continues from what has actually been paid for.
+      end: r.paid_until ?? r.service_end_date ?? r.end_date ?? null,
       amountCents: r.total_price_cents ?? 0,
       status: String(r.subscription_status ?? ""),
       paymentStatus: r.payment_status ?? null,
       detail: r.apartment_note ?? null,
       phone: pickPhone(r.customer_whatsapp),
       paymentReference: r.payment_reference ?? null,
+      periodLength: Number(r.billing_period_months) || 1,
     };
   });
 }
@@ -299,6 +383,8 @@ async function fetchFood(legacyProviderId: string): Promise<SubscriberRow[]> {
       detail: r.delivery_address ?? null,
       phone: pickPhone(r.customer_whatsapp),
       paymentReference: r.payment_reference ?? null,
+      periodLength: Number(r.commitment_weeks) || 1,
+      periodsPaid: Number(r.periods_paid) || 1,
     };
   });
 }
@@ -307,7 +393,7 @@ async function fetchUniversal(providerId: string, sourceKey: string): Promise<Su
   const isBeach = sourceKey === "beach" || sourceKey === "beach_club";
   let query = supabaseDb
     .from("provider_subscriptions")
-    .select("id, user_id, status, payment_status, payment_reference, customer_whatsapp, start_date, end_date, price_cents, metadata, provider_plans(name)")
+    .select("id, user_id, status, payment_status, payment_reference, customer_whatsapp, start_date, end_date, price_cents, periods_paid, metadata, provider_plans(name)")
     .eq("provider_id", providerId)
     .order("start_date", { ascending: false });
   query = isBeach
@@ -339,6 +425,9 @@ async function fetchUniversal(providerId: string, sourceKey: string): Promise<Su
       detail: people > 1 ? `${people} people` : people === 1 ? "1 person" : null,
       phone: pickPhone(r.customer_whatsapp),
       paymentReference: r.payment_reference ?? null,
+      // A membership runs a month at a time.
+      periodLength: 1,
+      periodsPaid: Number(r.periods_paid) || 1,
     };
   });
 }

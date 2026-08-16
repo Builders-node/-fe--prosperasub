@@ -1,6 +1,8 @@
 import { useState } from "react";
-import { ChevronDown, SlidersHorizontal } from "lucide-react";
+import { ChevronRight, SlidersHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { BookingSettingsForm } from "@/components/provider/BookingSettingsForm";
 import { normalizeBookingSettings } from "@/lib/booking/bookingSettings";
 import type { UniversalProviderRow } from "@/components/provider/UniversalInfoTab";
@@ -18,6 +20,7 @@ import type { UniversalProviderRow } from "@/components/provider/UniversalInfoTa
  */
 export function ScheduleAccordion({ provider }: { provider: UniversalProviderRow }) {
   const [open, setOpen] = useState(false);
+  const isMobile = useIsMobile();
   const summary = summarize(provider.booking_settings);
 
   return (
@@ -33,13 +36,24 @@ export function ScheduleAccordion({ provider }: { provider: UniversalProviderRow
           <p className="text-[16px] leading-[22px] text-muted-foreground">Booking rules</p>
           <p className="mt-0.5 truncate text-[16px] leading-[22px] text-foreground">{summary}</p>
         </div>
-        <ChevronDown className={cn("h-4 w-4 shrink-0 text-muted-foreground transition-transform", open && "rotate-180")} />
+        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
       </button>
-      {open && (
-        <div className="border-t border-border/40 px-4 py-4">
-          <BookingSettingsForm provider={provider} />
-        </div>
-      )}
+      {/* A sheet, not an accordion: these are a dozen fields — notice, window,
+          limits, the week's hours — and unrolling them in place pushed the
+          plans a screen and a half down the page. */}
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetContent
+          side={isMobile ? "bottom" : "right"}
+          className={isMobile ? "h-[92vh] rounded-t-radius-lg p-0" : "w-full max-w-xl p-0 sm:max-w-xl"}
+        >
+          <SheetHeader className="px-4 py-4">
+            <SheetTitle className="text-[20px] font-semibold leading-[26px]">Booking rules</SheetTitle>
+          </SheetHeader>
+          <div className="h-[calc(100%-64px)] overflow-y-auto bg-background px-4 pb-8 pt-1">
+            <BookingSettingsForm provider={provider} />
+          </div>
+        </SheetContent>
+      </Sheet>
     </section>
   );
 }
