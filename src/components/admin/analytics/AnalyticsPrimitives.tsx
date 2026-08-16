@@ -53,7 +53,7 @@ export function StatusBar({
   label, icon, count, total, color, textColor,
 }: {
   label: string;
-  icon: ReactNode;
+  icon?: ReactNode;
   count: number;
   total: number;
   color: string;
@@ -180,7 +180,9 @@ export function StackedRevenueChart({
           </div>
         ))}
       </div>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+      {/* A legend for one series is a label for a thing that has no
+          alternative — only draw it when the column is actually split. */}
+      <div className={`flex-wrap items-center gap-x-4 gap-y-1.5 ${series.length > 1 ? "flex" : "hidden"}`}>
         {series.map((s) => (
           <span key={s.key} className="flex items-center gap-1.5 text-[14px] text-muted-foreground">
             <span className={`h-2.5 w-2.5 rounded-sm ${s.barClass}`} />

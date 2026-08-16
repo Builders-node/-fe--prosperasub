@@ -1,41 +1,59 @@
 import { useQuery } from "@tanstack/react-query";
-import { TrendingUp, Users, Waves, CheckCircle2, Clock, XCircle } from "lucide-react";
+import { format } from "date-fns";
 import { fetchAllRows } from "@/lib/supabasePaging";
 import { supabaseDb } from "@/integrations/supabase/client";
-import {
-  AnalyticsShell, KpiCard, StatusBar, MonthlyRevenueChart,
-} from "@/components/admin/analytics/AnalyticsPrimitives";
 import { PageLoader } from "@/components/ui/spinner";
+import { AnalyticsShell, StatItem } from "@/components/admin/analytics/AnalyticsPrimitives";
+import { AnalyticsView, rankedByRevenue } from "@/components/admin/analytics/AnalyticsView";
+import { ANALYTICS_NAMES_KEY, fetchAnalyticsNames } from "@/lib/analytics/names";
+import { fetchPlatformRollup, groupRevenue } from "@/lib/analytics/platformRollup";
 import { formatUSD } from "@/lib/pricing";
-import { endOfMonth, format, parseISO, startOfMonth } from "date-fns";
+import { nowHN } from "@/lib/timezone";
 
-interface BeachSub {
-  id: string;
-  plan_name: string | null;
-  /** Read out of the row's metadata, so json until it is counted. */
-  people: number | string | null;
-  total_cents: number | null;
-  payment_status: string | null;
-  status: string;
-  created_at: string;
+/**
+ * The beach club, in the platform's one analytics layout (`AnalyticsView`).
+ *
+ * This page used to be the odd one out: no status card, no overview grid, a
+ * full-width chart where the others had two columns, and a KPI row that
+ * counted people where the others counted revenue. It now answers the same
+ * questions in the same order; a membership's headcount — the one thing only
+ * this service sells — is the last section.
+ */
+
+/** What a membership covers, and what it is played on: people and courts. */
+async function fetchBeachExtras() {
+  const [subs, courts] = await Promise.all([
+    // Reduced into a headcount, so paged — see lib/supabasePaging.ts.
+    fetchAllRows<any>(() => supabaseDb.from("provider_subscriptions")
+      .select("payment_status, status, price_cents, people:metadata->people")
+      .eq("source_service_key", "beach").order("id") as never),
+    supabaseDb.from("beach_club_courts").select("id", { count: "exact", head: true }),
+  ]);
+  const paid = subs.filter((s: any) => s.payment_status === "paid");
+  const active = paid.filter((s: any) => s.status === "active");
+  return {
+    // A headcount of live memberships only — counting cancelled rows here
+    // inflated the number and disagreed with every tile beside it.
+    people: active.reduce((sum: number, s: any) => sum + (Number(s.people) || 0), 0),
+    avgOrderCents: paid.length
+      ? Math.round(paid.reduce((sum: number, s: any) => sum + (s.price_cents || 0), 0) / paid.length)
+      : 0,
+    courts: courts.count ?? 0,
+  };
 }
 
 export default function BeachClubAnalytics({ embedded = false }: { embedded?: boolean }) {
-  const { data: subs = [], isLoading } = useQuery({
-    queryKey: ["admin-beach-club-analytics"],
-    queryFn: async () => {
-      // Paged — these rows are reduced into revenue/count figures and
-      // PostgREST truncates a plain select at 1000 rows without erroring.
-      // The generated row type cannot express an aliased json path, so the
-      // shape is asserted here rather than fought with at every call site.
-      return await fetchAllRows<BeachSub>(() => supabaseDb
-        .from("provider_subscriptions")
-        .select("id, payment_status, status, created_at, plan_name:metadata->>plan_name, people:metadata->people, total_cents:price_cents")
-        .eq("source_service_key", "beach").order("id") as never);
-    },
+  const { data: rollup, isLoading } = useQuery({
+    queryKey: ["admin-platform-rollup"],
+    queryFn: fetchPlatformRollup,
+  });
+  const { data: names } = useQuery({ queryKey: ANALYTICS_NAMES_KEY, queryFn: fetchAnalyticsNames });
+  const { data: extras } = useQuery({
+    queryKey: ["admin-beach-analytics-extras"],
+    queryFn: fetchBeachExtras,
   });
 
-  if (isLoading) {
+  if (isLoading || !rollup) {
     return (
       <AnalyticsShell embedded={embedded} title="Beach Club — Analytics">
         <PageLoader />
@@ -43,131 +61,33 @@ export default function BeachClubAnalytics({ embedded = false }: { embedded?: bo
     );
   }
 
-  const paid = subs.filter((s) => s.payment_status === "paid");
-  // "Active" means paid AND active — same definition as "Total People" below
-  // and as Dashboard/Finance. Counting status alone let unpaid rows show up as
-  // active memberships here while the headcount tile beside it excluded them:
-  // two numbers, two definitions, 10px apart.
-  const active = paid.filter((s) => s.status === "active");
-  const pending = subs.filter((s) => s.status === "pending");
-  const cancelled = subs.filter((s) => s.status === "cancelled");
-
-  const totalRevenueCents = paid.reduce((sum, s) => sum + (s.total_cents ?? 0), 0);
-  // "Total People" is a live-membership headcount, so only paid + active
-  // members count. Including cancelled/pending rows inflated the number and
-  // disagreed with every other tile on this page.
-  const totalMembers = active.reduce((sum, s) => sum + (Number(s.people) || 0), 0);
-  const avgOrderCents = paid.length ? Math.round(totalRevenueCents / paid.length) : 0;
-
-
-
-  // Revenue for the current month.
-  const now = new Date();
-
-  /**
-   * The last six months, computed the way the other analytics pages compute
-   * them — same window, same bucketing by `created_at`, same formatter. The
-   * beach was the one service with no revenue chart at all, so the three
-   * pages did not even have the same sections, let alone the same order.
-   */
-  const last6 = Array.from({ length: 6 }, (_, i) => {
-    const d = new Date(now.getFullYear(), now.getMonth() - 5 + i, 1);
-    const start = startOfMonth(d);
-    const end = endOfMonth(d);
-    const rev = paid
-      .filter((s) => {
-        const sd = parseISO(String(s.created_at));
-        return sd >= start && sd <= end;
-      })
-      .reduce((sum, s) => sum + (s.total_cents ?? 0), 0);
-    return { label: format(d, "MMM"), rev };
-  });
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const monthRevenueCents = paid
-    .filter((s) => new Date(s.created_at) >= monthStart)
-    .reduce((sum, s) => sum + (s.total_cents ?? 0), 0);
-
-  // Revenue per plan.
-  const planStats: Record<string, { subs: number; revenue: number }> = {};
-  for (const s of paid) {
-    const key = s.plan_name || "—";
-    (planStats[key] ??= { subs: 0, revenue: 0 });
-    planStats[key].subs += 1;
-    planStats[key].revenue += s.total_cents ?? 0;
-  }
-  const planRows = Object.entries(planStats).sort((a, b) => b[1].revenue - a[1].revenue);
-
-  if (subs.length === 0) {
-    return (
-      <AnalyticsShell embedded={embedded} title="Beach Club — Analytics">
-        <div className="rounded-radius-lg bg-card p-10 tracking-[-0.02em] text-center text-muted-foreground">
-          <Waves className="mx-auto mb-2 h-8 w-8 opacity-40" />
-          No memberships yet — analytics will populate as people subscribe.
-        </div>
-      </AnalyticsShell>
-    );
-  }
+  const figures = rollup.byKey.beach;
+  const rows = rollup.rows.filter((r) => r.service === "beach");
 
   return (
     <AnalyticsShell embedded={embedded} title="Beach Club — Analytics">
-      <div className="space-y-6">
-        {/* KPI cards */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <KpiCard icon={TrendingUp} label="Total Revenue" value={formatUSD(totalRevenueCents)} accent="text-green-400" />
-          <KpiCard icon={Waves} label="Active Memberships" value={String(active.length)} accent="text-cyan-400" />
-          <KpiCard icon={Users} label="Total People" value={String(totalMembers)} accent="text-violet-400" />
-          <KpiCard icon={TrendingUp} label="Avg Order" value={formatUSD(avgOrderCents)} accent="text-blue-400" />
-        </div>
-
-        {/* Revenue over time — second on every service's page. */}
-        <div className="rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
-          <h2 className="mb-4 flex items-center gap-2 text-[20px] font-semibold leading-[26px] text-foreground">
-            <TrendingUp className="h-5 w-5 text-green-400" /> Monthly Revenue (last 6 months)
-          </h2>
-          <MonthlyRevenueChart months={last6} barClass="bg-cyan-500/60" formatValue={formatUSD} />
-        </div>
-
-        <div className="grid gap-6 lg:grid-cols-2">
-          {/* Status breakdown */}
-          <div className="space-y-4 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
-            <h2 className="flex items-center gap-2 text-[20px] font-semibold leading-[26px] text-foreground">
-              <Waves className="h-5 w-5 text-cyan-400" /> Membership Status
-            </h2>
-            <div className="space-y-3">
-              <StatusBar label="Active" icon={<CheckCircle2 className="h-3.5 w-3.5" />} count={active.length} total={subs.length} color="bg-green-500" textColor="text-green-400" />
-              <StatusBar label="Pending" icon={<Clock className="h-3.5 w-3.5" />} count={pending.length} total={subs.length} color="bg-yellow-500" textColor="text-yellow-400" />
-              <StatusBar label="Cancelled" icon={<XCircle className="h-3.5 w-3.5" />} count={cancelled.length} total={subs.length} color="bg-muted-foreground" textColor="text-muted-foreground" />
-            </div>
-            <div className="flex items-center justify-between border-t border-border/60 pt-3 text-sm">
-              <span className="text-muted-foreground">Revenue this month</span>
-              <span className="font-semibold tabular-nums text-foreground">{formatUSD(monthRevenueCents)}</span>
-            </div>
-          </div>
-
-          {/* Revenue by plan */}
-          <div className="space-y-4 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
-            <h2 className="flex items-center gap-2 text-[20px] font-semibold leading-[26px] text-foreground">
-              <TrendingUp className="h-5 w-5 text-green-400" /> Revenue by Plan
-            </h2>
-            {planRows.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No paid memberships yet.</p>
-            ) : (
-              <div className="space-y-2">
-                {planRows.map(([name, st]) => (
-                  <div key={name} className="flex items-center justify-between gap-4 rounded-xl bg-muted/40 px-3.5 py-2.5">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-bold text-foreground">{name}</p>
-                      <p className="text-xs text-muted-foreground">{st.subs} membership{st.subs !== 1 ? "s" : ""}</p>
-                    </div>
-                    <span className="shrink-0 font-semibold tabular-nums text-foreground">{formatUSD(st.revenue)}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-      </div>
+      <AnalyticsView
+        monthLabel={format(nowHN(), "MMMM")}
+        months={rollup.months}
+        series={[{ key: "beach", label: "Beach Club", values: figures.monthly, barClass: "bg-primary" }]}
+        figures={figures}
+        plans={{ rows: rankedByRevenue(groupRevenue(rows, (r) => r.planKey, (k) => names?.plans.get(k))) }}
+        group={{
+          title: "Revenue by Provider",
+          rows: rankedByRevenue(groupRevenue(rows, (r) => r.providerKey, (k) => names?.providers.get(k))),
+          emptyMessage: "No provider has earned anything yet.",
+        }}
+        details={{
+          title: "Beach club memberships",
+          children: (
+            <dl className="grid gap-4 sm:grid-cols-3">
+              <StatItem label="People covered" value={String(extras?.people ?? 0)} />
+              <StatItem label="Avg order" value={formatUSD(extras?.avgOrderCents ?? 0)} />
+              <StatItem label="Courts" value={String(extras?.courts ?? 0)} />
+            </dl>
+          ),
+        }}
+      />
     </AnalyticsShell>
   );
 }

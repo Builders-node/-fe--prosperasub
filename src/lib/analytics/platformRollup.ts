@@ -65,17 +65,26 @@ export interface ServiceRollup {
   monthly: number[];
 }
 
+/** Everything an analytics view needs about a population of subscriptions. */
+export type RollupFigures = Omit<ServiceRollup, "key" | "label">;
+
 export interface PlatformRollup {
   /** Short month labels, oldest → newest ("Mar" … "Aug"). */
   months: string[];
   services: ServiceRollup[];
   byKey: Record<RollupServiceKey, ServiceRollup>;
   /** The same figures summed across services. */
-  totals: Omit<ServiceRollup, "key" | "label">;
+  totals: RollupFigures;
+  /**
+   * Every subscription, normalized. Handed out so a per-service page can break
+   * the SAME rows down by plan or provider instead of re-fetching the table and
+   * re-deciding what counts as revenue.
+   */
+  rows: NormRow[];
 }
 
 /** One subscription, whatever table it came from. */
-interface NormRow {
+export interface NormRow {
   service: RollupServiceKey;
   /** Full committed value of the sale, in cents. */
   valueCents: number;
@@ -85,6 +94,14 @@ interface NormRow {
   createdAt: string | null;
   /** Whoever bought it, for the distinct-customer count. */
   customerKey: string | null;
+  /** What was bought (plan/package id) and from whom (provider id). */
+  planKey: string | null;
+  providerKey: string | null;
+  /**
+   * Where it is delivered, when the service records one (food's residence).
+   * Null elsewhere — cleaning keeps its address on the booking, not the sub.
+   */
+  locationKey: string | null;
 }
 
 const num = (v: unknown) => Number(v) || 0;
@@ -94,6 +111,38 @@ const isRevenue = (r: NormRow) => r.paid && r.status !== "cancelled";
 const isAwaiting = (r: NormRow) =>
   !r.paid && !["cancelled", "expired"].includes(r.status);
 
+/**
+ * Rows grouped into a revenue ranking — by plan, by provider, by anything the
+ * caller can pull a key out of. Revenue obeys the same rule as every other
+ * figure in this module, so a per-plan breakdown always adds up to the total
+ * sitting above it.
+ */
+export interface RevenueGroup { key: string; label: string; revenueCents: number; subs: number }
+
+export function groupRevenue(
+  rows: NormRow[],
+  keyOf: (r: NormRow) => string | null,
+  nameOf: (key: string) => string | undefined,
+  unassignedLabel = "Unassigned",
+): RevenueGroup[] {
+  const out = new Map<string, RevenueGroup>();
+  rows.forEach((r) => {
+    const key = keyOf(r) ?? "__none__";
+    const group = out.get(key) ?? {
+      key,
+      // A row whose plan was deleted still happened; naming it after its id
+      // would be worse than admitting we no longer know what it was.
+      label: key === "__none__" ? unassignedLabel : nameOf(key) ?? "Unknown",
+      revenueCents: 0,
+      subs: 0,
+    };
+    group.subs++;
+    if (isRevenue(r)) group.revenueCents += r.valueCents;
+    out.set(key, group);
+  });
+  return [...out.values()].sort((a, b) => b.revenueCents - a.revenueCents || b.subs - a.subs);
+}
+
 export async function fetchPlatformRollup(): Promise<PlatformRollup> {
   // Paged, not plain selects: every one of these rows is reduced into a money
   // figure, and PostgREST truncates a plain `.select()` at 1000 rows with a
@@ -101,15 +150,15 @@ export async function fetchPlatformRollup(): Promise<PlatformRollup> {
   const [cleaning, food, beach] = await Promise.all([
     fetchAllRows<any>(() => supabaseDb
       .from("cleaning_subscriptions")
-      .select("user_id, created_at, payment_status, subscription_status, is_active, total_price_cents, monthly_price_cents, service_end_date, end_date, paid_until")
+      .select("user_id, created_at, payment_status, subscription_status, is_active, total_price_cents, monthly_price_cents, service_end_date, end_date, paid_until, package_id, provider_id")
       .is("deleted_at", null).order("id")),
     fetchAllRows<any>(() => supabaseDb
       .from("food_subscriptions")
-      .select("user_id, created_at, payment_status, status, weekly_price_cents, commitment_weeks, periods_paid, end_date")
+      .select("user_id, created_at, payment_status, status, weekly_price_cents, commitment_weeks, periods_paid, end_date, meal_plan_id, provider_id, residence")
       .order("id")),
     fetchAllRows<any>(() => supabaseDb
       .from("provider_subscriptions")
-      .select("user_id, created_at, payment_status, status, price_cents, end_date")
+      .select("user_id, created_at, payment_status, status, price_cents, end_date, plan_id, provider_id")
       .eq("source_service_key", "beach").order("id")),
   ]);
 
@@ -124,6 +173,9 @@ export async function fetchPlatformRollup(): Promise<PlatformRollup> {
       status: effectiveCleaningStatus(r, today),
       createdAt: r.created_at,
       customerKey: r.user_id ? String(r.user_id) : null,
+      planKey: r.package_id ? String(r.package_id) : null,
+      providerKey: r.provider_id ? String(r.provider_id) : null,
+      locationKey: null,
     })),
     ...food.map((r: any): NormRow => ({
       service: "food",
@@ -134,6 +186,9 @@ export async function fetchPlatformRollup(): Promise<PlatformRollup> {
       status: effectiveFoodStatus(r, today),
       createdAt: r.created_at,
       customerKey: r.user_id ? String(r.user_id) : null,
+      planKey: r.meal_plan_id ? String(r.meal_plan_id) : null,
+      providerKey: r.provider_id ? String(r.provider_id) : null,
+      locationKey: String(r.residence ?? "").trim() || null,
     })),
     ...beach.map((r: any): NormRow => ({
       service: "beach",
@@ -142,6 +197,9 @@ export async function fetchPlatformRollup(): Promise<PlatformRollup> {
       status: effectiveBeachStatus(r, today),
       createdAt: r.created_at,
       customerKey: r.user_id ? String(r.user_id) : null,
+      planKey: r.plan_id ? String(r.plan_id) : null,
+      providerKey: r.provider_id ? String(r.provider_id) : null,
+      locationKey: null,
     })),
   ];
 
@@ -182,6 +240,7 @@ export async function fetchPlatformRollup(): Promise<PlatformRollup> {
   return {
     months: buckets.map((b) => b.label),
     services,
+    rows,
     byKey: Object.fromEntries(services.map((s) => [s.key, s])) as Record<RollupServiceKey, ServiceRollup>,
     totals: {
       subs: sum((s) => s.subs),
