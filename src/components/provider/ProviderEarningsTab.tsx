@@ -203,10 +203,12 @@ export function ProviderEarningsTab({ providerId, legacyId, sourceKey }: {
   });
 
   const { data: earned, isLoading } = useQuery({
-    queryKey: ["provider-earnings", sourceKey, legacyId, range],
-    enabled: !!legacyId || financeSourceFor(sourceKey) === "beach",
+    queryKey: ["provider-earnings", sourceKey, legacyId, providerId, range],
+    enabled: !!legacyId || !!providerId,
     staleTime: 60_000,
-    queryFn: () => fetchEarned(sourceKey, legacyId, start, end),
+    // The universal id scopes the beach branch — its money lives in
+    // `provider_subscriptions`, keyed by `provider_id`, not by the service.
+    queryFn: () => fetchEarned(sourceKey, legacyId, start, end, providerId),
   });
 
   // The ledger is invisible to the anon key on purpose — it comes from NestJS.

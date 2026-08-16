@@ -18,8 +18,15 @@ import { financeSourceFor } from "@/lib/finance/platformTake";
  * Paging matters here: these rows get reduced into a number, and a plain
  * PostgREST select silently stops at 1000 rows (see CLAUDE.md).
  */
-/** Provider-scoped paid rows, per service, in the shape revenue recognition wants. */
-export async function fetchEarned(sourceKey: string, legacyId: string, start: Date, end: Date) {
+/**
+ * Provider-scoped paid rows, per service, in the shape revenue recognition
+ * wants.
+ *
+ * `providerId` is the UNIVERSAL id and is what scopes the beach branch; the
+ * legacy id scopes the two services whose money still lives in legacy tables.
+ * See lib/services/providerBridge.ts for why there are two.
+ */
+export async function fetchEarned(sourceKey: string, legacyId: string, start: Date, end: Date, providerId?: string) {
   const source = financeSourceFor(sourceKey);
   const acc = (
     rows: any[],
@@ -79,15 +86,23 @@ export async function fetchEarned(sourceKey: string, legacyId: string, start: Da
   }
 
   if (source === "beach") {
-    // Beach is platform-owned and there is exactly one club, so this is not
-    // scoped further — the same assumption the KPI widget makes.
+    // Scoped to THIS business, not to the service.
+    //
+    // "There is only one beach club" was true of the club and false of the
+    // finance source: `financeSourceFor` also answers "beach" for every
+    // provider on the Lifestyle archetype, so a second one — Massage is
+    // already such a row — was shown the club's revenue as its own, and the
+    // payout cap is computed from exactly this number.
+    //
     // The membership rows moved to `provider_subscriptions`; the legacy twin
     // is a copy kept for readers that have not. Counting the copy would be
     // counting the same money in the same place twice once they all have.
+    const scope = providerId || legacyId;
+    if (!scope) return { revenue: 0, units: 0 };
     const rows = await fetchAllRows<any>(() =>
       supabaseDb.from("provider_subscriptions")
         .select("price_cents, metadata, created_at, start_date, end_date")
-        .eq("source_service_key", "beach")
+        .eq("provider_id", scope)
         .eq("payment_status", "paid").order("id"));
     return acc(rows,
       (r) => ({ totalCents: r.price_cents || 0, serviceStart: r.start_date || r.created_at, serviceEnd: r.end_date, fallbackDays: 30 }),

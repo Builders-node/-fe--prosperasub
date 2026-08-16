@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Trash2, UserPlus, Mail } from "lucide-react";
 import { WorkspaceEmpty, WorkspaceSection } from "@/components/provider/WorkspaceUI";
 import { Spinner } from "@/components/ui/spinner";
-import { supabaseDb } from "@/integrations/supabase/client";
+import { accountApi, supabaseDb } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -20,22 +20,24 @@ import { logAuditEvent } from "@/lib/auditLog";
 import { UserPicker } from "@/components/UserPicker";
 
 /**
- * Generic staff tab: owner + managers.
+ * Staff tab: owner + managers.
  *
- * Reused by every provider workspace (food / cars / cleaning / beach) so a
- * schema drift in one manager table (e.g. rental keeps `user_name`, cleaning
- * only has `user_email`) doesn't fork the UI. Consumer passes the table names
- * + which optional columns exist; the component takes care of dialogs,
- * mutations, and audit logging.
+ * Reads still come straight from the table — a membership list is not a
+ * secret. Every WRITE goes through the account API: `provider_members` is what
+ * the backend consults before showing a provider's day (home addresses,
+ * access instructions) and `providers.admin_user_id` is what the payout
+ * endpoint calls ownership. Both were writable with the anon key that ships in
+ * this bundle, so anyone could appoint themselves. The table now refuses those
+ * writes; see backend/src/account/provider-members.service.ts.
  */
 export interface UniversalStaffTabProps {
-  /** Legacy provider id — the row inside `providerTable` we edit for owner changes. */
+  /** Universal `providers.id` — the business whose team this is. */
   providerId: string;
   /** Currently-set owner user id (from provider row's admin_user_id). */
   ownerUserId: string | null | undefined;
-  /** Legacy providers table — e.g. `food_providers`, `rental_providers`, `cleaning_providers`, `providers`. */
+  /** Kept for the owner query key and audit entity naming; writes go through the API. */
   providerTable: string;
-  /** Managers table — e.g. `food_restaurant_managers`, `rental_provider_managers`, `cleaning_provider_managers`. */
+  /** Managers table, read directly. Writes go through the API. */
   managerTable: string;
   /** Human label ("restaurant", "cleaning provider", "car rental", "beach club"). */
   entityLabel: string;
@@ -131,10 +133,13 @@ export function UniversalStaffTab({
   const setOwnerMutation = useMutation({
     mutationFn: async () => {
       const nextOwner = ownerForm.user_id.trim() || null;
-      const { error } = await supabaseDb
-        .from(providerTable)
-        .update({ admin_user_id: nextOwner, updated_at: new Date().toISOString() })
-        .eq("id", providerId);
+      // Through the API, not the table: `providers.admin_user_id` is what the
+      // payout endpoint calls ownership, so the column refuses browser writes
+      // and this endpoint checks who is asking first.
+      const { error } = await accountApi(`/account/providers/${providerId}/owner`, {
+        method: "PUT",
+        body: JSON.stringify({ userId: nextOwner }),
+      });
       if (error) throw error;
       await logAuditEvent(userData!.id, "edit", auditEntityProvider, providerId, { admin_user_id: nextOwner });
     },
@@ -164,20 +169,20 @@ export function UniversalStaffTab({
 
   const addManagerMutation = useMutation({
     mutationFn: async () => {
-      const payload: Record<string, unknown> = {
-        provider_id: providerId,
-        user_id: managerForm.user_id.trim() || managerForm.user_email.trim(),
-        user_email: managerForm.user_email.trim() || null,
+      const payload = {
+        userId: managerForm.user_id.trim() || null,
+        userEmail: managerForm.user_email.trim() || null,
+        userName: hasUserNameColumn ? managerForm.user_name.trim() || null : null,
       };
-      if (hasUserNameColumn) payload.user_name = managerForm.user_name.trim() || null;
-      if (hasRoleColumn) payload.role = "manager";
-      const { data, error } = await supabaseDb
-        .from(managerTable)
-        .insert(payload)
-        .select("id")
-        .single();
+      // A membership is what lets someone see this business's day — addresses
+      // included — so the server resolves the person and checks the caller
+      // owns the business before writing the row.
+      const { data, error } = await accountApi(`/account/providers/${providerId}/members`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
       if (error) throw error;
-      await logAuditEvent(userData!.id, "create", auditEntityManager, data.id, payload);
+      await logAuditEvent(userData!.id, "create", auditEntityManager, String((data as any)?.id ?? providerId), payload);
     },
     onSuccess: () => {
       toast.success("Manager added");
@@ -190,7 +195,9 @@ export function UniversalStaffTab({
 
   const removeManagerMutation = useMutation({
     mutationFn: async (m: Manager) => {
-      const { error } = await supabaseDb.from(managerTable).delete().eq("id", m.id);
+      const { error } = await accountApi(
+        `/account/providers/${providerId}/members/${m.id}`, { method: "DELETE" },
+      );
       if (error) throw error;
       await logAuditEvent(userData!.id, "delete", auditEntityManager, m.id, {});
     },

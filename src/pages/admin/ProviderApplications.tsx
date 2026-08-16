@@ -11,7 +11,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { supabaseDb, adminApi } from "@/integrations/supabase/client";
+import { supabaseDb, adminApi, accountApi } from "@/integrations/supabase/client";
 import { LEGACY_SERVICES, DEFAULT_CAPABILITIES, type LegacySourceKey } from "@/lib/services/providerBridge";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAuditEvent } from "@/lib/auditLog";
@@ -30,14 +30,22 @@ type Filter = "pending" | "approved" | "rejected" | "all";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-/** Resolve a possibly-Google sub to the canonical users.id UUID via email. */
-async function resolveUserId(userId: string | null, email: string | null): Promise<string | null> {
+/**
+ * The applicant's canonical `users.id`, or null.
+ *
+ * Never the raw value from the application: a Google sub is not a uuid, and
+ * writing one into an owner column is how approval used to fail halfway
+ * through. A business whose owner cannot be resolved is still approved — it
+ * simply starts platform-owned, and the admin hands it over from the Team tab
+ * once the person has signed in.
+ */
+async function resolveOwnerUuid(userId: string | null, email: string | null): Promise<string | null> {
   if (userId && UUID_RE.test(userId)) return userId;
   if (email) {
     const { data } = await supabaseDb.from("users").select("id").eq("email", email).maybeSingle();
     if (data?.id) return data.id as string;
   }
-  return userId;
+  return null;
 }
 
 export interface ProviderApplicationsProps {
@@ -92,7 +100,15 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
         if (Array.isArray(raw)) archetypeDefaultCaps = raw.filter((x): x is string => typeof x === "string");
       }
 
-      const adminUserId = await resolveUserId(app.user_id, app.contact_email);
+      // The applicant's canonical users.id, or nothing.
+      //
+      // This used to fall back to whatever the application carried — a Google
+      // sub like "google-1009…" for anyone who signed up with Google and has
+      // no `users` row yet. `food_providers.admin_user_id` is TEXT so that
+      // insert went through; `providers.admin_user_id` is UUID so the next one
+      // died with 22P02, leaving the application pending, `created_provider_id`
+      // empty, and a legacy provider behind — which the retry then duplicated.
+      const adminUserId = await resolveOwnerUuid(app.user_id, app.contact_email);
       let legacyProviderId: string | null = null;
 
       /**
@@ -133,6 +149,35 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
         );
       }
 
+      /**
+       * The universal row goes FIRST, and its id is stamped on the application
+       * before anything else is attempted.
+       *
+       * The old order — legacy insert, then universal — meant a failure in the
+       * second step left an orphan legacy provider that nothing pointed at, so
+       * the next "Approve" made another one. Now the first thing that can fail
+       * is also the first thing that is recorded: whatever happens after,
+       * `created_provider_id` short-circuits the retry.
+       */
+      const legacyCaps = DEFAULT_CAPABILITIES[app.service as LegacySourceKey] ?? [];
+      const mergedCaps = Array.from(new Set([...legacyCaps, ...archetypeDefaultCaps]));
+      const { data: uRow, error: mErr } = await supabaseDb.from("providers").insert({
+        category_key: categoryKey,
+        name: app.business_name,
+        description: app.description ?? null,
+        contact_email: app.contact_email ?? null,
+        contact_phone: app.contact_phone ?? null,
+        status: "active",
+        capabilities: mergedCaps.length ? mergedCaps : archetypeDefaultCaps,
+        archetype_key: app.archetype_key ?? null,
+      }).select("id").single();
+      if (mErr) throw mErr;
+      createdProviderId = uRow?.id as string;
+
+      await supabaseDb.from("provider_applications")
+        .update({ created_provider_id: createdProviderId, updated_at: new Date().toISOString() })
+        .eq("id", app.id);
+
       if (table) {
         const { data, error } = await supabaseDb.from(table).insert({
           name: app.business_name,
@@ -142,30 +187,31 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
         }).select("id").single();
         if (error) throw error;
         legacyProviderId = data.id as string;
+
+        // Bridge the two id spaces — see lib/services/providerBridge.ts.
+        const { error: bridgeErr } = await supabaseDb.from("providers").update({
+          source_service_key: app.service,
+          source_provider_id: legacyProviderId,
+          updated_at: new Date().toISOString(),
+        }).eq("id", createdProviderId);
+        if (bridgeErr) throw bridgeErr;
       }
 
-      // Always insert the universal `providers` mirror so the business shows
-      // up in /admin/marketplace/providers regardless of whether it's backed
-      // by a legacy table. Previously this insert was gated on the strict
-      // LEGACY_SERVICES lookup, which dropped services whose registry entry
-      // exists but whose key wasn't listed there (post-rename / new service).
-      const legacyCaps = DEFAULT_CAPABILITIES[app.service as LegacySourceKey] ?? [];
-      const mergedCaps = Array.from(new Set([...legacyCaps, ...archetypeDefaultCaps]));
-      const { data: uRow, error: mErr } = await supabaseDb.from("providers").insert({
-        category_key: categoryKey,
-        name: app.business_name,
-        description: app.description ?? null,
-        contact_email: app.contact_email ?? null,
-        contact_phone: app.contact_phone ?? null,
-        admin_user_id: adminUserId,
-        status: "active",
-        capabilities: mergedCaps.length ? mergedCaps : archetypeDefaultCaps,
-        archetype_key: app.archetype_key ?? null,
-        source_service_key: legacyProviderId ? app.service : null,
-        source_provider_id: legacyProviderId,
-      }).select("id").single();
-      if (mErr) throw mErr;
-      createdProviderId = (uRow?.id as string) ?? legacyProviderId;
+      /**
+       * The owner is set through the API: `providers.admin_user_id` is what the
+       * payout endpoint calls ownership, so the column refuses writes from the
+       * browser's key. An applicant with no account yet leaves the business
+       * platform-owned rather than blocking the approval.
+       */
+      let ownerAssigned = false;
+      if (adminUserId) {
+        const { error: ownerErr } = await accountApi(`/account/providers/${createdProviderId}/owner`, {
+          method: "PUT",
+          body: JSON.stringify({ userId: adminUserId }),
+        });
+        if (ownerErr) console.warn("[approve] owner assignment failed", ownerErr);
+        else ownerAssigned = true;
+      }
 
       const { error: uErr } = await supabaseDb.from("provider_applications").update({
         status: "approved",
@@ -191,13 +237,20 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
           console.warn("[approve] calendar provisioning failed", err);
         }
       }
-      return { table, alreadyApproved: false, calendar } as const;
+      return { table, alreadyApproved: false, calendar, ownerAssigned, hasApplicant: !!adminUserId } as const;
     },
     onSuccess: (r) => {
       if (r.alreadyApproved) {
         toast.info("Already approved — refreshed list");
       } else {
         toast.success(r.table ? "Approved — provider created. They can manage it from My Business." : "Approved (no auto-provider for this service — set up manually).");
+        // An applicant who has never signed in has no users row to own the
+        // business. Saying so beats a workspace nobody can open.
+        if (!r.ownerAssigned) {
+          toast.warning(r.hasApplicant
+            ? "Owner could not be assigned — set it from the business's Team tab."
+            : "The applicant has no account yet — the business is platform-owned until you set an owner in its Team tab.");
+        }
         if (r.calendar && !r.calendar.calendarId) {
           toast.warning("No Google calendar was created — provision it from the provider's Overview tab.");
         }
