@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabaseDb } from "@/integrations/supabase/client";
+import { supabaseDb, accountApi } from "@/integrations/supabase/client";
 import { todayHN, addDaysISO } from "@/lib/timezone";
 
 /**
@@ -97,21 +97,29 @@ async function fetchFoodStats(legacyId: string) {
   return { active: active ?? 0, upcoming: upcoming ?? 0 };
 }
 
-async function fetchBeachStats() {
-  // Beach is platform-owned (one provider), so stats are global. Real column
-  // names on beach_club_* tables: `date` (not booking_date), `total_cents`
-  // (not total_price_cents), `people` (not people_count).
-  const [{ count: active }, { count: upcoming }] = await Promise.all([
+async function fetchBeachStats(universalProviderId: string) {
+  // Beach is platform-owned (one provider), so memberships are global. The
+  // week ahead comes from the engine: the legacy court table it used to count
+  // has been empty since the cutover, so this KPI has been reporting 0 on a
+  // club that takes bookings every day.
+  const [{ count: active }, upcoming] = await Promise.all([
     supabaseDb.from("beach_club_subscriptions")
       .select("id", { count: "exact", head: true })
       .eq("status", "active"),
-    supabaseDb.from("beach_club_court_bookings")
-      .select("id", { count: "exact", head: true })
-      .gte("date", todayISO())
-      .lte("date", daysFromNowISO(7))
-      .neq("status", "cancelled"),
+    countEngineBookings(universalProviderId),
   ]);
-  return { active: active ?? 0, upcoming: upcoming ?? 0 };
+  return { active: active ?? 0, upcoming };
+}
+
+/** How many times are booked on this provider's calendars in the next week. */
+async function countEngineBookings(universalProviderId: string): Promise<number> {
+  if (!universalProviderId) return 0;
+  const { data, error } = await accountApi(
+    `/booking/by-provider?providerId=${encodeURIComponent(universalProviderId)}` +
+      `&from=${todayISO()}&to=${daysFromNowISO(7)}`,
+  );
+  if (error) return 0;
+  return ((data ?? []) as unknown[]).length;
 }
 
 /**
@@ -121,11 +129,12 @@ async function fetchBeachStats() {
  * the tabs. It shares this function AND its query key, so the number in the
  * header and the number in the Overview strip are one fetch and cannot drift.
  */
-export async function fetchProviderStats(sourceKey: string, legacyId: string) {
+export async function fetchProviderStats(sourceKey: string, legacyId: string, providerId = "") {
   if (sourceKey === "cleaning") return fetchCleaningStats(legacyId);
   if (sourceKey === "food")     return fetchFoodStats(legacyId);
-  if (sourceKey === "beach" || sourceKey === "beach_club") return fetchBeachStats();
-  return { active: 0, upcoming: 0 };
+  if (sourceKey === "beach" || sourceKey === "beach_club") return fetchBeachStats(providerId || legacyId);
+  // A business with no legacy table at all: whatever the engine holds for it.
+  return { active: 0, upcoming: await countEngineBookings(providerId) };
 }
 
 async function fetchRating(universalProviderId: string) {
@@ -157,8 +166,8 @@ async function fetchRating(universalProviderId: string) {
  */
 export function useProviderKpis({ providerId, legacyId, sourceKey }: Props) {
   const stats = useQuery({
-    queryKey: ["provider-analytics", sourceKey, legacyId],
-    queryFn: () => fetchProviderStats(sourceKey, legacyId),
+    queryKey: ["provider-analytics", sourceKey, legacyId, providerId],
+    queryFn: () => fetchProviderStats(sourceKey, legacyId, providerId),
     staleTime: 60_000,
   });
   const rating = useQuery({

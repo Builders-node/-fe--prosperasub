@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { useUserUuid } from "@/hooks/useUserUuid";
-import { supabaseDb } from "@/integrations/supabase/client";
+import { supabaseDb, accountApi } from "@/integrations/supabase/client";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 
@@ -72,9 +72,11 @@ function useUserHistory() {
         supabaseDb.from("beach_club_subscriptions")
           .select("id,created_at,plan_id,total_cents,payment_method,payment_status")
           .in("user_id", ids).order("created_at", { ascending: false }),
-        supabaseDb.from("beach_club_court_bookings")
-          .select("id,created_at,court_id")
-          .in("user_id", ids).order("created_at", { ascending: false }),
+        // Bookings live in the engine's own table, which the browser cannot
+        // read — it is service-role only. The legacy court table this used to
+        // ask has been empty since the cutover, so a member who books a court
+        // every week has been looking at a history with no courts in it.
+        accountApi("/booking/mine?limit=200"),
         // Every server-recorded renewal (food + cleaning + beach). Populated by
         // the new SubscriptionRenewalService — one row per verified extension.
         supabaseDb.from("subscription_renewals")
@@ -94,9 +96,8 @@ function useUserHistory() {
         idsFrom(beach.data, "plan_id").length
           ? supabaseDb.from("beach_club_plans").select("id,name").in("id", idsFrom(beach.data, "plan_id"))
           : Promise.resolve({ data: [] as any[] }),
-        idsFrom(courts.data, "court_id").length
-          ? supabaseDb.from("beach_club_courts").select("id,name").in("id", idsFrom(courts.data, "court_id"))
-          : Promise.resolve({ data: [] as any[] }),
+        // The engine already answers with the calendar's name.
+        Promise.resolve({ data: [] as any[] }),
       ]);
 
       const nameOf = (rows: any[] | null | undefined, id: string, fallback: string) =>
@@ -146,14 +147,16 @@ function useUserHistory() {
           paymentMethod: r.payment_method,
           paymentStatus: r.payment_status,
         })),
-        ...(courts.data ?? []).map((r: any): HistoryEntry => ({
+        ...((courts.data ?? []) as any[]).map((r: any): HistoryEntry => ({
           id: `court:${r.id}`,
-          createdAt: r.created_at,
+          // What a booking IS, is when it is — the moment it was created is
+          // filing metadata. `start_at` is what the customer remembers.
+          createdAt: r.start_at ?? r.created_at,
           kind: "purchase",
           service: "court",
           serviceLabel: SERVICE_META.court.label,
-          subtitle: nameOf(courtRows.data, r.court_id, "Court"),
-          amountCents: null,        // court bookings are included with membership
+          subtitle: r.resource_name ?? "Booking",
+          amountCents: null,        // bookings are included with the plan
           paymentMethod: null,
           paymentStatus: null,
         })),

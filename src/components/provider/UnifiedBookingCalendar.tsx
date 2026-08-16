@@ -412,7 +412,7 @@ function rowActionsFor(row: UnifiedBookingRow): { status: string; label: string;
     ];
     return [];
   }
-  if (row.sourceTable === "beach_club_court_bookings") {
+  if (row.sourceTable === "bookings") {
     if (s !== "cancelled") return [
       { status: "cancelled", label: "Cancel", icon: XCircle, destructive: true },
     ];
@@ -430,7 +430,7 @@ function rowActionsFor(row: UnifiedBookingRow): { status: string; label: string;
 function approveServiceFor(sourceTable: UnifiedBookingRow["sourceTable"]): ApproveService | null {
   if (sourceTable === "cleaning_bookings") return null; // cleaning_bookings has no payment_status; the parent subscription does
   if (sourceTable === "food_subscriptions") return "food";
-  if (sourceTable === "beach_club_court_bookings") return null; // court bookings are pay-on-arrival — no payment_status column
+  if (sourceTable === "bookings") return null; // court bookings are pay-on-arrival — no payment_status column
   return null;
 }
 

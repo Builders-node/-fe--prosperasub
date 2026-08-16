@@ -1,19 +1,19 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabaseDb } from "@/integrations/supabase/client";
+import { supabaseDb, accountApi } from "@/integrations/supabase/client";
 import { pickPhone } from "@/components/patterns/CustomerPhone";
 import { fetchUsersByIds } from "@/lib/admin/customerNames";
 
 /**
  * Normalized booking row shared by every service. Adapters map their legacy
  * shape (cleaning_bookings ↔ slots, food_subscriptions
- * batch, beach_club_court_bookings hourly) into this common contract so
+ * batch, the engine's own bookings hourly) into this common contract so
  * downstream UI (calendar, list, analytics) never branches on service.
  */
 export interface UnifiedBookingRow {
   /** Stable id across a UI list. Legacy id from the source row. */
   id: string;
   /** Which legacy table this came from — used for source-of-truth reads/writes. */
-  sourceTable: "cleaning_bookings" | "food_subscriptions" | "beach_club_court_bookings";
+  sourceTable: "cleaning_bookings" | "food_subscriptions" | "bookings";
   /** Human label of the customer (best-effort — legacy tables inconsistent). */
   customerName: string | null;
   /** What is booked (plan / court name). */
@@ -208,31 +208,34 @@ async function fetchFood(providerId: string, from: string, to: string): Promise<
   }));
 }
 
-async function fetchBeach(_providerId: string, from: string, to: string): Promise<UnifiedBookingRow[]> {
-  // Beach is platform-owned (single provider), so we ignore providerId and
-  // return every court booking in range.
-  const { data } = await supabaseDb
-    .from("beach_club_court_bookings")
-    .select("id,court_id,date,start_hour,end_hour,status,member_name,beach_club_courts(name)")
-    .gte("date", from)
-    .lte("date", to)
-    .order("date", { ascending: true })
-    .order("start_hour", { ascending: true });
-
-  return (data ?? []).map((row: any) => {
-    const pad = (n: number) => String(n).padStart(2, "0");
-    return {
-      id: row.id,
-      sourceTable: "beach_club_court_bookings" as const,
-      customerName: row.member_name ?? null,
-      planName: row.beach_club_courts?.name ?? null,
-      startAt: new Date(`${row.date}T${pad(Number(row.start_hour ?? 8))}:00:00`),
-      endAt: new Date(`${row.date}T${pad(Number(row.end_hour ?? row.start_hour + 1))}:00:00`),
-      status: row.status ?? "unknown",
-      paymentStatus: null,
-      priceCents: null,
-    };
-  });
+/**
+ * Times booked on this provider's calendars.
+ *
+ * It read `beach_club_court_bookings`, which has been empty since the engine
+ * took the traffic — so the workspace calendar showed a beach club with no
+ * bookings while the engine held eleven. Bookings are one table now, behind
+ * the API because that table is service-role only, and this works for any
+ * provider with a calendar rather than for the beach alone.
+ */
+async function fetchCalendarBookings(providerId: string, from: string, to: string): Promise<UnifiedBookingRow[]> {
+  const { data, error } = await accountApi(
+    `/booking/by-provider?providerId=${encodeURIComponent(providerId)}&from=${from}&to=${to}`,
+  );
+  if (error) return [];
+  return ((data ?? []) as any[]).map((row: any) => ({
+    id: row.id,
+    sourceTable: "bookings" as const,
+    // A booking's label is who it is for when staff took it over the counter;
+    // otherwise the subject is all we hold at this layer.
+    customerName: row.label ?? null,
+    planName: row.resource_name ?? null,
+    startAt: new Date(row.start_at),
+    endAt: row.end_at ? new Date(row.end_at) : null,
+    status: row.status ?? "unknown",
+    paymentStatus: null,
+    priceCents: null,
+    meta: { subjectRef: row.subject_ref, notes: row.notes ?? null },
+  }));
 }
 
 interface UseUnifiedBookingsArgs {
@@ -258,8 +261,10 @@ export function useUnifiedBookings({ providerId, sourceKey, from, to }: UseUnifi
     queryFn: async (): Promise<UnifiedBookingRow[]> => {
       if (sourceKey === "cleaning") return fetchCleaning(providerId, from, to);
       if (sourceKey === "food")     return fetchFood(providerId, from, to);
-          if (sourceKey === "beach" || sourceKey === "beach_club") return fetchBeach(providerId, from, to);
-      return [];
+      // Everything else — the beach, and any business whose bookings the
+      // engine owns. `providerId` is the universal id for both, which is what
+      // the engine keys on.
+      return fetchCalendarBookings(providerId, from, to);
     },
     staleTime: 30_000,
   });
