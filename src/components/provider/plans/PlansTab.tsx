@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -94,6 +94,8 @@ export function PlansTab({ providerId, sourceKey }: {
       qc.invalidateQueries({ queryKey: KEY });
       qc.invalidateQueries({ queryKey: ["offer-editor", providerId] });
       setDeleteTarget(null);
+      // The sheet was open on the plan that no longer exists.
+      setEditing(null);
     },
     onError: (e: Error) => toast.error(e.message || "Could not delete"),
   });
@@ -138,22 +140,12 @@ export function PlansTab({ providerId, sourceKey }: {
                   <h3 className="min-w-0 flex-1 text-[16px] font-semibold leading-[19px] text-foreground">
                     {o.name}
                   </h3>
-                  <span className="flex shrink-0 items-center gap-1">
-                    <Button
-                      size="sm" variant="outline" className="h-8 gap-1.5 rounded-full px-3"
-                      onClick={() => setEditing(o.id)}
-                    >
-                      <Pencil className="h-3.5 w-3.5" /> Edit
-                    </Button>
-                    <Button
-                      size="sm" variant="ghost"
-                      className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                      aria-label={`Delete ${o.name}`}
-                      onClick={() => setDeleteTarget(o)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </span>
+                  <Button
+                    size="sm" variant="outline" className="h-8 shrink-0 gap-1.5 rounded-full px-3"
+                    onClick={() => setEditing(o.id)}
+                  >
+                    <Pencil className="h-3.5 w-3.5" /> Edit
+                  </Button>
                 </div>
                 {o.description && (
                   <p className="mt-1 line-clamp-2 text-[14px] leading-[18px] text-muted-foreground">
@@ -202,6 +194,10 @@ export function PlansTab({ providerId, sourceKey }: {
                 sourceKey={sourceKey}
                 planId={editing}
                 onSaved={() => { qc.invalidateQueries({ queryKey: KEY }); setEditing(null); }}
+                onDelete={() => {
+                  const row = offers.find((o) => o.id === editing);
+                  if (row) setDeleteTarget(row);
+                }}
               />
             )}
           </div>

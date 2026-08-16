@@ -269,7 +269,10 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
         </button>
       </div>
 
-      <div className="app-container space-y-1 pb-8 pt-1">
+      {/* No side gutter: in the design the cards ARE the page width and their
+          own 16 of padding is the only inset. A container's padding on top of
+          that put the text 32 from the edge and the cards on a rail. */}
+      <div className="mx-auto w-full max-w-[1280px] space-y-1 pb-8 pt-1 md:px-space-4">
         {/* Who this is. Name and description only, as in the frame: the avatar
             and the capability chips said nothing to the person who owns the
             business and already knows both. */}

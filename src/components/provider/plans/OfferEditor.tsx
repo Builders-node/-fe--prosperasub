@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, X } from "lucide-react";
+import { Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -84,7 +84,7 @@ const cents = (text: string) => {
   return Number.isFinite(n) && n > 0 ? n : 0;
 };
 
-export function OfferEditor({ providerId, sourceKey, planId, onSaved }: {
+export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }: {
   providerId: string;
   sourceKey: string;
   /**
@@ -97,6 +97,12 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved }: {
   planId?: string;
   /** Called after a successful save — the sheet closes on it. */
   onSaved?: () => void;
+  /**
+   * Ask to delete this plan. Deleting belongs with everything else about a
+   * plan rather than on the card in the list, where it sat one thumb-width
+   * from Edit with nothing but an icon to tell them apart.
+   */
+  onDelete?: () => void;
 }) {
   const qc = useQueryClient();
   const KEY = ["offer-editor", providerId] as const;
@@ -682,6 +688,12 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved }: {
           onClick={() => archive.mutate(offer.status === "active" ? "inactive" : "active")}>
           {offer.status === "active" ? "Take off sale" : "Put back on sale"}
         </Button>
+        {onDelete && (
+          <Button variant="ghost" className="ml-auto rounded-full text-destructive hover:text-destructive"
+            onClick={onDelete}>
+            <Trash2 className="mr-1.5 h-4 w-4" /> Delete plan
+          </Button>
+        )}
       </div>
     </div>
   );
