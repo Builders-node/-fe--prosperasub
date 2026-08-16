@@ -1,11 +1,9 @@
-import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { CalendarClock, ExternalLink, Users, Wallet } from "lucide-react";
+import { CalendarClock, ExternalLink, LandPlot, Package, Users, Wallet, Wrench } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { StatusPill } from "@/components/patterns/StatusPill";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { WorkspaceTabsCard } from "@/components/provider/WorkspaceTabsCard";
 import { WorkspaceStat } from "@/components/provider/WorkspaceUI";
 import { useUserUuid } from "@/hooks/useUserUuid";
@@ -15,13 +13,12 @@ import { formatUSD } from "@/lib/pricing";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
 import { providerHref } from "@/lib/services/serviceUrls";
-import {
-  ALL_CAPABILITIES, ComingSoonTab, INFO_TAB_META,
-  type CapabilityKey, type CapabilityMeta,
-} from "@/components/provider/capabilities";
+import { INFO_TAB_META } from "@/components/provider/capabilities";
 import { UniversalInfoTab, type UniversalProviderRow } from "@/components/provider/UniversalInfoTab";
 import { PlansTab } from "@/components/provider/plans/PlansTab";
-import { InnerPillTabs } from "@/components/provider/InnerPillTabs";
+import { OperationsTab } from "@/components/provider/OperationsTab";
+import { PortalTabsView } from "@/components/provider/PortalTabsView";
+import BeachClubCourtsPage from "@/pages/admin/BeachClubCourts";
 import { BookingsTab } from "@/components/provider/BookingsTab";
 import { ProviderTeamTab } from "@/components/provider/ProviderTeamTab";
 import { ScheduleAccordion } from "@/components/provider/ScheduleAccordion";
@@ -108,19 +105,6 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
     },
   });
 
-  const capabilityTabs = useMemo(() => {
-    if (!provider?.capabilities) return [];
-    // Any capabilities not in ALL_CAPABILITIES (e.g. retired `hourly_bookings`
-    // / `date_range_booking` still living in old DB rows) get silently skipped.
-    return ALL_CAPABILITIES
-      .filter((c) => provider.capabilities!.includes(c.key))
-      .map((c) => ({ key: c.key as CapabilityKey, meta: c }));
-  }, [provider]);
-
-  // `showBookings` retired — the unified Calendar tab covers every service.
-  // Kept the memo signature-hole out so the CapabilityPortal prop drop below
-  // is a compile error if anyone re-adds a per-tab bookings view.
-
   if (isLoading) {
     return (
       <div className="app-container space-y-4 py-6">
@@ -146,6 +130,7 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
   // get BEACH_TABS. isLegacySource() only covers cars|food|cleaning; picking
   // it here left the beach workspace on the empty CapabilityPortal.
   const isLegacyPortal = LEGACY_PORTAL_SOURCE_KEYS.has(sourceKey);
+  const isBeach = sourceKey === "beach" || sourceKey === "beach_club";
 
   // Bookings tab — single answer to "who booked what?" backed by two views:
   //   • By day       → week calendar (UnifiedBookingCalendar)
@@ -171,12 +156,6 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
     label: "Bookings",
     icon: CalendarClock,
     render: () => <BookingsTab providerId={legacyId} sourceKey={sourceKey} byCustomer={byCustomer} />,
-  };
-
-  // ScheduleAccordion rides above Offerings — the rules apply to what's below.
-  // (The KPI strip that used to ride above Overview is now the header card.)
-  const tabPrefixes: Record<string, React.ReactNode> = {
-    offerings: <ScheduleAccordion provider={provider} />,
   };
 
   /**
@@ -207,7 +186,6 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
       </div>
     ),
   };
-  const headTabs: PortalTab<any>[] = [overviewTab];
 
   // Money — what came in, what the platform kept, what has been paid out.
   // Owner-only: the payout ledger is the owner's, and the endpoint behind it
@@ -221,7 +199,6 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
       <ProviderEarningsTab providerId={provider.id} legacyId={legacyId} sourceKey={sourceKey} />
     ),
   };
-  const extraTabs: PortalTab<any>[] = [moneyTab];
 
   /**
    * Team — one tab for every service now that `provider_members` exists.
@@ -237,19 +214,54 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
       <ProviderTeamTab providerId={provider.id} ownerUserId={provider.admin_user_id ?? null} />
     ),
   };
-  const tailTabs: PortalTab<any>[] = [teamTab];
 
-  const capabilityPortal = (
-    <CapabilityPortal
-      provider={provider}
-      capabilityTabs={capabilityTabs}
-      bookingsTab={bookingsTab}
-      tabPrefixes={tabPrefixes}
-      extraTabs={extraTabs}
-      tailTabs={tailTabs}
-      overviewTab={overviewTab}
-    />
-  );
+  /**
+   * The strip, in one place, for every service.
+   *
+   * It used to be assembled twice: a legacy provider got its service's bundle
+   * spliced with head/extra/tail tabs, and a universal one got a separate
+   * portal that built its own row and never applied `ownerOnly`. So a manager
+   * saw Team and Money on a massage business and not on a cleaning one, and
+   * nothing universal had Operations at all — differences nobody chose, from
+   * two mechanisms nobody could see at once.
+   *
+   * There is nothing service-specific left to justify them: Offerings is the
+   * plans editor and Operations is the occurrence list, both keyed by the
+   * universal id whatever sells them. Only the beach's courts are its own.
+   */
+  const tabs: PortalTab<unknown>[] = [
+    overviewTab,
+    {
+      value: "offerings",
+      label: "Offerings",
+      icon: Package,
+      render: () => (
+        <>
+          {/* The booking rules apply to what is below them. */}
+          <ScheduleAccordion provider={provider} />
+          <PlansTab providerId={provider.id} sourceKey={sourceKey} />
+        </>
+      ),
+    },
+    bookingsTab,
+    {
+      value: "operations",
+      label: "Operations",
+      mobileLabel: "Ops.",
+      icon: Wrench,
+      render: () => <OperationsTab providerId={provider.id} />,
+    },
+    // A court is a bookable RESOURCE — its hours, its slot length, its own
+    // calendar — which is a different job from running the day's work.
+    ...(isBeach
+      ? [{
+          value: "resources", label: "Courts", icon: LandPlot,
+          render: () => <BeachClubCourtsPage embedded />,
+        } as PortalTab<unknown>]
+      : []),
+    moneyTab,
+    teamTab,
+  ];
 
   return (
     <>
@@ -315,90 +327,13 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
           </div>
         </section>
 
+        {/* One renderer too. The legacy wrapper is now only what its name
+            says: it answers "may this person be here, and are they the owner",
+            and hands the same strip to the same view. */}
         {isLegacyPortal
-          ? <LegacyOwnerPortal sourceKey={sourceKey} legacyId={legacyId} fallback={capabilityPortal} bookingsTab={bookingsTab} tabPrefixes={tabPrefixes} extraTabs={extraTabs} tailTabs={tailTabs} headTabs={headTabs} />
-          : capabilityPortal}
+          ? <LegacyOwnerPortal sourceKey={sourceKey} legacyId={legacyId} tabs={tabs} isOwner={isOwner} />
+          : <PortalTabsView tabs={tabs} provider={null} isOwner={isOwner} />}
       </div>
     </>
-  );
-}
-
-/**
- * Universal portal for providers with no legacy table.
- *
- * It used to name its tabs after capabilities — "Subscription plans",
- * "Catalog", "Delivery" — while all four legacy portals used
- * Overview / Offerings / Operations / Team. The owner of a massage business
- * therefore met a different structure from the owner of a cleaning business,
- * for no reason a provider could see. INFO_TAB_META's own comment already
- * asked for the legacy shape; the capability tabs just never followed it.
- *
- * Now the shape is identical and the capabilities become sub-tabs INSIDE
- * Offerings, the same way cars put Insurance / Extras / Delivery inside
- * Operations. One capability collapses to no sub-tabs at all, so a simple
- * provider sees a plain Plans editor rather than a pill row of one.
- */
-function CapabilityPortal({ provider, capabilityTabs, bookingsTab, tabPrefixes = {}, extraTabs = [], tailTabs = [], overviewTab }: {
-  provider: UniversalProviderRow;
-  capabilityTabs: { key: CapabilityKey; meta: CapabilityMeta }[];
-  bookingsTab: PortalTab<unknown>;
-  tabPrefixes?: Record<string, React.ReactNode>;
-  /** Same extras the legacy portals get, so a universal provider isn't a
-   *  second-class one — see legacyPortalTabs.assembleTabs. */
-  extraTabs?: PortalTab<any>[];
-  /** Appended last — Team, the same tab every service now gets. */
-  tailTabs?: PortalTab<any>[];
-  /** Built by the workspace so legacy and universal portals show one Overview. */
-  overviewTab: PortalTab<unknown>;
-}) {
-  const renderCapability = (key: CapabilityKey, meta: CapabilityMeta) =>
-    key === "subscription_plans"
-      ? <PlansTab providerId={provider.id} sourceKey="" />
-      : <ComingSoonTab capability={meta} />;
-
-  const offerings = capabilityTabs.length === 1
-    ? renderCapability(capabilityTabs[0].key, capabilityTabs[0].meta)
-    : (
-      <InnerPillTabs
-        items={capabilityTabs.map(({ key, meta }) => ({
-          key: meta.tabValue,
-          label: meta.tabLabel,
-          render: () => renderCapability(key, meta),
-        }))}
-      />
-    );
-
-  const stripTabs = [
-    { value: INFO_TAB_META.tabValue, label: INFO_TAB_META.tabLabel },
-    ...(capabilityTabs.length > 0 ? [{ value: "offerings", label: "Offerings" }] : []),
-    { value: bookingsTab.value, label: bookingsTab.label },
-    ...[...extraTabs, ...tailTabs].map((t) => ({ value: t.value, label: t.label })),
-  ];
-
-  return (
-    <Tabs defaultValue={INFO_TAB_META.tabValue} className="space-y-1">
-      <WorkspaceTabsCard tabs={stripTabs} />
-
-      <TabsContent value={INFO_TAB_META.tabValue} className="mt-1">
-        {overviewTab.render(null as never, true)}
-      </TabsContent>
-
-      {capabilityTabs.length > 0 && (
-        <TabsContent value="offerings" className="mt-1">
-          {tabPrefixes.offerings}
-          {offerings}
-        </TabsContent>
-      )}
-
-      <TabsContent value={bookingsTab.value} className="mt-1">
-        {bookingsTab.render(null as never, true)}
-      </TabsContent>
-
-      {[...extraTabs, ...tailTabs].map((t) => (
-        <TabsContent key={t.value} value={t.value} className="mt-1">
-          {t.render(null as never, true)}
-        </TabsContent>
-      ))}
-    </Tabs>
   );
 }

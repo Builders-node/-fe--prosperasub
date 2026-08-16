@@ -22,7 +22,7 @@ export function ImageField({
   label,
   value,
   onChange,
-  bucket = "vehicle-images",
+  bucket = "media",
   pathPrefix = "food",
   aspectClass,
   variant = "banner",

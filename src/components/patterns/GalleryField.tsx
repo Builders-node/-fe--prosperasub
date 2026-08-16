@@ -11,8 +11,9 @@ import { supabaseDb } from "@/integrations/supabase/client";
  * N-photo gallery editor for a provider — used inside ProviderEditDialog and
  * anywhere a business owner needs to attach multiple images to a record.
  *
- *  - Uploads to Supabase Storage bucket (defaults to `vehicle-images` for
- *    parity with `ImageField` — swap once we mint a dedicated bucket).
+ *  - Uploads to the platform's `media` bucket: public to read, writable with
+ *    the anon key the browser holds, capped at 5MB of image. Objects cannot be
+ *    deleted through it — removing a picture removes its URL from the record.
  *  - Falls back to "paste URL" for anyone who already has hosted images.
  *  - Left/right nudges reorder in place; trash removes.
  *  - The parent owns the array; this component is pure input.
@@ -34,7 +35,7 @@ export function GalleryField({
   label = "Gallery",
   value,
   onChange,
-  bucket = "vehicle-images",
+  bucket = "media",
   pathPrefix = "providers/gallery",
   max = 12,
 }: GalleryFieldProps) {
