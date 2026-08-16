@@ -254,6 +254,26 @@ const ProviderDetail = () => {
    */
   const plansQ = useUniversalPlans(providerId, !!providerId);
 
+  /**
+   * Does this business take bookings on a calendar? If it does, the customer
+   * needs a way in — the booking screen was reachable from the beach club and
+   * nowhere else, so a provider could publish calendars nobody could see.
+   */
+  const bookableQ = useQuery({
+    queryKey: ["provider-has-calendars", providerId],
+    enabled: !!providerId,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { count, error } = await supabaseDb
+        .from("bookable_resources")
+        .select("id", { count: "exact", head: true })
+        .eq("provider_id", providerId!)
+        .eq("status", "active");
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+
   // Rating summary — must be declared BEFORE any early return to satisfy
   // Rules of Hooks. `enabled` gates the actual fetch until we have the id.
   const ratingSummaryQ = useQuery({
@@ -488,6 +508,19 @@ const ProviderDetail = () => {
             {hours && <p className="text-[16px] leading-[22px] text-muted-foreground">{hours}</p>}
             {p.location && <p className="text-[16px] leading-[22px] text-muted-foreground">{p.location}</p>}
           </div>
+
+          {(bookableQ.data ?? 0) > 0 && (
+            <button
+              type="button"
+              onClick={() => navigate(`/providers/${providerId}/book`)}
+              className="mt-3 flex w-full items-center justify-between rounded-radius-md bg-inset px-4 py-3 text-left transition-colors hover:bg-muted"
+            >
+              <span className="text-[16px] font-semibold leading-[22px] text-foreground">Book a time</span>
+              <span className="text-[14px] leading-[18px] text-muted-foreground">
+                {bookableQ.data === 1 ? "1 calendar" : `${bookableQ.data} calendars`}
+              </span>
+            </button>
+          )}
 
           {/* One segmented control instead of three stacked sections: the page
               had plans, reviews and pictures all scrolling past each other. */}

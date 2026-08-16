@@ -46,6 +46,7 @@ const LegacyPortalRedirect = lazy(() => import("./pages/user/LegacyPortalRedirec
 // Beach Club
 const BeachClub = lazy(() => import("./pages/beach/BeachClub"));
 const BeachCourts = lazy(() => import("./pages/beach/BeachCourts"));
+const BookCalendar = lazy(() => import("./pages/BookCalendar"));
 
 // Cleaning
 const CleaningPackages = lazy(() => import("./pages/cleaning/CleaningPackages"));
@@ -265,6 +266,11 @@ const App = () => {
               } />
               <Route path="/my-provider/:providerId" element={
                 <ProtectedRoute><MyProvider /></ProtectedRoute>
+              } />
+              {/* Book a time on any provider's calendar. Holding a slot needs
+                  an account — the engine takes the subject from the token. */}
+              <Route path="/providers/:providerId/book" element={
+                <ProtectedRoute><BookCalendar /></ProtectedRoute>
               } />
               {/* Legacy portal URLs — resolve ?providerId=<legacy> to universal and redirect. */}
               <Route path="/my-restaurant"  element={<ProtectedRoute><LegacyPortalRedirect service="food" /></ProtectedRoute>} />

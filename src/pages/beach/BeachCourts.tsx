@@ -16,6 +16,7 @@ import { useUserUuid } from "@/hooks/useUserUuid";
 import { todayHN } from "@/lib/timezone";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { bookingErrorMessage } from "@/lib/booking/errors";
 
 /**
  * Format "HH:MM" → "8AM" / "1:30PM". The engine can return non-hour-aligned
@@ -161,19 +162,9 @@ const BeachCourts = () => {
         body: JSON.stringify({ resource_id: resourceId, date, from }),
       });
       if (hold.error) {
-        // The engine returns machine codes ("slot_unavailable"); translate the
-        // ones a customer can actually hit so the toast reads like a sentence.
-        const raw = hold.error.message || "";
-        const friendly =
-          raw === "slot_unavailable" ? "That time isn't bookable — pick another slot."
-          : raw === "resource_not_found" ? "This court isn't available for booking yet."
-          // The provider's own rules, refused server-side. Saying which one was
-          // hit beats a code, and beats a button that simply does nothing.
-          : raw === "membership_required" ? "Court booking is for members — subscribe first."
-          : raw === "too_many_bookings" ? "You've reached your limit of upcoming bookings. Cancel one to book another."
-          : raw === "daily_limit_reached" ? "You've booked your maximum for that day."
-          : raw || "Could not hold slot";
-        throw new Error(friendly);
+        // The engine answers with machine codes; the sentences live in one
+        // place so this screen and the general one say the same thing.
+        throw new Error(bookingErrorMessage(hold.error.message));
       }
       const held = hold.data as { held?: boolean; bookingId?: string; reason?: string } | null;
       if (!held?.held || !held.bookingId) {
