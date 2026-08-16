@@ -19,7 +19,7 @@ import { UniversalInfoTab, type UniversalProviderRow } from "@/components/provid
 import { PlansTab } from "@/components/provider/plans/PlansTab";
 import { OperationsTab } from "@/components/provider/OperationsTab";
 import { PortalTabsView } from "@/components/provider/PortalTabsView";
-import BeachClubCourtsPage from "@/pages/admin/BeachClubCourts";
+import { CalendarsTab } from "@/components/provider/CalendarsTab";
 import { BookingsTab } from "@/components/provider/BookingsTab";
 import { ProviderTeamTab } from "@/components/provider/ProviderTeamTab";
 import { ScheduleAccordion } from "@/components/provider/ScheduleAccordion";
@@ -160,7 +160,6 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
   // get BEACH_TABS. isLegacySource() only covers cars|food|cleaning; picking
   // it here left the beach workspace on the empty CapabilityPortal.
   const isLegacyPortal = LEGACY_PORTAL_SOURCE_KEYS.has(sourceKey);
-  const isBeach = sourceKey === "beach" || sourceKey === "beach_club";
 
   // Bookings tab — single answer to "who booked what?" backed by two views:
   //   • By day       → week calendar (UnifiedBookingCalendar)
@@ -281,14 +280,16 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
       icon: Wrench,
       render: () => <OperationsTab providerId={provider.id} />,
     },
-    // A court is a bookable RESOURCE — its hours, its slot length, its own
-    // calendar — which is a different job from running the day's work.
-    ...(isBeach
-      ? [{
-          value: "resources", label: "Courts", icon: LandPlot,
-          render: () => <BeachClubCourtsPage embedded />,
-        } as PortalTab<unknown>]
-      : []),
+    // What can be booked here, for everybody. A calendar is a bookable
+    // resource — its kind, its hours, its slot length — which is a different
+    // job from running the day's work, and it was a beach-only screen for no
+    // reason: the engine has always taken bookings against any resource.
+    {
+      value: "resources",
+      label: "Calendars",
+      icon: LandPlot,
+      render: () => <CalendarsTab providerId={provider.id} />,
+    },
     moneyTab,
     teamTab,
   ];
