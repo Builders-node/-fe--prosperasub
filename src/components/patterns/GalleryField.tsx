@@ -111,7 +111,9 @@ export function GalleryField({
           {urls.map((url, idx) => (
             <div key={url + idx} className="group relative aspect-square overflow-hidden rounded-xl bg-muted">
               <img src={url} alt="" className="h-full w-full object-cover" />
-              <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-background/85 px-1.5 py-1 opacity-0 transition-opacity group-hover:opacity-100">
+              {/* Always there on a touch screen: there is no hover to reveal
+                  it with, so reorder and remove were unreachable on a phone. */}
+              <div className="absolute inset-x-0 bottom-0 flex items-center justify-between bg-background/85 px-1.5 py-1 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
                 <div className="flex gap-0.5">
                   <button
                     type="button"

@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { supabaseDb } from "@/integrations/supabase/client";
+import { GalleryField } from "@/components/patterns/GalleryField";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 
@@ -56,6 +57,7 @@ interface PlanRow {
   features: unknown;
   excludes: unknown;
   tags: string[] | null;
+  gallery_urls: string[] | null;
 }
 
 interface DraftOption { key: string; label: string }
@@ -189,6 +191,15 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
     leadMinutes: "", windowMinutes: "",
   });
   const [includes, setIncludes] = useState({ features: "", excludes: "", tags: "" });
+  /**
+   * The plan's own photographs.
+   *
+   * They live on `provider_plans.gallery_urls` whatever service sells the
+   * plan — the mirror trigger never touches that column, so a legacy plan's
+   * pictures survive every later edit of its legacy row. Same place the plan
+   * page and the storefront card read them from.
+   */
+  const [gallery, setGallery] = useState<string[]>([]);
 
   useEffect(() => {
     if (!offer || !data) return;
@@ -223,6 +234,7 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
       leadMinutes: offer.lead_time_minutes != null ? String(offer.lead_time_minutes) : "",
       windowMinutes: offer.window_minutes != null ? String(offer.window_minutes) : "",
     });
+    setGallery(Array.isArray(offer.gallery_urls) ? offer.gallery_urls.filter(Boolean) : []);
     const attrs = data.legacyAttrs?.get(offer.id);
     setIncludes({
       features: asLines(attrs ? attrs.features : offer.features),
@@ -293,6 +305,7 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
         tags: fromLines(includes.tags.replace(/,/g, "\n")),
         excludes: fromLines(includes.excludes),
         features: fromLines(includes.features),
+        gallery_urls: gallery,
         updated_at: new Date().toISOString(),
       }).eq("id", offer.id);
       if (switchErr) throw switchErr;
@@ -498,6 +511,20 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
           {draftGroups.length
             ? <>Customers see one card. Its price shows as “from {fromCents ? formatUSD(fromCents) : "—"}”, the cheapest combination below.</>
             : <>Customers see one card at {fromCents ? formatUSD(fromCents) : "—"}.</>}
+        </p>
+      </section>
+
+      <section className="space-y-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
+        <p className="text-[20px] font-semibold leading-[26px] text-foreground">Photographs</p>
+        <GalleryField
+          label=""
+          value={gallery}
+          onChange={setGallery}
+          pathPrefix="plans/gallery"
+          max={8}
+        />
+        <p className="text-[14px] leading-[18px] text-muted-foreground">
+          The first one is the picture on this plan's card. Saved with the plan.
         </p>
       </section>
 
