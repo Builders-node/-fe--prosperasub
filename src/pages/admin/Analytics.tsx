@@ -1,7 +1,5 @@
 import { useSearchParams } from "react-router-dom";
-import { SparklesIcon, Layers, UtensilsCrossed, Waves } from "lucide-react";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
-import { cn } from "@/lib/utils";
 import CleaningAnalytics from "./CleaningAnalytics";
 import FoodAnalytics from "./FoodAnalytics";
 import BeachClubAnalytics from "./BeachClubAnalytics";
@@ -10,10 +8,10 @@ import { DomainEventBusPanel } from "@/components/admin/DomainEventBusPanel";
 const SERVICES = [
   // The platform first, because that is the question an admin opens this page
   // with; a single service is the follow-up, not the starting point.
-  { id: "all", label: "All services", icon: Layers, color: "text-foreground" },
-  { id: "cleaning", label: "Cleaning", icon: SparklesIcon, color: "text-blue-400" },
-  { id: "food", label: "Food", icon: UtensilsCrossed, color: "text-orange-400" },
-  { id: "beach", label: "Beach Club", icon: Waves, color: "text-cyan-400" },
+  { id: "all", label: "All services" },
+  { id: "cleaning", label: "Cleaning" },
+  { id: "food", label: "Food" },
+  { id: "beach", label: "Beach Club" },
 ] as const;
 type ServiceId = (typeof SERVICES)[number]["id"];
 
@@ -46,28 +44,23 @@ const Analytics = () => {
 
   return (
     <SuperAdminLayout title="Analytics" subtitle="Revenue, retention and volume — the platform, or one service">
-      {/* Service switcher */}
-      <div className="mb-space-5 flex flex-wrap gap-space-2">
-        {SERVICES.map((s) => {
-          const Icon = s.icon;
-          const active = s.id === service;
-          return (
-            <button
-              key={s.id}
-              type="button"
-              onClick={() => setService(s.id)}
-              className={cn(
-                "flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition-colors",
-                active
-                  ? "border-foreground bg-foreground text-background"
-                  : "border-border bg-muted/40 text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <Icon className={cn("h-4 w-4", active ? "" : s.color)} />
-              {s.label}
-            </button>
-          );
-        })}
+      {/* One control, not a row of chips: the list is going to grow with the
+          marketplace, and a row that wraps onto a second line is a row that
+          stops reading as a single choice. */}
+      <div className="mb-space-5 flex items-center gap-3">
+        <label htmlFor="analytics-service" className="text-[16px] leading-[22px] text-muted-foreground">
+          Showing
+        </label>
+        <select
+          id="analytics-service"
+          value={service}
+          onChange={(e) => setService(e.target.value as ServiceId)}
+          className="h-10 min-w-[220px] rounded-radius-md border border-input bg-card px-3 text-[16px] font-semibold tracking-[-0.02em] text-foreground"
+        >
+          {SERVICES.map((s) => (
+            <option key={s.id} value={s.id}>{s.label}</option>
+          ))}
+        </select>
       </div>
 
       {/* "All" is every service's own analytics, in order, each under its own
