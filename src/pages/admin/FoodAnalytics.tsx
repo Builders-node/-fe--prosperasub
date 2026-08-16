@@ -237,6 +237,18 @@ const FoodAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
 
         {/* Status breakdown + Monthly chart */}
         <div className="grid gap-6 lg:grid-cols-2">
+          {/* Revenue over time — second on every service's page. */}
+          <div className="rounded-radius-lg bg-card p-4 tracking-[-0.02em] space-y-4">
+            <h2 className="flex items-center gap-2 text-[20px] font-semibold leading-[26px] text-foreground">
+              <BarChart3 className="h-5 w-5 text-orange-400" />
+              Revenue (last 6 months)
+            </h2>
+            <MonthlyRevenueChart months={last6} barClass="bg-orange-500/60" formatValue={formatUSD} />
+            <div className="border-t border-border pt-3 flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Total committed revenue</span>
+              <span className="font-bold text-orange-400">{formatUSD(totalRevenueCents)}</span>
+            </div>
+          </div>
           {/* Subscription status */}
           <div className="rounded-radius-lg bg-card p-4 tracking-[-0.02em] space-y-4">
             <h2 className="flex items-center gap-2 text-[20px] font-semibold leading-[26px] text-foreground">
@@ -276,17 +288,6 @@ const FoodAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
           </div>
 
           {/* Monthly revenue bar chart */}
-          <div className="rounded-radius-lg bg-card p-4 tracking-[-0.02em] space-y-4">
-            <h2 className="flex items-center gap-2 text-[20px] font-semibold leading-[26px] text-foreground">
-              <BarChart3 className="h-5 w-5 text-orange-400" />
-              Revenue (last 6 months)
-            </h2>
-            <MonthlyRevenueChart months={last6} barClass="bg-orange-500/60" formatValue={formatUSD} />
-            <div className="border-t border-border pt-3 flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Total committed revenue</span>
-              <span className="font-bold text-orange-400">{formatUSD(totalRevenueCents)}</span>
-            </div>
-          </div>
         </div>
 
         {/* Plan + Restaurant performance */}
