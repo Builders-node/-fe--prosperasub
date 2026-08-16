@@ -5,9 +5,7 @@ import { Banknote, Info, TrendingUp, Wallet, ArrowUpRight } from "lucide-react";
 import { supabaseDb, accountApi } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/lib/supabasePaging";
 import { formatUSD } from "@/lib/pricing";
-import {
-  FINANCE_SOURCES, financeSourceFor, readTakeConfig, splitTake,
-} from "@/lib/finance/platformTake";
+import { commissionPct, splitTake } from "@/lib/finance/platformTake";
 import { fetchEarned } from "@/lib/finance/providerEarnings";
 import { cn } from "@/lib/utils";
 import { WorkspaceStat } from "@/components/provider/WorkspaceUI";
@@ -30,11 +28,11 @@ import { toast } from "sonner";
  *    paid up front earns a third of its money each month. Booking it all in
  *    the month of purchase would make the first month look like a windfall and
  *    the next two like a collapse.
- * 2. The commission model is read from the same `global_settings` keys the
- *    admin edits, through the same helpers (lib/finance/platformTake). If an
- *    admin changes the rate, this screen changes with it — a provider and an
- *    admin quoting different numbers at each other is the failure mode worth
- *    designing against.
+ * 2. The commission is this business's own rate (`providers.commission_pct`,
+ *    falling back to the platform default), through the same helper the admin
+ *    finance page uses. If an admin changes the rate, this screen changes with
+ *    it — a provider and an admin quoting different numbers at each other is
+ *    the failure mode worth designing against.
  * 3. Payouts come from the ledger, not from a guess. If nothing has been
  *    recorded, the screen says nothing has been recorded.
  * 4. Withdrawing is a request, not a transfer. The cap shown here is
@@ -64,8 +62,6 @@ function rangeFor(key: RangeKey): { start: Date; end: Date } {
   if (key === "year") return { start: new Date(y, 0, 1), end: endOfToday };
   return { start: new Date(2020, 0, 1), end: endOfToday };
 }
-
-const AVG_DAYS_PER_MONTH = 365.25 / 12;
 
 interface PayoutRow {
   id: string;
@@ -187,9 +183,18 @@ export function ProviderEarningsTab({ providerId, legacyId, sourceKey }: {
 }) {
   const [range, setRange] = useState<RangeKey>("month");
   const { start, end } = useMemo(() => rangeFor(range), [range]);
-  const months = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1) / AVG_DAYS_PER_MONTH;
 
-  const sourceMeta = FINANCE_SOURCES.find((s) => s.key === financeSourceFor(sourceKey)) ?? null;
+  /** This business's own rate. */
+  const { data: providerRow } = useQuery({
+    queryKey: ["provider-commission", providerId],
+    enabled: !!providerId,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data } = await supabaseDb
+        .from("providers").select("commission_pct").eq("id", providerId).maybeSingle();
+      return (data ?? null) as { commission_pct: number | null } | null;
+    },
+  });
 
   const { data: settings } = useQuery({
     queryKey: ["global-settings-finance"],
@@ -223,13 +228,9 @@ export function ProviderEarningsTab({ providerId, legacyId, sourceKey }: {
     },
   });
 
-  const cfg = readTakeConfig(settings);
   const revenue = earned?.revenue ?? 0;
-  const units = earned?.units ?? 0;
-
-  const split = sourceMeta
-    ? splitTake(sourceMeta, cfg[sourceMeta.key], { revenueCents: revenue, units, months })
-    : { platformCents: 0, providerCents: revenue, explanation: "No commission is configured for this service." };
+  const pct = commissionPct(providerRow?.commission_pct, settings);
+  const split = splitTake(revenue, pct);
 
   // Payouts inside the selected window, so "paid" answers the same question
   // "earned" does. All-time totals would make a monthly view unreadable.
@@ -281,7 +282,7 @@ export function ProviderEarningsTab({ providerId, legacyId, sourceKey }: {
           hint="Spread across the days each plan covers"
         />
         <MoneyCard
-          label={sourceMeta?.kind === "cost" ? "Platform margin" : "Platform fee"}
+          label={`Platform fee · ${pct}%`}
           value={isLoading ? "—" : formatUSD(split.platformCents)}
           hint={split.explanation}
         />
@@ -295,15 +296,6 @@ export function ProviderEarningsTab({ providerId, legacyId, sourceKey }: {
           hint={paidInRange ? `${formatUSD(paidInRange)} already paid` : "Nothing paid out for this period"}
         />
       </div>
-
-      {/* A service the finance model does not know earns nothing, forever, and
-          the withdraw panel would just refuse without saying why. */}
-      {!sourceMeta && (
-        <div className="rounded-radius-lg bg-card p-4 text-[16px] leading-[22px] tracking-[-0.02em] text-muted-foreground">
-          No commission model is set up for this service yet, so nothing can be
-          calculated or withdrawn. An admin sets one in Finance → Net Profit.
-        </div>
-      )}
 
       <WithdrawPanel providerId={providerId} availableCents={availableCents} />
 

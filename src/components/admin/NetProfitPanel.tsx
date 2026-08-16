@@ -3,51 +3,47 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { startOfMonth, endOfMonth, format } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import {
-  Sparkles, UtensilsCrossed, Waves, Wallet, TrendingUp, TrendingDown,
-  Calendar as CalendarIcon, Settings2, PiggyBank, type LucideIcon,
+  Wallet, TrendingUp, TrendingDown, Calendar as CalendarIcon, Settings2, PiggyBank, Percent,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
-import { fetchAllRows } from "@/lib/supabasePaging";
 import { supabaseDb, adminApi } from "@/integrations/supabase/client";
 import { formatUSD } from "@/lib/pricing";
-import { recognizedCents, overlapDays, addDaysISO } from "@/lib/revenueRecognition";
+import { commissionPct, splitTake, DEFAULT_COMMISSION_KEY, DEFAULT_COMMISSION_PCT } from "@/lib/finance/platformTake";
+import { fetchEarned } from "@/lib/finance/providerEarnings";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
+/**
+ * What the platform makes, business by business.
+ *
+ * This page used to model money per SERVICE, in three shapes: cleaning was
+ * "bought in" at a fixed $750/month so its profit was whatever revenue was
+ * left over (and could be a loss), the beach club was $10 per person, food was
+ * 10%. Three arithmetics, a type switch on each, and no way to say what the
+ * platform actually sells — a rate per business.
+ *
+ * One model now: each provider has a `commission_pct`, the platform keeps that
+ * share of what its customers paid, and the provider keeps the rest. Revenue
+ * per provider comes from `fetchEarned`, the same recognition the provider's
+ * own Money tab shows them, so the two screens cannot quote different numbers.
+ */
+
 type RangeKey = "month" | "custom";
-type CostType = "percent" | "fixed" | "person";
-type SrcKey = "cleaning" | "beach" | "food";
 
-interface Source {
-  key: SrcKey;
-  label: string;
-  icon: LucideIcon;
-  unit: string;            // singular noun for the "per-unit" type (per person / booking / …)
-  kind: "cost" | "take";   // cleaning is a cost we pay; others are commission we keep
-  valueKey: string;        // global_settings key holding the numeric value
-  typeKey: string;         // global_settings key holding the cost type
+interface ProviderRow {
+  id: string;
+  name: string;
+  status: string | null;
+  commission_pct: number | null;
+  source_service_key: string | null;
+  source_provider_id: string | null;
+  archetype_key: string | null;
 }
-
-const SOURCES: Source[] = [
-  { key: "cleaning", label: "Cleaning",       icon: Sparkles,        unit: "subscription", kind: "cost", valueKey: "finance_cleaning_cost_cents", typeKey: "finance_cleaning_type" },
-  { key: "beach",    label: "Beach Club",     icon: Waves,           unit: "person",       kind: "take", valueKey: "finance_beach_extra_cents",   typeKey: "finance_beach_type" },
-  { key: "food",     label: "Food Orders",    icon: UtensilsCrossed, unit: "order",        kind: "take", valueKey: "finance_food_commission_pct", typeKey: "finance_food_type" },
-];
-
-// Raw value is stored in cents for fixed/person types, and as a whole percent for percent.
-const DEFAULT_TYPE: Record<SrcKey, CostType> = { cleaning: "fixed", beach: "person", food: "percent" };
-const DEFAULT_RAW: Record<SrcKey, number> = { cleaning: 75000, beach: 1000, food: 10 };
-
-type SrcCfg = { type: CostType; raw: number };
-const fallbackCfg = () =>
-  Object.fromEntries(SOURCES.map((s) => [s.key, { type: DEFAULT_TYPE[s.key], raw: DEFAULT_RAW[s.key] }])) as Record<SrcKey, SrcCfg>;
 
 function rangeFor(key: RangeKey, customStart: string, customEnd: string) {
   const now = new Date();
@@ -60,199 +56,107 @@ function rangeFor(key: RangeKey, customStart: string, customEnd: string) {
 export function NetProfitPanel() {
   const qc = useQueryClient();
 
-  // ── Period ────────────────────────────────────────────────────────────────
+  // ── Period ──────────────────────────────────────────────────────────────────
   const [range, setRange] = useState<RangeKey>("month");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
   const { start, end } = useMemo(() => rangeFor(range, customStart, customEnd), [range, customStart, customEnd]);
   const startISO = start.toISOString();
   const endISO = end.toISOString();
-  // "Fixed" amounts are quoted per-month. Pro-rate by the number of days the
-  // reporting window covers so a 12-day custom range charges ~0.4 months, not
-  // 2 (the old differenceInCalendarMonths+1 counted every calendar month the
-  // range touched, doubling short cross-month windows).
-  const rangeDays = Math.max(1, Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1);
-  const AVG_DAYS_PER_MONTH = 30.4375; // 365.25 / 12
-  const monthsInRange = rangeDays / AVG_DAYS_PER_MONTH;
-  // Whole-month copy label ("× 3 mo") — round for display but the math above
-  // uses the true fractional value.
-  const monthsInRangeLabel = Math.max(1, Math.round(monthsInRange));
 
-  // ── Settings (read from backend, editable) ──────────────────────────────────
+  // ── The businesses and their rates ──────────────────────────────────────────
+  const { data: providers = [] } = useQuery({
+    queryKey: ["finance-providers"],
+    queryFn: async () => {
+      const { data, error } = await supabaseDb
+        .from("providers")
+        .select("id, name, status, commission_pct, source_service_key, source_provider_id, archetype_key")
+        .order("name", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as ProviderRow[];
+    },
+  });
+
   const { data: settings } = useQuery({
     queryKey: ["finance-settings"],
     queryFn: async () => {
       const { data, error } = await adminApi("/admin/settings");
       if (error) throw error;
-      const out = {} as Record<SrcKey, SrcCfg>;
-      const unset: SrcKey[] = [];
-      for (const s of SOURCES) {
-        // A missing key is not the same as a saved one that happens to equal
-        // the default. For months every figure on this page — and every
-        // "owed" number a provider saw — came from a code default nobody had
-        // chosen, and nothing said so.
-        if (data[s.valueKey] == null || data[s.typeKey] == null) unset.push(s.key);
-        out[s.key] = {
-          type: (String(data[s.typeKey] ?? DEFAULT_TYPE[s.key]) as CostType),
-          raw: Number(data[s.valueKey] ?? DEFAULT_RAW[s.key]),
-        };
-      }
-      return { cfg: out, unset };
+      return (data ?? {}) as Record<string, unknown>;
     },
   });
 
-  const cfg = settings?.cfg ?? fallbackCfg();
-  const unsetSources = settings?.unset ?? [];
+  const defaultPct = Number(settings?.[DEFAULT_COMMISSION_KEY] ?? DEFAULT_COMMISSION_PCT);
 
-  // Editable form mirrors saved settings, but the value is in *display* units
-  // (whole percent for percent; dollars for fixed/person).
-  type SrcForm = { type: CostType; value: number };
-  const toForm = (c: Record<SrcKey, SrcCfg>): Record<SrcKey, SrcForm> =>
-    Object.fromEntries(SOURCES.map((s) => {
-      const { type, raw } = c[s.key];
-      return [s.key, { type, value: type === "percent" ? raw : raw / 100 }];
-    })) as Record<SrcKey, SrcForm>;
-
-  const [form, setForm] = useState<Record<SrcKey, SrcForm>>(() => toForm(fallbackCfg()));
-  useEffect(() => { if (settings) setForm(toForm(settings.cfg)); }, [settings]);
-
-  const saveSettings = useMutation({
-    mutationFn: async () => {
-      const body: Record<string, unknown> = {};
-      for (const s of SOURCES) {
-        const f = form[s.key];
-        body[s.typeKey] = f.type;
-        body[s.valueKey] = f.type === "percent" ? f.value : Math.round(f.value * 100);
-      }
-      const { error } = await adminApi("/admin/settings", { method: "PATCH", body: JSON.stringify(body) });
-      if (error) throw error;
+  // ── Revenue per business, over the period ───────────────────────────────────
+  // One call per provider, each the same query the business sees on its own
+  // Money tab. Five businesses today; if that ever becomes fifty this is the
+  // place to add a single grouped query — not a second definition of revenue.
+  const { data: revenues = {}, isLoading } = useQuery({
+    queryKey: ["finance-provider-revenue", startISO, endISO, providers.map((p) => p.id).join(",")],
+    enabled: providers.length > 0,
+    queryFn: async () => {
+      const pairs = await Promise.all(providers.map(async (p) => {
+        const sourceKey = p.source_service_key ?? p.archetype_key ?? "";
+        const legacyId = p.source_provider_id ?? p.id;
+        const { revenue } = await fetchEarned(sourceKey, legacyId, start, end, p.id);
+        return [p.id, revenue] as const;
+      }));
+      return Object.fromEntries(pairs) as Record<string, number>;
     },
-    onSuccess: () => {
-      toast.success("Financial settings saved");
+  });
+
+  const rows = providers.map((p) => {
+    const revenue = revenues[p.id] ?? 0;
+    const pct = commissionPct(p.commission_pct, settings);
+    const split = splitTake(revenue, pct);
+    return { ...p, revenue, pct, ours: split.platformCents, theirs: split.providerCents };
+  });
+
+  const earning = rows.filter((r) => r.revenue > 0);
+  const totalRevenue = rows.reduce((s, r) => s + r.revenue, 0);
+  const netProfit = rows.reduce((s, r) => s + r.ours, 0);
+  // Everything we don't keep goes to the businesses. revenue − payouts = profit.
+  const toProviders = totalRevenue - netProfit;
+
+  // ── Editing the rates ───────────────────────────────────────────────────────
+  const [form, setForm] = useState<Record<string, number>>({});
+  const [defaultForm, setDefaultForm] = useState<number>(DEFAULT_COMMISSION_PCT);
+  useEffect(() => {
+    if (!providers.length) return;
+    setForm(Object.fromEntries(providers.map((p) => [p.id, Number(p.commission_pct ?? defaultPct)])));
+  }, [providers, defaultPct]);
+  useEffect(() => { setDefaultForm(defaultPct); }, [defaultPct]);
+
+  const saveRates = useMutation({
+    mutationFn: async () => {
+      const changed = providers.filter((p) => Number(p.commission_pct ?? defaultPct) !== form[p.id]);
+      for (const p of changed) {
+        const { error } = await supabaseDb
+          .from("providers")
+          .update({ commission_pct: form[p.id], updated_at: new Date().toISOString() })
+          .eq("id", p.id);
+        if (error) throw error;
+      }
+      if (defaultForm !== defaultPct) {
+        const { error } = await adminApi("/admin/settings", {
+          method: "PATCH",
+          body: JSON.stringify({ [DEFAULT_COMMISSION_KEY]: defaultForm }),
+        });
+        if (error) throw error;
+      }
+      return changed.length + (defaultForm !== defaultPct ? 1 : 0);
+    },
+    onSuccess: (n) => {
+      toast.success(n ? "Commission updated" : "Nothing to save");
+      qc.invalidateQueries({ queryKey: ["finance-providers"] });
       qc.invalidateQueries({ queryKey: ["finance-settings"] });
+      qc.invalidateQueries({ queryKey: ["provider-earnings"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const unsetNotice = unsetSources.length > 0 && (
-    <div className="mb-space-3 rounded-radius-md bg-amber-500/10 p-space-3 text-sm text-amber-600 dark:text-amber-400">
-      <b>Not set yet:</b> {unsetSources.join(", ")}. Those rates fall back to a
-      built-in default, so every profit figure here — and every “owed” amount a
-      provider sees — is a number nobody chose. Save below to make it real.
-    </div>
-  );
-
-  // ── Revenue + counts (period-scoped, paid only) ─────────────────────────────
-  // Revenue is recognized straight-line across each sub's service period, so a
-  // 3-month plan contributes ~⅓ of its total to each month it spans. We fetch
-  // all paid subs and keep only the portion that overlaps [start, end]. Counts
-  // are the subs whose service period overlaps the window at all.
-  const { data: rev, isLoading } = useQuery({
-    queryKey: ["finance-profit-revenue", startISO, endISO],
-    queryFn: async () => {
-      // Paged — see lib/supabasePaging.ts. These feed the Net Profit figure.
-      const [cleaning, beach, food] = await Promise.all([
-        fetchAllRows<any>(() => supabaseDb.from("cleaning_subscriptions")
-          .select("total_price_cents, monthly_price_cents, created_at, service_start_date, service_end_date, start_date, end_date")
-          .eq("payment_status", "paid").is("deleted_at", null).order("id")),
-        // Beach memberships live on the universal row now; the legacy table
-        // is its shadow.
-        fetchAllRows<any>(() => supabaseDb.from("provider_subscriptions")
-          .select("price_cents, metadata, created_at, start_date, end_date")
-          .eq("source_service_key", "beach")
-          .eq("payment_status", "paid").order("id")),
-        fetchAllRows<any>(() => supabaseDb.from("food_subscriptions")
-          // Same discipline as the other three tables — a food sub with
-          // payment_status != 'paid' (Infinita/crypto that never reconciled) is
-          // NOT revenue. Without this filter, unpaid subs inflate Net Profit.
-          .select("weekly_price_cents, commitment_weeks, periods_paid, created_at, started_at")
-          .in("status", ["active", "paused", "expired"])
-          .eq("payment_status", "paid").order("id")),
-      ]);
-
-      const acc = (rows: any[], toInput: (r: any) => Parameters<typeof recognizedCents>[0], unit?: (r: any) => number) => {
-        let revenue = 0, count = 0;
-        (rows ?? []).forEach((r) => {
-          const input = toInput(r);
-          const cents = recognizedCents(input, start, end);
-          if (overlapDays(input, start, end) > 0) { revenue += cents; count += unit ? unit(r) : 1; }
-        });
-        return { revenue, count };
-      };
-
-      return {
-        cleaning: acc(cleaning, (r) => {
-          // If service_end_date is missing (data-entry gap) derive the number
-          // of months from total/monthly so a 3-month plan recognises over
-          // ~90 days, not lumped into the 30-day fallback. Falls back to a
-          // single month only for truly one-off sales.
-          const total = Number(r.total_price_cents || 0);
-          const monthly = Number(r.monthly_price_cents || 0);
-          const months = monthly > 0 && total >= monthly ? Math.max(1, Math.round(total / monthly)) : 1;
-          return {
-            totalCents: total || monthly,
-            serviceStart: r.service_start_date || r.start_date || r.created_at,
-            serviceEnd: r.service_end_date || r.end_date,
-            fallbackDays: months * 30,
-          };
-        }),
-        beach: acc(beach, (r) => ({
-          totalCents: r.price_cents || 0,
-          serviceStart: r.start_date || r.created_at,
-          serviceEnd: r.end_date,
-          fallbackDays: 30,
-        }), (r) => Number(r.metadata?.people) || 0),
-        food: acc(food, (r) => {
-          const weeks = (r.commitment_weeks || 1) * (r.periods_paid || 1);
-          const startDay = r.started_at || r.created_at;
-          return {
-            totalCents: (r.weekly_price_cents || 0) * weeks,
-            serviceStart: startDay,
-            serviceEnd: startDay ? addDaysISO(startDay, weeks * 7) : null,
-            fallbackDays: weeks * 7,
-          };
-        }),
-      } as Record<SrcKey, { revenue: number; count: number }>;
-    },
-  });
-
-  const r = rev ?? { cleaning: { revenue: 0, count: 0 }, beach: { revenue: 0, count: 0 }, food: { revenue: 0, count: 0 } };
-
-  // ── Profit model ────────────────────────────────────────────────────────────
-  // The configured value is computed into an "amount": for a cost source it's
-  // what we pay (profit = revenue − amount); for a take source it's our cut
-  // (profit = amount, capped at revenue).
-  const computeAmount = (key: SrcKey) => {
-    const { type, raw } = cfg[key];
-    const { revenue, count } = r[key];
-    if (type === "percent") return Math.round(revenue * (raw / 100));
-    // Fixed = per-month rate × the fractional month coverage of the range.
-    if (type === "fixed") return Math.round(raw * monthsInRange);
-    return raw * count; // person / per-unit
-  };
-
-  const noteFor = (s: Source) => {
-    const { type, raw } = cfg[s.key];
-    const { count } = r[s.key];
-    if (type === "percent") return `${raw}% of revenue${s.kind === "cost" ? " (provider cost)" : " commission"}`;
-    if (type === "fixed") return `${formatUSD(raw)}/mo${monthsInRangeLabel > 1 ? ` × ${monthsInRangeLabel} mo` : ""}${s.kind === "cost" ? " fixed cost" : " fixed"}`;
-    return `${formatUSD(raw)} × ${count} ${s.unit}${count === 1 ? "" : "s"}`;
-  };
-
-  const rows = SOURCES.map((s) => {
-    const revenue = r[s.key].revenue;
-    const amount = computeAmount(s.key);
-    const profit = s.kind === "cost" ? revenue - amount : Math.min(amount, revenue);
-    return { ...s, revenue, profit, note: noteFor(s) };
-  });
-
-  const totalRevenue = rows.reduce((s, x) => s + x.revenue, 0);
-  const netProfit = rows.reduce((s, x) => s + x.profit, 0);
-  // Expenses = everything we don't keep. Reconciles: revenue − expenses = net profit.
-  const totalExpenses = totalRevenue - netProfit;
-
   const money = (v: number) => `${v < 0 ? "-" : ""}${formatUSD(Math.abs(v))}`;
-  const profitClass = (v: number) => (v < 0 ? "text-red-400" : "text-primary");
 
   return (
     <div className="space-y-space-4">
@@ -314,65 +218,61 @@ export function NetProfitPanel() {
         <Card>
           <CardContent className="p-space-5">
             <div className="flex items-center gap-space-2 text-sm font-medium text-muted-foreground">
-              <TrendingDown className="h-4 w-4" /> Total expenses
+              <TrendingDown className="h-4 w-4" /> Paid to providers
             </div>
-            <p className="mt-space-2 text-3xl font-black tabular-nums text-foreground">{formatUSD(totalExpenses)}</p>
+            <p className="mt-space-2 text-3xl font-black tabular-nums text-foreground">{formatUSD(toProviders)}</p>
           </CardContent>
         </Card>
-        <Card className={netProfit < 0 ? "bg-red-500/10" : "bg-primary/10"}>
+        <Card className="bg-primary/10">
           <CardContent className="p-space-5">
             <div className="flex items-center gap-space-2 text-sm font-medium text-muted-foreground">
-              <PiggyBank className={cn("h-4 w-4", profitClass(netProfit))} /> Net profit
+              <PiggyBank className="h-4 w-4 text-primary" /> Our commission
             </div>
-            <p className={cn("mt-space-2 text-3xl font-black tabular-nums", profitClass(netProfit))}>{money(netProfit)}</p>
+            <p className="mt-space-2 text-3xl font-black tabular-nums text-primary">{money(netProfit)}</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Profit breakdown by source */}
+      {/* Per-business breakdown */}
       <Card className="mt-space-4">
         <CardHeader>
           <CardTitle className="flex items-center gap-space-2">
-            <TrendingUp className="h-5 w-5 text-primary" /> Profit by source
+            <TrendingUp className="h-5 w-5 text-primary" /> Commission by business
           </CardTitle>
           <CardDescription>
-            {format(start, "MMM d, yyyy")} — {format(end, "MMM d, yyyy")} · revenue recognized straight-line across each subscription's service months
+            {format(start, "MMM d, yyyy")} — {format(end, "MMM d, yyyy")} · revenue recognized straight-line across each subscription's service days
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[520px] text-sm">
               <thead>
                 <tr className="border-b border-border/60 text-left text-xs uppercase tracking-wide text-muted-foreground">
-                  <th className="py-2 pr-4 font-semibold">Source</th>
+                  <th className="py-2 pr-4 font-semibold">Business</th>
                   <th className="px-3 py-2 text-right font-semibold">Revenue</th>
-                  <th className="px-3 py-2 text-right font-semibold">Our profit</th>
-                  <th className="hidden py-2 pl-3 font-semibold md:table-cell">Rule</th>
+                  <th className="px-3 py-2 text-right font-semibold">Rate</th>
+                  <th className="px-3 py-2 text-right font-semibold">Our commission</th>
+                  <th className="px-3 py-2 text-right font-semibold">They keep</th>
                 </tr>
               </thead>
               <tbody className={cn(isLoading && "opacity-50")}>
-                {rows.map((row) => {
-                  const Icon = row.icon;
-                  return (
-                    <tr key={row.key} className="border-b border-border/40">
-                      <td className="py-2.5 pr-4">
-                        <span className="flex items-center gap-2 font-semibold text-foreground">
-                          <Icon className="h-4 w-4 text-primary" /> {row.label}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2.5 text-right font-mono tabular-nums text-foreground">{formatUSD(row.revenue)}</td>
-                      <td className={cn("px-3 py-2.5 text-right font-mono font-bold tabular-nums", profitClass(row.profit))}>{money(row.profit)}</td>
-                      <td className="hidden py-2.5 pl-3 text-xs text-muted-foreground md:table-cell">{row.note}</td>
-                    </tr>
-                  );
-                })}
+                {(earning.length ? earning : rows).map((row) => (
+                  <tr key={row.id} className="border-b border-border/40">
+                    <td className="py-2.5 pr-4 font-semibold text-foreground">{row.name}</td>
+                    <td className="px-3 py-2.5 text-right font-mono tabular-nums text-foreground">{formatUSD(row.revenue)}</td>
+                    <td className="px-3 py-2.5 text-right font-mono tabular-nums text-muted-foreground">{row.pct}%</td>
+                    <td className="px-3 py-2.5 text-right font-mono font-bold tabular-nums text-primary">{money(row.ours)}</td>
+                    <td className="px-3 py-2.5 text-right font-mono tabular-nums text-muted-foreground">{formatUSD(row.theirs)}</td>
+                  </tr>
+                ))}
               </tbody>
               <tfoot>
                 <tr className="border-t border-border text-foreground">
-                  <td className="py-2.5 pr-4 font-bold">Net profit</td>
+                  <td className="py-2.5 pr-4 font-bold">Total</td>
                   <td className="px-3 py-2.5 text-right font-mono font-bold tabular-nums">{formatUSD(totalRevenue)}</td>
-                  <td className={cn("px-3 py-2.5 text-right font-mono font-black tabular-nums", profitClass(netProfit))}>{money(netProfit)}</td>
-                  <td className="hidden md:table-cell" />
+                  <td />
+                  <td className="px-3 py-2.5 text-right font-mono font-black tabular-nums text-primary">{money(netProfit)}</td>
+                  <td className="px-3 py-2.5 text-right font-mono font-bold tabular-nums">{formatUSD(toProviders)}</td>
                 </tr>
               </tfoot>
             </table>
@@ -380,63 +280,59 @@ export function NetProfitPanel() {
         </CardContent>
       </Card>
 
-      {/* Configurable settings — type + value per source */}
+      {/* The rates themselves */}
       <Card className="mt-space-4">
         <CardHeader>
           <CardTitle className="flex items-center gap-space-2">
-            <Settings2 className="h-5 w-5" /> Financial settings
+            <Settings2 className="h-5 w-5" /> Commission rates
           </CardTitle>
           <CardDescription>
-            Pick how each source is calculated — Percent of revenue, a Fixed monthly amount, or Per-unit (per person / booking / order) — then set the value. The profit figures above update from the saved values.
+            What the platform keeps of each business's revenue. The business sees the same
+            rate and the same figures on its own Money tab, and its payout cap follows it.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-space-4">
-          {unsetNotice}
-          <div className="grid grid-cols-1 gap-space-3 sm:grid-cols-2">
-            {SOURCES.map((s) => {
-              const f = form[s.key];
-              const isPct = f.type === "percent";
-              const Icon = s.icon;
-              return (
-                <div key={s.key} className="space-y-space-3 rounded-radius-lg border border-[hsl(var(--app-divider))] p-space-4">
-                  <div className="flex items-center gap-2 font-semibold text-foreground">
-                    <Icon className="h-4 w-4 text-primary" /> {s.label}
-                    <span className="ml-auto text-xs font-normal text-muted-foreground">{s.kind === "cost" ? "Cost" : "Our cut"}</span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-space-3">
-                    <div>
-                      <Label className="text-xs">Type</Label>
-                      <Select value={f.type} onValueChange={(v) => setForm((p) => ({ ...p, [s.key]: { ...p[s.key], type: v as CostType } }))}>
-                        <SelectTrigger className="h-9"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="percent">Percent (%)</SelectItem>
-                          <SelectItem value="fixed">Fixed ($)</SelectItem>
-                          <SelectItem value="person">Per {s.unit} ($)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label className="text-xs">{isPct ? "Rate (%)" : "Amount ($)"}</Label>
-                      <Input
-                        type="number" min={0} step={isPct ? 0.5 : 1} max={isPct ? 100 : undefined}
-                        value={f.value}
-                        onChange={(e) => setForm((p) => ({ ...p, [s.key]: { ...p[s.key], value: parseFloat(e.target.value) || 0 } }))}
-                      />
-                    </div>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {s.kind === "cost"
-                      ? `Cleaning revenue above this cost is profit (can be a loss if under).`
-                      : `Our profit from each ${s.unit}.`}
-                  </p>
+          <div className="grid grid-cols-1 gap-space-3 sm:grid-cols-2 lg:grid-cols-3">
+            {providers.map((p) => (
+              <div key={p.id} className="space-y-2 rounded-radius-lg border border-[hsl(var(--app-divider))] p-space-4">
+                <div className="flex items-center gap-2">
+                  <span className="truncate font-semibold text-foreground">{p.name}</span>
+                  {p.status !== "active" && (
+                    <span className="ml-auto text-xs text-muted-foreground">inactive</span>
+                  )}
                 </div>
-              );
-            })}
+                <div className="relative">
+                  <Input
+                    type="number" min={0} max={100} step={0.5}
+                    value={form[p.id] ?? defaultPct}
+                    onChange={(e) => setForm((f) => ({ ...f, [p.id]: parseFloat(e.target.value) || 0 }))}
+                    className="pr-8"
+                  />
+                  <Percent className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                </div>
+              </div>
+            ))}
           </div>
-          <Button onClick={() => saveSettings.mutate()} disabled={saveSettings.isPending}>
-            {saveSettings.isPending && <Spinner size="sm" className="mr-2" />}
-            Save settings
-          </Button>
+
+          <div className="flex flex-wrap items-end gap-space-3 border-t border-[hsl(var(--app-divider))] pt-space-4">
+            <div>
+              <p className="text-sm font-semibold text-foreground">Default for new businesses</p>
+              <p className="text-xs text-muted-foreground">Used until a business is given a rate of its own.</p>
+            </div>
+            <div className="relative w-28">
+              <Input
+                type="number" min={0} max={100} step={0.5}
+                value={defaultForm}
+                onChange={(e) => setDefaultForm(parseFloat(e.target.value) || 0)}
+                className="pr-8"
+              />
+              <Percent className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            </div>
+            <Button className="ml-auto" onClick={() => saveRates.mutate()} disabled={saveRates.isPending}>
+              {saveRates.isPending && <Spinner size="sm" className="mr-2" />}
+              Save rates
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>
