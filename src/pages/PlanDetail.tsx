@@ -11,6 +11,7 @@ import { QueryError } from "@/components/QueryError";
 import { YdEmptyState } from "@/components/yd/YdPrimitives";
 import { PlanOptionPicker } from "@/components/plans/PlanOptionPicker";
 import { MealSelectionPicker, defaultMealsForCount, type MealKey } from "@/components/food/MealSelectionPicker";
+import { useProviderItems } from "@/lib/services/providerItems";
 import { useCart } from "@/contexts/CartContext";
 import { toast } from "sonner";
 import {
@@ -300,10 +301,13 @@ const PlanDetail = () => {
   const mealsPerDay = plan?.source === "food"
     ? Number(chosen?.optionKeys?.meals_per_day ?? selection.meals_per_day ?? 1) || 1
     : 0;
+  // What this provider delivers in a day — the picker's options, their names
+  // and their order all come from here.
+  const { items: providerItems } = useProviderItems(plan?.providerId ?? null);
   const [meals, setMeals] = useState<MealKey[]>([]);
   useEffect(() => {
-    if (mealsPerDay > 0) setMeals(defaultMealsForCount(mealsPerDay));
-  }, [mealsPerDay]);
+    if (mealsPerDay > 0) setMeals(defaultMealsForCount(mealsPerDay, providerItems));
+  }, [mealsPerDay, providerItems]);
 
   /** What the customer is actually buying right now. */
   const priceCents = chosen?.priceCents ?? plan?.priceCents ?? null;
@@ -602,7 +606,12 @@ const PlanDetail = () => {
 
           {plan.source === "food" && mealsPerDay > 0 && (
             <div className="rounded-radius-md bg-inset px-4 py-3">
-              <MealSelectionPicker value={meals} onChange={setMeals} mealsPerDay={mealsPerDay} />
+              <MealSelectionPicker
+                value={meals}
+                onChange={setMeals}
+                mealsPerDay={mealsPerDay}
+                items={providerItems}
+              />
             </div>
           )}
 

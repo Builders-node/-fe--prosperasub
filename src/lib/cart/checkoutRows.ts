@@ -123,6 +123,9 @@ export function buildRows(item: CartItem, plan: CheckoutPlan, ctx: RowContext): 
   // rather than a bigger one — two portions are two people eating.
   if (item.service === "food") {
     const per = Math.round(ctx.surchargeCents / Math.max(1, item.qty));
+    // The cart holds no provider dictionary, so this stays on the platform's
+    // original three. The customer picks their actual meals on the plan page
+    // and on the subscription screen, both of which read `provider_items`.
     const meals = MEAL_KEYS.slice(0, Math.max(1, Math.min(item.mealsPerDay || 3, 3))) as MealKey[];
     return Array.from({ length: item.qty }, (_, index) => {
       // The remainder rides on the first portion so the rows sum to the fee

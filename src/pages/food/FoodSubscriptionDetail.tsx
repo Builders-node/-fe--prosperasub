@@ -12,6 +12,7 @@ import { ResponsiveDialog } from "@/components/patterns/ResponsiveDialog";
 import { Badge } from "@/components/ui/badge";
 import { MealSelectionPicker, defaultMealsForCount, formatMeals, type MealKey } from "@/components/food/MealSelectionPicker";
 import { getMealTypesForPlan, formatWeekLabel } from "@/lib/foodUtils";
+import { useProviderItemsByLegacy } from "@/lib/services/providerItems";
 import { formatUSD } from "@/lib/pricing";
 import { RateAndTip } from "@/components/food/RateAndTip";
 import { RenewPreviewDialog } from "@/components/subscriptions/RenewPreviewDialog";
@@ -168,7 +169,10 @@ export default function FoodSubscriptionDetail() {
   }
 
   const { access, status, reason, canRenew, subscription: sub, provider, plan, menu } = data;
-  const mealTypes = getMealTypesForPlan((plan as any) ?? null);
+  // `sub.provider_id` is the LEGACY food id; the dictionary is keyed by the
+  // universal one, so this hops the bridge.
+  const { items: providerItems } = useProviderItemsByLegacy("food", sub.provider_id);
+  const mealTypes = getMealTypesForPlan((plan as any) ?? null, providerItems);
   const totalCents = (sub.weekly_price_cents || 0) * (sub.commitment_weeks || 1);
   const badge = statusMeta(status);
 
@@ -311,7 +315,8 @@ export default function FoodSubscriptionDetail() {
                 <span className="text-right text-sm font-medium text-foreground">
                   {formatMeals(
                     (mealsRow?.selected_meals as MealKey[] | null) ??
-                    (plan ? defaultMealsForCount(plan.meals_per_day) : []),
+                    (plan ? defaultMealsForCount(plan.meals_per_day, providerItems) : []),
+                    providerItems,
                   )}
                 </span>
                 {plan && (
@@ -322,7 +327,7 @@ export default function FoodSubscriptionDetail() {
                     onClick={() => {
                       setDraftMeals(
                         (mealsRow?.selected_meals as MealKey[] | null) ??
-                        defaultMealsForCount(plan.meals_per_day),
+                        defaultMealsForCount(plan.meals_per_day, providerItems),
                       );
                       setMealsSheetOpen(true);
                     }}
@@ -415,6 +420,7 @@ export default function FoodSubscriptionDetail() {
             value={draftMeals}
             onChange={setDraftMeals}
             mealsPerDay={plan.meals_per_day}
+            items={providerItems}
           />
         )}
       </ResponsiveDialog>

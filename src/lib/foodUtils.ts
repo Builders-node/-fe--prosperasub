@@ -1,5 +1,6 @@
 import type { MealType, FoodMealPlan } from "@/types/food";
 import { addDaysISO } from "@/lib/timezone";
+import { itemKeys, type ProviderItem } from "@/lib/services/providerItems";
 
 /**
  * Return the ordered meal-type columns to display for a given plan.
@@ -15,8 +16,14 @@ import { addDaysISO } from "@/lib/timezone";
  * `plan` is kept in the signature purely so callers don't have to change; the
  * result is the same three meals in canonical order for every plan.
  */
-export function getMealTypesForPlan(_plan?: FoodMealPlan | null): MealType[] {
-  return ["breakfast", "lunch", "dinner"];
+export function getMealTypesForPlan(
+  _plan?: FoodMealPlan | null,
+  items: ProviderItem[] = [],
+): MealType[] {
+  // Every column the provider offers, so the chef can fill any of them —
+  // which is the same rule as before, now asked of the provider rather than
+  // of a literal.
+  return itemKeys(items) as MealType[];
 }
 
 /** Format a YYYY-MM-DD date as "June 10, 2026" */

@@ -41,6 +41,34 @@ export async function fetchProviderItems(providerId: string): Promise<ProviderIt
   }));
 }
 
+/**
+ * The same dictionary, reached from a LEGACY provider id.
+ *
+ * `provider_items` is keyed by the universal `providers.id`, and the food
+ * screens hold `food_providers.id` — the id-space split that this codebase
+ * warns about in providerBridge.ts. One hop, then the items.
+ */
+export function useProviderItemsByLegacy(
+  sourceKey: string,
+  legacyId: string | null | undefined,
+) {
+  const bridged = useQuery({
+    queryKey: ["universal-id-for-legacy", sourceKey, legacyId ?? ""],
+    enabled: !!legacyId,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabaseDb
+        .from("providers").select("id")
+        .eq("source_service_key", sourceKey)
+        .eq("source_provider_id", legacyId!)
+        .maybeSingle();
+      if (error) throw error;
+      return (data?.id ?? null) as string | null;
+    },
+  });
+  return useProviderItems(bridged.data ?? null);
+}
+
 export function useProviderItems(providerId: string | null | undefined) {
   const query = useQuery({
     queryKey: PROVIDER_ITEMS_KEY(providerId),
@@ -74,4 +102,26 @@ export function itemLabel(key: string | null | undefined, items: ProviderItem[] 
 export function itemRank(key: string | null | undefined, items: ProviderItem[] = []): number {
   const i = items.findIndex((x) => x.key === key);
   return i === -1 ? Number.MAX_SAFE_INTEGER : items[i].sortOrder;
+}
+
+/**
+ * The keys a provider offers, in their order.
+ *
+ * The fallback is the three this platform shipped with, and it exists for one
+ * reason: a provider whose dictionary is empty must keep working exactly as
+ * before. Fill in `provider_items` and it goes away.
+ */
+export const LEGACY_MEAL_KEYS = ["breakfast", "lunch", "dinner"];
+
+export function itemKeys(items: ProviderItem[] = []): string[] {
+  return items.length ? items.map((i) => i.key) : LEGACY_MEAL_KEYS;
+}
+
+/** Sort any list of keys into the provider's own order. */
+export function sortItemKeys(keys: string[], items: ProviderItem[] = []): string[] {
+  const order = itemKeys(items);
+  return [...keys].sort((a, b) => {
+    const ia = order.indexOf(a); const ib = order.indexOf(b);
+    return (ia === -1 ? order.length : ia) - (ib === -1 ? order.length : ib) || a.localeCompare(b);
+  });
 }

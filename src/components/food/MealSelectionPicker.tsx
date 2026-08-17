@@ -1,29 +1,36 @@
-import { Coffee, Sun, Moon } from "lucide-react";
+import { Coffee, Sun, Moon, UtensilsCrossed } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  itemKeys, itemLabel, sortItemKeys, LEGACY_MEAL_KEYS, type ProviderItem,
+} from "@/lib/services/providerItems";
 
 /**
- * The three canonical meal keys. Ordering matches how a day naturally reads
- * (morning → evening) so `sortMeals` produces the same order everywhere.
+ * What a customer picks is what the provider offers.
+ *
+ * These three keys were the platform's idea of a day and are now only a
+ * fallback for a provider whose dictionary is empty. Everything below takes
+ * `items` (from `provider_items`) and reads names, order and the list itself
+ * from there, so a restaurant that sells brunch can sell brunch.
  */
-export const MEAL_KEYS = ["breakfast", "lunch", "dinner"] as const;
-export type MealKey = (typeof MEAL_KEYS)[number];
+export const MEAL_KEYS = LEGACY_MEAL_KEYS;
+/** Free text, like `service_occurrences.item_key` — not a union any more. */
+export type MealKey = string;
 
-const MEAL_META: Record<MealKey, { label: string; icon: typeof Coffee }> = {
-  breakfast: { label: "Breakfast", icon: Coffee },
-  lunch:     { label: "Lunch",     icon: Sun },
-  dinner:    { label: "Dinner",    icon: Moon },
+/** Decoration only: the pictures for the meals this platform shipped with. */
+const MEAL_ICON: Record<string, typeof Coffee> = {
+  breakfast: Coffee, lunch: Sun, dinner: Moon,
 };
+const iconFor = (key: string) => MEAL_ICON[key] ?? UtensilsCrossed;
 
-/** Sort by canonical day order so [dinner, breakfast] renders as [breakfast, dinner]. */
-export function sortMeals(meals: MealKey[]): MealKey[] {
-  return [...meals].sort((a, b) => MEAL_KEYS.indexOf(a) - MEAL_KEYS.indexOf(b));
+/** Sort into the provider's own order — [dinner, breakfast] → [breakfast, dinner]. */
+export function sortMeals(meals: MealKey[], items: ProviderItem[] = []): MealKey[] {
+  return sortItemKeys(meals, items);
 }
 
 /** Human-readable summary — "Breakfast · Lunch" or "Lunch" or "—" (empty). */
-export function formatMeals(meals: string[] | null | undefined): string {
+export function formatMeals(meals: string[] | null | undefined, items: ProviderItem[] = []): string {
   if (!meals?.length) return "—";
-  const valid = meals.filter((m): m is MealKey => (MEAL_KEYS as readonly string[]).includes(m));
-  return sortMeals(valid).map((m) => MEAL_META[m].label).join(" · ");
+  return sortMeals(meals, items).map((m) => itemLabel(m, items)).join(" · ");
 }
 
 /**
@@ -39,15 +46,19 @@ export function MealSelectionPicker({
   value,
   onChange,
   mealsPerDay,
+  items = [],
   disabled,
 }: {
   value: MealKey[];
   onChange: (next: MealKey[]) => void;
   mealsPerDay: number;
+  /** What this provider delivers in a day. Empty falls back to the old three. */
+  items?: ProviderItem[];
   disabled?: boolean;
 }) {
+  const options = itemKeys(items);
   const selected = new Set(value);
-  const cap = Math.max(1, Math.min(mealsPerDay, MEAL_KEYS.length));
+  const cap = Math.max(1, Math.min(mealsPerDay, options.length));
   const isValid = value.length === cap;
 
   const toggle = (m: MealKey) => {
@@ -65,7 +76,7 @@ export function MealSelectionPicker({
       }
       next.add(m);
     }
-    onChange(sortMeals(Array.from(next)));
+    onChange(sortMeals(Array.from(next), items));
   };
 
   return (
@@ -84,11 +95,12 @@ export function MealSelectionPicker({
         </p>
       </div>
 
-      <div className="grid grid-cols-3 gap-2">
-        {MEAL_KEYS.map((meal) => {
-          const meta = MEAL_META[meal];
+      {/* Two per row on a narrow phone, and however many the provider has —
+          a fixed three-column grid left a fourth item alone on its own line. */}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {options.map((meal) => {
           const on = selected.has(meal);
-          const Icon = meta.icon;
+          const Icon = iconFor(meal);
           return (
             <button
               key={meal}
@@ -105,7 +117,7 @@ export function MealSelectionPicker({
               aria-pressed={on}
             >
               <Icon className="h-5 w-5" />
-              <span className="text-xs font-semibold">{meta.label}</span>
+              <span className="text-xs font-semibold">{itemLabel(meal, items)}</span>
             </button>
           );
         })}
@@ -125,9 +137,13 @@ export function MealSelectionPicker({
   );
 }
 
-/** Convenience — safe default when no explicit selection exists. */
-export function defaultMealsForCount(mealsPerDay: number): MealKey[] {
-  if (mealsPerDay >= 3) return ["breakfast", "lunch", "dinner"];
-  if (mealsPerDay === 2) return ["lunch", "dinner"];
-  return ["lunch"];
+/**
+ * A safe default when nothing has been chosen yet: the last N of what the
+ * provider offers, so a two-meal plan means the day's later meals rather than
+ * a hard-coded lunch and dinner.
+ */
+export function defaultMealsForCount(mealsPerDay: number, items: ProviderItem[] = []): MealKey[] {
+  const options = itemKeys(items);
+  const n = Math.max(1, Math.min(mealsPerDay || 1, options.length));
+  return options.slice(Math.max(0, options.length - n));
 }
