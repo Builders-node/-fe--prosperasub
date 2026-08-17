@@ -120,18 +120,6 @@ export function OperationsTab({ providerId }: { providerId: string }) {
     onError: (e: any) => toast.error(e?.message || "Couldn't move it"),
   });
 
-  const assign = useMutation({
-    mutationFn: async ({ id, assignee }: { id: string; assignee: string }) => {
-      const { error } = await accountApi(`/account/occurrences/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ assignee: assignee || null }),
-      });
-      if (error) throw new Error(String(error));
-    },
-    onSuccess: invalidate,
-    onError: (e: any) => toast.error(e?.message || "Couldn't assign it"),
-  });
-
   const generate = useMutation({
     mutationFn: async () => {
       const { data, error } = await accountApi(
@@ -148,10 +136,23 @@ export function OperationsTab({ providerId }: { providerId: string }) {
   });
 
   const counts = useMemo(() => {
-    const out: Record<string, number> = { all: rows.length };
+    const out: Record<string, number> = { all: rows.filter((r) => r.status !== "cancelled").length };
     rows.forEach((r) => { out[r.status] = (out[r.status] ?? 0) + 1; });
     return out;
   }, [rows]);
+
+  /**
+   * What the day's list shows.
+   *
+   * "All" means everything that still stands. A cancelled booking is not work
+   * — the club showed one at 9am today, offered to mark it Done, and left the
+   * owner wondering whether somebody was coming. It keeps its own chip, so
+   * nothing is hidden from whoever goes looking.
+   */
+  const visible = useMemo(
+    () => (statusFilter === "all" ? rows.filter((r) => r.status !== "cancelled") : rows),
+    [rows, statusFilter],
+  );
 
   return (
     <div className="space-y-5">
@@ -159,7 +160,7 @@ export function OperationsTab({ providerId }: { providerId: string }) {
         <div>
           <h2 className="text-[20px] font-semibold leading-[26px] text-foreground">Today's work</h2>
           <p className="mt-1 text-[16px] leading-[22px] text-muted-foreground">
-            Every visit, delivery and booking for this day — mark it, move it, or say who is doing it.
+            Every visit, delivery and booking for this day — mark it or move it.
           </p>
         </div>
         <div className="flex flex-wrap items-end gap-2">
@@ -182,13 +183,13 @@ export function OperationsTab({ providerId }: { providerId: string }) {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {(["all", "scheduled", "done", "failed"] as const).map((key) => (
+        {(["all", "scheduled", "done", "failed", ...(counts.cancelled ? ["cancelled"] as const : [])] as const).map((key) => (
           <button key={key} type="button" onClick={() => setStatusFilter(key)}
             className={cn(
               "rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors",
               statusFilter === key ? "bg-foreground text-background" : "bg-muted/50 text-muted-foreground hover:text-foreground",
             )}>
-            {key === "all" ? "All" : STATUS_META[key].label}
+            {key === "all" ? "All" : STATUS_META[key]?.label ?? key}
             {counts[key] ? <span className="ml-1.5 opacity-60">{counts[key]}</span> : null}
           </button>
         ))}
@@ -209,7 +210,7 @@ export function OperationsTab({ providerId }: { providerId: string }) {
             Try again
           </Button>
         </div>
-      ) : rows.length === 0 ? (
+      ) : visible.length === 0 ? (
         <div className="rounded-radius-lg bg-card p-8 text-center">
           <p className="text-[16px] leading-[22px] text-muted-foreground">
             Nothing on this day. If work should be here, use <b>Schedule ahead</b> — deliveries are
@@ -218,7 +219,7 @@ export function OperationsTab({ providerId }: { providerId: string }) {
         </div>
       ) : (
         <ul className="space-y-2">
-          {rows.map((r) => {
+          {visible.map((r) => {
             const meta = STATUS_META[r.status] ?? STATUS_META.scheduled;
             return (
               <li key={r.id} className="rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
@@ -250,28 +251,19 @@ export function OperationsTab({ providerId }: { providerId: string }) {
                         {[r.status_reason, r.notes, r.access_instructions].filter(Boolean).join(" · ")}
                       </p>
                     )}
-                    <div className="mt-2 flex items-center gap-2">
-                      <Input
-                        defaultValue={r.assignee ?? ""}
-                        placeholder="Who is doing it"
-                        className="h-8 w-44 text-sm"
-                        onBlur={(e) => {
-                          const next = e.target.value.trim();
-                          if (next !== (r.assignee ?? "")) assign.mutate({ id: r.id, assignee: next });
-                        }}
-                      />
-                    </div>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-1.5">
-                    {r.status !== "done" && (
+                    {/* A cancelled booking is not something anybody finishes:
+                        the only move left is putting it back. */}
+                    {r.status !== "done" && r.status !== "cancelled" && (
                       <Button size="sm" className="gap-1.5 rounded-full"
                         disabled={setStatus.isPending}
                         onClick={() => setStatus.mutate({ id: r.id, status: "done" })}>
                         <CheckCircle2 className="h-4 w-4" /> Done
                       </Button>
                     )}
-                    {r.status !== "failed" && (
+                    {r.status !== "failed" && r.status !== "cancelled" && (
                       <Button size="sm" variant="outline" className="gap-1.5 rounded-full"
                         onClick={() => { setFailing(r); setReason(""); }}>
                         <XCircle className="h-4 w-4" /> Failed

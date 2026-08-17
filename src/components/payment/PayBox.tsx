@@ -143,7 +143,19 @@ export function PayBox({
           onPaid={(pid) => finish(pid, false)}
         />
       )}
-      {payOpen && paymentMethod === "paypal" && <PayPalPanel totalCents={effectiveCents} onPaid={(cap) => finish(cap)} />}
+      {payOpen && paymentMethod === "paypal" && (
+        <PayPalPanel
+          totalCents={effectiveCents}
+          onPaid={(cap) => finish(cap)}
+          orderMeta={{
+            service_name: serviceName,
+            description: serviceName,
+            client_name: clientName || undefined,
+            client_phone: clientPhone || undefined,
+            admin_url: adminUrl,
+          }}
+        />
+      )}
       {payOpen && paymentMethod === "lightning" && invoice && (
         <div className="flex flex-col items-center rounded-2xl border border-border p-4 text-center">
           <p className="mb-2 font-bold">Scan to pay {formatUSD(effectiveCents)}</p>

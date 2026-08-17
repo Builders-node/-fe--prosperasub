@@ -172,7 +172,18 @@ export function TipPayment({
       {payOpen && paymentMethod === "infinita" && (
         <InfinitaPaymentPanel totalCents={tipCents} serviceName="Tip" onPaid={(pid) => finish(pid, false)} />
       )}
-      {payOpen && paymentMethod === "paypal" && <PayPalPanel totalCents={tipCents} onPaid={(cap) => finish(cap)} />}
+      {payOpen && paymentMethod === "paypal" && (
+        <PayPalPanel
+          totalCents={tipCents}
+          onPaid={(cap) => finish(cap)}
+          orderMeta={{
+            service_name: serviceName,
+            description: serviceName,
+            client_name: customerName || undefined,
+            admin_url: adminUrl,
+          }}
+        />
+      )}
       {payOpen && paymentMethod === "lightning" && invoice && (
         <div className="flex flex-col items-center rounded-2xl border border-border p-4 text-center">
           <p className="mb-2 font-bold">Scan to tip {formatUSD(tipCents)}</p>

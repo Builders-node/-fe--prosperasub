@@ -663,7 +663,13 @@ export default function Cart() {
               <InfinitaPaymentPanel totalCents={effectiveTotalCents} serviceName={basketMeta().service_name} onPaid={(pid) => onPaidComplete(pid, false)} />
             )}
             {step === "pay" && paymentMethod === "paypal" && (
-              <PayPalPanel totalCents={effectiveTotalCents} onPaid={(cap) => onPaidComplete(cap)} />
+              <PayPalPanel
+                totalCents={effectiveTotalCents}
+                onPaid={(cap) => onPaidComplete(cap)}
+                // The same basket the other rails announce. Without it the
+                // admin's "payment received" said Not provided five times.
+                orderMeta={basketMeta()}
+              />
             )}
             {step === "pay" && (inv.state.invoice || inv.state.address) && (
               <InvoiceQrPanel
