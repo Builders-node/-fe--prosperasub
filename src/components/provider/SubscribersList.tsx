@@ -53,6 +53,8 @@ export interface SubscriberRow {
   start: string | null;
   end: string | null;
   amountCents: number;
+  /** Everything this subscription has been charged, renewals included. */
+  lifetimeCents?: number;
   status: string;
   paymentStatus: string | null;
   /** One line of whatever this service cares about — a headcount, an address. */
@@ -270,8 +272,16 @@ export function SubscribersList({ providerId, legacyId, sourceKey }: {
                 <p className="mt-0.5 text-[14px] leading-[18px] text-muted-foreground">{r.detail}</p>
               )}
             </div>
-            <span className="shrink-0 text-[16px] font-semibold tabular-nums text-foreground">
-              {formatUSD(r.amountCents)}
+            <span className="shrink-0 text-right">
+              <span className="block text-[16px] font-semibold tabular-nums text-foreground">
+                {formatUSD(r.amountCents)}
+              </span>
+              {/* Renewals, said once: the period above, the relationship here. */}
+              {(r.periodsPaid ?? 1) > 1 && (
+                <span className="block text-[12px] leading-[16px] tabular-nums text-muted-foreground">
+                  ×{r.periodsPaid} · {formatUSD(r.lifetimeCents ?? r.amountCents * (r.periodsPaid ?? 1))} total
+                </span>
+              )}
             </span>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -369,7 +379,16 @@ async function fetchFood(legacyProviderId: string): Promise<SubscriberRow[]> {
   const users = await fetchUsersByIds(rows.map((r) => r.user_id));
   return rows.map((r) => {
     const u = users.get(String(r.user_id));
-    const weeks = (r.commitment_weeks || 1) * (r.periods_paid || 1);
+    /**
+     * What this row is worth, and what it charged.
+     *
+     * The list showed lifetime value — weekly × committed weeks × periods paid
+     * — next to the dates of ONE period, so a renewed week-long subscription
+     * read "$270 · Aug 4 → Aug 11" for a week that cost $135. The figure is the
+     * period's now; the total follows it when there has been more than one.
+     */
+    const periods = Math.max(Number(r.periods_paid) || 1, 1);
+    const perPeriodCents = (r.weekly_price_cents ?? 0) * (r.commitment_weeks || 1);
     return {
       id: r.id,
       plan: names.get(r.meal_plan_id) ?? "Meal plan",
@@ -377,7 +396,8 @@ async function fetchFood(legacyProviderId: string): Promise<SubscriberRow[]> {
       customerEmail: u?.email ?? null,
       start: r.started_at ?? null,
       end: r.end_date ?? null,
-      amountCents: (r.weekly_price_cents ?? 0) * weeks,
+      amountCents: perPeriodCents,
+      lifetimeCents: perPeriodCents * periods,
       status: String(r.status ?? ""),
       paymentStatus: r.payment_status ?? null,
       detail: r.delivery_address ?? null,

@@ -18,6 +18,7 @@ import { INFO_TAB_META } from "@/components/provider/capabilities";
 import { UniversalInfoTab, type UniversalProviderRow } from "@/components/provider/UniversalInfoTab";
 import { ProfileCompletenessCard } from "@/components/provider/ProfileCompletenessCard";
 import { PlansTab } from "@/components/provider/plans/PlansTab";
+import { ProviderItemsPanel } from "@/components/provider/ProviderItemsPanel";
 import { OperationsTab } from "@/components/provider/OperationsTab";
 import { PortalTabsView } from "@/components/provider/PortalTabsView";
 import { CalendarsTab } from "@/components/provider/CalendarsTab";
@@ -284,6 +285,10 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
         <>
           {/* The booking rules apply to what is below them. */}
           <ScheduleAccordion provider={provider} />
+          {/* What a day is made of, above the plans that sell it: a plan says
+              how many, this says which. Only where something is delivered
+              within a day — a membership has no lunch. */}
+          {sourceKey === "food" && <ProviderItemsPanel providerId={provider.id} />}
           <PlansTab providerId={provider.id} sourceKey={sourceKey} />
         </>
       ),

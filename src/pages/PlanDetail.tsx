@@ -49,8 +49,17 @@ import { SearchX } from "lucide-react";
  */
 
 interface ResolvedPlan {
-  /** Which table the row came from — decides where Subscribe goes. */
+  /** Which table the row came from. */
   source: "cleaning" | "beach" | "food" | "universal";
+  /**
+   * Which service sells it.
+   *
+   * The screen used to branch on `source`, so the SAME restaurant offer got a
+   * meal picker and an "Add to cart" when it happened to have a legacy twin,
+   * and neither when it had been created straight into `provider_plans`. What
+   * the customer is buying is a meal plan either way.
+   */
+  serviceKey?: string | null;
   id: string;
   title: string;
   description: string | null;
@@ -131,8 +140,21 @@ const PlanDetail = () => {
           mirrorGallery = asStringList(universal.gallery_urls);
           mirrorEntitlements = universal.entitlements;
         } else if (universal) {
+          // A universal row still knows its service; only its legacy twin is
+          // missing. Food needs the legacy provider id to reach the cart, so
+          // resolve it here rather than teaching the cart a second shape.
+          let legacyProviderId: string | null = null;
+          if (universal.source_service_key === "food" && universal.provider_id) {
+            const { data: prov } = await supabaseDb
+              .from("providers").select("source_provider_id")
+              .eq("id", universal.provider_id).maybeSingle();
+            legacyProviderId = (prov as any)?.source_provider_id
+              ? String((prov as any).source_provider_id) : null;
+          }
           return {
             source: "universal",
+            serviceKey: universal.source_service_key ?? null,
+            legacyProviderId,
             id: String(universal.id),
             title: universal.name,
             description: universal.description ?? null,
@@ -298,7 +320,9 @@ const PlanDetail = () => {
    * of everything already on this page. The count comes from the combination
    * the customer just picked — three meals a day means three chips lit.
    */
-  const mealsPerDay = plan?.source === "food"
+  /** Meals are a food thing, whichever table the row came from. */
+  const isFood = plan?.source === "food" || plan?.serviceKey === "food";
+  const mealsPerDay = isFood
     ? Number(chosen?.optionKeys?.meals_per_day ?? selection.meals_per_day ?? 1) || 1
     : 0;
   // What this provider delivers in a day — the picker's options, their names
@@ -318,7 +342,10 @@ const PlanDetail = () => {
    */
   const priceUnit = (chosen?.period && periodUnit(chosen.period)) || plan?.priceUnit || "";
   const buyableId = chosen
-    ? (plan?.source === "universal" ? chosen.id : chosen.sourcePlanId ?? plan?.id ?? "")
+    // Food is written against its legacy plan wherever one exists, because
+    // that is what `food_subscriptions.meal_plan_id` points at.
+    ? (isFood ? chosen.sourcePlanId ?? chosen.id
+      : plan?.source === "universal" ? chosen.id : chosen.sourcePlanId ?? plan?.id ?? "")
     : plan?.id ?? "";
 
   // One checkout, one URL shape. Every service used to have its own — and its
@@ -343,7 +370,7 @@ const PlanDetail = () => {
   };
 
   const subscribe = () => {
-    if (plan?.source === "food") { buyFood(); return; }
+    if (isFood) { buyFood(); return; }
     if (!checkoutHref) return;
     if (isAuthenticated) navigate(checkoutHref);
     else openAuthModal("login", checkoutHref);
@@ -508,7 +535,7 @@ const PlanDetail = () => {
    */
   const unit = normalizeUnit(priceUnit);
   const ctaLabel =
-    plan?.source === "food" ? ADD_TO_CART
+    isFood ? ADD_TO_CART
     : typeof priceCents === "number" && priceCents > 0 && !showFrom ? payLabel(priceCents, unit)
     : SUBSCRIBE;
   const fromRange = showFrom ? fromLabel(priceCents, unit) : null;
@@ -610,7 +637,7 @@ const PlanDetail = () => {
             <PlanOptionPicker offer={offer} selection={selection} onSelect={setSelection} />
           )}
 
-          {plan.source === "food" && mealsPerDay > 0 && (
+          {isFood && mealsPerDay > 0 && (
             <div className="rounded-radius-md bg-inset px-4 py-3">
               <MealSelectionPicker
                 value={meals}
