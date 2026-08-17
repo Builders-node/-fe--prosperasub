@@ -187,7 +187,16 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
     value: "bookings",
     label: "Bookings",
     icon: CalendarClock,
-    render: () => <BookingsTab providerId={legacyId} sourceKey={sourceKey} byCustomer={byCustomer} />,
+    render: () => (
+      <BookingsTab
+        providerId={legacyId}
+        // `bookable_resources` is keyed by the universal id, and for a
+        // legacy-backed provider that is not the id the rest of this tab uses.
+        universalProviderId={provider.id}
+        sourceKey={sourceKey}
+        byCustomer={byCustomer}
+      />
+    ),
   };
 
   /**

@@ -1,64 +1,93 @@
 import { useState, type ReactNode } from "react";
-import { CalendarDays, Users } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { CalendarDays, LandPlot, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { supabaseDb } from "@/integrations/supabase/client";
 import { UnifiedBookingCalendar } from "@/components/provider/UnifiedBookingCalendar";
 import { NewCleaningBookingDialog } from "@/components/cleaning/NewCleaningBookingDialog";
 import { NewFoodSubscriptionDialog } from "@/components/food/NewFoodSubscriptionDialog";
 
 /**
- * The single Bookings tab that replaces the old per-service Subscriptions tab
- * AND the injected Calendar tab. Same question — "who has booked what?" —
- * answered two ways by the same data:
+ * "Who has booked what?" — one question, the same rows, three axes:
  *
- *   • By day       → week calendar, one row per booking (UnifiedBookingCalendar)
- *   • By customer  → subscription list, one row per active customer (service-specific)
+ *   • By customer  → one row per active customer (service-specific body)
+ *   • By day       → the week, cut into days
+ *   • By calendar  → the week, cut into calendars
  *
- * Cars don't have subscriptions (booking-per-rental model), so they get the
- * calendar view only — the toggle is hidden.
+ * The third exists because a club with three courts could not read "how busy is
+ * court 2" off a list of days without counting. It offers itself only where
+ * there are calendars to group by: a restaurant's deliveries have none, and a
+ * toggle that reveals one bucket called "No calendar" is worse than no toggle.
  */
+type View = "customer" | "day" | "calendar";
+
 export function BookingsTab({
   providerId,
+  universalProviderId,
   sourceKey,
   byCustomer,
 }: {
   /** Legacy provider id — passed through to whatever service-specific views need it. */
   providerId: string;
+  /** Universal `providers.id` — what `bookable_resources` is keyed by. */
+  universalProviderId?: string;
   /** Legacy service key — drives the UnifiedBookingCalendar adapter selection. */
   sourceKey: string;
-  /** Optional "By customer" body. Cars omit it and only the calendar renders. */
+  /** Optional "By customer" body. Services without subscriptions omit it. */
   byCustomer?: ReactNode;
 }) {
-  const [view, setView] = useState<"day" | "customer">(byCustomer ? "customer" : "day");
-  const showToggle = !!byCustomer;
+  const [view, setView] = useState<View>(byCustomer ? "customer" : "day");
+
+  const calendarsId = universalProviderId ?? providerId;
+  const { data: calendarCount = 0 } = useQuery({
+    queryKey: ["provider-calendar-count", calendarsId],
+    enabled: !!calendarsId,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { count, error } = await supabaseDb
+        .from("bookable_resources")
+        .select("id", { count: "exact", head: true })
+        .eq("provider_id", calendarsId);
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+
+  const options: Array<{ key: View; label: string; icon: typeof Users }> = [
+    ...(byCustomer ? [{ key: "customer" as View, label: "By customer", icon: Users }] : []),
+    { key: "day", label: "By day", icon: CalendarDays },
+    // One calendar groups into one section, which is the same list with a
+    // heading — worth offering from two.
+    ...(calendarCount > 1 ? [{ key: "calendar" as View, label: "By calendar", icon: LandPlot }] : []),
+  ];
 
   const isCleaning = sourceKey === "cleaning";
   const isFood = sourceKey === "food";
+  const active = options.some((o) => o.key === view) ? view : options[0]?.key ?? "day";
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        {showToggle ? (
+        {options.length > 1 ? (
           <div className="inline-flex rounded-full bg-muted/40 p-0.5 text-xs font-semibold">
-            <button
-              type="button"
-              onClick={() => setView("customer")}
-              className={cn(
-                "flex items-center gap-1.5 rounded-full px-3 py-1.5 transition-colors",
-                view === "customer" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <Users className="h-3.5 w-3.5" /> By customer
-            </button>
-            <button
-              type="button"
-              onClick={() => setView("day")}
-              className={cn(
-                "flex items-center gap-1.5 rounded-full px-3 py-1.5 transition-colors",
-                view === "day" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <CalendarDays className="h-3.5 w-3.5" /> By day
-            </button>
+            {options.map((o) => {
+              const Icon = o.icon;
+              return (
+                <button
+                  key={o.key}
+                  type="button"
+                  onClick={() => setView(o.key)}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-full px-3 py-1.5 transition-colors",
+                    active === o.key
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5" /> {o.label}
+                </button>
+              );
+            })}
           </div>
         ) : <span />}
 
@@ -70,11 +99,15 @@ export function BookingsTab({
         {isFood && <NewFoodSubscriptionDialog providerId={providerId} />}
       </div>
 
-      {view === "day" || !byCustomer ? (
-        <UnifiedBookingCalendar providerId={providerId} sourceKey={sourceKey} />
-      ) : (
-        byCustomer
-      )}
+      {active === "customer" && byCustomer
+        ? byCustomer
+        : (
+          <UnifiedBookingCalendar
+            providerId={providerId}
+            sourceKey={sourceKey}
+            groupBy={active === "calendar" ? "calendar" : "day"}
+          />
+        )}
     </div>
   );
 }

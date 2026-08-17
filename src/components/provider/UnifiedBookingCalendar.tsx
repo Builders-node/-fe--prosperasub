@@ -24,6 +24,15 @@ import { approvePayment, isPendingPayment, type ApproveService } from "@/lib/sub
 interface Props {
   providerId: string;
   sourceKey: string;
+  /**
+   * How the week is cut up.
+   *
+   * "day" answers "what is happening on Thursday"; "calendar" answers "how
+   * busy is court 2" — the same week, the same rows, the same actions, grouped
+   * by the other axis. A club with three courts cannot read the second from
+   * the first without counting.
+   */
+  groupBy?: "day" | "calendar";
 }
 
 // Mon-first weekday order for the strip header + iteration.
@@ -56,7 +65,7 @@ const timeLabel = (d: Date) => format(d, "HH:mm");
  * Tapping a row opens the customer/plan detail (future — we surface the raw
  * booking record to any onOpen callback the parent tab wants to wire).
  */
-export function UnifiedBookingCalendar({ providerId, sourceKey }: Props) {
+export function UnifiedBookingCalendar({ providerId, sourceKey, groupBy = "day" }: Props) {
   const qc = useQueryClient();
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeekMonday(new Date()));
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
@@ -140,6 +149,25 @@ export function UnifiedBookingCalendar({ providerId, sourceKey }: Props) {
     });
     return m;
   }, [filtered, days]);
+
+  /**
+   * The same rows keyed by the calendar they are on, in the order the
+   * calendars were named. A booking from a service without calendars falls
+   * into one unnamed group rather than disappearing.
+   */
+  const byCalendar = useMemo(() => {
+    const m = new Map<string, { name: string; rows: UnifiedBookingRow[] }>();
+    filtered.forEach((b) => {
+      const key = b.resourceId ?? b.resourceName ?? "__none__";
+      const name = b.resourceName ?? b.planName ?? "No calendar";
+      const bucket = m.get(key) ?? { name, rows: [] };
+      bucket.rows.push(b);
+      m.set(key, bucket);
+    });
+    return [...m.entries()]
+      .map(([key, v]) => ({ key, ...v }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [filtered]);
 
   const statuses = useMemo(() => {
     const s = new Set<string>();
@@ -225,6 +253,30 @@ export function UnifiedBookingCalendar({ providerId, sourceKey }: Props) {
           title="No bookings this week"
           subtitle={statusFilter ? "Try changing the filter or navigating to another week." : "This week is quiet — check upcoming or past weeks."}
         />
+      ) : groupBy === "calendar" ? (
+        <div className="space-y-3">
+          {byCalendar.map((group) => (
+            <section key={group.key} className="rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
+              <div className="mb-2 flex items-center justify-between">
+                <SectionOverline label={group.name} count={group.rows.length} />
+              </div>
+              <div className="divide-y divide-border/40">
+                {group.rows.map((b) => (
+                  <BookingRow
+                    key={`${group.key}-${b.id}`}
+                    row={b}
+                    // The day is the detail here, so the row says which one.
+                    dayLabel={format(b.startAt, "EEE d MMM")}
+                    onSetStatus={(next) => setStatus.mutate({ row: b, next })}
+                    onApprovePayment={() => approve.mutate(b)}
+                    onReschedule={() => setRescheduleRow(b)}
+                    pending={setStatus.isPending || approve.isPending}
+                  />
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
       ) : (
         <div className="space-y-3">
           {days.map((day) => {
@@ -285,9 +337,11 @@ export function UnifiedBookingCalendar({ providerId, sourceKey }: Props) {
 
 // ─── Booking row ───────────────────────────────────────────────────────────
 function BookingRow({
-  row, onSetStatus, onApprovePayment, onReschedule, pending,
+  row, onSetStatus, onApprovePayment, onReschedule, pending, dayLabel,
 }: {
   row: UnifiedBookingRow;
+  /** Set when the section is not a day — then the row has to say which day. */
+  dayLabel?: string;
   onSetStatus: (next: string) => void;
   onApprovePayment?: () => void;
   onReschedule?: () => void;
@@ -322,13 +376,18 @@ function BookingRow({
       <div className="min-w-0 flex-1 space-y-1">
         <div className="flex items-center gap-2">
           <p className="truncate text-sm font-bold text-foreground">
-            {row.planName ?? row.customerName ?? "Booking"}
+            {dayLabel
+              ? (row.customerName ?? row.planName ?? "Booking")
+              : (row.planName ?? row.customerName ?? "Booking")}
           </p>
           <StatusPill status={row.status} />
           <SaleOriginBadge source={row.meta?.source} paymentReference={row.meta?.payment_reference} />
         </div>
+        {/* The line under the title never repeats it: grouped by day the title
+            is what was booked and this is who booked it; grouped by calendar
+            the title is the customer and this is when. */}
         <p className="truncate text-xs text-muted-foreground">
-          {row.customerName ?? "—"}{" · "}{timeRange}
+          {dayLabel ? `${dayLabel} · ${timeRange}` : `${row.customerName ?? "—"} · ${timeRange}`}
         </p>
         {/* Its own line and a real tel:/WhatsApp link — the number used to be
             appended as grey text after the time range, where it was both hard

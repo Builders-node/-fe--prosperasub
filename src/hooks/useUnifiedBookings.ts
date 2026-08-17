@@ -28,6 +28,15 @@ export interface UnifiedBookingRow {
   paymentStatus: string | null;
   /** Total charge in cents — best-effort, null if the source doesn't carry it. */
   priceCents: number | null;
+  /**
+   * The calendar this was booked on, where one exists.
+   *
+   * Only the engine's bookings have one — a cleaning visit is a slot on a
+   * schedule, not a resource — so the "by calendar" view offers itself only to
+   * providers that have calendars.
+   */
+  resourceId?: string | null;
+  resourceName?: string | null;
   /** Optional service-specific extras that the UI can render (delivery address, etc.). */
   meta?: Record<string, unknown>;
 }
@@ -229,6 +238,8 @@ async function fetchCalendarBookings(providerId: string, from: string, to: strin
     // otherwise the subject is all we hold at this layer.
     customerName: row.label ?? null,
     planName: row.resource_name ?? null,
+    resourceId: row.resource_id ?? null,
+    resourceName: row.resource_name ?? null,
     startAt: new Date(row.start_at),
     endAt: row.end_at ? new Date(row.end_at) : null,
     status: row.status ?? "unknown",
