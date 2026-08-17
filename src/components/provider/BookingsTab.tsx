@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarDays, LandPlot, Users } from "lucide-react";
+import { CalendarDays, LayoutGrid, List, Users, Wrench } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { UnifiedBookingCalendar } from "@/components/provider/UnifiedBookingCalendar";
@@ -8,24 +8,31 @@ import { NewCleaningBookingDialog } from "@/components/cleaning/NewCleaningBooki
 import { NewFoodSubscriptionDialog } from "@/components/food/NewFoodSubscriptionDialog";
 
 /**
- * "Who has booked what?" — one question, the same rows, three axes:
+ * The schedule — one tab, three questions.
  *
- *   • By customer  → one row per active customer (service-specific body)
- *   • By day       → the week as a list, grouped by day
- *   • By calendar  → the week as a clock: hours down, days across
+ *   • Today      → the day's work: address, access, who is doing it, done/failed
+ *   • Week       → what is booked, as a grid or as a list
+ *   • Customers  → who is subscribed
  *
- * The third exists because neither list can answer "is court 2 free at six",
- * which is the question a club is asked on the phone — nothing in a list is
- * positioned in time. It offers itself only where there are calendars to draw:
- * a restaurant's deliveries have none.
+ * Operations used to be a tab of its own sitting next to one called Bookings,
+ * and both were lists of the same occurrences an hour apart. The split people
+ * actually make is not between two screens of times — it is between LOOKING at
+ * what is booked and DOING today's work, which is why "Today" keeps its list
+ * shape and its verbs while the week is a calendar.
+ *
+ * The week has two shapes because not everything is an hour: a court is a slot
+ * and reads well on a grid; twelve cleaning visits between 8 and 10 are a
+ * legible list and an unreadable grid. That switch lives inside the week rather
+ * than becoming a fourth lens — it is one question drawn two ways.
  */
-type View = "customer" | "day" | "calendar";
+type View = "today" | "week" | "customer";
 
 export function BookingsTab({
   providerId,
   universalProviderId,
   sourceKey,
   byCustomer,
+  today,
 }: {
   /** Legacy provider id — passed through to whatever service-specific views need it. */
   providerId: string;
@@ -33,10 +40,14 @@ export function BookingsTab({
   universalProviderId?: string;
   /** Legacy service key — drives the UnifiedBookingCalendar adapter selection. */
   sourceKey: string;
-  /** Optional "By customer" body. Services without subscriptions omit it. */
+  /** The subscriber list. */
   byCustomer?: ReactNode;
+  /** The day's work — what used to be the Operations tab. */
+  today?: ReactNode;
 }) {
-  const [view, setView] = useState<View>(byCustomer ? "customer" : "day");
+  const [view, setView] = useState<View>(today ? "today" : "week");
+  /** How the week is drawn; null means "whatever suits this business". */
+  const [weekShape, setWeekShape] = useState<"grid" | "list" | null>(null);
 
   const calendarsId = universalProviderId ?? providerId;
   const { data: calendarCount = 0 } = useQuery({
@@ -53,60 +64,84 @@ export function BookingsTab({
     },
   });
 
+  // A business with calendars gets asked "is court 2 free at six", so it opens
+  // on the grid; one without them has nothing to position and opens on a list.
+  const hasCalendars = calendarCount > 0;
+  const shape = weekShape ?? (hasCalendars ? "grid" : "list");
+
   const options: Array<{ key: View; label: string; icon: typeof Users }> = [
-    ...(byCustomer ? [{ key: "customer" as View, label: "By customer", icon: Users }] : []),
-    { key: "day", label: "By day", icon: CalendarDays },
-    // A single calendar is still worth a grid — it is a timetable, not a
-    // grouping — so one is enough.
-    ...(calendarCount > 0 ? [{ key: "calendar" as View, label: "By calendar", icon: LandPlot }] : []),
+    ...(today ? [{ key: "today" as View, label: "Today", icon: Wrench }] : []),
+    { key: "week", label: "Week", icon: CalendarDays },
+    ...(byCustomer ? [{ key: "customer" as View, label: "Customers", icon: Users }] : []),
   ];
 
   const isCleaning = sourceKey === "cleaning";
   const isFood = sourceKey === "food";
-  const active = options.some((o) => o.key === view) ? view : options[0]?.key ?? "day";
+  const active = options.some((o) => o.key === view) ? view : options[0]?.key ?? "week";
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        {options.length > 1 ? (
-          <div className="inline-flex rounded-full bg-muted/40 p-0.5 text-xs font-semibold">
-            {options.map((o) => {
-              const Icon = o.icon;
-              return (
+        <div className="flex flex-wrap items-center gap-2">
+          {options.length > 1 && (
+            <div className="inline-flex rounded-full bg-muted/40 p-0.5 text-xs font-semibold">
+              {options.map((o) => {
+                const Icon = o.icon;
+                return (
+                  <button
+                    key={o.key}
+                    type="button"
+                    onClick={() => setView(o.key)}
+                    className={cn(
+                      "flex items-center gap-1.5 rounded-full px-3 py-1.5 transition-colors",
+                      active === o.key
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    <Icon className="h-3.5 w-3.5" /> {o.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Only where both shapes make sense — with no calendars a grid has
+              nothing to draw columns for. */}
+          {active === "week" && hasCalendars && (
+            <div className="inline-flex rounded-full bg-muted/40 p-0.5 text-xs font-semibold">
+              {([["grid", "Grid", LayoutGrid], ["list", "List", List]] as const).map(([key, label, Icon]) => (
                 <button
-                  key={o.key}
+                  key={key}
                   type="button"
-                  onClick={() => setView(o.key)}
+                  onClick={() => setWeekShape(key)}
                   className={cn(
                     "flex items-center gap-1.5 rounded-full px-3 py-1.5 transition-colors",
-                    active === o.key
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground",
+                    shape === key ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground",
                   )}
                 >
-                  <Icon className="h-3.5 w-3.5" /> {o.label}
+                  <Icon className="h-3.5 w-3.5" /> {label}
                 </button>
-              );
-            })}
-          </div>
-        ) : <span />}
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Cleaning-only: hand-schedule a one-off visit for an existing paid
             subscription. Food gets its own "New subscription" flow — an admin
-            adds a customer to a weekly meal plan for N weeks, marked paid.
-            Cars/beach have their own booking flows. */}
+            adds a customer to a weekly meal plan for N weeks, marked paid. */}
         {isCleaning && <NewCleaningBookingDialog providerId={providerId} />}
         {isFood && <NewFoodSubscriptionDialog providerId={providerId} />}
       </div>
 
-      {active === "customer" && byCustomer
-        ? byCustomer
+      {active === "today" && today ? today
+        : active === "customer" && byCustomer ? byCustomer
         : (
           <UnifiedBookingCalendar
             providerId={providerId}
             calendarsProviderId={calendarsId}
             sourceKey={sourceKey}
-            groupBy={active === "calendar" ? "calendar" : "day"}
+            groupBy={shape === "grid" ? "calendar" : "day"}
           />
         )}
     </div>

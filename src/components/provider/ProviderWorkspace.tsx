@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { CalendarClock, ExternalLink, LandPlot, Package, Users, Wallet, Wrench } from "lucide-react";
+import { CalendarClock, ExternalLink, LandPlot, Package, Users, Wallet } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { StatusPill } from "@/components/patterns/StatusPill";
 import { Button } from "@/components/ui/button";
@@ -172,10 +172,9 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
   // lib/services/providerBridge.ts.
   const isLegacyPortal = LEGACY_PORTAL_SOURCE_KEYS.has(sourceKey);
 
-  // Bookings tab — single answer to "who booked what?" backed by two views:
-  //   • By day       → week calendar (UnifiedBookingCalendar)
-  //   • By customer  → subscription list, service-specific body (undefined for
-  //     cars, where booking IS the subscription so the toggle would be nonsense)
+  // Schedule — one tab for the whole of time: today's work, the week, and who
+  // is subscribed. Operations used to sit beside it as a tab of its own, and
+  // the two were lists of the same occurrences an hour apart.
   // Who is subscribed — one list for every service. It used to be three: two
   // card lists and, for the beach, an entire admin page with a data table
   // mounted inside the tab.
@@ -183,9 +182,9 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
     <SubscribersList providerId={provider.id} legacyId={legacyId} sourceKey={sourceKey} />
   );
 
-  const bookingsTab: PortalTab<unknown> = {
+  const scheduleTab: PortalTab<unknown> = {
     value: "bookings",
-    label: "Bookings",
+    label: "Schedule",
     icon: CalendarClock,
     render: () => (
       <BookingsTab
@@ -195,6 +194,7 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
         universalProviderId={provider.id}
         sourceKey={sourceKey}
         byCustomer={byCustomer}
+        today={<OperationsTab providerId={provider.id} />}
       />
     ),
   };
@@ -271,7 +271,7 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
    * two mechanisms nobody could see at once.
    *
    * There is nothing service-specific left to justify them: Offerings is the
-   * plans editor and Operations is the occurrence list, both keyed by the
+   * plans editor and Schedule is the occurrence list, both keyed by the
    * universal id whatever sells them. Only the beach's courts are its own.
    */
   const tabs: PortalTab<unknown>[] = [
@@ -288,14 +288,7 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
         </>
       ),
     },
-    bookingsTab,
-    {
-      value: "operations",
-      label: "Operations",
-      mobileLabel: "Ops.",
-      icon: Wrench,
-      render: () => <OperationsTab providerId={provider.id} />,
-    },
+    scheduleTab,
     // What can be booked here, for everybody. A calendar is a bookable
     // resource — its kind, its hours, its slot length — which is a different
     // job from running the day's work, and it was a beach-only screen for no

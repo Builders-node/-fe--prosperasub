@@ -454,7 +454,9 @@ function BookingRow({
           <p className="truncate text-sm font-bold text-foreground">
             {dayLabel
               ? (row.customerName ?? row.planName ?? "Booking")
-              : (row.planName ?? row.customerName ?? "Booking")}
+              // What was booked, then what it is on, then who — so the title
+              // never repeats the line under it.
+              : (row.planName ?? row.resourceName ?? row.customerName ?? "Booking")}
           </p>
           <StatusPill status={row.status} />
           <SaleOriginBadge source={row.meta?.source} paymentReference={row.meta?.payment_reference} />
