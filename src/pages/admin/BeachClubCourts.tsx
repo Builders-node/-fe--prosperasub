@@ -62,18 +62,34 @@ const hourLabel = (h: number) => {
 };
 const slotLabel = (h: number) => `${hourLabel(h)} - ${hourLabel(h + 1)}`;
 
-const TYPE_OPTIONS = [
-  { value: "tennis", label: "Tennis" },
-  { value: "pickleball", label: "Pickleball" },
-  { value: "paddle", label: "Paddle" },
-  { value: "basketball", label: "Basketball" },
-  { value: "volleyball", label: "Volleyball" },
-  { value: "other", label: "Other" },
-] as const;
+/**
+ * The kinds a calendar can be, read from `resource_types` like every other
+ * screen that offers them.
+ *
+ * This page carried its own list — tennis, pickleball, paddle, basketball,
+ * volleyball, other — which meant the platform had two vocabularies for one
+ * column and picking "paddle" here produced a kind no booking model knew.
+ * There is one kind for all of them now, called Court.
+ */
+function useResourceKinds() {
+  return useQuery({
+    queryKey: ["resource-types-active"],
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabaseDb
+        .from("resource_types")
+        .select("key, label, sort_order")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as Array<{ key: string; label: string }>;
+    },
+  });
+}
 
 const EMPTY_FORM = {
   name: "",
-  type: "tennis",
+  type: "court",
   is_active: true,
   open_hour: 8,
   close_hour: 19,
@@ -107,6 +123,8 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
    * The id here IS the calendar's, so the bridge is gone; the legacy row is
    * still written by the mirror for whatever has not moved yet.
    */
+  const { data: kinds = [] } = useResourceKinds();
+
   const { data: courts = [], isLoading: courtsLoading } = useQuery({
     queryKey: ["admin-bc-courts"],
     queryFn: async () => {
@@ -611,7 +629,7 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
                 <Select value={form.type} onValueChange={(v) => setForm((f) => ({ ...f, type: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {TYPE_OPTIONS.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                    {kinds.map((t) => <SelectItem key={t.key} value={t.key}>{t.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
