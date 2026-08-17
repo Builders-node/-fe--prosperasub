@@ -92,7 +92,33 @@ export default function BookCalendar() {
     },
   });
 
-  const activeId = calendarId || calendars[0]?.id || "";
+  /**
+   * Which of these calendars this customer's plan actually includes.
+   *
+   * A plan can name the calendars it opens, and the engine refuses the rest
+   * with `resource_not_in_plan` — after the customer has picked a court and a
+   * time. Asking first turns that into a label.
+   */
+  const { data: coverage } = useQuery({
+    queryKey: ["book-coverage", providerId],
+    enabled: !!providerId,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await accountApi(
+        `/booking/coverage?providerId=${encodeURIComponent(providerId!)}`,
+      );
+      if (error) return null;
+      return (data ?? null) as { member: boolean; all: boolean; resourceIds: string[] } | null;
+    },
+  });
+
+  /** Not covered only when we KNOW it is not: no answer means no opinion. */
+  const includedIn = (id: string) =>
+    !coverage || coverage.all || !coverage.member || coverage.resourceIds.includes(id);
+
+  // Default to one they can actually book, rather than the first one listed.
+  const bookable = calendars.filter((c) => includedIn(c.id));
+  const activeId = calendarId || bookable[0]?.id || calendars[0]?.id || "";
 
   const { data: availability, isLoading: slotsLoading } = useQuery({
     queryKey: ["book-availability", activeId, date],
@@ -201,20 +227,38 @@ export default function BookCalendar() {
             {calendars.length > 1 && (
               <section className="rounded-radius-lg bg-card p-4">
                 <div className="flex flex-wrap gap-2">
-                  {calendars.map((c) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => setCalendarId(c.id)}
-                      className={cn(
-                        "rounded-full px-3.5 py-2 text-[14px] font-semibold transition-colors",
-                        c.id === activeId ? "bg-foreground text-background" : "bg-inset text-muted-foreground hover:text-foreground",
-                      )}
-                    >
-                      {c.name}
-                    </button>
-                  ))}
+                  {calendars.map((c) => {
+                    const included = includedIn(c.id);
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => setCalendarId(c.id)}
+                        title={included ? undefined : "Not included in your plan"}
+                        className={cn(
+                          "rounded-full px-3.5 py-2 text-[14px] font-semibold transition-colors",
+                          c.id === activeId ? "bg-foreground text-background"
+                            : included ? "bg-inset text-muted-foreground hover:text-foreground"
+                            : "bg-inset text-muted-foreground/50",
+                        )}
+                      >
+                        {c.name}
+                        {!included && <span className="ml-1.5 font-normal opacity-70">· not in your plan</span>}
+                      </button>
+                    );
+                  })}
                 </div>
+              </section>
+            )}
+
+            {!includedIn(activeId) && (
+              <section className="rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
+                <p className="text-[16px] leading-[22px] text-foreground">
+                  Your plan doesn't include this one.
+                </p>
+                <p className="mt-1 text-[14px] leading-[18px] text-muted-foreground">
+                  Pick another calendar above, or change plan to add it.
+                </p>
               </section>
             )}
 

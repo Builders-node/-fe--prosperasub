@@ -9,6 +9,8 @@ import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { GalleryField } from "@/components/patterns/GalleryField";
+import { PlanResourcePicker } from "@/components/provider/plans/PlanResourcePicker";
+import { readEntitlements, serializeEntitlements, type Entitlement } from "@/lib/plans/entitlements";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 
@@ -54,6 +56,10 @@ interface PlanRow {
   markup_cents: number | null;
   lead_time_minutes: number | null;
   window_minutes: number | null;
+  /** Which calendars this plan opens. Empty = every one the provider has. */
+  resource_ids: string[] | null;
+  /** What the plan includes, as lines. See lib/plans/entitlements.ts. */
+  entitlements: unknown;
   features: unknown;
   excludes: unknown;
   tags: string[] | null;
@@ -201,6 +207,24 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
    * page and the storefront card read them from.
    */
   const [gallery, setGallery] = useState<string[]>([]);
+  /**
+   * What the plan opens, and how much of it.
+   *
+   * The columns behind this have existed since the booking engine landed, and
+   * the booking endpoint already refuses a calendar a plan does not name
+   * (`BookingService.decideCoverage`). The only editor that could set them was
+   * the old per-service admin page, so a club owner in their own workspace
+   * could not sell "tennis only" — the feature was reachable by nobody who
+   * needed it.
+   *
+   * `resourceIds` empty means every calendar, which is what an all-access
+   * membership is and what every plan written before this said.
+   */
+  const [access, setAccess] = useState<{ resourceIds: string[]; hours: string; hoursPeriod: string }>({
+    resourceIds: [], hours: "", hoursPeriod: "",
+  });
+  /** Lines this editor does not manage (a deep clean, a session) — kept as-is. */
+  const [otherEntitlements, setOtherEntitlements] = useState<Entitlement[]>([]);
 
   useEffect(() => {
     if (!offer || !data) return;
@@ -237,6 +261,20 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
       windowMinutes: offer.window_minutes != null ? String(offer.window_minutes) : "",
     });
     setGallery(Array.isArray(offer.gallery_urls) ? offer.gallery_urls.filter(Boolean) : []);
+
+    // An "hour" line is the court allowance; everything else belongs to
+    // whoever wrote it and is written back untouched.
+    const lines = readEntitlements(offer);
+    const hourLine = lines.find((e) => e.unit === HOUR_UNIT);
+    setAccess({
+      resourceIds: Array.isArray(offer.resource_ids) ? offer.resource_ids.filter(Boolean) : [],
+      hours: hourLine?.quantity != null ? String(hourLine.quantity) : "",
+      hoursPeriod: hourLine?.period ?? "",
+    });
+    // Only the hour line belongs to this editor. Everything else — an access
+    // line, a deep clean, a session — is written back exactly as found, so
+    // saving here never quietly drops what another screen said.
+    setOtherEntitlements(lines.filter((e) => e.unit !== HOUR_UNIT));
     const attrs = data.legacyAttrs?.get(offer.id);
     setIncludes({
       features: asLines(attrs ? attrs.features : offer.features),
@@ -301,6 +339,18 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
         periods_max: numOrNull(sold.periodsMax),
         pricing_mode: sold.pricingMode,
         fulfilment: sold.fulfilment,
+        resource_ids: access.resourceIds,
+        entitlements: serializeEntitlements([
+          ...otherEntitlements,
+          ...(Number(access.hours) > 0
+            ? [{
+                unit: HOUR_UNIT,
+                quantity: Math.floor(Number(access.hours)),
+                period: (access.hoursPeriod || null) as Entitlement["period"],
+                resourceIds: access.resourceIds,
+              }]
+            : []),
+        ]),
         provider_price_cents: cents(sold.providerPrice) || null,
         markup_cents: cents(sold.markup) || null,
         lead_time_minutes: numOrNull(sold.leadMinutes),
@@ -639,6 +689,34 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
           <Input value={includes.tags} placeholder="vegetarian, keto"
             onChange={(e) => setIncludes((v) => ({ ...v, tags: e.target.value }))} />
         </Field>
+
+        {/* Booking access. The picker draws nothing when the provider has no
+            calendars, so a restaurant is never asked which court it includes. */}
+        <PlanResourcePicker
+          providerId={providerId}
+          value={access.resourceIds}
+          onChange={(resourceIds) => setAccess((v) => ({ ...v, resourceIds }))}
+        />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="Hours included" hint="Empty means as many as they like.">
+            <Input
+              inputMode="numeric" className="h-9" value={access.hours} placeholder="4"
+              onChange={(e) => setAccess((v) => ({ ...v, hours: e.target.value }))}
+            />
+          </Field>
+          <Field label="Hours reset" hint="When the allowance starts again.">
+            <select
+              value={access.hoursPeriod}
+              onChange={(e) => setAccess((v) => ({ ...v, hoursPeriod: e.target.value }))}
+              className="h-9 w-full rounded-radius-md bg-inset px-3 text-sm text-foreground outline-none"
+            >
+              <option value="">Same as billing</option>
+              {["weekly", "monthly", "quarterly", "yearly"].map((p) => (
+                <option key={p} value={p}>{p[0].toUpperCase() + p.slice(1)}</option>
+              ))}
+            </select>
+          </Field>
+        </div>
       </section>
 
       <section className="space-y-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
@@ -775,6 +853,9 @@ const DEFAULT_FULFILMENT: Record<string, string> = {
   food: "deliveries",
   beach: "none",
 };
+
+/** The unit a court hour is counted in — the allowance this editor manages. */
+const HOUR_UNIT = "hour";
 
 const FULFILMENT_HINT: Record<string, string> = {
   none: "Access or membership — nobody comes, nothing ships.",
