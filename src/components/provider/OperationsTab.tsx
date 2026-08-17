@@ -43,6 +43,9 @@ interface Occurrence {
   access_instructions: string | null;
   completion: { photo_url?: string | null; issue?: string | null; completed_by?: string | null } | null;
   slot_id: string | null;
+  /** Who the work is for. Resolved by the API from the row's user id. */
+  customer_name?: string | null;
+  customer_email?: string | null;
 }
 
 const STATUS_META: Record<string, { label: string; tint: string }> = {
@@ -223,6 +226,11 @@ export function OperationsTab({ providerId }: { providerId: string }) {
                   <div className="min-w-0">
                     <p className="flex flex-wrap items-center gap-2 text-[16px] font-semibold tracking-[-0.32px] text-foreground">
                       <span className="tabular-nums">{timeOf(r.starts_at)}</span>
+                      {/* Whose it is. The one question the person doing the
+                          work asks, and the only one this screen could not
+                          answer — it sent them to the customer list to match
+                          by time. */}
+                      {r.customer_name && <span>{r.customer_name}</span>}
                       {r.item_key && (
                         <span className="rounded-full bg-inset px-2 py-0.5 text-[12px] font-medium">
                           {ITEM_LABEL[r.item_key] ?? r.item_key}
@@ -232,6 +240,11 @@ export function OperationsTab({ providerId }: { providerId: string }) {
                         {meta.label}
                       </span>
                     </p>
+                    {r.customer_email && (
+                      <p className="mt-0.5 text-[12px] tracking-[-0.24px] text-muted-foreground">
+                        {r.customer_email}
+                      </p>
+                    )}
                     {(r.notes || r.status_reason || r.access_instructions) && (
                       <p className="mt-1 text-[12px] tracking-[-0.24px] text-muted-foreground">
                         {[r.status_reason, r.notes, r.access_instructions].filter(Boolean).join(" · ")}
