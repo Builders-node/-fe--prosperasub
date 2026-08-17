@@ -333,23 +333,25 @@ export function UnifiedBookingCalendar({
 
       {isLoading ? (
         <div className="flex justify-center py-10"><Spinner size="sm" /></div>
-      ) : filtered.length === 0 ? (
-        <TabEmptyState
-          icon={CalendarDays}
-          title="No bookings this week"
-          subtitle={statusFilter ? "Try changing the filter or navigating to another week." : "This week is quiet — check upcoming or past weeks."}
-        />
       ) : groupBy === "calendar" ? (
+        // A quiet week is a grid with nothing in it — that IS the answer to
+        // "what is free". Replacing it with a message hides the one thing the
+        // view exists to show.
         <WeekTimeGrid
           days={days}
           bookings={gridRows}
           openHour={openHour}
           closeHour={closeHour}
-          // With one calendar showing, its name is in the chip above every
-          // block; the useful label is then who booked it.
-          labelOf={(row) => (calendarId
-            ? (row.customerName ?? row.planName ?? "Booked")
-            : (row.resourceName ?? row.planName ?? row.customerName ?? "Booked"))}
+          // Who booked it, always — the court is the chip above (or the second
+          // line when every calendar is showing at once).
+          labelOf={(row) => row.customerName ?? row.planName ?? "Booked"}
+          sublabelOf={calendarId ? undefined : (row) => row.resourceName ?? null}
+        />
+      ) : filtered.length === 0 ? (
+        <TabEmptyState
+          icon={CalendarDays}
+          title="No bookings this week"
+          subtitle={statusFilter ? "Try changing the filter or navigating to another week." : "This week is quiet — check upcoming or past weeks."}
         />
       ) : (
         <div className="space-y-3">

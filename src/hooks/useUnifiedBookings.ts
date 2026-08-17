@@ -234,9 +234,9 @@ async function fetchCalendarBookings(providerId: string, from: string, to: strin
   return ((data ?? []) as any[]).map((row: any) => ({
     id: row.id,
     sourceTable: "bookings" as const,
-    // A booking's label is who it is for when staff took it over the counter;
-    // otherwise the subject is all we hold at this layer.
-    customerName: row.label ?? null,
+    // Who booked it. The API resolves `subject_ref` to a name; `label` is what
+    // staff typed when they took the booking over the counter.
+    customerName: row.customer_name ?? row.label ?? null,
     planName: row.resource_name ?? null,
     resourceId: row.resource_id ?? null,
     resourceName: row.resource_name ?? null,

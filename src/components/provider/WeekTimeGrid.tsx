@@ -31,8 +31,14 @@ export interface WeekTimeGridProps {
   /** Hour the day opens / closes, from the calendars themselves. */
   openHour: number;
   closeHour: number;
-  /** Label above each block — the customer, or the calendar when several show. */
+  /** The block's first line — who booked it. */
   labelOf: (row: UnifiedBookingRow) => string;
+  /**
+   * A third line, when there is one worth showing: the calendar's name while
+   * every calendar is on screen at once. Dropped on blocks too short to hold
+   * it, so a half-hour booking still reads.
+   */
+  sublabelOf?: (row: UnifiedBookingRow) => string | null;
   onSelect?: (row: UnifiedBookingRow) => void;
 }
 
@@ -109,7 +115,7 @@ function place(rows: UnifiedBookingRow[], openHour: number, closeHour: number): 
 const CANCELLED = ["cancelled", "canceled", "released", "no_show"];
 
 export function WeekTimeGrid({
-  days, bookings, openHour, closeHour, labelOf, onSelect,
+  days, bookings, openHour, closeHour, labelOf, sublabelOf, onSelect,
 }: WeekTimeGridProps) {
   const hours = useMemo(
     () => Array.from({ length: Math.max(1, closeHour - openHour) }, (_, i) => openHour + i),
@@ -189,6 +195,7 @@ export function WeekTimeGrid({
                 // wide rather than 50% — and the later one sits on top.
                 const step = lanes > 1 ? Math.min(24, 60 / (lanes - 1)) : 0;
                 const width = 100 - step * (lanes - 1);
+                const sub = sublabelOf?.(row) ?? null;
                 return (
                   <button
                     key={row.id}
@@ -208,7 +215,11 @@ export function WeekTimeGrid({
                       width: `calc(${width}% - 4px)`,
                       zIndex: 2 + lane,
                     }}
-                    title={`${labelOf(row)} · ${format(row.startAt, "HH:mm")}${row.endAt ? `–${format(row.endAt, "HH:mm")}` : ""}`}
+                    title={[
+                      labelOf(row),
+                      sublabelOf?.(row),
+                      `${format(row.startAt, "HH:mm")}${row.endAt ? `–${format(row.endAt, "HH:mm")}` : ""}`,
+                    ].filter(Boolean).join(" · ")}
                   >
                     <span className="block truncate text-[12px] font-semibold leading-[15px]">
                       {labelOf(row)}
@@ -217,6 +228,10 @@ export function WeekTimeGrid({
                       {format(row.startAt, "HH:mm")}
                       {row.endAt ? `–${format(row.endAt, "HH:mm")}` : ""}
                     </span>
+                    {/* Only where it fits: three lines need most of an hour. */}
+                    {sub && height * HOUR_PX >= 46 && (
+                      <span className="block truncate text-[11px] leading-[14px] opacity-70">{sub}</span>
+                    )}
                   </button>
                 );
               })}
