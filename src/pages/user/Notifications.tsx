@@ -216,18 +216,15 @@ const Notifications = () => {
   if (!isAuthenticated) {
     return (
       <UserLayout title="Notifications">
-        <div className="flex items-center justify-center py-20">
-          <EmptyState
-            title="Sign in to view notifications"
-            description="Stay updated on your bookings, payments, and plan activity."
-            className="mx-4 max-w-sm"
-            action={
-              <Button onClick={() => openAuthModal("login", "/notifications")}>
-                Sign In
-              </Button>
-            }
-          />
-        </div>
+        {/* `EmptyState` was never a component in this codebase — this branch
+            threw a ReferenceError and showed the error boundary instead of a
+            sign-in prompt. The empty state ten lines down is the real one. */}
+        <TabEmptyState
+          icon={Bell}
+          title="Sign in to view notifications"
+          subtitle="Stay updated on your bookings, payments, and plan activity."
+          action={{ label: "Sign in", onClick: () => openAuthModal("login", "/notifications") }}
+        />
       </UserLayout>
     );
   }

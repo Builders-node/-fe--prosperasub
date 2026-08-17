@@ -27,7 +27,7 @@ interface Residence {
 
 const EMPTY = { name: "", sort_order: 0, is_active: true };
 
-const FoodResidences = () => {
+const Locations = () => {
   const qc = useQueryClient();
   const [editing, setEditing] = useState<Residence | "new" | null>(null);
   const [form, setForm] = useState({ ...EMPTY });
@@ -223,4 +223,4 @@ const FoodResidences = () => {
   );
 };
 
-export default FoodResidences;
+export default Locations;

@@ -94,8 +94,12 @@ const AuditLogs = lazy(() => import("./pages/admin/AuditLogs"));
 const RoleManagement = lazy(() => import("./pages/admin/RoleManagement"));
 const AdsManagement = lazy(() => import("./pages/admin/AdsManagement"));
 
-// Admin Food
-const FoodResidences = lazy(() => import("./pages/admin/FoodResidences"));
+// Where the platform operates. Lived under "Admin Food" and was named for the
+// food table it reads (`food_residences`), but residences gate cleaning plans,
+// checkout and saved addresses too — the backend has called it /admin/locations
+// all along. It was imported here and never routed, so Settings → Locations was
+// a 404 for as long as the entry existed.
+const Locations = lazy(() => import("./pages/admin/Locations"));
 // Admin Beach Club
 const BeachClubPlans = lazy(() => import("./pages/admin/BeachClubPlans"));
 const BeachClubSubscriptions = lazy(() => import("./pages/admin/BeachClubSubscriptions"));
@@ -365,6 +369,10 @@ const App = () => {
                   (NetProfitPanel); min/max subscription weeks were unused. Redirect
                   any stale bookmarks straight to Finance. */}
               <Route path="/admin/settings" element={<Navigate to="/admin/payments" replace />} />
+              <Route path="/admin/locations" element={
+                <ProtectedRoute allowedRoles={['super_admin']} requiredPermissions={["admin_settings.read"]}><Locations /></ProtectedRoute>
+              } />
+              <Route path="/admin/food/residences" element={<Navigate to="/admin/locations" replace />} />
               <Route path="/admin/ads" element={
                 <ProtectedRoute allowedRoles={['super_admin']} requiredPermissions={["admin_settings.read"]}><AdsManagement /></ProtectedRoute>
               } />

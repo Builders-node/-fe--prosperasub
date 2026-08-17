@@ -189,9 +189,9 @@ export function ServiceArchetypeDialog({
             <Label>Accent</Label>
             <div className="mt-1.5 grid grid-cols-6 gap-1.5">
               {CATEGORY_ACCENTS.map((a) => (
-                <button key={a} type="button" onClick={() => setForm({ ...form, accent: a })}
-                  className={cn("h-9 rounded-lg", a, form.accent === a && "ring-2 ring-offset-2 ring-offset-background ring-foreground")}
-                  aria-label={a}
+                <button key={a.value} type="button" onClick={() => setForm({ ...form, accent: a.value })}
+                  className={cn("h-9 rounded-lg", a.value, form.accent === a.value && "ring-2 ring-offset-2 ring-offset-background ring-foreground")}
+                  aria-label={a.label}
                 />
               ))}
             </div>
