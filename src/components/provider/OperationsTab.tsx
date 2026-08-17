@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ResponsiveDialog } from "@/components/patterns/ResponsiveDialog";
 import { accountApi } from "@/integrations/supabase/client";
 import { todayHN } from "@/lib/timezone";
+import { itemLabel, useProviderItems } from "@/lib/services/providerItems";
 import { cn } from "@/lib/utils";
 
 /**
@@ -56,9 +57,6 @@ const STATUS_META: Record<string, { label: string; tint: string }> = {
   rescheduled: { label: "Moved",   tint: "bg-amber-500/15 text-amber-500" },
 };
 
-const ITEM_LABEL: Record<string, string> = {
-  breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner",
-};
 
 const timeOf = (iso: string) =>
   new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
@@ -68,6 +66,9 @@ export function OperationsTab({ providerId }: { providerId: string }) {
   const KEY = ["provider-occurrences", providerId] as const;
 
   const [day, setDay] = useState(todayHN());
+  // What this provider calls the things it delivers in a day. A key with no
+  // row shows itself, which is what the beach's court names rely on.
+  const { items } = useProviderItems(providerId);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [failing, setFailing] = useState<Occurrence | null>(null);
   const [reason, setReason] = useState("");
@@ -234,7 +235,7 @@ export function OperationsTab({ providerId }: { providerId: string }) {
                       {r.customer_name && <span>{r.customer_name}</span>}
                       {r.item_key && (
                         <span className="rounded-full bg-inset px-2 py-0.5 text-[12px] font-medium">
-                          {ITEM_LABEL[r.item_key] ?? r.item_key}
+                          {itemLabel(r.item_key, items)}
                         </span>
                       )}
                       <span className={cn("rounded-full px-2 py-0.5 text-[12px] font-semibold", meta.tint)}>
