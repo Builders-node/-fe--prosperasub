@@ -11,13 +11,13 @@ import { NewFoodSubscriptionDialog } from "@/components/food/NewFoodSubscription
  * "Who has booked what?" — one question, the same rows, three axes:
  *
  *   • By customer  → one row per active customer (service-specific body)
- *   • By day       → the week, cut into days
- *   • By calendar  → the week, cut into calendars
+ *   • By day       → the week as a list, grouped by day
+ *   • By calendar  → the week as a clock: hours down, days across
  *
- * The third exists because a club with three courts could not read "how busy is
- * court 2" off a list of days without counting. It offers itself only where
- * there are calendars to group by: a restaurant's deliveries have none, and a
- * toggle that reveals one bucket called "No calendar" is worse than no toggle.
+ * The third exists because neither list can answer "is court 2 free at six",
+ * which is the question a club is asked on the phone — nothing in a list is
+ * positioned in time. It offers itself only where there are calendars to draw:
+ * a restaurant's deliveries have none.
  */
 type View = "customer" | "day" | "calendar";
 
@@ -56,9 +56,9 @@ export function BookingsTab({
   const options: Array<{ key: View; label: string; icon: typeof Users }> = [
     ...(byCustomer ? [{ key: "customer" as View, label: "By customer", icon: Users }] : []),
     { key: "day", label: "By day", icon: CalendarDays },
-    // One calendar groups into one section, which is the same list with a
-    // heading — worth offering from two.
-    ...(calendarCount > 1 ? [{ key: "calendar" as View, label: "By calendar", icon: LandPlot }] : []),
+    // A single calendar is still worth a grid — it is a timetable, not a
+    // grouping — so one is enough.
+    ...(calendarCount > 0 ? [{ key: "calendar" as View, label: "By calendar", icon: LandPlot }] : []),
   ];
 
   const isCleaning = sourceKey === "cleaning";
@@ -104,6 +104,7 @@ export function BookingsTab({
         : (
           <UnifiedBookingCalendar
             providerId={providerId}
+            calendarsProviderId={calendarsId}
             sourceKey={sourceKey}
             groupBy={active === "calendar" ? "calendar" : "day"}
           />

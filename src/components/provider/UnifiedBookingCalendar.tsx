@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format, addDays, isSameDay } from "date-fns";
 import { ChevronLeft, ChevronRight, CalendarDays, MoreHorizontal, CheckCircle2, XCircle, PauseCircle, PlayCircle, CalendarClock } from "lucide-react";
 import { formatUSD } from "@/lib/pricing";
@@ -18,11 +18,14 @@ import { supabaseDb } from "@/integrations/supabase/client";
 import { cancelCleaningBookings } from "@/lib/cleaning/cancelBooking";
 import { toast } from "sonner";
 import { useUnifiedBookings, type UnifiedBookingRow } from "@/hooks/useUnifiedBookings";
+import { WeekTimeGrid } from "@/components/provider/WeekTimeGrid";
 import { useAuth } from "@/contexts/AuthContext";
 import { approvePayment, isPendingPayment, type ApproveService } from "@/lib/subscriptionApprove";
 
 interface Props {
   providerId: string;
+  /** Universal `providers.id` — what `bookable_resources` is keyed by. */
+  calendarsProviderId?: string;
   sourceKey: string;
   /**
    * How the week is cut up.
@@ -65,11 +68,36 @@ const timeLabel = (d: Date) => format(d, "HH:mm");
  * Tapping a row opens the customer/plan detail (future — we surface the raw
  * booking record to any onOpen callback the parent tab wants to wire).
  */
-export function UnifiedBookingCalendar({ providerId, sourceKey, groupBy = "day" }: Props) {
+export function UnifiedBookingCalendar({
+  providerId, calendarsProviderId, sourceKey, groupBy = "day",
+}: Props) {
   const qc = useQueryClient();
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeekMonday(new Date()));
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [rescheduleRow, setRescheduleRow] = useState<UnifiedBookingRow | null>(null);
+  /** Which calendar the grid is showing; empty string means all of them. */
+  const [calendarId, setCalendarId] = useState("");
+
+  // The calendars are what the grid is drawn from: their opening hours decide
+  // where the day starts and ends, so an 8–19 club does not render midnight.
+  const { data: calendars = [] } = useQuery({
+    queryKey: ["grid-calendars", calendarsProviderId ?? providerId],
+    enabled: groupBy === "calendar" && !!(calendarsProviderId ?? providerId),
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabaseDb
+        .from("bookable_resources")
+        .select("id, name, hours, sort_order")
+        .eq("provider_id", calendarsProviderId ?? providerId)
+        .order("sort_order", { ascending: true })
+        .order("name", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as Array<{
+        id: string; name: string;
+        hours: { open_hour?: number; close_hour?: number } | null;
+      }>;
+    },
+  });
 
   const days = useMemo(
     () => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
@@ -169,6 +197,28 @@ export function UnifiedBookingCalendar({ providerId, sourceKey, groupBy = "day" 
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [filtered]);
 
+  /** Rows the grid draws: the week's, narrowed to one calendar when chosen. */
+  const gridRows = useMemo(
+    () => (calendarId ? filtered.filter((b) => b.resourceId === calendarId) : filtered),
+    [filtered, calendarId],
+  );
+
+  /**
+   * When the day starts and ends on this grid.
+   *
+   * The widest window among the calendars in view, so a court open till 21:00
+   * is not cut off by one that closes at 19:00. Falls back to 8–19, which is
+   * what a calendar carries when nobody has edited its hours.
+   */
+  const { openHour, closeHour } = useMemo(() => {
+    const inView = calendarId ? calendars.filter((c) => c.id === calendarId) : calendars;
+    const opens = inView.map((c) => c.hours?.open_hour).filter((h): h is number => typeof h === "number");
+    const closes = inView.map((c) => c.hours?.close_hour).filter((h): h is number => typeof h === "number");
+    const open = opens.length ? Math.min(...opens) : 8;
+    const close = closes.length ? Math.max(...closes) : 19;
+    return { openHour: Math.max(0, Math.min(open, 23)), closeHour: Math.max(open + 1, Math.min(close, 24)) };
+  }, [calendars, calendarId]);
+
   const statuses = useMemo(() => {
     const s = new Set<string>();
     bookings.forEach((b) => s.add(b.status));
@@ -208,6 +258,42 @@ export function UnifiedBookingCalendar({ providerId, sourceKey, groupBy = "day" 
           </Button>
         </div>
       </div>
+
+      {/* Which calendar. Only when there is a choice to make. */}
+      {groupBy === "calendar" && calendars.length > 1 && (
+        <div className="flex flex-wrap gap-1.5">
+          <button
+            type="button"
+            onClick={() => setCalendarId("")}
+            className={cn(
+              "rounded-full px-3 py-1 text-[14px] font-semibold transition-colors",
+              calendarId === ""
+                ? "bg-primary/15 text-primary ring-1 ring-primary"
+                : "bg-muted/40 text-muted-foreground hover:text-foreground",
+            )}
+          >
+            All calendars
+          </button>
+          {calendars.map((c) => {
+            const count = filtered.filter((b) => b.resourceId === c.id).length;
+            return (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => setCalendarId(c.id)}
+                className={cn(
+                  "rounded-full px-3 py-1 text-[14px] font-semibold transition-colors",
+                  calendarId === c.id
+                    ? "bg-primary/15 text-primary ring-1 ring-primary"
+                    : "bg-muted/40 text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {c.name} · {count}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Status filter chips */}
       {statuses.length > 1 && (
@@ -254,29 +340,17 @@ export function UnifiedBookingCalendar({ providerId, sourceKey, groupBy = "day" 
           subtitle={statusFilter ? "Try changing the filter or navigating to another week." : "This week is quiet — check upcoming or past weeks."}
         />
       ) : groupBy === "calendar" ? (
-        <div className="space-y-3">
-          {byCalendar.map((group) => (
-            <section key={group.key} className="rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
-              <div className="mb-2 flex items-center justify-between">
-                <SectionOverline label={group.name} count={group.rows.length} />
-              </div>
-              <div className="divide-y divide-border/40">
-                {group.rows.map((b) => (
-                  <BookingRow
-                    key={`${group.key}-${b.id}`}
-                    row={b}
-                    // The day is the detail here, so the row says which one.
-                    dayLabel={format(b.startAt, "EEE d MMM")}
-                    onSetStatus={(next) => setStatus.mutate({ row: b, next })}
-                    onApprovePayment={() => approve.mutate(b)}
-                    onReschedule={() => setRescheduleRow(b)}
-                    pending={setStatus.isPending || approve.isPending}
-                  />
-                ))}
-              </div>
-            </section>
-          ))}
-        </div>
+        <WeekTimeGrid
+          days={days}
+          bookings={gridRows}
+          openHour={openHour}
+          closeHour={closeHour}
+          // With one calendar showing, its name is in the chip above every
+          // block; the useful label is then who booked it.
+          labelOf={(row) => (calendarId
+            ? (row.customerName ?? row.planName ?? "Booked")
+            : (row.resourceName ?? row.planName ?? row.customerName ?? "Booked"))}
+        />
       ) : (
         <div className="space-y-3">
           {days.map((day) => {
