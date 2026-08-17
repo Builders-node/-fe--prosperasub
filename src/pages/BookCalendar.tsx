@@ -12,6 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useUserUuid } from "@/hooks/useUserUuid";
 import { useGoBack } from "@/hooks/useGoBack";
 import { todayHN, addDaysISO } from "@/lib/timezone";
+import { AllowanceStrip, type Allowance } from "@/components/booking/AllowanceStrip";
 import { bookingErrorMessage } from "@/lib/booking/errors";
 import { cn } from "@/lib/utils";
 
@@ -27,6 +28,15 @@ import { cn } from "@/lib/utils";
  */
 
 interface Calendar { id: string; name: string; type: string }
+/** What this customer's plans allow here — see GET /booking/coverage. */
+interface Coverage {
+  member: boolean;
+  /** True when the plans name no calendars, which means all of them. */
+  all: boolean;
+  resourceIds: string[];
+  /** Null when nothing counts hours: the plan includes as many as they like. */
+  allowance: Allowance | null;
+}
 interface Slot { from: string; to: string; capacity?: number }
 interface EngineBooking {
   id: string; resource_id: string; subject_ref: string | null;
@@ -100,15 +110,15 @@ export default function BookCalendar() {
    * time. Asking first turns that into a label.
    */
   const { data: coverage } = useQuery({
-    queryKey: ["book-coverage", providerId],
+    queryKey: ["book-coverage", providerId, calendarId],
     enabled: !!providerId,
-    staleTime: 60_000,
+    staleTime: 30_000,
     queryFn: async () => {
-      const { data, error } = await accountApi(
-        `/booking/coverage?providerId=${encodeURIComponent(providerId!)}`,
-      );
+      const qs = new URLSearchParams({ providerId: providerId! });
+      if (calendarId) qs.set("resourceId", calendarId);
+      const { data, error } = await accountApi(`/booking/coverage?${qs.toString()}`);
       if (error) return null;
-      return (data ?? null) as { member: boolean; all: boolean; resourceIds: string[] } | null;
+      return (data ?? null) as Coverage | null;
     },
   });
 
@@ -186,12 +196,18 @@ export default function BookCalendar() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  /** Hours the plan still allows here, or null when it does not count them. */
+  const allowance = coverage?.allowance ?? null;
+  const outOfHours = !!allowance && allowance.remaining <= 0;
+
   const options = (availability?.slots ?? []).map((s) => {
     const taken = takenBy.get(s.from);
     return {
       start: s.from,
       label: `${timeLabel(s.from)} – ${timeLabel(s.to)}`,
-      disabled: !!taken,
+      // Nothing left to spend, so the slot is not offered — the engine would
+      // refuse it anyway, and it refuses after a customer has chosen a time.
+      disabled: !!taken || outOfHours,
     };
   });
 
@@ -250,6 +266,8 @@ export default function BookCalendar() {
                 </div>
               </section>
             )}
+
+            {allowance && <AllowanceStrip allowance={allowance} />}
 
             {!includedIn(activeId) && (
               <section className="rounded-radius-lg bg-card p-4 tracking-[-0.02em]">

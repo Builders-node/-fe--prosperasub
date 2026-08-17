@@ -14,6 +14,7 @@ export function bookingErrorMessage(raw: string | null | undefined, fallback = "
     case "resource_not_found":   return "This calendar isn't open for booking yet.";
     case "membership_required":  return "This is for members — subscribe first.";
     case "resource_not_in_plan": return "Your plan doesn't include this one. Pick another, or change plan.";
+    case "hour_allowance_reached": return "You've used the hours your plan includes for this period.";
     case "too_many_bookings":    return "You've reached your limit of upcoming bookings. Cancel one to book another.";
     case "daily_limit_reached":  return "You've booked your maximum for that day.";
     case "too_late_to_cancel":   return "It's too close to the start to cancel — call the provider.";
