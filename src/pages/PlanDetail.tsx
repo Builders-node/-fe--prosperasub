@@ -408,7 +408,13 @@ const PlanDetail = () => {
    * its own inherits the plan's.
    */
   const entitlementLines = useMemo(() => {
-    const raw = planQ.data?.entitlements;
+    // The chosen combination first: an offer's own line describes the offer,
+    // and an offer with variants cannot describe all of them at once — which
+    // is how "Mon–Sat, 3 meals a day" came to advertise "5 meals a week".
+    const chosenRaw = Array.isArray(chosen?.entitlements) && chosen!.entitlements.length
+      ? chosen!.entitlements
+      : null;
+    const raw = chosenRaw ?? planQ.data?.entitlements;
     const list = readEntitlements({ entitlements: raw });
     return list
       .map((e) => describeEntitlement(e, chosen?.period ?? null))

@@ -38,6 +38,14 @@ export interface PlanVariant {
   sourcePlanId: string | null;
   /** monthly | weekly | yearly — a variant may be billed differently. */
   period: string | null;
+  /**
+   * What THIS combination includes.
+   *
+   * A variant is the thing being bought, so it owns the answer: Mon–Sat with
+   * three meals a day is eighteen meals a week, and the offer above it cannot
+   * say that for every combination at once.
+   */
+  entitlements: unknown;
 }
 
 /**
@@ -138,7 +146,7 @@ export function usePlanOffers(
       // Offers first: a plan with no parent that some other plan points at.
       const { data: plans, error } = await supabaseDb
         .from("provider_plans")
-        .select("id, provider_id, name, description, period, status, price_cents, parent_plan_id, option_keys, source_service_key, source_plan_id, sort_order")
+        .select("id, provider_id, name, description, period, status, price_cents, parent_plan_id, option_keys, entitlements, source_service_key, source_plan_id, sort_order")
         .in("provider_id", universalIds)
         .eq("status", "active")
         .order("sort_order", { ascending: true });
@@ -157,6 +165,7 @@ export function usePlanOffers(
           optionKeys: asOptionKeys(r.option_keys),
           sourcePlanId: r.source_plan_id ? String(r.source_plan_id) : null,
           period: r.period ?? null,
+          entitlements: r.entitlements ?? null,
         });
         variantsByParent.set(String(r.parent_plan_id), list);
       });
