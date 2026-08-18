@@ -278,7 +278,7 @@ const CleaningPackages = () => {
         sorts={search.availableSorts}
       />
 
-      <main className="market-content space-y-8 py-space-4 md:py-space-8">
+      <main className="app-container space-y-8 py-space-4 md:py-space-8">
 
         {/* Providers → Categories → the list. See components/listing/
             ListingNav — the same three-step shape on all four services. */}

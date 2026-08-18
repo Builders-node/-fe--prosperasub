@@ -1,5 +1,5 @@
 import type { MealType, FoodMealPlan } from "@/types/food";
-import { addDaysISO } from "@/lib/timezone";
+import { addDaysISO, formatDateHN } from "@/lib/timezone";
 import { itemKeys, type ProviderItem } from "@/lib/services/providerItems";
 
 /**
@@ -28,8 +28,7 @@ export function getMealTypesForPlan(
 
 /** Format a YYYY-MM-DD date as "June 10, 2026" */
 export function formatWeekLabel(dateStr: string): string {
-  const d = new Date(dateStr + "T00:00:00");
-  return d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+  return formatDateHN(dateStr, { month: "long", day: "numeric", year: "numeric" });
 }
 
 /**

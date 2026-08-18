@@ -323,7 +323,7 @@ const ProviderDetail = () => {
       <div className="min-h-screen bg-background pb-24 md:pb-0">
         <HomeHeader title="Not found" showBackButton onBack={goBack} />
         <DesktopHeader />
-        <main className="market-content flex flex-col items-center justify-center py-16 text-center">
+        <main className="app-container flex flex-col items-center justify-center py-16 text-center">
           <SparklesIcon className="mb-4 h-12 w-12 text-muted-foreground/40" />
           <p className="font-semibold text-foreground">No such service</p>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -343,7 +343,7 @@ const ProviderDetail = () => {
       <div className="min-h-screen bg-background pb-24 md:pb-0">
         <HomeHeader title="Provider" showBackButton onBack={goBack} />
         <DesktopHeader />
-        <main className="market-content py-space-6 space-y-4">
+        <main className="app-container py-space-6 space-y-4">
           <div className="h-48 animate-pulse rounded-3xl bg-muted" />
           <div className="h-24 animate-pulse rounded-3xl bg-muted" />
           <div className="h-64 animate-pulse rounded-3xl bg-muted" />
@@ -358,7 +358,7 @@ const ProviderDetail = () => {
       <div className="min-h-screen bg-background pb-24 md:pb-0">
         <HomeHeader title="Provider" showBackButton onBack={goBack} />
         <DesktopHeader />
-        <main className="market-content flex flex-col items-center justify-center py-16">
+        <main className="app-container flex flex-col items-center justify-center py-16">
           <Icon className="mb-4 h-12 w-12 text-muted-foreground/40" />
           <p className="font-semibold text-foreground">Provider not found</p>
         </main>
@@ -483,7 +483,7 @@ const ProviderDetail = () => {
         </button>
       </div>
 
-      <main className="mx-auto max-w-xl space-y-1 pb-8 pt-1 md:max-w-3xl md:px-4 md:py-8">
+      <main className="app-container space-y-1 pb-8 pt-1 md:py-8">
         {/* ─── Who this is ─────────────────────────────────────────────────
             Card radius 24 at 16 of padding, per the design; the trail, the
             name, and the three lines that describe the business. */}

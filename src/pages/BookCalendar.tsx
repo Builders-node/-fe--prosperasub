@@ -11,7 +11,7 @@ import { supabaseDb, accountApi } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserUuid } from "@/hooks/useUserUuid";
 import { useGoBack } from "@/hooks/useGoBack";
-import { todayHN, addDaysISO } from "@/lib/timezone";
+import { todayHN, addDaysISO, formatDateHN } from "@/lib/timezone";
 import { AllowanceStrip, type Allowance } from "@/components/booking/AllowanceStrip";
 import { bookingErrorMessage } from "@/lib/booking/errors";
 import { cn } from "@/lib/utils";
@@ -216,7 +216,7 @@ export default function BookCalendar() {
 
   return (
     <UserLayout title="Book a time">
-      <div className="mx-auto w-full max-w-[1280px] space-y-1 pb-8 pt-1 md:px-space-4">
+      <div className="app-container space-y-1 pb-8 pt-1">
         <section className="rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
           <button type="button" onClick={goBack}
             className="mb-2 flex items-center gap-1 text-[14px] font-semibold text-muted-foreground hover:text-foreground">
@@ -287,7 +287,7 @@ export default function BookCalendar() {
               <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
                 {days.map((d) => {
                   const [, month, day] = d.split("-");
-                  const weekday = new Date(`${d}T12:00:00`).toLocaleDateString("en-US", { weekday: "short" });
+                  const weekday = formatDateHN(d, { weekday: "short" });
                   return (
                     <button
                       key={d}

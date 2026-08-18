@@ -167,7 +167,7 @@ const ServicePage = () => {
       <div className="min-h-screen bg-background pb-24 md:pb-12">
         <HomeHeader title="Not found" showBackButton onBack={goBack} />
         <DesktopHeader />
-        <main className="market-content py-space-8">
+        <main className="app-container py-space-8">
           <YdEmptyState
             icon={SearchX}
             title="No such service"
@@ -198,7 +198,7 @@ const ServicePage = () => {
         sorts={search.availableSorts}
       />
 
-      <main className="market-content py-space-4 md:py-space-8">
+      <main className="app-container py-space-4 md:py-space-8">
         {providersQ.isLoading ? (
           <div className="grid gap-3 md:grid-cols-2 md:gap-4">
             {[1, 2].map((i) => <div key={i} className="h-72 animate-pulse rounded-3xl bg-muted" />)}

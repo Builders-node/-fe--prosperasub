@@ -93,7 +93,7 @@ export function ListingHeader({
     <>
       {/* Desktop keeps its own header, so the panel is a mobile shape; there
           the same two controls sit at the top of the content column. */}
-      <div className="market-content hidden items-center gap-2 pt-space-8 md:flex">
+      <div className="app-container hidden items-center gap-2 pt-space-8 md:flex">
         {searchField}
         {sortButton}
       </div>

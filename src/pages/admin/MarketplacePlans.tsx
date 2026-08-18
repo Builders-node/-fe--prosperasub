@@ -11,6 +11,7 @@ import { supabaseDb } from "@/integrations/supabase/client";
 import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
 import { cn } from "@/lib/utils";
 import { StatusPill } from "@/components/patterns/StatusPill";
+import { formatUSD } from "@/lib/pricing";
 
 interface Provider { id: string; name: string; archetype_key: string | null; }
 interface Plan {
@@ -105,8 +106,6 @@ const MarketplacePlans = ({ embedded = false, archetypeKey }: MarketplacePlansPr
     });
   }, [plans, service, providerId, status, search, providerById]);
 
-  const formatPrice = (cents: number, currency: string) =>
-    `${(cents / 100).toLocaleString("en-US", { style: "currency", currency: currency || "USD" })}`;
   const formatPeriod = (period: string) => period.replace(/_/g, " ");
 
   const filters = (
@@ -203,7 +202,7 @@ const MarketplacePlans = ({ embedded = false, archetypeKey }: MarketplacePlansPr
               const priceCell = (
                 <div className="text-right">
                   <p className="text-sm font-bold tabular-nums text-foreground">
-                    {formatPrice(p.price_cents, p.currency)}
+                    {formatUSD(p.price_cents, p.currency)}
                   </p>
                   <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
                     /{formatPeriod(p.period)}
@@ -256,7 +255,7 @@ const MarketplacePlans = ({ embedded = false, archetypeKey }: MarketplacePlansPr
                         {prov?.name ?? "—"}{arche ? ` · ${arche.label}` : ""}
                       </span>
                       <span className="font-bold tabular-nums text-foreground">
-                        {formatPrice(p.price_cents, p.currency)}
+                        {formatUSD(p.price_cents, p.currency)}
                         <span className="ml-1 text-[10px] uppercase tracking-wider text-muted-foreground">
                           /{formatPeriod(p.period)}
                         </span>

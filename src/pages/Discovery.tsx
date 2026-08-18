@@ -111,7 +111,7 @@ const Discovery = () => {
         screen read as one block instead of three stacked cards.
       */}
       <section className="bg-card pb-4 shadow-figma rounded-b-radius-lg md:rounded-b-none">
-        <div className="market-content space-y-4 pt-4">
+        <div className="app-container space-y-4 pt-4">
           <CategoryCarousel />
 
           {userData && (
@@ -132,7 +132,7 @@ const Discovery = () => {
         </div>
       </section>
 
-      <main className="market-content space-y-4 py-4 md:space-y-8 md:py-space-8">
+      <main className="app-container space-y-4 py-4 md:space-y-8 md:py-space-8">
         {/* ─── Services ─────────────────────────────────────────────── */}
         <section className="space-y-3">
           <h2 className="text-[20px] font-semibold tracking-[-0.4px] text-foreground">

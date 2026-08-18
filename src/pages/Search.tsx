@@ -86,7 +86,7 @@ const SearchPage = () => {
         </div>
       </header>
 
-      <main className="market-content space-y-6 py-4 md:py-space-8">
+      <main className="app-container space-y-6 py-4 md:py-space-8">
         {/* Desktop has no search header of its own, so the field repeats here. */}
         <div className="hidden items-center gap-2 rounded-radius-md bg-card px-3 py-2 md:flex">
           <SearchIcon className="h-6 w-6 shrink-0 text-muted-foreground" />

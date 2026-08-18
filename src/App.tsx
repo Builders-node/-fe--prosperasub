@@ -1,6 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
+import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Routes, Route, useLocation } from "react-router-dom";
@@ -141,7 +140,6 @@ const App = () => {
           <AuthProvider>
             <TooltipProvider>
               <Toaster />
-              <Sonner />
               {/*
                 `v7_startTransition` is what stops a route change from blanking
                 the screen. Without it, navigating to a page whose chunk is not

@@ -353,7 +353,7 @@ const Profile = () => {
       <DesktopHeader />
       <HomeHeader title={SECTION_TITLES[section]} showBackButton onBack={back} bare />
 
-      <main className="market-content space-y-4 py-space-4 md:py-space-8">
+      <main className="app-container space-y-4 py-space-4 md:py-space-8">
         {section === "view" && (
           <>
             {/* Who you are. One white card: avatar, name, email — the same

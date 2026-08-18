@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { StarRating } from "@/components/food/StarRating";
 import { toast } from "sonner";
 import type { FoodReview } from "@/types/food";
+import { formatDateHN } from "@/lib/timezone";
 
 interface Props {
   providerId: string;
@@ -203,7 +204,7 @@ export function FoodReviews({ providerId, ownerUserId }: Props) {
                 <div className="flex items-center justify-between gap-2">
                   <p className="truncate font-bold text-foreground">{r.customer_name ?? "Customer"}</p>
                   <span className="shrink-0 text-xs text-muted-foreground">
-                    {new Date(r.created_at).toLocaleDateString()}
+                    {formatDateHN(r.created_at)}
                   </span>
                 </div>
                 <StarRating value={r.rating} className="mt-0.5" size={14} />

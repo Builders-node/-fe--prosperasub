@@ -59,16 +59,24 @@ export function usdToSats(usdAmount: number, btcPriceUsd: number): number {
 }
 
 /**
- * Converts USD cents (database value) to display format
- * Database stores values like 1000 = $10.00
- * @param cents - Amount in cents (e.g., 1000)
- * @returns Formatted USD string (e.g., "$10.00")
+ * Cents (what every table stores) as money on screen — `1000` → `"$10.00"`.
+ *
+ * This is the only money formatter. Five others had grown beside it, and the
+ * difference showed: `toFixed(2)` skips the thousands separator, so the same
+ * figure read `$1,250.00` on one admin page and `$1250.00` on the next.
+ *
+ * `currency` exists because `provider_plans` carries the column. Every row in
+ * it is USD today; the parameter means a non-USD plan renders as itself rather
+ * than as dollars, and it keeps the plans list from needing its own formatter.
+ *
+ * Raw `toFixed(2)` is still right in exactly two places: the value of a number
+ * `<input>`, and a CSV cell.
  */
-export function formatUSD(cents: number): string {
+export function formatUSD(cents: number, currency = 'USD'): string {
   const dollars = cents / 100;
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: 'USD',
+    currency: currency || 'USD',
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(dollars);

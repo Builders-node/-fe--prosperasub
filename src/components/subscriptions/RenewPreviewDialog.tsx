@@ -4,6 +4,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { formatUSD } from "@/lib/pricing";
+import { formatDateHN } from "@/lib/timezone";
 
 interface Props {
   open: boolean;
@@ -33,9 +34,10 @@ export function RenewPreviewDialog({
   open, onOpenChange, title, currentEndDate, newStartDate, newEndDate, amountCents, onConfirm,
 }: Props) {
   const fmt = (d: string) => {
-    // Parse as local date-only so we don't shift a day around midnight.
-    const dt = new Date(`${d}T00:00:00`);
-    return dt.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+    // formatDateHN anchors a bare YYYY-MM-DD at midday, so the day it prints is
+    // the day the subscription actually runs to — in Honduras, not in the
+    // reader's timezone.
+    return formatDateHN(d);
   };
   const days = Math.max(
     Math.round((Date.parse(`${newEndDate}T00:00:00Z`) - Date.parse(`${newStartDate}T00:00:00Z`)) / 86400000),

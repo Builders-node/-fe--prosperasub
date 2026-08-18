@@ -1,3 +1,5 @@
+import { formatUSD } from "@/lib/pricing";
+
 export type CleaningFrequencyUnit = "day" | "week" | "month" | "custom";
 export type CleaningPricingMode =
   | "fixed_monthly_price"
@@ -50,12 +52,11 @@ export const formatFrequencyLabel = (plan: CleaningPlanPricingInput) => {
 };
 
 export const formatPricingLabel = (plan: CleaningPlanPricingInput) => {
-  const cents = (value: number) => `$${(value / 100).toFixed(2)}`;
   const mode = normalizePricingMode(plan.pricing_mode);
   const pricePer = Number(plan.price_per_cleaning_cents ?? 0);
-  if (mode === "price_per_cleaning" && pricePer > 0) return `${cents(pricePer)} per cleaning`;
+  if (mode === "price_per_cleaning" && pricePer > 0) return `${formatUSD(pricePer)} per cleaning`;
   const monthly = resolveMonthlyPriceCents(plan);
-  if (monthly > 0) return `${cents(monthly)}/month`;
+  if (monthly > 0) return `${formatUSD(monthly)}/month`;
   if (mode === "custom_manual") return "Custom pricing";
   return "Price pending";
 };

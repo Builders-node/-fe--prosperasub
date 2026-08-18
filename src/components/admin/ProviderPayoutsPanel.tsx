@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { adminApi, supabaseDb } from "@/integrations/supabase/client";
 import { formatUSD } from "@/lib/pricing";
+import { formatDateHN } from "@/lib/timezone";
 
 /**
  * Recording money sent to a provider.
@@ -208,7 +209,7 @@ export function ProviderPayoutsPanel() {
                   <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 py-3">
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-foreground">
-                        {new Date(p.paid_at ?? p.requested_at ?? p.created_at ?? Date.now()).toLocaleDateString()} · {formatUSD(p.amount_cents)}
+                        {formatDateHN(p.paid_at ?? p.requested_at ?? p.created_at)} · {formatUSD(p.amount_cents)}
                         {p.method && <span className="ml-2 text-xs uppercase text-muted-foreground">{p.method}</span>}
                       </p>
                       <p className="text-xs text-muted-foreground">

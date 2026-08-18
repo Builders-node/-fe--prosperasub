@@ -381,7 +381,7 @@ export default function Cart() {
 
       <main className={atCheckout
         ? "mx-auto max-w-xl space-y-1 pt-1 pb-[calc(var(--checkout-footer-h,180px)+16px)] md:px-4 md:py-space-6"
-        : "market-content space-y-5 py-space-4 md:py-space-6"}>
+        : "app-container space-y-5 py-space-4 md:py-space-6"}>
         {step === "success" ? (
           <CheckoutSuccessPanel
             icon={UtensilsCrossed}

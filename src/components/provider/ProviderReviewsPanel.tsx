@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, MessageSquare, Star } from "lucide-react";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { formatDateHN } from "@/lib/timezone";
 
 /**
  * What customers said, shown to the business they said it about.
@@ -41,9 +42,7 @@ function Stars({ value, className }: { value: number; className?: string }) {
 
 function fmtDate(iso: string) {
   const d = new Date(iso);
-  return Number.isNaN(d.getTime())
-    ? ""
-    : d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+  return Number.isNaN(d.getTime()) ? "" : formatDateHN(d);
 }
 
 export function ProviderReviewsPanel({ providerId }: { providerId: string }) {

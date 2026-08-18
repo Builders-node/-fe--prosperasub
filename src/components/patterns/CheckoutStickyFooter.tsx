@@ -46,7 +46,7 @@ export function CheckoutStickyFooter({ children }: Props) {
       className="fixed inset-x-0 bottom-0 z-40 rounded-t-radius-lg bg-card md:left-[var(--sidebar-width,0px)]"
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
     >
-      <div className="market-content px-4 pb-6 pt-2">
+      <div className="app-container px-4 pb-6 pt-2">
         {children}
       </div>
     </div>

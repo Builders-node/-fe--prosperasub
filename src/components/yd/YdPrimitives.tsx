@@ -1,12 +1,14 @@
 /**
- * Yandex Go-style primitives — shared design language for all public pages.
+ * The two Yandex-style primitives the platform actually uses.
  *
- * Aesthetic:
- *  - Soft rounded-3xl cards with subtle gradient accents
- *  - Playful "layered illustration" icons (glow + gradient block + drop shadow)
- *  - Playful hover scale (1.02) + icon scale (1.10)
- *  - Bold black headings + tabular pricing
- *  - Accent colour per service: sky (cleaning), orange (cars), emerald (food)
+ *   • YdIllustration — the solid accent tile behind a service icon
+ *   • YdEmptyState   — icon, a line, a quieter line, an optional button
+ *
+ * There were five. YdHero, YdChip and YdCard were presented in DESIGN.md as
+ * the house vocabulary and had **no consumers at all** — pages built their own
+ * hero, their own chip and their own card next to them. A primitive nobody
+ * imports is not a design system, it is a second opinion, so they are gone.
+ * The accent palette below stays: it is what gives every service one colour.
  */
 import React from "react";
 
@@ -99,52 +101,6 @@ export const YD_ACCENT: Record<YdAccent, {
   },
 };
 
-// ─── Hero ─────────────────────────────────────────────────────────────────────
-export function YdHero({
-  accent,
-  badge,
-  badgeIcon: BadgeIcon,
-  title,
-  subtitle,
-  illustration,
-}: {
-  accent: YdAccent;
-  badge: string;
-  badgeIcon?: React.ComponentType<{ className?: string }>;
-  title: React.ReactNode;
-  subtitle?: string;
-  illustration?: React.ReactNode;
-}) {
-  const a = YD_ACCENT[accent];
-  return (
-    <section className="mb-6 md:mb-8">
-      <div className="grid items-center gap-4 rounded-3xl bg-card p-6 md:p-8 md:grid-cols-[1fr_auto]">
-        <div>
-          <div className={`inline-flex items-center gap-2 rounded-full ${a.bgChip} px-3 py-1 ${a.text}`}>
-            {BadgeIcon && <BadgeIcon className="h-3.5 w-3.5" />}
-            <span className="text-[11px] font-bold uppercase tracking-[0.16em]">
-              {badge}
-            </span>
-          </div>
-          <h1 className="mt-3 text-3xl md:text-4xl font-black tracking-tight text-foreground leading-[1.05]">
-            {title}
-          </h1>
-          {subtitle && (
-            <p className="mt-3 max-w-xl text-sm md:text-base text-muted-foreground leading-relaxed">
-              {subtitle}
-            </p>
-          )}
-        </div>
-        {illustration && (
-          <div className="hidden md:block">
-            {illustration}
-          </div>
-        )}
-      </div>
-    </section>
-  );
-}
-
 // ─── Flat illustration tile (Yandex Go style — solid bg, no gradient/glow/shadow) ─────
 export function YdIllustration({
   icon: Icon,
@@ -168,62 +124,6 @@ export function YdIllustration({
   return (
     <div className={`flex ${blockSize} items-center justify-center rounded-2xl ${a.bgChip}`}>
       <Icon className={`${iconSize} ${a.text}`} />
-    </div>
-  );
-}
-
-// ─── Service chip (small pill with icon + text) ───────────────────────────────
-export function YdChip({
-  icon: Icon,
-  label,
-  accent,
-}: {
-  icon?: React.ComponentType<{ className?: string }>;
-  label: string;
-  accent?: YdAccent;
-}) {
-  if (accent) {
-    const a = YD_ACCENT[accent];
-    return (
-      <span className={`inline-flex items-center gap-1.5 rounded-full ${a.bgChip} px-3 py-1 text-xs font-bold ${a.text}`}>
-        {Icon && <Icon className="h-3 w-3" />}
-        {label}
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
-      {Icon && <Icon className="h-3 w-3" />}
-      {label}
-    </span>
-  );
-}
-
-// ─── Card shell ───────────────────────────────────────────────────────────────
-export function YdCard({
-  accent,
-  children,
-  className = "",
-  onClick,
-}: {
-  accent?: YdAccent;
-  children: React.ReactNode;
-  className?: string;
-  onClick?: () => void;
-}) {
-  const accentClass = accent
-    ? `${YD_ACCENT[accent].bgGradient} ${YD_ACCENT[accent].hoverBorder}`
-    : "bg-card hover:border-foreground/20";
-  return (
-    <div
-      onClick={onClick}
-      className={`group relative overflow-hidden rounded-3xl border border-border
-                  ${accentClass}
-                  transition-all duration-200 ease-out
-                  ${onClick ? "cursor-pointer motion-safe:hover:scale-[1.02] hover: active:scale-[0.99]" : ""}
-                  ${className}`}
-    >
-      {children}
     </div>
   );
 }

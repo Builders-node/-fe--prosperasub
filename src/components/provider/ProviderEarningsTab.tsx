@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ResponsiveDialog } from "@/components/patterns/ResponsiveDialog";
 import { toast } from "sonner";
+import { formatDateHN } from "@/lib/timezone";
 
 /**
  * What this business earned, and what of it has actually been paid.
@@ -318,7 +319,7 @@ export function ProviderEarningsTab({ providerId, legacyId, sourceKey }: {
               <li key={p.id} className="flex flex-wrap items-baseline justify-between gap-2 py-3">
                 <div className="min-w-0">
                   <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-foreground">
-                    {new Date(p.paid_at ?? p.requested_at ?? p.created_at).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}
+                    {formatDateHN(p.paid_at ?? p.requested_at ?? p.created_at)}
                     <PayoutStatus status={p.status} />
                     {p.method && <span className="text-[14px] capitalize text-muted-foreground">{p.method}</span>}
                   </p>

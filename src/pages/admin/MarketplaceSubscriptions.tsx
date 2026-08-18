@@ -31,6 +31,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { logAuditEvent } from "@/lib/auditLog";
 import { cn } from "@/lib/utils";
 import { fetchUsersByIds } from "@/lib/admin/customerNames";
+import { formatUSD } from "@/lib/pricing";
 
 type SortKey = "name" | "date" | "service";
 
@@ -388,7 +389,7 @@ const MarketplaceSubscriptions = () => {
                         </div>
                       </td>
                       <td className="px-4 py-3 text-right font-black text-foreground whitespace-nowrap">
-                        {typeof s.price_cents === "number" ? `$${(s.price_cents / 100).toFixed(2)}` : "—"}
+                        {typeof s.price_cents === "number" ? formatUSD(s.price_cents) : "—"}
                       </td>
                       <td className="px-2 py-3">
                         <DropdownMenu>

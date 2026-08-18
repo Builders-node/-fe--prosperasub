@@ -18,6 +18,7 @@ import { RateAndTip } from "@/components/food/RateAndTip";
 import { RenewPreviewDialog } from "@/components/subscriptions/RenewPreviewDialog";
 import { toast } from "sonner";
 import type { FoodMenuMeal } from "@/types/food";
+import { formatDateHN } from "@/lib/timezone";
 
 type EffStatus = "active" | "expiring_soon" | "expired" | "paused" | "cancelled" | "pending";
 
@@ -55,7 +56,7 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-const fmtDate = (d: string | null) => (d ? new Date(`${d}T00:00:00`).toLocaleDateString() : "—");
+const fmtDate = (d: string | null) => formatDateHN(d);
 
 export default function FoodSubscriptionDetail() {
   const { id } = useParams<{ id: string }>();

@@ -811,15 +811,15 @@
     ─── Global platform container ───────────────────────────────────────────
     The single source of truth for page width & horizontal rhythm. Every page
     shell uses `.app-container` (or the <AppContainer> component, which applies
-    it). `.market-content` is kept as a back-compat alias of the same rule.
+    it). The `.market-content` alias is gone — it was the majority spelling of
+    the same rule, which meant the codebase read as if it had two containers.
 
       • width 100%, capped at 1280px → no ultra-wide layouts
       • centered with margin auto
       • mobile-first fluid side padding: clamp(16px → 24px)
     Content alignment is therefore identical on every screen and breakpoint.
   */
-  .app-container,
-  .market-content {
+  .app-container {
     width: 100%;
     max-width: 1280px;
     margin-inline: auto;

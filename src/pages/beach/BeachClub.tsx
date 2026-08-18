@@ -261,7 +261,7 @@ const BeachClub = () => {
         showLocation={false}
       />
 
-      <main className="market-content py-space-4 md:py-space-8">
+      <main className="app-container py-space-4 md:py-space-8">
         {/* ─── Providers grouped by category ──────────────────────────
             "Beach Membership" providers on top, "Court Bookings" below, etc.
             Header hidden when only one category is populated so single-

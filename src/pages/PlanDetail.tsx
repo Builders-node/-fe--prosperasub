@@ -731,7 +731,7 @@ function Shell({ title, children }: { title: string; children: React.ReactNode }
     <div className="min-h-screen bg-background pb-24 md:pb-12">
       <DesktopHeader />
       <HomeHeader title={title} showBackButton onBack={goBack} bare />
-      <main className="market-content py-space-8">{children}</main>
+      <main className="app-container py-space-8">{children}</main>
       <BottomNav />
     </div>
   );

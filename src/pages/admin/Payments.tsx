@@ -22,6 +22,7 @@ import { FinanceBreakdown } from "@/components/admin/FinanceBreakdown";
 import { NetProfitPanel } from "@/components/admin/NetProfitPanel";
 import { ProviderPayoutsPanel } from "@/components/admin/ProviderPayoutsPanel";
 import { PayPalPanel } from "@/components/payment/PayPalPanel";
+import { formatUSD } from "@/lib/pricing";
 
 // Dashed placeholder shown before a test payment is generated.
 function TestPaymentPlaceholder({ children }: { children: React.ReactNode }) {
@@ -68,7 +69,7 @@ type AdminPaymentNotification = {
 };
 
 const formatNotificationAmount = (notification: AdminPaymentNotification) => {
-  if (typeof notification.amountCents === "number") return `$${(notification.amountCents / 100).toFixed(2)}`;
+  if (typeof notification.amountCents === "number") return formatUSD(notification.amountCents);
   if (typeof notification.amountSats === "number") return `${notification.amountSats.toLocaleString()} sats`;
   return "—";
 };
@@ -419,7 +420,7 @@ const AdminPayments = () => {
         <FinanceTile label="Paid subscriptions" value={String(paymentStats?.paid ?? 0)} hint="All-time · all services" />
         <FinanceTile label="Awaiting payment"    value={String(paymentStats?.pending ?? 0)} hint="All-time · all services"
           warning={(paymentStats?.pending ?? 0) > 0} className="col-span-1" />
-        <FinanceTile label="Revenue"             value={`$${((paymentStats?.revenueCents ?? 0) / 100).toFixed(2)}`}
+        <FinanceTile label="Revenue"             value={formatUSD(paymentStats?.revenueCents ?? 0)}
           hint="All-time — breakdown below is per period" accent className="col-span-2 md:col-span-1" />
       </section>
 
@@ -605,7 +606,7 @@ const AdminPayments = () => {
                         {testOnchain.amount_sats.toLocaleString()} sats
                       </p>
                       <p className="text-sm text-muted-foreground">
-                        ${(testOnchain.amount_cents / 100).toFixed(2)} · Status: {testOnchain.paid ? "paid" : (testOnchain.status || "pending")}
+                        {formatUSD(testOnchain.amount_cents)} · Status: {testOnchain.paid ? "paid" : (testOnchain.status || "pending")}
                       </p>
                     </div>
 
@@ -656,7 +657,7 @@ const AdminPayments = () => {
                     <div className="rounded-radius-lg bg-[hsl(var(--app-control))] p-space-4">
                       <p className="text-label text-muted-foreground">Amount</p>
                       <p className="text-section-title text-primary">
-                        ${(testSimpleFi.amount_cents / 100).toFixed(2)}
+                        {formatUSD(testSimpleFi.amount_cents)}
                       </p>
                       <p className="text-sm text-muted-foreground">
                         Status: {testSimpleFi.paid ? "paid" : (testSimpleFi.status || "pending")}

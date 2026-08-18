@@ -5,6 +5,7 @@ import { statusMeta } from "@/components/patterns/StatusPill";
 import { PageLoader } from "@/components/ui/spinner";
 import { useI18n } from "@/i18n";
 import { cn } from "@/lib/utils";
+import { formatDateHN } from "@/lib/timezone";
 
 const API_URL = (import.meta.env.VITE_API_URL as string)?.trim() || "https://api.prosperasub.com";
 
@@ -181,7 +182,7 @@ function AccessBreakdown({ subscriptions }: { subscriptions: Subscription[] }) {
                 <p className="truncate text-sm font-bold text-foreground">{SERVICE_LABEL[s.service]}</p>
                 <p className="text-xs text-muted-foreground">
                   {s.name}
-                  {s.expires_at && <> · Until {new Date(s.expires_at).toLocaleDateString()}</>}
+                  {s.expires_at && <> · Until {formatDateHN(s.expires_at)}</>}
                 </p>
               </div>
               <span className={cn("flex shrink-0 items-center gap-1.5 text-xs font-bold", style.textClass)}>

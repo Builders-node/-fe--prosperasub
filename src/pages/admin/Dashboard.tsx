@@ -12,6 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { approvePayment, type ApproveService } from "@/lib/subscriptionApprove";
 import { cn } from "@/lib/utils";
 import { fetchUsersByIds, fetchClientNames, customerNameFrom } from "@/lib/admin/customerNames";
+import { formatUSD } from "@/lib/pricing";
 
 /**
  * Admin Overview.
@@ -25,7 +26,6 @@ import { fetchUsersByIds, fetchClientNames, customerNameFrom } from "@/lib/admin
  * history) lives one click away in Subscriptions / Finance / People.
  */
 
-const formatCents = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 
 type ServiceKey = "cleaning" | "food" | "beach";
 
@@ -199,7 +199,7 @@ const AdminDashboard = () => {
       (cleaningSubs.data ?? []).forEach((s: any) => out.push({
         id: `csub-${s.id}`, service: "cleaning", tone: s.payment_status === "paid" ? "paid" : "pending",
         label: `${nameOf(s.user_id, null, s.client_id)} — Cleaning subscription`,
-        detail: s.payment_status === "paid" ? formatCents(s.total_price_cents || s.monthly_price_cents || 0) : "Awaiting payment",
+        detail: s.payment_status === "paid" ? formatUSD(s.total_price_cents || s.monthly_price_cents || 0) : "Awaiting payment",
         date: s.created_at, href: "/admin/marketplace/subscriptions",
       }));
       (foodSubs.data ?? []).forEach((s: any) => {
@@ -207,14 +207,14 @@ const AdminDashboard = () => {
         out.push({
           id: `fsub-${s.id}`, service: "food", tone: st === "pending" ? "pending" : "paid",
           label: `${nameOf(s.user_id, s.customer_name)} — Food subscription`,
-          detail: st === "pending" ? "Awaiting payment" : formatCents((s.weekly_price_cents || 0) * (s.commitment_weeks || 1)),
+          detail: st === "pending" ? "Awaiting payment" : formatUSD((s.weekly_price_cents || 0) * (s.commitment_weeks || 1)),
           date: s.created_at, href: "/admin/marketplace/subscriptions",
         });
       });
       (beachSubs.data ?? []).forEach((s: any) => out.push({
         id: `bsub-${s.id}`, service: "beach", tone: s.payment_status === "paid" ? "paid" : "pending",
         label: `${nameOf(s.user_id, s.customer_name)} — Beach Club membership`,
-        detail: s.payment_status === "paid" ? formatCents(s.total_cents || 0) : "Awaiting payment",
+        detail: s.payment_status === "paid" ? formatUSD(s.total_cents || 0) : "Awaiting payment",
         date: s.created_at, href: "/admin/beach-club/subscriptions",
       }));
 
@@ -237,7 +237,7 @@ const AdminDashboard = () => {
         />
         <MetricTile
           label="Revenue"
-          value={formatCents(stats?.revenueCents ?? 0)}
+          value={formatUSD(stats?.revenueCents ?? 0)}
           href="/admin/payments"
           accent
         />
@@ -276,7 +276,7 @@ const AdminDashboard = () => {
                       </p>
                     </div>
                     <span className="shrink-0 text-sm font-bold tabular-nums text-amber-500">
-                      {formatCents(row.amountCents)}
+                      {formatUSD(row.amountCents)}
                     </span>
                     <Button
                       size="sm"
@@ -318,7 +318,7 @@ const AdminDashboard = () => {
                 <div className="flex items-end justify-between">
                   <div>
                     <p className="text-base font-black tabular-nums text-foreground sm:text-lg">
-                      {formatCents(s?.revenueCents ?? 0)}
+                      {formatUSD(s?.revenueCents ?? 0)}
                     </p>
                     <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">revenue</p>
                   </div>

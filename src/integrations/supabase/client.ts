@@ -500,7 +500,7 @@ async function ensureSlotsSeeded() {
   _slotSeedAttempted = true;
 
   try {
-    await api("/admin/cleaning/seed-slots", { method: "POST" });
+    await api("/cleaning/ensure-slots", { method: "POST" });
   } catch {
     _slotSeedAttempted = false;
   }

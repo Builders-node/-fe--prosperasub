@@ -29,7 +29,7 @@ interface Props {
   header: ReactNode;
   /** Optional two-line description. */
   description?: string | null;
-  /** Meta chips (YdChip components). */
+  /** Meta chips. */
   chips?: ReactNode;
   /** Small "from" / "starts at" label before the price value. */
   priceLabel?: string;

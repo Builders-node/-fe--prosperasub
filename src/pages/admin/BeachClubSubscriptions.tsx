@@ -7,7 +7,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { todayHN, addDaysISO, addMonthsISO } from "@/lib/timezone";
+import { todayHN, addDaysISO, addMonthsISO, formatDateHN } from "@/lib/timezone";
 import { effectiveBeachStatus } from "@/lib/subscriptionLifecycle";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { PageLoader, Spinner } from "@/components/ui/spinner";
@@ -57,7 +57,7 @@ interface BeachSub {
 
 const STATUSES = ["active", "pending", "cancelled"] as const;
 
-const fmtDate = (d: string | null) => (d ? new Date(`${d}T00:00:00`).toLocaleDateString() : "—");
+const fmtDate = (d: string | null) => formatDateHN(d);
 
 interface BeachPlanOption {
   id: string;

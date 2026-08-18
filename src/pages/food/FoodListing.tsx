@@ -275,7 +275,7 @@ const FoodListing = () => {
         sorts={search.availableSorts}
       />
 
-      <main className="market-content py-space-4 md:py-space-8">
+      <main className="app-container py-space-4 md:py-space-8">
 
         {/* ─── Providers → Categories → the list ───────────────────── */}
         {!isLoading && !isError && railProviders.length > 0 && (

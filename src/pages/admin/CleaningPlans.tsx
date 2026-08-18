@@ -51,6 +51,7 @@ import {
   validateCleaningPlanPricing,
 } from "@/lib/cleaningPlanPricing";
 import { BookingCalendarOverride } from "@/components/provider/BookingCalendarOverride";
+import { formatUSD } from "@/lib/pricing";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -101,8 +102,7 @@ const EMPTY_PLAN: Partial<Plan> = {
   booking_settings: null,
 };
 
-const formatCents = (cents: number) => `$${(cents / 100).toFixed(2)}`;
-const formatMonthly = (plan: Plan) => formatCents(resolveMonthlyPriceCents(plan));
+const formatMonthly = (plan: Plan) => formatUSD(resolveMonthlyPriceCents(plan));
 
 
 // ─── Page ────────────────────────────────────────────────────────────────────
@@ -850,8 +850,8 @@ function PlanFormSheet({
             priceLabel="Monthly price"
             priceHint={
               normalizePricingMode(form.pricing_mode) === "price_per_cleaning"
-                ? `Derived from the per-cleaning price below: ${formatCents(resolveMonthlyPriceCents(form))}/month`
-                : `What the customer is billed each month. Resolved: ${formatCents(resolveMonthlyPriceCents(form))}/month`
+                ? `Derived from the per-cleaning price below: ${formatUSD(resolveMonthlyPriceCents(form))}/month`
+                : `What the customer is billed each month. Resolved: ${formatUSD(resolveMonthlyPriceCents(form))}/month`
             }
             fixedUnit="cleaning"
             // The real controls are frequency count + unit in `extras`, because
@@ -915,7 +915,7 @@ function PlanFormSheet({
                       onChange={(e) => set("price_per_cleaning_cents", dollarsToCents(e.target.value))}
                     />
                     <p className="mt-1 text-xs text-muted-foreground">
-                      = {formatCents(Number(form.price_per_cleaning_cents) || 0)} each
+                      = {formatUSD(Number(form.price_per_cleaning_cents) || 0)} each
                     </p>
                   </div>
                   <div>
