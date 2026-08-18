@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Trash2 } from "lucide-react";
+import { Trash2, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,7 +36,8 @@ interface PayoutRow {
   reference: string | null;
   note: string | null;
   paid_at: string | null;
-  status?: "requested" | "approved" | "paid" | "rejected";
+  status?: "requested" | "approved" | "sending" | "paid" | "failed" | "rejected";
+  send_error?: string | null;
   destination?: string | null;
   requested_at?: string | null;
   created_at?: string | null;
@@ -235,11 +236,20 @@ export function ProviderPayoutsPanel() {
 /**
  * The queue of providers waiting to be paid.
  *
- * A request is a claim, not a transfer: approving says the platform agrees it
- * is owed, and "Mark sent" is the only action that says money moved — and the
- * only one that stamps the ledger date. Keeping the two apart is what lets an
- * admin approve today and pay when they are next at a wallet, without the
- * provider's screen claiming they have been paid in the meantime.
+ * A request is a claim, not a transfer. Approving says the platform agrees it
+ * is owed; a second, separate action says money moved. Keeping them apart is
+ * what lets an admin approve today and pay later without the provider's screen
+ * claiming they have been paid in the meantime.
+ *
+ * There are two ways to pay, and which one shows depends on how the platform
+ * is configured:
+ *
+ *   • **Send now** — the platform pays it from the Blink USD wallet, over
+ *     Lightning or on-chain. Real money leaves when this is pressed, so it
+ *     asks first and says the amount and the destination in the question.
+ *   • **Mark sent** — the bookkeeping stamp for a transfer made by hand. It is
+ *     the only option when Blink sending is off, and stays available as the
+ *     escape hatch when it is on.
  *
  * The amount was already capped server-side when the provider asked; nothing
  * here can raise it.
@@ -257,6 +267,47 @@ function PayoutRequestQueue({ providers }: { providers: Array<{ id: string; name
       return (Array.isArray(data) ? data : []) as PayoutRow[];
     },
   });
+
+  // Whether this deployment can pay from the wallet at all. A key without the
+  // write scope cannot, and offering a button that answers with a config error
+  // is worse than not offering it.
+  const { data: config } = useQuery({
+    queryKey: ["admin-payout-config"],
+    staleTime: 10 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await adminApi("/admin/payouts/config");
+      if (error) return { blinkSendEnabled: false };
+      return (data ?? { blinkSendEnabled: false }) as { blinkSendEnabled: boolean };
+    },
+  });
+  const canSend = !!config?.blinkSendEnabled;
+
+  const send = useMutation({
+    mutationFn: async (id: string) => {
+      const { data, error } = await adminApi(`/admin/payouts/${id}/send`, { method: "POST" });
+      if (error) throw new Error(String(error));
+      return data as PayoutRow;
+    },
+    onSuccess: (row) => {
+      if (row?.status === "paid") toast.success("Sent");
+      else if (row?.status === "sending") toast.success("Sent — still settling at Blink");
+      else toast.error(row?.send_error || "Blink refused the payment");
+      qc.invalidateQueries({ queryKey: ["admin-payout-requests"] });
+      qc.invalidateQueries({ queryKey: ["admin-provider-payouts"] });
+    },
+    onError: (e: any) => toast.error(e?.message || "Could not send the payout"),
+  });
+
+  const confirmSend = (r: PayoutRow) => {
+    // Irreversible, so it is a question and not a click. The amount and the
+    // destination are in the question because those are the two things that
+    // cannot be taken back if they are wrong.
+    const ok = window.confirm(
+      `Send ${formatUSD(r.amount_cents)} to ${r.destination}?\n\n` +
+      `This pays from the platform's Blink wallet now and cannot be undone.`,
+    );
+    if (ok) send.mutate(r.id);
+  };
 
   const decide = useMutation({
     mutationFn: async ({ id, decision }: { id: string; decision: "approved" | "rejected" | "paid" }) => {
@@ -294,6 +345,7 @@ function PayoutRequestQueue({ providers }: { providers: Array<{ id: string; name
               </p>
               <p className="truncate font-mono text-[11px] text-muted-foreground">{r.destination}</p>
               {r.note && <p className="text-xs text-muted-foreground">{r.note}</p>}
+              {r.send_error && <p className="text-xs text-destructive">{r.send_error}</p>}
             </div>
             <div className="flex items-center gap-space-2">
               <span className="text-base font-black tabular-nums text-foreground">{formatUSD(r.amount_cents)}</span>
@@ -312,10 +364,34 @@ function PayoutRequestQueue({ providers }: { providers: Array<{ id: string; name
                 </>
               )}
               {r.status === "approved" && (
-                <Button size="sm" className="rounded-full"
+                <>
+                  {canSend && (
+                    <Button size="sm" className="gap-1.5 rounded-full"
+                      disabled={send.isPending}
+                      onClick={() => confirmSend(r)}>
+                      <Zap className="h-3.5 w-3.5" /> {send.isPending ? "Sending…" : "Send now"}
+                    </Button>
+                  )}
+                  <Button size="sm" variant={canSend ? "outline" : "default"} className="rounded-full"
+                    disabled={decide.isPending}
+                    onClick={() => decide.mutate({ id: r.id, decision: "paid" })}>
+                    Mark sent
+                  </Button>
+                </>
+              )}
+              {/* In flight at Blink. Not payable again — the server refuses a
+                  second send — so there is nothing to press. */}
+              {r.status === "sending" && (
+                <span className="text-xs font-semibold text-amber-500">Settling…</span>
+              )}
+              {/* A failure put the money back in the provider's balance, so the
+                  way forward is a fresh request with a destination that works,
+                  not a retry of this row. */}
+              {r.status === "failed" && (
+                <Button size="sm" variant="outline" className="rounded-full"
                   disabled={decide.isPending}
-                  onClick={() => decide.mutate({ id: r.id, decision: "paid" })}>
-                  Mark sent
+                  onClick={() => decide.mutate({ id: r.id, decision: "rejected" })}>
+                  Close it
                 </Button>
               )}
             </div>

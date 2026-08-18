@@ -156,6 +156,8 @@ function WithdrawPanel({ providerId, availableCents }: { providerId: string; ava
 function PayoutStatus({ status }: { status?: string }) {
   if (!status || status === "paid") return null;
   const tone =
+    status === "failed" ? "bg-destructive/15 text-destructive" :
+    status === "sending" ? "bg-amber-500/15 text-amber-500" :
     status === "requested" ? "bg-amber-500/15 text-amber-500" :
     status === "approved"  ? "bg-sky-500/15 text-sky-500" :
                              "bg-destructive/15 text-destructive";
