@@ -27,6 +27,8 @@ export interface PurchaseDetail {
   purchasedAt?: string | null;
   /** Tariff facts — "2 guests", "3 meals a day", "4 weeks". */
   facts?: { label: string; value: ReactNode }[];
+  /** Booked sessions to show inside the purchase — cleaning visits, grouped. */
+  sessions?: { label: string; items: { id: string; date: string; time?: string | null; status: string }[] }[];
   /** Optional link out, e.g. food's weekly menu. */
   action?: { label: string; onClick: () => void };
   /** Cancel (or Resume) the subscription — the quiet action, at the very bottom. */
@@ -85,6 +87,27 @@ export function SubscriptionDetailSheet({
                 : undefined} />
             <Row label="Purchased" value={detail.purchasedAt ? formatDateHN(detail.purchasedAt) : undefined} />
           </div>
+
+          {/* The visits this subscription booked — the schedule lives in the
+              purchase now, not on the list. */}
+          {detail.sessions?.filter((g) => g.items.length).map((group) => (
+            <div key={group.label} className="mt-4">
+              <p className="mb-2 text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">
+                {group.label} · <span className="tabular-nums">{group.items.length}</span>
+              </p>
+              <div className="space-y-2">
+                {group.items.map((it) => (
+                  <div key={it.id} className="flex items-center justify-between gap-3 rounded-radius-md bg-inset px-3 py-2.5">
+                    <div className="min-w-0">
+                      <p className="text-[14px] font-semibold text-foreground">{it.date}</p>
+                      {it.time && <p className="text-[12px] text-muted-foreground">{it.time}</p>}
+                    </div>
+                    <StatusPill status={it.status} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
 
           {detail.action && (
             <button

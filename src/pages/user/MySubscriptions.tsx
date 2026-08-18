@@ -899,6 +899,30 @@ const MySubscriptions = () => {
     (b) => b.status !== "booked" || isPast(new Date((b as any).cleaning_available_slots?.date + "T23:59:59")),
   ) || []).sort((a, b) => -byDateTime(a, b));
 
+  /**
+   * A cleaning subscription's own visits, grouped for the purchase sheet —
+   * Upcoming and History moved off the list and into the card's detail.
+   */
+  const upcomingBookingIds = new Set((upcomingCleaningBookings ?? []).map((b: any) => b.id));
+  const bookingSessions = (subId: string) => {
+    const mine = (cleaningBookings ?? []).filter(
+      (b: any) => String(b?.subscription_id ?? b?.cleaning_subscription_id ?? "") === String(subId),
+    );
+    const dateOf = (b: any) => {
+      const d = b.cleaning_available_slots?.date;
+      return d ? format(new Date(d + "T00:00:00"), "EEE, MMM d, yyyy") : "—";
+    };
+    const timeOf = (b: any) => {
+      const slot = b.cleaning_available_slots;
+      return slot?.start_time ? `${format12h(slot.start_time)} – ${format12h(slot.end_time ?? "")}` : null;
+    };
+    const toItem = (b: any) => ({ id: String(b.id), date: dateOf(b), time: timeOf(b), status: String(b.status) });
+    return [
+      { label: "Upcoming", items: mine.filter((b: any) => upcomingBookingIds.has(b.id)).map(toItem) },
+      { label: "History", items: mine.filter((b: any) => !upcomingBookingIds.has(b.id)).map(toItem) },
+    ];
+  };
+
   // ── One list, no tabs ────────────────────────────────────────────────────
   // The page shows every service's subscriptions together now. These roll up
   // whether anything is loading, anything errored, and whether there is any
@@ -907,8 +931,7 @@ const MySubscriptions = () => {
   const hasCleaningContent =
     activeCleaningSubs.length > 0 || expiredCleaningSubs.length > 0 ||
     pendingScheduleCleaningSubs.length > 0 || unpaidCleaningSubs.length > 0 ||
-    (linkedClientSubscriptions?.length ?? 0) > 0 ||
-    upcomingCleaningBookings.length > 0;
+    (linkedClientSubscriptions?.length ?? 0) > 0;
   const anyContent =
     visibleFood.length > 0 || visibleBeach.length > 0 ||
     visibleUniversal.length > 0 || hasCleaningContent;
@@ -1402,6 +1425,7 @@ const MySubscriptions = () => {
                               ...(sub.cleanings_remaining != null ? [{ label: "Cleanings left", value: String(sub.cleanings_remaining) }] : []),
                             ],
                             cancel: cancelSheetAction("cleaning", sub, (sub as any).cleaning_packages?.name ?? "cleaning plan"),
+                            sessions: bookingSessions(sub.id),
                           })}
                           statusBadge={(sub as any).payment_method
                             ? <PaymentMethodBadge method={(sub as any).payment_method} />
@@ -1499,6 +1523,7 @@ const MySubscriptions = () => {
                             facts: sub.billing_period_months
                               ? [{ label: "Billing", value: `${sub.billing_period_months} month${sub.billing_period_months > 1 ? "s" : ""}` }]
                               : [],
+                            sessions: bookingSessions(sub.id),
                           })}
                           actions={sub.package_id ? [
                             { key: "renew", label: "Renew", icon: RefreshCw, onClick: openRenewDialog, variant: "primary" as const },
@@ -1547,28 +1572,6 @@ const MySubscriptions = () => {
                 )}
 
                 {/* ── Upcoming bookings ── */}
-                {/* Only when there is something upcoming — an empty box that
-                    says "No upcoming cleaning sessions" is noise on a list. */}
-                {upcomingCleaningBookings.length > 0 && (
-                  <section className="space-y-2">
-                    <SectionOverline label="Upcoming" count={upcomingCleaningBookings.length} />
-                    <div className="space-y-3">
-                      {upcomingCleaningBookings.map((booking) => (
-                        <CleaningBookingRow
-                          key={booking.id}
-                          booking={booking}
-                          upcoming
-                          planName={planNameForBooking(booking)}
-                          onView={() => setViewBooking(booking)}
-                          onReschedule={booking.client_id ? undefined : () => openReschedule(booking)}
-                          onCancel={() => cancelCleaningMutation.mutate(booking.id)}
-                          cancelling={cancelCleaningMutation.isPending}
-                        />
-                      ))}
-                    </div>
-                  </section>
-                )}
-
               </>
             )}
           </div>
