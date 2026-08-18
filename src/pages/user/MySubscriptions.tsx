@@ -34,6 +34,8 @@ import {
   Waves,
   LandPlot,
   LayoutGrid,
+  Search,
+  SlidersHorizontal,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -113,13 +115,16 @@ interface PendingRenewal {
 function ListControls({
   scope, onChange, browse,
 }: {
-  scope: "active" | "past";
-  onChange: (s: "active" | "past") => void;
+  /** Active/Past toggle. Omitted now that the page header owns scope; the
+      component keeps the prop so any standalone caller still works. */
+  scope?: "active" | "past";
+  onChange?: (s: "active" | "past") => void;
   browse?: { label: string; onClick: () => void };
 }) {
+  if (!scope && !browse) return null;
   return (
-    <div className="flex items-center justify-between gap-3">
-      <ScopeToggle scope={scope} onChange={onChange} />
+    <div className={cn("flex items-center gap-3", scope ? "justify-between" : "justify-end")}>
+      {scope && onChange && <ScopeToggle scope={scope} onChange={onChange} />}
       {browse && (
         <button
           type="button"
@@ -342,6 +347,19 @@ const MySubscriptions = () => {
    * this.
    */
   const [scope, setScope] = useState<"active" | "past">("active");
+  /** Search across the visible cards — the design's search pill. */
+  const [query, setQuery] = useState("");
+  /**
+   * A row matches when the words typed appear anywhere in it — plan name,
+   * provider, customer, dates. Crude by design: a subscriptions list is small
+   * and a person types "beach" or a name, not a column.
+   */
+  const matchesQuery = (row: unknown): boolean => {
+    const q = query.trim().toLowerCase();
+    if (!q) return true;
+    try { return JSON.stringify(row).toLowerCase().includes(q); }
+    catch { return true; }
+  };
 
   const changeTab = (t: ServiceTab) => {
     setActiveTab(t);
@@ -817,11 +835,11 @@ const MySubscriptions = () => {
   });
   const activeCleaningSubs = paidCleaningSubs.filter(
     (s) => s.is_active && effectiveCleaningStatus(s) === "active",
-  );
+  ).filter(matchesQuery);
   /** Ran their course but are still renewable — previously invisible. */
   const expiredCleaningSubs = paidCleaningSubs.filter(
     (s) => effectiveCleaningStatus(s) === "expired",
-  );
+  ).filter(matchesQuery);
 
   // "Running" per service. Anything else is history.
   const isLiveFood = (s: any) => effectiveFoodStatus(s) === "active" || String(s.status).toLowerCase() === "paused";
@@ -829,7 +847,7 @@ const MySubscriptions = () => {
     String(s.status).toLowerCase() === "active" && (!s.end_date || s.end_date >= todayHN());
 
   const inScope = <T,>(rows: T[], isLive: (r: T) => boolean) =>
-    rows.filter((r) => (scope === "active" ? isLive(r) : !isLive(r)));
+    rows.filter((r) => (scope === "active" ? isLive(r) : !isLive(r))).filter(matchesQuery);
 
   const visibleFood   = inScope(foodSubscriptions as any[], isLiveFood);
   const visibleBeach  = inScope(beachSubs as any[], isLiveBeach);
@@ -926,12 +944,51 @@ const MySubscriptions = () => {
           })}
         </div>
 
+        {/* ── Search + filter + section heading, from the My Subs redesign ──
+            The search pill and the Active/Past filter live here so they hold
+            for whichever service tab is open; the heading names the list the
+            way the design does. */}
+        <div className="mb-3 flex items-center gap-2">
+          <div className="flex flex-1 items-center gap-2 rounded-radius-md bg-inset px-3 py-2">
+            <Search className="h-5 w-5 shrink-0 text-muted-foreground" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search Subs"
+              className="min-w-0 flex-1 bg-transparent text-[16px] tracking-[-0.32px] text-foreground placeholder:text-muted-foreground focus:outline-none"
+            />
+            {query && (
+              <button type="button" aria-label="Clear search" onClick={() => setQuery("")}
+                className="shrink-0 text-muted-foreground transition-colors hover:text-foreground">
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          {/* The one filter dimension this page has is Active vs Past. The
+              button carries it, lit when it is set to anything but the
+              default. */}
+          <button
+            type="button"
+            aria-label={scope === "active" ? "Showing active — tap for past" : "Showing past — tap for active"}
+            onClick={() => setScope(scope === "active" ? "past" : "active")}
+            className={cn(
+              "flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors",
+              scope === "past" ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <SlidersHorizontal className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-[20px] font-semibold leading-[24px] tracking-[-0.4px] text-foreground">
+            {scope === "active" ? "Plans" : "Past plans"}
+          </h2>
+        </div>
+
         {/* ─── FOOD tab content ──────────────────────────────────── */}
         {activeTab === "food" && (
           <div className="space-y-5">
             <ListControls
-              scope={scope}
-              onChange={setScope}
               browse={{ label: "Browse restaurants", onClick: () => navigate("/services/food") }}
             />
 
@@ -1003,8 +1060,6 @@ const MySubscriptions = () => {
           return (
             <div className="space-y-5">
               <ListControls
-                scope={scope}
-                onChange={setScope}
                 browse={{ label: "Browse plans", onClick: () => navigate("/services/beach-club") }}
               />
 

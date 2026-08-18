@@ -14,15 +14,17 @@ interface Action {
 }
 
 interface Props {
-  /** Icon shown in the tile — the service's, drawn in the one neutral tile. */
+  /** Icon shown in the tile when there is no photo — the service's, muted. */
   icon: React.ComponentType<{ className?: string }>;
+  /** Photograph for the leading tile. Falls back to the icon when absent. */
+  image?: string | null;
   /** Primary card title. */
   title: ReactNode;
   /** One muted line under the title: who, how many, which dates. */
   subtitle?: ReactNode;
-  /** The price. Sits opposite the status, not on a line of its own. */
+  /** The price. Pinned to the bottom-right of the tile's body. */
   metadata?: ReactNode;
-  /** Right-aligned status pill. */
+  /** Status pill, top-right beside the title. */
   statusBadge?: ReactNode;
   /** Quiet pill buttons on one row. They wrap; they never stretch. */
   actions?: Action[];
@@ -35,27 +37,25 @@ interface Props {
 /**
  * One subscription, one card — every service.
  *
- * Rewritten against DESIGN.md after the mobile screen stopped scaling. What
- * changed and why:
+ * The layout is the Figma My Subs redesign, mapped onto the project's tokens so
+ * the exact light palette (#f6f6f6 page, white card, #2a2a2a ink, #7d7d7d
+ * secondary, #f7a21b accent) comes out of `bg-background`/`bg-card`/
+ * `text-foreground`/`text-muted-foreground`/`text-primary` and the dark theme
+ * comes for free.
  *
- * - **16px radius, not 24.** `rounded-2xl` maps to `--radius-lg` in this
- *   project; a card is `--radius-md`. Three cards at 24 read as three panels.
- * - **The type scale the design actually uses**: 16 semibold for the thing you
- *   act on, 12 for what explains it. It was 14 bold / 12, which is a different
- *   product's ramp.
- * - **No per-service colours.** Each service used to bring its own tinted tile
- *   — emerald, cyan, rose — so a list of three subscriptions was three
- *   accents. The palette is three greys and one orange; the tile is `bg-inset`
- *   and the glyph is muted, and the service is legible from its icon and name.
- * - **Actions do not stretch.** Two full-width buttons per card meant a card
- *   was mostly buttons, and a third action broke the grid. They are pills on
- *   one wrapping row now, sized to their label.
- * - **The rating strip only shows a rating that exists.** Asking belongs to
- *   the prompt at the top of the page, which asks once, about work that
- *   actually happened.
+ * The measurements are the design's, to the pixel: a 104px photo tile at
+ * radius 8 on the left; the body padded 8 top and bottom with the title at the
+ * top (16 semibold) and the price pinned to the bottom-right (16 semibold),
+ * the description filling the space between; the card at radius 16 with
+ * `--shadow-figma` — the one soft shadow that keeps a white card off a #f6f6f6
+ * page and resolves to nothing in the dark.
+ *
+ * A subscription carries no photo yet, so the tile falls back to the service
+ * glyph on `bg-inset`. Status rides top-right and actions/rating flow below the
+ * tile — the mock had neither, but a real card has to renew, cancel and rate.
  */
 export function SubscriptionCard({
-  icon: Icon, title, subtitle, metadata, statusBadge,
+  icon: Icon, image, title, subtitle, metadata, statusBadge,
   actions = [], rate, onClick, className,
 }: Props) {
   const isRowClickable = !!onClick;
@@ -69,35 +69,57 @@ export function SubscriptionCard({
         if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick!(); }
       } : undefined}
       className={cn(
-        "space-y-3 rounded-radius-md bg-card p-4 tracking-[-0.02em]",
-        isRowClickable && "cursor-pointer transition-colors hover:bg-muted/30",
+        "rounded-radius-md bg-card p-2 pr-4 shadow-figma tracking-[-0.02em]",
+        isRowClickable && "cursor-pointer transition-colors hover:bg-muted/40",
         className,
       )}
     >
-      <div className="flex items-start gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] bg-inset">
-          <Icon className="h-5 w-5 text-muted-foreground" />
-        </span>
+      <div className="flex gap-4">
+        {/* The 104px tile — photo, or the service glyph when there is none. */}
+        <div className="relative size-[104px] shrink-0 overflow-hidden rounded-[8px] bg-inset">
+          {image ? (
+            <img
+              src={image}
+              alt=""
+              className="absolute inset-0 size-full object-cover"
+              loading="lazy"
+            />
+          ) : (
+            <span className="flex size-full items-center justify-center">
+              <Icon className="size-8 text-muted-foreground" />
+            </span>
+          )}
+        </div>
 
-        <div className="min-w-0 flex-1">
+        {/* Body: title at the top, price pinned to the bottom, description
+            filling the gap — the design's exact vertical rhythm. */}
+        <div className="flex min-w-0 flex-1 flex-col py-2">
           <div className="flex items-start justify-between gap-2">
-            <p className="min-w-0 flex-1 truncate text-[16px] font-semibold leading-[22px] text-foreground">
+            <p className="min-w-0 flex-1 truncate text-[16px] font-semibold leading-[19px] text-foreground">
               {title}
             </p>
             {statusBadge && <div className="shrink-0">{statusBadge}</div>}
           </div>
 
-          {/* Everything that explains it on one line, price at the end — a
-              price on its own third line pushed the actions off the fold. */}
-          <div className="mt-0.5 flex items-baseline justify-between gap-3 text-[12px] leading-[16px] text-muted-foreground">
-            {subtitle ? <span className="min-w-0 truncate">{subtitle}</span> : <span />}
-            {metadata && <span className="shrink-0 tabular-nums text-foreground">{metadata}</span>}
+          <div className="mt-1 flex flex-1 flex-col justify-end gap-1">
+            {subtitle && (
+              <p className="line-clamp-2 text-[12px] leading-[16px] tracking-[-0.24px] text-muted-foreground">
+                {subtitle}
+              </p>
+            )}
+            {metadata && (
+              <div className="flex items-end justify-end">
+                <span className="text-[16px] font-semibold leading-[19px] tabular-nums text-foreground">
+                  {metadata}
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
       {actions.length > 0 && (
-        <div className="flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
+        <div className="mt-3 flex flex-wrap gap-2" onClick={(e) => e.stopPropagation()}>
           {actions.map((a, i) => {
             const IconEl = a.icon;
             return (
@@ -120,7 +142,7 @@ export function SubscriptionCard({
         </div>
       )}
 
-      {rate && <div onClick={(e) => e.stopPropagation()}>{rate}</div>}
+      {rate && <div className="mt-3" onClick={(e) => e.stopPropagation()}>{rate}</div>}
     </div>
   );
 }
