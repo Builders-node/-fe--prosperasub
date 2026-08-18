@@ -908,7 +908,7 @@ const MySubscriptions = () => {
     activeCleaningSubs.length > 0 || expiredCleaningSubs.length > 0 ||
     pendingScheduleCleaningSubs.length > 0 || unpaidCleaningSubs.length > 0 ||
     (linkedClientSubscriptions?.length ?? 0) > 0 ||
-    upcomingCleaningBookings.length > 0 || pastCleaningBookings.length > 0;
+    upcomingCleaningBookings.length > 0;
   const anyContent =
     visibleFood.length > 0 || visibleBeach.length > 0 ||
     visibleUniversal.length > 0 || hasCleaningContent;
@@ -1569,28 +1569,6 @@ const MySubscriptions = () => {
                   </section>
                 )}
 
-                {/* ── History (collapsed if long) ── */}
-                {pastCleaningBookings.length > 0 && (
-                  <section className="space-y-2">
-                    <SectionOverline label="History" count={pastCleaningBookings.length} />
-                    <div className="space-y-3">
-                      {pastCleaningBookings.slice(0, 5).map((booking) => (
-                        <CleaningBookingRow
-                          key={booking.id}
-                          booking={booking}
-                          upcoming={false}
-                          planName={planNameForBooking(booking)}
-                          onView={() => setViewBooking(booking)}
-                        />
-                      ))}
-                      {pastCleaningBookings.length > 5 && (
-                        <p className="pt-1 text-center text-xs text-muted-foreground">
-                          +{pastCleaningBookings.length - 5} older sessions
-                        </p>
-                      )}
-                    </div>
-                  </section>
-                )}
               </>
             )}
           </div>
