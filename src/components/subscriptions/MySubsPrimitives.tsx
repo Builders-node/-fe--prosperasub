@@ -61,7 +61,8 @@ export function TabEmptyState({ icon: Icon, title, subtitle, action }: EmptyProp
 // Renders nothing if children is empty (used with array length checks).
 
 interface SectionGroupProps {
-  label: string;
+  /** Omit to render the cards with no overline — a flat list under one heading. */
+  label?: string;
   count?: number;
   tone?: "default" | "warning" | "success";
   children: ReactNode;
@@ -69,7 +70,7 @@ interface SectionGroupProps {
 export function SectionGroup({ label, count, tone, children }: SectionGroupProps) {
   return (
     <section className="space-y-2">
-      <SectionOverline label={label} count={count} tone={tone} />
+      {label && <SectionOverline label={label} count={count} tone={tone} />}
       <div className="space-y-3">{children}</div>
     </section>
   );

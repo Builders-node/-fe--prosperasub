@@ -1014,7 +1014,7 @@ const MySubscriptions = () => {
                 action={{ label: "Browse Restaurants", onClick: () => navigate("/services/food") }}
               />
             ) : (
-              <SectionGroup label="Meal plans" count={visibleFood.length}>
+              <SectionGroup>
                 {visibleFood.map((s: any) => {
                   const endDate = foodEnd(s)?.toISOString().slice(0, 10) ?? null;
                   const openRenewDialog = () => {
@@ -1085,7 +1085,7 @@ const MySubscriptions = () => {
                   action={{ label: "Browse Plans", onClick: () => navigate("/services/beach-club") }}
                 />
               ) : (
-                <SectionGroup label="Memberships" count={visibleBeach.length}>
+                <SectionGroup>
                   {visibleBeach.map((s: any) => {
                     const expired = s.end_date && s.end_date < today;
                     const st = String(s.status).toLowerCase();
@@ -1167,7 +1167,7 @@ const MySubscriptions = () => {
             {universalError ? (
               <QueryError title="Couldn't load your subscriptions" onRetry={() => refetchUniversal()} />
             ) : (
-              <SectionGroup label="Subscriptions" count={visibleUniversal.length}>
+              <SectionGroup>
                 {visibleUniversal.map((s: any) => {
                   const today = todayHN();
                   const expired = s.end_date && s.end_date < today;
@@ -1295,10 +1295,6 @@ const MySubscriptions = () => {
                 {/* ── Active plan ── */}
                 {(activeCleaningSubs.length > 0 || linkedClientSubscriptions.length > 0) && (
                   <section className="space-y-2">
-                    <SectionOverline
-                      label="Active plan"
-                      count={activeCleaningSubs.length + linkedClientSubscriptions.length}
-                    />
                     {activeCleaningSubs.map((sub) => {
                       const openRenewDialog = () => {
                         const preview = computeRenewPreview(sub.end_date, {
