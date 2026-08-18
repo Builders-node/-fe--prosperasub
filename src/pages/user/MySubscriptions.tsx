@@ -389,7 +389,7 @@ const MySubscriptions = () => {
       if (error) throw error;
       return data ?? [];
     },
-    enabled: (!!userUuid || !!userData?.id) && activeTab === "food",
+    enabled: (!!userUuid || !!userData?.id),
   });
 
 
@@ -422,7 +422,7 @@ const MySubscriptions = () => {
         total_cents: r.price_cents ?? 0,
       }));
     },
-    enabled: (!!userUuid || !!userData?.id) && activeTab === "entertainment",
+    enabled: (!!userUuid || !!userData?.id),
   });
 
   /**
@@ -432,31 +432,30 @@ const MySubscriptions = () => {
    * queries above would ever return its rows and a customer could pay and then
    * not see what they bought.
    *
-   * Scoped to the open tab's archetype, so it appears beneath that service's
-   * own list rather than in a catch-all bucket. Massage is under Lifestyle, so
-   * that is where its subscription belongs.
+   * All archetypes now that the list is one — no tab to scope it to. Legacy-
+   * backed rows are still excluded (`source_service_key IS NULL`) so a beach or
+   * cleaning subscription the per-service query already shows does not appear a
+   * second time.
    */
   const {
     data: universalSubs = [],
     isError: universalError, refetch: refetchUniversal,
   } = useQuery({
-    queryKey: ["my-universal-subscriptions", userUuid, activeTab],
+    queryKey: ["my-universal-subscriptions", userUuid],
     queryFn: async () => {
-      if (!userUuid || !activeTab) return [];
+      if (!userUuid) return [];
       const { data, error } = await supabaseDb
         .from("provider_subscriptions")
         .select("*, providers!inner(name, archetype_key), provider_plans(name, period)")
         .eq("user_id", userUuid)
-        .eq("providers.archetype_key", activeTab)
-        // Legacy-backed rows mirror a row the per-service query already shows.
-        // Without this filter every beach and cleaning subscription appears
-        // twice on the same tab.
+        // Legacy-backed rows mirror a row the per-service query already shows;
+        // without this filter a beach or cleaning subscription appears twice.
         .is("source_service_key", null)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data ?? [];
     },
-    enabled: !!userUuid && !!activeTab,
+    enabled: !!userUuid,
   });
 
   // ── Queries ──────────────────────────────────────────────────────────────
@@ -871,6 +870,23 @@ const MySubscriptions = () => {
     (b) => b.status !== "booked" || isPast(new Date((b as any).cleaning_available_slots?.date + "T23:59:59")),
   ) || []).sort((a, b) => -byDateTime(a, b));
 
+  // ── One list, no tabs ────────────────────────────────────────────────────
+  // The page shows every service's subscriptions together now. These roll up
+  // whether anything is loading, anything errored, and whether there is any
+  // content at all — so a single skeleton and a single empty state replace the
+  // four per-service ones the tabs used to hide from each other.
+  const hasCleaningContent =
+    activeCleaningSubs.length > 0 || expiredCleaningSubs.length > 0 ||
+    pendingScheduleCleaningSubs.length > 0 || unpaidCleaningSubs.length > 0 ||
+    (linkedClientSubscriptions?.length ?? 0) > 0 ||
+    upcomingCleaningBookings.length > 0 || pastCleaningBookings.length > 0;
+  const anyContent =
+    visibleFood.length > 0 || visibleBeach.length > 0 ||
+    visibleUniversal.length > 0 || hasCleaningContent;
+  const anyLoading =
+    foodSubsLoading || beachSubsLoading || cleaningSubsLoading || cleaningBookingsLoading;
+  const anyError = foodError || beachError || universalError;
+
   // ── Loading / auth gates ─────────────────────────────────────────────────
 
   if (authLoading) {
@@ -913,41 +929,16 @@ const MySubscriptions = () => {
 
         {/* Page title lives in the mobile header — no inline H1 needed. */}
 
-        {/* Above the tabs on purpose: it is about a job that happened, not
+        {/* Above the list on purpose: it is about a job that happened, not
             about one of the services below, and it disappears once answered. */}
         <div className="mb-5">
           <ReviewPromptCard />
         </div>
 
-        {/* ── Service tabs ────────────────────────────────────────── */}
-        {/* Pills sized to their label, not to a third of the screen: the
-            services list is data, and `flex-1` across six of them squeezes
-            every label into an ellipsis. It scrolls instead. */}
-        <div className="mb-4 flex gap-1 overflow-x-auto rounded-full bg-inset p-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-          {archetypes.map(({ key: id, label, Icon }) => {
-            const active = activeTab === id;
-            return (
-              <button
-                key={id}
-                type="button"
-                onClick={() => changeTab(id)}
-                className={`flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-4 py-2 text-[13px] font-semibold tracking-[-0.02em] transition-colors ${
-                  active
-                    ? "bg-foreground text-background"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <Icon className="h-4 w-4 shrink-0" />
-                <span>{label}</span>
-              </button>
-            );
-          })}
-        </div>
-
         {/* ── Search + filter + section heading, from the My Subs redesign ──
-            The search pill and the Active/Past filter live here so they hold
-            for whichever service tab is open; the heading names the list the
-            way the design does. */}
+            One list, no tabs: the search pill and the Active/Past filter hold
+            over every service at once, and the heading names the list the way
+            the design does. */}
         <div className="mb-3 flex items-center gap-2">
           <div className="flex flex-1 items-center gap-2 rounded-radius-md bg-inset px-3 py-2">
             <Search className="h-5 w-5 shrink-0 text-muted-foreground" />
@@ -985,8 +976,25 @@ const MySubscriptions = () => {
           </h2>
         </div>
 
-        {/* ─── FOOD tab content ──────────────────────────────────── */}
-        {activeTab === "food" && (
+        {/* The tabs are gone, so the empties are one. A skeleton while the
+            first rows land; a single empty state when a customer has nothing
+            across every service. Each service block below hides itself when it
+            has no rows, so this is the only empty state left. */}
+        {anyLoading && !anyContent && <Skeleton rows={4} />}
+        {!anyLoading && !anyContent && !anyError && (
+          <TabEmptyState
+            icon={LayoutGrid}
+            title={query ? "Nothing matches your search"
+              : scope === "active" ? "No active subscriptions" : "No past subscriptions"}
+            subtitle={query ? "Try a different word, or clear the search."
+              : scope === "active" ? "Subscribe to a plan and it shows up here."
+              : "Plans that end or are cancelled show up here."}
+            action={query ? undefined : { label: "Browse services", onClick: () => navigate("/discovery") }}
+          />
+        )}
+
+        {/* ─── Meal plans ────────────────────────────────────────── */}
+        {(foodError || visibleFood.length > 0) && (
           <div className="space-y-5">
             <ListControls
               browse={{ label: "Browse restaurants", onClick: () => navigate("/services/food") }}
@@ -1054,8 +1062,8 @@ const MySubscriptions = () => {
         )}
 
 
-        {/* ─── BEACH CLUB tab content ──────────────────────────── */}
-        {activeTab === "entertainment" && (() => {
+        {/* ─── Beach Club memberships ────────────────────────────── */}
+        {(beachError || visibleBeach.length > 0) && (() => {
           const today = todayHN();
           return (
             <div className="space-y-5">
@@ -1199,8 +1207,8 @@ const MySubscriptions = () => {
           </div>
         )}
 
-        {/* ─── CLEANING tab content (existing) ─────────────────── */}
-        {activeTab === "cleaning" && (
+        {/* ─── Cleaning ──────────────────────────────────────────── */}
+        {hasCleaningContent && (
         <div className="space-y-5">
             <div className="flex justify-end">
               <button
