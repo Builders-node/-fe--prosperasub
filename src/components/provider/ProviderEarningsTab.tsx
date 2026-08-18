@@ -80,10 +80,16 @@ interface PayoutRow {
 }
 
 /**
- * The withdraw affordance. Deliberately plain: an amount, a destination, and a
- * request — no "instant payout" language for something a person still has to
- * approve. The maximum is what the server says, not what the range picker
- * above happens to be showing.
+ * The withdraw affordance.
+ *
+ * The money goes when this is pressed — there is no approval queue in front of
+ * it, because there was nothing a person added: the amount was already earned,
+ * and the ceiling is computed by the server rather than by this screen. So the
+ * copy says what actually happens instead of promising someone will look.
+ *
+ * The one deployment where it still queues is one that cannot send (no
+ * write-scoped Blink key); the server answers with a `requested` row and the
+ * result line below says so rather than claiming the money is on its way.
  */
 function WithdrawPanel({ providerId, availableCents }: { providerId: string; availableCents: number }) {
   const qc = useQueryClient();
@@ -100,10 +106,21 @@ function WithdrawPanel({ providerId, availableCents }: { providerId: string; ava
         body: JSON.stringify({ amountCents: cents, destination: destination.trim() }),
       });
       if (error) throw new Error(String(error));
-      return data;
+      const row = data as { status?: string; send_error?: string | null };
+      // A refusal from the wallet comes back as a 200 with a failed row —
+      // the request was fine, the payment was not. Say so plainly instead of
+      // celebrating.
+      if (row?.status === "failed") throw new Error(row.send_error || "The payment did not go through");
+      return row;
     },
-    onSuccess: () => {
-      toast.success("Requested — you'll be notified once it's sent");
+    onSuccess: (row: any) => {
+      // Say which of the three things happened. "Sent" for money that left,
+      // "on its way" for one Blink is still routing, and the old queue message
+      // only when it really did queue.
+      const status = row?.status;
+      if (status === "paid") toast.success("Sent — check your wallet");
+      else if (status === "sending") toast.success("On its way — settling now");
+      else toast.success("Requested — you'll be notified once it's sent");
       setOpen(false); setAmount(""); setDestination("");
       qc.invalidateQueries({ queryKey: ["provider-payouts", providerId] });
       qc.invalidateQueries({ queryKey: ["provider-payout-available", providerId] });
@@ -141,11 +158,11 @@ function WithdrawPanel({ providerId, availableCents }: { providerId: string; ava
               placeholder="Lightning address or Bitcoin address" />
           </div>
           <p className="text-xs leading-relaxed text-muted-foreground">
-            The request goes to the platform for approval. Nothing is sent until it is approved,
-            and you will see it here either way.
+            The money is sent as soon as you confirm, straight to that address. Double-check it —
+            a payment cannot be pulled back.
           </p>
           <Button className="w-full rounded-full" disabled={submit.isPending} onClick={() => submit.mutate()}>
-            {submit.isPending ? "Sending…" : "Request payout"}
+            {submit.isPending ? "Sending…" : "Withdraw"}
           </Button>
         </div>
       </ResponsiveDialog>
