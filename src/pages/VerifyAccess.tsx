@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { CheckCircle2, XCircle, ShieldAlert, Sparkles, UtensilsCrossed, Car, Waves } from "lucide-react";
+import { CheckCircle2, XCircle, ShieldAlert, Sparkles, UtensilsCrossed, Car, Waves, Clock, MapPin } from "lucide-react";
 import { statusMeta } from "@/components/patterns/StatusPill";
 import { PageLoader } from "@/components/ui/spinner";
 import { useI18n } from "@/i18n";
 import { cn } from "@/lib/utils";
-import { formatDateHN } from "@/lib/timezone";
+import { formatDateHN, formatTimestampHN } from "@/lib/timezone";
 
 const API_URL = (import.meta.env.VITE_API_URL as string)?.trim() || "https://api.prosperasub.com";
 
@@ -19,12 +19,21 @@ interface Subscription {
   expires_at: string | null;
 }
 
+interface UpcomingBooking {
+  id: string;
+  resource_name: string | null;
+  start_at: string;
+  end_at: string;
+  status: string;
+}
+
 interface VerifyResult {
   ok: boolean;
   allowed: boolean;
   reason: string;
   user: { id: string; name: string; avatar_url: string | null } | null;
   subscriptions: Subscription[];
+  bookings?: UpcomingBooking[];
 }
 
 const SERVICE_ICON: Record<Subscription["service"], typeof Sparkles> = {
@@ -121,8 +130,54 @@ export default function VerifyAccess() {
         </div>
       )}
 
+      {result.user && <UpcomingBookings bookings={result.bookings ?? []} />}
       {result.user && <AccessBreakdown subscriptions={result.subscriptions} />}
     </Shell>
+  );
+}
+
+/**
+ * The court hours this person still has ahead of them.
+ *
+ * A member scans in at the gate; this is what turns "you may enter" into "and
+ * you are on Tennis Court 2 at 4pm". It sits above the subscription list
+ * because it is the thing someone acts on at the door — where to send them —
+ * while the subscriptions below answer only whether they may be there. Renders
+ * nothing when the person booked no time, so a food-only member sees no empty
+ * card.
+ */
+function UpcomingBookings({ bookings }: { bookings: UpcomingBooking[] }) {
+  if (!bookings.length) return null;
+
+  // "Aug 18 · 4:00 – 5:00 PM" — same day, so the date is said once and only the
+  // times bracket the hour.
+  const timeOnly: Intl.DateTimeFormatOptions = { hour: "numeric", minute: "2-digit", hour12: true };
+
+  return (
+    <div className="mt-6">
+      <p className="mb-2 flex items-center gap-1.5 px-1 text-sm font-bold text-foreground">
+        <Clock className="h-4 w-4 text-primary" /> Booked courts
+      </p>
+      <div className="space-y-2">
+        {bookings.map((b) => (
+          <div key={b.id} className="flex items-center gap-3 rounded-radius-lg bg-card p-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-radius-md bg-primary/15">
+              <MapPin className="h-5 w-5 text-primary" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-bold text-foreground">
+                {b.resource_name ?? "Court"}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {formatDateHN(b.start_at, { month: "short", day: "numeric" })}
+                {" · "}
+                {formatTimestampHN(b.start_at, timeOnly)} – {formatTimestampHN(b.end_at, timeOnly)}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
