@@ -128,6 +128,7 @@ export function ProviderPayoutsPanel() {
   return (
     <div className="space-y-space-4">
       <PayoutRequestQueue providers={providers} />
+      <OpeningBalances />
 
       <div className="rounded-radius-lg bg-card p-space-4">
         <Label className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Business</Label>
@@ -229,6 +230,100 @@ export function ProviderPayoutsPanel() {
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+
+/**
+ * Money owed for work already done — and, on this platform, already paid.
+ *
+ * Providers were being paid long before there was a button for it, so the day
+ * sending arrived every business was owed its whole history a second time:
+ * `available` is all-time earnings minus recorded payouts, and no payout had
+ * ever been recorded. Settling writes that history into the ledger as one paid
+ * row per business, so the balance starts from zero and only newly recognised
+ * revenue can be withdrawn.
+ *
+ * It is not a one-off screen. A business paid in cash next month is the same
+ * event, and this is where it gets recorded — which is why the card stays
+ * whenever anything is outstanding rather than disappearing after the first use.
+ */
+function OpeningBalances() {
+  const qc = useQueryClient();
+
+  const { data: rows = [], isLoading } = useQuery({
+    queryKey: ["admin-payout-outstanding"],
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await adminApi("/admin/payouts/outstanding");
+      if (error) throw new Error(String(error));
+      return (Array.isArray(data) ? data : []) as Array<{
+        providerId: string; name: string; availableCents: number; commissionPct: number;
+      }>;
+    },
+  });
+
+  const settle = useMutation({
+    mutationFn: async (providerId: string) => {
+      const { data, error } = await adminApi(`/admin/providers/${providerId}/payouts/settle`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+      if (error) throw new Error(String(error));
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Settled — the balance starts from here");
+      qc.invalidateQueries({ queryKey: ["admin-payout-outstanding"] });
+      qc.invalidateQueries({ queryKey: ["admin-provider-payouts"] });
+    },
+    onError: (e: any) => toast.error(e?.message || "Could not settle"),
+  });
+
+  if (isLoading || rows.length === 0) return null;
+  const total = rows.reduce((s, r) => s + r.availableCents, 0);
+
+  return (
+    <div className="rounded-radius-lg bg-card p-space-4">
+      <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+        Outstanding balances ({formatUSD(total)})
+      </p>
+      <p className="mt-1 text-sm text-muted-foreground">
+        What each business could withdraw right now. If you have already paid them outside the
+        platform, settle it — that records the payment and starts their balance from zero, so only
+        new revenue can be withdrawn. Nothing is sent anywhere.
+      </p>
+      <ul className="mt-space-3 divide-y divide-border/60">
+        {rows.map((r) => (
+          <li key={r.providerId} className="flex flex-wrap items-center justify-between gap-space-3 py-space-3">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-foreground">{r.name}</p>
+              <p className="text-xs text-muted-foreground">after {r.commissionPct}% commission</p>
+            </div>
+            <div className="flex items-center gap-space-2">
+              <span className="text-base font-black tabular-nums text-foreground">
+                {formatUSD(r.availableCents)}
+              </span>
+              <Button
+                size="sm" variant="outline" className="rounded-full"
+                disabled={settle.isPending}
+                onClick={() => {
+                  // A ledger write, not a transfer — but it changes what a
+                  // provider can ask for, so it says so before it happens.
+                  const ok = window.confirm(
+                    `Record ${formatUSD(r.availableCents)} as already paid to ${r.name}?\n\n` +
+                    `No money moves. Their withdrawable balance drops to zero and grows again from new revenue.`,
+                  );
+                  if (ok) settle.mutate(r.providerId);
+                }}
+              >
+                Mark as settled
+              </Button>
+            </div>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
