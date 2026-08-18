@@ -234,13 +234,15 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
   };
 
   // Money — what came in, what the platform kept, what has been paid out.
-  // Owner-only: the payout ledger is the owner's, and the endpoint behind it
-  // refuses a manager, so showing the tab to one would render an error card.
+  //
+  // A manager sees all of it. Running a business without being able to see
+  // what it earned is not running it, and the reads behind this tab now allow
+  // anyone on the team. Withdrawing is the part that stays the owner's, and
+  // the server says who that is — the tab does not guess.
   const moneyTab: PortalTab<unknown> = {
     value: "money",
     label: "Money",
     icon: Wallet,
-    ownerOnly: true,
     render: () => (
       <ProviderEarningsTab providerId={provider.id} legacyId={legacyId} sourceKey={sourceKey} />
     ),
@@ -255,9 +257,15 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
     value: "team",
     label: "Team",
     icon: Users,
-    ownerOnly: true,
     render: () => (
-      <ProviderTeamTab providerId={provider.id} ownerUserId={provider.admin_user_id ?? null} />
+      // Visible to the whole team, editable by the owner. Who your colleagues
+      // are is not a secret from them; appointing one is the owner's call, and
+      // the endpoints behind the buttons refuse a manager either way.
+      <ProviderTeamTab
+        providerId={provider.id}
+        ownerUserId={provider.admin_user_id ?? null}
+        canManage={isOwner}
+      />
     ),
   };
 

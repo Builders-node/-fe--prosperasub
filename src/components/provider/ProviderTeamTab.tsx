@@ -13,15 +13,18 @@ import { UniversalStaffTab } from "@/components/provider/UniversalStaffTab";
  * `provider_members.provider_id` references `providers(id)`.
  */
 export function ProviderTeamTab({
-  providerId, ownerUserId,
+  providerId, ownerUserId, canManage = true,
 }: {
   providerId: string;
   ownerUserId: string | null | undefined;
+  /** Managers see the team; only the owner changes it. */
+  canManage?: boolean;
 }) {
   return (
     <UniversalStaffTab
       providerId={providerId}
       ownerUserId={ownerUserId}
+      canManage={canManage}
       providerTable="providers"
       managerTable="provider_members"
       entityLabel="business"

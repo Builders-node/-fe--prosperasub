@@ -98,7 +98,14 @@ interface PayoutRow {
  * write-scoped Blink key); the server answers with a `requested` row and the
  * result line below says so rather than claiming the money is on its way.
  */
-function WithdrawPanel({ providerId, availableCents }: { providerId: string; availableCents: number }) {
+function WithdrawPanel({
+  providerId, availableCents, canWithdraw,
+}: {
+  providerId: string;
+  availableCents: number;
+  /** Managers see the balance; the owner is the one who can move it. */
+  canWithdraw: boolean;
+}) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState("");
@@ -150,12 +157,16 @@ function WithdrawPanel({ providerId, availableCents }: { providerId: string; ava
         <p className="text-[16px] leading-[22px] text-muted-foreground">Available to withdraw</p>
         <p className="mt-1 text-[24px] font-semibold leading-[29px] tabular-nums text-foreground">{formatUSD(availableCents)}</p>
         <p className="mt-1 text-[14px] leading-[18px] text-muted-foreground">
-          Everything you have earned, less what you have already asked for or been sent.
+          {canWithdraw
+            ? "Everything you have earned, less what you have already asked for or been sent."
+            : "Everything this business has earned, less what has already been paid out. Only the owner can withdraw it."}
         </p>
       </div>
-      <Button className="rounded-full gap-1.5" disabled={availableCents <= 0} onClick={() => setOpen(true)}>
-        <ArrowUpRight className="h-4 w-4" /> Withdraw
-      </Button>
+      {canWithdraw && (
+        <Button className="rounded-full gap-1.5" disabled={availableCents <= 0} onClick={() => setOpen(true)}>
+          <ArrowUpRight className="h-4 w-4" /> Withdraw
+        </Button>
+      )}
 
       <ResponsiveDialog open={open} onOpenChange={setOpen} title="Withdraw">
         <div className="space-y-4 pb-2">
@@ -342,10 +353,19 @@ export function ProviderEarningsTab({ providerId, legacyId, sourceKey }: {
     queryFn: async () => {
       const { data, error } = await accountApi(`/account/providers/${providerId}/payouts/available`);
       if (error) throw new Error(String(error));
-      return data as { availableCents: number; earnedCents: number; committedCents: number };
+      return data as {
+        availableCents: number; earnedCents: number; committedCents: number;
+        /** Answered by the same rule the withdraw endpoint enforces. */
+        canWithdraw?: boolean;
+      };
     },
   });
   const availableCents = available?.availableCents ?? 0;
+  // Owner-only, and the server is the one who says so. The browser used to
+  // work this out from a `provider_members` row with role "owner", which the
+  // payout endpoint has never accepted — so a manager could reach a button
+  // that answered 403.
+  const canWithdraw = available?.canWithdraw !== false;
 
   return (
     <div className="space-y-1">
@@ -387,7 +407,7 @@ export function ProviderEarningsTab({ providerId, legacyId, sourceKey }: {
         />
       </div>
 
-      <WithdrawPanel providerId={providerId} availableCents={availableCents} />
+      <WithdrawPanel providerId={providerId} availableCents={availableCents} canWithdraw={canWithdraw} />
 
       <section className="rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
         <h3 className="text-[20px] font-semibold leading-[26px] text-foreground">Payouts</h3>

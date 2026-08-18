@@ -51,6 +51,15 @@ export interface UniversalStaffTabProps {
   hasRoleColumn?: boolean;
   /** Optional: extra query keys to invalidate after an owner change (e.g. legacy provider row query). */
   invalidateKeysOnOwnerChange?: readonly (readonly unknown[])[];
+  /**
+   * Whether the viewer may change who runs this.
+   *
+   * A manager sees the team and cannot appoint one. The endpoints refuse them
+   * regardless — `provider-members.service` checks `admin_user_id` and not
+   * membership — so this is only about not offering a button whose answer is
+   * a refusal.
+   */
+  canManage?: boolean;
 }
 
 interface Manager {
@@ -70,6 +79,7 @@ export function UniversalStaffTab({
   hasUserNameColumn = false,
   hasRoleColumn = false,
   invalidateKeysOnOwnerChange = [],
+  canManage = true,
 }: UniversalStaffTabProps) {
   const qc = useQueryClient();
   const { userData } = useAuth();
@@ -221,9 +231,11 @@ export function UniversalStaffTab({
         title="Owner"
         subtitle={`Who this ${entityLabel} belongs to.`}
         action={
-          <Button size="sm" variant="outline" className="shrink-0 gap-2 rounded-full" onClick={openOwnerDialog}>
-            {owner ? "Change" : "Set Owner"}
-          </Button>
+          canManage ? (
+            <Button size="sm" variant="outline" className="shrink-0 gap-2 rounded-full" onClick={openOwnerDialog}>
+              {owner ? "Change" : "Set Owner"}
+            </Button>
+          ) : undefined
         }
       >
         {owner ? (
@@ -249,9 +261,11 @@ export function UniversalStaffTab({
         title={`Managers (${managers.length})`}
         subtitle={`They can run the ${entityLabel} but not its money.`}
         action={
-          <Button size="sm" variant="outline" className="shrink-0 gap-2 rounded-full" onClick={() => setManagerDialog(true)}>
-            <UserPlus className="h-3.5 w-3.5" /> Add
-          </Button>
+          canManage ? (
+            <Button size="sm" variant="outline" className="shrink-0 gap-2 rounded-full" onClick={() => setManagerDialog(true)}>
+              <UserPlus className="h-3.5 w-3.5" /> Add
+            </Button>
+          ) : undefined
         }
       >
         {isLoading ? (
@@ -280,15 +294,17 @@ export function UniversalStaffTab({
                       {email}
                     </p>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                    onClick={() => setDeleteManager(m)}
-                    aria-label="Remove manager"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  {canManage && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                      onClick={() => setDeleteManager(m)}
+                      aria-label="Remove manager"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
               );
             })}

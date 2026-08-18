@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarClock, CheckCircle2, RotateCcw, XCircle } from "lucide-react";
+import { CalendarClock, CheckCircle2, RotateCcw, Trash2, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -74,6 +74,7 @@ export function OperationsTab({ providerId }: { providerId: string }) {
   const [reason, setReason] = useState("");
   const [moving, setMoving] = useState<Occurrence | null>(null);
   const [moveTo, setMoveTo] = useState("");
+  const [removing, setRemoving] = useState<Occurrence | null>(null);
 
   // A day at a time, in Honduras time — the same boundary every other figure
   // on the platform uses.
@@ -107,6 +108,23 @@ export function OperationsTab({ providerId }: { providerId: string }) {
     },
     onSuccess: () => { invalidate(); setFailing(null); setReason(""); },
     onError: (e: any) => toast.error(e?.message || "Couldn't update it"),
+  });
+
+  /**
+   * Take a row off the list for good.
+   *
+   * The server cancels whatever it holds before deleting it, so removing a
+   * court booking actually frees the hour rather than leaving it held by a
+   * row nobody can see any more. For something that genuinely did not happen,
+   * Failed is the right button — it stays on the record.
+   */
+  const remove = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await accountApi(`/account/occurrences/${id}`, { method: "DELETE" });
+      if (error) throw new Error(String(error));
+    },
+    onSuccess: () => { toast.success("Removed"); invalidate(); setRemoving(null); },
+    onError: (e: Error) => toast.error(e.message || "Could not remove it"),
   });
 
   const reschedule = useMutation({
@@ -284,6 +302,12 @@ export function OperationsTab({ providerId }: { providerId: string }) {
                         Move
                       </Button>
                     )}
+                    <Button size="sm" variant="ghost"
+                      className="h-8 w-8 rounded-full p-0 text-muted-foreground hover:text-destructive"
+                      aria-label="Remove"
+                      onClick={() => setRemoving(r)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
               </li>
@@ -291,6 +315,25 @@ export function OperationsTab({ providerId }: { providerId: string }) {
           })}
         </ul>
       )}
+
+      <ResponsiveDialog open={!!removing} onOpenChange={(o) => !o && setRemoving(null)} title="Remove this?">
+        <div className="space-y-3 pb-2">
+          <p className="text-[16px] leading-[22px] text-muted-foreground">
+            {removing?.customer_name || removing?.item_key
+              ? <>It disappears from the day and whatever it was holding — a court, a slot — is freed.</>
+              : <>It disappears from the day.</>}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            For something that was supposed to happen and didn't, use Failed instead — that stays on
+            the record with its reason.
+          </p>
+          <Button variant="destructive" className="w-full rounded-full"
+            disabled={remove.isPending}
+            onClick={() => removing && remove.mutate(removing.id)}>
+            {remove.isPending ? "Removing…" : "Remove"}
+          </Button>
+        </div>
+      </ResponsiveDialog>
 
       <ResponsiveDialog open={!!failing} onOpenChange={(o) => !o && setFailing(null)} title="What went wrong?">
         <div className="space-y-3 pb-2">
