@@ -98,6 +98,15 @@ export default function FoodSubscriptionDetail() {
     },
   });
 
+  // The provider dictionary, read here with the other hooks so it runs on every
+  // render — a hook after the isLoading/isError early returns below rendered
+  // fewer hooks on the loading pass and crashed the page (React #310). `sub`
+  // is not resolved yet on the first render, so bridge from data directly; the
+  // hook is a no-op until the legacy id arrives.
+  // `data.subscription.provider_id` is the LEGACY food id; the dictionary is
+  // keyed by the universal one, so useProviderItemsByLegacy hops the bridge.
+  const { items: providerItems } = useProviderItemsByLegacy("food", data?.subscription?.provider_id);
+
   const saveMeals = useMutation({
     mutationFn: async (next: MealKey[]) => {
       const { error } = await supabaseDb
@@ -170,9 +179,6 @@ export default function FoodSubscriptionDetail() {
   }
 
   const { access, status, reason, canRenew, subscription: sub, provider, plan, menu } = data;
-  // `sub.provider_id` is the LEGACY food id; the dictionary is keyed by the
-  // universal one, so this hops the bridge.
-  const { items: providerItems } = useProviderItemsByLegacy("food", sub.provider_id);
   const mealTypes = getMealTypesForPlan((plan as any) ?? null, providerItems);
   const totalCents = (sub.weekly_price_cents || 0) * (sub.commitment_weeks || 1);
   const badge = statusMeta(status);
