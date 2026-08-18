@@ -921,19 +921,25 @@
 /* ─────────────────────────────────────────────────────────────────────────
    The page's own header, while a dialog or a sheet is open.
 
-   Radix locks scrolling by putting `overflow: hidden` on <body> and `clip`
-   on <html>. That also destroys `position: sticky` for anything whose scroll
-   container is the page: the header stops being pinned and scrolls out of
-   view behind the overlay, so opening a select or a sheet looked like it took
-   the top menu away with it.
+   This used to pin the header with `position: fixed` for the duration of the
+   scroll lock, to stop it scrolling out of view behind the overlay. It cured
+   nothing and caused something: `fixed` takes the header out of the flow, so
+   every dialog, select and sheet yanked the whole page up by its height.
+   Measured on the real thing — the header jumped 44px, the content 69px, on
+   each open.
 
-   Pinning it for the duration keeps the app where it was. `data-scroll-locked`
-   is set by the same library that locks the scroll, so this lasts exactly as
-   long as the lock does.
+   The lock Radix applies is `overflow: hidden` on <body> and `clip` on
+   <html>. Neither can move a sticky header, because neither lets the page
+   scroll while they are on: nothing can scroll out of view during a lock that
+   exists to stop scrolling. Measured the same way with the override removed:
+   the header does not move and nothing jumps.
+
+   So the rule is gone. What stays is the gutter below, which stops the page
+   shifting sideways when the scrollbar is taken away.
    ───────────────────────────────────────────────────────────────────────── */
-body[data-scroll-locked] header.sticky {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
+
+/* Reserve the scrollbar's width always, so removing it for a modal does not
+   re-centre the page a few pixels to the right. */
+html {
+  scrollbar-gutter: stable;
 }

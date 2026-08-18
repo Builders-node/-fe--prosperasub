@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { useTabParam } from "@/hooks/useTabParam";
 import { useQuery } from "@tanstack/react-query";
 import { CalendarDays, LayoutGrid, List, Plus, Users, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -47,7 +48,12 @@ export function BookingsTab({
   /** The day's work — what used to be the Operations tab. */
   today?: ReactNode;
 }) {
-  const [view, setView] = useState<View>(today ? "today" : "week");
+  // Which of the three, kept in the URL beside the workspace tab, so a reload
+  // on "Customers" comes back on Customers rather than on today's list.
+  const [view, setView] = useTabParam<View>(["today", "week", "customer"], {
+    key: "view",
+    fallback: today ? "today" : "week",
+  });
   /** How the week is drawn; null means "whatever suits this business". */
   const [weekShape, setWeekShape] = useState<"grid" | "list" | null>(null);
 

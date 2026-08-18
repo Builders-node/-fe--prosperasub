@@ -26,6 +26,7 @@ import {
 } from "@/components/reviews/ProviderReviewsBlock";
 import { resolveMonthlyPriceCents } from "@/lib/cleaningPlanPricing";
 import { formatUSD } from "@/lib/pricing";
+import { useTabParam } from "@/hooks/useTabParam";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 interface Provider {
@@ -185,7 +186,9 @@ type TabKey = (typeof TABS)[number]["key"];
 
 const ProviderDetail = () => {
   const navigate = useNavigate();
-  const [tab, setTab] = useState<TabKey>("plans");
+  // In the URL, so a reload — or a link to this provider's gallery — lands
+  // where it should. See useTabParam.
+  const [tab, setTab] = useTabParam<TabKey>(["plans", "reviews", "gallery"]);
   /**
    * Whether the bar has left the photograph behind.
    *

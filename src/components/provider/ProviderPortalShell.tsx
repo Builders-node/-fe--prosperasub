@@ -1,5 +1,6 @@
 import { useState, type ComponentType, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useTabParam } from "@/hooks/useTabParam";
 import { ExternalLink } from "lucide-react";
 import { StatusPill } from "@/components/patterns/StatusPill";
 import { UserLayout } from "@/components/layout/UserLayout";
@@ -103,6 +104,9 @@ export function ProviderPortalShell<T extends BaseProvider>({
   const bannerUrl = getBannerUrl?.(selected) ?? null;
   const visibleTabs = tabs.filter((t) => !t.ownerOnly || isOwner);
 
+  // Same convention as everywhere else — see useTabParam.
+  const [activeTab, setActiveTab] = useTabParam(visibleTabs.map((t) => t.value));
+
   return (
     <UserLayout title={pageTitle}>
       {bannerUrl && (
@@ -167,8 +171,9 @@ export function ProviderPortalShell<T extends BaseProvider>({
           </Button>
         </div>
 
-        {/* Tabs — keyed by selected provider so switching resets inner state. */}
-        <Tabs defaultValue={visibleTabs[0]?.value} key={selected.id}>
+        {/* Tabs — keyed by selected provider so switching resets inner state,
+            and remembered in `?tab=` so a reload keeps your place. */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} key={selected.id}>
           <TabsList equalWidth className="mb-6 w-full">
             {visibleTabs.map((t) => {
               const TabIcon = t.icon;

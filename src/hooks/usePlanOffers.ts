@@ -174,26 +174,29 @@ export function usePlanOffers(
       if (!offerRows.length) return [];
 
       const offerIds = offerRows.map((r: any) => String(r.id));
-      const [{ data: groups }, { data: options }] = await Promise.all([
-        supabaseDb.from("plan_option_groups")
-          .select("id, plan_id, key, label, sort_order")
-          .in("plan_id", offerIds).order("sort_order", { ascending: true }),
-        supabaseDb.from("plan_options")
-          .select("id, group_id, key, label, sort_order")
-          .order("sort_order", { ascending: true }),
-      ]);
 
-      const optionsByGroup = new Map<string, PlanOption[]>();
-      (options ?? []).forEach((o: any) => {
-        const list = optionsByGroup.get(String(o.group_id)) ?? [];
-        list.push({ key: String(o.key), label: o.label });
-        optionsByGroup.set(String(o.group_id), list);
-      });
+      // Groups with their options nested, in one round trip.
+      //
+      // These were two queries, and the second asked for `plan_options` with
+      // no filter at all — every option row on the platform, downloaded to
+      // pick out the handful belonging to these offers, and silently clipped
+      // at PostgREST's 1000-row ceiling once there are that many. Embedding
+      // scopes the options to the groups we actually asked for and takes a
+      // wave off the listing's load.
+      const { data: groups, error: groupsError } = await supabaseDb
+        .from("plan_option_groups")
+        .select("id, plan_id, key, label, sort_order, plan_options(key, label, sort_order)")
+        .in("plan_id", offerIds)
+        .order("sort_order", { ascending: true });
+      if (groupsError) throw groupsError;
 
       const groupsByPlan = new Map<string, PlanOptionGroup[]>();
       (groups ?? []).forEach((g: any) => {
         const list = groupsByPlan.get(String(g.plan_id)) ?? [];
-        list.push({ key: String(g.key), label: g.label, options: optionsByGroup.get(String(g.id)) ?? [] });
+        const options: PlanOption[] = [...(g.plan_options ?? [])]
+          .sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+          .map((o: any) => ({ key: String(o.key), label: o.label }));
+        list.push({ key: String(g.key), label: g.label, options });
         groupsByPlan.set(String(g.plan_id), list);
       });
 

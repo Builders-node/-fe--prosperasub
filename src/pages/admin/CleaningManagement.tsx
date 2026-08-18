@@ -66,6 +66,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useTabParam } from "@/hooks/useTabParam";
 
 const dailyChecklist = [
   "Take out trash",
@@ -766,6 +767,10 @@ const CleaningManagement = ({
     reader.readAsDataURL(file);
   };
 
+  // Bookings · Calendar · Reports, remembered across a reload like every other
+  // tab strip — see useTabParam.
+  const [opsTab, setOpsTab] = useTabParam(["bookings", "calendar", "reports"] as const);
+
   const body = (
     <>
       {/* KPI tiles + sub-tabs are for the admin-standalone view only. Inside the
@@ -799,7 +804,7 @@ const CleaningManagement = ({
           Calendar tabs with no way to reach them in production. That stranded
           Sync-all, Calendar reconcile, Reschedule, per-booking delete and the
           day calendar: mounted, working, unreachable. */}
-      <Tabs defaultValue="bookings" variant="pills" className={cn("w-full", !embedded && "mt-space-4")}>
+      <Tabs value={opsTab} onValueChange={setOpsTab} variant="pills" className={cn("w-full", !embedded && "mt-space-4")}>
         <TabsList className="mb-2">
           <TabsTrigger value="bookings">Bookings</TabsTrigger>
           <TabsTrigger value="calendar">Calendar</TabsTrigger>

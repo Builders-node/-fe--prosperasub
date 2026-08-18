@@ -23,6 +23,7 @@ import { NetProfitPanel } from "@/components/admin/NetProfitPanel";
 import { ProviderPayoutsPanel } from "@/components/admin/ProviderPayoutsPanel";
 import { PayPalPanel } from "@/components/payment/PayPalPanel";
 import { formatUSD } from "@/lib/pricing";
+import { useTabParam } from "@/hooks/useTabParam";
 
 // Dashed placeholder shown before a test payment is generated.
 function TestPaymentPlaceholder({ children }: { children: React.ReactNode }) {
@@ -402,9 +403,12 @@ const AdminPayments = () => {
     toast.success(`${label} copied`);
   };
 
+  // Reading Net Profit and refreshing should not drop you back on Payments.
+  const [financeTab, setFinanceTab] = useTabParam(["payments", "profit", "payouts"] as const);
+
   return (
     <SuperAdminLayout title="Finance" subtitle="Payments, revenue and net profit across all services">
-      <Tabs defaultValue="payments" variant="pills" className="w-full">
+      <Tabs value={financeTab} onValueChange={setFinanceTab} variant="pills" className="w-full">
         <TabsList className="mb-space-4">
           <TabsTrigger value="payments">Payments</TabsTrigger>
           <TabsTrigger value="profit">Net Profit</TabsTrigger>
