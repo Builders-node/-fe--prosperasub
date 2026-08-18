@@ -996,9 +996,6 @@ const MySubscriptions = () => {
         {/* ─── Meal plans ────────────────────────────────────────── */}
         {(foodError || visibleFood.length > 0) && (
           <div className="space-y-5">
-            <ListControls
-              browse={{ label: "Browse restaurants", onClick: () => navigate("/services/food") }}
-            />
 
             {foodSubsLoading ? (
               <Skeleton rows={3} />
@@ -1067,9 +1064,6 @@ const MySubscriptions = () => {
           const today = todayHN();
           return (
             <div className="space-y-5">
-              <ListControls
-                browse={{ label: "Browse plans", onClick: () => navigate("/services/beach-club") }}
-              />
 
               {beachSubsLoading ? (
                 <Skeleton rows={3} />
@@ -1210,15 +1204,6 @@ const MySubscriptions = () => {
         {/* ─── Cleaning ──────────────────────────────────────────── */}
         {hasCleaningContent && (
         <div className="space-y-5">
-            <div className="flex justify-end">
-              <button
-                type="button"
-                onClick={() => navigate("/services/cleaning")}
-                className="text-[13px] font-semibold tracking-[-0.02em] text-muted-foreground transition-colors hover:text-foreground"
-              >
-                Browse plans →
-              </button>
-            </div>
 
             {cleaningSubsLoading || cleaningBookingsLoading ? (
               <Skeleton rows={3} />
