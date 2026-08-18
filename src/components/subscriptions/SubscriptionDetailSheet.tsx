@@ -6,6 +6,7 @@ import { PaymentMethodBadge, PaymentReference } from "@/components/admin/Payment
 import { formatUSD } from "@/lib/pricing";
 import { formatRangeHN, formatDateHN } from "@/lib/timezone";
 import { TipPanel } from "@/components/subscriptions/TipPanel";
+import { RateProviderButton, type Service } from "@/components/reviews/RateProviderButton";
 
 /**
  * What a customer sees when they tap a subscription: the purchase, not the
@@ -36,6 +37,8 @@ export interface PurchaseDetail {
   cancel?: { label: string; destructive?: boolean; onClick: () => void };
   /** Leave a tip — the same panel on every service. */
   tip?: { service: string; subscriptionRef: string; providerId?: string | null; providerName?: string | null; customerName?: string | null };
+  /** Rate the provider — the same widget on every service. */
+  review?: { service: Service; itemId?: string | null; subscriptionId: string; providerId?: string | null; customerName?: string | null };
 }
 
 function Row({ label, value }: { label: string; value: ReactNode }) {
@@ -111,6 +114,18 @@ export function SubscriptionDetailSheet({
               </div>
             </div>
           ))}
+
+          {detail.review && (
+            <div className="mt-4 rounded-radius-md bg-inset p-4">
+              <RateProviderButton
+                service={detail.review.service}
+                itemId={detail.review.itemId ?? undefined}
+                subscriptionId={detail.review.subscriptionId}
+                providerId={detail.review.providerId ?? undefined}
+                customerName={detail.review.customerName}
+              />
+            </div>
+          )}
 
           {detail.tip && (
             <div className="mt-4">

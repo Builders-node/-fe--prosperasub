@@ -23,7 +23,7 @@ import { cn } from "@/lib/utils";
  * read `provider_reviews`, so a customer who rated their restaurant saw their
  * stars vanish. One table now, reached from every entry point.
  */
-type Service = "cleaning" | "beach" | "food" | "food_provider" | "cleaning_booking";
+export type Service = "cleaning" | "beach" | "food" | "food_provider" | "cleaning_booking" | "plan";
 
 interface Props {
   service: Service;

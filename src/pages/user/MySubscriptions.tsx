@@ -1109,6 +1109,7 @@ const MySubscriptions = () => {
                         ],
                         cancel: cancelSheetAction("food", s, s.food_meal_plans?.name ?? "meal plan"),
                         tip: { service: "food", subscriptionRef: String(s.id), providerId: s.provider_id ?? null, providerName: s.food_providers?.name ?? null, customerName: s.customer_name ?? userData?.name ?? null },
+                        review: { service: "food_provider", itemId: s.provider_id, subscriptionId: String(s.id), customerName: s.customer_name ?? userData?.name ?? null },
                         action: (s.provider_id && s.meal_plan_id)
                           ? { label: "View plan", onClick: () => navigate(`/services/food/${s.provider_id}/plans/${s.meal_plan_id}`) }
                           : undefined,
@@ -1200,6 +1201,7 @@ const MySubscriptions = () => {
                           action: s.plan_id ? { label: "View plan", onClick: () => navigate(`/services/entertainment/plans/${s.plan_id}`) } : undefined,
                           cancel: cancelSheetAction("beach", s, s.plan_name ?? "membership"),
                           tip: { service: "beach", subscriptionRef: String(s.id), providerId: s.provider_id ?? null, providerName: "Beach Club", customerName: userData?.name ?? null },
+                          review: { service: "beach", itemId: s.plan_id, subscriptionId: String(s.id), customerName: userData?.name ?? null },
                         })}
                         statusBadge={
                           <StatusPill status={label} />
@@ -1216,15 +1218,6 @@ const MySubscriptions = () => {
                             { key: "renew", label: "Renew", icon: RefreshCw, onClick: openRenewDialog, variant: "secondary" as const },
                           ] : []),
                         ]}
-                        rate={canRate ? (
-                          <RateProviderButton
-                            service="beach"
-                            itemId={s.plan_id}
-                            subscriptionId={s.id}
-                            customerName={userData?.name || userData?.display_name}
-                            onlyIfRated
-                          />
-                        ) : undefined}
                       />
                     );
                   })}
@@ -1278,6 +1271,7 @@ const MySubscriptions = () => {
                         action: s.plan_id ? { label: "View plan", onClick: () => navigate(`/services/${s.providers?.archetype_key ?? "services"}/plans/${s.plan_id}`) } : undefined,
                         cancel: cancelSheetAction("plan", s, s.provider_plans?.name ?? "subscription"),
                         tip: { service: "plan", subscriptionRef: String(s.id), providerId: s.provider_id ?? s.providers?.id ?? null, providerName: providerName, customerName: userData?.name ?? null },
+                        review: { service: "plan", subscriptionId: String(s.id), providerId: s.provider_id ?? s.providers?.id ?? null, customerName: userData?.name ?? null },
                       })}
                       statusBadge={<StatusPill status={label} />}
                       actions={st === "cancelled" ? [] : [
@@ -1434,6 +1428,7 @@ const MySubscriptions = () => {
                             ],
                             cancel: cancelSheetAction("cleaning", sub, (sub as any).cleaning_packages?.name ?? "cleaning plan"),
                             tip: { service: "cleaning", subscriptionRef: String(sub.id), providerId: null, providerName: (sub as any).cleaning_packages?.name ?? null, customerName: userData?.name ?? null },
+                            review: { service: "cleaning", itemId: sub.package_id, subscriptionId: String(sub.id), customerName: userData?.name ?? null },
                             action: sub.package_id ? { label: "View plan", onClick: () => navigate(`/services/cleaning/plans/${encodeURIComponent(sub.package_id)}`) } : undefined,
                             sessions: bookingSessions(sub.id),
                           })}
@@ -1441,15 +1436,6 @@ const MySubscriptions = () => {
                             ? <PaymentMethodBadge method={(sub as any).payment_method} />
                             : undefined}
                           actions={actions}
-                          rate={sub.package_id ? (
-                            <RateProviderButton
-                              service="cleaning"
-                              itemId={sub.package_id}
-                              subscriptionId={sub.id}
-                              customerName={userData?.name || userData?.display_name}
-                              onlyIfRated
-                            />
-                          ) : undefined}
                         />
                       );
                     })}
@@ -1535,6 +1521,7 @@ const MySubscriptions = () => {
                               : [],
                             action: sub.package_id ? { label: "View plan", onClick: () => navigate(`/services/cleaning/plans/${encodeURIComponent(sub.package_id)}`) } : undefined,
                             tip: { service: "cleaning", subscriptionRef: String(sub.id), providerId: null, providerName: (sub as any).cleaning_packages?.name ?? null, customerName: userData?.name ?? null },
+                            review: { service: "cleaning", itemId: sub.package_id, subscriptionId: String(sub.id), customerName: userData?.name ?? null },
                             sessions: bookingSessions(sub.id),
                           })}
                           actions={sub.package_id ? [
