@@ -1108,7 +1108,9 @@ const MySubscriptions = () => {
                           ...(s.weekly_price_cents ? [{ label: "Per week", value: formatUSD(s.weekly_price_cents) }] : []),
                         ],
                         cancel: cancelSheetAction("food", s, s.food_meal_plans?.name ?? "meal plan"),
-                        action: { label: "View plan", onClick: () => navigate(`/services/food/subscription/${s.id}`) },
+                        action: (s.provider_id && s.meal_plan_id)
+                          ? { label: "View plan", onClick: () => navigate(`/services/food/${s.provider_id}/plans/${s.meal_plan_id}`) }
+                          : undefined,
                       })}
                       actions={[
                         ...(foodCanRenew(s) ? [
