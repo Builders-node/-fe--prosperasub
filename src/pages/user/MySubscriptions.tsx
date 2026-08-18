@@ -738,6 +738,32 @@ const MySubscriptions = () => {
     }];
   };
 
+  /**
+   * The same Cancel / Resume, shaped for the purchase sheet: a single quiet
+   * action at the bottom instead of a pill on the card. Closes the sheet first
+   * so the confirm dialog is not stacked behind it.
+   */
+  const cancelSheetAction = (service: string, sub: any, planName: string) => {
+    const cancelled = Boolean(sub?.cancel_at_period_end);
+    if (cancelled) {
+      return {
+        label: "Resume subscription",
+        onClick: () => { setDetail(null); cancelMutation.mutate({ service, id: sub.id, resume: true }); },
+      };
+    }
+    return {
+      label: "Cancel subscription",
+      destructive: true,
+      onClick: () => {
+        setDetail(null);
+        setCancelTarget({
+          service, id: sub.id, name: planName,
+          endsOn: sub.end_date ?? sub.service_end_date ?? null,
+        });
+      },
+    };
+  };
+
 
   const payMutation = useMutation({
     mutationFn: async (subscriptionId: string) => {
@@ -1058,12 +1084,12 @@ const MySubscriptions = () => {
                           ...(s.weekly_price_cents ? [{ label: "Per week", value: formatUSD(s.weekly_price_cents) }] : []),
                         ],
                         action: { label: "View meals & menu", onClick: () => navigate(`/services/food/subscription/${s.id}`) },
+                        cancel: cancelSheetAction("food", s, s.food_meal_plans?.name ?? "meal plan"),
                       })}
                       actions={[
                         ...(foodCanRenew(s) ? [
                           { key: "renew", label: "Renew", icon: RefreshCw, onClick: openRenewDialog, variant: "secondary" as const },
                         ] : []),
-                        ...cancelAction("food", s, s.food_meal_plans?.name ?? "meal plan"),
                       ]}
                     />
                   );
@@ -1144,6 +1170,7 @@ const MySubscriptions = () => {
                           paymentReference: s.payment_reference,
                           purchasedAt: s.created_at,
                           facts: [{ label: "Guests", value: `${s.people || 1} ${(s.people || 1) === 1 ? "person" : "people"}` }],
+                          cancel: cancelSheetAction("beach", s, s.plan_name ?? "membership"),
                         })}
                         statusBadge={
                           <StatusPill status={label} />
@@ -1159,7 +1186,6 @@ const MySubscriptions = () => {
                           ...(canRenew ? [
                             { key: "renew", label: "Renew", icon: RefreshCw, onClick: openRenewDialog, variant: "secondary" as const },
                           ] : []),
-                          ...cancelAction("beach", s, s.plan_name ?? "membership"),
                         ]}
                         rate={canRate ? (
                           <RateProviderButton
@@ -1220,6 +1246,7 @@ const MySubscriptions = () => {
                         paymentReference: s.payment_reference,
                         purchasedAt: s.created_at,
                         facts: s.provider_plans?.period ? [{ label: "Billing", value: String(s.provider_plans.period) }] : [],
+                        cancel: cancelSheetAction("plan", s, s.provider_plans?.name ?? "subscription"),
                       })}
                       statusBadge={<StatusPill status={label} />}
                       actions={st === "cancelled" ? [] : [
@@ -1230,7 +1257,6 @@ const MySubscriptions = () => {
                           variant: "secondary" as const,
                           onClick: () => navigate(`/checkout/${s.plan_id}?renew=${s.id}`),
                         }] : []),
-                        ...cancelAction("plan", s, s.provider_plans?.name ?? "subscription"),
                       ]}
                     />
                   );
@@ -1353,9 +1379,6 @@ const MySubscriptions = () => {
                         variant: "secondary" as const,
                         onClick: openRenewDialog,
                       });
-                      actions.push(
-                        ...cancelAction("cleaning", sub, sub.cleaning_packages?.name ?? "cleaning plan"),
-                      );
                       return (
                         <SubscriptionCard
                           key={sub.id}
@@ -1378,6 +1401,7 @@ const MySubscriptions = () => {
                               ...(sub.billing_period_months ? [{ label: "Billing", value: `${sub.billing_period_months} month${sub.billing_period_months > 1 ? "s" : ""}` }] : []),
                               ...(sub.cleanings_remaining != null ? [{ label: "Cleanings left", value: String(sub.cleanings_remaining) }] : []),
                             ],
+                            cancel: cancelSheetAction("cleaning", sub, (sub as any).cleaning_packages?.name ?? "cleaning plan"),
                           })}
                           statusBadge={(sub as any).payment_method
                             ? <PaymentMethodBadge method={(sub as any).payment_method} />

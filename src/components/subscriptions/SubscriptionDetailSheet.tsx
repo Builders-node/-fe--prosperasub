@@ -29,6 +29,8 @@ export interface PurchaseDetail {
   facts?: { label: string; value: ReactNode }[];
   /** Optional link out, e.g. food's weekly menu. */
   action?: { label: string; onClick: () => void };
+  /** Cancel (or Resume) the subscription — the quiet action, at the very bottom. */
+  cancel?: { label: string; destructive?: boolean; onClick: () => void };
 }
 
 function Row({ label, value }: { label: string; value: ReactNode }) {
@@ -92,6 +94,24 @@ export function SubscriptionDetailSheet({
             >
               {detail.action.label}
               <ArrowRight className="h-4 w-4" />
+            </button>
+          )}
+
+          {/* The quiet one: nobody opens the purchase to cancel it, so it sits
+              last, as text — a Cancel that stretches full-width reads as the
+              point of the screen. */}
+          {detail.cancel && (
+            <button
+              type="button"
+              onClick={detail.cancel.onClick}
+              className={
+                "mt-3 w-full py-2 text-center text-[14px] font-semibold transition-colors " +
+                (detail.cancel.destructive
+                  ? "text-destructive hover:text-destructive/80"
+                  : "text-muted-foreground hover:text-foreground")
+              }
+            >
+              {detail.cancel.label}
             </button>
           )}
         </div>
