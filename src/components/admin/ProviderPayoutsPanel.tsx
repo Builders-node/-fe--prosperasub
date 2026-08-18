@@ -371,11 +371,14 @@ function PayoutRequestQueue({ providers }: { providers: Array<{ id: string; name
     staleTime: 10 * 60 * 1000,
     queryFn: async () => {
       const { data, error } = await adminApi("/admin/payouts/config");
-      if (error) return { blinkSendEnabled: false };
-      return (data ?? { blinkSendEnabled: false }) as { blinkSendEnabled: boolean };
+      if (error) return { blinkSendEnabled: false, walletBalanceCents: null };
+      return (data ?? { blinkSendEnabled: false, walletBalanceCents: null }) as {
+        blinkSendEnabled: boolean; walletBalanceCents: number | null;
+      };
     },
   });
   const canSend = !!config?.blinkSendEnabled;
+  const walletCents = config?.walletBalanceCents ?? null;
 
   const send = useMutation({
     mutationFn: async (id: string) => {
@@ -425,9 +428,19 @@ function PayoutRequestQueue({ providers }: { providers: Array<{ id: string; name
 
   return (
     <div className="rounded-radius-lg bg-card p-space-4">
-      <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-        Payout requests ({requests.length})
-      </p>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+          Payout requests ({requests.length})
+        </p>
+        {/* Payouts leave the USD wallet, and on-chain receipts land in the BTC
+            one beside it — so this can run dry on a healthy week. Better an
+            admin sees it here than a provider finds it at the button. */}
+        {canSend && walletCents !== null && (
+          <p className="text-xs text-muted-foreground">
+            Wallet: <span className="font-semibold tabular-nums text-foreground">{formatUSD(walletCents)}</span>
+          </p>
+        )}
+      </div>
       <ul className="mt-space-3 divide-y divide-border/60">
         {requests.map((r) => (
           <li key={r.id} className="flex flex-wrap items-center justify-between gap-space-3 py-space-3">
