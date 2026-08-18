@@ -215,13 +215,9 @@ export default function BookCalendar() {
   const days = Array.from({ length: 14 }, (_, i) => addDaysISO(todayHN(), i));
 
   return (
-    <UserLayout title="Book a time">
+    <UserLayout title="Book a time" showBackButton backTo="/discovery">
       <div className="app-container space-y-1 pb-8 pt-1">
         <section className="rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
-          <button type="button" onClick={goBack}
-            className="mb-2 flex items-center gap-1 text-[14px] font-semibold text-muted-foreground hover:text-foreground">
-            <ChevronLeft className="h-4 w-4" /> Back
-          </button>
           <h1 className="text-[24px] font-semibold leading-[29px] text-foreground">
             {provider?.name ?? "Book a time"}
           </h1>

@@ -386,7 +386,7 @@ const MySubscriptions = () => {
       if (ids.length === 0) return [];
       const { data, error } = await supabaseDb
         .from("food_subscriptions")
-        .select("*")
+        .select("*, food_meal_plans(name), food_providers(name)")
         .in("user_id", ids)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -1087,14 +1087,15 @@ const MySubscriptions = () => {
                     <SubscriptionCard
                       key={s.id}
                       icon={UtensilsCrossed}
-                      title={s.customer_name ?? "Weekly meal plan"}
+                      title={s.food_meal_plans?.name ?? "Meal plan"}
                       subtitle={s.started_at
                         ? formatRangeHN(s.started_at, foodEnd(s))
                         : undefined}
                       statusBadge={<StatusPill status={s.status} />}
                       metadata={<span className="tabular-nums">{formatUSD((s.weekly_price_cents || 0) * (s.commitment_weeks || 1))}</span>}
                       onClick={() => setDetail({
-                        title: s.customer_name ?? "Weekly meal plan",
+                        title: s.food_meal_plans?.name ?? "Meal plan",
+                        provider: s.food_providers?.name ?? null,
                         status: s.status,
                         amountCents: (s.weekly_price_cents || 0) * (s.commitment_weeks || 1),
                         periodStart: s.started_at,
