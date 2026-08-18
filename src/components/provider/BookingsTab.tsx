@@ -1,9 +1,11 @@
 import { useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarDays, LayoutGrid, List, Users, Wrench } from "lucide-react";
+import { CalendarDays, LayoutGrid, List, Plus, Users, Wrench } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { UnifiedBookingCalendar } from "@/components/provider/UnifiedBookingCalendar";
+import { NewCalendarBookingDialog } from "@/components/provider/NewCalendarBookingDialog";
 import { NewCleaningBookingDialog } from "@/components/cleaning/NewCleaningBookingDialog";
 import { NewFoodSubscriptionDialog } from "@/components/food/NewFoodSubscriptionDialog";
 
@@ -127,11 +129,31 @@ export function BookingsTab({
           )}
         </div>
 
-        {/* Cleaning-only: hand-schedule a one-off visit for an existing paid
-            subscription. Food gets its own "New subscription" flow — an admin
-            adds a customer to a weekly meal plan for N weeks, marked paid. */}
-        {isCleaning && <NewCleaningBookingDialog providerId={providerId} />}
-        {isFood && <NewFoodSubscriptionDialog providerId={providerId} />}
+        {/* Every business gets the same button in the same place.
+            It was cleaning's alone: a beach club taking a call had to book the
+            court from the customer's own screen, under the staff member's
+            name, and a provider with calendars had no way in at all.
+
+            What it opens is what the business actually schedules — a cleaning
+            booking is a visit against a paid subscription, everything else is
+            an hour on a calendar — but the door is one door. Food keeps its
+            subscription flow beside it, because adding a customer to a weekly
+            meal plan is a different act, not a booking. */}
+        <div className="flex flex-wrap items-center gap-2">
+          {isCleaning
+            ? <NewCleaningBookingDialog providerId={providerId} />
+            : <NewCalendarBookingDialog providerId={calendarsId} />}
+          {isFood && (
+            <NewFoodSubscriptionDialog
+              providerId={providerId}
+              trigger={
+                <Button variant="secondary" className="gap-2 rounded-full">
+                  <Plus className="h-4 w-4" /> New subscription
+                </Button>
+              }
+            />
+          )}
+        </div>
       </div>
 
       {active === "today" && today ? today
