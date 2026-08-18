@@ -185,26 +185,27 @@ function UpcomingBookings({ bookings }: { bookings: UpcomingBooking[] }) {
 
 /**
  * Access-focused breakdown: what services does this person have RIGHT NOW.
- * We group by service (archetype) and show one row per service where the user
- * has an active/trial sub. Expired/canceled subs are hidden — they don't grant
- * access. Pending subs collapse into a small footer note.
+ * We show one row per granting subscription — the actual TARIFF the customer
+ * holds, by name — grouped by service, longest-lasting first. The staff member
+ * at the door needs to see *which plan* is active, not just that "Cleaning" is.
+ * Expired/canceled subs are hidden — they don't grant access. Pending subs
+ * collapse into a small footer note.
  */
 function AccessBreakdown({ subscriptions }: { subscriptions: Subscription[] }) {
   const { t } = useI18n();
   const granting = subscriptions.filter((s) => s.status === "active" || s.status === "trial");
   const pendingCount = subscriptions.filter((s) => s.status === "pending").length;
 
-  // One row per service — pick the sub whose expiry is furthest in the future
-  // so the row shows the longest-lasting access the user has for that service.
-  const byService = new Map<Subscription["service"], Subscription>();
-  for (const sub of granting) {
-    const existing = byService.get(sub.service);
-    if (!existing) { byService.set(sub.service, sub); continue; }
-    const a = existing.expires_at ? new Date(existing.expires_at).getTime() : Infinity;
-    const b = sub.expires_at      ? new Date(sub.expires_at).getTime()      : Infinity;
-    if (b > a) byService.set(sub.service, sub);
-  }
-  const rows = Array.from(byService.values());
+  // Every plan the customer holds, grouped by service, the longest-lasting of
+  // each service first so the strongest access reads at the top of its group.
+  const rows = [...granting].sort((a, b) => {
+    const sa = SERVICE_LABEL[a.service] ?? a.service;
+    const sb = SERVICE_LABEL[b.service] ?? b.service;
+    if (sa !== sb) return sa.localeCompare(sb);
+    const ea = a.expires_at ? new Date(a.expires_at).getTime() : Infinity;
+    const eb = b.expires_at ? new Date(b.expires_at).getTime() : Infinity;
+    return eb - ea;
+  });
 
   if (rows.length === 0) {
     return (
@@ -236,9 +237,11 @@ function AccessBreakdown({ subscriptions }: { subscriptions: Subscription[] }) {
                 <Icon className="h-5 w-5 text-emerald-500" />
               </span>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-bold text-foreground">{SERVICE_LABEL[s.service] ?? "Subscription"}</p>
+                {/* The tariff itself is the headline — that is what the door
+                    staff need — with the service and validity underneath. */}
+                <p className="truncate text-sm font-bold text-foreground">{s.name}</p>
                 <p className="text-xs text-muted-foreground">
-                  {s.name}
+                  {SERVICE_LABEL[s.service] ?? "Subscription"}
                   {s.expires_at && <> · Until {formatDateHN(s.expires_at)}</>}
                 </p>
               </div>
