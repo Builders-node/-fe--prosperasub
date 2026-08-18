@@ -51,6 +51,7 @@ import { UserLayout } from "@/components/layout/UserLayout";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { RenewPreviewDialog } from "@/components/subscriptions/RenewPreviewDialog";
 import { SubscriptionCard } from "@/components/subscriptions/SubscriptionCard";
+import { SubscriptionDetailSheet, type PurchaseDetail } from "@/components/subscriptions/SubscriptionDetailSheet";
 import {
   SectionGroup, TabEmptyState, SectionOverline,
 } from "@/components/subscriptions/MySubsPrimitives";
@@ -347,6 +348,8 @@ const MySubscriptions = () => {
    * this.
    */
   const [scope, setScope] = useState<"active" | "past">("active");
+  /** Tapping a card opens the purchase — the tariff taken and how it was paid. */
+  const [detail, setDetail] = useState<PurchaseDetail | null>(null);
   /** Search across the visible cards — the design's search pill. */
   const [query, setQuery] = useState("");
   /**
@@ -916,8 +919,41 @@ const MySubscriptions = () => {
   // RENDER
   // ─────────────────────────────────────────────────────────────────────────
 
+  // The header's search + filter row — welded to the mobile header by the
+  // layout (see UserLayout headerExtra), the way the design draws it.
+  const searchBar = (
+    <div className="flex items-center gap-2">
+      <div className="flex flex-1 items-center gap-2 rounded-radius-md bg-inset px-3 py-2">
+        <Search className="h-5 w-5 shrink-0 text-muted-foreground" />
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search Subs"
+          className="min-w-0 flex-1 bg-transparent text-[16px] tracking-[-0.32px] text-foreground placeholder:text-muted-foreground focus:outline-none"
+        />
+        {query && (
+          <button type="button" aria-label="Clear search" onClick={() => setQuery("")}
+            className="shrink-0 text-muted-foreground transition-colors hover:text-foreground">
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+      <button
+        type="button"
+        aria-label={scope === "active" ? "Showing active — tap for past" : "Showing past — tap for active"}
+        onClick={() => setScope(scope === "active" ? "past" : "active")}
+        className={cn(
+          "flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors",
+          scope === "past" ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground",
+        )}
+      >
+        <SlidersHorizontal className="h-5 w-5" />
+      </button>
+    </div>
+  );
+
   return (
-    <UserLayout title="My Subs">
+    <UserLayout title="My Subs" headerExtra={searchBar}>
       <PullToRefresh onRefresh={async () => {
         try {
           const API_URL = (import.meta.env.VITE_API_URL as string) || "https://api.prosperasub.com";
@@ -935,41 +971,6 @@ const MySubscriptions = () => {
           <ReviewPromptCard />
         </div>
 
-        {/* ── Search + filter + section heading, from the My Subs redesign ──
-            One list, no tabs: the search pill and the Active/Past filter hold
-            over every service at once, and the heading names the list the way
-            the design does. */}
-        <div className="mb-3 flex items-center gap-2">
-          <div className="flex flex-1 items-center gap-2 rounded-radius-md bg-inset px-3 py-2">
-            <Search className="h-5 w-5 shrink-0 text-muted-foreground" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search Subs"
-              className="min-w-0 flex-1 bg-transparent text-[16px] tracking-[-0.32px] text-foreground placeholder:text-muted-foreground focus:outline-none"
-            />
-            {query && (
-              <button type="button" aria-label="Clear search" onClick={() => setQuery("")}
-                className="shrink-0 text-muted-foreground transition-colors hover:text-foreground">
-                <X className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-          {/* The one filter dimension this page has is Active vs Past. The
-              button carries it, lit when it is set to anything but the
-              default. */}
-          <button
-            type="button"
-            aria-label={scope === "active" ? "Showing active — tap for past" : "Showing past — tap for active"}
-            onClick={() => setScope(scope === "active" ? "past" : "active")}
-            className={cn(
-              "flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors",
-              scope === "past" ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            <SlidersHorizontal className="h-5 w-5" />
-          </button>
-        </div>
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-[20px] font-semibold leading-[24px] tracking-[-0.4px] text-foreground">
             {scope === "active" ? "Plans" : "Past plans"}
@@ -1043,7 +1044,21 @@ const MySubscriptions = () => {
                         : undefined}
                       statusBadge={<StatusPill status={s.status} />}
                       metadata={<span className="tabular-nums">{formatUSD((s.weekly_price_cents || 0) * (s.commitment_weeks || 1))}</span>}
-                      onClick={() => navigate(`/services/food/subscription/${s.id}`)}
+                      onClick={() => setDetail({
+                        title: s.customer_name ?? "Weekly meal plan",
+                        status: s.status,
+                        amountCents: (s.weekly_price_cents || 0) * (s.commitment_weeks || 1),
+                        periodStart: s.started_at,
+                        periodEnd: foodEnd(s)?.toISOString().slice(0, 10) ?? null,
+                        paymentMethod: s.payment_method,
+                        paymentReference: s.payment_reference,
+                        purchasedAt: s.created_at,
+                        facts: [
+                          { label: "Commitment", value: `${s.commitment_weeks || 1} week${(s.commitment_weeks || 1) > 1 ? "s" : ""}` },
+                          ...(s.weekly_price_cents ? [{ label: "Per week", value: formatUSD(s.weekly_price_cents) }] : []),
+                        ],
+                        action: { label: "View meals & menu", onClick: () => navigate(`/services/food/subscription/${s.id}`) },
+                      })}
                       actions={[
                         ...(foodCanRenew(s) ? [
                           { key: "renew", label: "Renew", icon: RefreshCw, onClick: openRenewDialog, variant: "secondary" as const },
@@ -1118,6 +1133,18 @@ const MySubscriptions = () => {
                           {s.start_date && s.end_date && ` · ${formatRangeHN(s.start_date, s.end_date)}`}
                         </>}
                         metadata={<span className="tabular-nums">{formatUSD(s.total_cents || 0)}</span>}
+                        onClick={() => setDetail({
+                          title: s.plan_name || "Beach Club Membership",
+                          provider: "Beach Club",
+                          status: label,
+                          amountCents: s.total_cents || 0,
+                          periodStart: s.start_date,
+                          periodEnd: s.end_date,
+                          paymentMethod: s.payment_method,
+                          paymentReference: s.payment_reference,
+                          purchasedAt: s.created_at,
+                          facts: [{ label: "Guests", value: `${s.people || 1} ${(s.people || 1) === 1 ? "person" : "people"}` }],
+                        })}
                         statusBadge={
                           <StatusPill status={label} />
                         }
@@ -1182,6 +1209,18 @@ const MySubscriptions = () => {
                         {s.start_date && s.end_date && `${providerName ? " · " : ""}${formatRangeHN(s.start_date, s.end_date)}`}
                       </>}
                       metadata={<span className="tabular-nums">{formatUSD(s.price_cents || 0)}</span>}
+                      onClick={() => setDetail({
+                        title: planName,
+                        provider: providerName,
+                        status: label,
+                        amountCents: s.price_cents || 0,
+                        periodStart: s.start_date,
+                        periodEnd: s.end_date,
+                        paymentMethod: s.payment_method,
+                        paymentReference: s.payment_reference,
+                        purchasedAt: s.created_at,
+                        facts: s.provider_plans?.period ? [{ label: "Billing", value: String(s.provider_plans.period) }] : [],
+                      })}
                       statusBadge={<StatusPill status={label} />}
                       actions={st === "cancelled" ? [] : [
                         ...(s.plan_id ? [{
@@ -1325,6 +1364,21 @@ const MySubscriptions = () => {
                           subtitle={(sub as any).recurring_day_of_week != null
                             ? "Weekly schedule active"
                             : `${sub.cleanings_remaining ?? 0} cleanings remaining`}
+                          onClick={() => setDetail({
+                            title: (sub as any).cleaning_packages?.name ?? "Cleaning plan",
+                            status: effectiveCleaningStatus(sub),
+                            amountCents: sub.total_price_cents
+                              ?? (sub.monthly_price_cents || 0) * (sub.billing_period_months || 1),
+                            periodStart: sub.service_start_date ?? sub.start_date,
+                            periodEnd: sub.service_end_date ?? sub.end_date,
+                            paymentMethod: (sub as any).payment_method,
+                            paymentReference: (sub as any).payment_reference,
+                            purchasedAt: sub.created_at,
+                            facts: [
+                              ...(sub.billing_period_months ? [{ label: "Billing", value: `${sub.billing_period_months} month${sub.billing_period_months > 1 ? "s" : ""}` }] : []),
+                              ...(sub.cleanings_remaining != null ? [{ label: "Cleanings left", value: String(sub.cleanings_remaining) }] : []),
+                            ],
+                          })}
                           statusBadge={(sub as any).payment_method
                             ? <PaymentMethodBadge method={(sub as any).payment_method} />
                             : undefined}
@@ -1408,6 +1462,20 @@ const MySubscriptions = () => {
                             : undefined}
                           statusBadge={<StatusPill status="expired" />}
                           metadata={<span className="tabular-nums">{formatUSD((sub.monthly_price_cents || 0) * (sub.billing_period_months || 1))}</span>}
+                          onClick={() => setDetail({
+                            title: (sub as any).cleaning_packages?.name ?? "Cleaning plan",
+                            status: "expired",
+                            amountCents: sub.total_price_cents
+                              ?? (sub.monthly_price_cents || 0) * (sub.billing_period_months || 1),
+                            periodStart: sub.service_start_date ?? sub.start_date,
+                            periodEnd: sub.service_end_date ?? sub.end_date,
+                            paymentMethod: (sub as any).payment_method,
+                            paymentReference: (sub as any).payment_reference,
+                            purchasedAt: sub.created_at,
+                            facts: sub.billing_period_months
+                              ? [{ label: "Billing", value: `${sub.billing_period_months} month${sub.billing_period_months > 1 ? "s" : ""}` }]
+                              : [],
+                          })}
                           actions={sub.package_id ? [
                             { key: "renew", label: "Renew", icon: RefreshCw, onClick: openRenewDialog, variant: "primary" as const },
                           ] : []}
@@ -1455,13 +1523,11 @@ const MySubscriptions = () => {
                 )}
 
                 {/* ── Upcoming bookings ── */}
-                <section className="space-y-2">
-                  <SectionOverline label="Upcoming" count={upcomingCleaningBookings.length} />
-                  {upcomingCleaningBookings.length === 0 ? (
-                    <p className="rounded-2xl bg-card p-6 text-center text-sm text-muted-foreground">
-                      No upcoming cleaning sessions
-                    </p>
-                  ) : (
+                {/* Only when there is something upcoming — an empty box that
+                    says "No upcoming cleaning sessions" is noise on a list. */}
+                {upcomingCleaningBookings.length > 0 && (
+                  <section className="space-y-2">
+                    <SectionOverline label="Upcoming" count={upcomingCleaningBookings.length} />
                     <div className="space-y-3">
                       {upcomingCleaningBookings.map((booking) => (
                         <CleaningBookingRow
@@ -1476,8 +1542,8 @@ const MySubscriptions = () => {
                         />
                       ))}
                     </div>
-                  )}
-                </section>
+                  </section>
+                )}
 
                 {/* ── History (collapsed if long) ── */}
                 {pastCleaningBookings.length > 0 && (
@@ -1721,6 +1787,7 @@ const MySubscriptions = () => {
           onConfirm={() => navigate(pendingRenewal.targetUrl)}
         />
       )}
+      <SubscriptionDetailSheet detail={detail} onClose={() => setDetail(null)} />
       </PullToRefresh>
     </UserLayout>
   );
