@@ -584,18 +584,31 @@ const PlanDetail = () => {
         </div>
       </header>
 
-      {cover && (
-        <div className="relative h-[280px] w-full overflow-hidden rounded-b-radius-lg bg-muted shadow-figma md:hidden">
-          <img src={cover} alt="" className="absolute inset-0 h-full w-full object-cover" />
-          {/* Without the scrim the back arrow disappears into a bright sky. */}
-          <div className="absolute inset-0 bg-gradient-to-b from-black/50 to-transparent" />
-        </div>
-      )}
-
-      {/* Desktop keeps the ordinary title bar; the hero is a phone shape. */}
+      {/* Desktop gets the ordinary title bar; on a phone the sticky bar above
+          floats on the photograph instead. */}
       <div className="hidden md:block">
         <HomeHeader title={title} showBackButton onBack={goBack} bare />
       </div>
+
+      {/*
+        The photograph, at every width.
+
+        It used to be `md:hidden` — the hero was drawn as a phone shape, so a
+        plan opened on a desktop with no picture of what was being sold, while
+        the same plan on a phone led with one. The provider page this is
+        reached from has shown the same 280px band on every width all along;
+        this is that band, so the two pages stop disagreeing about whether a
+        business has a photo.
+      */}
+      {cover && (
+        <div className="relative h-[280px] w-full overflow-hidden rounded-b-radius-lg bg-muted shadow-figma">
+          <img src={cover} alt="" className="absolute inset-0 h-full w-full object-cover" />
+          {/* Without the scrim the back arrow disappears into a bright sky.
+              Only the phone puts chrome on top of it, so only the phone needs
+              the darkening. */}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/50 to-transparent md:hidden" />
+        </div>
+      )}
 
       {/*
         Full-bleed on a phone: the design gives the cards no side gutter, so
