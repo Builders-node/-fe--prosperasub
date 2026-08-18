@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { startOfMonth, endOfMonth, format } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import {
-  Wallet, TrendingUp, TrendingDown, Calendar as CalendarIcon, Settings2, PiggyBank, Percent,
+  Wallet, TrendingUp, TrendingDown, Calendar as CalendarIcon, Settings2, PiggyBank, Pencil, Percent,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -122,11 +122,26 @@ export function NetProfitPanel() {
   // ── Editing the rates ───────────────────────────────────────────────────────
   const [form, setForm] = useState<Record<string, number>>({});
   const [defaultForm, setDefaultForm] = useState<number>(DEFAULT_COMMISSION_PCT);
+  /**
+   * Rates are read first and changed on purpose.
+   *
+   * Every number on this card was a live input, so the thing that decides what
+   * the platform keeps of every business's revenue — and the ceiling on what
+   * each of them can withdraw — was one mis-click away from a different value.
+   * Reading it is the common case; editing is the rare one, and now it has to
+   * be asked for.
+   */
+  const [editing, setEditing] = useState(false);
+  // Seed the fields from the server — but never while somebody is typing into
+  // them. React Query refetches this list on focus, so without the guard,
+  // tabbing away and back mid-edit silently threw the new rates away.
   useEffect(() => {
-    if (!providers.length) return;
+    if (!providers.length || editing) return;
     setForm(Object.fromEntries(providers.map((p) => [p.id, Number(p.commission_pct ?? defaultPct)])));
-  }, [providers, defaultPct]);
-  useEffect(() => { setDefaultForm(defaultPct); }, [defaultPct]);
+  }, [providers, defaultPct, editing]);
+  useEffect(() => {
+    if (!editing) setDefaultForm(defaultPct);
+  }, [defaultPct, editing]);
 
   const saveRates = useMutation({
     mutationFn: async () => {
@@ -149,12 +164,20 @@ export function NetProfitPanel() {
     },
     onSuccess: (n) => {
       toast.success(n ? "Commission updated" : "Nothing to save");
+      setEditing(false);
       qc.invalidateQueries({ queryKey: ["finance-providers"] });
       qc.invalidateQueries({ queryKey: ["finance-settings"] });
       qc.invalidateQueries({ queryKey: ["provider-earnings"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  /** Throw away anything typed and go back to what the server holds. */
+  const cancelEdit = () => {
+    setForm(Object.fromEntries(providers.map((p) => [p.id, Number(p.commission_pct ?? defaultPct)])));
+    setDefaultForm(defaultPct);
+    setEditing(false);
+  };
 
   const money = (v: number) => `${v < 0 ? "-" : ""}${formatUSD(Math.abs(v))}`;
 
@@ -301,15 +324,21 @@ export function NetProfitPanel() {
                     <span className="ml-auto text-xs text-muted-foreground">inactive</span>
                   )}
                 </div>
-                <div className="relative">
-                  <Input
-                    type="number" min={0} max={100} step={0.5}
-                    value={form[p.id] ?? defaultPct}
-                    onChange={(e) => setForm((f) => ({ ...f, [p.id]: parseFloat(e.target.value) || 0 }))}
-                    className="pr-8"
-                  />
-                  <Percent className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                </div>
+                {editing ? (
+                  <div className="relative">
+                    <Input
+                      type="number" min={0} max={100} step={0.5}
+                      value={form[p.id] ?? defaultPct}
+                      onChange={(e) => setForm((f) => ({ ...f, [p.id]: parseFloat(e.target.value) || 0 }))}
+                      className="pr-8"
+                    />
+                    <Percent className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                  </div>
+                ) : (
+                  <p className="text-[20px] font-semibold leading-[26px] tabular-nums text-foreground">
+                    {form[p.id] ?? defaultPct}%
+                  </p>
+                )}
               </div>
             ))}
           </div>
@@ -319,19 +348,37 @@ export function NetProfitPanel() {
               <p className="text-sm font-semibold text-foreground">Default for new businesses</p>
               <p className="text-xs text-muted-foreground">Used until a business is given a rate of its own.</p>
             </div>
-            <div className="relative w-28">
-              <Input
-                type="number" min={0} max={100} step={0.5}
-                value={defaultForm}
-                onChange={(e) => setDefaultForm(parseFloat(e.target.value) || 0)}
-                className="pr-8"
-              />
-              <Percent className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            </div>
-            <Button className="ml-auto" onClick={() => saveRates.mutate()} disabled={saveRates.isPending}>
-              {saveRates.isPending && <Spinner size="sm" className="mr-2" />}
-              Save rates
-            </Button>
+            {editing ? (
+              <div className="relative w-28">
+                <Input
+                  type="number" min={0} max={100} step={0.5}
+                  value={defaultForm}
+                  onChange={(e) => setDefaultForm(parseFloat(e.target.value) || 0)}
+                  className="pr-8"
+                />
+                <Percent className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              </div>
+            ) : (
+              <p className="text-[20px] font-semibold leading-[26px] tabular-nums text-foreground">
+                {defaultForm}%
+              </p>
+            )}
+
+            {editing ? (
+              <div className="ml-auto flex items-center gap-space-2">
+                <Button variant="ghost" onClick={cancelEdit} disabled={saveRates.isPending}>
+                  Cancel
+                </Button>
+                <Button onClick={() => saveRates.mutate()} disabled={saveRates.isPending}>
+                  {saveRates.isPending && <Spinner size="sm" className="mr-2" />}
+                  Save rates
+                </Button>
+              </div>
+            ) : (
+              <Button variant="outline" className="ml-auto gap-2" onClick={() => setEditing(true)}>
+                <Pencil className="h-3.5 w-3.5" /> Edit rates
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
