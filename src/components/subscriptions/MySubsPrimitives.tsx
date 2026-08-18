@@ -71,7 +71,7 @@ export function SectionGroup({ label, count, tone, children }: SectionGroupProps
   return (
     <section className="space-y-2">
       {label && <SectionOverline label={label} count={count} tone={tone} />}
-      <div className="space-y-3">{children}</div>
+      <div className="space-y-4">{children}</div>
     </section>
   );
 }

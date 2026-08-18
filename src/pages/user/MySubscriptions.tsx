@@ -1127,7 +1127,7 @@ const MySubscriptions = () => {
         {(beachError || visibleBeach.length > 0) && (() => {
           const today = todayHN();
           return (
-            <div className="space-y-5">
+            <div className="mt-4 space-y-5">
 
               {beachSubsLoading ? (
                 <Skeleton rows={3} />
@@ -1233,7 +1233,7 @@ const MySubscriptions = () => {
             own. Silent when there is nothing: every tab already has its own
             empty state, and a second one underneath reads as a fault. */}
         {(universalError || visibleUniversal.length > 0) && (
-          <div className="mt-6 space-y-5">
+          <div className="mt-4 space-y-5">
             {universalError ? (
               <QueryError title="Couldn't load your subscriptions" onRetry={() => refetchUniversal()} />
             ) : (
@@ -1291,7 +1291,7 @@ const MySubscriptions = () => {
 
         {/* ─── Cleaning ──────────────────────────────────────────── */}
         {hasCleaningContent && (
-        <div className="space-y-5">
+        <div className="mt-4 space-y-5">
 
             {cleaningSubsLoading || cleaningBookingsLoading ? (
               <Skeleton rows={3} />
