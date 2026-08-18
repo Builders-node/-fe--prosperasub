@@ -1108,7 +1108,7 @@ const MySubscriptions = () => {
                           ...(s.weekly_price_cents ? [{ label: "Per week", value: formatUSD(s.weekly_price_cents) }] : []),
                         ],
                         cancel: cancelSheetAction("food", s, s.food_meal_plans?.name ?? "meal plan"),
-                        action: { label: "View meals & menu", onClick: () => navigate(`/services/food/subscription/${s.id}`) },
+                        action: { label: "View plan", onClick: () => navigate(`/services/food/subscription/${s.id}`) },
                       })}
                       actions={[
                         ...(foodCanRenew(s) ? [
@@ -1194,6 +1194,7 @@ const MySubscriptions = () => {
                           paymentReference: s.payment_reference,
                           purchasedAt: s.created_at,
                           facts: [{ label: "Guests", value: `${s.people || 1} ${(s.people || 1) === 1 ? "person" : "people"}` }],
+                          action: s.plan_id ? { label: "View plan", onClick: () => navigate(`/services/entertainment/plans/${s.plan_id}`) } : undefined,
                           cancel: cancelSheetAction("beach", s, s.plan_name ?? "membership"),
                         })}
                         statusBadge={
@@ -1270,6 +1271,7 @@ const MySubscriptions = () => {
                         paymentReference: s.payment_reference,
                         purchasedAt: s.created_at,
                         facts: s.provider_plans?.period ? [{ label: "Billing", value: String(s.provider_plans.period) }] : [],
+                        action: s.plan_id ? { label: "View plan", onClick: () => navigate(`/services/${s.providers?.archetype_key ?? "services"}/plans/${s.plan_id}`) } : undefined,
                         cancel: cancelSheetAction("plan", s, s.provider_plans?.name ?? "subscription"),
                       })}
                       statusBadge={<StatusPill status={label} />}
@@ -1426,6 +1428,7 @@ const MySubscriptions = () => {
                               ...(sub.cleanings_remaining != null ? [{ label: "Cleanings left", value: String(sub.cleanings_remaining) }] : []),
                             ],
                             cancel: cancelSheetAction("cleaning", sub, (sub as any).cleaning_packages?.name ?? "cleaning plan"),
+                            action: sub.package_id ? { label: "View plan", onClick: () => navigate(`/services/cleaning/plans/${encodeURIComponent(sub.package_id)}`) } : undefined,
                             sessions: bookingSessions(sub.id),
                           })}
                           statusBadge={(sub as any).payment_method
@@ -1524,6 +1527,7 @@ const MySubscriptions = () => {
                             facts: sub.billing_period_months
                               ? [{ label: "Billing", value: `${sub.billing_period_months} month${sub.billing_period_months > 1 ? "s" : ""}` }]
                               : [],
+                            action: sub.package_id ? { label: "View plan", onClick: () => navigate(`/services/cleaning/plans/${encodeURIComponent(sub.package_id)}`) } : undefined,
                             sessions: bookingSessions(sub.id),
                           })}
                           actions={sub.package_id ? [
