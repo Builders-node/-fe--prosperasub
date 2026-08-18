@@ -1,10 +1,14 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useQuery } from "@tanstack/react-query";
-import { Banknote, Info, TrendingUp, Wallet, ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, Banknote, Bitcoin, Info, TrendingUp, Wallet, Zap } from "lucide-react";
 import { supabaseDb, accountApi } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/lib/supabasePaging";
 import { formatUSD } from "@/lib/pricing";
+import {
+  RAIL_HINT, RAIL_LABEL, RAIL_PLACEHOLDER, bareDestination, destinationProblem, isPayable,
+  type PayoutRail,
+} from "@/lib/payouts/destination";
 import { commissionPct, splitTake } from "@/lib/finance/platformTake";
 import { fetchEarned } from "@/lib/finance/providerEarnings";
 import { cn } from "@/lib/utils";
@@ -36,10 +40,12 @@ import { formatDateHN } from "@/lib/timezone";
  *    the failure mode worth designing against.
  * 3. Payouts come from the ledger, not from a guess. If nothing has been
  *    recorded, the screen says nothing has been recorded.
- * 4. Withdrawing is a request, not a transfer. The cap shown here is
- *    recomputed by the server before anything is written — the browser's copy
- *    is for reading, not for deciding — and an admin approves before money
- *    moves. Money leaving the platform is not something a screen does alone.
+ * 4. Withdrawing pays. There is no approval step, because there was nothing a
+ *    person added to it: the cap is recomputed by the server before anything
+ *    is written — the browser's copy is for reading, not for deciding — and an
+ *    admin re-reading that number a day later protected no one. The two rails
+ *    are asked about separately, so nobody has to guess whether what they
+ *    pasted will arrive.
  */
 
 type RangeKey = "month" | "last_month" | "quarter" | "year" | "all";
@@ -67,7 +73,8 @@ function rangeFor(key: RangeKey): { start: Date; end: Date } {
 interface PayoutRow {
   id: string;
   amount_cents: number;
-  status?: "requested" | "approved" | "paid" | "rejected";
+  status?: "requested" | "approved" | "sending" | "paid" | "failed" | "rejected";
+  send_error?: string | null;
   requested_at?: string | null;
   created_at?: string | null;
   decision_note?: string | null;
@@ -95,7 +102,16 @@ function WithdrawPanel({ providerId, availableCents }: { providerId: string; ava
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState("");
+  const [rail, setRail] = useState<PayoutRail>("lightning");
   const [destination, setDestination] = useState("");
+
+  // Which rail, said out loud, because the two behave differently and one
+  // field asking for "a Lightning address or a Bitcoin address" left the person
+  // paying to guess whether the thing they pasted would arrive.
+  const problem = destinationProblem(rail, destination);
+  const dollars = Number(amount);
+  const overBalance = Number.isFinite(dollars) && Math.round(dollars * 100) > availableCents;
+  const ready = isPayable(rail, destination) && dollars > 0 && !overBalance;
 
   const submit = useMutation({
     mutationFn: async () => {
@@ -103,7 +119,7 @@ function WithdrawPanel({ providerId, availableCents }: { providerId: string; ava
       if (!Number.isFinite(cents) || cents <= 0) throw new Error("Enter how much you want to withdraw");
       const { data, error } = await accountApi(`/account/providers/${providerId}/payouts/request`, {
         method: "POST",
-        body: JSON.stringify({ amountCents: cents, destination: destination.trim() }),
+        body: JSON.stringify({ amountCents: cents, destination: bareDestination(destination) }),
       });
       if (error) throw new Error(String(error));
       const row = data as { status?: string; send_error?: string | null };
@@ -141,28 +157,82 @@ function WithdrawPanel({ providerId, availableCents }: { providerId: string; ava
         <ArrowUpRight className="h-4 w-4" /> Withdraw
       </Button>
 
-      <ResponsiveDialog open={open} onOpenChange={setOpen} title="Request a payout">
+      <ResponsiveDialog open={open} onOpenChange={setOpen} title="Withdraw">
         <div className="space-y-4 pb-2">
           <div className="space-y-1.5">
             <label className="text-[16px] leading-[22px] text-muted-foreground">Amount (USD)</label>
             <Input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)}
               placeholder={(availableCents / 100).toFixed(2)} />
-            <button type="button" className="text-xs font-semibold text-primary"
-              onClick={() => setAmount((availableCents / 100).toFixed(2))}>
-              Withdraw everything ({formatUSD(availableCents)})
-            </button>
+            {overBalance ? (
+              <p className="text-xs font-semibold text-destructive">
+                More than you have — the most is {formatUSD(availableCents)}.
+              </p>
+            ) : (
+              <button type="button" className="text-xs font-semibold text-primary"
+                onClick={() => setAmount((availableCents / 100).toFixed(2))}>
+                Withdraw everything ({formatUSD(availableCents)})
+              </button>
+            )}
           </div>
+
           <div className="space-y-1.5">
-            <label className="text-[16px] leading-[22px] text-muted-foreground">Where to send it</label>
-            <Input value={destination} onChange={(e) => setDestination(e.target.value)}
-              placeholder="Lightning address or Bitcoin address" />
+            <label className="text-[16px] leading-[22px] text-muted-foreground">Send over</label>
+            {/* Two rails, not one field that accepts both. Switching clears the
+                address on purpose: an address for the other network is the one
+                thing that must not be left sitting in the box. */}
+            <div className="inline-flex w-full rounded-full bg-muted/40 p-0.5 text-sm font-semibold">
+              {(["lightning", "onchain"] as PayoutRail[]).map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => { setRail(option); setDestination(""); }}
+                  className={cn(
+                    "flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-2 transition-colors",
+                    rail === option
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  {option === "lightning" ? <Zap className="h-3.5 w-3.5" /> : <Bitcoin className="h-3.5 w-3.5" />}
+                  {RAIL_LABEL[option]}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs leading-relaxed text-muted-foreground">{RAIL_HINT[rail]}</p>
           </div>
+
+          <div className="space-y-1.5">
+            <label className="text-[16px] leading-[22px] text-muted-foreground">
+              {rail === "lightning" ? "Lightning address" : "Bitcoin address"}
+            </label>
+            <Input
+              value={destination}
+              onChange={(e) => setDestination(e.target.value)}
+              placeholder={RAIL_PLACEHOLDER[rail]}
+              spellCheck={false}
+              autoCapitalize="none"
+              className={cn("font-mono text-sm", problem && "border-destructive")}
+            />
+            {problem ? (
+              <p className="text-xs font-semibold text-destructive">{problem}</p>
+            ) : isPayable(rail, destination) ? (
+              <p className="text-xs font-semibold text-emerald-500">
+                Looks like a {RAIL_LABEL[rail]} address.
+              </p>
+            ) : null}
+          </div>
+
           <p className="text-xs leading-relaxed text-muted-foreground">
             The money is sent as soon as you confirm, straight to that address. Double-check it —
             a payment cannot be pulled back.
           </p>
-          <Button className="w-full rounded-full" disabled={submit.isPending} onClick={() => submit.mutate()}>
-            {submit.isPending ? "Sending…" : "Withdraw"}
+          {/* Disabled until it can actually go: the confirm below is the last
+              thing between this form and a payment nobody can reverse. */}
+          <Button className="w-full rounded-full" disabled={submit.isPending || !ready}
+            onClick={() => submit.mutate()}>
+            {submit.isPending ? "Sending…"
+              : ready ? `Withdraw ${formatUSD(Math.round(dollars * 100))}`
+              : "Withdraw"}
           </Button>
         </div>
       </ResponsiveDialog>
