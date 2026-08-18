@@ -20,11 +20,13 @@ import { nowHN } from "@/lib/timezone";
 
 /** The part of the page no other service can answer: visits and tips. */
 async function fetchCleaningExtras() {
-  const [completions, bookings, tips] = await Promise.all([
+  const [completions, bookings, tips, tipsNew] = await Promise.all([
     supabaseDb.from("cleaning_completion_reports").select("id", { count: "exact", head: true }),
     // Reduced into counts and money, so paged — see lib/supabasePaging.ts.
     fetchAllRows<any>(() => supabaseDb.from("cleaning_bookings").select("id, status").order("id")),
     fetchAllRows<any>(() => supabaseDb.from("cleaning_tips").select("amount_cents").eq("payment_status", "paid").order("id")),
+    // The unified table too — tips are recorded in provider_tips now.
+    fetchAllRows<any>(() => supabaseDb.from("provider_tips").select("amount_cents").eq("service", "cleaning").eq("payment_status", "paid").order("id")),
   ]);
   const countStatus = (s: string) => bookings.filter((b: any) => b.status === s).length;
   return {
@@ -33,7 +35,7 @@ async function fetchCleaningExtras() {
     upcoming: countStatus("booked"),
     completed: countStatus("completed"),
     cancelled: countStatus("cancelled"),
-    tipsCents: tips.reduce((s: number, t: any) => s + (t.amount_cents || 0), 0),
+    tipsCents: [...tips, ...tipsNew].reduce((s: number, t: any) => s + (t.amount_cents || 0), 0),
   };
 }
 

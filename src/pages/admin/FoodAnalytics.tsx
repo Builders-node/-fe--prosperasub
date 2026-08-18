@@ -23,12 +23,14 @@ import { nowHN, todayHN } from "@/lib/timezone";
 
 /** Weekly pricing and delivery volume — the two things only food has. */
 async function fetchFoodExtras() {
-  const [subs, deliveries, tips] = await Promise.all([
+  const [subs, deliveries, tips, tipsNew] = await Promise.all([
     // Reduced into money, so paged — see lib/supabasePaging.ts.
     fetchAllRows<any>(() => supabaseDb.from("food_subscriptions")
       .select("status, payment_status, weekly_price_cents, end_date").order("id")),
     supabaseDb.from("food_delivery_logs").select("id", { count: "exact", head: true }),
+    // Legacy tips + the unified table (tips are recorded in provider_tips now).
     fetchAllRows<any>(() => supabaseDb.from("food_tips").select("amount_cents").eq("payment_status", "paid").order("id")),
+    fetchAllRows<any>(() => supabaseDb.from("provider_tips").select("amount_cents").eq("service", "food").eq("payment_status", "paid").order("id")),
   ]);
   const today = todayHN();
   const active = subs.filter((s: any) => s.payment_status === "paid" && effectiveFoodStatus(s, today) === "active");
@@ -39,7 +41,7 @@ async function fetchFoodExtras() {
     mrrCents: Math.round(weekly * 4.33),
     avgWeeklyCents: active.length ? Math.round(weekly / active.length) : 0,
     deliveries: deliveries.count ?? 0,
-    tipsCents: tips.reduce((s: number, t: any) => s + (t.amount_cents || 0), 0),
+    tipsCents: [...tips, ...tipsNew].reduce((s: number, t: any) => s + (t.amount_cents || 0), 0),
   };
 }
 

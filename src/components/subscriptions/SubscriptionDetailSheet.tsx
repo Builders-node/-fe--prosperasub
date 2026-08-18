@@ -5,6 +5,7 @@ import { StatusPill } from "@/components/patterns/StatusPill";
 import { PaymentMethodBadge, PaymentReference } from "@/components/admin/PaymentMethodBadge";
 import { formatUSD } from "@/lib/pricing";
 import { formatRangeHN, formatDateHN } from "@/lib/timezone";
+import { TipPanel } from "@/components/subscriptions/TipPanel";
 
 /**
  * What a customer sees when they tap a subscription: the purchase, not the
@@ -33,6 +34,8 @@ export interface PurchaseDetail {
   action?: { label: string; onClick: () => void };
   /** Cancel (or Resume) the subscription — the quiet action, at the very bottom. */
   cancel?: { label: string; destructive?: boolean; onClick: () => void };
+  /** Leave a tip — the same panel on every service. */
+  tip?: { service: string; subscriptionRef: string; providerId?: string | null; providerName?: string | null; customerName?: string | null };
 }
 
 function Row({ label, value }: { label: string; value: ReactNode }) {
@@ -108,6 +111,18 @@ export function SubscriptionDetailSheet({
               </div>
             </div>
           ))}
+
+          {detail.tip && (
+            <div className="mt-4">
+              <TipPanel
+                service={detail.tip.service}
+                subscriptionRef={detail.tip.subscriptionRef}
+                providerId={detail.tip.providerId}
+                providerName={detail.tip.providerName ?? detail.provider}
+                customerName={detail.tip.customerName}
+              />
+            </div>
+          )}
 
           {detail.action && (
             <button
