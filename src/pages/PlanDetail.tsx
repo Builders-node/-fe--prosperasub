@@ -419,16 +419,6 @@ const PlanDetail = () => {
    * the original id under the public service slug. Replace, not push, so Back
    * still leaves the page rather than bouncing between spellings.
    */
-  const canonicalKey =
-    plan?.source === "beach" ? "entertainment"
-    : plan?.source === "cleaning" ? "cleaning"
-    : plan?.source === "food" ? "food"
-    : (providerQ.data?.archetype_key ?? archetypeKey);
-  const canonical = plan ? planHref(canonicalKey, plan.id) : null;
-  if (canonical && canonical !== location.pathname) {
-    return <Navigate to={`${canonical}${location.search}`} replace />;
-  }
-
   /**
    * What this plan grants, in its own words. An access line says "unlimited
    * access" rather than pretending to a count, and a line with no period of
@@ -447,6 +437,16 @@ const PlanDetail = () => {
       .map((e) => describeEntitlement(e, chosen?.period ?? null))
       .filter((l) => l && !/^Unlimited access$/i.test(l));
   }, [planQ.data, chosen]);
+
+  const canonicalKey =
+    plan?.source === "beach" ? "entertainment"
+    : plan?.source === "cleaning" ? "cleaning"
+    : plan?.source === "food" ? "food"
+    : (providerQ.data?.archetype_key ?? archetypeKey);
+  const canonical = plan ? planHref(canonicalKey, plan.id) : null;
+  if (canonical && canonical !== location.pathname) {
+    return <Navigate to={`${canonical}${location.search}`} replace />;
+  }
 
   if (planQ.isLoading) return <PageLoader />;
 
