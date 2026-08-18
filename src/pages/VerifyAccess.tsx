@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { CheckCircle2, XCircle, ShieldAlert, Sparkles, UtensilsCrossed, Car, Waves, Clock, MapPin } from "lucide-react";
+import { CheckCircle2, XCircle, ShieldAlert, Sparkles, UtensilsCrossed, Store, Waves, Clock, MapPin } from "lucide-react";
 import { statusMeta } from "@/components/patterns/StatusPill";
 import { PageLoader } from "@/components/ui/spinner";
 import { useI18n } from "@/i18n";
@@ -13,7 +13,9 @@ type AccessStatus = "active" | "trial" | "pending" | "expired" | "canceled";
 
 interface Subscription {
   id: string;
-  service: "cleaning" | "food" | "beach_club" | "car_rental";
+  // Keys the Membership ACL emits (legacy-subscriptions.acl.ts). `plan` is the
+  // universal service — a provider with no legacy table of its own.
+  service: "cleaning" | "food" | "beach_club" | "plan";
   name: string;
   status: AccessStatus;
   expires_at: string | null;
@@ -40,14 +42,14 @@ const SERVICE_ICON: Record<Subscription["service"], typeof Sparkles> = {
   cleaning: Sparkles,
   food: UtensilsCrossed,
   beach_club: Waves,
-  car_rental: Car,
+  plan: Store,
 };
 
 const SERVICE_LABEL: Record<Subscription["service"], string> = {
   cleaning: "Cleaning",
   food: "Food",
   beach_club: "Beach Club",
-  car_rental: "Car Rental",
+  plan: "Subscription",
 };
 
 
@@ -226,15 +228,15 @@ function AccessBreakdown({ subscriptions }: { subscriptions: Subscription[] }) {
       </p>
       <div className="overflow-hidden rounded-2xl border border-border bg-card divide-y divide-border/60">
         {rows.map((s) => {
-          const Icon = SERVICE_ICON[s.service];
+          const Icon = SERVICE_ICON[s.service] ?? Store;
           const style = statusMeta(s.status);
           return (
-            <div key={s.service} className="flex items-center gap-3 px-4 py-3">
+            <div key={s.id} className="flex items-center gap-3 px-4 py-3">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10">
                 <Icon className="h-5 w-5 text-emerald-500" />
               </span>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-bold text-foreground">{SERVICE_LABEL[s.service]}</p>
+                <p className="truncate text-sm font-bold text-foreground">{SERVICE_LABEL[s.service] ?? "Subscription"}</p>
                 <p className="text-xs text-muted-foreground">
                   {s.name}
                   {s.expires_at && <> · Until {formatDateHN(s.expires_at)}</>}

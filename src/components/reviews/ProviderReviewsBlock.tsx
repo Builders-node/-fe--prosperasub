@@ -11,7 +11,7 @@ import { StarRating } from "@/components/food/StarRating";
 import { CommentIcon, InfoIcon, StarIcon } from "@/components/icons/FigmaIcons";
 import { toast } from "sonner";
 
-export type ProviderReviewService = "cleaning" | "beach" | "food";
+export type ProviderReviewService = "cleaning" | "beach" | "food" | "plan";
 
 interface ProviderReviewRow {
   id: string;
@@ -92,15 +92,27 @@ export function ProviderReviewsBlock({ providerId, service, ownerUserId, placeho
           .select("id").in("user_id", ids).in("package_id", pkgIds).limit(1);
         return (data?.length ?? 0) > 0;
       }
-      if (service === "beach") {
-        // A membership is a universal subscription to a universal provider,
-        // so "did this customer buy from this business" is one query now
-        // rather than a hop through the legacy plans to find its owner.
+      if (service === "beach" || service === "plan") {
+        // A membership (beach) or a universal-plan subscription is a row in
+        // provider_subscriptions against this universal provider, so "did this
+        // customer buy from this business" is one query — no hop through legacy
+        // plans to find the owner.
         const { data } = await supabaseDb.from("provider_subscriptions")
           .select("id").eq("provider_id", providerId).in("user_id", ids).limit(1);
         return (data?.length ?? 0) > 0;
       }
-      // food falls back to false (food uses food_reviews, not this block)
+      if (service === "food") {
+        // food_subscriptions is keyed by the LEGACY food provider id, so bridge
+        // the universal providers.id back to it first (the mirror of what
+        // FoodReviews does going the other way).
+        const { data: prov } = await supabaseDb.from("providers")
+          .select("source_provider_id").eq("id", providerId).maybeSingle();
+        const legacyId = (prov as { source_provider_id?: string } | null)?.source_provider_id;
+        if (!legacyId) return false;
+        const { data } = await supabaseDb.from("food_subscriptions")
+          .select("id").eq("provider_id", legacyId).in("user_id", ids).limit(1);
+        return (data?.length ?? 0) > 0;
+      }
       return false;
     },
   });

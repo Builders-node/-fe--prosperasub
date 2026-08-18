@@ -44,6 +44,8 @@ interface Provider {
   /** Null means the provider has no legacy table — its offer is in provider_plans. */
   source_service_key: string | null;
   gallery_urls?: string[] | null;
+  /** The owner — lets them moderate their own reviews. */
+  admin_user_id?: string | null;
 }
 
 // ── Per-archetype meta (icon + heading + fallback route) ────────────────────
@@ -218,7 +220,7 @@ const ProviderDetail = () => {
         .from("providers")
         // source_provider_id is needed to hand food off to its legacy page — see the
         // redirect below.
-        .select("id, name, description, avatar_url, banner_url, location, working_hours, contact_phone, contact_email, archetype_key, source_provider_id, source_service_key, gallery_urls")
+        .select("id, name, description, avatar_url, banner_url, location, working_hours, contact_phone, contact_email, archetype_key, source_provider_id, source_service_key, gallery_urls, admin_user_id")
         .eq("id", providerId!).single();
       if (error) throw error;
       return data as Provider;
@@ -399,9 +401,13 @@ const ProviderDetail = () => {
     : quantities.length === 1 ? quantities[0]
     : `${quantities[0]}–${quantities[quantities.length - 1]}`;
 
-  const reviewService: ProviderReviewService | null =
+  // Every archetype collects reviews — the customer sees ★ ratings on the cards,
+  // so the Reviews tab must work wherever they arrived from. cleaning/food keep
+  // their own key; beach is "beach"; any other (universal) provider is "plan".
+  const reviewService: ProviderReviewService =
     archetypeKey === "cleaning" ? "cleaning" :
-    archetypeKey === "entertainment" ? "beach" : null;
+    archetypeKey === "entertainment" ? "beach" :
+    archetypeKey === "food" ? "food" : "plan";
   // "Cleaning", "Food", "Beach Club" — the word the customer arrived through.
   const serviceLabel = serviceSlug(archetypeKey ?? "")
     .split("-").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
@@ -568,16 +574,13 @@ const ProviderDetail = () => {
         )}
 
         {tab === "reviews" && (
-          reviewService ? (
-            // The block draws its own heading and rating — the same two things
-            // the design puts at the top of this card — so wrapping it is all
-            // that is needed. A second "Reviews" above it was just a duplicate.
-            <section className="rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
-              <ProviderReviewsBlock providerId={p.id} service={reviewService} />
-            </section>
-          ) : (
-            <TabEmptyState icon={Star} title="No reviews yet" subtitle="This service doesn't collect reviews." />
-          )
+          // The block draws its own heading and rating — the same two things
+          // the design puts at the top of this card — so wrapping it is all
+          // that is needed. A second "Reviews" above it was just a duplicate.
+          // Every archetype collects reviews, so there is no dead-end state.
+          <section className="rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
+            <ProviderReviewsBlock providerId={p.id} service={reviewService} ownerUserId={p.admin_user_id} />
+          </section>
         )}
 
         {tab === "gallery" && (

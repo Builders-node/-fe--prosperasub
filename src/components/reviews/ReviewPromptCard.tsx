@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format, isToday, isYesterday, parseISO } from "date-fns";
 import { accountApi } from "@/integrations/supabase/client";
-import { RateProviderButton } from "@/components/reviews/RateProviderButton";
+import { RateProviderButton, type Service } from "@/components/reviews/RateProviderButton";
 import { useAuth } from "@/contexts/AuthContext";
 
 /**
@@ -46,7 +46,15 @@ const noun: Record<string, string> = {
   cleaning: "cleaning",
   food: "delivery",
   beach: "visit",
+  plan: "session",
 };
+
+/** Backend emits `source_service_key`; map it to the review service key the
+ *  button writes, defaulting an unknown (universal) service to "plan" rather
+ *  than mislabelling it "cleaning". */
+const REVIEW_SERVICES: Service[] = ["cleaning", "food", "beach", "plan"];
+const asReviewService = (key: string): Service =>
+  (REVIEW_SERVICES as string[]).includes(key) ? (key as Service) : "plan";
 
 export function ReviewPromptCard() {
   const { isAuthenticated } = useAuth();
@@ -72,7 +80,7 @@ export function ReviewPromptCard() {
       {shown.map((p) => (
         <RateProviderButton
           key={p.occurrenceId}
-          service={(p.service === "food" || p.service === "beach" ? p.service : "cleaning") as "cleaning" | "food" | "beach"}
+          service={asReviewService(p.service)}
           itemId={null}
           providerId={p.providerId}
           subscriptionId={p.subscriptionId ?? ""}
