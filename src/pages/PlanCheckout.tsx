@@ -22,7 +22,6 @@ import { phoneError } from "@/components/patterns/CustomerPhone";
 import { usePhonePrefill } from "@/hooks/useAccountPhone";
 import type { PaymentMethod } from "@/components/payment/PaymentMethodSelector";
 import { usePaymentMethods } from "@/hooks/usePaymentMethods";
-import { InfinitaPaymentPanel } from "@/components/payment/InfinitaPaymentPanel";
 import { PayPalPanel } from "@/components/payment/PayPalPanel";
 import { InvoiceQrPanel } from "@/components/payment/InvoiceQrPanel";
 import { attachPaymentReference } from "@/lib/payments/pendingReference";
@@ -361,11 +360,11 @@ const UniversalPlanCheckout = () => {
 
     setIsGenerating(true);
     try {
-      const methodKey = paymentMethod === "infinita" ? "crypto" : paymentMethod;
+      const methodKey = paymentMethod;
       const reserved = await reservePending(methodKey);
       if (!reserved) return;
 
-      if (paymentMethod === "infinita" || paymentMethod === "paypal") {
+      if (paymentMethod === "paypal") {
         setShowPayment(true);
         return;
       }
@@ -451,15 +450,9 @@ const UniversalPlanCheckout = () => {
           <CheckoutSuccessPanel
             icon={Sparkles}
             amount={formatUSD(effectiveTotalCents)}
-            eyebrow={
-              paymentMethod === "infinita" ? "Payment submitted"
-              : renewing ? "Subscription extended"
-              : "Subscription confirmed"
-            }
+            eyebrow={renewing ? "Subscription extended" : "Subscription confirmed"}
             subtitle={
-              paymentMethod === "infinita"
-                ? `An admin will verify your LIVES transaction and ${renewing ? "extend" : "activate"} your ${plan.name} subscription.`
-                : renewing
+              renewing
                 ? `Your ${plan.name} now runs through ${format(endDate, "d MMM yyyy")}.`
                 : `Your ${plan.name} subscription is active. We'll be in touch with the details.`
             }
@@ -675,17 +668,7 @@ const UniversalPlanCheckout = () => {
           ]}
         />
 
-        {showPayment && paymentMethod === "infinita" ? (
-          <section className="overflow-hidden rounded-radius-md bg-card p-4">
-            <h2 className="mb-4 text-xl font-black tracking-tight text-foreground">Pay with LIVES</h2>
-            <InfinitaPaymentPanel
-              totalCents={effectiveTotalCents}
-              onPaid={(id: string) => onExternalPaid(id, "crypto")}
-              onInvoiceReady={(paymentId: string) => attachPaymentReference(supabaseDb, subTable(), pendingSubIdRef.current, paymentId, "crypto")}
-              orderMeta={{ description: orderDescription, ...paymentMeta() }}
-            />
-          </section>
-        ) : showPayment && paymentMethod === "paypal" ? (
+        {showPayment && paymentMethod === "paypal" ? (
           <section className="overflow-hidden rounded-radius-md bg-card p-4">
             <h2 className="mb-4 text-xl font-black tracking-tight text-foreground">Pay with PayPal</h2>
             {isPaid ? (
@@ -732,11 +715,6 @@ const UniversalPlanCheckout = () => {
                   <RefreshCw className="h-3 w-3" />
                 </Button>
               </div>
-            )}
-            {paymentMethod === "infinita" && (
-              <p className="mt-3 rounded-radius-sm bg-inset px-3 py-2.5 text-sm text-muted-foreground">
-                Paid in <span className="font-semibold text-foreground">LIVES</span> through the SimpleFi checkout.
-              </p>
             )}
             {paymentMethod === "paypal" && (
               <p className="mt-3 rounded-radius-sm bg-inset px-3 py-2.5 text-sm text-muted-foreground">

@@ -1,7 +1,7 @@
 import { Zap, Bitcoin, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type PaymentMethod = "lightning" | "onchain" | "infinita" | "paypal";
+export type PaymentMethod = "lightning" | "onchain" | "paypal";
 
 interface Props {
   value: PaymentMethod;
@@ -11,13 +11,6 @@ interface Props {
   available?: PaymentMethod[];
 }
 
-const InfinitaIcon = ({ className }: { className?: string }) => (
-  <svg viewBox="0 0 24 24" fill="none" className={className} xmlns="http://www.w3.org/2000/svg">
-    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
-    <path d="M7 12c0-1.5 1-3 2.5-3s2 1.5 2.5 3 1 3 2.5 3 2.5-1.5 2.5-3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-  </svg>
-);
-
 const PayPalIcon = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className} xmlns="http://www.w3.org/2000/svg">
     <path d="M7.4 21.5H4.6c-.3 0-.5-.3-.5-.6L6.9 3.6c.1-.4.4-.6.8-.6h6.1c2.7 0 4.6.6 5.5 1.8.8 1.1.9 2.4.5 4-.6 2.9-2.6 4.4-5.9 4.4H11c-.4 0-.7.3-.8.7l-.9 5.9c-.1.4-.4.7-.8.7H7.4z" opacity=".55" />
@@ -25,7 +18,7 @@ const PayPalIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-const ALL: PaymentMethod[] = ["lightning", "onchain", "infinita", "paypal"];
+const ALL: PaymentMethod[] = ["lightning", "onchain", "paypal"];
 
 // Yandex Lavka pattern: each method is a row with a brand-tinted icon tile
 // (48×48 rounded), title + subtitle, and a filled/outlined radio circle on the
@@ -48,13 +41,6 @@ const META: Record<
     tileBg: "bg-[#f7931a]/15",
     iconColor: "text-[#f7931a]",
     Icon: ({ className }) => <Bitcoin className={className} />,
-  },
-  infinita: {
-    label: "LIVES",
-    subtitle: "Pay with Solana (Infinita)",
-    tileBg: "bg-purple-500/15",
-    iconColor: "text-purple-400",
-    Icon: InfinitaIcon,
   },
   paypal: {
     label: "PayPal",

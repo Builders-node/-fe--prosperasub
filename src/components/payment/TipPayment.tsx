@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { PaymentMethodSelector, type PaymentMethod } from "@/components/payment/PaymentMethodSelector";
-import { InfinitaPaymentPanel } from "@/components/payment/InfinitaPaymentPanel";
 import { PayPalPanel } from "@/components/payment/PayPalPanel";
 import { usePaymentMethods } from "@/hooks/usePaymentMethods";
 import { useBtcPrice } from "@/hooks/useBtcPrice";
@@ -69,7 +68,7 @@ export function TipPayment({
     try {
       await onRecord({
         amountCents: tipCents,
-        method: paymentMethod === "infinita" ? "crypto" : paymentMethod,
+        method: paymentMethod,
         paymentRef,
         pending,
       });
@@ -88,7 +87,7 @@ export function TipPayment({
     if (tipCents <= 0) return;
     createdRef.current = false;
     const desc = `${serviceName} — ${formatUSD(tipCents)}`;
-    if (paymentMethod === "infinita" || paymentMethod === "paypal") { setPayOpen(true); return; }
+    if (paymentMethod === "paypal") { setPayOpen(true); return; }
     if (!btcPrice) { toast.error("BTC price not loaded yet."); return; }
     const sats = convertToSats(centsToDollars(tipCents));
     if (sats <= 0) { toast.error("Tip amount too small."); return; }
@@ -159,7 +158,6 @@ export function TipPayment({
               <Button className="h-11 w-full rounded-2xl font-bold" onClick={start}
                 disabled={generating || ((paymentMethod === "lightning" || paymentMethod === "onchain") && (priceLoading || !btcPrice))}>
                 {generating ? <><Spinner size="sm" className="mr-2" /> Starting…</>
-                  : paymentMethod === "infinita" ? <>Tip {formatUSD(tipCents)} with LIVES</>
                   : paymentMethod === "paypal" ? <>Tip {formatUSD(tipCents)} with PayPal</>
                   : paymentMethod === "onchain" ? <><Bitcoin className="mr-2 h-5 w-5" /> Tip {estSats.toLocaleString()} sats</>
                   : <><Zap className="mr-2 h-5 w-5" /> Tip {estSats.toLocaleString()} sats</>}
@@ -169,9 +167,6 @@ export function TipPayment({
         </>
       )}
 
-      {payOpen && paymentMethod === "infinita" && (
-        <InfinitaPaymentPanel totalCents={tipCents} serviceName="Tip" onPaid={(pid) => finish(pid, false)} />
-      )}
       {payOpen && paymentMethod === "paypal" && (
         <PayPalPanel
           totalCents={tipCents}

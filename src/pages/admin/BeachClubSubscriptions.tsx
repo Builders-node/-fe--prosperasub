@@ -65,7 +65,7 @@ interface BeachPlanOption {
   price_per_person_cents: number;
 }
 
-const PAYMENT_METHODS = ["manual", "lightning", "onchain", "infinita", "paypal"] as const;
+const PAYMENT_METHODS = ["manual", "lightning", "onchain", "paypal"] as const;
 
 const emptyForm = {
   plan_id: "",
@@ -468,7 +468,7 @@ export default function BeachClubSubscriptions({ embedded = false }: { embedded?
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {PAYMENT_METHODS.map((m) => (
-                      <SelectItem key={m} value={m} className="capitalize">{m === "infinita" ? "LIVES" : m}</SelectItem>
+                      <SelectItem key={m} value={m} className="capitalize">{m}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

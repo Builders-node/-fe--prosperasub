@@ -20,7 +20,6 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import type { PaymentMethod } from "@/components/payment/PaymentMethodSelector";
-import { InfinitaPaymentPanel } from "@/components/payment/InfinitaPaymentPanel";
 import { PayPalPanel } from "@/components/payment/PayPalPanel";
 import { InvoiceQrPanel } from "@/components/payment/InvoiceQrPanel";
 import { useInvoicePayment } from "@/hooks/useInvoicePayment";
@@ -236,7 +235,7 @@ export default function Cart() {
         today,
         batchId,
         paid: !pending,
-        paymentMethod: paymentMethod === "infinita" ? "crypto" : paymentMethod,
+        paymentMethod: paymentMethod,
         paymentReference: paymentRef || null,
         customerName: form.customer_name.trim(),
         customerWhatsapp: form.customer_whatsapp.trim(),
@@ -342,7 +341,7 @@ export default function Cart() {
     batchIdRef.current = newBatchId();
     const description = `${[...new Set(items.map((i) => CART_SERVICES[i.service]?.label ?? i.service))].join(" + ")} — ${count} item${count > 1 ? "s" : ""} — ${formatUSD(totalCents)}`;
 
-    if (paymentMethod === "infinita" || paymentMethod === "paypal") {
+    if (paymentMethod === "paypal") {
       setStep("pay");
       return;
     }
@@ -659,9 +658,6 @@ export default function Cart() {
             )}
 
             {/* Payment panels */}
-            {step === "pay" && paymentMethod === "infinita" && (
-              <InfinitaPaymentPanel totalCents={effectiveTotalCents} serviceName={basketMeta().service_name} onPaid={(pid) => onPaidComplete(pid, false)} />
-            )}
             {step === "pay" && paymentMethod === "paypal" && (
               <PayPalPanel
                 totalCents={effectiveTotalCents}

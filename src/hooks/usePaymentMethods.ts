@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabaseDb } from "@/integrations/supabase/client";
 import type { PaymentMethod } from "@/components/payment/PaymentMethodSelector";
 
-const ALL_METHODS: PaymentMethod[] = ["lightning", "onchain", "infinita", "paypal"];
+const ALL_METHODS: PaymentMethod[] = ["lightning", "onchain", "paypal"];
 
 /**
  * Global payment-method on/off toggles (set in the admin Finance page).

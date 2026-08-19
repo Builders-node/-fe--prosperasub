@@ -1,4 +1,4 @@
-import { Bitcoin, CreditCard, Wallet } from "lucide-react";
+import { Bitcoin, CreditCard } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PaymentMethod } from "./PaymentMethodSelector";
 
@@ -26,7 +26,7 @@ interface Props {
   available?: PaymentMethod[];
 }
 
-const ALL: PaymentMethod[] = ["lightning", "onchain", "infinita", "paypal"];
+const ALL: PaymentMethod[] = ["lightning", "onchain", "paypal"];
 
 /** The ₿ the design uses for both Bitcoin rails. */
 const BitcoinGlyph = ({ className }: { className?: string }) => (
@@ -39,7 +39,6 @@ const META: Record<
 > = {
   lightning: { label: "Bitcoin", sub: "Lightning", tile: "bg-[#f7931a]", glyph: "text-[#f7931a]", Icon: BitcoinGlyph },
   onchain:   { label: "Bitcoin", sub: "On-chain",  tile: "bg-[#f7931a]", glyph: "text-[#f7931a]", Icon: BitcoinGlyph },
-  infinita:  { label: "LIVES",   sub: null,        tile: "bg-purple-500", glyph: "text-purple-500", Icon: Wallet },
   paypal:    { label: "PayPal",  sub: null,        tile: "bg-[#5b6ee1]", glyph: "text-[#5b6ee1]", Icon: CreditCard },
 };
 

@@ -1746,27 +1746,6 @@ export const supabase = {
           body: JSON.stringify(options?.body || {}),
         });
       }
-      if (name === "create-simplefi-invoice") {
-        const b = options?.body || {};
-        const ref = b.reference || {};
-        return api("/payments/simplefi/invoice", {
-          method: "POST",
-          body: JSON.stringify({
-            amount_cents: b.amount_cents,
-            description: b.description,
-            context: ref.context,
-            service_name: ref.service_name,
-            client_name: ref.client_name,
-            client_phone: ref.client_phone,
-          }),
-        });
-      }
-      if (name === "verify-simplefi-payment") {
-        return api("/payments/simplefi/status", {
-          method: "POST",
-          body: JSON.stringify(options?.body || {}),
-        });
-      }
       return { data: null, error: new Error(`Function ${name} is not implemented`) };
     },
   },

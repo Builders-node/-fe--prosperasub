@@ -5,7 +5,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { PaymentMethodSelector, type PaymentMethod } from "@/components/payment/PaymentMethodSelector";
-import { InfinitaPaymentPanel } from "@/components/payment/InfinitaPaymentPanel";
 import { PayPalPanel } from "@/components/payment/PayPalPanel";
 import { usePaymentMethods } from "@/hooks/usePaymentMethods";
 import { useBtcPrice } from "@/hooks/useBtcPrice";
@@ -56,7 +55,7 @@ export function PayBox({
     if (createdRef.current) return;
     createdRef.current = true;
     try {
-      await onPaid({ method: paymentMethod === "infinita" ? "crypto" : paymentMethod, paymentRef, pending });
+      await onPaid({ method: paymentMethod, paymentRef, pending });
     } catch (e: any) {
       createdRef.current = false;
       toast.error(e?.message || "Could not complete");
@@ -72,7 +71,7 @@ export function PayBox({
     if (amountCents <= 0 || disabled) return;
     createdRef.current = false;
     const desc = `${serviceName} — ${formatUSD(effectiveCents)}`;
-    if (paymentMethod === "infinita" || paymentMethod === "paypal") { setPayOpen(true); return; }
+    if (paymentMethod === "paypal") { setPayOpen(true); return; }
     if (!btcPrice) { toast.error("BTC price not loaded yet."); return; }
     const sats = convertToSats(centsToDollars(effectiveCents));
     if (sats <= 0) { toast.error("Amount too small."); return; }
@@ -127,7 +126,6 @@ export function PayBox({
           <Button className="h-12 w-full rounded-2xl text-base font-bold" onClick={start}
             disabled={disabled || generating || ((paymentMethod === "lightning" || paymentMethod === "onchain") && (priceLoading || !btcPrice))}>
             {generating ? <><Spinner size="sm" className="mr-2" /> Starting…</>
-              : paymentMethod === "infinita" ? <>{payLabelPrefix} {formatUSD(effectiveCents)} with LIVES</>
               : paymentMethod === "paypal" ? <>Continue with PayPal</>
               : paymentMethod === "onchain" ? <><Bitcoin className="mr-2 h-5 w-5" /> {payLabelPrefix} {estSats.toLocaleString()} sats</>
               : <><Zap className="mr-2 h-5 w-5" /> {payLabelPrefix} {estSats.toLocaleString()} sats</>}
@@ -135,14 +133,6 @@ export function PayBox({
         </>
       )}
 
-      {payOpen && paymentMethod === "infinita" && (
-        <InfinitaPaymentPanel
-          totalCents={effectiveCents}
-          serviceName={serviceName}
-          orderMeta={{ context, service_name: serviceName, client_name: clientName ?? "", client_phone: clientPhone ?? "" }}
-          onPaid={(pid) => finish(pid, false)}
-        />
-      )}
       {payOpen && paymentMethod === "paypal" && (
         <PayPalPanel
           totalCents={effectiveCents}

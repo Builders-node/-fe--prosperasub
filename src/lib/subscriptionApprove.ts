@@ -154,11 +154,13 @@ export function isPendingPayment(row: { payment_status?: string | null } | null 
  * Order is stable: manual first (most common admin-side capture), providers
  * grouped by kind (crypto rails → cards).
  */
+// LIVES/Infinita was removed as a payment method — no new sub can be captured
+// on it. `canonicalPaymentMethod` still maps legacy crypto/solana/lives rows so
+// historical records render (PaymentMethodBadge shows them as LIVES).
 export const PAYMENT_METHOD_OPTIONS = [
   { value: "manual",    label: "Manual / cash" },
   { value: "lightning", label: "Lightning" },
   { value: "onchain",   label: "On-chain BTC" },
-  { value: "infinita",  label: "LIVES / Infinita (Solana)" },
   { value: "paypal",    label: "PayPal" },
 ] as const;
 
