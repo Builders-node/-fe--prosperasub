@@ -5,12 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 8080",
-    "build": "vite build",
+    "build": "node scripts/verify.mjs && vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview --host 127.0.0.1 --port 8080",
     "storybook": "STORYBOOK_DISABLE_TELEMETRY=1 HOME=.storybook-home storybook dev -p 6006 --host 127.0.0.1",
-    "build-storybook": "STORYBOOK_DISABLE_TELEMETRY=1 HOME=.storybook-home storybook build"
+    "build-storybook": "STORYBOOK_DISABLE_TELEMETRY=1 HOME=.storybook-home storybook build",
+    "verify": "node scripts/verify.mjs"
   },
   "dependencies": {
     "@getalby/sdk": "^7.0.0",
