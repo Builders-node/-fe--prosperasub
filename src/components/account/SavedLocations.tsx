@@ -12,24 +12,23 @@ import {
 import { EMPTY_ADDRESS, type AddressDetails } from "@/lib/address";
 import { locationFromRow, locationPayload, type UserLocation } from "@/lib/locations";
 import { useResidences } from "@/hooks/useResidences";
-import { supabaseDb } from "@/integrations/supabase/client";
+import { accountApi } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+
+// Home addresses are physical-safety PII. They used to be read/written straight
+// from the browser with the anon key; every operation now goes through the
+// authenticated, owner-scoped /account/locations API (the table is service-role
+// only). The backend owns the is_default logic and the user_profiles mirror.
 
 /** Query hook for a user's saved locations (default first, then newest). */
 export function useUserLocations(userId?: string | null) {
   return useQuery({
     queryKey: ["user-locations", userId],
     queryFn: async () => {
-      if (!userId) return [] as UserLocation[];
-      const { data, error } = await supabaseDb
-        .from("user_locations")
-        .select("*")
-        .eq("user_id", userId)
-        .order("is_default", { ascending: false })
-        .order("created_at", { ascending: true });
+      const { data, error } = await accountApi("/account/locations");
       if (error) throw error;
-      return (data ?? []).map(locationFromRow);
+      return (Array.isArray(data) ? data : []).map(locationFromRow);
     },
     enabled: !!userId,
   });
@@ -64,27 +63,19 @@ export function SavedLocations({ userId }: { userId: string }) {
     setAddr({ street: loc.street, house: loc.house, apartment: loc.apartment, area: loc.area, notes: loc.notes });
   };
 
-  // Keep user_profiles.default_delivery_address aligned with the chosen default.
-  const mirrorDefaultToProfile = async (line: string | null) => {
-    await supabaseDb.from("user_profiles").update({ default_delivery_address: line }).eq("user_id", userId);
-  };
-
   const saveMutation = useMutation({
     mutationFn: async () => {
       const payload = locationPayload(label, addr, residence);
       if (!payload.line) throw new Error("Pick a residence or add a street/area.");
-      if (editing === "new") {
-        const makeDefault = locations.length === 0; // first location becomes default
-        const { error } = await supabaseDb.from("user_locations")
-          .insert({ user_id: userId, ...payload, is_default: makeDefault });
-        if (error) throw error;
-        if (makeDefault) await mirrorDefaultToProfile(payload.line);
-      } else if (editing && editing !== "new") {
-        const { error } = await supabaseDb.from("user_locations")
-          .update({ ...payload, updated_at: new Date().toISOString() }).eq("id", editing.id);
-        if (error) throw error;
-        if (editing.is_default) await mirrorDefaultToProfile(payload.line);
-      }
+      // The backend sets is_default (first location wins) and mirrors it to the
+      // profile; the browser just sends the address.
+      const { error } =
+        editing === "new"
+          ? await accountApi("/account/locations", { method: "POST", body: JSON.stringify(payload) })
+          : await accountApi(`/account/locations/${(editing as UserLocation).id}`, {
+              method: "PATCH", body: JSON.stringify(payload),
+            });
+      if (error) throw error;
     },
     onSuccess: () => { toast.success("Location saved"); setEditing(null); invalidate(); },
     onError: (e: Error) => toast.error(e.message),
@@ -92,18 +83,9 @@ export function SavedLocations({ userId }: { userId: string }) {
 
   const deleteMutation = useMutation({
     mutationFn: async (loc: UserLocation) => {
-      const { error } = await supabaseDb.from("user_locations").delete().eq("id", loc.id);
+      // The backend promotes the next default when the removed one was default.
+      const { error } = await accountApi(`/account/locations/${loc.id}`, { method: "DELETE" });
       if (error) throw error;
-      // If we removed the default, promote the next one (if any).
-      if (loc.is_default) {
-        const next = locations.find((l) => l.id !== loc.id);
-        if (next) {
-          await supabaseDb.from("user_locations").update({ is_default: true }).eq("id", next.id);
-          await mirrorDefaultToProfile(next.line);
-        } else {
-          await mirrorDefaultToProfile(null);
-        }
-      }
     },
     onSuccess: () => { toast.success("Location removed"); invalidate(); },
     onError: (e: Error) => toast.error(e.message),
@@ -111,10 +93,8 @@ export function SavedLocations({ userId }: { userId: string }) {
 
   const setDefaultMutation = useMutation({
     mutationFn: async (loc: UserLocation) => {
-      await supabaseDb.from("user_locations").update({ is_default: false }).eq("user_id", userId);
-      const { error } = await supabaseDb.from("user_locations").update({ is_default: true }).eq("id", loc.id);
+      const { error } = await accountApi(`/account/locations/${loc.id}/default`, { method: "POST" });
       if (error) throw error;
-      await mirrorDefaultToProfile(loc.line);
     },
     onSuccess: () => { toast.success("Default location set"); invalidate(); },
     onError: (e: Error) => toast.error(e.message),
