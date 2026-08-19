@@ -120,12 +120,17 @@ export default function VerifyAccess() {
 
   return (
     <Shell>
-      <StatusBanner
-        allowed={allowed}
-        invalid={invalid}
-        title={invalid ? t("verify.invalidTitle") : allowed ? t("verify.granted") : t("verify.denied")}
-        subtitle={result.reason}
-      />
+      {/* No banner when access is granted — the person's card and their active
+          plans say it. The loud banner is kept only for refusal, where the
+          door staff need it to be unmistakable. */}
+      {!allowed && (
+        <StatusBanner
+          allowed={allowed}
+          invalid={invalid}
+          title={invalid ? t("verify.invalidTitle") : t("verify.denied")}
+          subtitle={result.reason}
+        />
+      )}
 
       {result.user && <HeaderCard name={result.user.name} avatar={result.user.avatar_url} count={granting.length} />}
       {result.user && <BookedCard bookings={result.bookings ?? []} />}
