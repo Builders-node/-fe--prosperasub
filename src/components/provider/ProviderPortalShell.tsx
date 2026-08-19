@@ -72,6 +72,13 @@ export function ProviderPortalShell<T extends BaseProvider>({
   const labels = service.providers.labels;
   const Icon = service.icon;
   const pageTitle = `My ${labels.singular}`;
+  const visibleTabs = tabs.filter((t) => !t.ownerOnly || isOwner);
+
+  // MUST run before the early returns below — a hook after `if (isLoading)` /
+  // `if (!selected)` renders a different hook count once the data loads and
+  // React throws "rendered more hooks than during the previous render",
+  // white-screening the portal. (Rules of Hooks — the #300/#310 family.)
+  const [activeTab, setActiveTab] = useTabParam(visibleTabs.map((t) => t.value));
 
   if (isLoading) {
     return (
@@ -102,10 +109,6 @@ export function ProviderPortalShell<T extends BaseProvider>({
 
   const avatarUrl = getAvatarUrl?.(selected) ?? null;
   const bannerUrl = getBannerUrl?.(selected) ?? null;
-  const visibleTabs = tabs.filter((t) => !t.ownerOnly || isOwner);
-
-  // Same convention as everywhere else — see useTabParam.
-  const [activeTab, setActiveTab] = useTabParam(visibleTabs.map((t) => t.value));
 
   return (
     <UserLayout title={pageTitle}>
