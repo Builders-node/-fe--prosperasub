@@ -147,7 +147,7 @@ export default function VerifyAccess() {
  */
 function HeaderCard({ name, avatar, count }: { name: string; avatar: string | null; count: number }) {
   return (
-    <div className="flex flex-col items-center gap-4 rounded-radius-lg bg-card p-4 pt-8 shadow-figma">
+    <div className="flex flex-col items-center gap-4 rounded-b-radius-lg bg-card p-4 pt-8 shadow-figma">
       <Avatar name={name} src={avatar} />
       <div className="w-full text-center">
         <p className="text-[20px] font-semibold leading-none tracking-[-0.4px] text-foreground">{name}</p>
@@ -298,9 +298,12 @@ function Avatar({ name, src }: { name: string; src: string | null }) {
 }
 
 function Shell({ children }: { children: React.ReactNode }) {
+  // Full-bleed cards, exactly like the design — no side padding. The cards span
+  // edge to edge and carry their own 16px inner padding; the only breathing
+  // room is the small vertical gap between them and a little at the bottom.
   return (
-    <div className="min-h-screen bg-background px-4 py-10">
-      <div className="mx-auto flex w-full max-w-md flex-col gap-3">{children}</div>
+    <div className="min-h-screen bg-background pb-10">
+      <div className="mx-auto flex w-full max-w-md flex-col gap-2">{children}</div>
     </div>
   );
 }
