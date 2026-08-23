@@ -1295,7 +1295,13 @@ const MySubscriptions = () => {
         {hasCleaningContent && (
         <div className="mt-4 space-y-5">
 
-            {cleaningSubsLoading || cleaningBookingsLoading ? (
+            {/* Skeleton waits only on the SUBSCRIPTIONS query — not the
+                bookings/sessions one. The cards don't need bookings to render
+                (bookings only refine one-time-cleaning completion and feed the
+                detail sheet's sessions), so gating the whole section on
+                cleaningBookingsLoading left a paid cleaning subscription stuck
+                as a skeleton whenever that secondary query was slow to settle. */}
+            {cleaningSubsLoading ? (
               <Skeleton rows={3} />
             ) : cleaningError ? (
               <QueryError title="Couldn't load your cleaning plans" onRetry={() => refetchCleaning()} />
