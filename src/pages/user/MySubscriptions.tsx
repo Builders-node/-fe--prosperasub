@@ -312,6 +312,16 @@ const LEGACY_TAB_ALIASES: Record<string, string> = {
   other: "entertainment",
 };
 
+/**
+ * `provider_subscriptions.user_id` is a `uuid` column (cleaning/food are `text`).
+ * Passing a Google-sub id like "google-oauth2|123" into a `.in()`/`.eq()` on it
+ * makes PostgREST 400 the WHOLE query ("invalid input syntax for type uuid"),
+ * which is what turned the beach section into "Couldn't load your memberships".
+ * Filter ids to real UUIDs before querying that table.
+ */
+const isUuid = (v: unknown): v is string =>
+  typeof v === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+
 const MySubscriptions = () => {
   const { isAuthenticated, isLoading: authLoading, userData } = useAuth();
   const [paymentDialog, setPaymentDialog] = useState<any>(null);
@@ -403,7 +413,9 @@ const MySubscriptions = () => {
   } = useQuery({
     queryKey: ["my-beach-subs", userUuid, userData?.id],
     queryFn: async () => {
-      const ids = [userUuid, userData?.id].filter(Boolean) as string[];
+      // provider_subscriptions.user_id is uuid — only real UUIDs, or the whole
+      // query 400s and the beach section shows "Couldn't load your memberships".
+      const ids = [userUuid, userData?.id].filter(isUuid);
       if (!ids.length) return [];
       // The membership itself is a universal subscription now. It is read
       // back under the names this card already uses — including the legacy
@@ -446,7 +458,8 @@ const MySubscriptions = () => {
   } = useQuery({
     queryKey: ["my-universal-subscriptions", userUuid],
     queryFn: async () => {
-      if (!userUuid) return [];
+      // uuid column — a non-UUID id would 400 the query (see isUuid).
+      if (!isUuid(userUuid)) return [];
       const { data, error } = await supabaseDb
         .from("provider_subscriptions")
         .select("*, providers!inner(name, archetype_key), provider_plans(name, period)")
