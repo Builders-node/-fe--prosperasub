@@ -9,6 +9,7 @@ import { UnifiedBookingCalendar } from "@/components/provider/UnifiedBookingCale
 import { NewCalendarBookingDialog } from "@/components/provider/NewCalendarBookingDialog";
 import { NewCleaningBookingDialog } from "@/components/cleaning/NewCleaningBookingDialog";
 import { NewFoodSubscriptionDialog } from "@/components/food/NewFoodSubscriptionDialog";
+import { NewBeachMembershipDialog } from "@/components/provider/NewBeachMembershipDialog";
 
 /**
  * The schedule — one tab, three questions.
@@ -85,6 +86,7 @@ export function BookingsTab({
 
   const isCleaning = sourceKey === "cleaning";
   const isFood = sourceKey === "food";
+  const isBeach = sourceKey === "beach" || sourceKey === "beach_club";
   const active = options.some((o) => o.key === view) ? view : options[0]?.key ?? "week";
 
   return (
@@ -155,6 +157,16 @@ export function BookingsTab({
               trigger={
                 <Button variant="secondary" className="gap-2 rounded-full">
                   <Plus className="h-4 w-4" /> New subscription
+                </Button>
+              }
+            />
+          )}
+          {isBeach && (
+            <NewBeachMembershipDialog
+              providerUniversalId={calendarsId}
+              trigger={
+                <Button variant="secondary" className="gap-2 rounded-full">
+                  <Plus className="h-4 w-4" /> New membership
                 </Button>
               }
             />
