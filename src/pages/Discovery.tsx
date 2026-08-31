@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Users, ChevronRight, ChefHat, QrCode, Store } from "lucide-react";
+import { Users, ChevronRight, ChefHat, QrCode, Store, Car } from "lucide-react";
 import { useServiceCategories } from "@/hooks/useServiceCategories";
 import { HomeHeader } from "@/components/HomeHeader";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
@@ -149,6 +149,9 @@ const Discovery = () => {
               {archetypes.map((a) => (
                 <ArchetypeTile key={a.key} archetype={a} categories={categoriesByArchetype.get(a.key) ?? []} />
               ))}
+              {/* Car rental is its own app on a subdomain, not a platform
+                  archetype — a static tile that links out to it. */}
+              <CarRentalTile />
             </div>
           )}
         </section>
@@ -216,6 +219,34 @@ function ArchetypeTile({
   );
 }
 
+
+/**
+ * Car rental lives in a separate app on its own subdomain
+ * (vehicles.everysub.net), so this tile links out rather than routing inside
+ * the SPA. Same 120px white card as ArchetypeTile so it sits in the service
+ * grid as one more equal thing, with a car glyph to mark that it's a car.
+ */
+const CAR_RENTAL_URL = "https://vehicles.everysub.net";
+
+function CarRentalTile() {
+  return (
+    <a
+      href={CAR_RENTAL_URL}
+      aria-label="Car Rental"
+      className="flex h-[120px] flex-col justify-between rounded-radius-md bg-card p-4 shadow-figma transition-colors active:scale-[0.98] hover:bg-muted/40"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <p className="line-clamp-2 text-[16px] font-semibold tracking-[-0.32px] text-foreground">
+          Car Rental
+        </p>
+        <Car className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
+      </div>
+      <p className="line-clamp-2 text-[12px] tracking-[-0.24px] text-muted-foreground">
+        Rent a car in Próspera
+      </p>
+    </a>
+  );
+}
 
 function SectionHeader({ title, scrollable = true }: { title: string; scrollable?: boolean }) {
   return (
