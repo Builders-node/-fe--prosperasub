@@ -246,6 +246,58 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
       u.label.toLowerCase().includes(q) || (u.email ?? "").toLowerCase().includes(q));
   }, [users, userSearch]);
 
+  /**
+   * The time windows this provider actually runs.
+   *
+   * The dialog used to take any clock time and hand it to ensureCleaningSlot,
+   * which seeds a slot for whatever was typed. A visit booked at 09:00 against
+   * an 08:00/10:00/13:00 grid therefore invented a slot of its own: it counted
+   * against nothing, the day's capacity stopped meaning anything, and the
+   * calendar filled with times no cleaner's shift matches. Offering the grid
+   * instead is what keeps a hand-added visit inside the same schedule
+   * everything else is booked against.
+   */
+  const { data: slotWindows = [], isLoading: windowsLoading } = useQuery<Array<{ start: string; end: string }>>({
+    queryKey: ["admin-new-booking-slot-windows", universalProviderId ?? "shared"],
+    enabled: open,
+    queryFn: async () => {
+      const { data } = await supabaseDb
+        .from("cleaning_available_slots")
+        .select("start_time,end_time,provider_id,is_active,date")
+        .gte("date", todayHN())
+        .eq("is_active", true);
+      const rows = (data ?? []) as any[];
+      // Same rule as the booking page: the provider's own grid when it keeps
+      // one, the shared grid otherwise. Mixing them books against a schedule
+      // this provider does not run.
+      const own = universalProviderId ? rows.filter((r) => r.provider_id === universalProviderId) : [];
+      const use = own.length ? own : rows.filter((r) => r.provider_id == null);
+
+      const hhmm = (t: string) => String(t ?? "").slice(0, 5);
+      const seen = new Map<string, { start: string; end: string }>();
+      for (const r of use) {
+        const start = hhmm(r.start_time);
+        const end = hhmm(r.end_time);
+        if (!start) continue;
+        if (!seen.has(`${start}-${end}`)) seen.set(`${start}-${end}`, { start, end });
+      }
+      return [...seen.values()].sort((a, b) => a.start.localeCompare(b.start));
+    },
+  });
+
+  /** No grid at all — fall back to typing a time rather than blocking the admin. */
+  const noGrid = !windowsLoading && slotWindows.length === 0;
+
+  // Snap to a real window as soon as the grid is known.
+  useEffect(() => {
+    if (!slotWindows.length) return;
+    const match = slotWindows.some((w) => w.start === startTime);
+    if (!match) {
+      setStartTime(slotWindows[0].start);
+      setEndTime(slotWindows[0].end);
+    }
+  }, [slotWindows]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const selectedSub = useMemo(() => subs.find((s) => s.id === subId) ?? null, [subs, subId]);
   const selectedUser = useMemo(() => users.find((u) => u.id === userId) ?? null, [users, userId]);
 
@@ -528,16 +580,53 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Start time *</Label>
-                <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+            {noGrid ? (
+              // Nothing seeded yet. Typing a time is worse than picking one, but
+              // it beats an admin who cannot book at all; the slot grid is
+              // seeded daily and by the Cleaning workspace.
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Start time *</Label>
+                  <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+                </div>
+                <div>
+                  <Label>End time</Label>
+                  <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+                </div>
+                <p className="col-span-2 text-xs text-amber-500">
+                  This provider has no slot grid yet, so the visit will create its own time. Seed the
+                  slots to keep bookings on one schedule.
+                </p>
               </div>
+            ) : (
               <div>
-                <Label>End time</Label>
-                <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+                <Label>Time slot *</Label>
+                <Select
+                  value={startTime}
+                  onValueChange={(v) => {
+                    const w = slotWindows.find((x) => x.start === v);
+                    if (!w) return;
+                    setStartTime(w.start);
+                    setEndTime(w.end);
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={windowsLoading ? "Loading slots…" : "Pick a time slot"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {slotWindows.map((w) => (
+                      <SelectItem key={`${w.start}-${w.end}`} value={w.start}>
+                        {w.start}{w.end ? ` – ${w.end}` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Only the times this provider actually runs — so the visit counts against the
+                  right slot instead of inventing one.
+                </p>
               </div>
-            </div>
+            )}
 
             <div>
               <Label>Notes for the cleaner</Label>
