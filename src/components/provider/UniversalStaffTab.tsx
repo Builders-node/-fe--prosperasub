@@ -4,6 +4,7 @@ import { Plus, Trash2, UserPlus, Mail } from "lucide-react";
 import { WorkspaceEmpty, WorkspaceSection } from "@/components/provider/WorkspaceUI";
 import { Spinner } from "@/components/ui/spinner";
 import { accountApi, supabaseDb } from "@/integrations/supabase/client";
+import { fetchUsersByIds, isUserUuid } from "@/lib/admin/customerNames";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -98,7 +99,9 @@ export function UniversalStaffTab({
     queryKey: OWNER_QK,
     enabled: !!ownerUserId,
     queryFn: async () => {
-      if (!ownerUserId) return null;
+      // Same reason as the batch below: `users.id` is a uuid column, and an
+      // owner recorded under a Google-sub id 400s rather than simply missing.
+      if (!isUserUuid(ownerUserId)) return null;
       const { data } = await supabaseDb
         .from("users")
         .select("id, email, name, display_name")
@@ -128,12 +131,11 @@ export function UniversalStaffTab({
     queryKey: [...PROFILES_QK, managerIds] as const,
     enabled: managerIds.length > 0,
     queryFn: async () => {
-      const { data } = await supabaseDb
-        .from("users")
-        .select("id, email, name, display_name")
-        .in("id", managerIds);
+      // Guarded: one manager stored under a Google-sub id would 400 the batch
+      // and blank the name of every other member of the team.
+      const users = await fetchUsersByIds(managerIds);
       const map: Record<string, { name?: string | null; display_name?: string | null; email?: string | null }> = {};
-      (data ?? []).forEach((u: any) => { map[u.id] = u; });
+      users.forEach((u, id) => { map[id] = u; });
       return map;
     },
   });

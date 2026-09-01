@@ -365,7 +365,11 @@ export function ProviderEarningsTab({ providerId, legacyId, sourceKey }: {
   // work this out from a `provider_members` row with role "owner", which the
   // payout endpoint has never accepted — so a manager could reach a button
   // that answered 403.
-  const canWithdraw = available?.canWithdraw !== false;
+  // Fail CLOSED. `!== false` also passed while the request was in flight or
+  // had failed, which is how a manager — who may see the money but never move
+  // it — got shown a Withdraw button that answers 403. The endpoint always
+  // sends this field, so absence means "we don't know", not "allowed".
+  const canWithdraw = available?.canWithdraw === true;
 
   return (
     <div className="space-y-1">

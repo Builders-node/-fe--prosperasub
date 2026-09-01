@@ -5,6 +5,7 @@ import { Search } from "lucide-react";
 
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { adminApi, supabaseDb } from "@/integrations/supabase/client";
+import { fetchUsersByIds } from "@/lib/admin/customerNames";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -65,16 +66,12 @@ const AuditLogs = () => {
           (data || []).map((l: any) => l.admin_user_id).filter(Boolean),
         ),
       ];
-      let adminsMap = new Map<string, any>();
-      if (adminIds.length > 0) {
-        const { data: admins } = await supabaseDb
-          .from("users")
-          .select("id, name, display_name, email")
-          .in("id", adminIds);
-        adminsMap = new Map(
-          (admins ?? []).map((u: any) => [u.id, u]),
-        );
-      }
+      // Through the shared helper, which drops ids `users.id` cannot hold.
+      // 31 rows in this table were written by Google-sub actors such as
+      // "google-114129439113350538026"; PostgREST rejects the WHOLE id=in.(…)
+      // batch with 22P02 the moment one is present, so every log line — not
+      // just those 31 — lost its admin name.
+      const adminsMap = await fetchUsersByIds(adminIds);
 
       return (data || []).map((log: any) => ({
         ...log,

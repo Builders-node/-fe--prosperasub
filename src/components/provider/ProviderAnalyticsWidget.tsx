@@ -173,6 +173,10 @@ export function useProviderKpis({ providerId, legacyId, sourceKey }: Props) {
   });
   const rating = useQuery({
     queryKey: ["provider-rating", providerId],
+    // Without this the first render fires `provider_id=eq.` with an empty id,
+    // which PostgREST rejects as an invalid uuid — a red 400 on every workspace
+    // open, and one more failure to look past when a real one appears.
+    enabled: !!providerId,
     queryFn: () => fetchRating(providerId),
     staleTime: 60_000,
   });
