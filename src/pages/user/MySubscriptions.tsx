@@ -36,6 +36,7 @@ import {
   LayoutGrid,
   Search,
   SlidersHorizontal,
+  CarFront,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -526,6 +527,35 @@ const MySubscriptions = () => {
     enabled: isAuthenticated && !!userUuid,
   });
 
+  /**
+   * Car rentals, bought on the storefront's own origin.
+   *
+   * They are booked rather than subscribed and live in rental_bookings on
+   * vehicles.everysub.net — but a customer does not think in origins. They
+   * bought something from EverySub, so it belongs on the page listing what they
+   * bought. `user_id` is text here and holds whatever the account is keyed by,
+   * so it is matched as-is rather than cast.
+   */
+  const {
+    data: rentalBookings = [],
+    isLoading: rentalsLoading,
+    isError: rentalsError,
+    refetch: refetchRentals,
+  } = useQuery({
+    queryKey: ["my-rental-bookings-subs", userData?.id],
+    enabled: !!userData?.id,
+    queryFn: async () => {
+      const { data, error } = await supabaseDb
+        .from("rental_bookings")
+        .select("*, rental_vehicles(name, image_url)")
+        .eq("user_id", userData!.id)
+        .is("deleted_at", null)
+        .order("start_date", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+  });
+
   // Fetch client explicitly linked to this user account via the admin Clients panel.
   // Only uses cleaning_clients.user_id — never email match (too broad, causes cross-account leaks).
   const { data: linkedClient } = useQuery({
@@ -895,6 +925,13 @@ const MySubscriptions = () => {
   const isLiveUniversal = (s: any) =>
     String(s.status).toLowerCase() === "active" && (!s.end_date || s.end_date >= todayHN());
   const visibleUniversal = inScope(universalSubs as any[], isLiveUniversal);
+  /**
+   * A rental counts as live until the day it is due back — an unpaid one
+   * included, because that is precisely the booking still asking to be acted on.
+   */
+  const isLiveRental = (b: any) =>
+    String(b.status) !== "cancelled" && String(b.end_date ?? "") >= todayHN();
+  const visibleRentals = inScope(rentalBookings as any[], isLiveRental);
 
   const byDateTime = (a: any, b: any) => {
     const dtA = `${a.cleaning_available_slots?.date ?? "9999"}T${a.cleaning_available_slots?.start_time ?? "00:00:00"}`;
@@ -947,10 +984,10 @@ const MySubscriptions = () => {
     (linkedClientSubscriptions?.length ?? 0) > 0;
   const anyContent =
     visibleFood.length > 0 || visibleBeach.length > 0 ||
-    visibleUniversal.length > 0 || hasCleaningContent;
+    visibleUniversal.length > 0 || hasCleaningContent || visibleRentals.length > 0;
   const anyLoading =
-    foodSubsLoading || beachSubsLoading || cleaningSubsLoading || cleaningBookingsLoading;
-  const anyError = foodError || beachError || universalError;
+    foodSubsLoading || beachSubsLoading || cleaningSubsLoading || cleaningBookingsLoading || rentalsLoading;
+  const anyError = foodError || beachError || universalError || rentalsError;
 
   // ── Loading / auth gates ─────────────────────────────────────────────────
 
@@ -1296,6 +1333,51 @@ const MySubscriptions = () => {
                           onClick: () => navigate(`/checkout/${s.plan_id}?renew=${s.id}`),
                         }] : []),
                       ]}
+                    />
+                  );
+                })}
+              </SectionGroup>
+            )}
+          </div>
+        )}
+
+        {/* ─── Car rentals ───────────────────────────────────────── */}
+        {(rentalsError || visibleRentals.length > 0) && (
+          <div className="mt-4 space-y-5">
+            {rentalsError ? (
+              <QueryError title="Couldn't load your car rentals" onRetry={() => refetchRentals()} />
+            ) : (
+              <SectionGroup>
+                {visibleRentals.map((b: any) => {
+                  const paid = b.payment_status === "paid";
+                  const cancelled = String(b.status) === "cancelled";
+                  const label = cancelled ? "cancelled" : paid ? "confirmed" : "pending";
+                  const carName = b.rental_vehicles?.name ?? "Car rental";
+                  // The rental lives on the storefront's origin, so this leaves
+                  // the SPA rather than routing inside it. The session is
+                  // shared, so it opens already signed in.
+                  const openBooking = () => {
+                    window.location.href = `https://vehicles.everysub.net/booking/${b.id}`;
+                  };
+                  return (
+                    <SubscriptionCard
+                      key={b.id}
+                      icon={CarFront}
+                      image={b.rental_vehicles?.image_url ?? null}
+                      title={carName}
+                      subtitle={<>
+                        {formatRangeHN(b.start_date, b.end_date)}
+                        {` · ${b.rental_days} day${b.rental_days > 1 ? "s" : ""}`}
+                      </>}
+                      metadata={<span className="tabular-nums">{formatUSD(b.total_cents || 0)}</span>}
+                      statusBadge={<StatusPill status={label} />}
+                      onClick={openBooking}
+                      actions={cancelled ? [] : paid ? [] : [{
+                        key: "pay",
+                        label: "Complete payment",
+                        variant: "primary" as const,
+                        onClick: openBooking,
+                      }]}
                     />
                   );
                 })}
