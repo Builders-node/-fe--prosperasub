@@ -14,6 +14,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import InstallAppModal from "@/components/InstallAppModal";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { PageLoader } from "@/components/ui/spinner";
+import { isVehiclesHost } from "@/lib/hosts";
 
 // ─── Eager (entry / public surface) ───────────────────────────────────────────
 // Loaded on first paint — keep this list small.
@@ -27,6 +28,10 @@ import NotFound from "./pages/NotFound";
 // until they navigate there.
 
 // Auth
+// Car rental — a whole storefront of its own, mounted only on
+// vehicles.everysub.net. One lazy chunk, so everysub.net never downloads it.
+const VehiclesApp = lazy(() => import("./pages/vehicles/VehiclesApp"));
+
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 
 // Public access verification (staff scan a user's QR)
@@ -132,6 +137,9 @@ function LegacyRewrite({ from, to }: { from: string; to: string }) {
 }
 
 const App = () => {
+  // Same bundle, two storefronts: the hostname picks the shell.
+  const vehicles = isVehiclesHost();
+
   return (
     <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
@@ -154,6 +162,7 @@ const App = () => {
                 <LocationProvider>
                 <CartProvider>
                 <Suspense fallback={<PageFallback />}>
+                {vehicles ? <VehiclesApp /> : (
                 <Routes>
               {/* Home → Discovery */}
               <Route path="/" element={<Navigate to="/discovery" replace />} />
@@ -390,8 +399,9 @@ const App = () => {
               {/* Catch-all */}
               <Route path="*" element={<NotFound />} />
                 </Routes>
+                )}
                 </Suspense>
-                <InstallAppModal />
+                {!vehicles && <InstallAppModal />}
                 </CartProvider>
                 </LocationProvider>
                 </AuthModalProvider>

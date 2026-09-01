@@ -1,0 +1,361 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useParams, useSearchParams, useNavigate } from "react-router-dom";
+import { differenceInCalendarDays, format } from "date-fns";
+import { toast } from "sonner";
+import { CheckCircle2, ArrowLeft, ShieldCheck, Check, ChevronRight, MapPin } from "lucide-react";
+import { AppContainer } from "@/components/layout/AppContainer";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Spinner } from "@/components/ui/spinner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { PaymentMethodTiles } from "@/components/payment/PaymentMethodTiles";
+import { type PaymentMethod } from "@/components/payment/PaymentMethodSelector";
+import { InvoiceQrPanel } from "@/components/payment/InvoiceQrPanel";
+import { PayPalPanel } from "@/components/payment/PayPalPanel";
+import { useInvoicePayment } from "@/hooks/useInvoicePayment";
+import { usePaymentMethods } from "@/hooks/usePaymentMethods";
+import { useBtcPrice } from "@/hooks/useBtcPrice";
+import { useAddons } from "@/hooks/useAddons";
+import { attachPaymentReference } from "@/lib/payments/pendingReference";
+import { supabaseDb } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useVehicle } from "@/hooks/useVehicles";
+import { calcRentalPrice, extraCost } from "@/types/carRental";
+import { formatUSD, centsToDollars } from "@/lib/pricing";
+import { cn } from "@/lib/utils";
+
+export default function Book() {
+  const { id } = useParams<{ id: string }>();
+  const [params] = useSearchParams();
+  const navigate = useNavigate();
+  const { isAuthenticated, userData } = useAuth();
+  const { data: v, isLoading } = useVehicle(id);
+  const { data: addons } = useAddons();
+
+  const fromISO = params.get("from") ?? "";
+  const toISOParam = params.get("to") ?? "";
+  const rentalDays = useMemo(() => {
+    if (!fromISO || !toISOParam) return 0;
+    return differenceInCalendarDays(new Date(toISOParam + "T00:00:00"), new Date(fromISO + "T00:00:00")) + 1;
+  }, [fromISO, toISOParam]);
+  const pricing = useMemo(() => (v && rentalDays > 0 ? calcRentalPrice(v, rentalDays) : null), [v, rentalDays]);
+
+  const { enabled: methods, addSurchargeCents } = usePaymentMethods();
+  const { convertToSats } = useBtcPrice();
+  const [method, setMethod] = useState<PaymentMethod>("lightning");
+  const [name, setName] = useState(userData?.name ?? "");
+  const [whatsapp, setWhatsapp] = useState("");
+  const [address, setAddress] = useState("");
+  const [notes, setNotes] = useState("");
+  const [step, setStep] = useState<"form" | "pay" | "done">("form");
+  const [reserving, setReserving] = useState(false);
+  const pendingIdRef = useRef<string | null>(null);
+
+  // Add-ons
+  const insuranceTiers = addons?.insurance ?? [];
+  const extras = addons?.extras ?? [];
+  const zones = addons?.zones ?? [];
+  const [insuranceId, setInsuranceId] = useState("");
+  const [extraIds, setExtraIds] = useState<Set<string>>(new Set());
+  const [zoneId, setZoneId] = useState("");
+  const [insOpen, setInsOpen] = useState(false);
+  const [zoneOpen, setZoneOpen] = useState(false);
+  useEffect(() => { if (!insuranceId && insuranceTiers.length) setInsuranceId(insuranceTiers[0].id); }, [insuranceTiers, insuranceId]);
+
+  const insurance = insuranceTiers.find((t) => t.id === insuranceId) ?? null;
+  const zone = zones.find((z) => z.id === zoneId) ?? null;
+  const days = pricing?.rentalDays ?? 0;
+  const insuranceCents = insurance ? insurance.price_per_day_cents * Math.max(1, days) : 0;
+  const chosenExtras = extras.filter((e) => extraIds.has(e.id));
+  const extrasCents = chosenExtras.reduce((s, e) => s + extraCost(e, days), 0);
+  const deliveryFee = zone?.fee_cents ?? 0;
+  const addonsCents = insuranceCents + extrasCents + deliveryFee;
+
+  const rentalTotal = pricing?.totalCents ?? 0;
+  const baseTotal = rentalTotal + addonsCents;
+  const effectiveTotal = addSurchargeCents(baseTotal, method);
+  const estimatedSats = convertToSats(centsToDollars(effectiveTotal));
+
+  const toggleExtra = (eid: string) =>
+    setExtraIds((prev) => { const n = new Set(prev); n.has(eid) ? n.delete(eid) : n.add(eid); return n; });
+
+  const activate = async (ref: string, m: string) => {
+    if (pendingIdRef.current) {
+      await supabaseDb.from("rental_bookings")
+        .update({ status: "confirmed", payment_status: "paid", payment_method: m, payment_reference: ref })
+        .eq("id", pendingIdRef.current);
+    }
+    setStep("done");
+  };
+
+  const inv = useInvoicePayment({
+    onPaid: (ref, m) => activate(ref, m),
+    onInvoiceReady: (ref, m) => {
+      if (pendingIdRef.current) attachPaymentReference(supabaseDb, "rental_bookings", pendingIdRef.current, ref, m);
+    },
+  });
+
+  const reserve = async (): Promise<string | null> => {
+    if (!v || !pricing || !userData?.id) return null;
+    const { data, error } = await supabaseDb.from("rental_bookings").insert({
+      user_id: userData.id, vehicle_id: v.id, start_date: fromISO, end_date: toISOParam,
+      rental_days: pricing.rentalDays, daily_price_cents: pricing.effectiveDailyRate,
+      subtotal_cents: pricing.subtotalCents, discount_pct: pricing.discountPct, discount_cents: pricing.discountCents,
+      insurance_tier_id: insuranceId || null, insurance_cents: insuranceCents,
+      delivery_zone_id: zoneId || null, delivery_fee_cents: deliveryFee,
+      extras: chosenExtras.map((e) => ({ id: e.id, name: e.name, cents: extraCost(e, days) })), extras_cents: extrasCents,
+      total_cents: baseTotal, surcharge_cents: Math.max(0, effectiveTotal - baseTotal),
+      customer_name: name.trim() || userData.name || null, customer_whatsapp: whatsapp.trim() || null,
+      delivery_address: address.trim() || (zone ? zone.name : null), delivery_notes: notes.trim() || null,
+      status: "pending", payment_status: "pending", payment_method: method,
+    }).select("id").single();
+    if (error) { toast.error(error.message); return null; }
+    return data?.id ?? null;
+  };
+
+  const startPay = async () => {
+    if (!isAuthenticated) { toast.error("Please sign in to book."); return; }
+    if (!pricing) return;
+    if (!name.trim()) { toast.error("Add your name."); return; }
+    setReserving(true);
+    try {
+      const pendingId = await reserve();
+      if (!pendingId) return;
+      pendingIdRef.current = pendingId;
+      setStep("pay");
+      if (method === "lightning" || method === "onchain") {
+        inv.start({ method, amountCents: effectiveTotal, amountSats: estimatedSats, description: `${v?.name} · ${fromISO}→${toISOParam}` });
+      }
+    } finally { setReserving(false); }
+  };
+
+  if (isLoading) return <AppContainer className="flex justify-center py-24"><Spinner /></AppContainer>;
+  if (!v || !pricing) return (
+    <AppContainer className="py-24 text-center">
+      <p className="text-[16px] font-semibold text-foreground">Something's missing for this booking.</p>
+      <Button variant="secondary" className="mt-3" onClick={() => navigate("/")}>Back to fleet</Button>
+    </AppContainer>
+  );
+
+  if (step === "done") return (
+    <AppContainer className="py-16">
+      <div className="mx-auto max-w-md rounded-radius-md bg-card p-8 text-center shadow-figma">
+        <CheckCircle2 className="mx-auto mb-4 h-14 w-14 text-emerald-500" />
+        <h1 className="text-[20px] font-semibold tracking-[-0.4px] text-foreground">Booking confirmed</h1>
+        <p className="mt-2 text-[12px] tracking-[-0.24px] text-muted-foreground">
+          {v.name} · {format(new Date(fromISO + "T00:00:00"), "MMM d")} → {format(new Date(toISOParam + "T00:00:00"), "MMM d")}
+        </p>
+        <p className="mt-1 text-[16px] font-semibold tabular-nums text-foreground">{formatUSD(baseTotal)}</p>
+        <Button className="mt-6 w-full" onClick={() => navigate("/my-bookings")}>View my bookings</Button>
+      </div>
+    </AppContainer>
+  );
+
+  return (
+    <AppContainer className="py-6">
+      <button onClick={() => navigate(-1)} className="mb-4 inline-flex items-center gap-1.5 text-[13px] font-semibold text-muted-foreground hover:text-foreground">
+        <ArrowLeft className="h-4 w-4" /> Back
+      </button>
+
+      <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
+        <div className="space-y-4">
+          {step === "form" ? (
+            <>
+              {/* Details */}
+              <div className="space-y-3 rounded-radius-md bg-card p-5 shadow-figma">
+                <h2 className="text-[16px] font-semibold tracking-[-0.32px] text-foreground">Your details</h2>
+                <div><Label>Full name *</Label><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" /></div>
+                <div><Label>WhatsApp</Label><Input type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} placeholder="+504 …" /></div>
+                <div><Label>Notes (optional)</Label><Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} /></div>
+              </div>
+
+              {/* Insurance + Delivery — summary rows opening a sheet (DESIGN.md §9) */}
+              <div className="overflow-hidden rounded-radius-md bg-card shadow-figma divide-y divide-border/60">
+                <SummaryRow
+                  icon={<ShieldCheck className="h-5 w-5 text-emerald-500" />}
+                  tint="bg-emerald-500/15"
+                  title="Insurance"
+                  value={insurance ? `${insurance.name}${insuranceCents > 0 ? ` · ${formatUSD(insuranceCents)}` : " · included"}` : "Choose coverage"}
+                  onClick={() => setInsOpen(true)}
+                />
+                <SummaryRow
+                  icon={<MapPin className="h-5 w-5 text-primary" />}
+                  tint="bg-primary/15"
+                  title="Delivery"
+                  value={zone ? `${zone.name}${deliveryFee > 0 ? ` · ${formatUSD(deliveryFee)}` : " · free"}` : "Pick up at our office — free"}
+                  onClick={() => setZoneOpen(true)}
+                />
+              </div>
+
+              {/* Extras */}
+              {extras.length > 0 && (
+                <div className="space-y-1 rounded-radius-md bg-card p-5 shadow-figma">
+                  <h2 className="mb-1 text-[16px] font-semibold tracking-[-0.32px] text-foreground">Extras</h2>
+                  {extras.map((e) => {
+                    const active = extraIds.has(e.id);
+                    return (
+                      <button key={e.id} type="button" onClick={() => toggleExtra(e.id)}
+                        className="flex w-full items-center gap-3 rounded-radius-sm px-2 py-2 text-left transition-colors hover:bg-inset">
+                        <span className={cn("flex h-5 w-5 shrink-0 items-center justify-center rounded-[6px] border-2 transition-colors",
+                          active ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground/40")}>
+                          {active && <Check className="h-3.5 w-3.5" strokeWidth={3} />}
+                        </span>
+                        <span className="flex-1 text-[14px] tracking-[-0.02em] text-foreground">{e.name}</span>
+                        <span className="text-[12px] tabular-nums text-muted-foreground">{formatUSD(e.price_cents)}{e.price_type === "per_day" ? "/day" : ""}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Delivery address */}
+              <div className="rounded-radius-md bg-card p-5 shadow-figma">
+                <Label>Delivery address / details (optional)</Label>
+                <Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Where should we bring the car?" />
+              </div>
+
+              {/* Payment */}
+              <div className="space-y-3 rounded-radius-md bg-card p-5 shadow-figma">
+                <h2 className="text-[16px] font-semibold tracking-[-0.32px] text-foreground">Payment</h2>
+                <PaymentMethodTiles value={method} onChange={setMethod} available={methods} />
+                <Button className="w-full" onClick={startPay} disabled={reserving || !isAuthenticated}>
+                  {reserving && <Spinner size="sm" className="mr-2" />}
+                  {isAuthenticated ? `Pay ${formatUSD(effectiveTotal)}` : "Sign in to book"}
+                </Button>
+              </div>
+            </>
+          ) : (
+            <div className="rounded-radius-md bg-card p-5 shadow-figma">
+              {method === "paypal" ? (
+                <>
+                  <h2 className="mb-3 text-[16px] font-semibold tracking-[-0.32px] text-foreground">Pay with PayPal</h2>
+                  <PayPalPanel totalCents={effectiveTotal} onPaid={(cap: string) => activate(cap, "paypal")} orderMeta={{ description: `${v.name} rental` }} />
+                </>
+              ) : (
+                <InvoiceQrPanel
+                  mode={method === "onchain" ? "onchain" : "lightning"}
+                  invoice={inv.state.invoice} address={inv.state.address} uri={inv.state.uri}
+                  sats={inv.state.sats ?? 0} totalCents={effectiveTotal}
+                  isPaid={inv.state.isPaid} isExpired={inv.state.isExpired}
+                  onRetry={() => inv.reset()} successLabel="Confirming your booking…"
+                />
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Summary */}
+        <div className="space-y-4 lg:sticky lg:top-20 lg:self-start">
+          <div className="rounded-radius-md bg-card p-4 shadow-figma">
+            <div className="mb-3 flex gap-3">
+              <div className="h-16 w-24 shrink-0 overflow-hidden rounded-[8px] bg-inset">
+                {v.image_url && <img src={v.image_url} alt="" className="h-full w-full object-cover" />}
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-[16px] font-semibold tracking-[-0.32px] text-foreground">{v.name}</p>
+                <p className="text-[12px] tracking-[-0.24px] text-muted-foreground">{format(new Date(fromISO + "T00:00:00"), "MMM d")} → {format(new Date(toISOParam + "T00:00:00"), "MMM d")}</p>
+                <p className="text-[12px] tracking-[-0.24px] text-muted-foreground">{pricing.rentalDays} day{pricing.rentalDays > 1 ? "s" : ""}</p>
+              </div>
+            </div>
+            <div className="space-y-1.5 border-t border-border/60 pt-3 text-[13px]">
+              <Line label={`Car · ${pricing.rentalDays}d`} value={formatUSD(pricing.subtotalCents)} />
+              {pricing.discountCents > 0 && <Line label="Multi-day discount" value={`−${formatUSD(pricing.discountCents)}`} accent />}
+              {insuranceCents > 0 && <Line label={insurance?.name ?? "Insurance"} value={formatUSD(insuranceCents)} />}
+              {chosenExtras.map((e) => <Line key={e.id} label={e.name} value={formatUSD(extraCost(e, days))} />)}
+              {deliveryFee > 0 && <Line label={`Delivery · ${zone?.name}`} value={formatUSD(deliveryFee)} />}
+              {effectiveTotal > baseTotal && <Line label="Payment fee" value={formatUSD(effectiveTotal - baseTotal)} />}
+              <div className="flex justify-between border-t border-border/60 pt-2 text-[16px] font-semibold text-foreground">
+                <span>Total</span><span className="tabular-nums">{formatUSD(effectiveTotal)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Insurance sheet */}
+      <Dialog open={insOpen} onOpenChange={setInsOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>Insurance</DialogTitle></DialogHeader>
+          <p className="-mt-1 text-[14px] text-muted-foreground">Basic coverage is included. Upgrade for extra protection.</p>
+          <div className="space-y-3 overflow-y-auto">
+            {insuranceTiers.map((t) => {
+              const active = insuranceId === t.id;
+              const cost = t.price_per_day_cents * Math.max(1, days);
+              return (
+                <button key={t.id} type="button" onClick={() => { setInsuranceId(t.id); setInsOpen(false); }}
+                  className={cn("w-full rounded-radius-md border-2 p-4 text-left transition-colors",
+                    active ? "border-primary bg-primary/5" : "border-transparent bg-inset hover:bg-muted")}>
+                  <div className="flex items-baseline justify-between gap-3">
+                    <p className="text-[16px] font-semibold tracking-[-0.32px] text-foreground">{t.name}</p>
+                    <span className={cn("shrink-0 text-[13px] font-semibold tabular-nums", t.price_per_day_cents === 0 ? "text-emerald-500" : "text-foreground")}>
+                      {t.price_per_day_cents === 0 ? "Included" : `${formatUSD(t.price_per_day_cents)}/day · ${formatUSD(cost)}`}
+                    </span>
+                  </div>
+                  <ul className="mt-2 space-y-1">
+                    {t.items.map((it, i) => (
+                      <li key={i} className="flex items-start gap-2 text-[12px] tracking-[-0.24px] text-muted-foreground">
+                        <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" /> {it}
+                      </li>
+                    ))}
+                  </ul>
+                </button>
+              );
+            })}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delivery sheet */}
+      <Dialog open={zoneOpen} onOpenChange={setZoneOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>Delivery</DialogTitle></DialogHeader>
+          <p className="-mt-1 text-[14px] text-muted-foreground">Pick up for free, or we bring it to your zone.</p>
+          <div className="space-y-2 overflow-y-auto">
+            <ZoneOption active={!zoneId} title="Pick up at our office" sub="Free" onClick={() => { setZoneId(""); setZoneOpen(false); }} />
+            {zones.map((z) => (
+              <ZoneOption key={z.id} active={zoneId === z.id} title={z.name} sub={z.fee_cents > 0 ? formatUSD(z.fee_cents) : "Free"} areas={z.areas}
+                onClick={() => { setZoneId(z.id); setZoneOpen(false); }} />
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </AppContainer>
+  );
+}
+
+function Line({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+  return (
+    <div className="flex justify-between text-muted-foreground">
+      <span className="tracking-[-0.02em]">{label}</span>
+      <span className={cn("tabular-nums", accent && "text-primary")}>{value}</span>
+    </div>
+  );
+}
+
+function SummaryRow({ icon, tint, title, value, onClick }: { icon: React.ReactNode; tint: string; title: string; value: string; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} className="flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-inset">
+      <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px]", tint)}>{icon}</span>
+      <div className="min-w-0 flex-1">
+        <p className="text-[16px] font-semibold tracking-[-0.32px] text-foreground">{title}</p>
+        <p className="truncate text-[12px] tracking-[-0.24px] text-muted-foreground">{value}</p>
+      </div>
+      <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
+    </button>
+  );
+}
+
+function ZoneOption({ active, title, sub, areas, onClick }: { active: boolean; title: string; sub: string; areas?: string | null; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick}
+      className={cn("w-full rounded-radius-md border-2 p-3 text-left transition-colors", active ? "border-primary bg-primary/5" : "border-transparent bg-inset hover:bg-muted")}>
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="text-[15px] font-semibold tracking-[-0.32px] text-foreground">{title}</p>
+        <span className="shrink-0 text-[13px] font-semibold tabular-nums text-foreground">{sub}</span>
+      </div>
+      {areas && <p className="mt-0.5 text-[12px] tracking-[-0.24px] text-muted-foreground">{areas}</p>}
+    </button>
+  );
+}

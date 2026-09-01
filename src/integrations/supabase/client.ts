@@ -96,15 +96,77 @@ const toSnakeUser = (user: any) => ({
 // SESSION MANAGEMENT
 // ============================================================
 
+/**
+ * The session, shared across everysub.net and vehicles.everysub.net.
+ *
+ * They are separate origins, so they have separate localStorage: signing in on
+ * the marketplace left the car storefront still showing "Log in". A cookie
+ * scoped to the parent domain is the one store both origins can read, so the
+ * session is mirrored into it. It carries the same token localStorage already
+ * holds — a cookie the browser must read cannot be httpOnly — so this widens
+ * where the session is visible, not how exposed it is. Logging out clears it,
+ * which signs the other origin out too.
+ */
+const SESSION_COOKIE = "prospera_session";
+const SHARED_SESSION_DOMAINS = ["everysub.net", "prosperasub.com"];
+/** A cookie must fit in 4KB; skip rather than write half a session. */
+const SESSION_COOKIE_MAX = 3800;
+
+/** ".everysub.net" for any host under it — null on localhost, which needs no sharing. */
+const sharedSessionDomain = (): string | null => {
+  if (typeof window === "undefined") return null;
+  const host = window.location.hostname.toLowerCase();
+  const base = SHARED_SESSION_DOMAINS.find((d) => host === d || host.endsWith(`.${d}`));
+  return base ? `.${base}` : null;
+};
+
+const writeSessionCookie = (payload: unknown) => {
+  const domain = sharedSessionDomain();
+  if (!domain) return;
+  try {
+    const value = encodeURIComponent(JSON.stringify(payload));
+    if (value.length > SESSION_COOKIE_MAX) return;
+    const secure = window.location.protocol === "https:" ? "; Secure" : "";
+    document.cookie =
+      `${SESSION_COOKIE}=${value}; Domain=${domain}; Path=/; Max-Age=${60 * 60 * 24 * 30}; SameSite=Lax${secure}`;
+  } catch {
+    // A session that cannot be shared must still work on this origin.
+  }
+};
+
+const readSessionCookie = (): StoredSession | null => {
+  if (typeof document === "undefined") return null;
+  const hit = document.cookie.split("; ").find((c) => c.startsWith(`${SESSION_COOKIE}=`));
+  if (!hit) return null;
+  try {
+    return JSON.parse(decodeURIComponent(hit.slice(SESSION_COOKIE.length + 1))) as StoredSession;
+  } catch {
+    return null;
+  }
+};
+
+const clearSessionCookie = () => {
+  const domain = sharedSessionDomain();
+  if (!domain) return;
+  document.cookie = `${SESSION_COOKIE}=; Domain=${domain}; Path=/; Max-Age=0; SameSite=Lax`;
+};
+
 const readStoredSession = (): StoredSession | null => {
   const raw = localStorage.getItem(SESSION_KEY) || sessionStorage.getItem(SESSION_KEY);
-  if (!raw) return null;
+  if (!raw) {
+    // First visit to this origin — adopt the session the sibling host stored.
+    const shared = readSessionCookie();
+    if (!shared) return null;
+    localStorage.setItem(SESSION_KEY, JSON.stringify(shared));
+    return shared;
+  }
 
   try {
     const session = JSON.parse(raw) as StoredSession;
     if (sessionStorage.getItem(SESSION_KEY)) {
       sessionStorage.removeItem(SESSION_KEY);
       localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+      writeSessionCookie(session);
     }
     return session;
   } catch {
@@ -116,6 +178,7 @@ const readStoredSession = (): StoredSession | null => {
 const clearStoredSession = () => {
   localStorage.removeItem(SESSION_KEY);
   sessionStorage.removeItem(SESSION_KEY);
+  clearSessionCookie();
 };
 
 const isSessionExpiring = (session: StoredSession | null) => {
@@ -247,6 +310,8 @@ function getStoredSession() {
 function storeSession(payload: any) {
   sessionStorage.removeItem(SESSION_KEY);
   localStorage.setItem(SESSION_KEY, JSON.stringify(payload));
+  // Mirror to the shared cookie so the other *.everysub.net origin sees it.
+  writeSessionCookie(payload);
 }
 
 function ownedUserFromSession() {
