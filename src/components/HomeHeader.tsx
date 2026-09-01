@@ -25,9 +25,17 @@ interface HomeHeaderProps {
    * that continues the white panel underneath it (see ListingHeader).
    */
   bare?: boolean;
+  /**
+   * Replaces the right-hand action on the title bar.
+   *
+   * A notification bell is the right thing on most subpages, but not on a page
+   * whose whole purpose is one thing a person might want to send to someone
+   * else. A plan puts Share there instead.
+   */
+  rightAction?: React.ReactNode;
 }
 
-export function HomeHeader({ title, showBackButton = false, onBack, variant = "title", bare = false }: HomeHeaderProps) {
+export function HomeHeader({ title, showBackButton = false, onBack, variant = "title", bare = false, rightAction }: HomeHeaderProps) {
   const navigate = useNavigate();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { openAuthModal } = useAuthModal();
@@ -128,7 +136,7 @@ export function HomeHeader({ title, showBackButton = false, onBack, variant = "t
         </div>
 
         <div className="flex h-10 shrink-0 items-center justify-end">
-          {authLoading ? (
+          {rightAction ?? (authLoading ? (
             <div className="h-10 w-10 animate-pulse rounded-full bg-muted" />
           ) : isAuthenticated ? (
             <button
@@ -149,7 +157,7 @@ export function HomeHeader({ title, showBackButton = false, onBack, variant = "t
             >
               Log in
             </button>
-          )}
+          ))}
         </div>
       </div>
 

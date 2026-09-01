@@ -4,6 +4,7 @@ import { Link, Navigate, useLocation, useNavigate, useParams } from "react-route
 import { useGoBack } from "@/hooks/useGoBack";
 import { useQuery } from "@tanstack/react-query";
 import { HomeHeader } from "@/components/HomeHeader";
+import { ShareButton } from "@/components/ShareButton";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
 import { BottomNav } from "@/components/BottomNav";
 import { PageLoader } from "@/components/ui/spinner";
@@ -15,7 +16,7 @@ import { useProviderItems } from "@/lib/services/providerItems";
 import { useCart } from "@/contexts/CartContext";
 import { toast } from "sonner";
 import {
-  CheckIcon, KeyboardArrowLeftIcon, KeyboardArrowRightIcon, NotificationsIcon,
+  CheckIcon, KeyboardArrowLeftIcon, KeyboardArrowRightIcon,
 } from "@/components/icons/FigmaIcons";
 import { ProviderReviewsBlock, type ProviderReviewService } from "@/components/reviews/ProviderReviewsBlock";
 import { findVariant, periodUnit, selectionFor, usePlanOffers, type PlanOffer } from "@/hooks/usePlanOffers";
@@ -480,6 +481,8 @@ const PlanDetail = () => {
   // and the size is a chip. Landing on a variant must not rename the page.
   const title = offer?.name ?? plan.title;
   const description = offer?.description ?? plan.description;
+  /** What lands in WhatsApp above the link: who sells it, and what it is. */
+  const shareText = [providerName, title].filter(Boolean).join(" · ");
   // The reviews block only knows the four legacy services; a universal plan
   // under one of those archetypes still reviews against it.
   const reviewService: ProviderReviewService | null =
@@ -573,21 +576,18 @@ const PlanDetail = () => {
           <span className="pointer-events-none absolute left-1/2 w-[60%] -translate-x-1/2 truncate text-center text-[16px] font-semibold tracking-[-0.32px]">
             {serviceLabel}
           </span>
-          <button
-            type="button"
-            aria-label="Notifications"
-            onClick={() => (isAuthenticated ? navigate("/notifications") : openAuthModal("login", "/notifications"))}
-            className="flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-black/10"
-          >
-            <NotificationsIcon className="h-6 w-6" />
-          </button>
+          {/* A plan is the one thing on this app a person wants to send to
+              someone else — "look at this one". The bell belongs on pages about
+              your own account, not on a shop window. */}
+          <ShareButton title={title} text={shareText} className="hover:bg-black/10" />
         </div>
       </header>
 
       {/* Desktop gets the ordinary title bar; on a phone the sticky bar above
           floats on the photograph instead. */}
       <div className="hidden md:block">
-        <HomeHeader title={title} showBackButton onBack={goBack} bare />
+        <HomeHeader title={title} showBackButton onBack={goBack} bare
+          rightAction={<ShareButton title={title} text={shareText} className="text-foreground" />} />
       </div>
 
       {/*
