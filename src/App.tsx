@@ -80,6 +80,7 @@ const AdminDashboard = lazy(() => import("./pages/admin/Dashboard"));
 const Analytics = lazy(() => import("./pages/admin/Analytics"));
 const AdminPayments = lazy(() => import("./pages/admin/Payments"));
 const AdminUsers = lazy(() => import("./pages/admin/Users"));
+const CarRentals = lazy(() => import("./pages/admin/CarRentals"));
 const CleaningPlans = lazy(() => import("./pages/admin/CleaningPlans"));
 const ServiceArchetypes = lazy(() => import("./pages/admin/ServiceArchetypes"));
 const ServiceCategories = lazy(() => import("./pages/admin/ServiceCategories"));
@@ -354,6 +355,10 @@ const App = () => {
               } />
               <Route path="/admin/users" element={
                 <ProtectedRoute allowedRoles={['super_admin']} requiredPermissions={["users.read"]}><AdminUsers /></ProtectedRoute>
+              } />
+              {/* Car rentals: booked on their own origin, run from here. */}
+              <Route path="/admin/car-rentals" element={
+                <ProtectedRoute allowedRoles={['super_admin']} requiredPermissions={["subscriptions.read"]}><CarRentals /></ProtectedRoute>
               } />
               {/* Was a redirect to /admin/users. A client is a billed business or
                   household, not an individual account — the two are different things

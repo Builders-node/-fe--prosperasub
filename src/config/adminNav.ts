@@ -11,7 +11,7 @@
 import {
   BarChart3, CalendarDays, DollarSign,
   FileText, Layers, LayoutDashboard, MapPin, Megaphone,
-  LifeBuoy, ShieldCheck, Users, Building2,
+  LifeBuoy, ShieldCheck, Users, Building2, CarFront,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { adminRoutes } from "./adminRoutes";
@@ -82,6 +82,11 @@ export const MARKETPLACE_SECTION: NavSection = {
       ],
       permissions: ["admin_settings.read"] },
     { label: "Subscriptions", path: adminRoutes.superAdminMarketplaceSubscriptions, icon: CalendarDays,
+      permissions: ["subscriptions.read"] },
+    // Rentals are booked rather than subscribed, and live on their own origin,
+    // so they get their own entry instead of a workspace that would describe
+    // them in plans and periods they do not have.
+    { label: "Car rentals", path: adminRoutes.superAdminCarRentals, icon: CarFront,
       permissions: ["subscriptions.read"] },
   ],
 };
