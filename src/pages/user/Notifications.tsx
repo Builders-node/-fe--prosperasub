@@ -81,7 +81,13 @@ function NotificationRow({
 
   const handleOpen = () => {
     if (!notification.isRead) onRead(notification.id);
-    if (notification.actionUrl) navigate(notification.actionUrl);
+    if (notification.actionUrl) {
+      // The platform spans two origins now — a car booking's notification
+      // points at vehicles.everysub.net. Router navigation would treat that as
+      // a path and land on a blank route.
+      if (/^https?:\/\//i.test(notification.actionUrl)) window.location.href = notification.actionUrl;
+      else navigate(notification.actionUrl);
+    }
   };
 
   return (

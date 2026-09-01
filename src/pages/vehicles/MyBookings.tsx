@@ -1,12 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
-import { Car } from "lucide-react";
+import { Car, ChevronRight } from "lucide-react";
 import { AppContainer } from "@/components/layout/AppContainer";
 import { Spinner } from "@/components/ui/spinner";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatUSD } from "@/lib/pricing";
+import { Button } from "@/components/ui/button";
 
 const TONE: Record<string, string> = {
   confirmed: "text-emerald-500", paid: "text-emerald-500", active: "text-emerald-500", completed: "text-muted-foreground",
@@ -44,7 +45,10 @@ export default function MyBookings() {
       ) : (
         <div className="space-y-3">
           {bookings.map((b: any) => (
-            <div key={b.id} className="flex items-center gap-4 rounded-radius-md bg-card p-3 shadow-figma">
+            <Link
+              key={b.id}
+              to={`/booking/${b.id}`}
+              className="flex items-center gap-4 rounded-radius-md bg-card p-3 shadow-figma transition-colors hover:bg-muted/30">
               <div className="h-16 w-24 shrink-0 overflow-hidden rounded-radius-sm bg-muted">
                 {b.rental_vehicles?.image_url && <img src={b.rental_vehicles.image_url} alt="" className="h-full w-full object-cover" />}
               </div>
@@ -55,10 +59,18 @@ export default function MyBookings() {
                 </p>
                 <p className={`text-xs font-bold uppercase tracking-wide ${TONE[b.status] ?? "text-muted-foreground"}`}>{b.status}</p>
               </div>
-              <div className="text-right">
-                <p className="text-[15px] font-black text-foreground">{formatUSD(b.total_cents)}</p>
+              <div className="flex items-center gap-3 text-right">
+                <div>
+                  <p className="text-[15px] font-black tabular-nums text-foreground">{formatUSD(b.total_cents)}</p>
+                  {/* The one row that needs an instruction rather than a label:
+                      an unpaid booking is holding a car and can still be paid. */}
+                  {b.payment_status !== "paid" && b.status !== "cancelled" && (
+                    <Button size="sm" className="mt-1">Complete payment</Button>
+                  )}
+                </div>
+                <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       )}

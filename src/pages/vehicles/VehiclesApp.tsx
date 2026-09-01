@@ -11,6 +11,7 @@ import Fleet from "@/pages/vehicles/Fleet";
 import VehicleDetail from "@/pages/vehicles/VehicleDetail";
 import Book from "@/pages/vehicles/Book";
 import MyBookings from "@/pages/vehicles/MyBookings";
+import BookingDetail from "@/pages/vehicles/BookingDetail";
 import AdminVehicles from "@/pages/vehicles/admin/AdminVehicles";
 import AdminBookings from "@/pages/vehicles/admin/AdminBookings";
 
@@ -98,6 +99,7 @@ export default function VehiclesApp() {
         <Route path="/vehicle/:id" element={<VehicleDetail />} />
         <Route path="/book/:id" element={<RequireAuth><Book /></RequireAuth>} />
         <Route path="/my-bookings" element={<RequireAuth><MyBookings /></RequireAuth>} />
+        <Route path="/booking/:id" element={<RequireAuth><BookingDetail /></RequireAuth>} />
         <Route path="/admin" element={<Navigate to="/admin/vehicles" replace />} />
         <Route path="/admin/vehicles" element={<RequireAdmin><AdminTabs><AdminVehicles /></AdminTabs></RequireAdmin>} />
         <Route path="/admin/bookings" element={<RequireAdmin><AdminTabs><AdminBookings /></AdminTabs></RequireAdmin>} />
