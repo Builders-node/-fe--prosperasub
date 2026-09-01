@@ -163,16 +163,14 @@ export function VehiclesHeader() {
         </div>
       </header>
 
-      {/* Mobile — 64px of card, matching the marketplace's brand bar. */}
+      {/* Mobile — 64px of card, matching the marketplace's brand bar. The nav
+          pills that used to sit under it are gone: the tab bar at the bottom of
+          the screen is the same three destinations, and saying it twice on a
+          phone costs a row of screen for nothing. */}
       <header className="sticky top-0 z-40 bg-card md:hidden">
         <div className="flex h-16 items-center gap-2 px-2">
           <Wordmark />
           <div className="ml-auto flex items-center gap-2">{account}</div>
-        </div>
-        <div className="flex items-center gap-1 px-2 pb-2">
-          {navItem("/", "Fleet")}
-          {isAuthenticated && navItem("/my-bookings", "My bookings")}
-          {isSuperAdmin && navItem("/admin/vehicles", "Admin")}
         </div>
       </header>
     </>

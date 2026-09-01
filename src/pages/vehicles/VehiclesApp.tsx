@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { VehiclesHeader } from "@/pages/vehicles/VehiclesHeader";
+import { VehiclesBottomNav } from "@/pages/vehicles/VehiclesBottomNav";
 import { AppContainer } from "@/components/layout/AppContainer";
 import { PageLoader } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
@@ -29,7 +30,10 @@ function VehiclesLayout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-background">
       <VehiclesHeader />
-      <main>{children}</main>
+      {/* Room for the tab bar, which is fixed and would otherwise sit on top of
+          the last thing on the page. */}
+      <main className="pb-24 md:pb-0">{children}</main>
+      <VehiclesBottomNav />
     </div>
   );
 }
