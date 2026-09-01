@@ -121,7 +121,24 @@ export function RescheduleCleaningDialog({ booking, onClose, slotProviderId }: P
         const kept = byWindow.get(key);
         if (!kept || r.id === booking?.currentSlotId) byWindow.set(key, r);
       }
-      return [...byWindow.values()].sort((a, b) => String(a.start_time).localeCompare(String(b.start_time)));
+      let list = [...byWindow.values()];
+
+      // The slot this booking is in must always be offered, whatever grid it
+      // belongs to. Plenty of visits still sit in the shared pool, or in a slot
+      // since deactivated; filtering those out would drop the "current" option
+      // and leave the picker showing nothing selected for a booking that
+      // plainly has a time.
+      const current = booking?.currentSlotId;
+      if (current && !list.some((r) => r.id === current)) {
+        const { data: row } = await supabaseDb
+          .from("cleaning_available_slots")
+          .select("id,date,start_time,end_time,max_bookings,current_bookings,is_active,provider_id")
+          .eq("id", current)
+          .maybeSingle();
+        if (row) list = [...list, row];
+      }
+
+      return list.sort((a, b) => String(a.start_time).localeCompare(String(b.start_time)));
     },
   });
 
