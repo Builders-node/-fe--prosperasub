@@ -365,11 +365,18 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
           {isOwner && (
             <WorkspaceStat
               label="Balance"
-              value={balanceQ.isPending ? "—" : formatUSD(balanceQ.data?.availableCents ?? 0)}
+              // `?? 0` used to turn a FAILED request into "$0.00" — a business
+              // being told it has no money when the truth is we could not ask.
+              // Unknown is "—"; only a real answer prints a figure.
+              value={
+                balanceQ.isPending || balanceQ.isError || balanceQ.data == null
+                  ? "—"
+                  : formatUSD(balanceQ.data.availableCents)
+              }
             />
           )}
-          <WorkspaceStat label="Customers" value={kpis.isPending ? "—" : String(kpis.active)} />
-          <WorkspaceStat label="Upcoming 7d" value={kpis.isPending ? "—" : String(kpis.upcoming)} />
+          <WorkspaceStat label="Customers" value={kpis.isPending || kpis.isError ? "—" : String(kpis.active)} />
+          <WorkspaceStat label="Upcoming 7d" value={kpis.isPending || kpis.isError ? "—" : String(kpis.upcoming)} />
           {/* Three tiles without a Balance would leave a hole in the second
               row, so the last one takes the width instead. */}
           <div className={isOwner ? "contents" : "col-span-2 flex"}>

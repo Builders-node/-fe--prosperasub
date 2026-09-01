@@ -186,5 +186,7 @@ export function useProviderKpis({ providerId, legacyId, sourceKey }: Props) {
     rating: rating.data?.avg ?? null,
     ratingCount: rating.data?.count ?? 0,
     isPending: stats.isPending,
+    // A failed fetch is not "zero customers". Callers render "—" for it.
+    isError: stats.isError,
   };
 }
