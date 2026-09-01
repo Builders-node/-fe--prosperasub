@@ -391,6 +391,7 @@ export function UnifiedBookingCalendar({
           other services can't accidentally open it. */}
       {rescheduleRow?.sourceTable === "cleaning_bookings" && (
         <RescheduleCleaningDialog
+          slotProviderId={calendarsProviderId ?? null}
           booking={{
             id: rescheduleRow.id,
             customerName: rescheduleRow.customerName,

@@ -47,13 +47,20 @@ interface Booking {
 interface Props {
   booking: Booking | null;
   onClose: () => void;
+  /**
+   * The UNIVERSAL providers.id whose slot grid this booking belongs to.
+   * Slots stopped being one shared pool when they became per-provider, so
+   * without it the picker cannot tell this provider's morning from another
+   * business's.
+   */
+  slotProviderId?: string | null;
 }
 
 const to12h = (t: string | null | undefined) => (t ? format12h(t) : "");
 
 const clip5 = (t: string | null | undefined) => (t ? String(t).slice(0, 5) : "");
 
-export function RescheduleCleaningDialog({ booking, onClose }: Props) {
+export function RescheduleCleaningDialog({ booking, onClose, slotProviderId }: Props) {
   const qc = useQueryClient();
   const open = booking !== null;
 
@@ -75,20 +82,46 @@ export function RescheduleCleaningDialog({ booking, onClose }: Props) {
     setUseCustom(false);
   }, [booking]);
 
-  // Active slots on the chosen date — global (no provider scoping needed since
-  // cleaning_available_slots is a shared pool the admin manages centrally).
+  /**
+   * Active slots on the chosen date, narrowed to the grid this booking is
+   * actually booked against.
+   *
+   * This query used to take every row for the date, on the assumption that
+   * `cleaning_available_slots` is one shared pool. That stopped being true when
+   * slots became per-provider: a single date now holds this provider's grid,
+   * every OTHER provider's grid, and the legacy shared rows. The picker
+   * therefore offered Car Wash's 09:30 to an Apartment Cleaning booking, and
+   * listed each real window twice — once from the provider's own row and once
+   * from the shared twin — which is what made rescheduling look like nonsense.
+   *
+   * Same rule as the booking page and the SQL function: the provider's own rows
+   * when it keeps any, the shared grid otherwise, and never another business's.
+   */
   const { data: slots = [], isLoading: slotsLoading } = useQuery<any[]>({
-    queryKey: ["reschedule-cleaning-slots", date],
+    queryKey: ["reschedule-cleaning-slots", date, slotProviderId ?? "shared"],
     enabled: open && !!date && !useCustom,
     queryFn: async () => {
       const { data, error } = await supabaseDb
         .from("cleaning_available_slots")
-        .select("id,date,start_time,end_time,max_bookings,current_bookings,is_active")
+        .select("id,date,start_time,end_time,max_bookings,current_bookings,is_active,provider_id")
         .eq("date", date)
         .eq("is_active", true)
         .order("start_time", { ascending: true });
       if (error) throw error;
-      return (data ?? []) as any[];
+
+      const rows = (data ?? []) as any[];
+      const own = slotProviderId ? rows.filter((r) => r.provider_id === slotProviderId) : [];
+      const grid = own.length ? own : rows.filter((r) => r.provider_id == null);
+
+      // Belt and braces: if one grid ever holds two rows for the same window,
+      // keep the one this booking already sits in so "current" stays truthful.
+      const byWindow = new Map<string, any>();
+      for (const r of grid) {
+        const key = `${r.start_time}-${r.end_time}`;
+        const kept = byWindow.get(key);
+        if (!kept || r.id === booking?.currentSlotId) byWindow.set(key, r);
+      }
+      return [...byWindow.values()].sort((a, b) => String(a.start_time).localeCompare(String(b.start_time)));
     },
   });
 
@@ -110,7 +143,9 @@ export function RescheduleCleaningDialog({ booking, onClose }: Props) {
         const end = customEnd || customStart;
         // ensureCleaningSlot is idempotent — it returns the existing slot if
         // date+start+end already exists, or seeds a new one.
-        const seeded = await ensureCleaningSlot(date, customStart, end);
+        // Seed onto the provider's own grid — a shared-pool slot would be
+        // invisible to the provider whose booking this is.
+        const seeded = await ensureCleaningSlot(date, customStart, end, slotProviderId ?? null);
         targetSlotId = seeded.id;
         targetSlot = seeded;
       } else {
