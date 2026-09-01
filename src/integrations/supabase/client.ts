@@ -145,6 +145,19 @@ const readSessionCookie = (): StoredSession | null => {
   }
 };
 
+/**
+ * Sessions that predate the shared cookie live only in this origin's
+ * localStorage. Mirror one out the first time it is read so an already
+ * signed-in visitor carries over to the sibling host without re-authenticating.
+ * Once per page load — this runs on every API call.
+ */
+let sessionCookieBackfilled = false;
+const backfillSessionCookie = (session: StoredSession) => {
+  if (sessionCookieBackfilled) return;
+  sessionCookieBackfilled = true;
+  if (!readSessionCookie()) writeSessionCookie(session);
+};
+
 const clearSessionCookie = () => {
   const domain = sharedSessionDomain();
   if (!domain) return;
@@ -168,6 +181,7 @@ const readStoredSession = (): StoredSession | null => {
       localStorage.setItem(SESSION_KEY, JSON.stringify(session));
       writeSessionCookie(session);
     }
+    backfillSessionCookie(session);
     return session;
   } catch {
     clearStoredSession();
