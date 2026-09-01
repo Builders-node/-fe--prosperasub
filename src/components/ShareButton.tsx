@@ -6,10 +6,21 @@ import { cn } from "@/lib/utils";
 /**
  * Send this page to someone.
  *
- * Uses the OS share sheet where there is one — on a phone that is what people
- * expect, and it reaches WhatsApp, which is how Próspera actually passes things
- * around. Everywhere else it copies the link and says so, because a button that
- * appears to do nothing is worse than one that does the humble thing.
+ * Sharing a link looks like one API call and is really four, because every
+ * step of it is something a browser is allowed to refuse:
+ *
+ *  1. `navigator.share` — the OS sheet. Absent on most desktops, and on iOS it
+ *     only exists in Safari proper, not in every in-app browser.
+ *  2. `navigator.clipboard.writeText` — undefined outside a secure context and
+ *     in some in-app browsers, and it throws NotAllowedError when the document
+ *     is not focused, which is easy to hit on desktop.
+ *  3. `document.execCommand("copy")` — deprecated, and the reason this still
+ *     works where the modern one does not.
+ *  4. Showing the link, so a refusal at every level still leaves the person
+ *     able to copy it by hand.
+ *
+ * The first version stopped at 2 and told people "Couldn't copy the link",
+ * which is a dead end dressed as an error message.
  */
 export function ShareButton({
   title,
@@ -24,6 +35,34 @@ export function ShareButton({
   className?: string;
 }) {
   const [copied, setCopied] = useState(false);
+
+  const flashCopied = () => {
+    setCopied(true);
+    toast.success("Link copied");
+    window.setTimeout(() => setCopied(false), 2000);
+  };
+
+  /**
+   * The pre-Clipboard-API way. A textarea off-screen, selected and copied
+   * synchronously — no permission, no promise, no secure context needed.
+   */
+  const copyByExecCommand = (value: string): boolean => {
+    try {
+      const el = document.createElement("textarea");
+      el.value = value;
+      el.setAttribute("readonly", "");
+      // Off-screen but focusable; `display:none` cannot be selected.
+      el.style.cssText = "position:fixed;top:0;left:-9999px;opacity:0;";
+      document.body.appendChild(el);
+      el.select();
+      el.setSelectionRange(0, value.length);
+      const ok = document.execCommand("copy");
+      document.body.removeChild(el);
+      return ok;
+    } catch {
+      return false;
+    }
+  };
 
   const share = async () => {
     const link = url ?? (typeof window !== "undefined" ? window.location.href : "");
@@ -41,13 +80,28 @@ export function ShareButton({
     }
 
     try {
-      await navigator.clipboard.writeText(link);
-      setCopied(true);
-      toast.success("Link copied");
-      window.setTimeout(() => setCopied(false), 2000);
-    } catch {
-      toast.error("Couldn't copy the link");
+      // Optional chaining on purpose: the object itself is missing in plenty of
+      // contexts, and a TypeError here reads identically to a refusal.
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(link);
+        flashCopied();
+        return;
+      }
+    } catch (err) {
+      console.warn("[share] clipboard API refused, falling back", err);
     }
+
+    if (copyByExecCommand(link)) {
+      flashCopied();
+      return;
+    }
+
+    // Everything refused. Show the link rather than only the failure — the
+    // person can still select it and send it themselves.
+    toast.error("Couldn't copy automatically", {
+      description: link,
+      duration: 12000,
+    });
   };
 
   return (
