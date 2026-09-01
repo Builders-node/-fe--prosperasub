@@ -283,7 +283,30 @@ export default function Book() {
               {method === "paypal" ? (
                 <>
                   <h2 className="mb-3 text-[16px] font-semibold tracking-[-0.32px] text-foreground">Pay with PayPal</h2>
-                  <PayPalPanel totalCents={effectiveTotal} onPaid={(cap: string) => activate(cap, "paypal")} orderMeta={{ description: `${v.name} rental` }} />
+                  <PayPalPanel
+                    totalCents={effectiveTotal}
+                    onPaid={(cap: string) => activate(cap, "paypal")}
+                    // Write the order id the moment PayPal issues it. Without a
+                    // reference on the row, a capture whose browser died before
+                    // it could confirm is invisible to the reconcile — the
+                    // customer has paid and the booking gets expired instead.
+                    onOrderCreated={(orderId: string) => {
+                      if (pendingIdRef.current) {
+                        attachPaymentReference(supabaseDb, "rental_bookings", pendingIdRef.current, orderId, "paypal");
+                      }
+                    }}
+                    orderMeta={{
+                      description: `${v.name} rental`,
+                      service_name: "EverySub Cars — rental",
+                      plan_name: v.name,
+                      client_name: name.trim() || userData?.name || undefined,
+                      client_email: userData?.email || undefined,
+                      client_phone: whatsapp.trim() || undefined,
+                      duration: `${pricing.rentalDays} day${pricing.rentalDays > 1 ? "s" : ""}`,
+                      selected_date_time: `${fromISO} → ${toISOParam}`,
+                      booking_id: pendingIdRef.current ?? undefined,
+                    }}
+                  />
                 </>
               ) : (
                 <InvoiceQrPanel
