@@ -4,11 +4,9 @@ import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { differenceInCalendarDays, eachDayOfInterval, format, startOfToday } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
-import { supabaseDb } from "@/integrations/supabase/client";
+import { fetchHeldRanges, overlapsHeld, type HeldRange } from "@/lib/vehicles/availability";
 
 export const toISO = (d: Date) => format(d, "yyyy-MM-dd");
-
-interface BookedRange { start: string; end: string }
 
 /**
  * Range picker that knows what's already booked for a vehicle. Booked days are
@@ -26,19 +24,13 @@ export function DateRangePicker({
   onChange: (r: DateRange | undefined) => void;
   maxDays?: number;
 }) {
-  const { data: booked = [] } = useQuery({
+  const { data: booked = [] } = useQuery<HeldRange[]>({
     queryKey: ["vehicle-booked-ranges", vehicleId],
     enabled: !!vehicleId,
-    queryFn: async () => {
-      const { data, error } = await supabaseDb
-        .from("rental_bookings")
-        .select("start_date,end_date")
-        .eq("vehicle_id", vehicleId)
-        .not("status", "in", '("cancelled")')
-        .is("deleted_at", null);
-      if (error) throw error;
-      return (data ?? []).map((b: { start_date: string; end_date: string }) => ({ start: b.start_date, end: b.end_date })) as BookedRange[];
-    },
+    // Short staleTime: the calendar is the one screen where showing a car as
+    // free after someone else took it turns into a double booking.
+    staleTime: 30 * 1000,
+    queryFn: () => fetchHeldRanges(vehicleId),
   });
 
   const bookedDays = useMemo(
@@ -49,10 +41,7 @@ export function DateRangePicker({
     [booked],
   );
 
-  const overlaps = (from: Date, to: Date) => {
-    const s = toISO(from), e = toISO(to);
-    return booked.some((b) => s <= b.end && e >= b.start);
-  };
+  const overlaps = (from: Date, to: Date) => overlapsHeld(toISO(from), toISO(to), booked);
 
   const handleSelect = (r: DateRange | undefined) => {
     if (r?.from && r?.to) {

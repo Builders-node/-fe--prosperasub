@@ -23,6 +23,7 @@ import { supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useVehicle } from "@/hooks/useVehicles";
 import { calcRentalPrice, extraCost } from "@/types/carRental";
+import { fetchHeldRanges, overlapsHeld } from "@/lib/vehicles/availability";
 import { formatUSD, centsToDollars } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 
@@ -41,6 +42,20 @@ export default function Book() {
     return differenceInCalendarDays(new Date(toISOParam + "T00:00:00"), new Date(fromISO + "T00:00:00")) + 1;
   }, [fromISO, toISOParam]);
   const pricing = useMemo(() => (v && rentalDays > 0 ? calcRentalPrice(v, rentalDays) : null), [v, rentalDays]);
+
+  /**
+   * The dates and the car both arrive from the URL, so neither can be trusted:
+   * a hand-edited link could book a car that was never listed, or a week that
+   * has already happened.
+   */
+  const problem = useMemo(() => {
+    const ISO = /^\d{4}-\d{2}-\d{2}$/;
+    if (!ISO.test(fromISO) || !ISO.test(toISOParam)) return "Pick your dates first.";
+    if (toISOParam < fromISO) return "The return date is before the pickup date.";
+    if (fromISO < format(new Date(), "yyyy-MM-dd")) return "That pickup date has already passed.";
+    if (v && v.status !== "public") return "This car isn't available for booking.";
+    return null;
+  }, [fromISO, toISOParam, v]);
 
   const { enabled: methods, addSurchargeCents } = usePaymentMethods();
   const { convertToSats } = useBtcPrice();
@@ -99,6 +114,21 @@ export default function Book() {
 
   const reserve = async (): Promise<string | null> => {
     if (!v || !pricing || !userData?.id) return null;
+
+    // The calendar was read when the page loaded; somebody else may have taken
+    // these dates since. Re-read immediately before writing so two people
+    // cannot pay for the same car on the same days.
+    try {
+      const held = await fetchHeldRanges(v.id);
+      if (overlapsHeld(fromISO, toISOParam, held)) {
+        toast.error("Sorry — this car was just booked for those dates. Please pick another period.");
+        return null;
+      }
+    } catch {
+      // Availability unreadable: let the booking through rather than block a
+      // paying customer on a transient network error.
+    }
+
     const { data, error } = await supabaseDb.from("rental_bookings").insert({
       user_id: userData.id, vehicle_id: v.id, start_date: fromISO, end_date: toISOParam,
       rental_days: pricing.rentalDays, daily_price_cents: pricing.effectiveDailyRate,
@@ -126,16 +156,38 @@ export default function Book() {
       pendingIdRef.current = pendingId;
       setStep("pay");
       if (method === "lightning" || method === "onchain") {
-        inv.start({ method, amountCents: effectiveTotal, amountSats: estimatedSats, description: `${v?.name} · ${fromISO}→${toISOParam}` });
+        inv.start({
+          method,
+          amountCents: effectiveTotal,
+          amountSats: estimatedSats,
+          description: `${v?.name} · ${fromISO}→${toISOParam}`,
+          // Recorded on the checkout session at invoice time, which is what the
+          // team's email and Telegram message read from. Without it a car
+          // booking arrived as an unnamed "EverySub payment".
+          meta: {
+            service_name: "EverySub Cars — rental",
+            plan_name: v?.name,
+            client_name: name.trim() || userData?.name || undefined,
+            client_email: userData?.email || undefined,
+            client_phone: whatsapp.trim() || undefined,
+            duration: `${pricing.rentalDays} day${pricing.rentalDays > 1 ? "s" : ""}`,
+            selected_date_time: `${fromISO} → ${toISOParam}`,
+            booking_id: pendingId,
+          },
+        });
       }
     } finally { setReserving(false); }
   };
 
   if (isLoading) return <AppContainer className="flex justify-center py-24"><Spinner /></AppContainer>;
-  if (!v || !pricing) return (
+  if (!v || !pricing || problem) return (
     <AppContainer className="py-24 text-center">
-      <p className="text-[16px] font-semibold text-foreground">Something's missing for this booking.</p>
-      <Button variant="secondary" className="mt-3" onClick={() => navigate("/")}>Back to fleet</Button>
+      <p className="text-[16px] font-semibold text-foreground">
+        {problem ?? "Something's missing for this booking."}
+      </p>
+      <Button variant="secondary" className="mt-3" onClick={() => navigate(v ? `/vehicle/${v.id}` : "/")}>
+        {v ? "Choose dates" : "Back to fleet"}
+      </Button>
     </AppContainer>
   );
 
