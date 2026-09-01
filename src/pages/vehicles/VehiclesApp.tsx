@@ -1,9 +1,8 @@
 import { type ReactNode, useEffect } from "react";
 import { Routes, Route, Navigate, Link, useLocation } from "react-router-dom";
-import { useTheme } from "next-themes";
-import { Moon, Sun, User, LogOut, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
+import { VehiclesHeader } from "@/pages/vehicles/VehiclesHeader";
 import { AppContainer } from "@/components/layout/AppContainer";
 import { PageLoader } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
@@ -25,94 +24,10 @@ import AdminBookings from "@/pages/vehicles/admin/AdminBookings";
  * the vehicles one; see `isVehiclesHost`.
  */
 
-function ThemeToggle() {
-  const { resolvedTheme, setTheme } = useTheme();
-  const dark = resolvedTheme === "dark";
-  return (
-    <button
-      type="button"
-      aria-label="Toggle theme"
-      onClick={() => setTheme(dark ? "light" : "dark")}
-      className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-    >
-      {dark ? <Sun className="h-4.5 w-4.5" /> : <Moon className="h-4.5 w-4.5" />}
-    </button>
-  );
-}
-
 function VehiclesLayout({ children }: { children: ReactNode }) {
-  const { isAuthenticated, isSuperAdmin, userData, logout } = useAuth();
-  const { openAuthModal } = useAuthModal();
-  const { pathname } = useLocation();
-
-  const navItem = (to: string, label: string) => (
-    <Link
-      to={to}
-      className={cn(
-        "rounded-full px-3 py-1.5 text-sm font-semibold transition-colors",
-        pathname === to ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground",
-      )}
-    >
-      {label}
-    </Link>
-  );
-
   return (
     <div className="min-h-screen bg-background">
-      {/* Same chrome as everysub.net: a plain card-coloured header with the
-          19px black wordmark — the grey page below is the separation. */}
-      <header className="sticky top-0 z-40 bg-card">
-        <AppContainer className="flex h-16 items-center justify-between gap-3">
-          <Link to="/" className="text-[19px] font-black tracking-tight text-foreground transition-colors hover:text-primary">
-            EverySub <span className="text-primary">Cars</span>
-          </Link>
-
-          <nav className="hidden items-center gap-1 md:flex">
-            {navItem("/", "Fleet")}
-            {isAuthenticated && navItem("/my-bookings", "My bookings")}
-            {isSuperAdmin && navItem("/admin/vehicles", "Admin")}
-          </nav>
-
-          <div className="flex items-center gap-1">
-            <ThemeToggle />
-            {isAuthenticated ? (
-              <div className="flex items-center gap-2">
-                <span className="hidden max-w-[140px] truncate text-sm font-semibold text-foreground sm:block">
-                  {userData?.name || userData?.email}
-                </span>
-                <button
-                  type="button"
-                  aria-label="Log out"
-                  onClick={() => logout()}
-                  className="flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                >
-                  <LogOut className="h-4.5 w-4.5" />
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => openAuthModal("login")}
-                className="flex items-center gap-1.5 rounded-full bg-foreground px-4 py-2 text-sm font-bold text-background transition-opacity hover:opacity-90"
-              >
-                <User className="h-4 w-4" /> Log in
-              </button>
-            )}
-          </div>
-        </AppContainer>
-      </header>
-
-      {/* Mobile nav */}
-      <AppContainer className="flex items-center gap-1 py-2 md:hidden">
-        {navItem("/", "Fleet")}
-        {isAuthenticated && navItem("/my-bookings", "My bookings")}
-        {isSuperAdmin && (
-          <Link to="/admin/vehicles" className="flex items-center gap-1 rounded-full px-3 py-1.5 text-sm font-semibold text-muted-foreground">
-            <ShieldCheck className="h-4 w-4" /> Admin
-          </Link>
-        )}
-      </AppContainer>
-
+      <VehiclesHeader />
       <main>{children}</main>
     </div>
   );
