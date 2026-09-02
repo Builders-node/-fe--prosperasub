@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { formatUSD } from "@/lib/pricing";
 import { Button } from "@/components/ui/button";
 import { carPath } from "@/pages/vehicles/routes";
+import { QueryError } from "@/components/QueryError";
 
 const TONE: Record<string, string> = {
   confirmed: "text-emerald-500", paid: "text-emerald-500", active: "text-emerald-500", completed: "text-muted-foreground",
@@ -17,7 +18,7 @@ const TONE: Record<string, string> = {
 
 export default function MyBookings() {
   const { userData } = useAuth();
-  const { data: bookings = [], isLoading } = useQuery({
+  const { data: bookings = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: ["my-rental-bookings", userData?.id],
     enabled: !!userData?.id,
     queryFn: async () => {
@@ -37,6 +38,10 @@ export default function MyBookings() {
       <h1 className="mb-5 text-[22px] font-black tracking-tight text-foreground">My bookings</h1>
       {isLoading ? (
         <div className="flex justify-center py-20"><Spinner /></div>
+      ) : isError ? (
+        /* Telling someone they have no bookings when we simply could not ask
+           is worse than saying nothing. */
+        <QueryError title="Couldn't load your bookings" error={error as Error} onRetry={() => void refetch()} />
       ) : bookings.length === 0 ? (
         <div className="flex flex-col items-center py-20 text-center">
           <Car className="mb-3 h-12 w-12 text-muted-foreground/40" />

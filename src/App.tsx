@@ -1,7 +1,9 @@
 import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, QueryCache } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { errorMessage } from "@/lib/errorMessage";
 import { BrowserRouter, Navigate, Routes, Route, useLocation } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -113,7 +115,41 @@ const BeachClubCourts = lazy(() => import("./pages/admin/BeachClubCourts"));
 // Unified loader (Spinner is a tiny leaf module — no extra chunk).
 const PageFallback = () => <PageLoader className="min-h-screen bg-background" />;
 
+/**
+ * No load may fail in silence.
+ *
+ * Most screens read `useQuery` as `const { data: rows = [] } = …` and never
+ * look at `isError`, so a request that fails renders exactly like a table with
+ * nothing in it. That is not a cosmetic slip: the admin panel showed "No roles
+ * found" with three roles in the database, and there was no way to tell the
+ * difference from the outside. Sixty-odd call sites do this, and the next one
+ * written will too.
+ *
+ * A component that handles its own error state is still better — it can retry
+ * in place. This is the floor beneath them: whatever the screen decides to
+ * render, the failure itself is always said out loud.
+ *
+ * Deduped by message so five queries failing together (one dead API, one
+ * expired session) speak once, not five times.
+ */
+const recentlyReported = new Map<string, number>();
+const REPORT_WINDOW_MS = 8_000;
+
+const reportQueryFailure = (error: unknown) => {
+  const message = errorMessage(error);
+  if (!message) return;
+  const now = Date.now();
+  // Sweep first, or the map grows for the life of the tab.
+  recentlyReported.forEach((at, key) => {
+    if (now - at > REPORT_WINDOW_MS) recentlyReported.delete(key);
+  });
+  if (recentlyReported.has(message)) return;
+  recentlyReported.set(message, now);
+  toast.error("Couldn't load some data", { description: message });
+};
+
 const queryClient = new QueryClient({
+  queryCache: new QueryCache({ onError: reportQueryFailure }),
   defaultOptions: {
     queries: {
       // Cache for 5 minutes — most page navigations re-use data

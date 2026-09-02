@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { adminApi, supabaseDb } from "@/integrations/supabase/client";
 import { formatUSD } from "@/lib/pricing";
 import { formatDateHN } from "@/lib/timezone";
+import { QueryError } from "@/components/QueryError";
 
 /**
  * Recording money sent to a provider.
@@ -66,7 +67,7 @@ export function ProviderPayoutsPanel() {
     },
   });
 
-  const { data: payouts = [], isLoading } = useQuery({
+  const { data: payouts = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: ["admin-provider-payouts", providerId],
     enabled: !!providerId,
     queryFn: async () => {
@@ -203,6 +204,19 @@ export function ProviderPayoutsPanel() {
             </div>
             {isLoading ? (
               <p className="mt-3 text-sm text-muted-foreground">Loading…</p>
+            ) : isError ? (
+              /* This is a payment history. "Nothing paid yet" when the request
+                 failed is not a blank screen, it is a wrong statement about
+                 money — and the next decision made here is whether to pay
+                 again. */
+              <div className="mt-3">
+                <QueryError
+                  compact
+                  title="Couldn't load payouts"
+                  error={error as Error}
+                  onRetry={() => void refetch()}
+                />
+              </div>
             ) : payouts.length === 0 ? (
               <p className="mt-3 text-sm text-muted-foreground">Nothing paid to this business yet.</p>
             ) : (

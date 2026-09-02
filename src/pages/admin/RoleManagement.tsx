@@ -65,7 +65,12 @@ export default function RoleManagement() {
     },
   });
 
-  const { data: permissions = [] } = useQuery({
+  const {
+    data: permissions = [],
+    isError: permissionsError,
+    error: permissionsErrorObj,
+    refetch: refetchPermissions,
+  } = useQuery({
     queryKey: ["admin-rbac-permissions"],
     queryFn: async () => {
       const { data, error } = await adminApi("/admin/permissions");
@@ -166,6 +171,15 @@ export default function RoleManagement() {
             <CardTitle>Permissions</CardTitle>
           </CardHeader>
           <CardContent className="space-y-space-3">
+            {/* An empty catalogue and an unreachable one look identical
+                otherwise — this panel rendered as blank space. */}
+            {permissionsError && (
+              <QueryError
+                title="Couldn't load permissions"
+                error={permissionsErrorObj as Error}
+                onRetry={() => void refetchPermissions()}
+              />
+            )}
             {Object.entries(groupPermissions(permissions)).map(([category, rows]) => (
               <div key={category}>
                 <p className="mb-space-1 text-sm font-bold text-muted-foreground">{category}</p>

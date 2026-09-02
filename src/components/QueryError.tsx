@@ -1,11 +1,12 @@
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import { useI18n } from "@/i18n";
+import { errorMessage } from "@/lib/errorMessage";
 
 interface Props {
   /** Optional short title. Defaults to the localized "Couldn't load this". */
   title?: string;
   /** Free-form message from the error. If a plain Error is passed, `.message` is used. */
-  error?: Error | string | null;
+  error?: unknown;
   /** Called when the user taps Retry. Typically a React Query `refetch`. */
   onRetry?: () => void;
   /** Disable Retry while the refetch is in flight. */
@@ -22,7 +23,7 @@ interface Props {
 export function QueryError({ title, error, onRetry, retrying, compact }: Props) {
   const { t } = useI18n();
   const resolvedTitle = title ?? t("error.couldntLoad");
-  const message = error instanceof Error ? error.message : (typeof error === "string" ? error : "");
+  const message = errorMessage(error);
 
   return (
     <div className={compact
