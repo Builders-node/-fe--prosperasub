@@ -434,7 +434,7 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
               </Button>
               <div className="relative flex items-center gap-2">
                 <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                <Input type="date" value={date} onChange={(e) => setDate(e.target.value || todayHN())} className="h-9 w-[170px]" />
+                <Input type="date" value={date} onChange={(e) => setDate(e.target.value || todayHN())} className="h-9 w-full sm:w-[170px]" />
               </div>
               <Button variant="secondary" size="iconSm" className="rounded-full" onClick={() => shiftDay(1)} aria-label="Next day">
                 <ChevronRight className="h-4 w-4" />

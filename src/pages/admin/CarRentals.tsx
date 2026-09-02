@@ -216,7 +216,7 @@ export default function CarRentals({ embedded = false, providerId }: {
             searchPlaceholder="Search customer, car, phone…"
             filters={
               <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-full sm:w-[160px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All statuses</SelectItem>
                   {STAGES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
@@ -274,7 +274,7 @@ export default function CarRentals({ embedded = false, providerId }: {
                   {/* One control, not five buttons: a booking has a stage, and
                       the admin moves it. */}
                   <Select value={b.status} onValueChange={(v) => setStage(b.id, v)} disabled={busy === b.id}>
-                    <SelectTrigger className="w-[150px] shrink-0"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="w-[130px] shrink-0 sm:w-[150px]"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {STAGES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                     </SelectContent>

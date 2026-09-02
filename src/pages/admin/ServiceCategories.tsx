@@ -409,7 +409,7 @@ export default function ServiceCategories({ embedded = false, archetypeKey }: Se
 
             <div>
               <Label>Icon</Label>
-              <div className="mt-1.5 grid grid-cols-6 gap-1.5">
+              <div className="mt-1.5 grid grid-cols-4 gap-1.5 sm:grid-cols-6">
                 {CATEGORY_ICON_KEYS.map((k) => {
                   const I = CATEGORY_ICONS[k];
                   const on = form.icon === k;
@@ -428,7 +428,7 @@ export default function ServiceCategories({ embedded = false, archetypeKey }: Se
 
             <div>
               <Label>Accent</Label>
-              <div className="mt-1.5 grid grid-cols-6 gap-1.5">
+              <div className="mt-1.5 grid grid-cols-4 gap-1.5 sm:grid-cols-6">
                 {CATEGORY_ACCENTS.map((a) => (
                   <button key={a.value} type="button" onClick={() => setForm({ ...form, accent: a.value })}
                     className={cn("h-9 rounded-lg", a.value, form.accent === a.value && "ring-2 ring-offset-2 ring-offset-background ring-foreground")}

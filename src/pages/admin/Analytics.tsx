@@ -41,7 +41,7 @@ const Analytics = () => {
           id="analytics-service"
           value={service}
           onChange={(e) => setService(e.target.value as ServiceId)}
-          className="h-10 min-w-[220px] rounded-radius-md border border-input bg-card px-3 text-[16px] font-semibold tracking-[-0.02em] text-foreground"
+          className="h-10 w-full rounded-radius-md sm:w-auto sm:min-w-[220px] border border-input bg-card px-3 text-[16px] font-semibold tracking-[-0.02em] text-foreground"
         >
           {SERVICES.map((s) => (
             <option key={s.id} value={s.id}>{s.label}</option>

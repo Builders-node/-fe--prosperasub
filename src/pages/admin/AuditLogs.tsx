@@ -147,7 +147,7 @@ const AuditLogs = () => {
             type="date"
             value={from}
             onChange={(e) => { setFrom(e.target.value); setPage(0); }}
-            className="w-[150px]"
+            className="w-full sm:w-[150px]"
             aria-label="From date"
           />
           <span className="text-sm text-muted-foreground">→</span>
@@ -155,7 +155,7 @@ const AuditLogs = () => {
             type="date"
             value={to}
             onChange={(e) => { setTo(e.target.value); setPage(0); }}
-            className="w-[150px]"
+            className="w-full sm:w-[150px]"
             aria-label="To date"
           />
           {(from || to) && (

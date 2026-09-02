@@ -276,7 +276,7 @@ export default function BeachClubSubscriptions({ embedded = false }: { embedded?
     <>
       <div className="mb-space-4 flex flex-wrap items-center justify-between gap-space-3">
         <div className="flex items-center gap-space-3">
-          <div className="relative w-[220px]">
+          <div className="relative w-full sm:w-[220px]">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search members…" className="h-9 rounded-full pl-9" />
           </div>

@@ -147,12 +147,12 @@ export function VehicleEditDialog({ vehicle, onClose, onSaved, lockedProviderId 
             </div>
             )}
             <div><Label>Name *</Label><Input value={editing.name ?? ""} onChange={(e) => set({ name: e.target.value })} placeholder="Toyota Hilux 2024" /></div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div><Label>Brand</Label><Input value={editing.brand ?? ""} onChange={(e) => set({ brand: e.target.value })} /></div>
               <div><Label>Model</Label><Input value={editing.model ?? ""} onChange={(e) => set({ model: e.target.value })} /></div>
               <div><Label>Year</Label><Input type="number" value={editing.year ?? 2024} onChange={(e) => set({ year: parseInt(e.target.value || "2024", 10) })} /></div>
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div><Label>Seats</Label><Input type="number" value={editing.seats ?? 5} onChange={(e) => set({ seats: parseInt(e.target.value || "5", 10) })} /></div>
               <div><Label>Bags</Label><Input type="number" value={editing.luggage_capacity ?? 2} onChange={(e) => set({ luggage_capacity: parseInt(e.target.value || "2", 10) })} /></div>
               <div>
@@ -163,7 +163,7 @@ export function VehicleEditDialog({ vehicle, onClose, onSaved, lockedProviderId 
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
                 <Label>Fuel</Label>
                 <Select value={editing.fuel_type} onValueChange={(v) => set({ fuel_type: v as RentalVehicle["fuel_type"] })}>
@@ -184,7 +184,7 @@ export function VehicleEditDialog({ vehicle, onClose, onSaved, lockedProviderId 
                 </Select>
               </div>
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div><Label>Daily $</Label><Input type="number" step="0.01" value={dollars(editing.daily_price_cents)} onChange={(e) => set({ daily_price_cents: cents(e.target.value) })} /></div>
               <div><Label>Weekly $</Label><Input type="number" step="0.01" value={dollars(editing.weekly_price_cents)} onChange={(e) => set({ weekly_price_cents: cents(e.target.value) })} /></div>
               <div><Label>Monthly $</Label><Input type="number" step="0.01" value={dollars(editing.monthly_price_cents)} onChange={(e) => set({ monthly_price_cents: cents(e.target.value) })} /></div>

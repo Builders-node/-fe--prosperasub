@@ -278,12 +278,12 @@ const AdsManagement = () => {
 
             <div className="space-y-2 rounded-radius-md border border-border/60 p-3">
               <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Colors</Label>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <ColorField label="Gradient left" value={form.gradient_from} onChange={(v) => set("gradient_from", v)} />
                 <ColorField label="Gradient mid" value={form.gradient_via} onChange={(v) => set("gradient_via", v)} />
                 <ColorField label="Gradient right" value={form.gradient_to} onChange={(v) => set("gradient_to", v)} />
               </div>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <ColorField label="Text" value={form.text_color} onChange={(v) => set("text_color", v)} />
                 <ColorField label="Badge bg" value={form.badge_bg} onChange={(v) => set("badge_bg", v)} />
                 <ColorField label="Badge text" value={form.badge_text_color} onChange={(v) => set("badge_text_color", v)} />

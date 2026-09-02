@@ -998,7 +998,7 @@ const CleaningManagement = ({
                                 value={["booked", "completed", "cancelled"].includes(booking.status) ? booking.status : "booked"}
                                 onValueChange={(v) => { if (v !== booking.status) setStatusMutation.mutate({ id: booking.id, status: v }); }}
                               >
-                                <SelectTrigger className="h-8 w-[130px]"><SelectValue /></SelectTrigger>
+                                <SelectTrigger className="h-8 w-[110px] sm:w-[130px]"><SelectValue /></SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="booked">Booked</SelectItem>
                                   <SelectItem value="completed">Completed</SelectItem>

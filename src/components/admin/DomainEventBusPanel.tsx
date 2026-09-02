@@ -48,7 +48,7 @@ export function DomainEventBusPanel() {
             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Events by type</span>
             <span className="text-sm tabular-nums text-muted-foreground">{summary?.grandTotal ?? 0} total</span>
           </div>
-          <div className="overflow-hidden rounded-radius-md border border-border/60">
+          <div className="overflow-x-auto rounded-radius-md bg-muted/30">
             <table className="w-full text-sm">
               <tbody>
                 {(summary?.totals ?? []).slice(0, 12).map((r) => (
@@ -70,7 +70,7 @@ export function DomainEventBusPanel() {
             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Revenue by method (projection)</span>
             <span className="text-sm font-bold tabular-nums text-primary">{formatUSD(revenue?.totalCents ?? 0)}</span>
           </div>
-          <div className="overflow-hidden rounded-radius-md border border-border/60">
+          <div className="overflow-x-auto rounded-radius-md bg-muted/30">
             <table className="w-full text-sm">
               <tbody>
                 {(revenue?.byMethod ?? []).map((r) => (
