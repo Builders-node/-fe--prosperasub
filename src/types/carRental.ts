@@ -21,6 +21,10 @@ export interface RentalVehicle {
   gallery_urls: string[];
   status: VehicleStatus;
   sort_order: number;
+  /** The business that owns this car — a `providers` row, like every vertical. */
+  provider_id: string | null;
+  /** Joined for display; not a column. */
+  provider?: { id: string; name: string; avatar_url: string | null } | null;
   created_at?: string;
   updated_at?: string;
 }

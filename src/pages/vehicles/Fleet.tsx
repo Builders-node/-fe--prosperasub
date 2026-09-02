@@ -8,14 +8,36 @@ import { useVehicles } from "@/hooks/useVehicles";
 export default function Fleet() {
   const { data: vehicles = [], isLoading, isError } = useVehicles();
   const [q, setQ] = useState("");
+  const [providerId, setProviderId] = useState<string | null>(null);
+
+  /**
+   * The businesses with a car listed right now.
+   *
+   * Derived from the fleet rather than fetched, so a rental company that has
+   * been approved but has not added a car yet does not appear as an empty
+   * filter — a chip that leads to nothing is worse than no chip.
+   */
+  const providers = useMemo(() => {
+    const seen = new Map<string, string>();
+    vehicles.forEach((v) => {
+      if (v.provider?.id && v.provider.name) seen.set(v.provider.id, v.provider.name);
+    });
+    return [...seen].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [vehicles]);
+
+  // One company renting cars is the current state, and naming it on every card
+  // and offering a filter of one would be chrome around a non-choice.
+  const manyProviders = providers.length > 1;
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
-    if (!s) return vehicles;
-    return vehicles.filter((v) =>
-      [v.name, v.brand, v.model, String(v.year)].some((f) => String(f).toLowerCase().includes(s)),
-    );
-  }, [vehicles, q]);
+    return vehicles.filter((v) => {
+      if (providerId && v.provider?.id !== providerId) return false;
+      if (!s) return true;
+      return [v.name, v.brand, v.model, String(v.year), v.provider?.name]
+        .some((f) => String(f ?? "").toLowerCase().includes(s));
+    });
+  }, [vehicles, q, providerId]);
 
   return (
     <div>
@@ -38,6 +60,22 @@ export default function Fleet() {
         </AppContainer>
       </div>
 
+      {manyProviders && (
+        <AppContainer className="pt-4">
+          <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+            <ProviderChip label="All" active={providerId === null} onClick={() => setProviderId(null)} />
+            {providers.map((p) => (
+              <ProviderChip
+                key={p.id}
+                label={p.name}
+                active={providerId === p.id}
+                onClick={() => setProviderId(p.id)}
+              />
+            ))}
+          </div>
+        </AppContainer>
+      )}
+
       <AppContainer className="py-6">
         {isLoading ? (
           <div className="flex justify-center py-20"><Spinner /></div>
@@ -51,13 +89,30 @@ export default function Fleet() {
           </div>
         ) : (
           <>
-            <h2 className="mb-3 text-[20px] font-semibold tracking-[-0.4px] text-foreground">Available cars</h2>
+            <h2 className="mb-3 text-[20px] font-semibold tracking-[-0.4px] text-foreground">
+              {providerId ? providers.find((p) => p.id === providerId)?.name ?? "Available cars" : "Available cars"}
+            </h2>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {filtered.map((v) => <VehicleCard key={v.id} v={v} />)}
+              {filtered.map((v) => <VehicleCard key={v.id} v={v} showProvider={manyProviders} />)}
             </div>
           </>
         )}
       </AppContainer>
     </div>
+  );
+}
+
+/** The marketplace's own chip: colour is the state, no border, no weight change. */
+function ProviderChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`shrink-0 rounded-full px-4 py-1.5 text-[13px] font-semibold transition-colors ${
+        active ? "bg-foreground text-background" : "bg-card text-muted-foreground hover:text-foreground"
+      }`}
+    >
+      {label}
+    </button>
   );
 }

@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { CalendarClock, ExternalLink, LandPlot, Package, Users, Wallet } from "lucide-react";
+import { CalendarClock, CarFront, ExternalLink, LandPlot, Package, Users, Wallet } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { StatusPill } from "@/components/patterns/StatusPill";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,7 @@ import { ProviderTeamTab } from "@/components/provider/ProviderTeamTab";
 import { ScheduleAccordion } from "@/components/provider/ScheduleAccordion";
 import { ServiceLocationsSection } from "@/components/food/admin/ServiceLocationsSection";
 import { LegacyOwnerPortal } from "@/components/provider/legacyPortalTabs";
+import { VehicleFleetTab } from "@/components/provider/VehicleFleetTab";
 import { SubscribersList } from "@/components/provider/SubscribersList";
 import { ProviderReviewsPanel } from "@/components/provider/ProviderReviewsPanel";
 import { ProviderEarningsTab } from "@/components/provider/ProviderEarningsTab";
@@ -302,6 +303,19 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
       ),
     },
     scheduleTab,
+    // A fleet is not a plan and never will be: availability is per-unit and
+    // continuous, price is a function of duration, and the thing booked is one
+    // physical object. So a rental business gets its own tab here while
+    // remaining an ordinary `providers` row — same Overview, Money and Team as
+    // every other business on the platform.
+    ...(provider.archetype_key === "vehicles"
+      ? [{
+          value: "fleet",
+          label: "Fleet",
+          icon: CarFront,
+          render: () => <VehicleFleetTab providerId={provider.id} canManage={isOwner} />,
+        } as PortalTab<unknown>]
+      : []),
     // What can be booked here, for everybody. A calendar is a bookable
     // resource — its kind, its hours, its slot length — which is a different
     // job from running the day's work, and it was a beach-only screen for no

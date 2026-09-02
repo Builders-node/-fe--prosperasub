@@ -82,7 +82,9 @@ export default function CarRentals() {
     enabled: tab === "fleet",
     queryFn: async () => {
       const { data, error } = await supabaseDb
-        .from("rental_vehicles").select("*").order("sort_order");
+        .from("rental_vehicles")
+        .select("*, provider:providers(id, name)")
+        .order("sort_order");
       if (error) throw error;
       return (data ?? []) as any[];
     },
@@ -272,6 +274,11 @@ export default function CarRentals() {
                   <p className="truncate text-[15px] font-semibold text-foreground">{v.name}</p>
                   <p className="truncate text-xs text-muted-foreground">
                     {[v.brand, v.model, v.year].filter(Boolean).join(" · ")} · {v.seats} seats
+                  </p>
+                  {/* A car with no business behind it earns nobody anything —
+                      say so here rather than letting it look ordinary. */}
+                  <p className={cn("truncate text-[11px] font-semibold", v.provider?.name ? "text-muted-foreground" : "text-amber-500")}>
+                    {v.provider?.name ?? "No business assigned"}
                   </p>
                 </div>
                 <p className="shrink-0 text-[15px] font-semibold tabular-nums text-foreground">

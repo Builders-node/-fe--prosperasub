@@ -20,6 +20,7 @@
  */
 import { useQuery } from "@tanstack/react-query";
 import { supabaseDb } from "@/integrations/supabase/client";
+import { VEHICLES_BASE } from "@/pages/vehicles/routes";
 
 export type LegacySourceKey = "food" | "cleaning";
 
@@ -81,6 +82,18 @@ const PUBLIC_LISTING_HREF: Record<string, string> = {
 };
 
 /**
+ * Archetypes whose storefront is a section of this app rather than a generic
+ * providers-and-plans list, keyed by archetype because they have no legacy
+ * `source_service_key` — and must not have one. A legacy key means "backed by
+ * its own <service>_providers table", and approving an application for one
+ * writes there; a rental business is an ordinary `providers` row. So cars are
+ * universal in the data model and bespoke only in how you shop for them.
+ */
+const ARCHETYPE_LISTING_HREF: Record<string, string> = {
+  vehicles: VEHICLES_BASE,
+};
+
+/**
  * The public URL for an archetype's listing.
  *
  * Legacy-backed services keep their bespoke short paths — those are live URLs
@@ -99,6 +112,9 @@ export function publicListingHref(
 ): string | null {
   if (sourceServiceKey && PUBLIC_LISTING_HREF[sourceServiceKey]) {
     return PUBLIC_LISTING_HREF[sourceServiceKey];
+  }
+  if (archetypeKey && ARCHETYPE_LISTING_HREF[archetypeKey]) {
+    return ARCHETYPE_LISTING_HREF[archetypeKey];
   }
   return archetypeKey ? `/services/${archetypeKey}` : null;
 }

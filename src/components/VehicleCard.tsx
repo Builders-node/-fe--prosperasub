@@ -9,7 +9,16 @@ import { carPath } from "@/pages/vehicles/routes";
  * top; title 16px semibold; the spec line is the single 12px grey slot; price
  * pinned bottom-left in tabular numerals. Per DESIGN.md §1, §3.
  */
-export function VehicleCard({ v }: { v: RentalVehicle }) {
+export function VehicleCard({ v, showProvider = false }: {
+  v: RentalVehicle;
+  /**
+   * Name the business on the card. Off by default: with one rental company on
+   * the platform, stamping its name on every card is noise. The fleet page
+   * turns it on the moment a second company has cars listed, which is when
+   * "whose car is this" becomes a question worth answering.
+   */
+  showProvider?: boolean;
+}) {
   const specs = [
     { icon: Users, label: String(v.seats) },
     { icon: Gauge, label: v.transmission === "automatic" ? "Auto" : "Manual" },
@@ -40,6 +49,11 @@ export function VehicleCard({ v }: { v: RentalVehicle }) {
         <p className="mt-0.5 truncate text-[12px] tracking-[-0.24px] text-muted-foreground">
           {[v.brand, v.model, v.year].filter(Boolean).join(" · ")}
         </p>
+        {showProvider && v.provider?.name && (
+          <p className="mt-1 truncate text-[12px] font-semibold tracking-[-0.24px] text-muted-foreground">
+            {v.provider.name}
+          </p>
+        )}
         <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[12px] tracking-[-0.24px] text-muted-foreground">
           {specs.map((s, i) => {
             const Icon = s.icon;

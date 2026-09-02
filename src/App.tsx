@@ -248,6 +248,13 @@ const App = () => {
                 <ProtectedRoute><PlanCheckout /></ProtectedRoute>
               } />
 
+              {/* The vehicles archetype is universal in the data model — a rental
+                  business is an ordinary `providers` row — but its storefront is
+                  the /vehicles section, not the generic providers-and-plans
+                  list. Discovery links straight there; this catches typed and
+                  older URLs. Static, so it outranks the dynamic route below. */}
+              <Route path="/services/vehicles" element={<Navigate to="/vehicles" replace />} />
+
               {/* Generic listing for any archetype without a bespoke page.
                   The static /services/<name> routes above win over this dynamic
                   one — React Router prefers a static segment — so the rich

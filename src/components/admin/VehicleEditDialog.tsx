@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,7 +28,7 @@ const EMPTY: Partial<RentalVehicle> = {
   name: "", brand: "", model: "", year: new Date().getFullYear(), seats: 5,
   transmission: "automatic", fuel_type: "gasoline", air_conditioning: true, luggage_capacity: 2,
   description: "", daily_price_cents: 0, weekly_price_cents: 0, monthly_price_cents: 0,
-  image_url: "", gallery_urls: [], status: "public", sort_order: 0,
+  image_url: "", gallery_urls: [], status: "public", sort_order: 0, provider_id: null,
 };
 
 const dollars = (c?: number) => ((c ?? 0) / 100).toFixed(2);
@@ -39,23 +40,63 @@ interface Props {
   onClose: () => void;
   /** Called after a successful write, so the caller refreshes its own list. */
   onSaved: () => void;
+  /**
+   * Force the owning business and hide the picker.
+   *
+   * A business editing its own fleet is not choosing whose car this is — it is
+   * theirs. Offering the choice there would let one workspace hand a car to a
+   * competitor, and the platform admin is the only place that decision belongs.
+   */
+  lockedProviderId?: string;
 }
 
-export function VehicleEditDialog({ vehicle, onClose, onSaved }: Props) {
+export function VehicleEditDialog({ vehicle, onClose, onSaved, lockedProviderId }: Props) {
   const [editing, setEditing] = useState<Partial<RentalVehicle> | null>(null);
   const [saving, setSaving] = useState(false);
+
+  /**
+   * Which business this car belongs to.
+   *
+   * Every other vertical hangs its work off a `providers` row — that is what a
+   * payout is computed for and what a workspace belongs to. A car with no
+   * provider is a car nobody can be paid for, so the field is required rather
+   * than optional, and a fleet of one company still has to say which one.
+   */
+  const { data: providers = [] } = useQuery({
+    queryKey: ["vehicle-providers"],
+    enabled: !!vehicle && !lockedProviderId,
+    queryFn: async () => {
+      const { data, error } = await supabaseDb
+        .from("providers")
+        .select("id, name")
+        .eq("archetype_key", "vehicles")
+        .eq("status", "active")
+        .order("name");
+      if (error) throw error;
+      return (data ?? []) as Array<{ id: string; name: string }>;
+    },
+  });
+
+  // A new car in a one-company fleet should not need the picker touched.
+  useEffect(() => {
+    if (vehicle === "new" && providers.length === 1) {
+      setEditing((e) => (e && !e.provider_id ? { ...e, provider_id: providers[0].id } : e));
+    }
+  }, [vehicle, providers]);
 
   // The form is seeded from the prop rather than mirroring it, so typing does
   // not fight the parent's list refetching underneath.
   useEffect(() => {
     if (!vehicle) { setEditing(null); return; }
-    setEditing(vehicle === "new" ? { ...EMPTY } : { ...vehicle });
-  }, [vehicle]);
+    const base = vehicle === "new" ? { ...EMPTY } : { ...vehicle };
+    setEditing(lockedProviderId ? { ...base, provider_id: lockedProviderId } : base);
+  }, [vehicle, lockedProviderId]);
 
   const set = (patch: Partial<RentalVehicle>) => setEditing((e) => ({ ...(e ?? {}), ...patch }));
 
   const save = async () => {
     if (!editing?.name?.trim()) { toast.error("Name is required."); return; }
+    if (!editing.provider_id) { toast.error("Pick the business this car belongs to."); return; }
     setSaving(true);
     try {
       const row = {
@@ -66,6 +107,7 @@ export function VehicleEditDialog({ vehicle, onClose, onSaved }: Props) {
         weekly_price_cents: editing.weekly_price_cents ?? 0, monthly_price_cents: editing.monthly_price_cents ?? 0,
         image_url: editing.image_url || null, gallery_urls: editing.gallery_urls ?? [],
         status: editing.status ?? "public", sort_order: editing.sort_order ?? 0,
+        provider_id: editing.provider_id,
       };
       const res = editing.id
         ? await supabaseDb.from("rental_vehicles").update(row).eq("id", editing.id)
@@ -87,6 +129,23 @@ export function VehicleEditDialog({ vehicle, onClose, onSaved }: Props) {
         <DialogHeader><DialogTitle>{editing?.id ? "Edit vehicle" : "Add vehicle"}</DialogTitle></DialogHeader>
         {editing && (
           <div className="space-y-3">
+            {!lockedProviderId && (
+            <div>
+              <Label>Business *</Label>
+              <Select
+                value={editing.provider_id ?? undefined}
+                onValueChange={(v) => set({ provider_id: v })}
+              >
+                <SelectTrigger><SelectValue placeholder="Who rents this car out?" /></SelectTrigger>
+                <SelectContent>
+                  {providers.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Earnings, commission and payouts for this car are counted against this business.
+              </p>
+            </div>
+            )}
             <div><Label>Name *</Label><Input value={editing.name ?? ""} onChange={(e) => set({ name: e.target.value })} placeholder="Toyota Hilux 2024" /></div>
             <div className="grid grid-cols-3 gap-3">
               <div><Label>Brand</Label><Input value={editing.brand ?? ""} onChange={(e) => set({ brand: e.target.value })} /></div>

@@ -74,6 +74,11 @@ export default function VehicleDetail() {
           <div>
             <h1 className="text-[24px] font-semibold tracking-[-0.4px] text-foreground">{v.name}</h1>
             <p className="text-sm text-muted-foreground">{[v.brand, v.model, v.year].filter(Boolean).join(" · ")}</p>
+            {/* Always named here, unlike on the card: before handing over money
+                and a driving licence, who you are renting from is not a detail. */}
+            {v.provider?.name && (
+              <p className="mt-1 text-sm font-semibold text-foreground">{v.provider.name}</p>
+            )}
           </div>
           <div className="flex flex-wrap gap-2">
             {specs.map((s, i) => {
