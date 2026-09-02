@@ -312,7 +312,29 @@ async function api(path: string, init?: RequestInit, retryOnUnauthorized = true)
 
   const data = await response.json().catch(() => null);
 
-  if (response.status === 401 && retryOnUnauthorized && !isAuthEndpoint(path)) {
+  /**
+   * Recover from a stale token even when the API misreports one.
+   *
+   * The correct signal is 401, and the client has always refreshed on it. But
+   * the API renders an unverifiable token as **500**: jwt.verify throws, and a
+   * raw JsonWebTokenError is not an HttpException, so Nest calls it an internal
+   * error. (Fixed in SessionService; that fix cannot ship until the API's
+   * deploy pipeline is working again.)
+   *
+   * The status code was the whole failure. Refreshing on 401 alone meant an
+   * expired token produced no prompt and no recovery — every admin and account
+   * request failed forever while the app still showed the user signed in, and
+   * only a manual re-login cleared it. So a 500 on a request we actually
+   * authenticated is treated as possibly-stale auth and earns the same single
+   * refresh-and-retry.
+   *
+   * Bounded by `retryOnUnauthorized`, so this happens at most once per call. A
+   * genuine 500 costs one extra request and is then reported as it was before.
+   */
+  const maybeStaleAuth =
+    response.status === 401 || (response.status === 500 && !!session?.access_token);
+
+  if (maybeStaleAuth && retryOnUnauthorized && !isAuthEndpoint(path)) {
     const refreshedSession = await refreshStoredSession();
     if (refreshedSession?.access_token) {
       return api(path, init, false);
