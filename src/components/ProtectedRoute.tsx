@@ -1,4 +1,4 @@
-import { ReactNode, useEffect } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth, AppRole } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
@@ -83,6 +83,14 @@ const ProtectedRoute = ({ children, allowedRoles, requiredRoles, requiredPermiss
  * redirects. Split into its own component so the permissions query isn't
  * fired on every non-admin route ProtectedRoute also guards.
  */
+/**
+ * How long the gate will wait for the permission list before deciding it does
+ * not know. Waiting forever is not a safer default: a spinner with no timeout
+ * is a locked door with no handle, and this gate stands in front of eight admin
+ * pages at once.
+ */
+const PERMISSION_WAIT_MS = 8_000;
+
 function PermissionGate({
   permissions, children,
 }: {
@@ -90,9 +98,22 @@ function PermissionGate({
   children: ReactNode;
 }) {
   const { canAny, isLoading, isUnknown } = useAdminPermissions();
+
+  // `isUnknown` only ever becomes true when the request FAILS. A request that
+  // simply never settles stays "loading" forever, so the escape below could not
+  // fire and the whole permissioned admin sat on a spinner. Time is the other
+  // way a fetch can fail to answer, so treat it as one.
+  const [gaveUpWaiting, setGaveUpWaiting] = useState(false);
+  useEffect(() => {
+    if (!isLoading) { setGaveUpWaiting(false); return; }
+    const timer = window.setTimeout(() => setGaveUpWaiting(true), PERMISSION_WAIT_MS);
+    return () => window.clearTimeout(timer);
+  }, [isLoading]);
+
   // Never decide on an empty list mid-flight — that would bounce a legitimate
   // admin on first paint.
-  if (isLoading) return <PageLoader className="min-h-screen bg-background" />;
+  if (isLoading && !gaveUpWaiting) return <PageLoader className="min-h-screen bg-background" />;
+  if (gaveUpWaiting) return <>{children}</>;
   // A failed permission fetch means "we don't know", not "you have none". When
   // the API was down this bounced admins off every permissioned page to the
   // dashboard, which reads as losing access rather than as an outage. Let them

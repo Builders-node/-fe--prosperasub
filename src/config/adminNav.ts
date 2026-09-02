@@ -83,9 +83,9 @@ export const MARKETPLACE_SECTION: NavSection = {
       permissions: ["admin_settings.read"] },
     { label: "Subscriptions", path: adminRoutes.superAdminMarketplaceSubscriptions, icon: CalendarDays,
       permissions: ["subscriptions.read"] },
-    // Rentals are booked rather than subscribed, and live on their own origin,
-    // so they get their own entry instead of a workspace that would describe
-    // them in plans and periods they do not have.
+    // Rentals are booked rather than subscribed, so they get their own entry
+    // instead of a workspace that would describe them in plans and periods they
+    // do not have.
     { label: "Car rentals", path: adminRoutes.superAdminCarRentals, icon: CarFront,
       permissions: ["subscriptions.read"] },
   ],

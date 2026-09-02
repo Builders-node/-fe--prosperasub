@@ -207,6 +207,9 @@ const isAuthEndpoint = (path: string) =>
   path.startsWith("/auth/password-reset") ||
   path.startsWith("/auth/google");
 
+/** A refresh may not outlive this; see the comment on the fetch below. */
+const REFRESH_TIMEOUT_MS = 15_000;
+
 async function refreshStoredSession() {
   const current = readStoredSession();
   if (!current?.refresh_token) {
@@ -214,15 +217,30 @@ async function refreshStoredSession() {
     return null;
   }
 
+  // Bounded on purpose. `api()` wraps its own request in an AbortController,
+  // but it awaits THIS first — so a refresh that never settles is not a slow
+  // API call, it is an api() that never returns. Every admin page behind
+  // `requiredPermissions` then sits on a full-screen spinner forever, because
+  // the gate's "a failed fetch means we don't know, let them through" escape
+  // only fires on a failure and a hang is never a failure. An expired session
+  // routes every single call through here, so it is the whole admin panel.
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), REFRESH_TIMEOUT_MS);
+
   let response: Response;
   try {
     response = await fetch(`${API_URL}/auth/refresh`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refresh_token: current.refresh_token }),
+      signal: controller.signal,
     });
   } catch {
+    // A network blip (or our own timeout) is not proof the session is dead —
+    // keep it and let the caller's own request decide.
     return current;
+  } finally {
+    window.clearTimeout(timeout);
   }
 
   const data = await response.json().catch(() => null);
