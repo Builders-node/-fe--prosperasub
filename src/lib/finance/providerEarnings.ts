@@ -109,5 +109,31 @@ export async function fetchEarned(sourceKey: string, legacyId: string, start: Da
       (r) => Number(r.metadata?.people) || 0);
   }
 
+  if (source === "vehicles") {
+    // Scoped by the UNIVERSAL id: `rental_bookings.provider_id` is a
+    // `providers` reference, not a legacy one — cars never had a legacy id
+    // space to bridge from.
+    const scope = providerId || legacyId;
+    if (!scope) return { revenue: 0, units: 0 };
+    const rows = await fetchAllRows<any>(() =>
+      supabaseDb.from("rental_bookings")
+        .select("total_cents, start_date, end_date, created_at, rental_days")
+        .eq("provider_id", scope)
+        .eq("payment_status", "paid")
+        .neq("status", "cancelled")
+        .is("deleted_at", null)
+        .order("id"));
+    // Straight-line across the days the car is actually out, the same
+    // recognition every other service uses. `total_cents` is the BASE — the
+    // payment surcharge lives in its own column and is the processor's cut,
+    // never the business's revenue.
+    return acc(rows, (r) => ({
+      totalCents: Number(r.total_cents || 0),
+      serviceStart: r.start_date || r.created_at,
+      serviceEnd: r.end_date,
+      fallbackDays: Math.max(1, Number(r.rental_days) || 1),
+    }));
+  }
+
   return { revenue: 0, units: 0 };
 }

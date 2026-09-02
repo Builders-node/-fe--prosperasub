@@ -15,7 +15,7 @@
  * `global_settings.finance_default_commission_pct`.
  */
 
-export type FinanceSourceKey = "cleaning" | "beach" | "food";
+export type FinanceSourceKey = "cleaning" | "beach" | "food" | "vehicles";
 
 /** The platform's rate when a provider has none of its own. */
 export const DEFAULT_COMMISSION_PCT = 10;
@@ -32,6 +32,10 @@ export function financeSourceFor(sourceKey: string | null | undefined): FinanceS
   if (k === "cleaning") return "cleaning";
   if (k === "food") return "food";
   if (k === "beach" || k === "beach_club" || k === "entertainment") return "beach";
+  // Cars have no legacy `source_service_key` — they were never a legacy
+  // service — so a rental business is matched on its archetype. The commission
+  // model is the same one every business is on; only the table differs.
+  if (k === "vehicles") return "vehicles";
   return null;
 }
 

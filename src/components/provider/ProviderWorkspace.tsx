@@ -127,10 +127,21 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
     || (!!myUuid && !!provider?.admin_user_id && provider.admin_user_id === myUuid)
     || membershipQ.data?.role === "owner";
 
+  /**
+   * Which table this business's money is in.
+   *
+   * A different question from `sourceKey` below, which asks "does this provider
+   * have a legacy twin" and drives the portal bundles and the id bridge. Cars
+   * have no legacy key at all — they were never a legacy service — so their
+   * revenue is matched on the archetype instead. Passing the legacy key here
+   * would have shown every car business a balance of zero.
+   */
+  const financeKey = provider?.source_service_key ?? provider?.archetype_key ?? "";
+
   const kpis = useProviderKpis({
     providerId: provider?.id ?? "",
     legacyId: provider ? legacyIdOf(provider) : "",
-    sourceKey: provider?.source_service_key ?? "",
+    sourceKey: financeKey,
   });
 
   const balanceQ = useQuery({
@@ -245,7 +256,7 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
     label: "Money",
     icon: Wallet,
     render: () => (
-      <ProviderEarningsTab providerId={provider.id} legacyId={legacyId} sourceKey={sourceKey} />
+      <ProviderEarningsTab providerId={provider.id} legacyId={legacyId} sourceKey={financeKey} />
     ),
   };
 
