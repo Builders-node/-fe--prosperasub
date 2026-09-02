@@ -43,6 +43,17 @@
   ],
   "redirects": [
     {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "vehicles.everysub.net"
+        }
+      ],
+      "destination": "https://everysub.net/vehicles",
+      "permanent": true
+    },
+    {
       "source": "/:path*",
       "has": [
         {
@@ -54,6 +65,17 @@
       "permanent": true
     },
     {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.vehicles.everysub.net"
+        }
+      ],
+      "destination": "https://everysub.net/vehicles",
+      "permanent": true
+    },
+    {
       "source": "/:path*",
       "has": [
         {
@@ -62,6 +84,17 @@
         }
       ],
       "destination": "https://everysub.net/vehicles/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "vehicles.prosperasub.com"
+        }
+      ],
+      "destination": "https://everysub.net/vehicles",
       "permanent": true
     },
     {
