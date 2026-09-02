@@ -403,6 +403,15 @@ const App = () => {
                 <ProtectedRoute allowedRoles={['super_admin']} requiredPermissions={["users.read"]}><AdminUsers /></ProtectedRoute>
               } />
               {/* Car rentals: booked on their own origin, run from here. */}
+              {/* Transport is its own unit, not a service inside the marketplace:
+                  a car is one physical object for a stretch of days, priced by
+                  duration, and it is not sold in plans and periods. It keeps
+                  providers, because a rental company earns and is paid like any
+                  other business. */}
+              <Route path="/admin/transport" element={
+                <ProtectedRoute allowedRoles={['super_admin']} requiredPermissions={["subscriptions.read"]}><CarRentals /></ProtectedRoute>
+              } />
+              {/* The address it had before the split. */}
               <Route path="/admin/car-rentals" element={
                 <ProtectedRoute allowedRoles={['super_admin']} requiredPermissions={["subscriptions.read"]}><CarRentals /></ProtectedRoute>
               } />

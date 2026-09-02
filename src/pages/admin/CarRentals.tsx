@@ -60,7 +60,7 @@ export default function CarRentals({ embedded = false, providerId }: {
   providerId?: string;
 } = {}) {
   const qc = useQueryClient();
-  const [tab, setTab] = useState<"bookings" | "fleet">("bookings");
+  const [tab, setTab] = useState<"bookings" | "fleet" | "providers">("bookings");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<string>("all");
   const [busy, setBusy] = useState<string | null>(null);
@@ -104,6 +104,23 @@ export default function CarRentals({ embedded = false, providerId }: {
       const { data, error } = await q.order("sort_order");
       if (error) throw error;
       return (data ?? []) as any[];
+    },
+  });
+
+  const companiesQ = useQuery({
+    queryKey: ["transport-providers"],
+    enabled: tab === "providers" && !providerId,
+    queryFn: async () => {
+      const { data, error } = await supabaseDb
+        .from("providers")
+        .select("id, name, status, admin_user_id, avatar_url")
+        .eq("archetype_key", "vehicles")
+        .order("name");
+      if (error) throw error;
+      return (data ?? []) as Array<{
+        id: string; name: string; status: string;
+        admin_user_id: string | null; avatar_url: string | null;
+      }>;
     },
   });
 
@@ -161,7 +178,11 @@ export default function CarRentals({ embedded = false, providerId }: {
       {/* Same pill strip as the route-based AdminPageTabs, but these two are
           one page: the fleet and its bookings are read together. */}
       <div className="mb-4 inline-flex gap-1 rounded-full bg-muted/50 p-1">
-        {([["bookings", "Bookings"], ["fleet", "Fleet"]] as const).map(([value, label]) => (
+        {(embedded
+          ? ([["bookings", "Bookings"], ["fleet", "Fleet"]] as const)
+          // Inside one business's workspace there is nobody else to list.
+          : ([["bookings", "Bookings"], ["fleet", "Fleet"], ["providers", "Companies"]] as const)
+        ).map(([value, label]) => (
           <button
             key={value}
             type="button"
@@ -263,7 +284,7 @@ export default function CarRentals({ embedded = false, providerId }: {
             </div>
           </AdminListShell>
         </>
-      ) : (
+      ) : tab === "fleet" ? (
         <AdminListShell
           isLoading={vehiclesQ.isLoading}
           isError={vehiclesQ.isError}
@@ -316,6 +337,44 @@ export default function CarRentals({ embedded = false, providerId }: {
             ))}
           </div>
         </AdminListShell>
+      ) : null}
+
+      {tab === "providers" && (
+        <AdminListShell
+          isLoading={companiesQ.isLoading}
+          isError={companiesQ.isError}
+          error={companiesQ.error}
+          onRetry={() => companiesQ.refetch()}
+          isEmpty={!companiesQ.isLoading && (companiesQ.data ?? []).length === 0}
+          count={(companiesQ.data ?? []).length}
+          emptyTitle="No rental companies yet"
+          emptySubtitle="Approve an application, or add one from Marketplace → All providers."
+        >
+          <div className="space-y-space-2">
+            {(companiesQ.data ?? []).map((c) => (
+              <Link
+                key={c.id}
+                to={`/my-provider/${c.id}`}
+                className="flex items-center gap-space-3 rounded-radius-md bg-card p-space-3 transition-colors hover:bg-muted/40"
+              >
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-radius-md bg-muted">
+                  {c.avatar_url
+                    ? <img src={c.avatar_url} alt="" className="h-full w-full object-cover" />
+                    : <Car className="h-5 w-5 text-muted-foreground/40" />}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[15px] font-semibold text-foreground">{c.name}</p>
+                  {/* A business nobody owns cannot be paid, and nobody can open
+                      its workspace — worth saying here rather than at payout time. */}
+                  <p className={cn("truncate text-xs", c.admin_user_id ? "text-muted-foreground" : "text-amber-500")}>
+                    {c.admin_user_id ? c.status : `${c.status} · no owner`}
+                  </p>
+                </div>
+                <ArrowUpRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+              </Link>
+            ))}
+          </div>
+        </AdminListShell>
       )}
 
       <VehicleEditDialog
@@ -334,7 +393,7 @@ export default function CarRentals({ embedded = false, providerId }: {
   if (embedded) return body;
 
   return (
-    <SuperAdminLayout title="Car rentals" subtitle="Bookings and fleet">
+    <SuperAdminLayout title="Transport" subtitle="Car rentals — companies, fleet and bookings">
       {body}
     </SuperAdminLayout>
   );

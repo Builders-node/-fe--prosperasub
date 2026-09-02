@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { fetchAllRows } from "@/lib/supabasePaging";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
+import { isTransportArchetype } from "@/lib/services/transport";
 import { cn } from "@/lib/utils";
 
 /** Sentinel bucket for rows whose `archetype_key` is null. */
@@ -26,7 +27,10 @@ const UNASSIGNED = "__unassigned";
  * way to reach rows the tree can't show (see the Unassigned card below).
  */
 export default function MarketplaceHub() {
-  const { archetypes, isLoading: archesLoading } = useServiceArchetypes(false);
+  const { archetypes: allArchetypes, isLoading: archesLoading } = useServiceArchetypes(false);
+  // Transport is a unit of its own with its own screen; it is not a service to
+  // be managed here alongside categories and plans. See lib/services/transport.
+  const archetypes = allArchetypes.filter((a) => !isTransportArchetype(a.key));
 
   const { data: counts, isLoading: countsLoading } = useQuery({
     queryKey: ["marketplace-hub-counts"],
