@@ -256,10 +256,10 @@ const AdminClients = () => {
             return (
               <div
                 key={c.id}
-                className={cn("rounded-2xl bg-card p-4", c.deleted_at && "opacity-60")}
+                className={cn("rounded-radius-md bg-card p-4", c.deleted_at && "opacity-60")}
               >
                 <div className="flex items-start gap-3">
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-radius-md bg-primary/10">
                     <Building2 className="h-5 w-5 text-primary" />
                   </span>
 

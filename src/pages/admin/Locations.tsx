@@ -124,12 +124,12 @@ const Locations = () => {
         </div>
 
         {isLoading ? (
-          <div className="space-y-3">{[1, 2].map((i) => <div key={i} className="h-16 animate-pulse rounded-2xl bg-muted" />)}</div>
+          <div className="space-y-3">{[1, 2].map((i) => <div key={i} className="h-16 animate-pulse rounded-radius-md bg-muted" />)}</div>
         ) : isError ? (
           /* Not "no locations" — we could not ask. */
           <QueryError title="Couldn't load locations" error={error as Error} onRetry={() => void refetch()} />
         ) : residences.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-2xl border border-border bg-card py-14 text-center">
+          <div className="flex flex-col items-center justify-center rounded-radius-md border border-border bg-card py-14 text-center">
             <MapPin className="mb-3 h-10 w-10 text-muted-foreground/30" />
             <p className="font-semibold">No locations yet</p>
             <p className="mt-1 text-sm text-muted-foreground">Add your first residence to start delivering there.</p>
@@ -137,8 +137,8 @@ const Locations = () => {
         ) : (
           <div className="space-y-3">
             {residences.map((r) => (
-              <div key={r.id} className="flex items-center gap-4 rounded-2xl border border-border bg-card p-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-500/10">
+              <div key={r.id} className="flex items-center gap-4 rounded-radius-md border border-border bg-card p-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-radius-md bg-orange-500/10">
                   <MapPin className="h-5 w-5 text-orange-400" />
                 </div>
                 <div className="min-w-0 flex-1">

@@ -353,13 +353,13 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
               const isRejected = a.status === "rejected";
               return (
                 <div key={a.id} className={cn(
-                  "flex flex-col gap-4 rounded-2xl bg-card p-4 transition-colors",
+                  "flex flex-col gap-4 rounded-radius-md bg-card p-4 transition-colors",
                   isPending && "ring-1 ring-amber-500/25",
                 )}>
                   {/* ── Header ── */}
                   <div className="flex items-start gap-3">
                     <div className={cn(
-                      "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white",
+                      "flex h-11 w-11 shrink-0 items-center justify-center rounded-radius-md text-white",
                       svc?.accent ?? "bg-muted",
                     )}>
                       <Icon className="h-5 w-5" />
@@ -403,11 +403,11 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
                   </div>
 
                   {a.description && (
-                    <p className="rounded-xl bg-muted/40 p-3 text-sm text-muted-foreground">{a.description}</p>
+                    <p className="rounded-radius-md bg-muted/40 p-3 text-sm text-muted-foreground">{a.description}</p>
                   )}
 
                   {isRejected && a.review_notes && (
-                    <p className="rounded-xl bg-red-500/10 p-3 text-xs text-red-300">
+                    <p className="rounded-radius-md bg-red-500/10 p-3 text-xs text-red-300">
                       <span className="font-semibold">Rejection reason:</span> {a.review_notes}
                     </p>
                   )}

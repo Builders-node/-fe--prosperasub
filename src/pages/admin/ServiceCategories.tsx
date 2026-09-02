@@ -286,11 +286,11 @@ export default function ServiceCategories({ embedded = false, archetypeKey }: Se
                       <div
                         key={c.key}
                         className={cn(
-                          "flex items-start gap-3 rounded-2xl bg-card p-4 transition-colors",
+                          "flex items-start gap-3 rounded-radius-md bg-card p-4 transition-colors",
                           !c.is_active && "opacity-60",
                         )}
                       >
-                        <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl", c.accent, "bg-opacity-15")}>
+                        <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-radius-md", c.accent, "bg-opacity-15")}>
                           <Icon className="h-5 w-5 text-foreground" />
                         </div>
                         <div className="min-w-0 flex-1">

@@ -298,7 +298,7 @@ export default function BeachClubSubscriptions({ embedded = false }: { embedded?
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-[hsl(var(--app-divider))]">
+      <div className="overflow-hidden rounded-radius-md border border-[hsl(var(--app-divider))]">
         <Table>
           <TableHeader>
             <TableRow>
@@ -488,7 +488,7 @@ export default function BeachClubSubscriptions({ embedded = false }: { embedded?
               <Label>Payment reference (optional)</Label>
               <Input value={form.payment_reference} onChange={(e) => setForm((f) => ({ ...f, payment_reference: e.target.value }))} placeholder="Tx hash / invoice id" />
             </div>
-            <div className="flex items-center justify-between rounded-xl bg-muted/40 px-4 py-3">
+            <div className="flex items-center justify-between rounded-radius-md bg-muted/40 px-4 py-3">
               <span className="text-sm text-muted-foreground">Total</span>
               <span className="font-black tabular-nums text-foreground">{formatUSD(newTotalCents)}</span>
             </div>

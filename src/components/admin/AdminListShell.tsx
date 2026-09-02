@@ -91,11 +91,11 @@ export function AdminListShell({
       {isLoading ? (
         <div className={skeleton === "cards" ? "grid gap-space-3 sm:grid-cols-2 lg:grid-cols-3" : "space-y-space-2"}>
           {Array.from({ length: skeleton === "cards" ? 6 : 5 }).map((_, i) => (
-            <div key={i} className={cn("animate-pulse rounded-2xl bg-muted", skeleton === "cards" ? "h-40" : "h-16")} />
+            <div key={i} className={cn("animate-pulse rounded-radius-md bg-muted", skeleton === "cards" ? "h-40" : "h-16")} />
           ))}
         </div>
       ) : isError ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-destructive/30 bg-destructive/5 py-14 text-center">
+        <div className="flex flex-col items-center justify-center rounded-radius-md border border-destructive/30 bg-destructive/5 py-14 text-center">
           <AlertTriangle className="mb-3 h-10 w-10 text-destructive/60" />
           <p className="font-semibold text-foreground">Couldn't load this list</p>
           <p className="mt-1 max-w-md px-6 text-sm text-muted-foreground">
@@ -108,13 +108,13 @@ export function AdminListShell({
           )}
         </div>
       ) : isEmpty ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-border bg-card py-14 text-center">
+        <div className="flex flex-col items-center justify-center rounded-radius-md border border-border bg-card py-14 text-center">
           <Inbox className="mb-3 h-10 w-10 text-muted-foreground/30" />
           <p className="font-semibold text-foreground">{emptyTitle}</p>
           <p className="mt-1 text-sm text-muted-foreground">{emptySubtitle}</p>
         </div>
       ) : isNoResults ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-border bg-card py-14 text-center">
+        <div className="flex flex-col items-center justify-center rounded-radius-md border border-border bg-card py-14 text-center">
           <Search className="mb-3 h-10 w-10 text-muted-foreground/30" />
           <p className="font-semibold text-foreground">No matches</p>
           <p className="mt-1 text-sm text-muted-foreground">Nothing matches the current search or filters.</p>

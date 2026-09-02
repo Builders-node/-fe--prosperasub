@@ -294,7 +294,7 @@ const AdminUsers = () => {
       </p>
 
       {/* Table */}
-      <div className="overflow-hidden rounded-2xl bg-card">
+      <div className="overflow-hidden rounded-radius-md bg-card">
         {isLoading ? (
           <div className="divide-y divide-border/40">
             {Array.from({ length: 6 }).map((_, i) => (
@@ -735,7 +735,7 @@ function EditUserForm({ user, auditLogs, onSave, onSoftDelete, saving, deleting 
         </div>
 
         {/* Location / Residence */}
-        <div className="space-y-3 rounded-2xl bg-muted/20 p-3">
+        <div className="space-y-3 rounded-radius-md bg-muted/20 p-3">
           <Label>Location / Residence</Label>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>

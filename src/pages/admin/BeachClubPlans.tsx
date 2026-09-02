@@ -166,7 +166,7 @@ export default function BeachClubPlans({ embedded = false }: { embedded?: boolea
         <Button onClick={openCreate} className="gap-2"><Plus className="h-4 w-4" /> New Plan</Button>
       </div>
 
-      <div className="overflow-hidden rounded-2xl border border-[hsl(var(--app-divider))]">
+      <div className="overflow-hidden rounded-radius-md border border-[hsl(var(--app-divider))]">
         <Table>
           <TableHeader>
             <TableRow>
@@ -287,13 +287,13 @@ export default function BeachClubPlans({ embedded = false }: { embedded?: boolea
                       onChange={(e) => setForm((f) => ({ ...f, extraDollars: parseFloat(e.target.value) || 0 }))} />
                   </div>
                 </div>
-                <div className="flex items-center justify-between rounded-xl border border-[hsl(var(--app-divider))] bg-muted/30 px-4 py-3">
+                <div className="flex items-center justify-between rounded-radius-md border border-[hsl(var(--app-divider))] bg-muted/30 px-4 py-3">
                   <span className="text-sm font-medium text-muted-foreground">Customer price / person (auto)</span>
                   <span className="font-mono text-base font-bold text-foreground">
                     {formatUSD(Math.round(((form.providerPriceDollars || 0) + (form.extraDollars || 0)) * 100))} / mo
                   </span>
                 </div>
-                <div className="flex items-center justify-between rounded-xl border border-[hsl(var(--app-divider))] px-4 py-3">
+                <div className="flex items-center justify-between rounded-radius-md border border-[hsl(var(--app-divider))] px-4 py-3">
                   <Label className="cursor-pointer">Featured (Most Popular)</Label>
                   <Switch checked={form.featured} onCheckedChange={(v) => setForm((f) => ({ ...f, featured: v }))} />
                 </div>

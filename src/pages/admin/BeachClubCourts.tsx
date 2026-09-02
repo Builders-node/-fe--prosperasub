@@ -408,7 +408,7 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
       </div>
 
       {courts.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-[hsl(var(--app-divider))] bg-card py-16 text-center">
+        <div className="flex flex-col items-center justify-center rounded-radius-md border border-[hsl(var(--app-divider))] bg-card py-16 text-center">
           <Waves className="mb-3 h-10 w-10 text-muted-foreground/40" />
           <p className="font-semibold text-foreground">No courts yet</p>
           <p className="mt-1 max-w-sm text-sm text-muted-foreground">
@@ -419,7 +419,7 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
           </Button>
         </div>
       ) : activeCourts.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl border border-[hsl(var(--app-divider))] bg-card py-14 text-center">
+        <div className="flex flex-col items-center justify-center rounded-radius-md border border-[hsl(var(--app-divider))] bg-card py-14 text-center">
           <EyeOff className="mb-3 h-10 w-10 text-muted-foreground/40" />
           <p className="font-semibold text-foreground">All courts are hidden</p>
           <p className="mt-1 text-sm text-muted-foreground">Activate a court from "Manage courts" to start booking.</p>
@@ -427,7 +427,7 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
       ) : (
         <>
           {/* Date controls */}
-          <div className="mb-space-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-card p-space-4">
+          <div className="mb-space-4 flex flex-wrap items-center justify-between gap-3 rounded-radius-md bg-card p-space-4">
             <div className="flex items-center gap-2">
               <Button variant="secondary" size="iconSm" className="rounded-full" onClick={() => shiftDay(-1)} aria-label="Previous day">
                 <ChevronLeft className="h-4 w-4" />
@@ -465,7 +465,7 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
           </div>
 
           {/* Hourly slot grid */}
-          <div className="rounded-2xl border border-[hsl(var(--app-divider))] bg-card p-space-4">
+          <div className="rounded-radius-md border border-[hsl(var(--app-divider))] bg-card p-space-4">
             <div className={cn("grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3", bookingsLoading && "opacity-50")}>
               {HOURS.length === 0 ? (
                 <p className="col-span-full py-8 text-center text-sm text-muted-foreground">
@@ -478,7 +478,7 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
                   <div
                     key={h}
                     className={cn(
-                      "flex items-center justify-between gap-3 rounded-xl border px-4 py-3 transition-colors",
+                      "flex items-center justify-between gap-3 rounded-radius-md border px-4 py-3 transition-colors",
                       b ? "border-primary/40 bg-primary/5"
                         : past ? "border-[hsl(var(--app-divider))] bg-muted/20 opacity-60"
                         : "border-[hsl(var(--app-divider))] bg-background/40",
@@ -537,7 +537,7 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
-            <div className="rounded-xl bg-muted/40 px-4 py-3 text-sm">
+            <div className="rounded-radius-md bg-muted/40 px-4 py-3 text-sm">
               <p className="font-semibold text-foreground">{format(new Date(`${date}T00:00:00`), "EEEE, MMM d, yyyy")}</p>
               <p className="text-muted-foreground">{bookSlot !== null ? slotLabel(bookSlot) : ""}</p>
             </div>
@@ -569,8 +569,8 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
           </DialogHeader>
           <div className="space-y-2">
             {courts.map((c) => (
-              <div key={c.id} className="flex items-center gap-3 rounded-2xl border border-[hsl(var(--app-divider))] p-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <div key={c.id} className="flex items-center gap-3 rounded-radius-md border border-[hsl(var(--app-divider))] p-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-radius-md bg-primary/10 text-primary">
                   <CircleDot className="h-5 w-5" />
                 </div>
                 <div className="min-w-0 flex-1">
@@ -679,7 +679,7 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
 
             {/* Calendar sync */}
             {editing && editing !== "new" && (
-              <div className="rounded-2xl border border-[hsl(var(--app-divider))] bg-muted/20 p-3">
+              <div className="rounded-radius-md border border-[hsl(var(--app-divider))] bg-muted/20 p-3">
                 <p className="mb-2 flex items-center gap-1.5 text-sm font-bold text-foreground">
                   <LinkIcon className="h-3.5 w-3.5" /> Calendar sync
                 </p>

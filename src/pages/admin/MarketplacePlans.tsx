@@ -154,7 +154,7 @@ const MarketplacePlans = ({ embedded = false, archetypeKey }: MarketplacePlansPr
         emptyTitle="No plans yet" emptySubtitle="Providers can create plans in their portal."
         onClearFilters={() => { setSearch(""); setServiceFilter("all"); setProviderId("all"); setStatus("all"); }}
       >
-        <div className="overflow-hidden rounded-2xl bg-card">
+        <div className="overflow-hidden rounded-radius-md bg-card">
           {/* Desktop header row */}
           <div className="hidden grid-cols-[minmax(0,3fr)_minmax(0,2fr)_120px_minmax(0,1fr)_80px_80px] items-center gap-4 border-b border-border/40 px-space-5 py-space-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground md:grid">
             <div>Plan</div>
@@ -173,7 +173,7 @@ const MarketplacePlans = ({ embedded = false, archetypeKey }: MarketplacePlansPr
 
               const planCell = (
                 <div className="flex min-w-0 items-center gap-3">
-                  <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl", arche?.accent ?? "bg-muted")}>
+                  <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-radius-md", arche?.accent ?? "bg-muted")}>
                     <AIcon className="h-4 w-4 text-white" />
                   </div>
                   <div className="min-w-0">

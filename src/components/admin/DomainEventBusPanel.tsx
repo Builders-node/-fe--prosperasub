@@ -32,7 +32,7 @@ export function DomainEventBusPanel() {
   });
 
   return (
-    <section className="mt-8 rounded-2xl border border-border bg-card p-5">
+    <section className="mt-8 rounded-radius-md border border-border bg-card p-5">
       <div className="flex flex-wrap items-center gap-2">
         <Activity className="h-5 w-5 text-primary" />
         <h3 className="font-bold text-foreground">Domain event bus</h3>
@@ -48,7 +48,7 @@ export function DomainEventBusPanel() {
             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Events by type</span>
             <span className="text-sm tabular-nums text-muted-foreground">{summary?.grandTotal ?? 0} total</span>
           </div>
-          <div className="overflow-hidden rounded-xl border border-border/60">
+          <div className="overflow-hidden rounded-radius-md border border-border/60">
             <table className="w-full text-sm">
               <tbody>
                 {(summary?.totals ?? []).slice(0, 12).map((r) => (
@@ -70,7 +70,7 @@ export function DomainEventBusPanel() {
             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Revenue by method (projection)</span>
             <span className="text-sm font-bold tabular-nums text-primary">{formatUSD(revenue?.totalCents ?? 0)}</span>
           </div>
-          <div className="overflow-hidden rounded-xl border border-border/60">
+          <div className="overflow-hidden rounded-radius-md border border-border/60">
             <table className="w-full text-sm">
               <tbody>
                 {(revenue?.byMethod ?? []).map((r) => (

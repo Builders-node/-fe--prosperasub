@@ -330,7 +330,7 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
             </div>
           )}
 
-          <div className="overflow-hidden rounded-2xl bg-card">
+          <div className="overflow-hidden rounded-radius-md bg-card">
             {/* Header row */}
             <div className="hidden grid-cols-[minmax(0,3fr)_140px_minmax(0,2fr)_100px_80px] items-center gap-4 border-b border-border/40 px-space-5 py-space-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground md:grid">
               <div>Provider</div>

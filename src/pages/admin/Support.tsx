@@ -113,13 +113,13 @@ export default function AdminSupport() {
             const open = expanded === m.id;
             const handled = m.status === "handled";
             return (
-              <div key={m.id} className={cn("overflow-hidden rounded-2xl bg-card", handled && "opacity-70")}>
+              <div key={m.id} className={cn("overflow-hidden rounded-radius-md bg-card", handled && "opacity-70")}>
                 <button
                   type="button"
                   onClick={() => setExpanded(open ? null : m.id)}
                   className="flex w-full items-start gap-3 p-4 text-left transition-colors hover:bg-muted/30"
                 >
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-radius-md bg-primary/10">
                     <LifeBuoy className="h-5 w-5 text-primary" />
                   </span>
                   <div className="min-w-0 flex-1">

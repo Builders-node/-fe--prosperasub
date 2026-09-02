@@ -94,7 +94,7 @@ export default function MarketplaceHub() {
       <div className="space-y-6">
         {loading ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {[1, 2, 3, 4].map((i) => <div key={i} className="h-36 animate-pulse rounded-2xl bg-muted" />)}
+            {[1, 2, 3, 4].map((i) => <div key={i} className="h-36 animate-pulse rounded-radius-md bg-muted" />)}
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -108,12 +108,12 @@ export default function MarketplaceHub() {
                     // min-w-0: a grid item will not shrink below its content without it,
                     // and then nothing inside can truncate — which is how these
                     // cards grew wider than a phone.
-                    "group flex min-w-0 flex-col gap-4 rounded-2xl bg-card p-5 transition-colors hover:bg-muted/40",
+                    "group flex min-w-0 flex-col gap-4 rounded-radius-md bg-card p-5 transition-colors hover:bg-muted/40",
                     !a.is_active && "opacity-60",
                   )}
                 >
                   <div className="flex items-start gap-3">
-                    <div className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-xl", a.accent)}>
+                    <div className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-radius-md", a.accent)}>
                       <a.Icon className="h-5 w-5 text-white" />
                     </div>
                     <div className="min-w-0 flex-1">
@@ -151,10 +151,10 @@ export default function MarketplaceHub() {
             {hasOrphans && (
               <Link
                 to="/admin/marketplace/service/unassigned"
-                className="group flex flex-col gap-4 rounded-2xl border border-dashed border-amber-500/40 bg-card p-5 transition-colors hover:bg-muted/40"
+                className="group flex flex-col gap-4 rounded-radius-md border border-dashed border-amber-500/40 bg-card p-5 transition-colors hover:bg-muted/40"
               >
                 <div className="flex items-start gap-3">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-500/15">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-radius-md bg-amber-500/15">
                     <AlertTriangle className="h-5 w-5 text-amber-400" />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -176,7 +176,7 @@ export default function MarketplaceHub() {
         )}
 
         {/* Cross-service lists — the escape hatch out of the tree. */}
-        <div className="rounded-2xl bg-card p-5">
+        <div className="rounded-radius-md bg-card p-5">
           <h2 className="text-caption font-bold uppercase tracking-[0.16em] text-muted-foreground">
             Across all services
           </h2>
@@ -199,7 +199,7 @@ export default function MarketplaceHub() {
 
 function HubStat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="min-w-0 rounded-xl bg-[hsl(var(--app-rail))] px-3 py-2">
+    <div className="min-w-0 rounded-radius-md bg-[hsl(var(--app-rail))] px-3 py-2">
       <dt className="truncate text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</dt>
       <dd className="text-lg font-black tabular-nums text-foreground">{value}</dd>
     </div>

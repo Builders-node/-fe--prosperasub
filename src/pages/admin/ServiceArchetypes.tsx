@@ -147,7 +147,7 @@ export default function ServiceArchetypes() {
                 <div
                   key={a.key}
                   className={cn(
-                    "flex flex-col gap-3 rounded-2xl bg-card p-4 transition-colors",
+                    "flex flex-col gap-3 rounded-radius-md bg-card p-4 transition-colors",
                     inactive && "opacity-60",
                   )}
                 >
@@ -156,7 +156,7 @@ export default function ServiceArchetypes() {
                         hue as before but at low alpha so it reads as a chip,
                         not a vivid button. Kills the "colored disc chaos" from
                         the old design. */}
-                    <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl", a.accent, "bg-opacity-15")}>
+                    <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-radius-md", a.accent, "bg-opacity-15")}>
                       <Icon className="h-5 w-5 text-foreground" />
                     </div>
                     <div className="min-w-0 flex-1">

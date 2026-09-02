@@ -27,7 +27,7 @@ const placementLabel = (value: string) =>
 function AdPreview({ form }: { form: typeof EMPTY_AD }) {
   return (
     <div
-      className="relative flex items-center justify-center gap-2.5 overflow-hidden rounded-xl px-10 py-2.5"
+      className="relative flex items-center justify-center gap-2.5 overflow-hidden rounded-radius-md px-10 py-2.5"
       style={{
         background: `linear-gradient(90deg, ${form.gradient_from} 0%, ${form.gradient_via} 45%, ${form.gradient_to} 100%)`,
       }}
@@ -191,16 +191,16 @@ const AdsManagement = () => {
         </div>
 
         {isLoading ? (
-          <div className="space-y-3">{[1, 2].map((i) => <div key={i} className="h-24 animate-pulse rounded-2xl bg-muted" />)}</div>
+          <div className="space-y-3">{[1, 2].map((i) => <div key={i} className="h-24 animate-pulse rounded-radius-md bg-muted" />)}</div>
         ) : isError ? (
           /* Not "no ads" — we could not ask. */
           <QueryError title="Couldn't load ads" error={error as Error} onRetry={() => void refetch()} />
         ) : ads.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-border p-10 text-center text-muted-foreground">No ads yet. Create one to show a banner.</div>
+          <div className="rounded-radius-md border border-dashed border-border p-10 text-center text-muted-foreground">No ads yet. Create one to show a banner.</div>
         ) : (
           <div className="space-y-3">
             {ads.map((a) => (
-              <div key={a.id} className={`rounded-2xl border bg-card p-4 ${a.is_active ? "border-border" : "border-border/40 opacity-60"}`}>
+              <div key={a.id} className={`rounded-radius-md border bg-card p-4 ${a.is_active ? "border-border" : "border-border/40 opacity-60"}`}>
                 <div className="flex items-center gap-3">
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
                     <Megaphone className="h-4 w-4 text-primary" />
@@ -276,7 +276,7 @@ const AdsManagement = () => {
               <Input value={form.link_url} onChange={(e) => set("link_url", e.target.value)} placeholder="https://infinita.money/" />
             </div>
 
-            <div className="space-y-2 rounded-xl border border-border/60 p-3">
+            <div className="space-y-2 rounded-radius-md border border-border/60 p-3">
               <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Colors</Label>
               <div className="grid grid-cols-3 gap-3">
                 <ColorField label="Gradient left" value={form.gradient_from} onChange={(v) => set("gradient_from", v)} />

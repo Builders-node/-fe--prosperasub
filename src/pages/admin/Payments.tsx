@@ -401,7 +401,7 @@ const AdminPayments = () => {
               return (
                 <div key={method} className="flex flex-col gap-3 px-space-5 py-space-4 sm:flex-row sm:items-center sm:gap-space-4">
                   <div className="flex min-w-0 flex-1 items-center gap-space-4">
-                    <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${enabled ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}`}>
+                    <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-radius-md ${enabled ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}`}>
                       <Icon className="h-5 w-5" />
                     </span>
                     <div className="min-w-0 flex-1">
@@ -815,7 +815,7 @@ function FinanceTile({
 }) {
   return (
     <div
-      className={`flex flex-col gap-2 rounded-2xl bg-card p-4 ${warning ? "bg-amber-500/10" : ""} ${className ?? ""}`}
+      className={`flex flex-col gap-2 rounded-radius-md bg-card p-4 ${warning ? "bg-amber-500/10" : ""} ${className ?? ""}`}
     >
       <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
         {label}

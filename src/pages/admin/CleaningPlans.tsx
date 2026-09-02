@@ -435,8 +435,8 @@ const CleaningPlans = ({
           { label: "Private",     value: stats.private, icon: Package,      tint: "bg-muted text-muted-foreground" },
           { label: "Draft",       value: stats.draft,   icon: Package,      tint: "bg-muted text-muted-foreground" },
         ].map((s) => (
-          <div key={s.label} className="flex items-center gap-3 rounded-2xl bg-card p-4">
-            <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl", s.tint)}>
+          <div key={s.label} className="flex items-center gap-3 rounded-radius-md bg-card p-4">
+            <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-radius-md", s.tint)}>
               <s.icon className="h-5 w-5" />
             </span>
             <div className="min-w-0">
@@ -481,12 +481,12 @@ const CleaningPlans = ({
       {isLoading ? (
         <div className="py-12 text-center text-sm text-muted-foreground">Loading plans…</div>
       ) : filteredPlans.length === 0 ? (
-        <div className="rounded-3xl bg-card py-12 text-center text-sm text-muted-foreground">No plans match this filter</div>
+        <div className="rounded-radius-lg bg-card py-12 text-center text-sm text-muted-foreground">No plans match this filter</div>
       ) : (
         <div className="space-y-2">
           {plansPager.paged.map((plan) => (
-            <div key={plan.id} className="flex items-center gap-3 rounded-2xl bg-card p-4">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary">
+            <div key={plan.id} className="flex items-center gap-3 rounded-radius-md bg-card p-4">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-radius-md bg-primary/15 text-primary">
                 <SparklesIcon className="h-5 w-5" />
               </span>
               <div className="min-w-0 flex-1">
@@ -528,7 +528,7 @@ const CleaningPlans = ({
           </div>
           <div className="space-y-2">
             {visibleAssignments.map((assignment: any) => (
-              <div key={assignment.id} className="flex items-center gap-3 rounded-2xl bg-card p-4">
+              <div key={assignment.id} className="flex items-center gap-3 rounded-radius-md bg-card p-4">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <p className="truncate text-sm font-bold text-foreground">{assignment.client.company_name}</p>

@@ -73,7 +73,7 @@ export default function MarketplaceServiceDetail() {
   if (!isLoading && !isUnassigned && !archetype) {
     return (
       <SuperAdminLayout title="Service not found">
-        <div className="rounded-2xl bg-card p-8 text-center">
+        <div className="rounded-radius-md bg-card p-8 text-center">
           <AlertTriangle className="mx-auto h-8 w-8 text-amber-400" />
           <p className="mt-3 font-bold text-foreground">No service named "{key}"</p>
           <p className="mt-1 text-sm text-muted-foreground">

@@ -1142,7 +1142,7 @@ const CleaningManagement = ({
               subtitle="Completed sessions will appear here with checklist, notes, and photo links."
             />
           ) : (
-            <div className="overflow-hidden rounded-2xl bg-card">
+            <div className="overflow-hidden rounded-radius-md bg-card">
               <ul className="divide-y divide-border/40">
                 {completionReports.map((report: any) => {
                   const hasNotes = !!(report.notes && report.notes.trim());

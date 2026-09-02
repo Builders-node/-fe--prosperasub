@@ -257,7 +257,7 @@ const AdminDashboard = () => {
       {pendingQueue.length > 0 && (
         <section className="mt-6">
           <SectionOverline label="Awaiting payment" count={pendingQueue.length} className="mb-3" />
-          <div className="overflow-hidden rounded-2xl bg-card">
+          <div className="overflow-hidden rounded-radius-md bg-card">
             <ul className="divide-y divide-border/40">
               {pendingQueue.map((row) => {
                 const Icon = row.ServiceIcon;
@@ -308,7 +308,7 @@ const AdminDashboard = () => {
               <Link
                 key={key}
                 to={meta.href}
-                className="group flex flex-col gap-3 rounded-2xl bg-card p-4 transition-colors hover:bg-muted/40"
+                className="group flex flex-col gap-3 rounded-radius-md bg-card p-4 transition-colors hover:bg-muted/40"
               >
                 <div className="flex items-center gap-2">
                   <Icon className="h-4 w-4 text-muted-foreground" />
@@ -339,11 +339,11 @@ const AdminDashboard = () => {
       <section className="mt-6">
         <SectionOverline label="Recent activity" count={recentActivity.length} className="mb-3" />
         {recentActivity.length === 0 ? (
-          <div className="rounded-2xl bg-card p-6 text-center text-sm text-muted-foreground">
+          <div className="rounded-radius-md bg-card p-6 text-center text-sm text-muted-foreground">
             No recent activity
           </div>
         ) : (
-          <div className="overflow-hidden rounded-2xl bg-card">
+          <div className="overflow-hidden rounded-radius-md bg-card">
             <ul className="divide-y divide-border/40">
               {recentActivity.map((a: any) => {
                 const meta = SERVICE_META[a.service as ServiceKey];
@@ -395,7 +395,7 @@ function MetricTile({
     <Link
       to={href}
       className={cn(
-        "group flex flex-col gap-2 rounded-2xl bg-card p-4 transition-colors hover:bg-muted/40",
+        "group flex flex-col gap-2 rounded-radius-md bg-card p-4 transition-colors hover:bg-muted/40",
         warning && "bg-amber-500/10",
         className,
       )}

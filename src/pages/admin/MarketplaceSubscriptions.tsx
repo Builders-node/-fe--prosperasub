@@ -310,7 +310,7 @@ const MarketplaceSubscriptions = () => {
           emptyTitle="No sales yet" emptySubtitle="Subscriptions and bookings will appear here."
           onClearFilters={() => { setSearch(""); setService("all"); setStatus("all"); setPayment("all"); setKind("all"); setOrigin("all"); }}
         >
-          <div className="overflow-x-auto rounded-2xl border border-border">
+          <div className="overflow-x-auto rounded-radius-md border border-border">
             <table className="w-full min-w-[900px] text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/40 text-left">

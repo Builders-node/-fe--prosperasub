@@ -450,7 +450,7 @@ export function FinanceBreakdown() {
       <CardContent>
         {/* Period + total strip — neutral card background, primary accent lives
             on the total number only. Matches the Dashboard's headline tiles. */}
-        <div className="mb-space-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-muted/40 px-5 py-4">
+        <div className="mb-space-4 flex flex-wrap items-center justify-between gap-3 rounded-radius-md bg-muted/40 px-5 py-4">
           <span className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
             <CalendarRange className="h-4 w-4" />
             {format(start, "MMM d, yyyy")} — {format(end, "MMM d, yyyy")}
