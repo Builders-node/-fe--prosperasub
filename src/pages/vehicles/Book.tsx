@@ -26,6 +26,7 @@ import { calcRentalPrice, extraCost } from "@/types/carRental";
 import { fetchHeldRanges, overlapsHeld } from "@/lib/vehicles/availability";
 import { formatUSD, centsToDollars } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
+import { carPath } from "@/pages/vehicles/routes";
 
 export default function Book() {
   const { id } = useParams<{ id: string }>();
@@ -185,7 +186,7 @@ export default function Book() {
       <p className="text-[16px] font-semibold text-foreground">
         {problem ?? "Something's missing for this booking."}
       </p>
-      <Button variant="secondary" className="mt-3" onClick={() => navigate(v ? `/vehicle/${v.id}` : "/")}>
+      <Button variant="secondary" className="mt-3" onClick={() => navigate(v ? carPath(`vehicle/${v.id}`) : carPath())}>
         {v ? "Choose dates" : "Back to fleet"}
       </Button>
     </AppContainer>
@@ -200,7 +201,7 @@ export default function Book() {
           {v.name} · {format(new Date(fromISO + "T00:00:00"), "MMM d")} → {format(new Date(toISOParam + "T00:00:00"), "MMM d")}
         </p>
         <p className="mt-1 text-[16px] font-semibold tabular-nums text-foreground">{formatUSD(baseTotal)}</p>
-        <Button className="mt-6 w-full" onClick={() => navigate("/my-bookings")}>View my bookings</Button>
+        <Button className="mt-6 w-full" onClick={() => navigate(carPath("my-bookings"))}>View my bookings</Button>
       </div>
     </AppContainer>
   );

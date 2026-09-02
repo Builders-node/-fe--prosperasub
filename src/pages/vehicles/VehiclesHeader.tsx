@@ -11,25 +11,20 @@ import {
 import { LanguageMenu } from "@/components/LanguageMenu";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
+import { carPath, trimPath } from "@/pages/vehicles/routes";
 import { cn } from "@/lib/utils";
 
 /**
- * The car storefront's header, built to read as the same product as
- * everysub.net: the 68px bordered bar, the 19px black wordmark, the round
+ * The car storefront's header, built to read as the same product as the
+ * marketplace: the 68px bordered bar, the 19px black wordmark, the round
  * avatar dropdown and the CTA pill are the marketplace's own, reusing its
  * dropdown primitives rather than a second look-alike.
  *
- * What differs is only what a different origin forces: the account entries
- * that live on the marketplace (profile, subscriptions) are absolute links
- * back to everysub.net, because those routes do not exist in this router. The
- * session is shared, so following one lands already signed in.
+ * The account entries that live on the marketplace — profile, the rest of the
+ * catalogue — are ordinary routes now that this is a section of one app rather
+ * than a second origin. What stays this section's own is what is genuinely
+ * about cars: the wordmark and the fleet admin.
  */
-
-const MARKETPLACE_ORIGIN = "https://everysub.net";
-
-const goToMarketplace = (path: string) => {
-  window.location.href = `${MARKETPLACE_ORIGIN}${path}`;
-};
 
 function VehiclesAccountMenu() {
   const { userData, isSuperAdmin, logout } = useAuth();
@@ -53,14 +48,14 @@ function VehiclesAccountMenu() {
         <AppDropdownProfile
           title={displayName}
           subtitle="Open profile"
-          onSelect={() => goToMarketplace("/account")}
+          onSelect={() => navigate("/account")}
         />
         <div className="space-y-space-1">
-          <AppDropdownItem icon={CalendarCheck} title="My bookings" to="/my-bookings" />
+          <AppDropdownItem icon={CalendarCheck} title="My bookings" to={carPath("my-bookings")} />
           <AppDropdownItem
             icon={Store}
             title="EverySub marketplace"
-            onSelect={() => goToMarketplace("/discovery")}
+            onSelect={() => navigate("/discovery")}
           />
         </div>
         {isSuperAdmin && (
@@ -71,7 +66,7 @@ function VehiclesAccountMenu() {
                 icon={ShieldCheck}
                 title="Fleet admin"
                 subtitle="Vehicles and bookings"
-                to="/admin/vehicles"
+                to={carPath("admin/vehicles")}
                 endIcon
               />
             </div>
@@ -83,7 +78,7 @@ function VehiclesAccountMenu() {
           <AppDropdownItem
             icon={LogOut}
             title="Log out"
-            onSelect={() => void logout().then(() => navigate("/"))}
+            onSelect={() => void logout().then(() => navigate(carPath()))}
             danger
           />
         </div>
@@ -110,7 +105,7 @@ function LogInButton() {
 function Wordmark() {
   return (
     <Link
-      to="/"
+      to={carPath()}
       className="shrink-0 text-[19px] font-black tracking-tight text-foreground transition-colors hover:text-primary"
     >
       EverySub <span className="text-primary">Cars</span>
@@ -129,7 +124,7 @@ export function VehiclesHeader() {
       to={to}
       className={cn(
         "rounded-full px-3 py-1.5 text-[13px] font-semibold transition-colors",
-        pathname === to ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground",
+        trimPath(pathname) === to ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground",
       )}
     >
       {label}
@@ -152,9 +147,9 @@ export function VehiclesHeader() {
         <div className="app-container flex h-[68px] items-center gap-4">
           <Wordmark />
           <nav className="flex items-center gap-1">
-            {navItem("/", "Fleet")}
-            {isAuthenticated && navItem("/my-bookings", "My bookings")}
-            {isSuperAdmin && navItem("/admin/vehicles", "Admin")}
+            {navItem(carPath(), "Fleet")}
+            {isAuthenticated && navItem(carPath("my-bookings"), "My bookings")}
+            {isSuperAdmin && navItem(carPath("admin/vehicles"), "Admin")}
           </nav>
           <div className="ml-auto flex items-center gap-3">
             <LanguageMenu />

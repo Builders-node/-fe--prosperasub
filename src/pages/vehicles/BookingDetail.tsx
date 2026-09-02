@@ -19,6 +19,7 @@ import { supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatUSD, centsToDollars } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
+import { carPath } from "@/pages/vehicles/routes";
 
 /**
  * One rental, in full — and the two things a customer could not do before.
@@ -136,7 +137,7 @@ export default function BookingDetail() {
   if (!booking) return (
     <AppContainer className="py-24 text-center">
       <p className="text-[16px] font-semibold text-foreground">Booking not found.</p>
-      <Button variant="secondary" className="mt-3" onClick={() => navigate("/my-bookings")}>My bookings</Button>
+      <Button variant="secondary" className="mt-3" onClick={() => navigate(carPath("my-bookings"))}>My bookings</Button>
     </AppContainer>
   );
 
@@ -145,7 +146,7 @@ export default function BookingDetail() {
 
   return (
     <AppContainer className="py-6">
-      <button onClick={() => navigate("/my-bookings")} className="mb-4 inline-flex items-center gap-1.5 text-[13px] font-semibold text-muted-foreground hover:text-foreground">
+      <button onClick={() => navigate(carPath("my-bookings"))} className="mb-4 inline-flex items-center gap-1.5 text-[13px] font-semibold text-muted-foreground hover:text-foreground">
         <ArrowLeft className="h-4 w-4" /> My bookings
       </button>
 
@@ -254,7 +255,7 @@ export default function BookingDetail() {
               </div>
             </div>
           </div>
-          <Link to="/" className="block text-center text-[13px] font-semibold text-primary">Browse the fleet</Link>
+          <Link to={carPath()} className="block text-center text-[13px] font-semibold text-primary">Browse the fleet</Link>
         </div>
       </div>
     </AppContainer>

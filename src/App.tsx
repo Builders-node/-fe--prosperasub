@@ -14,7 +14,6 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import InstallAppModal from "@/components/InstallAppModal";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { PageLoader } from "@/components/ui/spinner";
-import { isVehiclesHost } from "@/lib/hosts";
 
 // ─── Eager (entry / public surface) ───────────────────────────────────────────
 // Loaded on first paint — keep this list small.
@@ -28,8 +27,8 @@ import NotFound from "./pages/NotFound";
 // until they navigate there.
 
 // Auth
-// Car rental — a whole storefront of its own, mounted only on
-// vehicles.everysub.net. One lazy chunk, so everysub.net never downloads it.
+// Car rental — a whole storefront of its own, mounted at /vehicles. One lazy
+// chunk, so a visitor who never opens it never downloads it.
 const VehiclesApp = lazy(() => import("./pages/vehicles/VehiclesApp"));
 
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
@@ -138,9 +137,6 @@ function LegacyRewrite({ from, to }: { from: string; to: string }) {
 }
 
 const App = () => {
-  // Same bundle, two storefronts: the hostname picks the shell.
-  const vehicles = isVehiclesHost();
-
   return (
     <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
@@ -163,10 +159,17 @@ const App = () => {
                 <LocationProvider>
                 <CartProvider>
                 <Suspense fallback={<PageFallback />}>
-                {vehicles ? <VehiclesApp /> : (
                 <Routes>
               {/* Home → Discovery */}
               <Route path="/" element={<Navigate to="/discovery" replace />} />
+
+              {/*
+                The car storefront is a section, not a site: its own header,
+                tab bar and routes, inside this provider tree so it shares the
+                session, the cart context and the query client. The splat hands
+                everything under /vehicles to its own router.
+              */}
+              <Route path="/vehicles/*" element={<VehiclesApp />} />
 
               {/* Auth */}
               <Route path="/oauth/callback" element={<OAuthCallback />} />
@@ -404,9 +407,8 @@ const App = () => {
               {/* Catch-all */}
               <Route path="*" element={<NotFound />} />
                 </Routes>
-                )}
                 </Suspense>
-                {!vehicles && <InstallAppModal />}
+                <InstallAppModal />
                 </CartProvider>
                 </LocationProvider>
                 </AuthModalProvider>

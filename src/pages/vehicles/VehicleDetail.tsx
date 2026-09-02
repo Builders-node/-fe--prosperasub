@@ -10,6 +10,7 @@ import { DateRangePicker, toISO } from "@/components/DateRangePicker";
 import { useVehicle } from "@/hooks/useVehicles";
 import { calcRentalPrice, FUEL_LABEL, QUICK_DURATIONS } from "@/types/carRental";
 import { formatUSD } from "@/lib/pricing";
+import { carPath } from "@/pages/vehicles/routes";
 import { addDays } from "date-fns";
 
 export default function VehicleDetail() {
@@ -29,7 +30,7 @@ export default function VehicleDetail() {
   if (!v) return (
     <AppContainer className="py-24 text-center">
       <p className="font-semibold text-foreground">Car not found</p>
-      <Link to="/" className="mt-3 inline-block text-sm font-semibold text-primary">Back to the fleet</Link>
+      <Link to={carPath()} className="mt-3 inline-block text-sm font-semibold text-primary">Back to the fleet</Link>
     </AppContainer>
   );
 
@@ -40,7 +41,7 @@ export default function VehicleDetail() {
 
   const goBook = () => {
     if (!range?.from || !range?.to) return;
-    navigate(`/book/${v.id}?from=${toISO(range.from)}&to=${toISO(range.to)}`);
+    navigate(carPath(`book/${v.id}?from=${toISO(range.from)}&to=${toISO(range.to)}`));
   };
 
   const specs = [

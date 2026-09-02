@@ -2,6 +2,7 @@ import { Link, useLocation } from "react-router-dom";
 import { CalendarCheck, Car, ShieldCheck, User } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
+import { carPath, trimPath } from "@/pages/vehicles/routes";
 import { cn } from "@/lib/utils";
 
 /**
@@ -10,33 +11,43 @@ import { cn } from "@/lib/utils";
  * top border (the grey page behind it is the separation), and colour as the
  * only signal of the active tab.
  *
- * Account is deliberately a link OUT to everysub.net: the profile lives on the
- * marketplace and there is no copy of it here. The session is shared across
- * both origins, so it opens already signed in.
+ * Account points at the marketplace's profile, which is now an ordinary
+ * in-app link: there is one origin, one session and one profile, so leaving
+ * the car section for it is a route change and not a page load.
  */
-
-const MARKETPLACE_ACCOUNT = "https://everysub.net/account";
 
 interface Item {
   icon: typeof Car;
   label: string;
-  /** In-app route, or an absolute URL to leave for the marketplace. */
   to: string;
+  /**
+   * Sub-paths of the car section that also belong to this tab. Needed because
+   * a detail page is not under its tab's own path: a booking is read at
+   * /vehicles/booking/:id while the tab that owns it is /vehicles/my-bookings.
+   */
+  also?: string[];
   requiresAuth?: boolean;
   adminOnly?: boolean;
 }
 
 const ITEMS: Item[] = [
-  { icon: Car,           label: "Fleet",    to: "/" },
-  { icon: CalendarCheck, label: "Bookings", to: "/my-bookings", requiresAuth: true },
-  { icon: ShieldCheck,   label: "Admin",    to: "/admin/vehicles", adminOnly: true },
-  { icon: User,          label: "Account",  to: MARKETPLACE_ACCOUNT, requiresAuth: true },
+  { icon: Car,           label: "Fleet",    to: carPath(),                 also: ["vehicle", "book"] },
+  { icon: CalendarCheck, label: "Bookings", to: carPath("my-bookings"),    also: ["booking"], requiresAuth: true },
+  { icon: ShieldCheck,   label: "Admin",    to: carPath("admin/vehicles"), adminOnly: true },
+  { icon: User,          label: "Account",  to: "/account",                requiresAuth: true },
 ];
 
-/** `/` must not light up for every route beneath it. */
-const isActive = (to: string, pathname: string) =>
-  to === "/" ? pathname === "/" || pathname.startsWith("/vehicle") || pathname.startsWith("/book")
-             : pathname.startsWith(to);
+/**
+ * The section's home is an exact match only — every other tab lives beneath
+ * it, so treating it as a prefix lit Fleet up on every screen. The trailing
+ * slash on `also` matters too: without it "book" swallows "booking".
+ */
+const isActive = (item: Item, rawPath: string): boolean => {
+  const pathname = trimPath(rawPath);
+  if (pathname === item.to) return true;
+  if (item.to !== carPath() && pathname.startsWith(`${item.to}/`)) return true;
+  return (item.also ?? []).some((seg) => pathname.startsWith(carPath(`${seg}/`)));
+};
 
 export function VehiclesBottomNav() {
   const { pathname } = useLocation();
@@ -60,7 +71,7 @@ export function VehiclesBottomNav() {
     >
       <div className="flex items-stretch" style={{ height: 60 }}>
         {items.map((item) => {
-          const active = isActive(item.to, pathname);
+          const active = isActive(item, pathname);
           const tone = active ? "text-primary" : "text-muted-foreground";
           const className = "flex flex-1 flex-col items-center justify-center gap-1 p-2 transition-colors";
           const inner = (
@@ -77,12 +88,6 @@ export function VehiclesBottomNav() {
               <button key={item.label} type="button" className={className} onClick={() => openAuthModal("login")}>
                 {inner}
               </button>
-            );
-          }
-
-          if (item.to.startsWith("http")) {
-            return (
-              <a key={item.label} href={item.to} className={className}>{inner}</a>
             );
           }
 

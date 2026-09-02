@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { Car, ExternalLink } from "lucide-react";
+import { ArrowUpRight, Car } from "lucide-react";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { AdminListShell } from "@/components/admin/AdminListShell";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ import { supabaseDb } from "@/integrations/supabase/client";
 import { fetchUsersByIds, customerNameFrom } from "@/lib/admin/customerNames";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
+import { carPath } from "@/pages/vehicles/routes";
 
 /**
  * Car rentals, run from the same admin as everything else.
@@ -26,7 +28,8 @@ import { cn } from "@/lib/utils";
  * speaks their own nouns instead.
  */
 
-const STORE_ORIGIN = "https://vehicles.everysub.net";
+/** The car section of this app; the storefront these bookings come from. */
+const STORE_PATH = carPath();
 
 /** Where a booking is in its life, in the words the fleet uses. */
 const STAGES = ["pending", "confirmed", "active", "completed", "cancelled"] as const;
@@ -180,11 +183,11 @@ export default function CarRentals() {
               </Select>
             }
             actions={
-              <a href={STORE_ORIGIN} target="_blank" rel="noreferrer">
+              <Link to={STORE_PATH}>
                 <Button variant="secondary" className="gap-2">
-                  <ExternalLink className="h-4 w-4" /> Storefront
+                  <ArrowUpRight className="h-4 w-4" /> Storefront
                 </Button>
-              </a>
+              </Link>
             }
             isLoading={bookingsQ.isLoading}
             isError={bookingsQ.isError}
@@ -195,7 +198,7 @@ export default function CarRentals() {
             onClearFilters={() => { setSearch(""); setStatus("all"); }}
             count={filtered.length}
             emptyTitle="No car bookings yet"
-            emptySubtitle="Rentals booked on vehicles.everysub.net land here."
+            emptySubtitle="Rentals booked in the car storefront land here."
           >
             <div className="space-y-space-2">
               {filtered.map((b) => (
@@ -251,11 +254,11 @@ export default function CarRentals() {
           emptyTitle="No cars in the fleet"
           emptySubtitle="Add them from the storefront's fleet admin."
           actions={
-            <a href={`${STORE_ORIGIN}/admin/vehicles`} target="_blank" rel="noreferrer">
+            <Link to={carPath("admin/vehicles")}>
               <Button variant="secondary" className="gap-2">
-                <ExternalLink className="h-4 w-4" /> Edit fleet
+                <ArrowUpRight className="h-4 w-4" /> Edit fleet
               </Button>
-            </a>
+            </Link>
           }
         >
           <div className="space-y-space-2">
@@ -292,7 +295,7 @@ export default function CarRentals() {
   );
 
   return (
-    <SuperAdminLayout title="Car rentals" subtitle="Bookings and fleet from vehicles.everysub.net">
+    <SuperAdminLayout title="Car rentals" subtitle="Bookings and fleet from the car storefront">
       {body}
     </SuperAdminLayout>
   );

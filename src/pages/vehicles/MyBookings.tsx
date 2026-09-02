@@ -8,6 +8,7 @@ import { supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatUSD } from "@/lib/pricing";
 import { Button } from "@/components/ui/button";
+import { carPath } from "@/pages/vehicles/routes";
 
 const TONE: Record<string, string> = {
   confirmed: "text-emerald-500", paid: "text-emerald-500", active: "text-emerald-500", completed: "text-muted-foreground",
@@ -40,14 +41,14 @@ export default function MyBookings() {
         <div className="flex flex-col items-center py-20 text-center">
           <Car className="mb-3 h-12 w-12 text-muted-foreground/40" />
           <p className="font-semibold text-foreground">No bookings yet</p>
-          <Link to="/" className="mt-3 text-sm font-semibold text-primary">Browse the fleet</Link>
+          <Link to={carPath()} className="mt-3 text-sm font-semibold text-primary">Browse the fleet</Link>
         </div>
       ) : (
         <div className="space-y-3">
           {bookings.map((b: any) => (
             <Link
               key={b.id}
-              to={`/booking/${b.id}`}
+              to={carPath(`booking/${b.id}`)}
               className="flex items-center gap-4 rounded-radius-md bg-card p-3 shadow-figma transition-colors hover:bg-muted/30">
               <div className="h-16 w-24 shrink-0 overflow-hidden rounded-radius-sm bg-muted">
                 {b.rental_vehicles?.image_url && <img src={b.rental_vehicles.image_url} alt="" className="h-full w-full object-cover" />}

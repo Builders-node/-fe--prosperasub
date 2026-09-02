@@ -61,6 +61,7 @@ import { ReviewPromptCard } from "@/components/reviews/ReviewPromptCard";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { to12h as format12h } from "@/lib/booking/bookingSettings";
+import { carPath } from "@/pages/vehicles/routes";
 
 /**
  * Compute what the server-side renewal will land on: continuous period,
@@ -528,13 +529,13 @@ const MySubscriptions = () => {
   });
 
   /**
-   * Car rentals, bought on the storefront's own origin.
+   * Car rentals.
    *
-   * They are booked rather than subscribed and live in rental_bookings on
-   * vehicles.everysub.net — but a customer does not think in origins. They
-   * bought something from EverySub, so it belongs on the page listing what they
-   * bought. `user_id` is text here and holds whatever the account is keyed by,
-   * so it is matched as-is rather than cast.
+   * They are booked rather than subscribed and live in rental_bookings, sold by
+   * their own section of the app — but a customer does not think in sections.
+   * They bought something from EverySub, so it belongs on the page listing what
+   * they bought. `user_id` is text here and holds whatever the account is keyed
+   * by, so it is matched as-is rather than cast.
    */
   const {
     data: rentalBookings = [],
@@ -1353,12 +1354,9 @@ const MySubscriptions = () => {
                   const cancelled = String(b.status) === "cancelled";
                   const label = cancelled ? "cancelled" : paid ? "confirmed" : "pending";
                   const carName = b.rental_vehicles?.name ?? "Car rental";
-                  // The rental lives on the storefront's origin, so this leaves
-                  // the SPA rather than routing inside it. The session is
-                  // shared, so it opens already signed in.
-                  const openBooking = () => {
-                    window.location.href = `https://vehicles.everysub.net/booking/${b.id}`;
-                  };
+                  // The car section is part of this app, so opening a rental
+                  // is a route change — no reload, no lost scroll position.
+                  const openBooking = () => navigate(carPath(`booking/${b.id}`));
                   return (
                     <SubscriptionCard
                       key={b.id}

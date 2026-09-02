@@ -18,6 +18,7 @@ import { useResidenceMatters } from "@/contexts/LocationContext";
 import { useI18n } from "@/i18n";
 import { prefetchRoute } from "@/lib/routeChunks";
 import { cn } from "@/lib/utils";
+import { carPath } from "@/pages/vehicles/routes";
 
 // "My Subs" tile isn't a category, but sits alongside category tiles.
 const MY_SUBS_TILE = {
@@ -221,17 +222,16 @@ function ArchetypeTile({
 
 
 /**
- * Car rental lives in a separate app on its own subdomain
- * (vehicles.everysub.net), so this tile links out rather than routing inside
- * the SPA. Same 120px white card as ArchetypeTile so it sits in the service
- * grid as one more equal thing, with a car glyph to mark that it's a car.
+ * Car rental is its own section of this app — its own header, tab bar and
+ * routes — but it is reached the way every other service is. Same 120px white
+ * card as ArchetypeTile so it sits in the service grid as one more equal
+ * thing, with a car glyph to mark that it's a car.
  */
-const CAR_RENTAL_URL = "https://vehicles.everysub.net";
 
 function CarRentalTile() {
   return (
-    <a
-      href={CAR_RENTAL_URL}
+    <Link
+      to={carPath()}
       aria-label="Car Rental"
       className="flex h-[120px] flex-col justify-between rounded-radius-md bg-card p-4 shadow-figma transition-colors active:scale-[0.98] hover:bg-muted/40"
     >
@@ -244,7 +244,7 @@ function CarRentalTile() {
       <p className="line-clamp-2 text-[12px] tracking-[-0.24px] text-muted-foreground">
         Rent a car in Próspera
       </p>
-    </a>
+    </Link>
   );
 }
 

@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Car, Users, Fuel, Gauge, Snowflake } from "lucide-react";
 import { formatUSD } from "@/lib/pricing";
 import { FUEL_LABEL, type RentalVehicle } from "@/types/carRental";
+import { carPath } from "@/pages/vehicles/routes";
 
 /**
  * A car in the fleet grid. One white card, 16px radius, one shadow. Image on
@@ -17,7 +18,7 @@ export function VehicleCard({ v }: { v: RentalVehicle }) {
   ];
   return (
     <Link
-      to={`/vehicle/${v.id}`}
+      to={carPath(`vehicle/${v.id}`)}
       className="group flex flex-col overflow-hidden rounded-radius-md bg-card shadow-figma tracking-[-0.02em] transition-transform hover:-translate-y-0.5"
     >
       <div className="relative aspect-[16/10] w-full overflow-hidden bg-inset">

@@ -4,10 +4,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { VehiclesHeader } from "@/pages/vehicles/VehiclesHeader";
 import { VehiclesBottomNav } from "@/pages/vehicles/VehiclesBottomNav";
+import { VEHICLES_BASE, carPath } from "@/pages/vehicles/routes";
 import { AppContainer } from "@/components/layout/AppContainer";
 import { PageLoader } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
-import OAuthCallback from "@/pages/OAuthCallback";
 import Fleet from "@/pages/vehicles/Fleet";
 import VehicleDetail from "@/pages/vehicles/VehicleDetail";
 import Book from "@/pages/vehicles/Book";
@@ -17,14 +17,21 @@ import AdminVehicles from "@/pages/vehicles/admin/AdminVehicles";
 import AdminBookings from "@/pages/vehicles/admin/AdminBookings";
 
 /**
- * The car-rental storefront served on vehicles.everysub.net.
+ * The car-rental storefront, mounted at /vehicles.
  *
- * It is a whole app of its own — its own header, its own routes — but it runs
- * inside the main frontend's provider tree, so it shares the session, the
- * theme and the query client with everysub.net rather than reimplementing
- * them. `App.tsx` mounts this instead of the marketplace when the hostname is
- * the vehicles one; see `isVehiclesHost`.
+ * It is a whole storefront of its own — its own header, its own tab bar, its
+ * own routes — but it runs inside the main app's provider tree, so it shares
+ * the session, the theme and the query client rather than reimplementing them.
+ * That is the whole point of a section shell: renting a car is a different
+ * thing to buy than a subscription, but it is not a different account, a
+ * different wallet or a different login.
+ *
+ * Its routes are relative because `App.tsx` mounts it under a splat; its links
+ * are absolute and go through `carPath` (see routes.ts).
  */
+
+/** What the tab says while the marketplace is not the thing on screen. */
+const CARS_TITLE = "EverySub Cars — rent a car in Próspera";
 
 function VehiclesLayout({ children }: { children: ReactNode }) {
   return (
@@ -62,7 +69,7 @@ function RequireAuth({ children }: { children: ReactNode }) {
 function RequireAdmin({ children }: { children: ReactNode }) {
   const { isSuperAdmin, isLoading, isAuthenticated } = useAuth();
   if (isLoading) return <PageLoader />;
-  if (!isAuthenticated || !isSuperAdmin) return <Navigate to="/" replace />;
+  if (!isAuthenticated || !isSuperAdmin) return <Navigate to={VEHICLES_BASE} replace />;
   return <>{children}</>;
 }
 
@@ -77,8 +84,8 @@ function AdminTabs({ children }: { children: ReactNode }) {
   return (
     <div>
       <AppContainer className="flex gap-2 pt-5">
-        {tab("/admin/vehicles", "Fleet")}
-        {tab("/admin/bookings", "Bookings")}
+        {tab(carPath("admin/vehicles"), "Fleet")}
+        {tab(carPath("admin/bookings"), "Bookings")}
       </AppContainer>
       {children}
     </div>
@@ -86,28 +93,30 @@ function AdminTabs({ children }: { children: ReactNode }) {
 }
 
 export default function VehiclesApp() {
-  // The document title ships in index.html for the marketplace; this origin is
-  // a different storefront and has to say so (tab, bookmark, share sheet).
+  /**
+   * The tab title belongs to whatever is on screen. index.html ships the
+   * marketplace's, so this section sets its own on the way in and puts it back
+   * on the way out — without the restore, leaving for /discovery left the tab
+   * still saying "Cars".
+   */
   useEffect(() => {
-    document.title = "EverySub Cars — rent a car in Pr\u00f3spera";
+    const previous = document.title;
+    document.title = CARS_TITLE;
+    return () => { document.title = previous; };
   }, []);
 
   return (
     <VehiclesLayout>
       <Routes>
-        <Route path="/" element={<Fleet />} />
-        {/* Google sends the browser back to /auth on THIS origin, so the
-            callback has to exist here too or the sign-in dead-ends. */}
-        <Route path="/auth" element={<OAuthCallback />} />
-        <Route path="/oauth/callback" element={<OAuthCallback />} />
-        <Route path="/vehicle/:id" element={<VehicleDetail />} />
-        <Route path="/book/:id" element={<RequireAuth><Book /></RequireAuth>} />
-        <Route path="/my-bookings" element={<RequireAuth><MyBookings /></RequireAuth>} />
-        <Route path="/booking/:id" element={<RequireAuth><BookingDetail /></RequireAuth>} />
-        <Route path="/admin" element={<Navigate to="/admin/vehicles" replace />} />
-        <Route path="/admin/vehicles" element={<RequireAdmin><AdminTabs><AdminVehicles /></AdminTabs></RequireAdmin>} />
-        <Route path="/admin/bookings" element={<RequireAdmin><AdminTabs><AdminBookings /></AdminTabs></RequireAdmin>} />
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route index element={<Fleet />} />
+        <Route path="vehicle/:id" element={<VehicleDetail />} />
+        <Route path="book/:id" element={<RequireAuth><Book /></RequireAuth>} />
+        <Route path="my-bookings" element={<RequireAuth><MyBookings /></RequireAuth>} />
+        <Route path="booking/:id" element={<RequireAuth><BookingDetail /></RequireAuth>} />
+        <Route path="admin" element={<Navigate to={carPath("admin/vehicles")} replace />} />
+        <Route path="admin/vehicles" element={<RequireAdmin><AdminTabs><AdminVehicles /></AdminTabs></RequireAdmin>} />
+        <Route path="admin/bookings" element={<RequireAdmin><AdminTabs><AdminBookings /></AdminTabs></RequireAdmin>} />
+        <Route path="*" element={<Navigate to={VEHICLES_BASE} replace />} />
       </Routes>
     </VehiclesLayout>
   );
