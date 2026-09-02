@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { ArrowUpRight, Car } from "lucide-react";
+import { ArrowUpRight, Car, Pencil, Plus } from "lucide-react";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { AdminListShell } from "@/components/admin/AdminListShell";
 import { Button } from "@/components/ui/button";
@@ -12,10 +12,12 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { supabaseDb } from "@/integrations/supabase/client";
+import { VehicleEditDialog } from "@/components/admin/VehicleEditDialog";
+import { carPath } from "@/pages/vehicles/routes";
+import type { RentalVehicle } from "@/types/carRental";
 import { fetchUsersByIds, customerNameFrom } from "@/lib/admin/customerNames";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
-import { carPath } from "@/pages/vehicles/routes";
 
 /**
  * Car rentals, run from the same admin as everything else.
@@ -27,9 +29,6 @@ import { carPath } from "@/pages/vehicles/routes";
  * subscriptions, and a car has vehicles and days. They get a section that
  * speaks their own nouns instead.
  */
-
-/** The car section of this app; the storefront these bookings come from. */
-const STORE_PATH = carPath();
 
 /** Where a booking is in its life, in the words the fleet uses. */
 const STAGES = ["pending", "confirmed", "active", "completed", "cancelled"] as const;
@@ -50,6 +49,8 @@ export default function CarRentals() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<string>("all");
   const [busy, setBusy] = useState<string | null>(null);
+  // Which car the editor is open on: a row to edit, "new" to add, null closed.
+  const [editing, setEditing] = useState<RentalVehicle | "new" | null>(null);
 
   const bookingsQ = useQuery({
     queryKey: ["admin-rental-bookings"],
@@ -183,7 +184,7 @@ export default function CarRentals() {
               </Select>
             }
             actions={
-              <Link to={STORE_PATH}>
+              <Link to={carPath()}>
                 <Button variant="secondary" className="gap-2">
                   <ArrowUpRight className="h-4 w-4" /> Storefront
                 </Button>
@@ -252,13 +253,11 @@ export default function CarRentals() {
           isEmpty={!vehiclesQ.isLoading && (vehiclesQ.data ?? []).length === 0}
           count={(vehiclesQ.data ?? []).length}
           emptyTitle="No cars in the fleet"
-          emptySubtitle="Add them from the storefront's fleet admin."
+          emptySubtitle="Add the first one and it appears in the storefront."
           actions={
-            <Link to={carPath("admin/vehicles")}>
-              <Button variant="secondary" className="gap-2">
-                <ArrowUpRight className="h-4 w-4" /> Edit fleet
-              </Button>
-            </Link>
+            <Button className="gap-2" onClick={() => setEditing("new")}>
+              <Plus className="h-4 w-4" /> Add vehicle
+            </Button>
           }
         >
           <div className="space-y-space-2">
@@ -286,16 +285,29 @@ export default function CarRentals() {
                 >
                   {v.status === "public" ? "Listed" : "Hidden"}
                 </Button>
+                <Button variant="secondary" size="sm" className="shrink-0 gap-1.5" onClick={() => setEditing(v)}>
+                  <Pencil className="h-3.5 w-3.5" /> Edit
+                </Button>
               </div>
             ))}
           </div>
         </AdminListShell>
       )}
+
+      <VehicleEditDialog
+        vehicle={editing}
+        onClose={() => setEditing(null)}
+        onSaved={() => {
+          // Both caches hold cars: this page's list and the storefront's own.
+          void qc.invalidateQueries({ queryKey: ["admin-rental-vehicles"] });
+          void qc.invalidateQueries({ queryKey: ["rental-vehicles"] });
+        }}
+      />
     </div>
   );
 
   return (
-    <SuperAdminLayout title="Car rentals" subtitle="Bookings and fleet from the car storefront">
+    <SuperAdminLayout title="Car rentals" subtitle="Bookings and fleet">
       {body}
     </SuperAdminLayout>
   );

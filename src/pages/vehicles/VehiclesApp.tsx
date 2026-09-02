@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect } from "react";
-import { Routes, Route, Navigate, Link, useLocation } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { VEHICLES_BASE, carPath, trimPath } from "@/pages/vehicles/routes";
@@ -9,14 +9,11 @@ import { BottomNav } from "@/components/BottomNav";
 import { useGoBack } from "@/hooks/useGoBack";
 import { AppContainer } from "@/components/layout/AppContainer";
 import { PageLoader } from "@/components/ui/spinner";
-import { cn } from "@/lib/utils";
 import Fleet from "@/pages/vehicles/Fleet";
 import VehicleDetail from "@/pages/vehicles/VehicleDetail";
 import Book from "@/pages/vehicles/Book";
 import MyBookings from "@/pages/vehicles/MyBookings";
 import BookingDetail from "@/pages/vehicles/BookingDetail";
-import AdminVehicles from "@/pages/vehicles/admin/AdminVehicles";
-import AdminBookings from "@/pages/vehicles/admin/AdminBookings";
 
 /**
  * The car-rental storefront, mounted at /vehicles.
@@ -75,32 +72,6 @@ function RequireAuth({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
-function RequireAdmin({ children }: { children: ReactNode }) {
-  const { isSuperAdmin, isLoading, isAuthenticated } = useAuth();
-  if (isLoading) return <PageLoader />;
-  if (!isAuthenticated || !isSuperAdmin) return <Navigate to={VEHICLES_BASE} replace />;
-  return <>{children}</>;
-}
-
-function AdminTabs({ children }: { children: ReactNode }) {
-  const { pathname } = useLocation();
-  const tab = (to: string, label: string) => (
-    <Link to={to} className={cn(
-      "rounded-full px-4 py-1.5 text-sm font-semibold transition-colors",
-      pathname === to ? "bg-foreground text-background" : "bg-muted text-muted-foreground hover:text-foreground",
-    )}>{label}</Link>
-  );
-  return (
-    <div>
-      <AppContainer className="flex gap-2 pt-5">
-        {tab(carPath("admin/vehicles"), "Fleet")}
-        {tab(carPath("admin/bookings"), "Bookings")}
-      </AppContainer>
-      {children}
-    </div>
-  );
-}
-
 export default function VehiclesApp() {
   /**
    * The tab title belongs to whatever is on screen. index.html ships the
@@ -122,9 +93,13 @@ export default function VehiclesApp() {
         <Route path="book/:id" element={<RequireAuth><Book /></RequireAuth>} />
         <Route path="my-bookings" element={<RequireAuth><MyBookings /></RequireAuth>} />
         <Route path="booking/:id" element={<RequireAuth><BookingDetail /></RequireAuth>} />
-        <Route path="admin" element={<Navigate to={carPath("admin/vehicles")} replace />} />
-        <Route path="admin/vehicles" element={<RequireAdmin><AdminTabs><AdminVehicles /></AdminTabs></RequireAdmin>} />
-        <Route path="admin/bookings" element={<RequireAdmin><AdminTabs><AdminBookings /></AdminTabs></RequireAdmin>} />
+        {/*
+          The fleet had a second admin of its own here, because on a separate
+          origin /admin was out of reach. It is one app now, so cars are run
+          from the one admin panel — with its sidebar, its permissions and its
+          audit log — and these paths only carry old bookmarks there.
+        */}
+        <Route path="admin/*" element={<Navigate to="/admin/car-rentals" replace />} />
         <Route path="*" element={<Navigate to={VEHICLES_BASE} replace />} />
       </Routes>
     </VehiclesLayout>
