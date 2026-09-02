@@ -11,8 +11,7 @@
 import {
   BarChart3, CalendarDays, DollarSign,
   FileText, Layers, LayoutDashboard, MapPin, Megaphone,
-  LifeBuoy, ShieldCheck, Users, Building2, CarFront,
-} from "lucide-react";
+  LifeBuoy, ShieldCheck, Users, Building2, } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { adminRoutes } from "./adminRoutes";
 
@@ -70,10 +69,16 @@ export const OVERVIEW_SECTION: NavSection = {
 export const MARKETPLACE_SECTION: NavSection = {
   title: "Marketplace",
   items: [
+    // Cars are NOT listed separately. Every other service is managed inside its
+    // provider's workspace — that rule is why Categories, Plans, Applications
+    // and Beach courts left this menu — and a rental company is an ordinary
+    // provider now. /admin/car-rentals still resolves for old bookmarks and is
+    // what the workspace's Fleet tab renders, scoped to one business.
     { label: "Marketplace",   path: adminRoutes.superAdminMarketplace,              icon: Layers,
       // Every flat list is still routable (old bookmarks, links from other
       // pages) — keep the hub lit while the admin is on one of them.
       alsoActiveOn: [
+        adminRoutes.superAdminCarRentals,
         "/admin/marketplace/service",
         adminRoutes.superAdminServices,
         adminRoutes.superAdminMarketplacePlans,
@@ -82,11 +87,6 @@ export const MARKETPLACE_SECTION: NavSection = {
       ],
       permissions: ["admin_settings.read"] },
     { label: "Subscriptions", path: adminRoutes.superAdminMarketplaceSubscriptions, icon: CalendarDays,
-      permissions: ["subscriptions.read"] },
-    // Rentals are booked rather than subscribed, so they get their own entry
-    // instead of a workspace that would describe them in plans and periods they
-    // do not have.
-    { label: "Car rentals", path: adminRoutes.superAdminCarRentals, icon: CarFront,
       permissions: ["subscriptions.read"] },
   ],
 };

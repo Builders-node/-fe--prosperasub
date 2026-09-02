@@ -27,7 +27,8 @@ import { ProviderTeamTab } from "@/components/provider/ProviderTeamTab";
 import { ScheduleAccordion } from "@/components/provider/ScheduleAccordion";
 import { ServiceLocationsSection } from "@/components/food/admin/ServiceLocationsSection";
 import { LegacyOwnerPortal } from "@/components/provider/legacyPortalTabs";
-import { VehicleFleetTab } from "@/components/provider/VehicleFleetTab";
+import { RentalTermsTab } from "@/components/provider/RentalTermsTab";
+import CarRentals from "@/pages/admin/CarRentals";
 import { SubscribersList } from "@/components/provider/SubscribersList";
 import { ProviderReviewsPanel } from "@/components/provider/ProviderReviewsPanel";
 import { ProviderEarningsTab } from "@/components/provider/ProviderEarningsTab";
@@ -137,6 +138,9 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
    * would have shown every car business a balance of zero.
    */
   const financeKey = provider?.source_service_key ?? provider?.archetype_key ?? "";
+
+  /** Cars branch in two places: what is on offer, and the fleet itself. */
+  const isVehicles = provider?.archetype_key === "vehicles";
 
   const kpis = useProviderKpis({
     providerId: provider?.id ?? "",
@@ -301,7 +305,13 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
       value: "offerings",
       label: "Offerings",
       icon: Package,
-      render: () => (
+      render: () => isVehicles ? (
+        // What a rental business offers is coverage, extras and delivery — not
+        // plans. A plan is a price for a period sold over and over; a car is
+        // one object for a stretch of days. Showing the plans editor here only
+        // invited someone to create a row nothing would ever read.
+        <RentalTermsTab providerId={provider.id} canManage={isOwner} />
+      ) : (
         <>
           {/* The booking rules apply to what is below them. */}
           <ScheduleAccordion provider={provider} />
@@ -319,12 +329,14 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
     // physical object. So a rental business gets its own tab here while
     // remaining an ordinary `providers` row — same Overview, Money and Team as
     // every other business on the platform.
-    ...(provider.archetype_key === "vehicles"
+    ...(isVehicles
       ? [{
           value: "fleet",
           label: "Fleet",
           icon: CarFront,
-          render: () => <VehicleFleetTab providerId={provider.id} canManage={isOwner} />,
+          // The admin's own car screen, scoped to this business. One place
+          // where cars are managed, whoever is looking at it.
+          render: () => <CarRentals embedded providerId={provider.id} />,
         } as PortalTab<unknown>]
       : []),
     // What can be booked here, for everybody. A calendar is a bookable

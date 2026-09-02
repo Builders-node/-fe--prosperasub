@@ -43,7 +43,22 @@ const TONE: Record<string, string> = {
 
 const day = (iso?: string | null) => (iso ? format(new Date(`${iso}T00:00:00`), "MMM d") : "—");
 
-export default function CarRentals() {
+/**
+ * Bookings and fleet for car rentals.
+ *
+ * One screen, two audiences, which is why it takes `providerId` rather than
+ * existing twice. Unscoped it is the platform's view of every rental company;
+ * scoped and embedded it is the Fleet tab inside one business's own workspace.
+ * The alternative was a second component editing the same cars — which is
+ * exactly the duplication the rest of the admin already removed by turning
+ * per-service pages into workspace tabs.
+ */
+export default function CarRentals({ embedded = false, providerId }: {
+  /** Skip the admin chrome: something else is already providing it. */
+  embedded?: boolean;
+  /** Limit everything to one business, and lock the editor to it. */
+  providerId?: string;
+} = {}) {
   const qc = useQueryClient();
   const [tab, setTab] = useState<"bookings" | "fleet">("bookings");
   const [search, setSearch] = useState("");
@@ -53,13 +68,14 @@ export default function CarRentals() {
   const [editing, setEditing] = useState<RentalVehicle | "new" | null>(null);
 
   const bookingsQ = useQuery({
-    queryKey: ["admin-rental-bookings"],
+    queryKey: ["admin-rental-bookings", providerId ?? "all"],
     queryFn: async () => {
-      const { data, error } = await supabaseDb
+      let q = supabaseDb
         .from("rental_bookings")
         .select("*, rental_vehicles(name, image_url)")
-        .is("deleted_at", null)
-        .order("start_date", { ascending: false });
+        .is("deleted_at", null);
+      if (providerId) q = q.eq("provider_id", providerId);
+      const { data, error } = await q.order("start_date", { ascending: false });
       if (error) throw error;
       const rows = (data ?? []) as any[];
       // Names via the guarded helper — rental_bookings.user_id is text and can
@@ -78,13 +94,14 @@ export default function CarRentals() {
   });
 
   const vehiclesQ = useQuery({
-    queryKey: ["admin-rental-vehicles"],
+    queryKey: ["admin-rental-vehicles", providerId ?? "all"],
     enabled: tab === "fleet",
     queryFn: async () => {
-      const { data, error } = await supabaseDb
+      let q = supabaseDb
         .from("rental_vehicles")
-        .select("*, provider:providers(id, name)")
-        .order("sort_order");
+        .select("*, provider:providers(id, name)");
+      if (providerId) q = q.eq("provider_id", providerId);
+      const { data, error } = await q.order("sort_order");
       if (error) throw error;
       return (data ?? []) as any[];
     },
@@ -303,6 +320,7 @@ export default function CarRentals() {
 
       <VehicleEditDialog
         vehicle={editing}
+        lockedProviderId={providerId}
         onClose={() => setEditing(null)}
         onSaved={() => {
           // Both caches hold cars: this page's list and the storefront's own.
@@ -312,6 +330,8 @@ export default function CarRentals() {
       />
     </div>
   );
+
+  if (embedded) return body;
 
   return (
     <SuperAdminLayout title="Car rentals" subtitle="Bookings and fleet">

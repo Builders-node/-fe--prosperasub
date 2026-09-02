@@ -105,7 +105,10 @@ export default function MarketplaceHub() {
                   key={a.key}
                   to={`/admin/marketplace/service/${a.key}`}
                   className={cn(
-                    "group flex flex-col gap-4 rounded-2xl bg-card p-5 transition-colors hover:bg-muted/40",
+                    // min-w-0: a grid item will not shrink below its content without it,
+                    // and then nothing inside can truncate — which is how these
+                    // cards grew wider than a phone.
+                    "group flex min-w-0 flex-col gap-4 rounded-2xl bg-card p-5 transition-colors hover:bg-muted/40",
                     !a.is_active && "opacity-60",
                   )}
                 >
@@ -122,14 +125,14 @@ export default function MarketplaceHub() {
                           </span>
                         )}
                       </div>
-                      <p className="truncate text-xs text-muted-foreground">
+                      <p className="line-clamp-2 text-xs text-muted-foreground">
                         {a.description || `${at(counts?.providersActive, a.key)} active of ${at(counts?.providers, a.key)} providers`}
                       </p>
                     </div>
                     <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
                   </div>
 
-                  <dl className="grid grid-cols-3 gap-2">
+                  <dl className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                     <HubStat label="Categories" value={at(counts?.categories, a.key)} />
                     <HubStat label="Providers" value={at(counts?.providers, a.key)} />
                     <HubStat label="Plans" value={at(counts?.plans, a.key)} />
@@ -162,7 +165,7 @@ export default function MarketplaceHub() {
                   </div>
                   <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
                 </div>
-                <dl className="grid grid-cols-3 gap-2">
+                <dl className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                   <HubStat label="Categories" value={orphans.categories} />
                   <HubStat label="Providers" value={orphans.providers} />
                   <HubStat label="Plans" value={orphans.plans} />
@@ -196,8 +199,8 @@ export default function MarketplaceHub() {
 
 function HubStat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-xl bg-[hsl(var(--app-rail))] px-3 py-2">
-      <dt className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</dt>
+    <div className="min-w-0 rounded-xl bg-[hsl(var(--app-rail))] px-3 py-2">
+      <dt className="truncate text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</dt>
       <dd className="text-lg font-black tabular-nums text-foreground">{value}</dd>
     </div>
   );

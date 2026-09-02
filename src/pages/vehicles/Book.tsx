@@ -34,7 +34,9 @@ export default function Book() {
   const navigate = useNavigate();
   const { isAuthenticated, userData } = useAuth();
   const { data: v, isLoading } = useVehicle(id);
-  const { data: addons } = useAddons();
+  // The terms on offer are the ones belonging to the business that owns
+  // this car, not the platform's — see useAddons.
+  const { data: addons } = useAddons(v?.provider_id);
 
   const fromISO = params.get("from") ?? "";
   const toISOParam = params.get("to") ?? "";

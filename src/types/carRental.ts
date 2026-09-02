@@ -138,6 +138,10 @@ export const FUEL_LABEL: Record<FuelType, string> = {
 // ── Booking add-ons (Atlantis price sheet) ──────────────────────────────────
 export interface InsuranceTier {
   id: string;
+  /** The business whose terms these are — never shared across companies. */
+  provider_id?: string;
+  /** Editors show what can be turned back on; checkout only ever sees active. */
+  is_active?: boolean;
   name: string;
   description: string | null;
   price_per_day_cents: number;
@@ -147,6 +151,10 @@ export interface InsuranceTier {
 
 export interface RentalExtra {
   id: string;
+  /** The business whose terms these are — never shared across companies. */
+  provider_id?: string;
+  /** Editors show what can be turned back on; checkout only ever sees active. */
+  is_active?: boolean;
   name: string;
   description: string | null;
   price_cents: number;
@@ -156,6 +164,10 @@ export interface RentalExtra {
 
 export interface DeliveryZone {
   id: string;
+  /** The business whose terms these are — never shared across companies. */
+  provider_id?: string;
+  /** Editors show what can be turned back on; checkout only ever sees active. */
+  is_active?: boolean;
   name: string;
   areas: string | null;
   fee_cents: number;
