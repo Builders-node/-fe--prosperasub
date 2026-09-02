@@ -6,7 +6,6 @@ import { toast } from "sonner";
 import { fetchPlatformRollup } from "@/lib/analytics/platformRollup";
 import { supabaseDb } from "@/integrations/supabase/client";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
-import { SectionOverline } from "@/components/subscriptions/MySubsPrimitives";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { approvePayment, type ApproveService } from "@/lib/subscriptionApprove";
@@ -227,20 +226,22 @@ const AdminDashboard = () => {
 
   return (
     <SuperAdminLayout title="Overview" subtitle="What happened across the platform today">
-      {/* Headline metrics — three tiles only. Pending is orange only when >0 so
-          the admin's eye lands on it; otherwise it blends with the other stats. */}
+      {/*
+        Written in the platform's own vocabulary rather than an admin dialect —
+        see DESIGN.md §3 and §4. Three type sizes carry the page (20 / 16 / 12,
+        semibold, negative tracking), hierarchy comes from layered backgrounds
+        rather than borders and tints, and a card is 16px.
+
+        The two habits that made this screen read as a different product were a
+        tiny uppercase eyebrow standing in for a section title, and rows welded
+        into one slab by hairline dividers. Both are gone.
+      */}
+
+      {/* Headline metrics. Colour lives on the NUMBER, never on the card: a
+          tinted panel is a second background, and this design has one. */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-        <MetricTile
-          label="Users"
-          value={String(stats?.users ?? 0)}
-          href="/admin/users"
-        />
-        <MetricTile
-          label="Revenue"
-          value={formatUSD(stats?.revenueCents ?? 0)}
-          href="/admin/payments"
-          accent
-        />
+        <MetricTile label="Users" value={String(stats?.users ?? 0)} href="/admin/users" />
+        <MetricTile label="Revenue" value={formatUSD(stats?.revenueCents ?? 0)} href="/admin/payments" accent />
         <MetricTile
           label="Awaiting payment"
           value={String(stats?.pending ?? 0)}
@@ -250,81 +251,85 @@ const AdminDashboard = () => {
         />
       </div>
 
-      {/* Awaiting-payment mini-queue — the top daily admin workflow. Each row
-          has an inline Approve so the admin doesn't need to navigate into a
-          list, find the row, open ⋮, click "Mark as paid". Hidden when the
-          queue is empty so the dashboard stays clean on quiet days. */}
+      {/* The top daily workflow: approve inline rather than navigate into a
+          list, find the row, open a menu. Hidden entirely on a quiet day. */}
       {pendingQueue.length > 0 && (
-        <section className="mt-6">
-          <SectionOverline label="Awaiting payment" count={pendingQueue.length} className="mb-3" />
-          <div className="overflow-hidden rounded-radius-md bg-card">
-            <ul className="divide-y divide-border/40">
-              {pendingQueue.map((row) => {
-                const Icon = row.ServiceIcon;
-                return (
-                  <li
-                    key={`${row.service}-${row.id}`}
-                    className="flex items-center gap-3 px-4 py-3"
+        <section className="mt-8">
+          <SectionTitle title="Awaiting payment" count={pendingQueue.length} />
+          <div className="space-y-2">
+            {pendingQueue.map((row) => {
+              const Icon = row.ServiceIcon;
+              return (
+                <div
+                  key={`${row.service}-${row.id}`}
+                  className="flex items-center gap-3 rounded-radius-md bg-card p-4"
+                >
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] bg-muted">
+                    <Icon className="h-4 w-4 text-muted-foreground" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[16px] font-semibold tracking-[-0.32px] text-foreground">
+                      {row.userLabel} · {row.serviceLabel}
+                    </p>
+                    <p className="mt-0.5 text-[12px] tracking-[-0.24px] text-muted-foreground">
+                      {format(new Date(row.createdAt), "MMM d, yyyy · h:mm a")}
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-[16px] font-semibold tabular-nums tracking-[-0.32px] text-primary">
+                    {formatUSD(row.amountCents)}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="ml-2 h-9 shrink-0 gap-1.5 rounded-full text-[13px] font-semibold"
+                    disabled={approve.isPending}
+                    onClick={() => approve.mutate(row)}
                   >
-                    <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-foreground">
-                        {row.userLabel} · {row.serviceLabel}
-                      </p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        {format(new Date(row.createdAt), "MMM d, yyyy · h:mm a")}
-                      </p>
-                    </div>
-                    <span className="shrink-0 text-sm font-bold tabular-nums text-amber-500">
-                      {formatUSD(row.amountCents)}
-                    </span>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="ml-3 h-8 gap-1.5 rounded-full text-xs"
-                      disabled={approve.isPending}
-                      onClick={() => approve.mutate(row)}
-                    >
-                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                      Approve
-                    </Button>
-                  </li>
-                );
-              })}
-            </ul>
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Approve
+                  </Button>
+                </div>
+              );
+            })}
           </div>
         </section>
       )}
 
-      {/* Per-service breakdown. Flat, no icon disc, revenue + active side by side. */}
-      <section className="mt-6">
-        <SectionOverline label="By service" className="mb-3" />
+      {/* Per-service breakdown. */}
+      <section className="mt-8">
+        <SectionTitle title="By service" />
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {(Object.keys(SERVICE_META) as ServiceKey[]).map((key) => {
             const meta = SERVICE_META[key];
-            const s = stats?.byService[key];
+            const st = stats?.byService[key];
             const Icon = meta.icon;
             return (
               <Link
                 key={key}
                 to={meta.href}
-                className="group flex flex-col gap-3 rounded-radius-md bg-card p-4 transition-colors hover:bg-muted/40"
+                className="group flex min-w-0 flex-col gap-3 rounded-radius-md bg-card p-4 transition-colors hover:bg-muted/40"
               >
                 <div className="flex items-center gap-2">
-                  <Icon className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-bold text-foreground">{meta.label}</span>
-                  <ArrowUpRight className="ml-auto h-3.5 w-3.5 opacity-0 transition-opacity group-hover:opacity-60" />
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] bg-muted">
+                    <Icon className="h-4 w-4 text-muted-foreground" />
+                  </span>
+                  <span className="truncate text-[16px] font-semibold tracking-[-0.32px] text-foreground">
+                    {meta.label}
+                  </span>
+                  <ArrowUpRight className="ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
                 </div>
-                <div className="flex items-end justify-between">
-                  <div>
-                    <p className="text-base font-black tabular-nums text-foreground sm:text-lg">
-                      {formatUSD(s?.revenueCents ?? 0)}
+                <div className="flex items-end justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-[20px] font-semibold tabular-nums tracking-[-0.4px] text-foreground">
+                      {formatUSD(st?.revenueCents ?? 0)}
                     </p>
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">revenue</p>
+                    <p className="text-[12px] tracking-[-0.24px] text-muted-foreground">Revenue</p>
                   </div>
-                  <div className="text-right">
-                    <p className="text-base font-black tabular-nums text-foreground sm:text-lg">{s?.active ?? 0}</p>
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">active</p>
+                  <div className="min-w-0 text-right">
+                    <p className="text-[20px] font-semibold tabular-nums tracking-[-0.4px] text-foreground">
+                      {st?.active ?? 0}
+                    </p>
+                    <p className="text-[12px] tracking-[-0.24px] text-muted-foreground">Active</p>
                   </div>
                 </div>
               </Link>
@@ -333,53 +338,72 @@ const AdminDashboard = () => {
         </div>
       </section>
 
-      {/* Recent activity — subscription-level so a recurring purchase is a
-          single row, not five. Awaiting-payment rows are amber-toned to make
-          them scannable alongside paid ones without a separate card. */}
-      <section className="mt-6">
-        <SectionOverline label="Recent activity" count={recentActivity.length} className="mb-3" />
+      {/* Subscription-level, so a recurring purchase is one row and not five.
+          An unpaid sale carries the accent on its amount — the same signal the
+          metric tile above uses, so the two read as one idea. */}
+      <section className="mt-8">
+        <SectionTitle title="Recent activity" count={recentActivity.length} />
         {recentActivity.length === 0 ? (
-          <div className="rounded-radius-md bg-card p-6 text-center text-sm text-muted-foreground">
-            No recent activity
+          <div className="rounded-radius-md bg-card p-8 text-center">
+            <p className="text-[16px] font-semibold tracking-[-0.32px] text-foreground">Nothing yet today</p>
+            <p className="mt-1 text-[12px] tracking-[-0.24px] text-muted-foreground">
+              Sales across every service appear here as they happen.
+            </p>
           </div>
         ) : (
-          <div className="overflow-hidden rounded-radius-md bg-card">
-            <ul className="divide-y divide-border/40">
-              {recentActivity.map((a: any) => {
-                const meta = SERVICE_META[a.service as ServiceKey];
-                const Icon = meta.icon;
-                return (
-                  <li key={a.id}>
-                    <Link
-                      to={a.href}
-                      className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40"
-                    >
-                      <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold text-foreground">{a.label}</p>
-                        <p className="mt-0.5 text-xs text-muted-foreground">
-                          {format(new Date(a.date), "MMM d, yyyy · h:mm a")}
-                        </p>
-                      </div>
-                      <span
-                        className={cn(
-                          "shrink-0 text-sm font-bold tabular-nums",
-                          a.tone === "pending" ? "text-amber-500" : "text-foreground",
-                        )}
-                      >
-                        {a.detail}
-                      </span>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
+          <div className="space-y-2">
+            {recentActivity.map((a: any) => {
+              const meta = SERVICE_META[a.service as ServiceKey];
+              const Icon = meta.icon;
+              return (
+                <Link
+                  key={a.id}
+                  to={a.href}
+                  className="flex items-center gap-3 rounded-radius-md bg-card p-4 transition-colors hover:bg-muted/40"
+                >
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] bg-muted">
+                    <Icon className="h-4 w-4 text-muted-foreground" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[16px] font-semibold tracking-[-0.32px] text-foreground">{a.label}</p>
+                    <p className="mt-0.5 text-[12px] tracking-[-0.24px] text-muted-foreground">
+                      {format(new Date(a.date), "MMM d, yyyy · h:mm a")}
+                    </p>
+                  </div>
+                  <span
+                    className={cn(
+                      "shrink-0 text-[16px] font-semibold tabular-nums tracking-[-0.32px]",
+                      a.tone === "pending" ? "text-primary" : "text-foreground",
+                    )}
+                  >
+                    {a.detail}
+                  </span>
+                </Link>
+              );
+            })}
           </div>
         )}
       </section>
     </SuperAdminLayout>
   );
 };
+
+/**
+ * A section title, at the size the platform gives one — 20px semibold. The
+ * eyebrow this replaces (11px uppercase grey) is the design's `overline` role,
+ * which labels a field group; using it as a heading is what made every section
+ * here read as fine print.
+ */
+function SectionTitle({ title, count }: { title: string; count?: number }) {
+  return (
+    <div className="mb-3 flex items-baseline gap-2">
+      <h2 className="text-[20px] font-semibold tracking-[-0.4px] text-foreground">{title}</h2>
+      {count != null && count > 0 && (
+        <span className="text-[12px] tabular-nums tracking-[-0.24px] text-muted-foreground">{count}</span>
+      )}
+    </div>
+  );
+}
 
 function MetricTile({
   label, value, href, accent, warning, className,
@@ -395,21 +419,18 @@ function MetricTile({
     <Link
       to={href}
       className={cn(
-        "group flex flex-col gap-2 rounded-radius-md bg-card p-4 transition-colors hover:bg-muted/40",
-        warning && "bg-amber-500/10",
+        "group flex min-w-0 flex-col gap-1 rounded-radius-md bg-card p-4 transition-colors hover:bg-muted/40",
         className,
       )}
     >
       <div className="flex items-center gap-2">
-        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-          {label}
-        </span>
-        <ArrowUpRight className="ml-auto h-3.5 w-3.5 opacity-0 transition-opacity group-hover:opacity-60" />
+        <span className="truncate text-[12px] tracking-[-0.24px] text-muted-foreground">{label}</span>
+        <ArrowUpRight className="ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
       </div>
       <p
         className={cn(
-          "text-2xl font-black tabular-nums tracking-tight md:text-3xl",
-          accent ? "text-primary" : warning ? "text-amber-500" : "text-foreground",
+          "text-[28px] font-semibold leading-tight tabular-nums tracking-[-0.6px]",
+          accent || warning ? "text-primary" : "text-foreground",
         )}
       >
         {value}
