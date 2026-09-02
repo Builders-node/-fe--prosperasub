@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { fetchAllRows } from "@/lib/supabasePaging";
 import { adminApi, supabaseDb } from "@/integrations/supabase/client";
+import { QueryError } from "@/components/QueryError";
 import { toast } from "sonner";
 
 interface Residence {
@@ -33,7 +34,7 @@ const Locations = () => {
   const [form, setForm] = useState({ ...EMPTY });
   const [deleteTarget, setDeleteTarget] = useState<Residence | null>(null);
 
-  const { data: residences = [], isLoading } = useQuery({
+  const { data: residences = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: ["admin-food-residences-all"],
     queryFn: async () => {
       // Through NestJS so RBAC applies — this table has permissive RLS and
@@ -124,6 +125,9 @@ const Locations = () => {
 
         {isLoading ? (
           <div className="space-y-3">{[1, 2].map((i) => <div key={i} className="h-16 animate-pulse rounded-2xl bg-muted" />)}</div>
+        ) : isError ? (
+          /* Not "no locations" — we could not ask. */
+          <QueryError title="Couldn't load locations" error={error as Error} onRetry={() => void refetch()} />
         ) : residences.length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-2xl border border-border bg-card py-14 text-center">
             <MapPin className="mb-3 h-10 w-10 text-muted-foreground/30" />

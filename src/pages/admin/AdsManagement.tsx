@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { AD_PLACEMENTS, EMPTY_AD, type Ad } from "@/types/ad";
+import { QueryError } from "@/components/QueryError";
 
 const placementLabel = (value: string) =>
   AD_PLACEMENTS.find((p) => p.value === value)?.label ?? value;
@@ -82,7 +83,7 @@ const AdsManagement = () => {
   const set = <K extends keyof typeof EMPTY_AD>(key: K, value: (typeof EMPTY_AD)[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
 
-  const { data: ads = [], isLoading } = useQuery({
+  const { data: ads = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: ["admin-ads"],
     queryFn: async () => {
       // Reads go through NestJS too, so RBAC applies uniformly and the page
@@ -191,6 +192,9 @@ const AdsManagement = () => {
 
         {isLoading ? (
           <div className="space-y-3">{[1, 2].map((i) => <div key={i} className="h-24 animate-pulse rounded-2xl bg-muted" />)}</div>
+        ) : isError ? (
+          /* Not "no ads" — we could not ask. */
+          <QueryError title="Couldn't load ads" error={error as Error} onRetry={() => void refetch()} />
         ) : ads.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-border p-10 text-center text-muted-foreground">No ads yet. Create one to show a banner.</div>
         ) : (

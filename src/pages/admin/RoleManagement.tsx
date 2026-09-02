@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
+import { QueryError } from "@/components/QueryError";
 
 type Role = {
   id: string;
@@ -55,7 +56,7 @@ export default function RoleManagement() {
   const [creating, setCreating] = useState(false);
   const [archiveTarget, setArchiveTarget] = useState<Role | null>(null);
 
-  const { data: roles = [], isLoading } = useQuery({
+  const { data: roles = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: ["admin-rbac-roles"],
     queryFn: async () => {
       const { data, error } = await adminApi("/admin/roles");
@@ -127,6 +128,10 @@ export default function RoleManagement() {
           <CardContent className="space-y-space-2">
             {isLoading ? (
               <div className="py-10 text-center text-sm text-muted-foreground">Loading roles...</div>
+            ) : isError ? (
+              /* A failed request is not an empty table. Painting both the same
+                 way is how a 401 read as "you have no roles". */
+              <QueryError title="Couldn't load roles" error={error as Error} onRetry={() => void refetch()} />
             ) : roles.length === 0 ? (
               <div className="py-10 text-center text-sm text-muted-foreground">No roles found</div>
             ) : (
