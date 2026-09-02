@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { ArrowLeft, Car, CheckCircle2, Clock, XCircle } from "lucide-react";
+import { Car, CheckCircle2, Clock, XCircle } from "lucide-react";
 import { AppContainer } from "@/components/layout/AppContainer";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -146,10 +146,6 @@ export default function BookingDetail() {
 
   return (
     <AppContainer className="py-6">
-      <button onClick={() => navigate(carPath("my-bookings"))} className="mb-4 inline-flex items-center gap-1.5 text-[13px] font-semibold text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="h-4 w-4" /> My bookings
-      </button>
-
       <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
         <div className="space-y-4">
           {/* What was booked */}

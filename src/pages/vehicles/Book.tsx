@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { differenceInCalendarDays, format } from "date-fns";
 import { toast } from "sonner";
-import { CheckCircle2, ArrowLeft, ShieldCheck, Check, ChevronRight, MapPin } from "lucide-react";
+import { CheckCircle2, ShieldCheck, Check, ChevronRight, MapPin } from "lucide-react";
 import { AppContainer } from "@/components/layout/AppContainer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -208,10 +208,6 @@ export default function Book() {
 
   return (
     <AppContainer className="py-6">
-      <button onClick={() => navigate(-1)} className="mb-4 inline-flex items-center gap-1.5 text-[13px] font-semibold text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="h-4 w-4" /> Back
-      </button>
-
       <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
         <div className="space-y-4">
           {step === "form" ? (

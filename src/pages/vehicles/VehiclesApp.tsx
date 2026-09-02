@@ -2,9 +2,11 @@ import { type ReactNode, useEffect } from "react";
 import { Routes, Route, Navigate, Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
-import { VehiclesHeader } from "@/pages/vehicles/VehiclesHeader";
-import { VehiclesBottomNav } from "@/pages/vehicles/VehiclesBottomNav";
-import { VEHICLES_BASE, carPath } from "@/pages/vehicles/routes";
+import { VEHICLES_BASE, carPath, trimPath } from "@/pages/vehicles/routes";
+import { HomeHeader } from "@/components/HomeHeader";
+import { DesktopHeader } from "@/components/layout/DesktopHeader";
+import { BottomNav } from "@/components/BottomNav";
+import { useGoBack } from "@/hooks/useGoBack";
 import { AppContainer } from "@/components/layout/AppContainer";
 import { PageLoader } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
@@ -19,12 +21,11 @@ import AdminBookings from "@/pages/vehicles/admin/AdminBookings";
 /**
  * The car-rental storefront, mounted at /vehicles.
  *
- * It is a whole storefront of its own — its own header, its own tab bar, its
- * own routes — but it runs inside the main app's provider tree, so it shares
- * the session, the theme and the query client rather than reimplementing them.
- * That is the whole point of a section shell: renting a car is a different
- * thing to buy than a subscription, but it is not a different account, a
- * different wallet or a different login.
+ * It owns its own routes and its own pages, and nothing else. The header and
+ * the tab bar are the app's — the ones every other section uses. It had a
+ * matching pair of its own while it lived on a second origin, where there was
+ * no app around it to borrow them from; keeping them here would have meant two
+ * headers and two tab bars in one app, which is one of each too many.
  *
  * Its routes are relative because `App.tsx` mounts it under a splat; its links
  * are absolute and go through `carPath` (see routes.ts).
@@ -34,13 +35,21 @@ import AdminBookings from "@/pages/vehicles/admin/AdminBookings";
 const CARS_TITLE = "EverySub Cars — rent a car in Próspera";
 
 function VehiclesLayout({ children }: { children: ReactNode }) {
+  const { pathname } = useLocation();
+  // Back is the visitor's own history; this is only the fallback for a cold
+  // landing. From the fleet that is the catalogue it was reached from, and
+  // from anywhere deeper it is the fleet.
+  const atFleet = trimPath(pathname) === carPath();
+  const goBack = useGoBack(atFleet ? "/discovery" : carPath());
+
   return (
-    <div className="min-h-screen bg-background">
-      <VehiclesHeader />
-      {/* Room for the tab bar, which is fixed and would otherwise sit on top of
-          the last thing on the page. */}
-      <main className="pb-24 md:pb-0">{children}</main>
-      <VehiclesBottomNav />
+    // pb-24 leaves room for the fixed tab bar, which would otherwise sit on
+    // top of the last thing on the page.
+    <div className="min-h-screen bg-background pb-24 md:pb-12">
+      <DesktopHeader />
+      <HomeHeader title="Car Rental" showBackButton onBack={goBack} />
+      <main>{children}</main>
+      <BottomNav />
     </div>
   );
 }

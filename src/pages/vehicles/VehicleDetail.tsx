@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import type { DateRange } from "react-day-picker";
 import { differenceInCalendarDays, format } from "date-fns";
-import { ArrowLeft, Users, Fuel, Gauge, Snowflake, Briefcase, Car } from "lucide-react";
+import { Users, Fuel, Gauge, Snowflake, Briefcase, Car } from "lucide-react";
 import { AppContainer } from "@/components/layout/AppContainer";
 import { Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
@@ -54,10 +54,6 @@ export default function VehicleDetail() {
 
   return (
     <AppContainer className="py-6">
-      <button onClick={() => navigate(-1)} className="mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="h-4 w-4" /> Back
-      </button>
-
       <div className="grid gap-6 lg:grid-cols-[1.3fr_1fr]">
         {/* Left: photos + specs */}
         <div className="space-y-4">

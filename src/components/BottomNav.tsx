@@ -42,6 +42,7 @@ export function BottomNav() {
     location.pathname === "/" ||
     location.pathname === "/discovery" ||
     location.pathname.startsWith("/services/") ||
+    location.pathname.startsWith("/vehicles") ||
     location.pathname === "/cart";
 
   if (!isAuthenticated && !isPublicBottomNavRoute) {
