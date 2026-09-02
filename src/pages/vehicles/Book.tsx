@@ -117,8 +117,11 @@ export default function Book() {
     if (!v || !pricing || !userData?.id) return null;
 
     // The calendar was read when the page loaded; somebody else may have taken
-    // these dates since. Re-read immediately before writing so two people
-    // cannot pay for the same car on the same days.
+    // these dates since. This re-read is for the MESSAGE — it catches the
+    // common case early and says something a customer can act on. It cannot
+    // win a race it is on the wrong side of: two people pressing Book in the
+    // same second both pass it. What actually guarantees one car is not sold
+    // twice is the exclusion constraint on rental_bookings, handled below.
     try {
       const held = await fetchHeldRanges(v.id);
       if (overlapsHeld(fromISO, toISOParam, held)) {
@@ -142,7 +145,17 @@ export default function Book() {
       delivery_address: address.trim() || (zone ? zone.name : null), delivery_notes: notes.trim() || null,
       status: "pending", payment_status: "pending", payment_method: method,
     }).select("id").single();
-    if (error) { toast.error(error.message); return null; }
+    if (error) {
+      // 23P01 — the overlap constraint refused it, so somebody else's booking
+      // holds these dates. Postgres phrases that as a key conflict with a
+      // daterange in it, which is not a sentence to show a customer.
+      const raced = (error as { code?: string }).code === "23P01"
+        || /exclusion constraint/i.test(error.message ?? "");
+      toast.error(raced
+        ? "Sorry — this car was just booked for those dates. Please pick another period."
+        : error.message);
+      return null;
+    }
     return data?.id ?? null;
   };
 
