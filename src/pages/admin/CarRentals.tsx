@@ -18,6 +18,7 @@ import type { RentalVehicle } from "@/types/carRental";
 import { fetchUsersByIds, customerNameFrom } from "@/lib/admin/customerNames";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
+import { StatusPill } from "@/components/patterns/StatusPill";
 
 /**
  * Car rentals, run from the same admin as everything else.
@@ -33,13 +34,6 @@ import { cn } from "@/lib/utils";
 /** Where a booking is in its life, in the words the fleet uses. */
 const STAGES = ["pending", "confirmed", "active", "completed", "cancelled"] as const;
 
-const TONE: Record<string, string> = {
-  confirmed: "bg-emerald-500/15 text-emerald-500",
-  active:    "bg-emerald-500/15 text-emerald-500",
-  completed: "bg-muted text-muted-foreground",
-  pending:   "bg-amber-500/15 text-amber-500",
-  cancelled: "bg-red-500/15 text-red-500",
-};
 
 const day = (iso?: string | null) => (iso ? format(new Date(`${iso}T00:00:00`), "MMM d") : "—");
 
@@ -253,7 +247,7 @@ export default function CarRentals({ embedded = false, providerId }: {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="truncate text-[15px] font-semibold text-foreground">{b.customer}</p>
-                      <Badge className={cn("uppercase", TONE[b.status] ?? "bg-muted text-muted-foreground")}>{b.status}</Badge>
+                      <StatusPill status={b.status} />
                       {b.payment_status !== "paid" && b.status !== "cancelled" && (
                         <Badge className="bg-amber-500/15 text-amber-500">unpaid</Badge>
                       )}

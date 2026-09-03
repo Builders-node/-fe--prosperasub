@@ -11,6 +11,7 @@
  * The accent palette below stays: it is what gives every service one colour.
  */
 import React from "react";
+import { cn } from "@/lib/utils";
 
 // ─── Accent palette ───────────────────────────────────────────────────────────
 export type YdAccent = "sky" | "orange" | "emerald" | "amber" | "violet" | "rose";
@@ -149,6 +150,41 @@ export function YdEmptyState({
           {subtitle}
         </p>
       )}
+    </div>
+  );
+}
+
+/**
+ * A section heading, in the one size the design gives one.
+ *
+ * There were fourteen of these written by hand — `text-xl font-black`,
+ * `text-2xl font-black`, `text-lg font-black`, `text-base font-black`, and a
+ * 12px uppercase eyebrow standing in for a heading in the admin — against
+ * seventeen written the way DESIGN.md §3 specifies. Discovery had one as a
+ * local component, so nobody else could use it even if they wanted to.
+ *
+ * This is that one, exported: 20px semibold at -0.4px, with the optional
+ * count the listings show in parentheses.
+ */
+export function YdSectionHeading({
+  title, count, className, action,
+}: {
+  title: string;
+  /** Rendered as "(N)" beside the title, the way the listings do it. */
+  count?: number | null;
+  className?: string;
+  /** A control on the right — a "see all" link, a filter. */
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className={cn("mb-3 flex items-baseline justify-between gap-3", className)}>
+      <h2 className="min-w-0 text-[20px] font-semibold tracking-[-0.4px] text-foreground">
+        <span className="truncate">{title}</span>
+        {count != null && (
+          <span className="ml-2 text-base font-normal text-muted-foreground">({count})</span>
+        )}
+      </h2>
+      {action}
     </div>
   );
 }

@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { fetchUsersByIds, fetchClientNames, customerNameFrom } from "@/lib/admin/customerNames";
 import { formatUSD } from "@/lib/pricing";
 import { QueryError } from "@/components/QueryError";
+import { YdSectionHeading } from "@/components/yd/YdPrimitives";
 
 /**
  * Admin Overview.
@@ -261,7 +262,7 @@ const AdminDashboard = () => {
           list, find the row, open a menu. Hidden entirely on a quiet day. */}
       {pendingQueue.length > 0 && (
         <section className="mt-8">
-          <SectionTitle title="Awaiting payment" count={pendingQueue.length} />
+          <YdSectionHeading title="Awaiting payment" count={pendingQueue.length} />
           <div className="space-y-2">
             {pendingQueue.map((row) => {
               const Icon = row.ServiceIcon;
@@ -303,7 +304,7 @@ const AdminDashboard = () => {
 
       {/* Per-service breakdown. */}
       <section className="mt-8">
-        <SectionTitle title="By service" />
+        <YdSectionHeading title="By service" />
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {(Object.keys(SERVICE_META) as ServiceKey[]).map((key) => {
             const meta = SERVICE_META[key];
@@ -348,7 +349,7 @@ const AdminDashboard = () => {
           An unpaid sale carries the accent on its amount — the same signal the
           metric tile above uses, so the two read as one idea. */}
       <section className="mt-8">
-        <SectionTitle title="Recent activity" count={recentActivity.length} />
+        <YdSectionHeading title="Recent activity" count={recentActivity.length} />
         {activityError ? (
           /* A quiet day and a failed request are not the same news. */
           <QueryError
@@ -401,22 +402,6 @@ const AdminDashboard = () => {
   );
 };
 
-/**
- * A section title, at the size the platform gives one — 20px semibold. The
- * eyebrow this replaces (11px uppercase grey) is the design's `overline` role,
- * which labels a field group; using it as a heading is what made every section
- * here read as fine print.
- */
-function SectionTitle({ title, count }: { title: string; count?: number }) {
-  return (
-    <div className="mb-3 flex items-baseline gap-2">
-      <h2 className="text-[20px] font-semibold tracking-[-0.4px] text-foreground">{title}</h2>
-      {count != null && count > 0 && (
-        <span className="text-[12px] tabular-nums tracking-[-0.24px] text-muted-foreground">{count}</span>
-      )}
-    </div>
-  );
-}
 
 function MetricTile({
   label, value, href, accent, warning, className,

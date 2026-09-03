@@ -10,11 +10,8 @@ import { formatUSD } from "@/lib/pricing";
 import { Button } from "@/components/ui/button";
 import { carPath } from "@/pages/vehicles/routes";
 import { QueryError } from "@/components/QueryError";
+import { StatusPill } from "@/components/patterns/StatusPill";
 
-const TONE: Record<string, string> = {
-  confirmed: "text-emerald-500", paid: "text-emerald-500", active: "text-emerald-500", completed: "text-muted-foreground",
-  pending: "text-amber-500", cancelled: "text-red-500",
-};
 
 export default function MyBookings() {
   const { userData } = useAuth();
@@ -63,7 +60,7 @@ export default function MyBookings() {
                 <p className="text-xs text-muted-foreground">
                   {format(new Date(b.start_date + "T00:00:00"), "MMM d")} → {format(new Date(b.end_date + "T00:00:00"), "MMM d")} · {b.rental_days} day{b.rental_days > 1 ? "s" : ""}
                 </p>
-                <p className={`text-xs font-bold uppercase tracking-wide ${TONE[b.status] ?? "text-muted-foreground"}`}>{b.status}</p>
+                <StatusPill status={b.status} className="mt-1" />
               </div>
               <div className="flex items-center gap-3 text-right">
                 <div>

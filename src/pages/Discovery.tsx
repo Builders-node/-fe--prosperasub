@@ -219,7 +219,7 @@ function ArchetypeTile({
 function SectionHeader({ title, scrollable = true }: { title: string; scrollable?: boolean }) {
   return (
     <div className="mb-3 flex items-center justify-between">
-      <h2 className="text-xl md:text-2xl font-black tracking-tight text-foreground">{title}</h2>
+      <h2 className="min-w-0 truncate text-[20px] font-semibold tracking-[-0.4px] text-foreground">{title}</h2>
       {scrollable && <ChevronRight className="h-5 w-5 text-muted-foreground/40 md:hidden" aria-hidden />}
     </div>
   );

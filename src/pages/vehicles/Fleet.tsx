@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { QueryError } from "@/components/QueryError";
 import { ProviderRail } from "@/components/listing/ListingNav";
+import { YdSectionHeading } from "@/components/yd/YdPrimitives";
 import { VehicleCard } from "@/components/VehicleCard";
 import { useVehicles } from "@/hooks/useVehicles";
 import { useListingSearch } from "@/hooks/useListingSearch";
@@ -112,12 +113,10 @@ export default function Fleet() {
           </div>
         )}
 
-        <h2 className="mb-3 text-[20px] font-semibold tracking-[-0.4px] text-foreground">
-          {providerId ? providers.find((p) => p.id === providerId)?.name ?? "Available cars" : "Available cars"}
-          {!isLoading && !isError && (
-            <span className="ml-2 text-base font-normal text-muted-foreground">({shown.length})</span>
-          )}
-        </h2>
+        <YdSectionHeading
+          title={providerId ? providers.find((p) => p.id === providerId)?.name ?? "Available cars" : "Available cars"}
+          count={!isLoading && !isError ? shown.length : null}
+        />
 
         {isLoading ? (
           <div className="flex justify-center py-20"><Spinner /></div>
