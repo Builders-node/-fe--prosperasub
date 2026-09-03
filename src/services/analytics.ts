@@ -114,11 +114,9 @@ async function countEngineBookings(universalProviderId: string): Promise<number>
  * header and the number in the Overview strip are one fetch and cannot drift.
  */
 export async function fetchProviderStats(sourceKey: string, legacyId: string, providerId = "") {
-  if (sourceKey === "cleaning") return fetchCleaningStats(legacyId);
-  if (sourceKey === "food")     return fetchFoodStats(legacyId);
-  if (sourceKey === "beach" || sourceKey === "beach_club") return fetchBeachStats(providerId || legacyId);
-  // A business with no legacy table at all: whatever the engine holds for it.
-  return { active: 0, upcoming: await countEngineBookings(providerId) };
+  // One dispatch: the descriptor map below. Keeping a second if-chain here is
+  // how the two would drift apart.
+  return analyticsFor(sourceKey)({ providerId, legacyId });
 }
 
 export type ProviderStats = { active: number; upcoming: number };

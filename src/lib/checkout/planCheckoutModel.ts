@@ -1,4 +1,5 @@
 import { supabaseDb } from "@/integrations/supabase/client";
+import { normPeriod } from "@/lib/services/planPeriod";
 
 /**
  * One shape every plan resolves to, whatever service sells it.
@@ -47,6 +48,12 @@ export interface CheckoutPlan {
   periodsDefault: number;
   pricingMode: string;
   fulfilment: string;
+  /**
+   * A single purchase rather than a recurring one. Same row, same payment
+   * flow, same table — the difference is wording and that exactly one period
+   * is bought. `period = 'one_time'` on the plan is what says so.
+   */
+  oneTime: boolean;
   selection: SelectionGroup | null;
   /** A delivery needs somewhere to arrive; a visit needs somewhere to happen. */
   needsAddress: boolean;
@@ -99,10 +106,13 @@ export async function resolveCheckoutPlan(planId: string): Promise<CheckoutPlan 
     : row.source_service_key === "beach" ? "beach"
     : "universal";
 
-  const periodsMin = Math.max(1, Number(row.periods_min ?? 1));
+  // A one-time offer is bought once, whatever the periods columns say — they
+  // are meaningless for it and an old row may hold anything.
+  const oneTime = normPeriod(row.period) === "one_time";
+  const periodsMin = oneTime ? 1 : Math.max(1, Number(row.periods_min ?? 1));
   // Unset means one period. Offering more than the provider has said they sell
   // would be the checkout making a commercial decision for them.
-  const periodsMax = row.periods_max != null ? Number(row.periods_max) : periodsMin;
+  const periodsMax = oneTime ? 1 : row.periods_max != null ? Number(row.periods_max) : periodsMin;
 
   return {
     service,
@@ -115,9 +125,10 @@ export async function resolveCheckoutPlan(planId: string): Promise<CheckoutPlan 
     description: row.description ?? null,
     unitCents: Number(row.price_cents ?? 0),
     period: String(row.period ?? "monthly"),
+    oneTime,
     periodsMin,
     periodsMax,
-    periodsDefault: Math.max(periodsMin, Number(row.periods_default ?? 1)),
+    periodsDefault: oneTime ? 1 : Math.max(periodsMin, Number(row.periods_default ?? 1)),
     pricingMode: String(row.pricing_mode ?? "flat"),
     fulfilment: String(row.fulfilment ?? "none"),
     selection: asSelection(row.selection_group),

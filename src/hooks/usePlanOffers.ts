@@ -61,6 +61,7 @@ export const BILLING_PERIOD_GROUP = "billing_period";
 
 const PERIOD_LABELS: Record<string, string> = {
   weekly: "Weekly", monthly: "Monthly", quarterly: "Quarterly", yearly: "Yearly",
+  one_time: "One-time",
 };
 
 /** "/ month" — what goes beside a price. */

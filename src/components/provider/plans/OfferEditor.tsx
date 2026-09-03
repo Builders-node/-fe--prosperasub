@@ -334,9 +334,11 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
         period: sold.period,
         included_unit: sold.unit.trim() || null,
         included_quantity: numOrNull(sold.quantity),
-        periods_default: numOrNull(sold.periodsDefault) ?? 1,
-        periods_min: numOrNull(sold.periodsMin) ?? 1,
-        periods_max: numOrNull(sold.periodsMax),
+        // One-time is one period by definition; stale numbers from when the
+        // plan was recurring must not survive into the row.
+        periods_default: sold.period === "one_time" ? 1 : numOrNull(sold.periodsDefault) ?? 1,
+        periods_min: sold.period === "one_time" ? 1 : numOrNull(sold.periodsMin) ?? 1,
+        periods_max: sold.period === "one_time" ? 1 : numOrNull(sold.periodsMax),
         pricing_mode: sold.pricingMode,
         fulfilment: sold.fulfilment,
         resource_ids: access.resourceIds,
@@ -590,6 +592,9 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
               {["weekly", "monthly", "quarterly", "yearly"].map((p) => (
                 <option key={p} value={p}>{p[0].toUpperCase() + p.slice(1)}</option>
               ))}
+              {/* Not a billing cadence but the absence of one: bought once,
+                  never renewed. A product, a single session, a day pass. */}
+              <option value="one_time">One-time — sold once, no renewal</option>
             </select>
           </Field>
           <Field label="Price is" hint={PRICING_HINT[sold.pricingMode] ?? ""}>
@@ -639,24 +644,30 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
       <Input inputSize="sm" value={sold.unit} placeholder="cleaning"
               onChange={(e) => setSold((v) => ({ ...v, unit: e.target.value }))} />
           </Field>
-          <Field label="How many per period">
+          <Field label={sold.period === "one_time" ? "How many included" : "How many per period"}>
       <Input inputSize="sm" inputMode="numeric" value={sold.quantity} placeholder="4"
               onChange={(e) => setSold((v) => ({ ...v, quantity: e.target.value }))} />
           </Field>
 
-          <Field label="Periods offered by default">
-      <Input inputSize="sm" inputMode="numeric" value={sold.periodsDefault}
-              onChange={(e) => setSold((v) => ({ ...v, periodsDefault: e.target.value }))} />
-          </Field>
-          <Field label="Fewest / most they may buy">
-            <div className="flex items-center gap-2">
-       <Input inputSize="sm" inputMode="numeric" value={sold.periodsMin}
-                onChange={(e) => setSold((v) => ({ ...v, periodsMin: e.target.value }))} />
-              <span className="text-muted-foreground">–</span>
-       <Input inputSize="sm" inputMode="numeric" value={sold.periodsMax} placeholder="no limit"
-                onChange={(e) => setSold((v) => ({ ...v, periodsMax: e.target.value }))} />
-            </div>
-          </Field>
+          {/* How many periods may be bought at once — a question a one-time
+              offer does not have, so it is not asked. */}
+          {sold.period !== "one_time" && (
+            <>
+              <Field label="Periods offered by default">
+          <Input inputSize="sm" inputMode="numeric" value={sold.periodsDefault}
+                  onChange={(e) => setSold((v) => ({ ...v, periodsDefault: e.target.value }))} />
+              </Field>
+              <Field label="Fewest / most they may buy">
+                <div className="flex items-center gap-2">
+           <Input inputSize="sm" inputMode="numeric" value={sold.periodsMin}
+                    onChange={(e) => setSold((v) => ({ ...v, periodsMin: e.target.value }))} />
+                  <span className="text-muted-foreground">–</span>
+           <Input inputSize="sm" inputMode="numeric" value={sold.periodsMax} placeholder="no limit"
+                    onChange={(e) => setSold((v) => ({ ...v, periodsMax: e.target.value }))} />
+                </div>
+              </Field>
+            </>
+          )}
 
           {sold.fulfilment === "deliveries" && (
             <>

@@ -450,10 +450,12 @@ const UniversalPlanCheckout = () => {
           <CheckoutSuccessPanel
             icon={Sparkles}
             amount={formatUSD(effectiveTotalCents)}
-            eyebrow={renewing ? "Subscription extended" : "Subscription confirmed"}
+            eyebrow={renewing ? "Subscription extended" : plan.oneTime ? "Purchase confirmed" : "Subscription confirmed"}
             subtitle={
               renewing
                 ? `Your ${plan.name} now runs through ${format(endDate, "d MMM yyyy")}.`
+                : plan.oneTime
+                ? `${plan.name} is yours. We'll be in touch with the details.`
                 : `Your ${plan.name} subscription is active. We'll be in touch with the details.`
             }
             ctaLabel="View my subscriptions"
@@ -664,7 +666,9 @@ const UniversalPlanCheckout = () => {
             ...(perPerson ? [{ label: "People", value: String(Math.max(1, people)) }] : []),
             { label: renewing ? "Renews from" : "Start date",
               value: format(new Date(`${effectiveStart}T00:00:00`), "d MMM yyyy") },
-            { label: "Ends", value: format(endDate, "d MMM yyyy") },
+            // A one-time purchase does not "end" — the date is how long what
+            // was bought stays usable (a pass, a session to schedule).
+            { label: plan.oneTime ? "Valid until" : "Ends", value: format(endDate, "d MMM yyyy") },
           ]}
         />
 

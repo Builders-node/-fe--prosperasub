@@ -1,4 +1,5 @@
-import { addDays, addMonths, addYears, format } from "date-fns";
+import { format } from "date-fns";
+import { endDateFor } from "@/lib/services/planPeriod";
 import type { CheckoutPlan } from "./planCheckoutModel";
 
 /**
@@ -46,16 +47,14 @@ export interface SubscriptionWrite {
   row: Record<string, unknown>;
 }
 
-/** The end of `periods` periods of this plan, in the plan's own unit. */
+/**
+ * The end of `periods` periods of this plan, in the plan's own unit.
+ *
+ * Delegates to the one period vocabulary — this file used to keep its own
+ * switch, which is exactly how a yearly plan once sold a month.
+ */
 export function endDateOf(plan: CheckoutPlan, startISO: string, periods: number): Date {
-  const start = new Date(`${startISO}T00:00:00`);
-  const n = Math.max(1, Math.round(periods));
-  switch (plan.period) {
-    case "weekly":    return addDays(start, 7 * n);
-    case "quarterly": return addMonths(start, 3 * n);
-    case "yearly":    return addYears(start, n);
-    default:          return addMonths(start, n);
-  }
+  return endDateFor(startISO, plan.period, periods);
 }
 
 export function buildSubscriptionWrite(
