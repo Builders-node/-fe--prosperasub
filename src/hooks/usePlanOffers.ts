@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabaseDb } from "@/integrations/supabase/client";
+import { periodAdjective, periodNoun } from "@/lib/services/planPeriod";
 
 /**
  * Offers and their variants.
@@ -59,19 +60,16 @@ export interface PlanVariant {
  */
 export const BILLING_PERIOD_GROUP = "billing_period";
 
-const PERIOD_LABELS: Record<string, string> = {
-  weekly: "Weekly", monthly: "Monthly", quarterly: "Quarterly", yearly: "Yearly",
-  one_time: "One-time",
+// One period vocabulary — lib/services/planPeriod. This file kept private
+// label/unit maps for a while; three copies of the same table is how a yearly
+// plan once sold a month, and how one_time rendered as "One_time".
+export const periodUnit = (p: string | null | undefined) => {
+  if (!p) return "";
+  const noun = periodNoun(p);
+  return noun ? `/ ${noun}` : "";
 };
 
-/** "/ month" — what goes beside a price. */
-const PERIOD_UNITS: Record<string, string> = {
-  weekly: "/ week", monthly: "/ month", quarterly: "/ quarter", yearly: "/ year",
-};
-export const periodUnit = (p: string | null | undefined) => (p && PERIOD_UNITS[p]) || "";
-
-export const periodLabel = (p: string | null | undefined) =>
-  (p && PERIOD_LABELS[p]) || (p ? p[0].toUpperCase() + p.slice(1) : "");
+export const periodLabel = (p: string | null | undefined) => (p ? periodAdjective(p) : "");
 
 export interface PlanOffer {
   id: string;

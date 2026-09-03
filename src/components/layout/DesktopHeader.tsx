@@ -61,7 +61,12 @@ export function DesktopHeader({
         {/* Right actions */}
         <div className="flex items-center gap-3 ml-auto">
           {!hideNav && <CartButton />}
-          {!hideNav && <LanguageMenu />}
+          {/* Hidden until the app is actually translated: the switcher offered
+              Español while ~a dozen files carry translations and the rest is
+              hardcoded English — picking it produced a mixed-language app,
+              which is worse than an honest English one. The i18n context and
+              dictionary stay; render <LanguageMenu /> here again once the
+              coverage exists. */}
           {!hideNav && <NotificationBell />}
           {rightContent ?? (
             !hideNav && (

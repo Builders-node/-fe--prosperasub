@@ -1790,7 +1790,7 @@ const MySubscriptions = () => {
             <input
               type="date"
               value={rescheduleDate}
-              min={format(new Date(), "yyyy-MM-dd")}
+              min={todayHN()}
               onChange={(e) => { setRescheduleDate(e.target.value); setRescheduleSlotId(""); }}
               className="mt-1 w-full rounded-xl border border-border bg-card px-3 py-2.5 text-sm text-foreground"
             />

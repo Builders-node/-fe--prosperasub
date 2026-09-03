@@ -1263,7 +1263,7 @@ const CleaningManagement = ({
                 id="reschedule-date"
                 type="date"
                 value={rescheduleDate}
-                min={format(new Date(), "yyyy-MM-dd")}
+                min={todayHN()}
                 onChange={(e) => { setRescheduleDate(e.target.value); setRescheduleSlotId(""); }}
               />
             </div>

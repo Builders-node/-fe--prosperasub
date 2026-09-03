@@ -19,7 +19,7 @@ import { supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAuditEvent } from "@/lib/auditLog";
 import { todayHN } from "@/lib/timezone";
-import { formatUSD } from "@/lib/pricing";
+import { formatUSD, centsToInput } from "@/lib/pricing";
 
 /**
  * Admin "issue a Beach Club membership to a customer" dialog — mounted on the
@@ -217,7 +217,7 @@ export function NewBeachMembershipDialog({ providerUniversalId, trigger }: Props
                 <Label>{perPerson ? "Price / person ($)" : "Price ($)"}</Label>
                 <Input
                   type="number" min={0} step={0.01}
-                  value={(unitCents / 100).toFixed(2)}
+                  value={centsToInput(unitCents)}
                   onChange={(e) => setUnitCents(Math.round(parseFloat(e.target.value || "0") * 100))}
                 />
               </div>

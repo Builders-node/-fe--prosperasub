@@ -28,6 +28,7 @@ import { fetchHeldRanges, overlapsHeld } from "../lib/availability";
 import { formatUSD, centsToDollars } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { carPath } from "../lib/routes";
+import { todayHN } from "@/lib/timezone";
 
 export default function Book() {
   const { id } = useParams<{ id: string }>();
@@ -56,7 +57,7 @@ export default function Book() {
     const ISO = /^\d{4}-\d{2}-\d{2}$/;
     if (!ISO.test(fromISO) || !ISO.test(toISOParam)) return "Pick your dates first.";
     if (toISOParam < fromISO) return "The return date is before the pickup date.";
-    if (fromISO < format(new Date(), "yyyy-MM-dd")) return "That pickup date has already passed.";
+    if (fromISO < todayHN()) return "That pickup date has already passed.";
     if (v && v.status !== "public") return "This car isn't available for booking.";
     return null;
   }, [fromISO, toISOParam, v]);

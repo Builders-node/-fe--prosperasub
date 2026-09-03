@@ -1,4 +1,5 @@
 import { formatUSD } from "@/lib/pricing";
+import { periodNoun } from "@/lib/services/planPeriod";
 
 /**
  * What a primary button is allowed to say.
@@ -27,15 +28,14 @@ import { formatUSD } from "@/lib/pricing";
 export const SUBSCRIBE = "Subscribe";
 export const ADD_TO_CART = "Add to cart";
 
-const PERIOD_NOUN: Record<string, string> = {
-  weekly: "week", monthly: "month", quarterly: "quarter", yearly: "year",
-};
-
 /** "" · "/ person" · "/ month" · "/ person / month" */
 export function unitSuffix(opts?: { perPerson?: boolean; period?: string | null }): string {
   const parts: string[] = [];
   if (opts?.perPerson) parts.push("/ person");
-  const noun = opts?.period ? PERIOD_NOUN[opts.period] : undefined;
+  // The one period vocabulary — a private copy here is how the same period
+  // could word itself two ways on one screen. one_time yields no noun, so a
+  // one-off price carries no "/ month" it doesn't have.
+  const noun = opts?.period ? periodNoun(opts.period) : "";
   if (noun) parts.push(`/ ${noun}`);
   return parts.join(" ");
 }

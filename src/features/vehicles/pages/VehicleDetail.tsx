@@ -13,6 +13,7 @@ import { ShareButton } from "@/components/patterns/ShareButton";
 import { useGoBack } from "@/hooks/useGoBack";
 import { useVehicle } from "../hooks/useVehicles";
 import { calcRentalPrice, FUEL_LABEL, QUICK_DURATIONS } from "../types/carRental";
+import { unitSuffix } from "@/lib/checkout/ctaLabel";
 import { formatUSD } from "@/lib/pricing";
 import { carPath } from "../lib/routes";
 import { addDays } from "date-fns";
@@ -165,8 +166,8 @@ export default function VehicleDetail() {
             {(v.weekly_price_cents > 0 || v.monthly_price_cents > 0) && (
               <span className="text-[12px] tracking-[-0.24px] text-muted-foreground">
                 {[
-                  v.weekly_price_cents > 0 ? `${formatUSD(v.weekly_price_cents)} / week` : null,
-                  v.monthly_price_cents > 0 ? `${formatUSD(v.monthly_price_cents)} / month` : null,
+                  v.weekly_price_cents > 0 ? `${formatUSD(v.weekly_price_cents)} ${unitSuffix({ period: "weekly" })}` : null,
+                  v.monthly_price_cents > 0 ? `${formatUSD(v.monthly_price_cents)} ${unitSuffix({ period: "monthly" })}` : null,
                 ].filter(Boolean).join(" · ")}
               </span>
             )}

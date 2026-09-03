@@ -60,6 +60,17 @@ export function termLabel(period: string | null | undefined): string {
   }
 }
 
+/** "Weekly" · "Monthly" · "One-time" — the period as a chip or option label. */
+export function periodAdjective(period: string | null | undefined): string {
+  switch (normPeriod(period)) {
+    case "weekly":    return "Weekly";
+    case "quarterly": return "Quarterly";
+    case "yearly":    return "Yearly";
+    case "one_time":  return "One-time";
+    default:          return "Monthly";
+  }
+}
+
 /** The noun a quantity is measured against: "4 massages / month". */
 export function periodNoun(period: string | null | undefined): string {
   switch (normPeriod(period)) {

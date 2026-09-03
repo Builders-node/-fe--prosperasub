@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/select";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { useAddons } from "../hooks/useAddons";
-import { formatUSD } from "@/lib/pricing";
+import { formatUSD , centsToInput } from "@/lib/pricing";
 
 /**
  * What a rental business sells besides the car itself: coverage, extras and
@@ -61,7 +61,7 @@ const EMPTY = (kind: Kind): Draft => ({
   lines: "", isActive: true, sortOrder: 0,
 });
 
-const dollars = (c: number) => (c / 100).toFixed(2);
+const dollars = centsToInput;
 const cents = (v: string) => Math.round(parseFloat(v || "0") * 100);
 
 export function RentalTermsTab({ providerId, canManage }: {

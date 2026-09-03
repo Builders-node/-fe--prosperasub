@@ -262,9 +262,9 @@ const SuperAdminLayout = ({ children, title, subtitle }: SuperAdminLayoutProps) 
             {/* Actions */}
             <div className="flex items-center gap-space-3 px-space-5">
               <LocationSelector />
-              <div className="hidden sm:block">
-                <LanguageMenu />
-              </div>
+              {/* LanguageMenu hidden until the app is translated — see the
+                  note in DesktopHeader; a switcher over hardcoded English
+                  promised a Spanish that wasn't there. */}
               <AdminAccountMenu />
             </div>
           </div>

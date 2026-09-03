@@ -8,7 +8,12 @@ import { formatDateHN, formatTimestampHN } from "@/lib/timezone";
 
 const API_URL = (import.meta.env.VITE_API_URL as string)?.trim() || "https://api.prosperasub.com";
 
-type AccessStatus = "active" | "trial" | "pending" | "expired" | "canceled";
+/**
+ * What the platform's subscription rows actually say. There is no "trial"
+ * anywhere in the data, and the platform spells it "cancelled" — this type
+ * used to invent both, and the trial branch below it was dead code.
+ */
+type AccessStatus = "active" | "paused" | "pending" | "pending_payment" | "pending_schedule" | "expired" | "cancelled";
 
 interface Subscription {
   id: string;
@@ -115,7 +120,9 @@ export default function VerifyAccess() {
 
   const invalid = !result.ok && !result.user;
   const allowed = result.allowed;
-  const granting = result.subscriptions.filter((s) => s.status === "active" || s.status === "trial");
+  // The server decides `allowed`; this only picks which rows to show as the
+  // reason. "active" is the one status that grants access — see verify.service.
+  const granting = result.subscriptions.filter((s) => s.status === "active");
   const pendingCount = result.subscriptions.filter((s) => s.status === "pending").length;
 
   return (

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { centsToInput } from "@/lib/pricing";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,7 +32,7 @@ const EMPTY: Partial<RentalVehicle> = {
   image_url: "", gallery_urls: [], status: "public", sort_order: 0, provider_id: null,
 };
 
-const dollars = (c?: number) => ((c ?? 0) / 100).toFixed(2);
+const dollars = centsToInput;
 const cents = (s: string) => Math.round(parseFloat(s || "0") * 100);
 
 interface Props {

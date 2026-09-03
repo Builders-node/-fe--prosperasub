@@ -101,6 +101,15 @@ export function dollarsToCents(dollars: number): number {
 }
 
 /**
+ * Cents as the string a price INPUT holds — "89.00", no currency sign.
+ * Editors kept re-deriving this locally ((c / 100).toFixed(2)); one home,
+ * like every other money conversion here.
+ */
+export function centsToInput(cents: number | null | undefined): string {
+  return ((cents ?? 0) / 100).toFixed(2);
+}
+
+/**
  * Gets cache age in seconds
  */
 export function getCacheAge(): number {
