@@ -288,10 +288,12 @@ const FoodListing = () => {
                 </span>
               )}
             </div>
+            {/* "Providers" / "Plans", same words as every other listing — the
+                service's own vocabulary lives in the cards, not the headers. */}
             <ProviderRail
               providers={railProviders}
               icon={ChefHat}
-              label="Restaurants"
+              label="Providers"
               onOpen={(id) => navigate(`/services/food/${id}`)}
             />
           </div>
@@ -336,7 +338,7 @@ const FoodListing = () => {
         {(plansLoading || allPlans.length > 0) && (
           <>
             <h2 className="mb-3 mt-space-8 text-[20px] font-semibold tracking-[-0.4px] text-foreground">
-              Meal Plans
+              Plans
               {/* No count until the offers land. It is computed from a list that
                   still has one row per combination, so it would say six and
                   then one — the very flicker the skeleton below prevents. */}
