@@ -528,7 +528,7 @@ export function RestaurantSubscriptionsTab({ providerId }: Props) {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Select value={residenceFilter} onValueChange={setResidenceFilter}>
-            <SelectTrigger className="h-9 w-[170px] rounded-full"><SelectValue placeholder="Residence" /></SelectTrigger>
+      <SelectTrigger inputSize="sm" className="w-[170px] rounded-full"><SelectValue placeholder="Residence" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All residences</SelectItem>
               <SelectItem value="_none">No residence</SelectItem>
@@ -538,7 +538,7 @@ export function RestaurantSubscriptionsTab({ providerId }: Props) {
             </SelectContent>
           </Select>
           <Select value={planFilter} onValueChange={setPlanFilter}>
-            <SelectTrigger className="h-9 w-[170px] rounded-full"><SelectValue placeholder="Plan" /></SelectTrigger>
+      <SelectTrigger inputSize="sm" className="w-[170px] rounded-full"><SelectValue placeholder="Plan" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All plans</SelectItem>
               <SelectItem value="_none">No plan</SelectItem>
@@ -548,7 +548,7 @@ export function RestaurantSubscriptionsTab({ providerId }: Props) {
             </SelectContent>
           </Select>
           <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
-            <SelectTrigger className="h-9 w-[150px] rounded-full"><SelectValue placeholder="Status" /></SelectTrigger>
+      <SelectTrigger inputSize="sm" className="w-[150px] rounded-full"><SelectValue placeholder="Status" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All statuses</SelectItem>
               <SelectItem value="pending">Pending payment</SelectItem>

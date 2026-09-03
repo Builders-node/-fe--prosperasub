@@ -278,7 +278,7 @@ export default function BeachClubSubscriptions({ embedded = false }: { embedded?
         <div className="flex items-center gap-space-3">
           <div className="relative w-full sm:w-[220px]">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search members…" className="h-9 rounded-full pl-9" />
+      <Input inputSize="sm" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search members…" className="rounded-full pl-9" />
           </div>
           <div className="hidden gap-space-3 text-sm text-muted-foreground sm:flex">
             <span>{subs.length} total</span>
@@ -344,7 +344,7 @@ export default function BeachClubSubscriptions({ embedded = false }: { embedded?
                 <TableCell>
                   <div className="flex flex-col items-start gap-1">
                     <Select value={s.status} onValueChange={(status) => statusMutation.mutate({ id: s.id, status })}>
-                      <SelectTrigger className="h-8 w-[120px] text-xs font-semibold">
+           <SelectTrigger inputSize="sm" className="w-[120px] text-xs font-semibold">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>

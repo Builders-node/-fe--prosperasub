@@ -625,35 +625,35 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
           {(sold.providerPrice || sold.markup || sold.pricingMode === "derived") && (
             <>
               <Field label="Provider is paid ($)">
-                <Input inputMode="decimal" className="h-9" value={sold.providerPrice}
+        <Input inputSize="sm" inputMode="decimal" value={sold.providerPrice}
                   onChange={(e) => setSold((v) => ({ ...v, providerPrice: e.target.value }))} />
               </Field>
               <Field label="Platform adds ($)">
-                <Input inputMode="decimal" className="h-9" value={sold.markup}
+        <Input inputSize="sm" inputMode="decimal" value={sold.markup}
                   onChange={(e) => setSold((v) => ({ ...v, markup: e.target.value }))} />
               </Field>
             </>
           )}
 
           <Field label="What is counted" hint="cleaning · meal · session">
-            <Input className="h-9" value={sold.unit} placeholder="cleaning"
+      <Input inputSize="sm" value={sold.unit} placeholder="cleaning"
               onChange={(e) => setSold((v) => ({ ...v, unit: e.target.value }))} />
           </Field>
           <Field label="How many per period">
-            <Input inputMode="numeric" className="h-9" value={sold.quantity} placeholder="4"
+      <Input inputSize="sm" inputMode="numeric" value={sold.quantity} placeholder="4"
               onChange={(e) => setSold((v) => ({ ...v, quantity: e.target.value }))} />
           </Field>
 
           <Field label="Periods offered by default">
-            <Input inputMode="numeric" className="h-9" value={sold.periodsDefault}
+      <Input inputSize="sm" inputMode="numeric" value={sold.periodsDefault}
               onChange={(e) => setSold((v) => ({ ...v, periodsDefault: e.target.value }))} />
           </Field>
           <Field label="Fewest / most they may buy">
             <div className="flex items-center gap-2">
-              <Input inputMode="numeric" className="h-9" value={sold.periodsMin}
+       <Input inputSize="sm" inputMode="numeric" value={sold.periodsMin}
                 onChange={(e) => setSold((v) => ({ ...v, periodsMin: e.target.value }))} />
               <span className="text-muted-foreground">–</span>
-              <Input inputMode="numeric" className="h-9" value={sold.periodsMax} placeholder="no limit"
+       <Input inputSize="sm" inputMode="numeric" value={sold.periodsMax} placeholder="no limit"
                 onChange={(e) => setSold((v) => ({ ...v, periodsMax: e.target.value }))} />
             </div>
           </Field>
@@ -661,11 +661,11 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
           {sold.fulfilment === "deliveries" && (
             <>
               <Field label="Arrives after (minutes from midnight)" hint="600 = 10:00">
-                <Input inputMode="numeric" className="h-9" value={sold.leadMinutes} placeholder="660"
+        <Input inputSize="sm" inputMode="numeric" value={sold.leadMinutes} placeholder="660"
                   onChange={(e) => setSold((v) => ({ ...v, leadMinutes: e.target.value }))} />
               </Field>
               <Field label="Window width (minutes)" hint="120 = a two-hour promise">
-                <Input inputMode="numeric" className="h-9" value={sold.windowMinutes} placeholder="120"
+        <Input inputSize="sm" inputMode="numeric" value={sold.windowMinutes} placeholder="120"
                   onChange={(e) => setSold((v) => ({ ...v, windowMinutes: e.target.value }))} />
               </Field>
             </>

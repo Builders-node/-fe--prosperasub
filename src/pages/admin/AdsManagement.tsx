@@ -67,7 +67,7 @@ function ColorField({ label, value, onChange }: { label: string; value: string; 
           className="h-9 w-10 shrink-0 cursor-pointer rounded border border-border bg-transparent p-0.5"
           aria-label={label}
         />
-        <Input value={value} onChange={(e) => onChange(e.target.value)} className="h-9 font-mono text-xs" />
+    <Input inputSize="sm" value={value} onChange={(e) => onChange(e.target.value)} className="font-mono text-xs" />
       </div>
     </div>
   );

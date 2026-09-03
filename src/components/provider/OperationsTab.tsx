@@ -186,7 +186,7 @@ export function OperationsTab({ providerId }: { providerId: string }) {
           <div>
             <Label className="text-[14px] text-muted-foreground">Day</Label>
             <div className="mt-1 flex items-center gap-2">
-              <Input type="date" value={day} onChange={(e) => setDay(e.target.value)} className="h-9 w-[170px]" />
+       <Input inputSize="sm" type="date" value={day} onChange={(e) => setDay(e.target.value)} className="w-[170px]" />
               {day !== todayHN() && (
                 <Button variant="ghost" size="sm" className="rounded-full text-muted-foreground"
                   onClick={() => setDay(todayHN())}>Today</Button>

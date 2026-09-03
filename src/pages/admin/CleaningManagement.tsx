@@ -896,7 +896,7 @@ const CleaningManagement = ({
                 />
 
                 <Select value={customer} onValueChange={(v) => { setCustomer(v); }}>
-                  <SelectTrigger className="h-9 w-48"><SelectValue placeholder="All customers" /></SelectTrigger>
+         <SelectTrigger inputSize="sm" className="w-48"><SelectValue placeholder="All customers" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All customers</SelectItem>
                     {customerOptions.map((n) => (
@@ -998,7 +998,7 @@ const CleaningManagement = ({
                                 value={["booked", "completed", "cancelled"].includes(booking.status) ? booking.status : "booked"}
                                 onValueChange={(v) => { if (v !== booking.status) setStatusMutation.mutate({ id: booking.id, status: v }); }}
                               >
-                                <SelectTrigger className="h-8 w-[110px] sm:w-[130px]"><SelectValue /></SelectTrigger>
+                <SelectTrigger inputSize="sm" className="w-[110px] sm:w-[130px]"><SelectValue /></SelectTrigger>
                                 <SelectContent>
                                   <SelectItem value="booked">Booked</SelectItem>
                                   <SelectItem value="completed">Completed</SelectItem>

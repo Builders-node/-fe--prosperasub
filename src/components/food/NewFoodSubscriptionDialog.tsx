@@ -258,7 +258,7 @@ export function NewFoodSubscriptionDialog({ providerId, trigger }: Props) {
                     value={residence || "_none"}
                     onValueChange={(v) => setResidence(v === "_none" ? "" : v)}
                   >
-                    <SelectTrigger className="h-9">
+          <SelectTrigger inputSize="sm" >
                       <SelectValue placeholder="Pick" />
                     </SelectTrigger>
                     <SelectContent>

@@ -59,7 +59,7 @@ export function ListingToolbar({
 
         {sorts.length > 1 && (
           <Select value={sort} onValueChange={(v) => onSortChange(v as SortKey)}>
-            <SelectTrigger className="h-11 w-auto min-w-[150px] rounded-2xl border-0 bg-muted/50 text-sm font-semibold">
+      <SelectTrigger inputSize="sm" className="w-auto min-w-[150px] rounded-full border-0 bg-muted/50">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

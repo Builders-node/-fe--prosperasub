@@ -299,7 +299,7 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
           {/* Actions on the right: status filter + create CTA */}
           <div className="ml-auto flex items-center gap-2">
             <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger className="h-9 w-36 rounded-full"><SelectValue /></SelectTrigger>
+       <SelectTrigger inputSize="sm" className="w-36 rounded-full"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All statuses</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
