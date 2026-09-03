@@ -82,6 +82,7 @@ const AdminDashboard = lazy(() => import("./pages/admin/Dashboard"));
 const Analytics = lazy(() => import("./pages/admin/Analytics"));
 const AdminPayments = lazy(() => import("./pages/admin/Payments"));
 const AdminUsers = lazy(() => import("./pages/admin/Users"));
+const CarRentals = lazy(() => import("./pages/admin/CarRentals"));
 const CleaningPlans = lazy(() => import("./pages/admin/CleaningPlans"));
 const ServiceCategories = lazy(() => import("./pages/admin/ServiceCategories"));
 const MarketplaceProviders = lazy(() => import("./pages/admin/MarketplaceProviders"));
@@ -405,12 +406,16 @@ const App = () => {
               <Route path="/admin/users" element={
                 <ProtectedRoute allowedRoles={['super_admin']} requiredPermissions={["users.read"]}><AdminUsers /></ProtectedRoute>
               } />
-              {/* Cars are managed from the Marketplace hub like every other
-                  service — Vehicles tab of the vehicles drill-down. These are
-                  the fleet's old standalone addresses; bookmarks land on the
-                  tab, which is the same CarRentals screen embedded. */}
-              <Route path="/admin/transport" element={<Navigate to="/admin/marketplace/service/vehicles?tab=vehicles" replace />} />
-              <Route path="/admin/car-rentals" element={<Navigate to="/admin/marketplace/service/vehicles?tab=vehicles" replace />} />
+              {/* Transport is its own layer, Booking.com-style — the sidebar's
+                  Transport section, mirroring the storefront's family split.
+                  The Marketplace hub carries experiences only. */}
+              <Route path="/admin/transport" element={
+                <ProtectedRoute allowedRoles={['super_admin']} requiredPermissions={["subscriptions.read"]}><CarRentals /></ProtectedRoute>
+              } />
+              {/* The address it had before the split. */}
+              <Route path="/admin/car-rentals" element={
+                <ProtectedRoute allowedRoles={['super_admin']} requiredPermissions={["subscriptions.read"]}><CarRentals /></ProtectedRoute>
+              } />
               {/* Clients are the second tab of /admin/users now — a billed
                   business is a different thing from an individual account, and
                   the tab keeps the distinction while the section has one door. */}

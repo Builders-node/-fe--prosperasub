@@ -11,7 +11,7 @@
 import {
   BarChart3, CalendarDays, DollarSign,
   FileText, Layers, LayoutDashboard, MapPin, Megaphone,
-  LifeBuoy, ShieldCheck, Users, Building2, } from "lucide-react";
+  LifeBuoy, ShieldCheck, Users, Building2, CarFront, } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { adminRoutes } from "./adminRoutes";
 
@@ -78,10 +78,6 @@ export const MARKETPLACE_SECTION: NavSection = {
         adminRoutes.superAdminMarketplacePlans,
         adminRoutes.superAdminMarketplaceProviders,
         adminRoutes.superAdminProviderApplications,
-        // Cars live in the hub like every other service (Marketplace →
-        // Vehicles); the standalone rental URLs stay routable for bookmarks.
-        adminRoutes.superAdminTransport,
-        adminRoutes.superAdminCarRentals,
       ],
       permissions: ["admin_settings.read"] },
     { label: "Subscriptions", path: adminRoutes.superAdminMarketplaceSubscriptions, icon: CalendarDays,
@@ -89,11 +85,22 @@ export const MARKETPLACE_SECTION: NavSection = {
   ],
 };
 
-// No TRANSPORT section: the vehicles archetype has a card on the Marketplace
-// hub like every other service (its drill-down swaps the Plans tab for
-// Vehicles), so a second sidebar door to the same fleet screen was pure
-// duplication. What is genuinely different about cars — dates, deposit,
-// per-day pricing — lives inside that tab, not in the nav.
+// ─── TRANSPORT ──────────────────────────────────────────────────────────
+/**
+ * Its own layer, Booking.com-style: the sidebar mirrors the storefront's
+ * family split (Experiences | Transport). Marketplace is the experiences
+ * tree; transport-family services live here and are filtered OUT of the hub.
+ * Renting a car is one physical object for a stretch of days with a deposit —
+ * not a plan and a period — and it is managed on its own terms.
+ */
+export const TRANSPORT_SECTION: NavSection = {
+  title: "Transport",
+  items: [
+    { label: "Car rentals", path: adminRoutes.superAdminTransport, icon: CarFront,
+      alsoActiveOn: [adminRoutes.superAdminCarRentals, "/admin/marketplace/service/vehicles"],
+      permissions: ["subscriptions.read"] },
+  ],
+};
 
 // ─── PEOPLE ─────────────────────────────────────────────────────────────
 export const PEOPLE_SECTION: NavSection = {
@@ -139,6 +146,7 @@ export const SETTINGS_SECTION: NavSection = {
 export const NAV_SECTIONS: NavSection[] = [
   OVERVIEW_SECTION,
   MARKETPLACE_SECTION,
+  TRANSPORT_SECTION,
   PEOPLE_SECTION,
   SETTINGS_SECTION,
 ];
