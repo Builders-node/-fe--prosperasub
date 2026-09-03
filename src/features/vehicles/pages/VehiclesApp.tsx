@@ -32,25 +32,36 @@ import BookingDetail from "./BookingDetail";
 const CARS_TITLE = "EverySub Cars — rent a car in Próspera";
 
 function VehiclesLayout({ children }: { children: ReactNode }) {
+  /**
+   * The tab bar follows the platform's rule, not the shell's habit: browsing
+   * surfaces keep it, DECISION pages end at their own CTA. The car page and
+   * the booking page both pin a bar to the viewport bottom (the Book button,
+   * the Pay footer) — and the shell's unconditional BottomNav sat on top of
+   * both at z-50, burying the one control the page exists for. The amber
+   * sliver above the tab bar on a phone was the buried button's top edge.
+   */
+  const { pathname } = useLocation();
+  const isDecisionPage = /\/vehicles\/(vehicle|book)\//.test(pathname);
+
   return (
     /*
       No header here.
-      
+
       The shell used to draw one for every car page, which meant the fleet
       could not use `ListingHeader` — the component every other service listing
       is topped with — without ending up with two title bars. The result was a
       header that looked like the others rather than being them.
-      
+
       Marketplace pages each bring their own: a listing takes ListingHeader, a
       detail page takes HomeHeader. Car pages do the same now, so "the same
       header" is the same component and not a copy of its measurements.
-      
+
       pb-24 leaves room for the fixed tab bar, which would otherwise sit on top
-      of the last thing on the page.
+      of the last thing on the page; decision pages pad for their own CTA bar.
     */
-    <div className="min-h-screen bg-background pb-24 md:pb-12">
+    <div className={isDecisionPage ? "min-h-screen bg-background" : "min-h-screen bg-background pb-24 md:pb-12"}>
       <main>{children}</main>
-      <BottomNav />
+      {!isDecisionPage && <BottomNav />}
     </div>
   );
 }
