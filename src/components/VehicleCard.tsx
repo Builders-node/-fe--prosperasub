@@ -1,73 +1,49 @@
-import { Link } from "react-router-dom";
-import { Car, Users, Fuel, Gauge, Snowflake } from "lucide-react";
-import { formatUSD } from "@/lib/pricing";
+import { useNavigate } from "react-router-dom";
+import { Users, Fuel, Gauge, Snowflake, Building2 } from "lucide-react";
+import { PlanCard } from "@/components/patterns/PlanCard";
 import { FUEL_LABEL, type RentalVehicle } from "@/types/carRental";
 import { carPath } from "@/pages/vehicles/routes";
 
 /**
- * A car in the fleet grid. One white card, 16px radius, one shadow. Image on
- * top; title 16px semibold; the spec line is the single 12px grey slot; price
- * pinned bottom-left in tabular numerals. Per DESIGN.md §1, §3.
+ * A car in the fleet, drawn as the platform's listing row.
+ *
+ * It used to be a card of its own invention — a full-width 16:10 photo on
+ * top, the details beneath, and a Book button on every card. Three departures
+ * from every other list in the app, and the last one is the one PlanCard
+ * argues against in its own source: on a list of eight, eight buttons all mean
+ * "open this" and one of them is always the wrong one to press. The row is the
+ * target here too.
+ *
+ * A car has no rating yet and no "from" price — it has a day rate — so those
+ * slots simply go unused rather than being filled with a placeholder.
  */
 export function VehicleCard({ v, showProvider = false }: {
   v: RentalVehicle;
   /**
-   * Name the business on the card. Off by default: with one rental company on
-   * the platform, stamping its name on every card is noise. The fleet page
-   * turns it on the moment a second company has cars listed, which is when
-   * "whose car is this" becomes a question worth answering.
+   * Name the business above the title. Off by default: with one rental
+   * company, stamping its name on every row is noise. The fleet turns it on
+   * once a second company has cars listed.
    */
   showProvider?: boolean;
 }) {
-  const specs = [
-    { icon: Users, label: String(v.seats) },
-    { icon: Gauge, label: v.transmission === "automatic" ? "Auto" : "Manual" },
-    { icon: Fuel, label: FUEL_LABEL[v.fuel_type] },
-    ...(v.air_conditioning ? [{ icon: Snowflake, label: "A/C" }] : []),
-  ];
+  const navigate = useNavigate();
+  const open = () => navigate(carPath(`vehicle/${v.id}`));
+
   return (
-    <Link
-      to={carPath(`vehicle/${v.id}`)}
-      className="group flex flex-col overflow-hidden rounded-radius-md bg-card shadow-figma tracking-[-0.02em] transition-transform hover:-translate-y-0.5"
-    >
-      <div className="relative aspect-[16/10] w-full overflow-hidden bg-inset">
-        {v.image_url ? (
-          <img src={v.image_url} alt={v.name} loading="lazy" className="h-full w-full object-cover" />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center">
-            <Car className="h-12 w-12 text-muted-foreground/40" />
-          </div>
-        )}
-        {v.status !== "public" && (
-          <span className="absolute left-3 top-3 rounded-full bg-foreground/80 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-background">
-            {v.status}
-          </span>
-        )}
-      </div>
-      <div className="flex flex-1 flex-col p-4">
-        <p className="truncate text-[16px] font-semibold tracking-[-0.32px] text-foreground">{v.name}</p>
-        <p className="mt-0.5 truncate text-[12px] tracking-[-0.24px] text-muted-foreground">
-          {[v.brand, v.model, v.year].filter(Boolean).join(" · ")}
-        </p>
-        {showProvider && v.provider?.name && (
-          <p className="mt-1 truncate text-[12px] font-semibold tracking-[-0.24px] text-muted-foreground">
-            {v.provider.name}
-          </p>
-        )}
-        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[12px] tracking-[-0.24px] text-muted-foreground">
-          {specs.map((s, i) => {
-            const Icon = s.icon;
-            return <span key={i} className="inline-flex items-center gap-1"><Icon className="h-3.5 w-3.5" />{s.label}</span>;
-          })}
-        </div>
-        <div className="mt-3 flex items-end justify-between">
-          <span className="text-[16px] font-semibold tabular-nums tracking-[-0.32px] text-foreground">
-            {formatUSD(v.daily_price_cents)}
-            <span className="text-[12px] font-normal text-muted-foreground"> / day</span>
-          </span>
-          <span className="rounded-full bg-primary px-3.5 py-1.5 text-[13px] font-semibold text-primary-foreground">Book</span>
-        </div>
-      </div>
-    </Link>
+    <PlanCard
+      title={v.name}
+      eyebrow={showProvider && v.provider?.name ? { icon: Building2, text: v.provider.name } : undefined}
+      description={[v.brand, v.model, v.year].filter(Boolean).join(" · ")}
+      photos={[v.image_url ?? "", ...(v.gallery_urls ?? [])]}
+      chips={[
+        { icon: Users, label: String(v.seats) },
+        { icon: Gauge, label: v.transmission === "automatic" ? "Auto" : "Manual" },
+        { icon: Fuel, label: FUEL_LABEL[v.fuel_type] },
+        ...(v.air_conditioning ? [{ icon: Snowflake, label: "A/C" }] : []),
+      ]}
+      price={{ cents: v.daily_price_cents, unit: "day" }}
+      cta={{ label: "Book", onClick: open }}
+      onOpen={open}
+    />
   );
 }

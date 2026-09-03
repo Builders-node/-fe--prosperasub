@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import type { DateRange } from "react-day-picker";
 import { differenceInCalendarDays, format } from "date-fns";
-import { Users, Fuel, Gauge, Snowflake, Briefcase, Car } from "lucide-react";
+import { Users, Fuel, Gauge, Snowflake, Briefcase, Car, ChevronRight } from "lucide-react";
 import { AppContainer } from "@/components/layout/AppContainer";
 import { Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
@@ -52,94 +52,157 @@ export default function VehicleDetail() {
     ...(v.air_conditioning ? [{ icon: Snowflake, label: "Air conditioning" }] : []),
   ];
 
+  const cover = v.image_url || (v.gallery_urls ?? [])[0] || null;
+  const shots = [v.image_url, ...(v.gallery_urls ?? [])]
+    .filter((u): u is string => typeof u === "string" && u.trim().length > 0)
+    .slice(1, 5);
+
+  const breadcrumbs = [
+    ...(v.provider?.name ? [{ label: v.provider.name, href: carPath() }] : []),
+    { label: "Cars", href: carPath() },
+  ];
+
   return (
-    <AppContainer className="py-6">
-      <div className="grid gap-6 lg:grid-cols-[1.3fr_1fr]">
-        {/* Left: photos + specs */}
-        <div className="space-y-4">
-          <div className="aspect-[16/10] w-full overflow-hidden rounded-radius-lg bg-inset">
-            {v.image_url ? (
-              <img src={v.image_url} alt={v.name} className="h-full w-full object-cover" />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center"><Car className="h-16 w-16 text-muted-foreground/40" /></div>
+    /*
+      Built as the platform's detail page, not a car-shaped one. The plan page
+      this now matches leads with a full-bleed 280px band, puts everything else
+      in stacked cards with no side gutter on a phone, and keeps the action in
+      a bar pinned to the bottom. This page used to open with a padded photo in
+      a rounded box, list its thumbnails as loose squares, and hide its Book
+      button somewhere below the fold — three answers to questions the app had
+      already answered elsewhere.
+    */
+    <div className="pb-28 md:pb-8">
+      {cover ? (
+        <div className="relative h-[280px] w-full overflow-hidden rounded-b-radius-lg bg-muted shadow-figma">
+          <img src={cover} alt="" className="absolute inset-0 h-full w-full object-cover" />
+          {/* The back arrow would otherwise vanish into a bright sky. */}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/50 to-transparent md:hidden" />
+        </div>
+      ) : (
+        <div className="flex h-[280px] w-full items-center justify-center rounded-b-radius-lg bg-muted">
+          <Car className="h-16 w-16 text-muted-foreground/40" />
+        </div>
+      )}
+
+      <main className="flex flex-col gap-1 pt-1 md:mx-auto md:max-w-[1280px] md:gap-4 md:px-6 md:py-space-8">
+        <section className="space-y-3 rounded-radius-lg bg-card p-4 shadow-figma">
+          <nav
+            aria-label="Breadcrumb"
+            className="-mx-4 flex items-start gap-2 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          >
+            {breadcrumbs.map((crumb) => (
+              <Link
+                key={crumb.label}
+                to={crumb.href}
+                className="flex shrink-0 items-start gap-0.5 rounded-radius-md bg-inset py-1 pl-2 pr-1 text-[12px] font-medium leading-4 tracking-[-0.24px] text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <span className="max-w-[45vw] truncate">{crumb.label}</span>
+                <ChevronRight className="h-4 w-4 shrink-0" />
+              </Link>
+            ))}
+          </nav>
+
+          <div className="space-y-2">
+            <h1 className="text-[24px] font-semibold leading-tight tracking-[-0.48px] text-foreground">{v.name}</h1>
+            <p className="text-[12px] leading-4 tracking-[-0.24px] text-muted-foreground">
+              {[v.brand, v.model, v.year].filter(Boolean).join(" · ")}
+            </p>
+            {v.description && (
+              <p className="text-[16px] leading-[22px] tracking-[-0.32px] text-muted-foreground">{v.description}</p>
             )}
           </div>
-          {v.gallery_urls?.length > 0 && (
-            <div className="grid grid-cols-4 gap-2">
-              {v.gallery_urls.slice(0, 8).map((u, i) => (
-                <img key={i} src={u} alt="" className="aspect-square w-full rounded-radius-sm object-cover" />
-              ))}
-            </div>
-          )}
-          <div>
-            <h1 className="text-[24px] font-semibold tracking-[-0.4px] text-foreground">{v.name}</h1>
-            <p className="text-sm text-muted-foreground">{[v.brand, v.model, v.year].filter(Boolean).join(" · ")}</p>
-            {/* Always named here, unlike on the card: before handing over money
-                and a driving licence, who you are renting from is not a detail. */}
-            {v.provider?.name && (
-              <p className="mt-1 text-sm font-semibold text-foreground">{v.provider.name}</p>
-            )}
-          </div>
+
           <div className="flex flex-wrap gap-2">
-            {specs.map((s, i) => {
-              const Icon = s.icon;
+            {specs.map((sp, i) => {
+              const Icon = sp.icon;
               return (
-                <span key={i} className="inline-flex items-center gap-1.5 rounded-full bg-inset px-3 py-1.5 text-[13px] font-medium text-foreground">
-                  <Icon className="h-4 w-4 text-muted-foreground" /> {s.label}
+                <span
+                  key={i}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-inset px-3 py-1.5 text-[12px] tracking-[-0.24px] text-muted-foreground"
+                >
+                  <Icon className="h-3.5 w-3.5" /> {sp.label}
                 </span>
               );
             })}
           </div>
-          {v.description && <p className="whitespace-pre-line text-sm leading-relaxed text-muted-foreground">{v.description}</p>}
-        </div>
 
-        {/* Right: dates + price */}
-        <div className="space-y-4 lg:sticky lg:top-20 lg:self-start">
-          <div className="rounded-radius-md bg-card p-4 shadow-figma">
-            <div className="mb-3 flex items-baseline gap-1">
-              <span className="text-[22px] font-semibold tabular-nums tracking-[-0.4px] text-foreground">{formatUSD(v.daily_price_cents)}</span>
-              <span className="text-sm text-muted-foreground">/ day</span>
-              {v.weekly_price_cents > 0 && <span className="ml-auto text-xs text-muted-foreground">{formatUSD(v.weekly_price_cents)}/wk</span>}
-              {v.monthly_price_cents > 0 && <span className="text-xs text-muted-foreground">· {formatUSD(v.monthly_price_cents)}/mo</span>}
-            </div>
-
-            <div className="mb-3 flex flex-wrap gap-1.5">
-              {QUICK_DURATIONS.map((q) => (
-                <button key={q.label} onClick={() => applyQuick(q.days)}
-                  className="rounded-full bg-inset px-3 py-1 text-[12px] font-semibold tracking-[-0.24px] text-foreground hover:bg-muted">
-                  {q.label}
-                </button>
+          {shots.length > 0 && (
+            <div className="grid grid-cols-4 gap-2">
+              {shots.map((u, i) => (
+                <img key={i} src={u} alt="" className="aspect-square w-full rounded-[8px] object-cover" />
               ))}
             </div>
+          )}
+        </section>
 
-            <DateRangePicker vehicleId={v.id} value={range} onChange={setRange} />
-
-            {pricing && range?.from && range?.to && (
-              <div className="mt-3 space-y-1.5 border-t border-border/60 pt-3 text-sm">
-                <div className="flex justify-between text-muted-foreground">
-                  <span>{format(range.from, "MMM d")} → {format(range.to, "MMM d")} · {rentalDays} day{rentalDays > 1 ? "s" : ""}</span>
-                </div>
-                {pricing.discountCents > 0 && (
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>Multi-day discount</span>
-                    <span className="text-primary">−{formatUSD(pricing.discountCents)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between text-[16px] font-semibold text-foreground">
-                  <span>Total</span><span className="tabular-nums">{formatUSD(pricing.totalCents)}</span>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {formatUSD(pricing.effectiveDailyRate)}/day effective{pricing.capped ? " · monthly cap applied" : ""}
-                </p>
-              </div>
+        <section className="space-y-3 rounded-radius-lg bg-card p-4 shadow-figma">
+          <h2 className="text-[20px] font-semibold tracking-[-0.4px] text-foreground">Choose your dates</h2>
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <span className="text-[24px] font-semibold tabular-nums tracking-[-0.48px] text-foreground">
+              {formatUSD(v.daily_price_cents)}
+              <span className="text-[12px] font-normal tracking-[-0.24px] text-muted-foreground"> / day</span>
+            </span>
+            {(v.weekly_price_cents > 0 || v.monthly_price_cents > 0) && (
+              <span className="text-[12px] tracking-[-0.24px] text-muted-foreground">
+                {[
+                  v.weekly_price_cents > 0 ? `${formatUSD(v.weekly_price_cents)} / week` : null,
+                  v.monthly_price_cents > 0 ? `${formatUSD(v.monthly_price_cents)} / month` : null,
+                ].filter(Boolean).join(" · ")}
+              </span>
             )}
-
-            <Button className="mt-4 w-full" disabled={!pricing} onClick={goBook}>
-              {pricing ? `Continue · ${formatUSD(pricing.totalCents)}` : "Select your dates"}
-            </Button>
           </div>
-        </div>
+
+          <div className="flex flex-wrap gap-2">
+            {QUICK_DURATIONS.map((d) => (
+              <button
+                key={d.days}
+                type="button"
+                onClick={() => applyQuick(d.days)}
+                className={`rounded-full px-4 py-1.5 text-[13px] font-semibold transition-colors ${
+                  rentalDays === d.days
+                    ? "bg-foreground text-background"
+                    : "bg-inset text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {d.label}
+              </button>
+            ))}
+          </div>
+
+          <DateRangePicker vehicleId={v.id} value={range} onChange={setRange} />
+
+          {pricing && (
+            <div className="space-y-1.5 rounded-radius-md bg-inset p-3">
+              <div className="flex justify-between text-[12px] tracking-[-0.24px] text-muted-foreground">
+                <span>{formatUSD(pricing.effectiveDailyRate)} × {pricing.rentalDays} days</span>
+                <span className="tabular-nums">{formatUSD(pricing.subtotalCents)}</span>
+              </div>
+              {pricing.discountCents > 0 && (
+                <div className="flex justify-between text-[12px] tracking-[-0.24px] text-muted-foreground">
+                  <span>Longer-rental discount</span>
+                  <span className="tabular-nums text-primary">−{formatUSD(pricing.discountCents)}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-[16px] font-semibold tracking-[-0.32px] text-foreground">
+                <span>Total</span>
+                <span className="tabular-nums">{formatUSD(pricing.totalCents)}</span>
+              </div>
+            </div>
+          )}
+        </section>
+      </main>
+
+      {/* The action, where the platform keeps it: pinned on a phone, in flow on
+          a desktop. It also carries the figure, so the price is still on screen
+          at the moment of deciding. */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 rounded-t-radius-lg bg-card p-4 shadow-figma md:static md:mx-auto md:mt-4 md:max-w-[1280px] md:rounded-radius-lg md:px-6">
+        <Button className="h-12 w-full text-[16px] font-semibold" disabled={!pricing} onClick={goBook}>
+          {pricing
+            ? `Book · ${formatUSD(pricing.totalCents)}`
+            : "Pick your dates"}
+        </Button>
       </div>
-    </AppContainer>
+    </div>
   );
 }
