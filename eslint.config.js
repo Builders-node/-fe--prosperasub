@@ -47,6 +47,14 @@ export default tseslint.config(
             "@/features/*/hooks/*",
             "@/features/*/lib/*",
             "@/features/*/types/*",
+            // legacy/ is the same boundary for the verticals that predate the
+            // universal model. They are on their way out, which is exactly why
+            // the rest of the app should reach them through one door: fewer
+            // doors to close when the tables finally go.
+            "@/legacy/*/components/*",
+            "@/legacy/*/hooks/*",
+            "@/legacy/*/lib/*",
+            "@/legacy/*/types/*",
           ],
           message:
             "Import a feature through its index — @/features/<name> — not its internals. " +

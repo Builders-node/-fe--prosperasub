@@ -9,7 +9,7 @@ import { UnifiedBookingCalendar } from "@/components/provider/UnifiedBookingCale
 import { NewCalendarBookingDialog } from "@/components/provider/NewCalendarBookingDialog";
 import { NewCleaningBookingDialog } from "@/components/cleaning/NewCleaningBookingDialog";
 import { NewFoodSubscriptionDialog } from "@/components/food/NewFoodSubscriptionDialog";
-import { NewBeachMembershipDialog } from "@/features/beach";
+import { NewBeachMembershipDialog } from "@/legacy/beach";
 
 /**
  * The schedule — one tab, three questions.

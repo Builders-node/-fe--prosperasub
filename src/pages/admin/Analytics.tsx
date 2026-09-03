@@ -2,7 +2,7 @@ import { useSearchParams } from "react-router-dom";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import CleaningAnalytics from "./CleaningAnalytics";
 import FoodAnalytics from "./FoodAnalytics";
-import BeachClubAnalytics from "@/features/beach/pages/BeachClubAnalytics";
+import BeachClubAnalytics from "@/legacy/beach/pages/BeachClubAnalytics";
 import { PlatformAnalytics } from "@/components/admin/analytics/PlatformAnalytics";
 import { DomainEventBusPanel } from "@/components/admin/DomainEventBusPanel";
 

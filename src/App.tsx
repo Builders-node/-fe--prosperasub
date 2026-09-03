@@ -49,8 +49,8 @@ const ProviderApplications = lazy(() => import("./pages/admin/ProviderApplicatio
 const LegacyPortalRedirect = lazy(() => import("./pages/user/LegacyPortalRedirect"));
 
 // Beach Club
-const BeachClub = lazy(() => import("./features/beach/pages/BeachClub"));
-const BeachCourts = lazy(() => import("./features/beach/pages/BeachCourts"));
+const BeachClub = lazy(() => import("./legacy/beach/pages/BeachClub"));
+const BeachCourts = lazy(() => import("./legacy/beach/pages/BeachCourts"));
 const BookCalendar = lazy(() => import("./pages/BookCalendar"));
 
 // Cleaning
@@ -107,9 +107,9 @@ const AdsManagement = lazy(() => import("./pages/admin/AdsManagement"));
 // a 404 for as long as the entry existed.
 const Locations = lazy(() => import("./pages/admin/Locations"));
 // Admin Beach Club
-const BeachClubPlans = lazy(() => import("./features/beach/pages/BeachClubPlans"));
-const BeachClubSubscriptions = lazy(() => import("./features/beach/pages/BeachClubSubscriptions"));
-const BeachClubCourts = lazy(() => import("./features/beach/pages/BeachClubCourts"));
+const BeachClubPlans = lazy(() => import("./legacy/beach/pages/BeachClubPlans"));
+const BeachClubSubscriptions = lazy(() => import("./legacy/beach/pages/BeachClubSubscriptions"));
+const BeachClubCourts = lazy(() => import("./legacy/beach/pages/BeachClubCourts"));
 
 // ─── Suspense fallback ────────────────────────────────────────────────────────
 // Unified loader (Spinner is a tiny leaf module — no extra chunk).
