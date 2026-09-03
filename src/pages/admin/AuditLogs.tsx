@@ -1,9 +1,12 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Search } from "lucide-react";
+import { ScrollText, Search } from "lucide-react";
 
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
+import { Skeleton } from "@/components/patterns/Skeleton";
+import { QueryError } from "@/components/patterns/QueryError";
+import { YdEmptyState } from "@/components/yd/YdPrimitives";
 import { adminApi, supabaseDb } from "@/integrations/supabase/client";
 import { fetchUsersByIds } from "@/lib/admin/customerNames";
 import { Badge } from "@/components/ui/badge";
@@ -174,23 +177,13 @@ const AuditLogs = () => {
       <Card>
         <CardContent className="p-0">
           {isLoading ? (
-            <div className="py-12 text-center text-sm text-muted-foreground">
-              Loading...
-            </div>
+            <div className="space-y-space-2 p-space-4">{[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-12" />)}</div>
           ) : isError ? (
-            <div className="py-12 text-center">
-              <p className="text-sm font-semibold text-destructive">Couldn't load audit logs</p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {error instanceof Error ? error.message : "Unexpected error"}
-              </p>
-              <Button variant="outline" size="sm" className="mt-3" onClick={() => refetch()}>
-                Retry
-              </Button>
+            <div className="p-space-4">
+              <QueryError title="Couldn't load audit logs" error={error} onRetry={() => void refetch()} />
             </div>
           ) : filtered.length === 0 ? (
-            <div className="py-12 text-center text-sm text-muted-foreground">
-              No audit logs found
-            </div>
+            <YdEmptyState icon={ScrollText} title="No audit logs" subtitle="Admin actions will appear here as they happen." className="rounded-none" />
           ) : (
             <div className="overflow-x-auto">
               <Table>

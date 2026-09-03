@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Edit, Trash2, Megaphone, ExternalLink, X } from "lucide-react";
 import { adminApi } from "@/integrations/supabase/client";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
+import { Skeleton } from "@/components/patterns/Skeleton";
+import { YdEmptyState } from "@/components/yd/YdPrimitives";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -191,12 +193,12 @@ const AdsManagement = () => {
         </div>
 
         {isLoading ? (
-          <div className="space-y-3">{[1, 2].map((i) => <div key={i} className="h-24 animate-pulse rounded-radius-md bg-muted" />)}</div>
+          <div className="space-y-3">{[1, 2].map((i) => <Skeleton key={i} className="h-24" />)}</div>
         ) : isError ? (
           /* Not "no ads" — we could not ask. */
           <QueryError title="Couldn't load ads" error={error as Error} onRetry={() => void refetch()} />
         ) : ads.length === 0 ? (
-          <div className="rounded-radius-md border border-dashed border-border p-10 text-center text-muted-foreground">No ads yet. Create one to show a banner.</div>
+          <YdEmptyState icon={Megaphone} title="No ads yet" subtitle="Create one to show a banner." />
         ) : (
           <div className="space-y-3">
             {ads.map((a) => (
@@ -276,7 +278,7 @@ const AdsManagement = () => {
               <Input value={form.link_url} onChange={(e) => set("link_url", e.target.value)} placeholder="https://infinita.money/" />
             </div>
 
-            <div className="space-y-2 rounded-radius-md border border-border/60 p-3">
+            <div className="space-y-2 rounded-radius-md bg-inset p-3">
               <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Colors</Label>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <ColorField label="Gradient left" value={form.gradient_from} onChange={(v) => set("gradient_from", v)} />

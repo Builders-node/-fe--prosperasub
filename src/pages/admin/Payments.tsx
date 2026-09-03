@@ -82,9 +82,12 @@ const formatNotificationDate = (value: string) =>
     timeStyle: "short",
   }).format(new Date(value));
 
+// The pill vocabulary's own tones (see StatusPill) — this map had grown its
+// own shades of green and red, so "sent" here and "paid" one tab over were
+// two different greens for the same good news.
 const notificationStatusClass = (status: string) => {
-  if (status === "sent") return "bg-green-500/15 text-green-700 dark:text-green-300";
-  if (status === "failed") return "bg-red-500/15 text-red-700 dark:text-red-300";
+  if (status === "sent") return "bg-emerald-500/15 text-emerald-500";
+  if (status === "failed") return "bg-destructive/15 text-destructive";
   if (status === "skipped") return "bg-muted text-muted-foreground";
   return "bg-primary/15 text-primary";
 };

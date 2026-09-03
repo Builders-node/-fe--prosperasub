@@ -1029,7 +1029,7 @@ function AssignClientSheet({
 
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
-      <SheetContent side="right" className="w-full max-w-md">
+      <SheetContent side="right" className="w-full max-w-md overflow-y-auto">
         <SheetHeader>
           <SheetTitle>Assign Plan to Client</SheetTitle>
           <SheetDescription>Link a cleaning plan to a specific client with optional custom pricing</SheetDescription>

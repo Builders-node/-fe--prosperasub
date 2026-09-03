@@ -5,6 +5,7 @@ import { Ban, Search, Trash2, UserCheck, Sparkles, UtensilsCrossed, Waves, Car }
 import { toast } from "sonner";
 
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
+import { AdminListShell } from "@/components/admin/AdminListShell";
 import { fetchAllRows } from "@/lib/supabasePaging";
 import { adminApi, supabaseDb } from "@/integrations/supabase/client";
 import {
@@ -35,9 +36,11 @@ const userLinkedClients = (user: any) => Array.isArray(user?.linkedClients) ? us
 const norm = (v?: string | null) => (v ?? "").trim().toLowerCase();
 
 const SERVICE_META: Record<string, { label: string; icon: React.ComponentType<any>; tint: string }> = {
-  cleaning: { label: "Cleaning", icon: Sparkles,         tint: "bg-blue-500/15 text-blue-400" },
-  food:     { label: "Food",     icon: UtensilsCrossed,  tint: "bg-orange-500/15 text-orange-400" },
-  beach:    { label: "Beach",    icon: Waves,            tint: "bg-cyan-500/15 text-cyan-400" },
+  // One neutral chip; the icon is the differentiator. A colour per service is
+  // the per-archetype tinting the rest of the admin already removed.
+  cleaning: { label: "Cleaning", icon: Sparkles,         tint: "bg-muted text-muted-foreground" },
+  food:     { label: "Food",     icon: UtensilsCrossed,  tint: "bg-muted text-muted-foreground" },
+  beach:    { label: "Beach",    icon: Waves,            tint: "bg-muted text-muted-foreground" },
 };
 const SERVICE_ORDER = ["cleaning", "food", "beach"] as const;
 type ServiceKey = (typeof SERVICE_ORDER)[number];
@@ -71,7 +74,7 @@ const AdminUsers = () => {
 
   // ── Queries ──────────────────────────────────────────────────────────────
 
-  const { data: users = [], isLoading: usersLoading, isError, error } = useQuery({
+  const { data: users = [], isLoading: usersLoading, isError, error, refetch } = useQuery({
     queryKey: ["admin-users-full"],
     queryFn: async () => {
       const { data, error } = await adminApi("/admin/users");
@@ -256,65 +259,48 @@ const AdminUsers = () => {
 
   return (
     <SuperAdminLayout title="People" subtitle="Everyone who has signed up to the platform.">
-      {/* Toolbar */}
-      <div className="mb-space-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-space-2">
-          {FILTERS.map((f) => (
-            <button key={f.value} type="button" onClick={() => setFilter(f.value)}
-              className={cn("group flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors",
-                filter === f.value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-muted"
-              )}>
-              {f.label}
-              {typeof f.count === "number" && (
-                <span className={cn("rounded-full px-1.5 text-xs tabular-nums",
-                  filter === f.value ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted-foreground/15 text-muted-foreground"
-                )}>{f.count}</span>
-              )}
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-space-2">
-          <Select value={serviceFilter} onValueChange={(v) => setServiceFilter(v as any)}>
-            <SelectTrigger className="w-40 rounded-full"><SelectValue placeholder="All services" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All services</SelectItem>
-              {SERVICE_ORDER.map((k) => <SelectItem key={k} value={k}>{SERVICE_META[k].label}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <div className="relative w-64">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, email, phone…" className="rounded-full pl-9" />
-          </div>
-        </div>
-      </div>
-
-      {/* Result counter */}
-      <p className="mb-space-3 text-xs text-muted-foreground">
-        {isLoading ? "Loading…" : `${filteredPeople.length} ${filteredPeople.length === 1 ? "person" : "people"}`}
-      </p>
-
-      {/* Table */}
-      <div className="overflow-hidden rounded-radius-md bg-card">
-        {isLoading ? (
-          <div className="divide-y divide-border/40">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-4 px-space-4 py-space-4">
-                <div className="h-10 w-10 shrink-0 animate-pulse rounded-full bg-muted" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-4 w-40 animate-pulse rounded bg-muted" />
-                  <div className="h-3 w-56 animate-pulse rounded bg-muted" />
-                </div>
-              </div>
+      {/* The one list scaffold every admin list uses — People had grown its
+          own toolbar, its own counter and its own three inline states. */}
+      <AdminListShell
+        search={search}
+        onSearch={setSearch}
+        searchPlaceholder="Search name, email, phone…"
+        count={filteredPeople.length}
+        isLoading={isLoading}
+        isError={isError}
+        error={error}
+        onRetry={() => void refetch()}
+        isEmpty={!isLoading && people.length === 0}
+        isNoResults={people.length > 0 && filteredPeople.length === 0}
+        emptyTitle="No people yet"
+        emptySubtitle="Everyone who signs up appears here."
+        onClearFilters={() => { setSearch(""); setFilter("all"); setServiceFilter("all"); }}
+        filters={
+          <>
+            {FILTERS.map((f) => (
+              <button key={f.value} type="button" onClick={() => setFilter(f.value)}
+                className={cn("group flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors",
+                  filter === f.value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                )}>
+                {f.label}
+                {typeof f.count === "number" && (
+                  <span className={cn("rounded-full px-1.5 text-xs tabular-nums",
+                    filter === f.value ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted-foreground/15 text-muted-foreground"
+                  )}>{f.count}</span>
+                )}
+              </button>
             ))}
-          </div>
-        ) : isError ? (
-            <div className="py-12 text-center text-sm text-muted-foreground">
-              {(error as Error)?.message || "Could not load users. Please log out and sign in again."}
-            </div>
-          ) : filteredPeople.length === 0 ? (
-            <div className="py-12 text-center text-sm text-muted-foreground">No people match these filters</div>
-          ) : (
-            <>
+            <Select value={serviceFilter} onValueChange={(v) => setServiceFilter(v as any)}>
+              <SelectTrigger className="w-40 rounded-full" inputSize="sm"><SelectValue placeholder="All services" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All services</SelectItem>
+                {SERVICE_ORDER.map((k) => <SelectItem key={k} value={k}>{SERVICE_META[k].label}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </>
+        }
+      >
+      <div className="overflow-hidden rounded-radius-md bg-card">
               {/* Header row (desktop) */}
               <div className="hidden grid-cols-[minmax(0,3fr)_minmax(0,2fr)_minmax(0,1.5fr)_112px_100px_88px] items-center gap-4 border-b border-border/40 px-space-5 py-space-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground md:grid">
                 <div>Person</div>
@@ -437,9 +423,8 @@ const AdminUsers = () => {
                 })}
               </div>
               <TablePagination {...pager} onPage={pager.setPage} />
-            </>
-          )}
       </div>
+      </AdminListShell>
 
       {/* Edit User Sheet */}
       <Sheet open={!!editUser} onOpenChange={(o) => !o && setEditUser(null)}>

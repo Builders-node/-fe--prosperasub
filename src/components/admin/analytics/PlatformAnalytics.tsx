@@ -30,6 +30,7 @@ const SERIES_TINT: Record<RollupServiceKey, string> = {
   cleaning: "bg-primary",
   food: "bg-primary/60",
   beach: "bg-primary/30",
+  plan: "bg-primary/15",
 };
 
 export function PlatformAnalytics() {

@@ -21,7 +21,7 @@
 import { supabaseDb } from "@/integrations/supabase/client";
 import { logAuditEvent, type AuditAction, type EntityType } from "@/lib/auditLog";
 
-export type ApproveService = "cleaning" | "food" | "beach";
+export type ApproveService = "cleaning" | "food" | "beach" | "plan";
 
 interface TableMeta {
   table: string;
@@ -60,6 +60,14 @@ const META: Record<ApproveService, TableMeta> = {
     statusField: "status",
     activeValue: "active",
     legacySource: "beach",
+  },
+  // A subscription on a universal-only service — the row IS the record, no
+  // legacy twin anywhere. One-time offers land here too.
+  plan: {
+    table: "provider_subscriptions",
+    auditEntity: "subscription",
+    statusField: "status",
+    activeValue: "active",
   },
 };
 

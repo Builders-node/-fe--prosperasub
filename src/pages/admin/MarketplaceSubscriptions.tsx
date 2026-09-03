@@ -377,7 +377,7 @@ const MarketplaceSubscriptions = () => {
                       <TableCell className="px-4 py-3">
                         <span className={cn(
                           "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider",
-                          s.kind === "booking" ? "bg-amber-500/15 text-amber-400" : "bg-sky-500/15 text-sky-400",
+                          s.kind === "booking" ? "bg-muted text-muted-foreground" : "bg-primary/15 text-primary",
                         )}>{s.kind === "booking" ? "Booking" : "Sub"}</span>
                       </TableCell>
                       <TableCell className="px-4 py-3 whitespace-nowrap text-xs text-muted-foreground">

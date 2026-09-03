@@ -202,7 +202,7 @@ export function NetProfitPanel() {
         {range === "custom" && (
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="secondary" className="h-9 justify-start gap-2 rounded-full px-4 font-normal">
+              <Button variant="secondary" className="h-9 justify-start gap-2 px-4 font-normal">
                 <CalendarIcon className="h-4 w-4" />
                 {customStart || customEnd ? (
                   <span className="tabular-nums">

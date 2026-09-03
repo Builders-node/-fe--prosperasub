@@ -79,7 +79,7 @@ export default function MarketplaceServiceDetail() {
           <p className="mt-1 text-sm text-muted-foreground">
             It may have been renamed or deleted.
           </p>
-          <Button asChild variant="outline" className="mt-4 rounded-full">
+          <Button asChild variant="outline" className="mt-4">
             <Link to="/admin/marketplace">Back to Marketplace</Link>
           </Button>
         </div>
@@ -96,7 +96,7 @@ export default function MarketplaceServiceDetail() {
     <SuperAdminLayout title={title} subtitle={subtitle}>
       <div className="space-y-5">
         <div className="flex flex-wrap items-center gap-3">
-          <Button asChild variant="ghost" size="sm" className="rounded-full">
+          <Button asChild variant="ghost" size="sm">
             <Link to="/admin/marketplace">
               <ArrowLeft className="mr-1.5 h-4 w-4" /> All services
             </Link>

@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { ArrowUpRight, CheckCircle2, SparklesIcon, UtensilsCrossed, Waves } from "lucide-react";
+import { ArrowUpRight, CheckCircle2, Package, SparklesIcon, UtensilsCrossed, Waves } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -28,12 +28,16 @@ import { YdSectionHeading } from "@/components/yd/YdPrimitives";
  */
 
 
-type ServiceKey = "cleaning" | "food" | "beach";
+type ServiceKey = "cleaning" | "food" | "beach" | "plan";
 
 const SERVICE_META: Record<ServiceKey, { label: string; icon: typeof SparklesIcon; href: string }> = {
   cleaning: { label: "Cleaning",   icon: SparklesIcon,     href: "/admin/analytics?service=cleaning" },
   food:     { label: "Food",       icon: UtensilsCrossed,  href: "/admin/analytics?service=food" },
   beach:    { label: "Beach Club", icon: Waves,            href: "/admin/analytics?service=beach" },
+  // Everything sold on a universal-only service — new archetypes, one-time
+  // offers. The queue and the feed read `subscriptions_unified`, whose fourth
+  // arm files these under 'plan'.
+  plan:     { label: "Other services", icon: Package,      href: "/admin/marketplace/subscriptions" },
 };
 
 interface PendingRow {
@@ -44,6 +48,64 @@ interface PendingRow {
   userLabel: string;
   amountCents: number;
   createdAt: string;
+}
+
+/** A row of `subscriptions_unified`, as this page reads it. */
+interface UnifiedSubRow {
+  id: string;
+  service: string;
+  user_id: string | null;
+  price_cents: number | null;
+  paid?: boolean;
+  payment_status?: string | null;
+  status?: string | null;
+  created_at: string;
+}
+
+/**
+ * Customer names for unified rows. The view carries only `user_id`; the human
+ * name may live on the users row, on food's own `customer_name`, on cleaning's
+ * client record, or in the universal row's metadata — one batched lookup per
+ * shape, then one resolver for every row.
+ */
+async function unifiedNames(rows: UnifiedSubRow[]): Promise<(r: UnifiedSubRow) => string> {
+  const idsOf = (...services: string[]) =>
+    rows.filter((r) => services.includes(r.service)).map((r) => r.id);
+  const foodIds = idsOf("food");
+  const cleaningIds = idsOf("cleaning");
+  const universalIds = idsOf("beach", "plan");
+
+  const [userMap, food, cleaning, universal] = await Promise.all([
+    // fetchUsersByIds drops ids that `users.id` (a uuid column) can't hold.
+    // One Google-sub id in the batch made PostgREST reject the whole query
+    // with 22P02, emptying the map and turning every name into a fallback.
+    fetchUsersByIds(rows.map((r) => r.user_id).filter(Boolean) as string[]),
+    foodIds.length
+      ? supabaseDb.from("food_subscriptions").select("id, customer_name").in("id", foodIds)
+      : Promise.resolve({ data: [] as any[] }),
+    cleaningIds.length
+      ? supabaseDb.from("cleaning_subscriptions").select("id, client_id").in("id", cleaningIds)
+      : Promise.resolve({ data: [] as any[] }),
+    universalIds.length
+      ? supabaseDb.from("provider_subscriptions").select("id, customer_name:metadata->>customer_name").in("id", universalIds)
+      : Promise.resolve({ data: [] as any[] }),
+  ]);
+
+  const clientMap = await fetchClientNames(((cleaning.data ?? []) as any[]).map((r) => r.client_id));
+  const byId = new Map<string, { customerName?: string | null; clientId?: string | null }>();
+  ((food.data ?? []) as any[]).forEach((r) => byId.set(String(r.id), { customerName: r.customer_name }));
+  ((cleaning.data ?? []) as any[]).forEach((r) => byId.set(String(r.id), { clientId: r.client_id }));
+  ((universal.data ?? []) as any[]).forEach((r) => byId.set(String(r.id), { customerName: r.customer_name }));
+
+  return (r) => {
+    const extra = byId.get(String(r.id)) ?? {};
+    return customerNameFrom({
+      user: r.user_id ? userMap.get(String(r.user_id)) : null,
+      customerName: extra.customerName,
+      clientName: extra.clientId ? clientMap.get(String(extra.clientId)) : null,
+      fallback: "Customer",
+    });
+  };
 }
 
 const AdminDashboard = () => {
@@ -83,70 +145,32 @@ const AdminDashboard = () => {
   const { data: pendingQueue = [] } = useQuery<PendingRow[]>({
     queryKey: ["super-admin-pending-queue"],
     queryFn: async () => {
-      const [cleaningSubs, foodSubs, beachSubs] = await Promise.all([
-        supabaseDb.from("cleaning_subscriptions")
-          .select("id, user_id, client_id, total_price_cents, monthly_price_cents, created_at, payment_status, subscription_status")
-          .is("deleted_at", null).neq("payment_status", "paid").neq("payment_status", "refunded")
-          .not("subscription_status", "in", "(cancelled,expired)")
-          .order("created_at", { ascending: false }).limit(20),
-        supabaseDb.from("food_subscriptions")
-          .select("id, user_id, customer_name, weekly_price_cents, commitment_weeks, created_at, payment_status, status")
-          .neq("payment_status", "paid").neq("payment_status", "refunded")
-          .not("status", "in", "(cancelled,expired)")
-          .order("created_at", { ascending: false }).limit(20),
-        supabaseDb.from("provider_subscriptions")
-          .select("id, user_id, created_at, payment_status, status, total_cents:price_cents, customer_name:metadata->>customer_name")
-          .eq("source_service_key", "beach")
-          .neq("payment_status", "paid").neq("payment_status", "refunded")
-          .not("status", "in", "(cancelled,expired)")
-          .order("created_at", { ascending: false }).limit(20),
-      ]);
-
-      const userIds = [...new Set([
-        ...(cleaningSubs.data ?? []).map((r: any) => r.user_id),
-        ...(foodSubs.data ?? []).map((r: any) => r.user_id),
-        ...(beachSubs.data ?? []).map((r: any) => r.user_id),
-      ].filter(Boolean))] as string[];
-      // fetchUsersByIds drops ids that `users.id` (a uuid column) can't hold.
-      // One Google-sub id in the batch made PostgREST reject the whole query
-      // with 22P02, emptying the map and turning every name into a fallback.
-      const [userMap, clientMap] = await Promise.all([
-        fetchUsersByIds(userIds),
-        fetchClientNames((cleaningSubs.data ?? []).map((r: any) => r.client_id)),
-      ]);
-      const label = (userId: string | null, fallback?: string | null, clientId?: string | null) =>
-        customerNameFrom({
-          user: userId ? userMap.get(String(userId)) : null,
-          customerName: fallback,
-          clientName: clientId ? clientMap.get(String(clientId)) : null,
-          fallback: "Customer",
-        });
-
-      const rows: PendingRow[] = [];
-      (cleaningSubs.data ?? []).forEach((r: any) => rows.push({
-        id: r.id, service: "cleaning", serviceLabel: "Cleaning", ServiceIcon: SparklesIcon,
-        // Cleaning carries no customer_name of its own — a company booking's
-        // name lives on the client record, so pass the client through.
-        userLabel: label(r.user_id, null, r.client_id),
-        amountCents: Number(r.total_price_cents) || Number(r.monthly_price_cents) || 0,
-        createdAt: r.created_at,
-      }));
-      (foodSubs.data ?? []).forEach((r: any) => rows.push({
-        id: r.id, service: "food", serviceLabel: "Food", ServiceIcon: UtensilsCrossed,
-        userLabel: label(r.user_id, r.customer_name),
-        amountCents: (Number(r.weekly_price_cents) || 0) * (Number(r.commitment_weeks) || 1),
-        createdAt: r.created_at,
-      }));
-      (beachSubs.data ?? []).forEach((r: any) => rows.push({
-        id: r.id, service: "beach", serviceLabel: "Beach Club", ServiceIcon: Waves,
-        userLabel: label(r.user_id, r.customer_name),
-        amountCents: Number(r.total_cents) || 0,
-        createdAt: r.created_at,
-      }));
-
-      // Newest-first so a fresh pending sub jumps to the top of the queue
-      // — the admin's "just came in" is what they want to see first.
-      return rows.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 8);
+      // One read model instead of three named tables. The old three-way query
+      // was blind to a whole population: a sale on any universal-only service
+      // (a new archetype, a one-time offer) never reached this queue, so the
+      // person who approves payments could not see it existed.
+      const { data, error } = await supabaseDb
+        .from("subscriptions_unified")
+        .select("id, service, user_id, price_cents, payment_status, status, created_at")
+        .neq("payment_status", "paid").neq("payment_status", "refunded")
+        .not("status", "in", "(cancelled,expired)")
+        .order("created_at", { ascending: false })
+        .limit(8);
+      if (error) throw error;
+      const rows = (data ?? []) as UnifiedSubRow[];
+      const nameOf = await unifiedNames(rows);
+      return rows.map((r) => {
+        const meta = SERVICE_META[(r.service as ServiceKey)] ?? SERVICE_META.plan;
+        return {
+          id: r.id,
+          service: (r.service in SERVICE_META ? r.service : "plan") as ApproveService,
+          serviceLabel: meta.label,
+          ServiceIcon: meta.icon,
+          userLabel: nameOf(r),
+          amountCents: Number(r.price_cents) || 0,
+          createdAt: r.created_at,
+        };
+      });
     },
     staleTime: 30_000,
   });
@@ -176,58 +200,31 @@ const AdminDashboard = () => {
   } = useQuery({
     queryKey: ["admin-recent-activity-subscriptions"],
     queryFn: async () => {
-      const [cleaningSubs, foodSubs, beachSubs] = await Promise.all([
-        supabaseDb.from("cleaning_subscriptions").select("id, user_id, client_id, payment_status, total_price_cents, monthly_price_cents, created_at").is("deleted_at", null).order("created_at", { ascending: false }).limit(6),
-        supabaseDb.from("food_subscriptions").select("id, user_id, status, customer_name, weekly_price_cents, commitment_weeks, created_at").order("created_at", { ascending: false }).limit(6),
-        supabaseDb.from("provider_subscriptions").select("id, user_id, status, payment_status, created_at, total_cents:price_cents, customer_name:metadata->>customer_name").eq("source_service_key", "beach").order("created_at", { ascending: false }).limit(6),
-      ]);
-
-      const userIds = [...new Set([
-        ...(cleaningSubs.data ?? []).map((r: any) => r.user_id),
-        ...(foodSubs.data ?? []).map((r: any) => r.user_id),
-        ...(beachSubs.data ?? []).map((r: any) => r.user_id),
-      ].filter(Boolean))];
-      const [usersMap, clientsMap] = await Promise.all([
-        fetchUsersByIds(userIds),
-        fetchClientNames((cleaningSubs.data ?? []).map((r: any) => r.client_id)),
-      ]);
-      const nameOf = (uid: string | null, fallback?: string | null, clientId?: string | null) =>
-        customerNameFrom({
-          user: uid ? usersMap.get(String(uid)) : null,
-          customerName: fallback,
-          clientName: clientId ? clientsMap.get(String(clientId)) : null,
-          fallback: "Customer",
+      // Same read model as the queue above, unfiltered: the feed's whole job
+      // is "every sale, whatever the service", and the unified view is the
+      // only place that sentence is true.
+      const { data, error } = await supabaseDb
+        .from("subscriptions_unified")
+        .select("id, service, user_id, price_cents, paid, created_at")
+        .order("created_at", { ascending: false })
+        .limit(8);
+      if (error) throw error;
+      const rows = (data ?? []) as UnifiedSubRow[];
+      const nameOf = await unifiedNames(rows);
+      return rows
+        .filter((r) => r.created_at)
+        .map((r) => {
+          const key = (r.service in SERVICE_META ? r.service : "plan") as ServiceKey;
+          return {
+            id: `${r.service}-${r.id}`,
+            service: key,
+            tone: r.paid ? ("paid" as const) : ("pending" as const),
+            label: `${nameOf(r)} — ${SERVICE_META[key].label}`,
+            detail: r.paid ? formatUSD(Number(r.price_cents) || 0) : "Awaiting payment",
+            date: r.created_at,
+            href: key === "beach" ? "/admin/beach-club/subscriptions" : "/admin/marketplace/subscriptions",
+          };
         });
-
-      type Activity = { id: string; service: ServiceKey; tone: "paid" | "pending"; label: string; detail: string; date: string; href: string };
-      const out: Activity[] = [];
-
-      (cleaningSubs.data ?? []).forEach((s: any) => out.push({
-        id: `csub-${s.id}`, service: "cleaning", tone: s.payment_status === "paid" ? "paid" : "pending",
-        label: `${nameOf(s.user_id, null, s.client_id)} — Cleaning subscription`,
-        detail: s.payment_status === "paid" ? formatUSD(s.total_price_cents || s.monthly_price_cents || 0) : "Awaiting payment",
-        date: s.created_at, href: "/admin/marketplace/subscriptions",
-      }));
-      (foodSubs.data ?? []).forEach((s: any) => {
-        const st = String(s.status ?? "").toLowerCase();
-        out.push({
-          id: `fsub-${s.id}`, service: "food", tone: st === "pending" ? "pending" : "paid",
-          label: `${nameOf(s.user_id, s.customer_name)} — Food subscription`,
-          detail: st === "pending" ? "Awaiting payment" : formatUSD((s.weekly_price_cents || 0) * (s.commitment_weeks || 1)),
-          date: s.created_at, href: "/admin/marketplace/subscriptions",
-        });
-      });
-      (beachSubs.data ?? []).forEach((s: any) => out.push({
-        id: `bsub-${s.id}`, service: "beach", tone: s.payment_status === "paid" ? "paid" : "pending",
-        label: `${nameOf(s.user_id, s.customer_name)} — Beach Club membership`,
-        detail: s.payment_status === "paid" ? formatUSD(s.total_cents || 0) : "Awaiting payment",
-        date: s.created_at, href: "/admin/beach-club/subscriptions",
-      }));
-
-      return out
-        .filter((a) => a.date)
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-        .slice(0, 8);
     },
   });
 

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { MapPin, Plus, Pencil, Trash2, Eye, EyeOff } from "lucide-react";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
+import { AdminListShell } from "@/components/admin/AdminListShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,6 +18,7 @@ import {
 import { fetchAllRows } from "@/lib/supabasePaging";
 import { adminApi, supabaseDb } from "@/integrations/supabase/client";
 import { QueryError } from "@/components/patterns/QueryError";
+import { StatusPill } from "@/components/patterns/StatusPill";
 import { toast } from "sonner";
 
 interface Residence {
@@ -117,36 +119,33 @@ const Locations = () => {
   return (
     <SuperAdminLayout title="Locations" subtitle="Residences and delivery zones where the platform operates">
       <div className="space-y-6">
-        <div className="flex justify-end">
-          <Button onClick={openNew} className="gap-2 rounded-full">
-            <Plus className="h-4 w-4" /> New Location
-          </Button>
-        </div>
-
-        {isLoading ? (
-          <div className="space-y-3">{[1, 2].map((i) => <div key={i} className="h-16 animate-pulse rounded-radius-md bg-muted" />)}</div>
-        ) : isError ? (
-          /* Not "no locations" — we could not ask. */
-          <QueryError title="Couldn't load locations" error={error as Error} onRetry={() => void refetch()} />
-        ) : residences.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-radius-md border border-border bg-card py-14 text-center">
-            <MapPin className="mb-3 h-10 w-10 text-muted-foreground/30" />
-            <p className="font-semibold">No locations yet</p>
-            <p className="mt-1 text-sm text-muted-foreground">Add your first residence to start delivering there.</p>
-          </div>
-        ) : (
+        {/* The same scaffold every admin list uses — this page kept its own
+            loading rows, its own bordered empty state and a lone right-hung
+            button where the shell has an actions slot. */}
+        <AdminListShell
+          isLoading={isLoading}
+          isError={isError}
+          error={error}
+          onRetry={() => void refetch()}
+          isEmpty={residences.length === 0}
+          emptyTitle="No locations yet"
+          emptySubtitle="Add your first residence to start delivering there."
+          actions={
+            <Button onClick={openNew} className="gap-2">
+              <Plus className="h-4 w-4" /> New Location
+            </Button>
+          }
+        >
           <div className="space-y-3">
             {residences.map((r) => (
-              <div key={r.id} className="flex items-center gap-4 rounded-radius-md border border-border bg-card p-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-radius-md bg-orange-500/10">
-                  <MapPin className="h-5 w-5 text-orange-400" />
+              <div key={r.id} className="flex items-center gap-4 rounded-radius-md bg-card p-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-radius-md bg-muted">
+                  <MapPin className="h-5 w-5 text-muted-foreground" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-bold text-foreground">{r.name}</span>
-                    <Badge className={`rounded-full text-xs ${r.is_active ? "bg-green-500/15 text-green-400" : "bg-muted text-muted-foreground"}`}>
-                      {r.is_active ? "Active" : "Hidden"}
-                    </Badge>
+                    <StatusPill status={r.is_active ? "active" : "inactive"} />
                   </div>
                   <p className="mt-0.5 text-xs text-muted-foreground">
                     Sort #{r.sort_order} · {counts[r.name] ?? 0} active subscription{(counts[r.name] ?? 0) !== 1 ? "s" : ""}
@@ -166,7 +165,7 @@ const Locations = () => {
               </div>
             ))}
           </div>
-        )}
+        </AdminListShell>
 
         {/* Create / edit */}
         <Dialog open={!!editing} onOpenChange={(o) => { if (!o) setEditing(null); }}>

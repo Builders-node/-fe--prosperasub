@@ -145,13 +145,13 @@ export default function AdminSupport() {
                     <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">{m.message}</p>
 
                     <div className="flex flex-wrap items-center gap-2">
-                      <Button asChild size="sm" variant="secondary" className="rounded-full">
+                      <Button asChild size="sm" variant="secondary">
                         <a href={`mailto:${m.email}?subject=${encodeURIComponent(`Re: ${m.subject}`)}`}>
                           <Mail className="mr-1.5 h-3.5 w-3.5" /> Reply by email
                         </a>
                       </Button>
                       {m.phone && (
-                        <Button asChild size="sm" variant="secondary" className="rounded-full">
+                        <Button asChild size="sm" variant="secondary">
                           <a
                             href={`https://wa.me/${m.phone.replace(/[^0-9]/g, "")}`}
                             target="_blank"
@@ -162,7 +162,7 @@ export default function AdminSupport() {
                         </Button>
                       )}
                       {m.page_url && (
-                        <Button asChild size="sm" variant="ghost" className="rounded-full">
+                        <Button asChild size="sm" variant="ghost">
                           <a href={m.page_url} target="_blank" rel="noopener noreferrer">
                             <ExternalLink className="mr-1.5 h-3.5 w-3.5" /> Where they were
                           </a>

@@ -238,7 +238,7 @@ const AdminClients = () => {
           </Button>
         ) : undefined}
         actions={
-          <Button className="gap-2 rounded-full" onClick={() => setDraft(emptyDraft())}>
+          <Button className="gap-2" onClick={() => setDraft(emptyDraft())}>
             <Plus className="h-4 w-4" /> New client
           </Button>
         }

@@ -34,12 +34,16 @@ import { nowHN } from "@/lib/timezone";
  * different answer, and the two must not be mixed in one figure.
  */
 
-export type RollupServiceKey = "cleaning" | "food" | "beach";
+export type RollupServiceKey = "cleaning" | "food" | "beach" | "plan";
 
 export const ROLLUP_SERVICES: { key: RollupServiceKey; label: string }[] = [
   { key: "cleaning", label: "Cleaning" },
   { key: "food", label: "Food" },
   { key: "beach", label: "Beach Club" },
+  // Everything sold on a universal-only service — every new archetype, every
+  // one-time offer. The view's fourth arm; without this bucket those sales
+  // were fetched and then dropped on the floor, so the TOTALS missed them too.
+  { key: "plan", label: "Other services" },
 ];
 
 /** How many months the revenue series covers, current month last. */

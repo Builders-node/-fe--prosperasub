@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Eye, EyeOff, ExternalLink, Building2, Mail, Phone, ShieldCheck, MoreVertical, Pencil, Plus } from "lucide-react";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { AdminListShell } from "@/components/admin/AdminListShell";
+import { StatusPill } from "@/components/patterns/StatusPill";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -306,7 +307,7 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
                 <SelectItem value="inactive">Inactive</SelectItem>
               </SelectContent>
             </Select>
-            <Button size="sm" className="rounded-full" onClick={() => setCreating(true)}>
+            <Button size="sm" onClick={() => setCreating(true)}>
               <Plus className="mr-1 h-4 w-4" /> New provider
             </Button>
           </div>
@@ -324,7 +325,7 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
           {/* Empty state gets a direct CTA to Applications */}
           {inScope.length === 0 && (
             <div className="flex justify-center pt-2">
-              <Button asChild variant="outline" className="rounded-full">
+              <Button asChild variant="outline">
                 <Link to="/admin/marketplace/providers/applications">Review applications</Link>
               </Button>
             </div>
@@ -430,12 +431,7 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
                   </div>
                 );
 
-                const statusCell = (
-                  <span className={cn(
-                    "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider",
-                    p.status === "active" ? "bg-green-500/15 text-green-400" : "bg-muted text-muted-foreground",
-                  )}>{p.status}</span>
-                );
+                const statusCell = <StatusPill status={p.status} />;
 
                 const actionsCell = (
                   <div className="flex justify-end">

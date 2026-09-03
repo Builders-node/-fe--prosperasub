@@ -4,6 +4,8 @@ import { ShieldCheck, Plus, Archive, Save } from "lucide-react";
 import { toast } from "sonner";
 
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
+import { Skeleton } from "@/components/patterns/Skeleton";
+import { YdEmptyState } from "@/components/yd/YdPrimitives";
 import { adminApi } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -132,16 +134,16 @@ export default function RoleManagement() {
           </CardHeader>
           <CardContent className="space-y-space-2">
             {isLoading ? (
-              <div className="py-10 text-center text-sm text-muted-foreground">Loading roles...</div>
+              <div className="space-y-space-2">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-16" />)}</div>
             ) : isError ? (
               /* A failed request is not an empty table. Painting both the same
                  way is how a 401 read as "you have no roles". */
               <QueryError title="Couldn't load roles" error={error as Error} onRetry={() => void refetch()} />
             ) : roles.length === 0 ? (
-              <div className="py-10 text-center text-sm text-muted-foreground">No roles found</div>
+              <YdEmptyState icon={Archive} title="No roles yet" subtitle="Create a role to grant admin access." />
             ) : (
               [...activeRoles, ...inactiveRoles].map((role) => (
-                <div key={role.id} className="flex flex-wrap items-center justify-between gap-space-3 rounded-radius-md border border-border bg-card px-space-4 py-space-3">
+                <div key={role.id} className="flex flex-wrap items-center justify-between gap-space-3 rounded-radius-md bg-inset px-space-4 py-space-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-space-2">
                       <p className="font-bold">{role.name}</p>

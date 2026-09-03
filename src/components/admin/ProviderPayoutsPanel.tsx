@@ -10,6 +10,41 @@ import { adminApi, supabaseDb } from "@/integrations/supabase/client";
 import { formatUSD } from "@/lib/pricing";
 import { formatDateHN } from "@/lib/timezone";
 import { QueryError } from "@/components/patterns/QueryError";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+/**
+ * The confirmation for the two money actions on this panel. They were
+ * `window.confirm` — the platform's most consequential clicks answered by the
+ * browser's own grey box, on a codebase that already replaced that pattern
+ * everywhere else (see CleaningPlans). Same question, asked in the product's
+ * own dialog.
+ */
+function ConfirmMoneyDialog({ open, onOpenChange, title, description, actionLabel, onConfirm }: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  description: string;
+  actionLabel: string;
+  onConfirm: () => void;
+}) {
+  return (
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>{title}</AlertDialogTitle>
+          <AlertDialogDescription className="whitespace-pre-line">{description}</AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={onConfirm}>{actionLabel}</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
 
 /**
  * Recording money sent to a provider.
@@ -295,6 +330,8 @@ function OpeningBalances() {
     onError: (e: any) => toast.error(e?.message || "Could not settle"),
   });
 
+  const [settleTarget, setSettleTarget] = useState<{ providerId: string; name: string; availableCents: number } | null>(null);
+
   // Hiding on empty is deliberate — there is nothing outstanding to show. But
   // hiding on FAILURE removes the section entirely, so nobody learns the
   // figures could not be fetched: the panel is simply not there, and money
@@ -334,17 +371,11 @@ function OpeningBalances() {
                 {formatUSD(r.availableCents)}
               </span>
               <Button
-                size="sm" variant="outline" className="rounded-full"
+                size="sm" variant="outline"
                 disabled={settle.isPending}
-                onClick={() => {
-                  // A ledger write, not a transfer — but it changes what a
-                  // provider can ask for, so it says so before it happens.
-                  const ok = window.confirm(
-                    `Record ${formatUSD(r.availableCents)} as already paid to ${r.name}?\n\n` +
-                    `No money moves. Their withdrawable balance drops to zero and grows again from new revenue.`,
-                  );
-                  if (ok) settle.mutate(r.providerId);
-                }}
+                // A ledger write, not a transfer — but it changes what a
+                // provider can ask for, so it asks before it happens.
+                onClick={() => setSettleTarget(r)}
               >
                 Mark as settled
               </Button>
@@ -352,6 +383,18 @@ function OpeningBalances() {
           </li>
         ))}
       </ul>
+
+      <ConfirmMoneyDialog
+        open={!!settleTarget}
+        onOpenChange={(open) => { if (!open) setSettleTarget(null); }}
+        title={settleTarget ? `Settle ${formatUSD(settleTarget.availableCents)} for ${settleTarget.name}?` : ""}
+        description={"No money moves. Their withdrawable balance drops to zero and grows again from new revenue."}
+        actionLabel="Mark as settled"
+        onConfirm={() => {
+          if (settleTarget) settle.mutate(settleTarget.providerId);
+          setSettleTarget(null);
+        }}
+      />
     </div>
   );
 }
@@ -424,16 +467,11 @@ function PayoutRequestQueue({ providers }: { providers: Array<{ id: string; name
     onError: (e: any) => toast.error(e?.message || "Could not send the payout"),
   });
 
-  const confirmSend = (r: PayoutRow) => {
-    // Irreversible, so it is a question and not a click. The amount and the
-    // destination are in the question because those are the two things that
-    // cannot be taken back if they are wrong.
-    const ok = window.confirm(
-      `Send ${formatUSD(r.amount_cents)} to ${r.destination}?\n\n` +
-      `This pays from the platform's Blink wallet now and cannot be undone.`,
-    );
-    if (ok) send.mutate(r.id);
-  };
+  // Irreversible, so it is a question and not a click. The amount and the
+  // destination are in the question because those are the two things that
+  // cannot be taken back if they are wrong.
+  const [sendTarget, setSendTarget] = useState<PayoutRow | null>(null);
+  const confirmSend = (r: PayoutRow) => setSendTarget(r);
 
   const decide = useMutation({
     mutationFn: async ({ id, decision }: { id: string; decision: "approved" | "rejected" | "paid" }) => {
@@ -497,12 +535,12 @@ function PayoutRequestQueue({ providers }: { providers: Array<{ id: string; name
               <span className="text-base font-black tabular-nums text-foreground">{formatUSD(r.amount_cents)}</span>
               {r.status === "requested" && (
                 <>
-                  <Button size="sm" variant="outline" className="rounded-full"
+                  <Button size="sm" variant="outline"
                     disabled={decide.isPending}
                     onClick={() => decide.mutate({ id: r.id, decision: "rejected" })}>
                     Reject
                   </Button>
-                  <Button size="sm" className="rounded-full"
+                  <Button size="sm"
                     disabled={decide.isPending}
                     onClick={() => decide.mutate({ id: r.id, decision: "approved" })}>
                     Approve
@@ -512,13 +550,13 @@ function PayoutRequestQueue({ providers }: { providers: Array<{ id: string; name
               {r.status === "approved" && (
                 <>
                   {canSend && (
-                    <Button size="sm" className="gap-1.5 rounded-full"
+                    <Button size="sm" className="gap-1.5"
                       disabled={send.isPending}
                       onClick={() => confirmSend(r)}>
                       <Zap className="h-3.5 w-3.5" /> {send.isPending ? "Sending…" : "Send now"}
                     </Button>
                   )}
-                  <Button size="sm" variant={canSend ? "outline" : "default"} className="rounded-full"
+                  <Button size="sm" variant={canSend ? "outline" : "default"}
                     disabled={decide.isPending}
                     onClick={() => decide.mutate({ id: r.id, decision: "paid" })}>
                     Mark sent
@@ -534,7 +572,7 @@ function PayoutRequestQueue({ providers }: { providers: Array<{ id: string; name
                   way forward is a fresh request with a destination that works,
                   not a retry of this row. */}
               {r.status === "failed" && (
-                <Button size="sm" variant="outline" className="rounded-full"
+                <Button size="sm" variant="outline"
                   disabled={decide.isPending}
                   onClick={() => decide.mutate({ id: r.id, decision: "rejected" })}>
                   Close it
@@ -544,6 +582,18 @@ function PayoutRequestQueue({ providers }: { providers: Array<{ id: string; name
           </li>
         ))}
       </ul>
+
+      <ConfirmMoneyDialog
+        open={!!sendTarget}
+        onOpenChange={(open) => { if (!open) setSendTarget(null); }}
+        title={sendTarget ? `Send ${formatUSD(sendTarget.amount_cents)} to ${sendTarget.destination}?` : ""}
+        description={"This pays from the platform's Blink wallet now and cannot be undone."}
+        actionLabel="Send now"
+        onConfirm={() => {
+          if (sendTarget) send.mutate(sendTarget.id);
+          setSendTarget(null);
+        }}
+      />
     </div>
   );
 }

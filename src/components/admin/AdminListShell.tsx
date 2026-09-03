@@ -103,7 +103,7 @@ export function AdminListShell({
             {error instanceof Error ? error.message : "The server returned an error."}
           </p>
           {onRetry && (
-            <Button variant="outline" size="sm" className="mt-3 rounded-full" onClick={onRetry}>
+            <Button variant="outline" size="sm" className="mt-3" onClick={onRetry}>
               Retry
             </Button>
           )}
@@ -120,7 +120,7 @@ export function AdminListShell({
           <p className="text-[16px] font-semibold tracking-[-0.32px] text-foreground">No matches</p>
           <p className="mt-1 text-[12px] tracking-[-0.24px] text-muted-foreground">Nothing matches the current search or filters.</p>
           {onClearFilters && (
-            <Button variant="outline" size="sm" className="mt-3 rounded-full" onClick={onClearFilters}>
+            <Button variant="outline" size="sm" className="mt-3" onClick={onClearFilters}>
               Clear filters
             </Button>
           )}

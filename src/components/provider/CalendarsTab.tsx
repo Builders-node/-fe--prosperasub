@@ -187,14 +187,14 @@ export function CalendarsTab({ providerId }: { providerId: string }) {
       <Sheet open={!!editing} onOpenChange={(o) => { if (!o) setEditing(null); }}>
         <SheetContent
           side={isMobile ? "bottom" : "right"}
-          className={isMobile ? "h-[92vh] rounded-t-radius-lg p-0" : "w-full max-w-xl p-0 sm:max-w-xl"}
+          className={isMobile ? "h-[92vh] p-0" : "w-full max-w-xl p-0 sm:max-w-xl"}
         >
           <SheetHeader className="px-4 py-4">
             <SheetTitle className="text-[20px] font-semibold leading-[26px]">
               {editing?.name || "Calendar"}
             </SheetTitle>
           </SheetHeader>
-          <div className="h-[calc(100%-64px)] overflow-y-auto bg-background px-4 pb-8 pt-1">
+          <div className="min-h-0 flex-1 overflow-y-auto bg-background px-4 pb-8 pt-1">
             {editing && (
               <CalendarForm
                 row={editing}
