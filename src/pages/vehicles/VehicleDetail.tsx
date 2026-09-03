@@ -7,6 +7,7 @@ import { AppContainer } from "@/components/layout/AppContainer";
 import { Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
 import { DateRangePicker, toISO } from "@/components/DateRangePicker";
+import { PhotoCarousel } from "@/components/patterns/PhotoCarousel";
 import { useVehicle } from "@/hooks/useVehicles";
 import { calcRentalPrice, FUEL_LABEL, QUICK_DURATIONS } from "@/types/carRental";
 import { formatUSD } from "@/lib/pricing";
@@ -52,10 +53,10 @@ export default function VehicleDetail() {
     ...(v.air_conditioning ? [{ icon: Snowflake, label: "Air conditioning" }] : []),
   ];
 
-  const cover = v.image_url || (v.gallery_urls ?? [])[0] || null;
+  // Every picture of this car, cover first — one band instead of a big photo
+  // up here and three loose squares further down.
   const shots = [v.image_url, ...(v.gallery_urls ?? [])]
-    .filter((u): u is string => typeof u === "string" && u.trim().length > 0)
-    .slice(1, 5);
+    .filter((u): u is string => typeof u === "string" && u.trim().length > 0);
 
   const breadcrumbs = [
     ...(v.provider?.name ? [{ label: v.provider.name, href: carPath() }] : []),
@@ -73,17 +74,15 @@ export default function VehicleDetail() {
       already answered elsewhere.
     */
     <div className="pb-28 md:pb-8">
-      {cover ? (
-        <div className="relative h-[280px] w-full overflow-hidden rounded-b-radius-lg bg-muted shadow-figma">
-          <img src={cover} alt="" className="absolute inset-0 h-full w-full object-cover" />
-          {/* The back arrow would otherwise vanish into a bright sky. */}
-          <div className="absolute inset-0 bg-gradient-to-b from-black/50 to-transparent md:hidden" />
-        </div>
-      ) : (
-        <div className="flex h-[280px] w-full items-center justify-center rounded-b-radius-lg bg-muted">
-          <Car className="h-16 w-16 text-muted-foreground/40" />
-        </div>
-      )}
+      <PhotoCarousel
+        photos={shots}
+        alt={v.name}
+        fallback={
+          <div className="flex h-[280px] w-full items-center justify-center rounded-b-radius-lg bg-muted">
+            <Car className="h-16 w-16 text-muted-foreground/40" />
+          </div>
+        }
+      />
 
       <main className="flex flex-col gap-1 pt-1 md:mx-auto md:max-w-[1280px] md:gap-4 md:px-6 md:py-space-8">
         <section className="space-y-3 rounded-radius-lg bg-card p-4 shadow-figma">
@@ -127,13 +126,6 @@ export default function VehicleDetail() {
             })}
           </div>
 
-          {shots.length > 0 && (
-            <div className="grid grid-cols-4 gap-2">
-              {shots.map((u, i) => (
-                <img key={i} src={u} alt="" className="aspect-square w-full rounded-[8px] object-cover" />
-              ))}
-            </div>
-          )}
         </section>
 
         <section className="space-y-3 rounded-radius-lg bg-card p-4 shadow-figma">

@@ -130,26 +130,45 @@ export function YdIllustration({
 }
 
 // ─── Empty state ──────────────────────────────────────────────────────────────
+/**
+ * "There is nothing here", said the same way everywhere.
+ *
+ * Fifty-one screens wrote their own instead of using this, and the reason is
+ * visible in the old signature: it had no room for an action, and almost every
+ * empty state ends in one — "Browse services", "Add your first car". A
+ * primitive that cannot express the common case is a primitive people work
+ * around, so the slot is the fix, not discipline.
+ *
+ * Also brought onto the design's own numbers: a card is 16px (`rounded-3xl`
+ * was 24), the title is the 16px semibold every row title uses, and the
+ * subtitle the 12px caption — it was `text-base font-bold` over `text-sm`.
+ */
 export function YdEmptyState({
   icon: Icon,
   title,
   subtitle,
+  action,
+  className,
 }: {
   icon: React.ComponentType<{ className?: string }>;
   title: string;
   subtitle?: string;
+  /** The way out — a button, a link. Rendered under the subtitle. */
+  action?: React.ReactNode;
+  className?: string;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-3xl bg-card py-16 text-center">
-      <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-muted/50">
+    <div className={cn("flex flex-col items-center justify-center rounded-radius-md bg-card py-14 text-center", className)}>
+      <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-radius-md bg-muted/50">
         <Icon className="h-8 w-8 text-muted-foreground/40" />
       </div>
-      <p className="text-base font-bold text-foreground">{title}</p>
+      <p className="text-[16px] font-semibold tracking-[-0.32px] text-foreground">{title}</p>
       {subtitle && (
-        <p className="mt-1.5 text-sm text-muted-foreground max-w-xs">
+        <p className="mt-1 max-w-xs px-6 text-[12px] tracking-[-0.24px] text-muted-foreground">
           {subtitle}
         </p>
       )}
+      {action && <div className="mt-4">{action}</div>}
     </div>
   );
 }
