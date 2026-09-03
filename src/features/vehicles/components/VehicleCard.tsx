@@ -1,8 +1,8 @@
 import { useNavigate } from "react-router-dom";
 import { Users, Fuel, Gauge, Snowflake, Building2 } from "lucide-react";
 import { PlanCard } from "@/components/patterns/PlanCard";
-import { FUEL_LABEL, type RentalVehicle } from "@/types/carRental";
-import { carPath } from "@/pages/vehicles/routes";
+import { FUEL_LABEL, type RentalVehicle } from "../types/carRental";
+import { carPath } from "../lib/routes";
 
 /**
  * A car in the fleet, drawn as the platform's listing row.

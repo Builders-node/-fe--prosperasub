@@ -17,16 +17,16 @@ import { PayPalPanel } from "@/components/payment/PayPalPanel";
 import { useInvoicePayment } from "@/hooks/useInvoicePayment";
 import { usePaymentMethods } from "@/hooks/usePaymentMethods";
 import { useBtcPrice } from "@/hooks/useBtcPrice";
-import { useAddons } from "@/hooks/useAddons";
+import { useAddons } from "../hooks/useAddons";
 import { attachPaymentReference } from "@/lib/payments/pendingReference";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useVehicle } from "@/hooks/useVehicles";
-import { calcRentalPrice, extraCost } from "@/types/carRental";
-import { fetchHeldRanges, overlapsHeld } from "@/lib/vehicles/availability";
+import { useVehicle } from "../hooks/useVehicles";
+import { calcRentalPrice, extraCost } from "../types/carRental";
+import { fetchHeldRanges, overlapsHeld } from "../lib/availability";
 import { formatUSD, centsToDollars } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
-import { carPath } from "@/pages/vehicles/routes";
+import { carPath } from "../lib/routes";
 
 export default function Book() {
   const { id } = useParams<{ id: string }>();

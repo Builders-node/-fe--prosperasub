@@ -20,7 +20,7 @@
  */
 import { useQuery } from "@tanstack/react-query";
 import { supabaseDb } from "@/integrations/supabase/client";
-import { VEHICLES_BASE } from "@/pages/vehicles/routes";
+import { VEHICLES_BASE } from "@/features/vehicles";
 
 export type LegacySourceKey = "food" | "cleaning";
 

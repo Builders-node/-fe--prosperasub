@@ -15,7 +15,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { supabaseDb } from "@/integrations/supabase/client";
-import { useAddons } from "@/hooks/useAddons";
+import { useAddons } from "../hooks/useAddons";
 import { formatUSD } from "@/lib/pricing";
 
 /**

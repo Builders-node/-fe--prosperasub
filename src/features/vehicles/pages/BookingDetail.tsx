@@ -19,7 +19,7 @@ import { supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatUSD, centsToDollars } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
-import { carPath } from "@/pages/vehicles/routes";
+import { carPath } from "../lib/routes";
 
 /**
  * One rental, in full — and the two things a customer could not do before.

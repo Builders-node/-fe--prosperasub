@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { differenceInCalendarDays, eachDayOfInterval, format, startOfToday } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
-import { fetchHeldRanges, overlapsHeld, type HeldRange } from "@/lib/vehicles/availability";
+import { fetchHeldRanges, overlapsHeld, type HeldRange } from "../lib/availability";
 
 export const toISO = (d: Date) => format(d, "yyyy-MM-dd");
 

@@ -61,7 +61,7 @@ import { ReviewPromptCard } from "@/components/reviews/ReviewPromptCard";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { to12h as format12h } from "@/lib/booking/bookingSettings";
-import { carPath } from "@/pages/vehicles/routes";
+import { carPath } from "@/features/vehicles";
 
 /**
  * Compute what the server-side renewal will land on: continuous period,

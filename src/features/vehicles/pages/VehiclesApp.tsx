@@ -2,18 +2,18 @@ import { type ReactNode, useEffect } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
-import { VEHICLES_BASE, carPath } from "@/pages/vehicles/routes";
+import { VEHICLES_BASE, carPath } from "../lib/routes";
 import { HomeHeader } from "@/components/layout/HomeHeader";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
 import { useGoBack } from "@/hooks/useGoBack";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { AppContainer } from "@/components/layout/AppContainer";
 import { PageLoader } from "@/components/ui/spinner";
-import Fleet from "@/pages/vehicles/Fleet";
-import VehicleDetail from "@/pages/vehicles/VehicleDetail";
-import Book from "@/pages/vehicles/Book";
-import MyBookings from "@/pages/vehicles/MyBookings";
-import BookingDetail from "@/pages/vehicles/BookingDetail";
+import Fleet from "./Fleet";
+import VehicleDetail from "./VehicleDetail";
+import Book from "./Book";
+import MyBookings from "./MyBookings";
+import BookingDetail from "./BookingDetail";
 
 /**
  * The car-rental storefront, mounted at /vehicles.

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabaseDb } from "@/integrations/supabase/client";
-import type { InsuranceTier, RentalExtra, DeliveryZone } from "@/types/carRental";
+import type { InsuranceTier, RentalExtra, DeliveryZone } from "../types/carRental";
 
 /**
  * One business's rental terms — its insurance tiers, its extras, its delivery

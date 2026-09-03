@@ -12,9 +12,9 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { supabaseDb } from "@/integrations/supabase/client";
-import { VehicleEditDialog } from "@/components/admin/VehicleEditDialog";
-import { carPath } from "@/pages/vehicles/routes";
-import type { RentalVehicle } from "@/types/carRental";
+import { VehicleEditDialog } from "@/features/vehicles";
+import { carPath } from "@/features/vehicles";
+import type { RentalVehicle } from "@/features/vehicles";
 import { fetchUsersByIds, customerNameFrom } from "@/lib/admin/customerNames";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";

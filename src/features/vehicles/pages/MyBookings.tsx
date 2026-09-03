@@ -8,7 +8,7 @@ import { supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatUSD } from "@/lib/pricing";
 import { Button } from "@/components/ui/button";
-import { carPath } from "@/pages/vehicles/routes";
+import { carPath } from "../lib/routes";
 import { QueryError } from "@/components/patterns/QueryError";
 import { StatusPill } from "@/components/patterns/StatusPill";
 

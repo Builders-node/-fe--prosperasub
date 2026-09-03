@@ -9,7 +9,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabaseDb } from "@/integrations/supabase/client";
-import type { RentalVehicle } from "@/types/carRental";
+import type { RentalVehicle } from "../types/carRental";
 
 /**
  * Add or edit one car.

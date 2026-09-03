@@ -27,7 +27,7 @@ import { ProviderTeamTab } from "@/components/provider/ProviderTeamTab";
 import { ScheduleAccordion } from "@/components/provider/ScheduleAccordion";
 import { ServiceLocationsSection } from "@/components/food/admin/ServiceLocationsSection";
 import { LegacyOwnerPortal } from "@/components/provider/legacyPortalTabs";
-import { RentalTermsTab } from "@/components/provider/RentalTermsTab";
+import { RentalTermsTab } from "@/features/vehicles";
 import CarRentals from "@/pages/admin/CarRentals";
 import { SubscribersList } from "@/components/provider/SubscribersList";
 import { ProviderReviewsPanel } from "@/components/provider/ProviderReviewsPanel";

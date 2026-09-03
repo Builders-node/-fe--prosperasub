@@ -31,7 +31,11 @@ import NotFound from "./pages/NotFound";
 // Auth
 // Car rental — a whole storefront of its own, mounted at /vehicles. One lazy
 // chunk, so a visitor who never opens it never downloads it.
-const VehiclesApp = lazy(() => import("./pages/vehicles/VehiclesApp"));
+// eslint-disable-next-line no-restricted-imports -- deliberate deep import:
+// going through the feature's index would pull the whole feature into one
+// chunk and undo the code splitting that keeps the car storefront out of a
+// marketplace visitor's download.
+const VehiclesApp = lazy(() => import("@/features/vehicles/pages/VehiclesApp"));
 
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 
