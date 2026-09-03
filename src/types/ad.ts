@@ -20,7 +20,10 @@ export interface Ad {
 }
 
 export const AD_PLACEMENTS = [
-  { value: "home_top", label: "Home — top banner" },
+  // Desktop shows this strip on every customer-facing page (SiteAdBanner);
+  // phones show it on the home screen only. The value stays `home_top` —
+  // it's what every existing row carries.
+  { value: "home_top", label: "Top banner — site-wide on desktop, home on mobile" },
 ] as const;
 
 export const EMPTY_AD = {

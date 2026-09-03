@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import { useLocation } from "react-router-dom";
 import { useActiveAds } from "@/hooks/useActiveAd";
 import { cn } from "@/lib/utils";
 import type { Ad } from "@/types/ad";
@@ -128,6 +129,30 @@ export function AdBanner({ placement }: { placement: string }) {
         </div>
       )}
 
+    </div>
+  );
+}
+
+/**
+ * The one site-wide mount of the ad strip, rendered above every route from
+ * App. On desktop the banner is part of the site chrome — it used to live
+ * only on Discovery's `top` slot, so it vanished the moment a visitor opened
+ * any listing, which read as the page breaking rather than a placement
+ * choice. On mobile every vertical pixel is content, so phones keep the old
+ * behaviour: the strip appears on the home screen only (Discovery mounts its
+ * own `md:hidden` copy).
+ *
+ * Hidden where a promo has no business being: the admin panel, auth flows,
+ * and the staff-facing QR verification screen.
+ */
+const AD_FREE_PREFIXES = ["/admin", "/verify", "/oauth", "/auth", "/reset-password"];
+
+export function SiteAdBanner() {
+  const { pathname } = useLocation();
+  if (AD_FREE_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`))) return null;
+  return (
+    <div className="hidden md:block">
+      <AdBanner placement="home_top" />
     </div>
   );
 }

@@ -125,7 +125,12 @@ const Discovery = () => {
   };
 
   return (
-    <BrowseLayout top={<AdBanner placement="home_top" />} header={<HomeHeader variant="brand" />}>
+    <BrowseLayout
+      // Mobile only: on md+ the same strip is already mounted site-wide above
+      // every route (SiteAdBanner in App) — two copies on one screen otherwise.
+      top={<div className="md:hidden"><AdBanner placement="home_top" /></div>}
+      header={<HomeHeader variant="brand" />}
+    >
 
       {/*
         The design splits the screen in two: a white panel that carries the

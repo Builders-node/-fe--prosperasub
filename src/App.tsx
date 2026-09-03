@@ -13,6 +13,7 @@ import { CartProvider } from "@/contexts/CartContext";
 import { LanguageProvider } from "@/i18n";
 
 import ProtectedRoute from "@/components/app/ProtectedRoute";
+import { SiteAdBanner } from "@/components/patterns/AdBanner";
 import InstallAppModal from "@/components/patterns/InstallAppModal";
 import { ErrorBoundary } from "@/components/app/ErrorBoundary";
 import { PageLoader } from "@/components/ui/spinner";
@@ -191,6 +192,10 @@ const App = () => {
                 <AuthModalProvider>
                 <LocationProvider>
                 <CartProvider>
+                {/* Site chrome on desktop: the ad strip rides above every
+                    customer-facing route instead of living on Discovery alone
+                    and vanishing on the first click. See SiteAdBanner. */}
+                <SiteAdBanner />
                 <Suspense fallback={<PageFallback />}>
                 <Routes>
               {/* Home → Discovery */}
