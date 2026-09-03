@@ -9,6 +9,7 @@ import { providerHref } from "@/lib/services/serviceUrls";
 import { ProviderRail, CategoryChips, ALL_CATEGORIES } from "@/components/listing/ListingNav";
 import { useCategoryParam } from "@/hooks/useCategoryParam";
 import { groupProvidersByCategory } from "@/lib/services/groupByCategory";
+import { BrowseLayout } from "@/components/layout/BrowseLayout";
 import { HomeHeader } from "@/components/layout/HomeHeader";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
 import { BottomNav } from "@/components/layout/BottomNav";
@@ -167,9 +168,8 @@ const ServicePage = () => {
   if (archetypesLoading) return <PageLoader />;
   if (!archetype) {
     return (
-      <div className="min-h-screen bg-background pb-24 md:pb-12">
+      <BrowseLayout>
         <HomeHeader title="Not found" showBackButton onBack={goBack} />
-        <DesktopHeader />
         <main className="app-container py-space-8">
           <YdEmptyState
             icon={SearchX}
@@ -177,8 +177,7 @@ const ServicePage = () => {
             subtitle="This service isn't on the platform. Browse what is."
           />
         </main>
-        <BottomNav />
-      </div>
+      </BrowseLayout>
     );
   }
 
@@ -186,10 +185,9 @@ const ServicePage = () => {
   const openPlan = (planId: string) => navigate(`/services/${archetype.key}/plans/${planId}`);
 
   return (
-    <div className="min-h-screen bg-background pb-24 md:pb-12">
+    <BrowseLayout>
       {/* The archetype's own label — the same word the tile used and the same
           one the admin typed. */}
-      <DesktopHeader />
       <ListingHeader
         title={archetype.label}
         onBack={goBack}
@@ -270,8 +268,7 @@ const ServicePage = () => {
         </section>
       </main>
 
-      <BottomNav />
-    </div>
+    </BrowseLayout>
   );
 };
 

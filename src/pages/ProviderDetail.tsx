@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { ShareButton } from "@/components/patterns/ShareButton";
 import { supabase, supabaseDb } from "@/integrations/supabase/client";
+import { BrowseLayout } from "@/components/layout/BrowseLayout";
 import { HomeHeader } from "@/components/layout/HomeHeader";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
 import { BottomNav } from "@/components/layout/BottomNav";
@@ -323,9 +324,8 @@ const ProviderDetail = () => {
   // over nothing and looked like the provider had simply stopped trading.
   if (!archetypeKey) {
     return (
-      <div className="min-h-screen bg-background pb-24 md:pb-0">
+      <BrowseLayout className="md:pb-0">
         <HomeHeader title="Not found" showBackButton onBack={goBack} />
-        <DesktopHeader />
         <main className="app-container flex flex-col items-center justify-center py-16 text-center">
           <SparklesIcon className="mb-4 h-12 w-12 text-muted-foreground/40" />
           <p className="font-semibold text-foreground">No such service</p>
@@ -336,37 +336,32 @@ const ProviderDetail = () => {
             <Link to="/discovery">Browse services</Link>
           </Button>
         </main>
-        <BottomNav />
-      </div>
+      </BrowseLayout>
     );
   }
 
   if (providerQ.isLoading) {
     return (
-      <div className="min-h-screen bg-background pb-24 md:pb-0">
+      <BrowseLayout className="md:pb-0">
         <HomeHeader title="Provider" showBackButton onBack={goBack} />
-        <DesktopHeader />
         <main className="app-container py-space-6 space-y-4">
           <div className="h-48 animate-pulse rounded-radius-lg bg-muted" />
           <div className="h-24 animate-pulse rounded-radius-lg bg-muted" />
           <div className="h-64 animate-pulse rounded-radius-lg bg-muted" />
         </main>
-        <BottomNav />
-      </div>
+      </BrowseLayout>
     );
   }
 
   if (providerQ.isError || !providerQ.data) {
     return (
-      <div className="min-h-screen bg-background pb-24 md:pb-0">
+      <BrowseLayout className="md:pb-0">
         <HomeHeader title="Provider" showBackButton onBack={goBack} />
-        <DesktopHeader />
         <main className="app-container flex flex-col items-center justify-center py-16">
           <Icon className="mb-4 h-12 w-12 text-muted-foreground/40" />
           <p className="font-semibold text-foreground">Provider not found</p>
         </main>
-        <BottomNav />
-      </div>
+      </BrowseLayout>
     );
   }
 
@@ -415,8 +410,7 @@ const ProviderDetail = () => {
   const hours = formatWorkingHours(p.working_hours);
 
   return (
-    <div className="min-h-screen bg-background pb-24 md:pb-0">
-      <DesktopHeader />
+    <BrowseLayout className="md:pb-0">
 
       {/*
         The banner IS the header.
@@ -621,8 +615,7 @@ const ProviderDetail = () => {
         )}
       </main>
 
-      <BottomNav />
-    </div>
+    </BrowseLayout>
   );
 };
 

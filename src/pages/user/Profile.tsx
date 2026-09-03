@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Spinner } from "@/components/ui/spinner";
+import { BrowseLayout } from "@/components/layout/BrowseLayout";
 import { HomeHeader } from "@/components/layout/HomeHeader";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
 import { BottomNav } from "@/components/layout/BottomNav";
@@ -349,8 +350,7 @@ const Profile = () => {
   ].filter(Boolean) as Array<{ key: string; label: string; value: string; icon: JSX.Element }>;
 
   return (
-    <div className="min-h-screen bg-background pb-24 md:pb-12">
-      <DesktopHeader />
+    <BrowseLayout>
       <HomeHeader title={SECTION_TITLES[section]} showBackButton onBack={back} bare />
 
       <main className="app-container space-y-4 py-space-4 md:py-space-8">
@@ -533,8 +533,7 @@ const Profile = () => {
         )}
       </main>
 
-      <BottomNav />
-    </div>
+    </BrowseLayout>
   );
 };
 

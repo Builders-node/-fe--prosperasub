@@ -18,7 +18,7 @@ import { ListingHeader } from "@/components/listing/ListingHeader";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { useI18n } from "@/i18n";
-import { DesktopHeader } from "@/components/layout/DesktopHeader";
+import { BrowseLayout } from "@/components/layout/BrowseLayout";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { QueryError } from "@/components/patterns/QueryError";
 import { YdEmptyState } from "@/components/yd/YdPrimitives";
@@ -265,8 +265,7 @@ const CleaningPackages = () => {
   });
 
   return (
-    <div className="min-h-screen bg-background pb-24 md:pb-12">
-      <DesktopHeader />
+    <BrowseLayout>
       <ListingHeader
         title={serviceTitle}
         onBack={goBack}
@@ -353,8 +352,7 @@ const CleaningPackages = () => {
 
       </main>
 
-      <BottomNav />
-    </div>
+    </BrowseLayout>
   );
 };
 

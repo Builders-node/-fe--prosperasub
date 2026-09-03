@@ -8,7 +8,7 @@ import { ProviderRail, CategoryChips, ALL_CATEGORIES } from "@/components/listin
 import { useCategoryParam } from "@/hooks/useCategoryParam";
 import { groupProvidersByCategory } from "@/lib/services/groupByCategory";
 import { supabaseDb } from "@/integrations/supabase/client";
-import { DesktopHeader } from "@/components/layout/DesktopHeader";
+import { BrowseLayout } from "@/components/layout/BrowseLayout";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { QueryError } from "@/components/patterns/QueryError";
 import { YdEmptyState } from "@/components/yd/YdPrimitives";
@@ -263,8 +263,7 @@ const FoodListing = () => {
   });
 
   return (
-    <div className="min-h-screen bg-background pb-24 md:pb-12">
-      <DesktopHeader />
+    <BrowseLayout>
       <ListingHeader
         title={serviceTitle}
         onBack={goBack}
@@ -440,8 +439,7 @@ const FoodListing = () => {
         )}
       </main>
 
-      <BottomNav />
-    </div>
+    </BrowseLayout>
   );
 };
 

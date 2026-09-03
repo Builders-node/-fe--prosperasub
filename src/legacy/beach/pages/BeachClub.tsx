@@ -11,7 +11,7 @@ import { providerHref } from "@/lib/services/serviceUrls";
 import { ProviderRail, CategoryChips, ALL_CATEGORIES } from "@/components/listing/ListingNav";
 import { useCategoryParam } from "@/hooks/useCategoryParam";
 import { groupProvidersByCategory } from "@/lib/services/groupByCategory";
-import { DesktopHeader } from "@/components/layout/DesktopHeader";
+import { BrowseLayout } from "@/components/layout/BrowseLayout";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { YdEmptyState } from "@/components/yd/YdPrimitives";
 import { QueryError } from "@/components/patterns/QueryError";
@@ -276,8 +276,7 @@ const BeachClub = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-24 md:pb-12">
-      <DesktopHeader />
+    <BrowseLayout>
       <ListingHeader
         title={serviceTitle}
         onBack={goBack}
@@ -370,8 +369,7 @@ const BeachClub = () => {
 
       </main>
 
-      <BottomNav />
-    </div>
+    </BrowseLayout>
   );
 };
 

@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Users, ChevronRight, ChefHat, QrCode, Store } from "lucide-react";
 import { useServiceCategories } from "@/hooks/useServiceCategories";
+import { BrowseLayout } from "@/components/layout/BrowseLayout";
 import { HomeHeader } from "@/components/layout/HomeHeader";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
 import { BottomNav } from "@/components/layout/BottomNav";
@@ -100,10 +101,7 @@ const Discovery = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-24 md:pb-12">
-      <AdBanner placement="home_top" />
-      <HomeHeader variant="brand" />
-      <DesktopHeader />
+    <BrowseLayout top={<AdBanner placement="home_top" />} header={<HomeHeader variant="brand" />}>
 
       {/*
         The design splits the screen in two: a white panel that carries the
@@ -162,8 +160,7 @@ const Discovery = () => {
         </div>
       </ResponsiveDialog>
 
-      <BottomNav />
-    </div>
+    </BrowseLayout>
   );
 };
 

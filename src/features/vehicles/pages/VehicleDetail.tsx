@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { DateRangePicker, toISO } from "../components/DateRangePicker";
 import { PhotoCarousel } from "@/components/patterns/PhotoCarousel";
 import { DetailHeader } from "@/components/patterns/DetailHeader";
+import { DecisionBar } from "@/components/patterns/DecisionBar";
 import { ShareButton } from "@/components/patterns/ShareButton";
 import { useGoBack } from "@/hooks/useGoBack";
 import { useVehicle } from "../hooks/useVehicles";
@@ -87,7 +88,7 @@ export default function VehicleDetail() {
       button somewhere below the fold — three answers to questions the app had
       already answered elsewhere.
     */
-    <div className="pb-28 md:pb-8">
+    <div className="pb-[calc(var(--decision-bar-h,120px)+16px)] md:pb-8">
       {/* The same bar the plan page uses — one component, not one that
           resembles it. Share rather than a bell: a car is a shop window, and
           the bell belongs on pages about your own account. */}
@@ -216,13 +217,13 @@ export default function VehicleDetail() {
       {/* The action, where the platform keeps it: pinned on a phone, in flow on
           a desktop. It also carries the figure, so the price is still on screen
           at the moment of deciding. */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 rounded-t-radius-lg bg-card p-4 shadow-figma md:static md:mx-auto md:mt-4 md:max-w-[1280px] md:rounded-radius-lg md:px-6">
+      <DecisionBar className="p-4 shadow-figma md:mx-auto md:mt-4 md:max-w-[1280px] md:rounded-radius-lg md:px-6">
         <Button className="h-12 w-full text-[16px] font-semibold" disabled={!pricing} onClick={goBook}>
           {pricing
             ? `Book · ${formatUSD(pricing.totalCents)}`
             : "Pick your dates"}
         </Button>
-      </div>
+      </DecisionBar>
     </div>
   );
 }

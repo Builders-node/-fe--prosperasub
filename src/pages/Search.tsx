@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, X } from "lucide-react";
 import { BottomNav } from "@/components/layout/BottomNav";
-import { DesktopHeader } from "@/components/layout/DesktopHeader";
+import { BrowseLayout } from "@/components/layout/BrowseLayout";
 import { Spinner } from "@/components/ui/spinner";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
@@ -44,8 +44,7 @@ const SearchPage = () => {
     .filter((g) => g.items.length > 0);
 
   return (
-    <div className="min-h-screen bg-background pb-24 md:pb-12">
-      <DesktopHeader />
+    <BrowseLayout>
 
       {/* The field itself is the header on this screen — the same shape as the
           one on the home screen, so tapping there and arriving here feels like
@@ -160,8 +159,7 @@ const SearchPage = () => {
         )}
       </main>
 
-      <BottomNav />
-    </div>
+    </BrowseLayout>
   );
 };
 

@@ -35,6 +35,7 @@ import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { SearchX } from "lucide-react";
 import { LinkifiedText } from "@/components/patterns/LinkifiedText";
+import { DecisionBar } from "@/components/patterns/DecisionBar";
 
 /**
  * The plan, before the till.
@@ -534,7 +535,7 @@ const PlanDetail = () => {
   const fromRange = showFrom ? fromLabel(priceCents, unit) : null;
 
   return (
-    <div className="min-h-screen bg-background pb-32 md:pb-12">
+    <div className="min-h-screen bg-background pb-[calc(var(--decision-bar-h,120px)+16px)] md:pb-12">
       <DesktopHeader />
 
       {/* Sticky-then-negative-margin is what lets the photo start at the very
@@ -668,10 +669,7 @@ const PlanDetail = () => {
         screen. The price rides inside the button rather than beside it: the two
         were one decision pretending to be two.
       */}
-      <div
-        className="fixed bottom-0 left-0 right-0 z-40 rounded-t-radius-lg bg-card md:static md:mt-6 md:rounded-none"
-        style={{ paddingBottom: "calc(24px + env(safe-area-inset-bottom, 0px))" }}
-      >
+      <DecisionBar className="pb-6 md:mt-6 md:rounded-none">
         <div className="px-4 py-2 md:mx-auto md:max-w-[1280px] md:px-6">
           {/* An offer whose variants disagree about price has no single price
               to put in the button, so the range goes above it and the button
@@ -692,7 +690,7 @@ const PlanDetail = () => {
             {ctaLabel}
           </button>
         </div>
-      </div>
+      </DecisionBar>
     </div>
   );
 };
