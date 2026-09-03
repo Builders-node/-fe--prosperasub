@@ -57,7 +57,7 @@ export function BookingCalendarOverride({
   };
 
   return (
-    <section className="rounded-2xl bg-card p-4 sm:p-5">
+    <section className="rounded-radius-md bg-card p-4 sm:p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">

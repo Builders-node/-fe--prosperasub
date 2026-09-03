@@ -258,7 +258,7 @@ const History = () => {
           <div className="space-y-6">
             {grouped.map(([day, rows]) => (
               <section key={day}>
-                <h2 className="mb-2 text-lg font-black tracking-tight text-foreground">
+                <h2 className="mb-2 text-lg font-semibold tracking-[-0.02em] text-foreground">
                   {formatDayHeader(day)}
                 </h2>
                 <div className="divide-y divide-border/60">
@@ -311,7 +311,7 @@ function HistoryRow({ entry }: { entry: HistoryEntry }) {
       <div className="flex shrink-0 flex-col items-end gap-0.5">
         {entry.amountCents != null ? (
           <p className={cn(
-            "text-sm font-black tabular-nums",
+            "text-sm font-semibold tabular-nums",
             isRefunded ? "text-emerald-500" : isPending ? "text-muted-foreground" : "text-foreground",
           )}>
             {isRefunded ? "+" : "−"}{formatUSD(entry.amountCents)}

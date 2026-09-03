@@ -300,10 +300,10 @@ export function RestaurantMealPlansTab({ providerId }: Props) {
 
       {isLoading ? (
         <div className="space-y-3">
-          {[1, 2].map((i) => <div key={i} className="h-20 animate-pulse rounded-2xl bg-muted" />)}
+          {[1, 2].map((i) => <div key={i} className="h-20 animate-pulse rounded-radius-md bg-muted" />)}
         </div>
       ) : plans.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl bg-card py-14 text-center">
+        <div className="flex flex-col items-center justify-center rounded-radius-md bg-card py-14 text-center">
           <p className="font-semibold">No meal plans yet</p>
           <p className="mt-1 text-sm text-muted-foreground">
             Create the first plan for this restaurant.
@@ -312,7 +312,7 @@ export function RestaurantMealPlansTab({ providerId }: Props) {
       ) : (
         <div className="space-y-3">
           {plans.map((plan) => (
-            <div key={plan.id} className="flex items-center gap-4 rounded-2xl bg-card p-4">
+            <div key={plan.id} className="flex items-center gap-4 rounded-radius-md bg-card p-4">
               <div className="flex-1 min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-bold text-foreground">{plan.name}</span>

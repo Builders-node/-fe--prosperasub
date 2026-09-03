@@ -414,7 +414,7 @@ const CleaningBook = () => {
         {/* ── No subscription state ── */}
         {!isLoading && !schedulableSubscriptions.length && (
           <div className="flex flex-1 items-center justify-center px-4">
-            <div className="w-full max-w-sm rounded-3xl bg-card p-8 text-center ">
+            <div className="w-full max-w-sm rounded-radius-lg bg-card p-8 text-center ">
               <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
                 <CalendarDays className="h-7 w-7 text-primary" />
               </div>
@@ -424,7 +424,7 @@ const CleaningBook = () => {
               </p>
               <Button
                 onClick={() => navigate("/services/cleaning")}
-                className="w-full rounded-full bg-foreground text-background hover:bg-foreground/90"
+                className="w-full bg-foreground text-background hover:bg-foreground/90"
               >
                 View cleaning plans
               </Button>
@@ -441,7 +441,7 @@ const CleaningBook = () => {
               <div className="mx-auto max-w-2xl">
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-radius-md bg-primary/10">
                       <Sparkles className="h-5 w-5 text-primary" />
                     </div>
                     <div>
@@ -501,12 +501,12 @@ const CleaningBook = () => {
                 </h2>
 
                 {!scheduleDates.length ? (
-                  <div className="rounded-2xl border border-border bg-card p-6 text-center">
+                  <div className="rounded-radius-md border border-border bg-card p-6 text-center">
                     <p className="text-sm font-semibold text-foreground">No dates in paid period</p>
                     <p className="mt-1 text-xs text-muted-foreground">Try a different weekday.</p>
                   </div>
                 ) : !timeChoices.length ? (
-                  <div className="rounded-2xl border border-border bg-card p-6 text-center">
+                  <div className="rounded-radius-md border border-border bg-card p-6 text-center">
                     <p className="text-sm font-semibold text-foreground">No time works for every date</p>
                     <p className="mt-1 text-xs text-muted-foreground">
                       {blockedDates.length > 0
@@ -534,7 +534,7 @@ const CleaningBook = () => {
                 <h2 className="mb-3 text-xs font-bold uppercase tracking-widest text-muted-foreground">
                   Access details
                 </h2>
-                <div className="rounded-2xl border border-border bg-card p-4">
+                <div className="rounded-radius-md border border-border bg-card p-4">
                   <Textarea
                     value={notes}
                     onChange={(e) => {
@@ -556,7 +556,7 @@ const CleaningBook = () => {
 
               {/* ── Schedule summary (visible on larger screens / when selected) ── */}
               {selectedTimeOption && (
-                <section className="rounded-2xl border border-primary/20 bg-primary/5 p-4">
+                <section className="rounded-radius-md border border-primary/20 bg-primary/5 p-4">
                   <p className="mb-3 text-xs font-bold uppercase tracking-widest text-primary/70">
                     Your schedule
                   </p>

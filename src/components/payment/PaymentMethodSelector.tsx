@@ -56,7 +56,7 @@ export function PaymentMethodSelector({ value, onChange, disabled, available }: 
 
   if (methods.length === 0) {
     return (
-      <p className="rounded-2xl bg-muted/40 p-3 text-sm text-muted-foreground">
+      <p className="rounded-radius-md bg-muted/40 p-3 text-sm text-muted-foreground">
         No payment methods are currently available. Please try again later.
       </p>
     );
@@ -75,12 +75,12 @@ export function PaymentMethodSelector({ value, onChange, disabled, available }: 
             onClick={() => onChange(m)}
             aria-pressed={active}
             className={cn(
-              "flex w-full items-center gap-3 rounded-2xl px-2 py-2.5 text-left transition-colors",
+              "flex w-full items-center gap-3 rounded-radius-md px-2 py-2.5 text-left transition-colors",
               "hover:bg-muted/40",
               disabled && "pointer-events-none opacity-50",
             )}
           >
-            <span className={cn("flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl", tileBg)}>
+            <span className={cn("flex h-12 w-12 shrink-0 items-center justify-center rounded-radius-md", tileBg)}>
               <Icon className={cn("h-6 w-6", iconColor)} />
             </span>
             <span className="min-w-0 flex-1">

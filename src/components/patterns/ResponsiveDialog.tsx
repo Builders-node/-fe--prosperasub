@@ -43,7 +43,7 @@ export function ResponsiveDialog({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className={cn("max-w-lg gap-0 p-0", className)}>
           <DialogHeader className="border-b border-border/50 px-6 pb-4 pt-6">
-            <DialogTitle className="text-2xl font-black leading-tight tracking-tight">
+            <DialogTitle className="text-2xl font-bold leading-tight tracking-tight">
               {title}
             </DialogTitle>
             {description && (
@@ -70,7 +70,7 @@ export function ResponsiveDialog({
         className={cn("flex max-h-[88vh] flex-col gap-0 rounded-t-3xl p-0", className, sheetClassName)}
       >
         <div className="shrink-0 border-b border-border/50 bg-background px-4 pb-3 pt-4">
-          <SheetTitle className="pr-10 text-2xl font-black leading-tight tracking-tight">
+          <SheetTitle className="pr-10 text-2xl font-bold leading-tight tracking-tight">
             {title}
           </SheetTitle>
           {description && (

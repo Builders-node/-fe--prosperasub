@@ -7,11 +7,10 @@ import { archetypeFromSlug, planHref, serviceMetaFromSlug, serviceSlug } from "@
 import { Button } from "@/components/ui/button";
 import {
   SparklesIcon, Waves, Car,
-  MapPin, Phone, Mail, Clock, Star, ChevronRight, ChevronLeft, Bell,
+  MapPin, Phone, Mail, Clock, Star, ChevronRight, ChevronLeft,
 } from "lucide-react";
+import { ShareButton } from "@/components/patterns/ShareButton";
 import { supabase, supabaseDb } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
-import { useAuthModal } from "@/contexts/AuthModalContext";
 import { HomeHeader } from "@/components/layout/HomeHeader";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
 import { BottomNav } from "@/components/layout/BottomNav";
@@ -152,7 +151,7 @@ function Stat({
       <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
         {label}
       </span>
-      <span className="mt-1 text-lg font-black tabular-nums text-foreground">{value}</span>
+      <span className="mt-1 text-lg font-semibold tabular-nums text-foreground">{value}</span>
       {sub != null && (
         <span className="mt-0.5 flex h-3.5 items-center text-[10px] uppercase tracking-wide text-muted-foreground">
           {sub}
@@ -207,8 +206,6 @@ const ProviderDetail = () => {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
   // The bell on the banner goes where the app's bell always goes.
-  const { isAuthenticated } = useAuth();
-  const { openAuthModal } = useAuthModal();
   const { archetypeKey: serviceSegment, providerId } = useParams<{ archetypeKey: string; providerId: string }>();
   // `beach-club` and `entertainment` are the same service. Resolve to the
   // canonical key once, here.
@@ -350,9 +347,9 @@ const ProviderDetail = () => {
         <HomeHeader title="Provider" showBackButton onBack={goBack} />
         <DesktopHeader />
         <main className="app-container py-space-6 space-y-4">
-          <div className="h-48 animate-pulse rounded-3xl bg-muted" />
-          <div className="h-24 animate-pulse rounded-3xl bg-muted" />
-          <div className="h-64 animate-pulse rounded-3xl bg-muted" />
+          <div className="h-48 animate-pulse rounded-radius-lg bg-muted" />
+          <div className="h-24 animate-pulse rounded-radius-lg bg-muted" />
+          <div className="h-64 animate-pulse rounded-radius-lg bg-muted" />
         </main>
         <BottomNav />
       </div>
@@ -481,16 +478,16 @@ const ProviderDetail = () => {
           {pinned ? p.name : serviceLabel}
         </span>
 
-        <button
-          type="button"
-          onClick={() => isAuthenticated ? navigate("/notifications") : openAuthModal("login", "/notifications")}
-          aria-label="Notifications"
-          className={`flex h-10 w-10 items-center justify-center rounded-full transition-colors ${
-            pinned ? "text-foreground hover:bg-muted" : "text-white hover:bg-white/15"
-          }`}
-        >
-          <Bell className="h-6 w-6" />
-        </button>
+        {/* Same right-slot as every other detail page: a business's page is a
+            shop window, and the useful action on a shop window is handing its
+            link to someone. The bell that used to sit here made the identical
+            position mean "notifications" on this screen and "share" on the
+            plan and car screens. */}
+        <ShareButton
+          title={p.name}
+          text={[serviceLabel, p.name].filter(Boolean).join(" · ")}
+          className={pinned ? "text-foreground hover:bg-muted" : "text-white hover:bg-white/15"}
+        />
       </div>
 
       <main className="app-container space-y-1 pb-8 pt-1 md:py-8">
@@ -538,7 +535,7 @@ const ProviderDetail = () => {
 
           {/* One segmented control instead of three stacked sections: the page
               had plans, reviews and pictures all scrolling past each other. */}
-          <div className="mt-3 flex rounded-[18px] bg-inset p-0.5">
+          <div className="mt-3 flex rounded-radius-md bg-inset p-0.5">
             {TABS.map((t) => (
               <button
                 key={t.key}
@@ -697,7 +694,7 @@ function PlanRow({ plan, image, onOpen }: {
 function SkeletonGrid() {
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-      {[1, 2, 3].map((i) => <div key={i} className="h-64 animate-pulse rounded-3xl bg-muted" />)}
+      {[1, 2, 3].map((i) => <div key={i} className="h-64 animate-pulse rounded-radius-lg bg-muted" />)}
     </div>
   );
 }

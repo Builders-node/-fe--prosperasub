@@ -269,7 +269,7 @@ const BeachClub = () => {
         {providersQ.isLoading ? (
           <section>
             <div className="grid gap-3 md:gap-4 md:grid-cols-2">
-              {[1, 2].map((i) => <div key={i} className="h-72 animate-pulse rounded-3xl bg-muted" />)}
+              {[1, 2].map((i) => <div key={i} className="h-72 animate-pulse rounded-radius-lg bg-muted" />)}
             </div>
           </section>
         ) : providersQ.isError ? (
@@ -294,7 +294,7 @@ const BeachClub = () => {
 
           {plansQ.isLoading ? (
             <div className="grid gap-3 md:gap-4 md:grid-cols-2">
-              {[1, 2].map((i) => <div key={i} className="h-64 animate-pulse rounded-3xl bg-muted" />)}
+              {[1, 2].map((i) => <div key={i} className="h-64 animate-pulse rounded-radius-lg bg-muted" />)}
             </div>
           ) : plansQ.isError ? (
             <QueryError

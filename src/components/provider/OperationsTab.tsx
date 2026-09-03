@@ -327,7 +327,7 @@ export function OperationsTab({ providerId }: { providerId: string }) {
             For something that was supposed to happen and didn't, use Failed instead — that stays on
             the record with its reason.
           </p>
-          <Button variant="destructive" className="w-full rounded-full"
+          <Button variant="destructive" className="w-full"
             disabled={remove.isPending}
             onClick={() => removing && remove.mutate(removing.id)}>
             {remove.isPending ? "Removing…" : "Remove"}
@@ -342,7 +342,7 @@ export function OperationsTab({ providerId }: { providerId: string }) {
           <p className="text-xs text-muted-foreground">
             The reason is kept on the day's record, so a pattern is visible later.
           </p>
-          <Button className="w-full rounded-full" disabled={setStatus.isPending}
+          <Button className="w-full" disabled={setStatus.isPending}
             onClick={() => failing && setStatus.mutate({ id: failing.id, status: "failed", why: reason.trim() || undefined })}>
             {setStatus.isPending ? "Saving…" : "Mark failed"}
           </Button>
@@ -352,7 +352,7 @@ export function OperationsTab({ providerId }: { providerId: string }) {
       <ResponsiveDialog open={!!moving} onOpenChange={(o) => !o && setMoving(null)} title="Move it to">
         <div className="space-y-3 pb-2">
           <Input type="date" value={moveTo} onChange={(e) => setMoveTo(e.target.value)} />
-          <Button className="w-full rounded-full" disabled={reschedule.isPending || !moveTo}
+          <Button className="w-full" disabled={reschedule.isPending || !moveTo}
             onClick={() => moving && reschedule.mutate({
               id: moving.id,
               // Keep the time of day it already had; only the date moves.

@@ -142,7 +142,7 @@ export function FoodReviews({ providerId, ownerUserId }: Props) {
 
       {/* Write / edit a review — customers only */}
       {isAuthenticated && isCustomer && (
-        <div className="rounded-3xl bg-card p-5">
+        <div className="rounded-radius-lg bg-card p-5">
           <p className="font-bold text-foreground">{myReview ? "Your review" : "Leave a review"}</p>
           <div className="mt-3">
             <StarRating value={rating} onChange={setRating} size={28} />
@@ -179,22 +179,22 @@ export function FoodReviews({ providerId, ownerUserId }: Props) {
       )}
 
       {isAuthenticated && !isCustomer && !isLoading && (
-        <p className="rounded-2xl bg-muted/40 p-4 text-sm text-muted-foreground">
+        <p className="rounded-radius-md bg-muted/40 p-4 text-sm text-muted-foreground">
           Only customers who have subscribed to this restaurant can leave a review.
         </p>
       )}
 
       {/* Reviews list */}
       {isLoading ? (
-        <div className="h-24 animate-pulse rounded-3xl bg-muted" />
+        <div className="h-24 animate-pulse rounded-radius-lg bg-muted" />
       ) : reviews.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-3xl bg-card py-12 text-center">
+        <div className="flex flex-col items-center justify-center rounded-radius-lg bg-card py-12 text-center">
           <MessageSquare className="mb-3 h-9 w-9 text-muted-foreground/40" />
           <p className="font-semibold text-foreground">No reviews yet</p>
           <p className="mt-1 text-sm text-muted-foreground">Be the first to share your experience.</p>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-3xl bg-card divide-y divide-border/60">
+        <div className="overflow-hidden rounded-radius-lg bg-card divide-y divide-border/60">
           {reviews.map((r) => (
             <div key={r.id} className="flex items-start gap-3 p-4">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-bold text-foreground">

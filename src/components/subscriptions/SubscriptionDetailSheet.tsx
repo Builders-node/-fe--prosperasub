@@ -98,7 +98,7 @@ export function SubscriptionDetailSheet({
               purchase now, not on the list. */}
           {detail.sessions?.filter((g) => g.items.length).map((group) => (
             <div key={group.label} className="mt-4">
-              <p className="mb-2 text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                 {group.label} · <span className="tabular-nums">{group.items.length}</span>
               </p>
               <div className="space-y-2">

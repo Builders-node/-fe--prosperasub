@@ -147,7 +147,7 @@ const SearchPage = () => {
         ) : (
           grouped.map((group) => (
             <section key={group.kind} className="space-y-2">
-              <h2 className="text-[12px] font-black uppercase tracking-[0.14em] text-muted-foreground">
+              <h2 className="text-[12px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                 {group.label}
               </h2>
               <div className="overflow-hidden rounded-radius-md bg-card">

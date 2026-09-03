@@ -223,7 +223,7 @@ export function RateProviderButton({
         onClick={(e) => e.stopPropagation()}
         className={cn(
           // An inset row inside a card — 16px radius, not the 24 that
-          // `rounded-2xl` maps to here, and the page's own inset grey.
+          // `rounded-radius-md` maps to here, and the page's own inset grey.
           "flex items-center justify-between gap-3 rounded-radius-md bg-inset px-3.5 py-3 tracking-[-0.02em]",
           className,
         )}

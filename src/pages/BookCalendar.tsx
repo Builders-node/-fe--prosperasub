@@ -16,6 +16,7 @@ import { todayHN, addDaysISO, formatDateHN } from "@/lib/timezone";
 import { AllowanceStrip, type Allowance } from "@/components/booking/AllowanceStrip";
 import { bookingErrorMessage } from "@/lib/booking/errors";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/patterns/Skeleton";
 
 /**
  * Book a time on one of a provider's calendars — any provider.
@@ -242,7 +243,7 @@ export default function BookCalendar() {
         </section>
 
         {calendarsLoading ? (
-          <div className="h-24 animate-pulse rounded-radius-lg bg-card" />
+          <Skeleton className="h-24" />
         ) : calendars.length === 0 ? (
           <section className="rounded-radius-lg bg-card p-8 text-center tracking-[-0.02em]">
             <p className="text-[16px] leading-[22px] text-muted-foreground">

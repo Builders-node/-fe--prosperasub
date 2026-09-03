@@ -112,7 +112,7 @@ export function ServiceListingCard({
         if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); }
       }}
       className={cn(
-        "group relative flex cursor-pointer flex-col overflow-hidden rounded-3xl",
+        "group relative flex cursor-pointer flex-col overflow-hidden rounded-radius-lg",
         "transition-all duration-200 ease-out",
         "motion-safe:hover:scale-[1.01]",
         "focus-visible:outline-none focus-visible:ring-2",
@@ -160,7 +160,7 @@ export function ServiceListingCard({
             {priceValue ? (
               <>
                 {priceLabel && <span className="text-xs text-muted-foreground">{priceLabel}</span>}
-                <span className={cn("text-2xl font-black tabular-nums text-foreground", priceLabel && "ml-1")}>
+                <span className={cn("text-2xl font-semibold tabular-nums text-foreground", priceLabel && "ml-1")}>
                   {priceValue}
                 </span>
                 {priceUnit && <span className="text-xs text-muted-foreground">{priceUnit}</span>}

@@ -12,6 +12,7 @@ import { CheckoutStickyFooter } from "@/components/patterns/CheckoutStickyFooter
 import { CheckoutSuccessPanel } from "@/components/patterns/CheckoutSuccessPanel";
 import { NotesField } from "@/components/patterns/NotesField";
 import { Button } from "@/components/ui/button";
+import { YdEmptyState } from "@/components/yd/YdPrimitives";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -396,18 +397,19 @@ export default function Cart() {
             secondary={{ label: "Order more", onClick: () => navigate("/discovery") }}
           />
         ) : items.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <ShoppingCart className="mb-4 h-14 w-14 text-muted-foreground/30" />
-            {/* The cart takes any service's plans now, so its empty state must
-                not send everyone to the restaurant. */}
-            <h1 className="text-xl font-black tracking-tight">Your cart is empty</h1>
-            <p className="mt-1 text-muted-foreground">Add plans from any service and pay for them together.</p>
-            <Button onClick={() => navigate("/discovery")} className="mt-5 rounded-full">Browse services</Button>
-          </div>
+          // The one empty-state component, and neutral words — the cart takes
+          // any service's plans now, so it must not send everyone to the
+          // restaurant.
+          <YdEmptyState
+            icon={ShoppingCart}
+            title="Your cart is empty"
+            subtitle="Add plans from any service and pay for them together."
+            action={<Button onClick={() => navigate("/discovery")}>Browse services</Button>}
+          />
         ) : (
           <>
             {!atCheckout && (
-              <h1 className="text-2xl font-black tracking-tight md:text-3xl">Your cart</h1>
+              <h1 className="text-2xl font-semibold tracking-[-0.02em] md:text-3xl">Your cart</h1>
             )}
 
             {/* Items — one card container with row dividers (Yandex Lavka pattern).
@@ -424,7 +426,7 @@ export default function Cart() {
                 />
               ))
             ) : (
-            <section className="overflow-hidden rounded-3xl bg-card divide-y divide-border/60">
+            <section className="overflow-hidden rounded-radius-lg bg-card divide-y divide-border/60">
               {items.map((item) => {
                 const shape = CART_SERVICES[item.service];
                 const Icon = SERVICE_ICON[item.service];
@@ -501,7 +503,7 @@ export default function Cart() {
                       ) : (
                         <span />
                       )}
-                      <p className="text-base font-black tabular-nums text-foreground">
+                      <p className="text-base font-semibold tabular-nums text-foreground">
                         {formatUSD(cartLineTotal(item))}
                       </p>
                     </div>
@@ -518,13 +520,13 @@ export default function Cart() {
 
             {/* Summary — the design's Resume once we are at the till. */}
             {!atCheckout && (
-            <section className="rounded-2xl bg-muted/40 p-4">
+            <section className="rounded-radius-md bg-muted/40 p-4">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-sm font-bold text-foreground">
                   Total ({count} item{count > 1 ? "s" : ""})
                 </span>
                 <div className="text-right">
-                  <span className="text-2xl font-black tabular-nums text-primary">{formatUSD(effectiveTotalCents)}</span>
+                  <span className="text-2xl font-semibold tabular-nums text-primary">{formatUSD(effectiveTotalCents)}</span>
                   {feePct > 0 && (
                     <p className="text-[10px] text-muted-foreground">Base {formatUSD(totalCents)} + {feePct}% fee</p>
                   )}

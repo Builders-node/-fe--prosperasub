@@ -18,6 +18,7 @@ import { useResidenceMatters } from "@/contexts/LocationContext";
 import { useI18n } from "@/i18n";
 import { prefetchRoute } from "@/lib/routeChunks";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/patterns/Skeleton";
 
 // "My Subs" tile isn't a category, but sits alongside category tiles.
 const MY_SUBS_TILE = {
@@ -141,7 +142,7 @@ const Discovery = () => {
           {archetypesLoading ? (
             <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
               {[0, 1, 2, 3].map((i) => (
-                <div key={i} className="h-[120px] animate-pulse rounded-radius-md bg-muted/40" />
+                <Skeleton key={i} className="h-[120px]" />
               ))}
             </div>
           ) : (

@@ -118,7 +118,7 @@ export function DayStrip({
             onClick={() => onSelect(day.value)}
             disabled={!available}
             className={cn(
-              "flex min-w-[72px] shrink-0 flex-col items-center gap-1 rounded-2xl border px-4 py-3 transition-all duration-150",
+              "flex min-w-[72px] shrink-0 flex-col items-center gap-1 rounded-radius-md border px-4 py-3 transition-all duration-150",
               isSelected
                 ? "border-transparent bg-foreground text-background"
                 : available
@@ -211,7 +211,7 @@ export function TimeSlotPicker({
   if (!groups.length) return null;
 
   return (
-    <div className={cn("space-y-5 rounded-2xl border border-border bg-card p-4", className)}>
+    <div className={cn("space-y-5 rounded-radius-md border border-border bg-card p-4", className)}>
       {groups.map(({ period, slots }) => (
         <div key={period.id} className="space-y-3">
           <div className="flex items-center gap-2">

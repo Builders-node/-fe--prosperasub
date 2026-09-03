@@ -43,7 +43,7 @@ export function ListingToolbar({
             onChange={(e) => onQueryChange(e.target.value)}
             placeholder={placeholder}
             aria-label={placeholder}
-            className="h-11 w-full rounded-2xl bg-muted/50 pl-9 pr-9 text-sm font-medium text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:bg-muted"
+            className="h-11 w-full rounded-radius-md bg-muted/50 pl-9 pr-9 text-sm font-medium text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:bg-muted"
           />
           {query && (
             <button

@@ -52,14 +52,14 @@ export function RenewPreviewDialog({
             <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/15 text-primary">
               <RefreshCw className="h-4 w-4" />
             </span>
-            <DialogTitle className="text-lg font-black leading-tight">Renew subscription</DialogTitle>
+            <DialogTitle className="text-lg font-semibold leading-tight">Renew subscription</DialogTitle>
           </div>
           <DialogDescription className="text-sm text-muted-foreground">{title}</DialogDescription>
         </DialogHeader>
 
         <div className="mt-2 space-y-3">
           {currentEndDate && (
-            <div className="flex items-center gap-3 rounded-2xl bg-muted/40 p-3 text-sm">
+            <div className="flex items-center gap-3 rounded-radius-md bg-muted/40 p-3 text-sm">
               <CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground" />
               <div className="min-w-0 flex-1">
                 <p className="text-xs uppercase tracking-wider text-muted-foreground">Current period ends</p>
@@ -68,7 +68,7 @@ export function RenewPreviewDialog({
             </div>
           )}
 
-          <div className="flex items-center gap-3 rounded-2xl bg-primary/10 p-3 text-sm">
+          <div className="flex items-center gap-3 rounded-radius-md bg-primary/10 p-3 text-sm">
             <RefreshCw className="h-4 w-4 shrink-0 text-primary" />
             <div className="min-w-0 flex-1">
               <p className="text-xs uppercase tracking-wider text-primary/80">New period</p>
@@ -79,10 +79,10 @@ export function RenewPreviewDialog({
             </div>
           </div>
 
-          <div className="flex items-end justify-between rounded-2xl border border-border/60 p-3">
+          <div className="flex items-end justify-between rounded-radius-md border border-border/60 p-3">
             <div>
               <p className="text-xs uppercase tracking-wider text-muted-foreground">Amount</p>
-              <p className="mt-0.5 text-2xl font-black tabular-nums text-foreground">
+              <p className="mt-0.5 text-2xl font-semibold tabular-nums text-foreground">
                 {formatUSD(amountCents)}
               </p>
             </div>

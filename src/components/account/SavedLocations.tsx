@@ -142,7 +142,7 @@ export function SavedLocations({ userId }: { userId: string }) {
       {isLoading ? (
         <div className="py-6 text-center"><Spinner size="sm" /></div>
       ) : locations.length === 0 ? (
-        <div className="rounded-2xl border border-border bg-card px-4 py-6 text-center">
+        <div className="rounded-radius-md border border-border bg-card px-4 py-6 text-center">
           <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
             <MapPin className="h-5 w-5 text-primary" />
           </div>
@@ -152,7 +152,7 @@ export function SavedLocations({ userId }: { userId: string }) {
       ) : (
         <div className="space-y-2">
           {locations.map((loc) => (
-            <div key={loc.id} className="rounded-2xl border border-border bg-card p-3">
+            <div key={loc.id} className="rounded-radius-md border border-border bg-card p-3">
               <div className="flex items-start gap-3">
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
                   <MapPin className="h-4 w-4 text-primary" />
@@ -243,7 +243,7 @@ export function LocationPicker({
             aria-pressed={selected}
             title={loc.line}
             className={cn(
-              "flex w-full items-center gap-3 rounded-2xl px-2 py-2 text-left transition-colors",
+              "flex w-full items-center gap-3 rounded-radius-md px-2 py-2 text-left transition-colors",
               "hover:bg-muted/40",
             )}
           >
@@ -279,7 +279,7 @@ export function LocationPicker({
         <button
           type="button"
           onClick={onAddNew}
-          className="mt-1 flex w-full items-center gap-3 rounded-2xl px-2 py-2 text-left transition-colors hover:bg-muted/40"
+          className="mt-1 flex w-full items-center gap-3 rounded-radius-md px-2 py-2 text-left transition-colors hover:bg-muted/40"
         >
           <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-dashed border-border">
             <Plus className="h-3.5 w-3.5 text-muted-foreground" />

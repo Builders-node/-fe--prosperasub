@@ -105,7 +105,7 @@ export function NotesField({
           <Button
             onClick={commit}
             size="lg"
-            className="h-14 w-full rounded-2xl text-base font-bold"
+            className="h-14 w-full rounded-radius-md text-base font-bold"
           >
             Save
           </Button>

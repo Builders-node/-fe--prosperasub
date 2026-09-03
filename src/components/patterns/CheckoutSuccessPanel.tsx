@@ -103,7 +103,7 @@ export function CheckoutSuccessPanel({
         )}
 
         {/* Big amount */}
-        <p className="mt-6 text-5xl font-black tracking-tight tabular-nums text-foreground sm:text-6xl">
+        <p className="mt-6 text-5xl font-semibold tracking-[-0.02em] tabular-nums text-foreground sm:text-6xl">
           {amount}
         </p>
 
@@ -119,7 +119,7 @@ export function CheckoutSuccessPanel({
         <Button
           onClick={onCta}
           size="lg"
-          className="h-14 w-full rounded-2xl text-base font-bold"
+          className="h-14 w-full rounded-radius-md text-base font-bold"
         >
           {ctaLabel}
         </Button>

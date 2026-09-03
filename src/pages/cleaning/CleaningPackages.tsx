@@ -295,7 +295,7 @@ const CleaningPackages = () => {
         {packagesQ.isLoading || providersQ.isLoading || categoriesQ.isLoading || offersLoading ? (
           <section>
             <div className="grid gap-3 md:gap-4 md:grid-cols-2">
-              {[1, 2, 3].map((i) => <div key={i} className="h-56 animate-pulse rounded-3xl bg-muted" />)}
+              {[1, 2, 3].map((i) => <div key={i} className="h-56 animate-pulse rounded-radius-lg bg-muted" />)}
             </div>
           </section>
         ) : providersQ.isError || packagesQ.isError ? (

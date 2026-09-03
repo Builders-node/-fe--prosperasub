@@ -91,11 +91,11 @@ export default function BecomeProvider() {
     <UserLayout title="Become a provider">
       <div className="app-container space-y-8 py-6">
         <div className="flex items-start gap-3">
-          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/15 text-primary">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-radius-md bg-primary/15 text-primary">
             <Store className="h-6 w-6" />
           </span>
           <div>
-            <h1 className="text-2xl font-black tracking-tight sm:text-3xl">Become a provider</h1>
+            <h1 className="text-2xl font-semibold tracking-[-0.02em] sm:text-3xl">Become a provider</h1>
             <p className="mt-1 text-sm text-muted-foreground">
               Offer your service on EverySub. Submit an application — once approved, you'll manage
               your listings, plans and bookings from <strong>My Business</strong>.
@@ -104,7 +104,7 @@ export default function BecomeProvider() {
         </div>
 
         {!userData ? (
-          <div className="rounded-2xl bg-card p-8 text-center">
+          <div className="rounded-radius-md bg-card p-8 text-center">
             <p className="font-semibold">Sign in to apply</p>
             <p className="mt-1 text-sm text-muted-foreground">You need an account to submit a provider application.</p>
             <div className="mt-4 flex flex-col items-center justify-center gap-2 sm:flex-row">
@@ -126,7 +126,7 @@ export default function BecomeProvider() {
                   const svc = SERVICE_REGISTRY[a.service as ServiceKey];
                   const label = arche?.label ?? svc?.label ?? a.service;
                   return (
-                    <div key={a.id} className="flex items-center justify-between gap-3 rounded-2xl bg-card p-4">
+                    <div key={a.id} className="flex items-center justify-between gap-3 rounded-radius-md bg-card p-4">
                       <div className="min-w-0">
                         <p className="truncate font-semibold">{a.business_name}</p>
                         <p className="text-xs text-muted-foreground">{label}</p>
@@ -146,7 +146,7 @@ export default function BecomeProvider() {
             {/* Persistent post-submit confirmation. Sits above the form so
                 the user sees the outcome even after scrolling down. */}
             {justSubmitted && (
-              <section className="rounded-2xl bg-green-500/10 p-4">
+              <section className="rounded-radius-md bg-green-500/10 p-4">
                 <div className="flex items-start gap-3">
                   <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-500" />
                   <div className="min-w-0 flex-1">
@@ -168,8 +168,8 @@ export default function BecomeProvider() {
             )}
 
             {/* Application form */}
-            <section className="rounded-2xl bg-card p-5">
-              <h2 className="mb-4 font-black">New application</h2>
+            <section className="rounded-radius-md bg-card p-5">
+              <h2 className="mb-4 font-semibold">New application</h2>
 
               <div className="mb-4 space-y-1">
                 <div className="mb-2 px-1">
@@ -184,9 +184,9 @@ export default function BecomeProvider() {
                       type="button"
                       onClick={() => setArchetypeKey(a.key)}
                       aria-pressed={selected}
-                      className="flex w-full items-center gap-3 rounded-2xl px-2 py-2.5 text-left transition-colors hover:bg-muted/40"
+                      className="flex w-full items-center gap-3 rounded-radius-md px-2 py-2.5 text-left transition-colors hover:bg-muted/40"
                     >
-                      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/15">
+                      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-radius-md bg-primary/15">
                         <Icon className="h-6 w-6 text-primary" />
                       </span>
                       <span className="min-w-0 flex-1">
@@ -212,7 +212,7 @@ export default function BecomeProvider() {
                 <div className="px-1">
                   <SectionOverline label="About your business" />
                 </div>
-                <div className="overflow-hidden rounded-3xl bg-card divide-y divide-border/40">
+                <div className="overflow-hidden rounded-radius-lg bg-card divide-y divide-border/40">
                   <div className="flex items-center gap-3 px-4">
                     <Building2 className="h-4 w-4 shrink-0 text-muted-foreground" />
                     <div className="min-w-0 flex-1">

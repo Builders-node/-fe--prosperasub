@@ -281,7 +281,7 @@ function Avatar({ name, src }: { name: string; src: string | null }) {
   const initials = name.charAt(0).toUpperCase();
   if (!src || broken) {
     return (
-      <div className="flex h-[88px] w-[88px] items-center justify-center rounded-full bg-muted text-2xl font-black text-muted-foreground">
+      <div className="flex h-[88px] w-[88px] items-center justify-center rounded-full bg-muted text-2xl font-semibold text-muted-foreground">
         {initials}
       </div>
     );
@@ -324,7 +324,7 @@ function StatusBanner({
   return (
     <div className={cn("flex flex-col items-center gap-3 rounded-radius-lg px-6 py-8 text-center text-white", tone)}>
       <Icon className="h-16 w-16" strokeWidth={2.2} />
-      <p className="text-2xl font-black uppercase tracking-tight">{title}</p>
+      <p className="text-2xl font-semibold uppercase tracking-tight">{title}</p>
       <p className="text-sm font-medium text-white/90">{subtitle}</p>
     </div>
   );

@@ -123,7 +123,7 @@ export function YdIllustration({
     "h-7 w-7";
 
   return (
-    <div className={`flex ${blockSize} items-center justify-center rounded-2xl ${a.bgChip}`}>
+    <div className={`flex ${blockSize} items-center justify-center rounded-radius-md ${a.bgChip}`}>
       <Icon className={`${iconSize} ${a.text}`} />
     </div>
   );
@@ -139,7 +139,7 @@ export function YdIllustration({
  * primitive that cannot express the common case is a primitive people work
  * around, so the slot is the fix, not discipline.
  *
- * Also brought onto the design's own numbers: a card is 16px (`rounded-3xl`
+ * Also brought onto the design's own numbers: a card is 16px (`rounded-radius-lg`
  * was 24), the title is the 16px semibold every row title uses, and the
  * subtitle the 12px caption — it was `text-base font-bold` over `text-sm`.
  */

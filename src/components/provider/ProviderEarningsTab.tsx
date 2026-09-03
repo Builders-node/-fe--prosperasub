@@ -191,7 +191,7 @@ function WithdrawPanel({
             {/* Two rails, not one field that accepts both. Switching clears the
                 address on purpose: an address for the other network is the one
                 thing that must not be left sitting in the box. */}
-            <div className="inline-flex w-full rounded-full bg-muted/40 p-0.5 text-sm font-semibold">
+            <div className="inline-flex w-full bg-muted/40 p-0.5 text-sm font-semibold">
               {(["lightning", "onchain"] as PayoutRail[]).map((option) => (
                 <button
                   key={option}
@@ -239,7 +239,7 @@ function WithdrawPanel({
           </p>
           {/* Disabled until it can actually go: the confirm below is the last
               thing between this form and a payment nobody can reverse. */}
-          <Button className="w-full rounded-full" disabled={submit.isPending || !ready}
+          <Button className="w-full" disabled={submit.isPending || !ready}
             onClick={() => submit.mutate()}>
             {submit.isPending ? "Sending…"
               : ready ? `Withdraw ${formatUSD(Math.round(dollars * 100))}`

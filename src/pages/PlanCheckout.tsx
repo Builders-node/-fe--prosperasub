@@ -37,6 +37,7 @@ import {
 import { PaymentMethodTiles } from "@/components/payment/PaymentMethodTiles";
 import { fetchRenewalSubject, renewalEndpoint, renewalWindow } from "@/lib/checkout/renewal";
 import { accountApi } from "@/integrations/supabase/client";
+import { Skeleton } from "@/components/patterns/Skeleton";
 
 /**
  * Checkout for a plan in the universal `provider_plans` table.
@@ -423,8 +424,8 @@ const UniversalPlanCheckout = () => {
     return (
       <UserLayout title="Checkout" showBackButton backTo={listingHref} showBottomNav={false}>
         <div className="mx-auto max-w-xl space-y-4 px-4 py-6">
-          <div className="h-24 animate-pulse rounded-3xl bg-muted" />
-          <div className="h-56 animate-pulse rounded-3xl bg-muted" />
+          <Skeleton className="h-24" />
+          <Skeleton className="h-56" />
         </div>
       </UserLayout>
     );
@@ -439,7 +440,7 @@ const UniversalPlanCheckout = () => {
           <p className="mt-1 text-sm text-muted-foreground">
             It may have been withdrawn. Browse what's on offer instead.
           </p>
-          <Button asChild variant="outline" className="mt-4 rounded-full">
+          <Button asChild variant="outline" className="mt-4">
             <a href={listingHref}>Back</a>
           </Button>
         </div>
@@ -457,7 +458,7 @@ const UniversalPlanCheckout = () => {
             We couldn't find the subscription you're renewing. Open it from your
             subscriptions and try again.
           </p>
-          <Button variant="outline" className="mt-4 rounded-full" onClick={() => navigate("/my-subscriptions")}>
+          <Button variant="outline" className="mt-4" onClick={() => navigate("/my-subscriptions")}>
             My subscriptions
           </Button>
         </div>
@@ -526,7 +527,7 @@ const UniversalPlanCheckout = () => {
                   for. Offering either control would let the screen promise
                   something the server will not do. */}
               {renewing ? (
-                <div className="rounded-2xl bg-inset p-3.5">
+                <div className="rounded-radius-md bg-inset p-3.5">
                   <p className="text-xs text-muted-foreground">Renewing</p>
                   <p className="mt-0.5 text-sm font-semibold text-foreground">
                     {renewSubject!.currentEnd
@@ -698,9 +699,9 @@ const UniversalPlanCheckout = () => {
 
         {showPayment && paymentMethod === "paypal" ? (
           <section className="overflow-hidden rounded-radius-md bg-card p-4">
-            <h2 className="mb-4 text-xl font-black tracking-tight text-foreground">Pay with PayPal</h2>
+            <h2 className="mb-4 text-xl font-semibold tracking-[-0.02em] text-foreground">Pay with PayPal</h2>
             {isPaid ? (
-              <div className="flex items-center justify-center gap-2 rounded-2xl bg-green-500/10 p-4">
+              <div className="flex items-center justify-center gap-2 rounded-radius-md bg-green-500/10 p-4">
                 <CheckCircle2 className="h-5 w-5 text-green-500" />
                 <span className="text-sm font-medium text-green-500">Payment received! Activating…</span>
               </div>

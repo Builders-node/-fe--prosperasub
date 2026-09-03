@@ -36,7 +36,7 @@ export function WorkingHoursEditor({ value, onChange }: Props) {
       {value.map((schedule, idx) => (
         <div
           key={idx}
-          className="space-y-3 rounded-2xl bg-muted/40 p-3"
+          className="space-y-3 rounded-radius-md bg-muted/40 p-3"
         >
           {/* Day chips — tinted-primary for selected, muted for the rest.
               Old vivid `bg-orange-500 text-white` clashed with the single-accent

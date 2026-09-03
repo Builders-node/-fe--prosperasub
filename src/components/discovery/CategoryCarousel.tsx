@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { useCategoryHighlights, type CategoryHighlight } from "@/hooks/useCategoryHighlights";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/patterns/Skeleton";
 
 /**
  * The wide banner above the services grid: one slide per category, each a
@@ -135,7 +136,7 @@ export function CategoryCarousel() {
   };
 
   if (isLoading) {
-    return <div className="h-[140px] animate-pulse rounded-radius-md bg-muted/40" />;
+    return <Skeleton className="h-[140px]" />;
   }
   if (count === 0) return null;
 

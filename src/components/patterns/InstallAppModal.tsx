@@ -164,7 +164,7 @@ export default function InstallAppModal() {
           </ol>
 
           <div className="flex w-full flex-col gap-space-2">
-            <Button className="w-full rounded-full" variant="secondary" onClick={handleClose}>
+            <Button className="w-full" variant="secondary" onClick={handleClose}>
               {copy.close}
             </Button>
             <button

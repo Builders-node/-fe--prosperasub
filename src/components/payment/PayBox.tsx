@@ -123,7 +123,7 @@ export function PayBox({
               <strong className="text-foreground">{formatUSD(effectiveCents)}</strong>
             </p>
           )}
-          <Button className="h-12 w-full rounded-2xl text-base font-bold" onClick={start}
+          <Button className="h-12 w-full rounded-radius-md text-base font-bold" onClick={start}
             disabled={disabled || generating || ((paymentMethod === "lightning" || paymentMethod === "onchain") && (priceLoading || !btcPrice))}>
             {generating ? <><Spinner size="sm" className="mr-2" /> Starting…</>
               : paymentMethod === "paypal" ? <>Continue with PayPal</>
@@ -147,7 +147,7 @@ export function PayBox({
         />
       )}
       {payOpen && paymentMethod === "lightning" && invoice && (
-        <div className="flex flex-col items-center rounded-2xl border border-border p-4 text-center">
+        <div className="flex flex-col items-center rounded-radius-md border border-border p-4 text-center">
           <p className="mb-2 font-bold">Scan to pay {formatUSD(effectiveCents)}</p>
           <div className="rounded-xl bg-white p-3"><QRCodeSVG value={invoice} size={200} level="M" /></div>
           <p className="mt-2 text-xs text-muted-foreground">{(lockedSats ?? estSats).toLocaleString()} sats · waiting…</p>
@@ -155,7 +155,7 @@ export function PayBox({
         </div>
       )}
       {payOpen && paymentMethod === "onchain" && onchainAddress && (
-        <div className="flex flex-col items-center rounded-2xl border border-border p-4 text-center">
+        <div className="flex flex-col items-center rounded-radius-md border border-border p-4 text-center">
           <p className="mb-2 font-bold">Send Bitcoin — {formatUSD(effectiveCents)}</p>
           <div className="rounded-xl bg-white p-3"><QRCodeSVG value={onchainUri ?? `bitcoin:${onchainAddress}`} size={200} level="M" /></div>
           <p className="mt-2 text-xs text-muted-foreground">{(lockedSats ?? estSats).toLocaleString()} sats · waiting…</p>

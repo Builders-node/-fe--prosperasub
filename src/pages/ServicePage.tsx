@@ -16,6 +16,7 @@ import { YdEmptyState } from "@/components/yd/YdPrimitives";
 import { QueryError } from "@/components/patterns/QueryError";
 import { UniversalPlanCard } from "@/components/patterns/UniversalPlanCard";
 import { supabaseDb } from "@/integrations/supabase/client";
+import { Skeleton } from "@/components/patterns/Skeleton";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
@@ -201,7 +202,7 @@ const ServicePage = () => {
       <main className="app-container py-space-4 md:py-space-8">
         {providersQ.isLoading ? (
           <div className="grid gap-3 md:grid-cols-2 md:gap-4">
-            {[1, 2].map((i) => <div key={i} className="h-72 animate-pulse rounded-3xl bg-muted" />)}
+            {[1, 2].map((i) => <Skeleton key={i} className="h-72" />)}
           </div>
         ) : providersQ.isError ? (
           <QueryError
@@ -230,7 +231,7 @@ const ServicePage = () => {
 
           {plansQ.isLoading ? (
             <div className="grid gap-3 md:grid-cols-2 md:gap-4">
-              {[1, 2].map((i) => <div key={i} className="h-64 animate-pulse rounded-3xl bg-muted" />)}
+              {[1, 2].map((i) => <Skeleton key={i} className="h-64" />)}
             </div>
           ) : plansQ.isError ? (
             <QueryError

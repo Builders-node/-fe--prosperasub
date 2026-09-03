@@ -166,8 +166,8 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
   if (isLoading) {
     return (
       <div className="app-container space-y-4 py-6">
-        <div className="h-20 animate-pulse rounded-2xl bg-muted" />
-        <div className="h-96 animate-pulse rounded-2xl bg-muted" />
+        <div className="h-20 animate-pulse rounded-radius-md bg-muted" />
+        <div className="h-96 animate-pulse rounded-radius-md bg-muted" />
       </div>
     );
   }

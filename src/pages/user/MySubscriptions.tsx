@@ -172,7 +172,7 @@ function Skeleton({ rows = 2 }: { rows?: number }) {
   return (
     <div className="space-y-3">
       {Array.from({ length: rows }).map((_, i) => (
-        <div key={i} className="animate-pulse rounded-2xl bg-card p-4">
+        <div key={i} className="animate-pulse rounded-radius-md bg-card p-4">
           <div className="flex gap-4">
             <div className="h-12 w-12 rounded-xl bg-muted" />
             <div className="flex-1 space-y-2 py-1">
@@ -217,9 +217,9 @@ function CleaningBookingRow({
   return (
     <div
       className={cn(
-        // Same shape/spacing language as SubscriptionCard: rounded-2xl bg-card
+        // Same shape/spacing language as SubscriptionCard: rounded-radius-md bg-card
         // p-4, no border. Icon tile matches h-11 w-11 rounded-xl bg-primary/10.
-        "flex items-center gap-3 rounded-2xl bg-card p-4",
+        "flex items-center gap-3 rounded-radius-md bg-card p-4",
         !upcoming && "opacity-70",
       )}
     >
@@ -1407,7 +1407,7 @@ const MySubscriptions = () => {
                     {pendingScheduleCleaningSubs.map((sub) => (
                       <div
                         key={sub.id}
-                        className="flex items-center justify-between gap-4 rounded-2xl border border-warning/30 bg-warning/5 px-4 py-3"
+                        className="flex items-center justify-between gap-4 rounded-radius-md border border-warning/30 bg-warning/5 px-4 py-3"
                       >
                         <div>
                           <p className="text-sm font-bold text-foreground">
@@ -1442,7 +1442,7 @@ const MySubscriptions = () => {
                     {unpaidCleaningSubs.map((sub: any) => (
                       <div
                         key={sub.id}
-                        className="flex items-center justify-between gap-4 rounded-2xl border border-warning/30 bg-warning/5 px-4 py-3"
+                        className="flex items-center justify-between gap-4 rounded-radius-md border border-warning/30 bg-warning/5 px-4 py-3"
                       >
                         <div className="min-w-0">
                           <p className="truncate text-sm font-bold text-foreground">
@@ -1634,7 +1634,7 @@ const MySubscriptions = () => {
 
                 {/* ── Door-access reminder alert ── */}
                 {(activeCleaningSubs.length > 0 || linkedClientSubscriptions.length > 0) && (
-                  <div className="flex items-start gap-3 rounded-2xl border border-primary/20 bg-primary/5 p-4">
+                  <div className="flex items-start gap-3 rounded-radius-md border border-primary/20 bg-primary/5 p-4">
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/15">
                       <DoorOpen className="h-5 w-5 text-primary" />
                     </div>

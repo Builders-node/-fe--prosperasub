@@ -485,7 +485,7 @@ export function RestaurantSubscriptionsTab({ providerId }: Props) {
   return (
     <div className="space-y-6">
       {/* Finance stats */}
-      <section className="rounded-2xl bg-card p-4">
+      <section className="rounded-radius-md bg-card p-4">
         <div className="mb-3 flex items-center justify-between gap-3">
           <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Finance</p>
           <div className="inline-flex rounded-full bg-muted/40 p-0.5 text-xs font-semibold">
@@ -579,18 +579,18 @@ export function RestaurantSubscriptionsTab({ providerId }: Props) {
       {isLoading ? (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-20 animate-pulse rounded-2xl bg-muted" />
+            <div key={i} className="h-20 animate-pulse rounded-radius-md bg-muted" />
           ))}
         </div>
       ) : subs.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl bg-card py-14 text-center">
+        <div className="flex flex-col items-center justify-center rounded-radius-md bg-card py-14 text-center">
           <p className="font-semibold">No subscriptions yet</p>
           <p className="mt-1 text-sm text-muted-foreground">
             Create one manually or wait for customers to subscribe.
           </p>
         </div>
       ) : filteredSubs.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-2xl bg-card py-14 text-center">
+        <div className="flex flex-col items-center justify-center rounded-radius-md bg-card py-14 text-center">
           <p className="font-semibold">No matching subscriptions</p>
           <p className="mt-1 text-sm text-muted-foreground">
             No subscriptions match the selected filters.
@@ -601,7 +601,7 @@ export function RestaurantSubscriptionsTab({ providerId }: Props) {
           </Button>
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-2xl border border-border">
+        <div className="overflow-x-auto rounded-radius-md border border-border">
           <Table>
             <TableHeader>
               <TableRow>

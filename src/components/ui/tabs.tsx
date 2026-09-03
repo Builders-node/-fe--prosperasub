@@ -27,7 +27,7 @@ const tabsListVariants = cva(
         iconOnly: "h-11 rounded-radius-md bg-[hsl(var(--app-control))] p-space-1",
         /* The redesign's segmented control: a 42-high inset track with 2 of
            padding, the same one the public provider page uses. */
-        segment: "h-[42px] w-full justify-start rounded-[18px] bg-inset p-0.5",
+        segment: "h-[42px] w-full justify-start rounded-radius-md bg-inset p-0.5",
       },
       size: {
         sm: "",

@@ -63,7 +63,7 @@ export default function MyBookings() {
               </div>
               <div className="flex items-center gap-3 text-right">
                 <div>
-                  <p className="text-[15px] font-black tabular-nums text-foreground">{formatUSD(b.total_cents)}</p>
+                  <p className="text-[15px] font-semibold tabular-nums text-foreground">{formatUSD(b.total_cents)}</p>
                   {/* The one row that needs an instruction rather than a label:
                       an unpaid booking is holding a car and can still be paid. */}
                   {b.payment_status !== "paid" && b.status !== "cancelled" && (

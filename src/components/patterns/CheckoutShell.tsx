@@ -60,7 +60,7 @@ export function CheckoutShell({
             <ArrowLeft className="h-5 w-5" />
           </button>
           <div className="pointer-events-none absolute inset-0 flex select-none flex-col items-center justify-center px-14 text-center">
-            <span className="text-[17px] font-black leading-none tracking-tight text-foreground">
+            <span className="text-[17px] font-semibold leading-none tracking-tight text-foreground">
               EverySub
             </span>
             {(subtitle ?? title) && (

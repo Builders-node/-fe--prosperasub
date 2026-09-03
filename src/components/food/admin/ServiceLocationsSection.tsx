@@ -63,7 +63,7 @@ export function ServiceLocationsSection({ providerId }: { providerId: string }) 
   });
 
   return (
-    <section className="rounded-2xl bg-card p-5">
+    <section className="rounded-radius-md bg-card p-5">
       <div className="flex items-start gap-3">
         <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted">
           <MapPin className="h-4 w-4 text-muted-foreground" />

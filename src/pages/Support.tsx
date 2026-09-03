@@ -102,7 +102,7 @@ export default function Support() {
       <UserLayout title="Support" showBackButton allowGuest>
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <CheckCircle2 className="mb-4 h-14 w-14 text-emerald-500" />
-          <h2 className="text-xl font-black text-foreground">Message sent</h2>
+          <h2 className="text-xl font-semibold text-foreground">Message sent</h2>
           <p className="mt-2 max-w-sm text-sm text-muted-foreground">
             We&apos;ll reply to <span className="font-semibold text-foreground">{email}</span>. Most
             messages get an answer the same day.
@@ -118,12 +118,12 @@ export default function Support() {
   return (
     <UserLayout title="Support" showBackButton allowGuest>
       <div className="space-y-6 pb-8">
-        <div className="flex items-start gap-3 rounded-2xl bg-card p-5">
+        <div className="flex items-start gap-3 rounded-radius-md bg-card p-5">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/15">
             <LifeBuoy className="h-5 w-5 text-primary" />
           </span>
           <div className="min-w-0">
-            <p className="font-black text-foreground">How can we help?</p>
+            <p className="font-semibold text-foreground">How can we help?</p>
             <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
               Tell us what happened and we&apos;ll get back to you by email. If it&apos;s urgent,
               WhatsApp is faster.
@@ -138,7 +138,7 @@ export default function Support() {
             href={`https://wa.me/${SUPPORT_WHATSAPP.replace(/[^0-9]/g, "")}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-3 rounded-2xl bg-card p-4 transition-colors hover:bg-muted/40"
+            className="flex items-center gap-3 rounded-radius-md bg-card p-4 transition-colors hover:bg-muted/40"
           >
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15">
               <MessageCircle className="h-5 w-5 text-emerald-500" />
@@ -150,7 +150,7 @@ export default function Support() {
           </a>
           <a
             href={`mailto:${SUPPORT_EMAIL}`}
-            className="flex items-center gap-3 rounded-2xl bg-card p-4 transition-colors hover:bg-muted/40"
+            className="flex items-center gap-3 rounded-radius-md bg-card p-4 transition-colors hover:bg-muted/40"
           >
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/15">
               <Mail className="h-5 w-5 text-primary" />
@@ -162,7 +162,7 @@ export default function Support() {
           </a>
         </div>
 
-        <div className="space-y-4 rounded-2xl bg-card p-5">
+        <div className="space-y-4 rounded-radius-md bg-card p-5">
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <Label htmlFor="support-name">Your name</Label>
@@ -200,7 +200,7 @@ export default function Support() {
             </p>
           </div>
 
-          <Button className="h-12 w-full rounded-2xl" disabled={!valid || sending} onClick={submit}>
+          <Button className="h-12 w-full rounded-radius-md" disabled={!valid || sending} onClick={submit}>
             {sending ? <Spinner size="sm" className="mr-2" /> : <Send className="mr-2 h-4 w-4" />}
             {sending ? "Sending…" : "Send message"}
           </Button>

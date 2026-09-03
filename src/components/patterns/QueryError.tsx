@@ -27,8 +27,8 @@ export function QueryError({ title, error, onRetry, retrying, compact }: Props) 
 
   return (
     <div className={compact
-      ? "flex items-center justify-between gap-3 rounded-2xl bg-red-500/10 px-4 py-3"
-      : "flex flex-col items-center justify-center rounded-3xl bg-red-500/5 px-4 py-10 text-center"}>
+      ? "flex items-center justify-between gap-3 rounded-radius-md bg-red-500/10 px-4 py-3"
+      : "flex flex-col items-center justify-center rounded-radius-lg bg-red-500/5 px-4 py-10 text-center"}>
       {!compact && (
         <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-red-500/15">
           <AlertTriangle className="h-5 w-5 text-red-400" />

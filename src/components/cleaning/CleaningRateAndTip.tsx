@@ -38,7 +38,7 @@ export function CleaningRateAndTip({ bookingId, subscriptionId, customerName }: 
   const tippedCents = tips.reduce((s, t) => s + (t.amount_cents || 0), 0);
 
   return (
-    <div className="mt-3 space-y-3 rounded-2xl border border-border bg-muted/20 p-3">
+    <div className="mt-3 space-y-3 rounded-radius-md border border-border bg-muted/20 p-3">
       <p className="flex items-center gap-1.5 text-sm font-bold text-foreground">
         <Star className="h-4 w-4 text-amber-400" /> Rate & tip this cleaning
       </p>

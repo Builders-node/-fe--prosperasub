@@ -66,7 +66,7 @@ function loadPayPalSdk(clientId: string): Promise<void> {
 
 function Notice({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-2 rounded-2xl bg-destructive/10 p-4 text-sm">
+    <div className="flex items-center gap-2 rounded-radius-md bg-destructive/10 p-4 text-sm">
       <AlertCircle className="h-5 w-5 shrink-0 text-destructive" />
       <span>{children}</span>
     </div>

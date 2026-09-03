@@ -50,7 +50,7 @@ export function RateAndTip({ providerId, subscriptionId, customerName }: Props) 
         <SectionOverline label="Rate & tip" />
       </div>
 
-      <div className="rounded-3xl bg-card p-5">
+      <div className="rounded-radius-lg bg-card p-5">
         <RateProviderButton
           service="food_provider"
           itemId={providerId}
@@ -60,7 +60,7 @@ export function RateAndTip({ providerId, subscriptionId, customerName }: Props) 
       </div>
 
       {/* Tip — separate card so the two concerns are visually distinct */}
-      <div className="rounded-3xl bg-card p-5">
+      <div className="rounded-radius-lg bg-card p-5">
         <TipPayment
           serviceName="Food Tip"
           context="food_tip"

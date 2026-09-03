@@ -21,6 +21,7 @@ import { MealPlanCard } from "@/components/food/MealPlanCard";
 import type { FoodProvider, FoodMealPlan } from "@/types/food";
 import { DIETARY_TAGS, dietaryTagMeta, type DietaryTag } from "@/lib/foodDietaryTags";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/patterns/Skeleton";
 
 type PlanWithResidences = FoodMealPlan & { residenceIds: string[] };
 type ProviderWithPlans = FoodProvider & {
@@ -301,7 +302,7 @@ const FoodListing = () => {
 
         {isLoading ? (
           <div className="mb-6 flex gap-3">
-            {[1, 2].map((i) => <div key={i} className="h-28 w-[260px] shrink-0 animate-pulse rounded-2xl bg-muted" />)}
+            {[1, 2].map((i) => <Skeleton key={i} className="h-28 w-[260px] shrink-0" />)}
           </div>
         ) : isError ? (
           <div className="mb-6">
@@ -396,7 +397,7 @@ const FoodListing = () => {
             {plansLoading ? (
               <div className="grid gap-3 md:gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {[1, 2, 3].map((i) => (
-                  <div key={i} className="h-[120px] animate-pulse rounded-radius-lg bg-muted" />
+                  <Skeleton key={i} className="h-[120px]" />
                 ))}
               </div>
             ) : search.results.length > 0 ? (
@@ -422,13 +423,13 @@ const FoodListing = () => {
                 })}
               </div>
             ) : (
-              <div className="rounded-3xl bg-card p-8 text-center">
-                <p className="text-sm text-muted-foreground">
-                  {search.query.trim()
-                    ? "No plans match your search — try another word."
-                    : "No plans match this filter — try another diet."}
-                </p>
-              </div>
+              <YdEmptyState
+                icon={ChefHat}
+                title="No plans match"
+                subtitle={search.query.trim()
+                  ? "Try another word, or clear the search."
+                  : "Try another diet."}
+              />
             )}
           </>
         )}
@@ -453,9 +454,9 @@ function RestaurantCard({
     <button
       type="button"
       onClick={onClick}
-      className="flex h-28 items-center justify-center rounded-3xl border border-border bg-card px-6 text-center transition-colors hover:border-primary/40"
+      className="flex h-28 items-center justify-center rounded-radius-lg border border-border bg-card px-6 text-center transition-colors hover:border-primary/40"
     >
-      <span className="text-2xl font-black tracking-tight text-foreground">
+      <span className="text-2xl font-semibold tracking-[-0.02em] text-foreground">
         {provider.name}
       </span>
     </button>

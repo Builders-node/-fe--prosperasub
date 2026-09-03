@@ -247,7 +247,7 @@ export function NewFoodSubscriptionDialog({ providerId, trigger }: Props) {
               </p>
             </div>
 
-            <div className="space-y-3 rounded-2xl bg-muted/30 p-3">
+            <div className="space-y-3 rounded-radius-md bg-muted/30 p-3">
               <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
                 Delivery (optional)
               </p>

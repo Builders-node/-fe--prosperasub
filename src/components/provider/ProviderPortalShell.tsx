@@ -84,8 +84,8 @@ export function ProviderPortalShell<T extends BaseProvider>({
     return (
       <UserLayout title={pageTitle}>
         <div className="app-container space-y-4 py-6">
-          <div className="h-20 animate-pulse rounded-2xl bg-muted" />
-          <div className="h-96 animate-pulse rounded-2xl bg-muted" />
+          <div className="h-20 animate-pulse rounded-radius-md bg-muted" />
+          <div className="h-96 animate-pulse rounded-radius-md bg-muted" />
         </div>
       </UserLayout>
     );
@@ -141,8 +141,8 @@ export function ProviderPortalShell<T extends BaseProvider>({
         )}
 
         {/* Header */}
-        <div className="flex flex-wrap items-start gap-3 rounded-2xl bg-card p-4 sm:gap-4">
-          <div className="h-12 w-12 shrink-0 overflow-hidden rounded-2xl border border-border bg-muted sm:h-14 sm:w-14">
+        <div className="flex flex-wrap items-start gap-3 rounded-radius-md bg-card p-4 sm:gap-4">
+          <div className="h-12 w-12 shrink-0 overflow-hidden rounded-radius-md border border-border bg-muted sm:h-14 sm:w-14">
             {avatarUrl ? (
               <img src={avatarUrl} alt={selected.name} className="h-full w-full object-cover" />
             ) : (

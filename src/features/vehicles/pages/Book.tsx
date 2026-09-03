@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Spinner } from "@/components/ui/spinner";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ResponsiveDialog } from "@/components/patterns/ResponsiveDialog";
+import { CheckoutStickyFooter } from "@/components/patterns/CheckoutStickyFooter";
 import { PaymentMethodTiles } from "@/components/payment/PaymentMethodTiles";
 import { type PaymentMethod } from "@/components/payment/PaymentMethodSelector";
 import { InvoiceQrPanel } from "@/components/payment/InvoiceQrPanel";
@@ -283,7 +284,7 @@ export default function Book() {
   );
 
   return (
-    <AppContainer className="py-6">
+    <AppContainer className={cn("py-6", step === "form" && "pb-[calc(var(--checkout-footer-h,120px)+16px)]")}>
       <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
         <div className="space-y-4">
           {step === "form" ? (
@@ -341,14 +342,14 @@ export default function Book() {
                 <Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Where should we bring the car?" />
               </div>
 
-              {/* Payment */}
+              {/* Payment method — the Pay button itself lives in the sticky
+                  footer below, where every other checkout on the platform
+                  keeps it. It used to sit inside this card, mid-scroll: the
+                  most important button on the page was the only one a customer
+                  had to go looking for. */}
               <div className="space-y-3 rounded-radius-md bg-card p-5 shadow-figma">
                 <h2 className="text-[16px] font-semibold tracking-[-0.32px] text-foreground">Payment</h2>
                 <PaymentMethodTiles value={method} onChange={setMethod} available={methods} />
-                <Button className="w-full" onClick={startPay} disabled={reserving || !isAuthenticated}>
-                  {reserving && <Spinner size="sm" className="mr-2" />}
-                  {isAuthenticated ? `Pay ${formatUSD(effectiveTotal)}` : "Sign in to book"}
-                </Button>
               </div>
             </>
           ) : (
@@ -422,11 +423,25 @@ export default function Book() {
         </div>
       </div>
 
-      {/* Insurance sheet */}
-      <Dialog open={insOpen} onOpenChange={setInsOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle>Insurance</DialogTitle></DialogHeader>
-          <p className="-mt-1 text-[14px] text-muted-foreground">Basic coverage is included. Upgrade for extra protection.</p>
+      {/* The one place a Pay button lives on this platform: pinned to the
+          bottom, always reachable — same component as PlanCheckout and Cart. */}
+      {step === "form" && (
+        <CheckoutStickyFooter>
+          <Button size="lg" className="w-full" onClick={startPay} disabled={reserving || !isAuthenticated}>
+            {reserving && <Spinner size="sm" className="mr-2" />}
+            {isAuthenticated ? `Pay ${formatUSD(effectiveTotal)}` : "Sign in to book"}
+          </Button>
+        </CheckoutStickyFooter>
+      )}
+
+      {/* Insurance sheet — ResponsiveDialog so it is a bottom sheet on a
+          phone, like every other dialog a customer meets. */}
+      <ResponsiveDialog
+        open={insOpen}
+        onOpenChange={setInsOpen}
+        title="Insurance"
+        description="Basic coverage is included. Upgrade for extra protection."
+      >
           <div className="space-y-3 overflow-y-auto">
             {insuranceTiers.map((t) => {
               const active = insuranceId === t.id;
@@ -452,14 +467,15 @@ export default function Book() {
               );
             })}
           </div>
-        </DialogContent>
-      </Dialog>
+      </ResponsiveDialog>
 
       {/* Delivery sheet */}
-      <Dialog open={zoneOpen} onOpenChange={setZoneOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle>Delivery</DialogTitle></DialogHeader>
-          <p className="-mt-1 text-[14px] text-muted-foreground">Pick up for free, or we bring it to your zone.</p>
+      <ResponsiveDialog
+        open={zoneOpen}
+        onOpenChange={setZoneOpen}
+        title="Delivery"
+        description="Pick up for free, or we bring it to your zone."
+      >
           <div className="space-y-2 overflow-y-auto">
             <ZoneOption active={!zoneId} title="Pick up at our office" sub="Free" onClick={() => { setZoneId(""); setZoneOpen(false); }} />
             {zones.map((z) => (
@@ -467,8 +483,7 @@ export default function Book() {
                 onClick={() => { setZoneId(z.id); setZoneOpen(false); }} />
             ))}
           </div>
-        </DialogContent>
-      </Dialog>
+      </ResponsiveDialog>
     </AppContainer>
   );
 }

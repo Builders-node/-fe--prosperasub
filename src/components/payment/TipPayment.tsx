@@ -140,7 +140,7 @@ export function TipPayment({
           <div className="grid grid-cols-3 gap-2">
             {presets.map((c) => (
               <button key={c} type="button" onClick={() => { setTipCents(c); setCustomTip(""); }}
-                className={cn("rounded-2xl px-3 py-2.5 text-sm font-bold transition-colors",
+                className={cn("rounded-radius-md px-3 py-2.5 text-sm font-bold transition-colors",
                   tipCents === c ? "bg-primary/15 text-foreground ring-1 ring-primary" : "bg-muted/40 text-muted-foreground hover:text-foreground")}>
                 {formatUSD(c)}
               </button>
@@ -150,12 +150,12 @@ export function TipPayment({
             <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
             <Input type="number" min={1} step={1} value={customTip}
               onChange={(e) => { setCustomTip(e.target.value); setTipCents(Math.round(parseFloat(e.target.value || "0") * 100)); }}
-              placeholder="Custom amount" className="h-11 rounded-2xl pl-7" />
+              placeholder="Custom amount" className="h-11 rounded-radius-md pl-7" />
           </div>
           {tipCents > 0 && (
             <>
               <PaymentMethodSelector value={paymentMethod} onChange={setPaymentMethod} available={enabledMethods} />
-              <Button className="h-11 w-full rounded-2xl font-bold" onClick={start}
+              <Button className="h-11 w-full rounded-radius-md font-bold" onClick={start}
                 disabled={generating || ((paymentMethod === "lightning" || paymentMethod === "onchain") && (priceLoading || !btcPrice))}>
                 {generating ? <><Spinner size="sm" className="mr-2" /> Starting…</>
                   : paymentMethod === "paypal" ? <>Tip {formatUSD(tipCents)} with PayPal</>
@@ -180,7 +180,7 @@ export function TipPayment({
         />
       )}
       {payOpen && paymentMethod === "lightning" && invoice && (
-        <div className="flex flex-col items-center rounded-2xl border border-border p-4 text-center">
+        <div className="flex flex-col items-center rounded-radius-md border border-border p-4 text-center">
           <p className="mb-2 font-bold">Scan to tip {formatUSD(tipCents)}</p>
           <div className="rounded-xl bg-white p-3"><QRCodeSVG value={invoice} size={180} level="M" /></div>
           <p className="mt-2 text-xs text-muted-foreground">{(lockedSats ?? estSats).toLocaleString()} sats · waiting…</p>
@@ -188,14 +188,14 @@ export function TipPayment({
         </div>
       )}
       {payOpen && paymentMethod === "onchain" && onchainAddress && (
-        <div className="flex flex-col items-center rounded-2xl border border-border p-4 text-center">
+        <div className="flex flex-col items-center rounded-radius-md border border-border p-4 text-center">
           <p className="mb-2 font-bold">Send Bitcoin tip — {formatUSD(tipCents)}</p>
           <div className="rounded-xl bg-white p-3"><QRCodeSVG value={onchainUri ?? `bitcoin:${onchainAddress}`} size={180} level="M" /></div>
           <p className="mt-2 text-xs text-muted-foreground">{(lockedSats ?? estSats).toLocaleString()} sats · waiting…</p>
         </div>
       )}
       {payOpen && <Button variant="ghost" className="w-full" onClick={cancel}>Cancel</Button>}
-      {done && <div className="flex items-center justify-center gap-2 rounded-2xl bg-green-500/10 py-2.5 text-sm font-semibold text-green-400"><CheckCircle2 className="h-5 w-5" /> Tip sent — thank you!</div>}
+      {done && <div className="flex items-center justify-center gap-2 rounded-radius-md bg-green-500/10 py-2.5 text-sm font-semibold text-green-400"><CheckCircle2 className="h-5 w-5" /> Tip sent — thank you!</div>}
     </div>
   );
 }

@@ -40,7 +40,7 @@ export function AddToCartButton({
       variant="outline"
       size="lg"
       disabled={disabled}
-      className={cn("h-12 rounded-2xl font-bold", className)}
+      className={cn("h-12 rounded-radius-md font-bold", className)}
       onClick={() => {
         if (inCart) { navigate("/cart"); return; }
         addItem(line, qty);

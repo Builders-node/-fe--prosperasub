@@ -49,8 +49,8 @@ export function InvoiceQrPanel({
   };
 
   return (
-    <section className="overflow-hidden rounded-3xl bg-card p-5 space-y-4">
-      <h2 className="flex items-center gap-2 text-xl font-black tracking-tight text-foreground">
+    <section className="overflow-hidden rounded-radius-lg bg-card p-5 space-y-4">
+      <h2 className="flex items-center gap-2 text-xl font-semibold tracking-[-0.02em] text-foreground">
         {mode === "lightning" ? <Zap className="h-5 w-5 text-bitcoin" /> : <Bitcoin className="h-5 w-5 text-bitcoin" />}
         {mode === "lightning" ? "Pay with Lightning" : "Pay on-chain (Bitcoin)"}
       </h2>
@@ -62,15 +62,15 @@ export function InvoiceQrPanel({
         <a
           href={isExpired ? undefined : linkHref}
           aria-disabled={isExpired || undefined}
-          className={`flex justify-center rounded-2xl bg-white p-4 ${isExpired ? "pointer-events-none opacity-40" : "cursor-pointer"}`}
+          className={`flex justify-center rounded-radius-md bg-white p-4 ${isExpired ? "pointer-events-none opacity-40" : "cursor-pointer"}`}
         >
           <QRCodeSVG value={qrValue} size={200} level="M" />
         </a>
       )}
 
-      <div className="rounded-2xl bg-muted/40 p-4 text-center">
+      <div className="rounded-radius-md bg-muted/40 p-4 text-center">
         <p className="text-sm text-muted-foreground">Amount</p>
-        <p className="text-2xl font-black text-bitcoin">{sats.toLocaleString()} sats</p>
+        <p className="text-2xl font-semibold text-bitcoin">{sats.toLocaleString()} sats</p>
         <p className="text-sm text-muted-foreground">
           {formatUSD(totalCents)} total{mode === "onchain" ? " · send exactly this amount" : ""}
         </p>
@@ -86,7 +86,7 @@ export function InvoiceQrPanel({
         </div>
       </div>
 
-      <div className={`flex flex-col items-center justify-center gap-2 rounded-2xl p-4 sm:flex-row ${isPaid ? "bg-green-500/10" : isExpired ? "bg-muted" : "bg-bitcoin/10"}`}>
+      <div className={`flex flex-col items-center justify-center gap-2 rounded-radius-md p-4 sm:flex-row ${isPaid ? "bg-green-500/10" : isExpired ? "bg-muted" : "bg-bitcoin/10"}`}>
         {isExpired && !isPaid ? (
           <>
             <Clock className="h-5 w-5 shrink-0 text-muted-foreground" />

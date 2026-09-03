@@ -286,7 +286,7 @@ export function RescheduleCleaningDialog({ booking, onClose, slotProviderId }: P
             />
           </div>
 
-          <div className="flex items-center justify-between rounded-2xl bg-muted/30 p-3">
+          <div className="flex items-center justify-between rounded-radius-md bg-muted/30 p-3">
             <div>
               <p className="text-sm font-semibold">Custom time</p>
               <p className="text-xs text-muted-foreground">

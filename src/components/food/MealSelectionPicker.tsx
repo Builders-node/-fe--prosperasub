@@ -108,7 +108,7 @@ export function MealSelectionPicker({
               onClick={() => toggle(meal)}
               disabled={disabled}
               className={cn(
-                "flex flex-col items-center gap-1.5 rounded-2xl px-3 py-4 transition-colors",
+                "flex flex-col items-center gap-1.5 rounded-radius-md px-3 py-4 transition-colors",
                 on
                   ? "bg-primary/15 text-primary ring-1 ring-primary/40"
                   : "bg-muted/40 text-muted-foreground hover:bg-muted/60 hover:text-foreground",

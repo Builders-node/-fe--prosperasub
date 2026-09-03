@@ -18,7 +18,7 @@ export function SectionOverline({ label, count, tone = "default", className }: O
     tone === "success" ? "text-emerald-500" :
     "text-muted-foreground";
   return (
-    <p className={cn("text-[10px] font-black uppercase tracking-[0.14em]", toneClass, className)}>
+    <p className={cn("text-[10px] font-semibold uppercase tracking-[0.14em]", toneClass, className)}>
       {label}
       {count !== undefined && count !== null && <> · <span className="tabular-nums">{count}</span></>}
     </p>
@@ -37,7 +37,7 @@ interface EmptyProps {
 }
 export function TabEmptyState({ icon: Icon, title, subtitle, action }: EmptyProps) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-3xl bg-card py-14 text-center">
+    <div className="flex flex-col items-center justify-center rounded-radius-lg bg-card py-14 text-center">
       <Icon className="mb-3 h-10 w-10 text-muted-foreground/40" />
       <p className="font-semibold text-foreground">{title}</p>
       {subtitle && (

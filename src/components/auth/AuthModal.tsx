@@ -68,7 +68,7 @@ function PasswordInput({
         placeholder={placeholder}
         required={required}
         minLength={minLength}
-        className="h-12 w-full rounded-2xl border-0 px-4 pr-12 text-[15px] outline-none focus:ring-2 focus:ring-ring/60 yd-input"
+        className="h-12 w-full rounded-radius-md border-0 px-4 pr-12 text-[15px] outline-none focus:ring-2 focus:ring-ring/60 yd-input"
         style={{ WebkitAppearance: "none" }}
       />
       <button
@@ -183,13 +183,13 @@ function AuthForm({
 
         {resetEmailSent ? (
           <div className="space-y-5">
-            <div className="flex items-center gap-3 rounded-2xl p-4 text-[14px] font-semibold" style={{ background: "hsl(var(--yd-input))", color: "hsl(var(--yd-text))" }}>
+            <div className="flex items-center gap-3 rounded-radius-md p-4 text-[14px] font-semibold" style={{ background: "hsl(var(--yd-input))", color: "hsl(var(--yd-text))" }}>
               ✓ Check your email for the password reset link.
             </div>
             <button
               type="button"
               onClick={() => setView("login")}
-              className="flex h-12 w-full items-center justify-center rounded-2xl text-[15px] font-bold transition hover:opacity-90 active:scale-[0.98]"
+              className="flex h-12 w-full items-center justify-center rounded-radius-md text-[15px] font-bold transition hover:opacity-90 active:scale-[0.98]"
               style={{ background: "hsl(var(--yd-cta-bg))", color: "hsl(var(--yd-cta-fg))" }}
             >
               Back to login
@@ -208,14 +208,14 @@ function AuthForm({
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 required
-                className="h-12 w-full rounded-2xl border-0 px-4 text-[15px] outline-none focus:ring-2 focus:ring-ring/60 yd-input"
+                className="h-12 w-full rounded-radius-md border-0 px-4 text-[15px] outline-none focus:ring-2 focus:ring-ring/60 yd-input"
                 style={{ WebkitAppearance: "none" }}
               />
             </div>
             <button
               type="submit"
               disabled={isLoading}
-              className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-2xl text-[15px] font-bold transition hover:opacity-90 active:scale-[0.98] disabled:opacity-60"
+              className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-radius-md text-[15px] font-bold transition hover:opacity-90 active:scale-[0.98] disabled:opacity-60"
               style={{ background: "hsl(var(--yd-cta-bg))", color: "hsl(var(--yd-cta-fg))" }}
             >
               {isLoading ? <Spinner size="md" /> : "Send reset link"}
@@ -262,7 +262,7 @@ function AuthForm({
       </div>
 
       {/* View toggle pill */}
-      <div className="mb-6 grid grid-cols-2 gap-1 rounded-2xl p-1" style={{ background: "hsl(var(--yd-input))" }}>
+      <div className="mb-6 grid grid-cols-2 gap-1 rounded-radius-md p-1" style={{ background: "hsl(var(--yd-input))" }}>
         <button
           type="button"
           onClick={() => setView("login")}
@@ -303,7 +303,7 @@ function AuthForm({
               onChange={(e) => setName(e.target.value)}
               placeholder="Your name"
               required
-              className="h-12 w-full rounded-2xl border-0 px-4 text-[15px] outline-none focus:ring-2 focus:ring-ring/60 yd-input"
+              className="h-12 w-full rounded-radius-md border-0 px-4 text-[15px] outline-none focus:ring-2 focus:ring-ring/60 yd-input"
               style={{ WebkitAppearance: "none" }}
             />
           </div>
@@ -320,7 +320,7 @@ function AuthForm({
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@example.com"
             required
-            className="h-12 w-full rounded-2xl border-0 px-4 text-[15px] outline-none focus:ring-2 focus:ring-ring/60 yd-input"
+            className="h-12 w-full rounded-radius-md border-0 px-4 text-[15px] outline-none focus:ring-2 focus:ring-ring/60 yd-input"
             style={{ WebkitAppearance: "none" }}
           />
         </div>
@@ -358,7 +358,7 @@ function AuthForm({
         <button
           type="submit"
           disabled={isLoading}
-          className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-2xl text-[15px] font-bold transition hover:opacity-90 active:scale-[0.98] disabled:opacity-60"
+          className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-radius-md text-[15px] font-bold transition hover:opacity-90 active:scale-[0.98] disabled:opacity-60"
           style={{ background: "hsl(var(--yd-cta-bg))", color: "hsl(var(--yd-cta-fg))" }}
         >
           {isLoading ? (
@@ -386,7 +386,7 @@ function AuthForm({
         type="button"
         onClick={handleGoogle}
         disabled={isLoading}
-        className="flex h-12 w-full items-center justify-center gap-3 rounded-2xl border text-[14px] font-semibold transition active:scale-[0.98] disabled:opacity-50"
+        className="flex h-12 w-full items-center justify-center gap-3 rounded-radius-md border text-[14px] font-semibold transition active:scale-[0.98] disabled:opacity-50"
         style={{ borderColor: "hsl(var(--yd-input-border))", color: "hsl(var(--yd-text))" }}
       >
         <GoogleIcon />

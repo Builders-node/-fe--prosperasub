@@ -157,8 +157,8 @@ export default function FoodSubscriptionDetail() {
     return (
       <UserLayout title="Subscription" showBackButton backTo="/my-subscriptions?tab=food">
         <div className="mx-auto max-w-xl space-y-4 px-4 py-6">
-          <div className="h-24 animate-pulse rounded-3xl bg-muted" />
-          <div className="h-72 animate-pulse rounded-3xl bg-muted" />
+          <div className="h-24 animate-pulse rounded-radius-lg bg-muted" />
+          <div className="h-72 animate-pulse rounded-radius-lg bg-muted" />
         </div>
       </UserLayout>
     );
@@ -217,12 +217,12 @@ export default function FoodSubscriptionDetail() {
       <div className="mx-auto max-w-xl space-y-4 px-4 py-4 md:py-8">
         {/* Header — mobile-first: icon + stacked title/plan/status, external
             link is an icon-only pill so the title never has to wrap around it. */}
-        <div className="flex items-start gap-3 rounded-3xl bg-card p-4">
-          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/15">
+        <div className="flex items-start gap-3 rounded-radius-lg bg-card p-4">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-radius-md bg-primary/15">
             <UtensilsCrossed className="h-6 w-6 text-primary" />
           </span>
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-xl font-black tracking-tight text-foreground">
+            <h1 className="truncate text-xl font-semibold tracking-[-0.02em] text-foreground">
               {provider?.name ?? "Meal plan"}
             </h1>
             {plan?.name && (
@@ -256,7 +256,7 @@ export default function FoodSubscriptionDetail() {
 
         {/* Expiring-soon banner (still has access) */}
         {access && status === "expiring_soon" && (
-          <div className="flex flex-col gap-3 rounded-3xl border border-amber-500/30 bg-amber-500/10 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 rounded-radius-lg border border-amber-500/30 bg-amber-500/10 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-3">
               <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
               <div>
@@ -272,12 +272,12 @@ export default function FoodSubscriptionDetail() {
 
         {/* Blocked access — expired / paused / cancelled / pending */}
         {!access && (
-          <section className="overflow-hidden rounded-3xl border border-border bg-card">
+          <section className="overflow-hidden rounded-radius-lg border border-border bg-card">
             <div className="flex flex-col items-center gap-3 px-6 py-10 text-center">
               <span className={`flex h-16 w-16 items-center justify-center rounded-full ${badge.pillClass}`}>
                 <Lock className="h-8 w-8" />
               </span>
-              <h2 className="text-xl font-black text-foreground">
+              <h2 className="text-xl font-semibold text-foreground">
                 {status === "expired"
                   ? "Your subscription has expired"
                   : status === "paused"
@@ -308,9 +308,9 @@ export default function FoodSubscriptionDetail() {
         )}
 
         {/* Details */}
-        <section className="overflow-hidden rounded-3xl bg-card">
+        <section className="overflow-hidden rounded-radius-lg bg-card">
           <div className="p-5">
-            <h2 className="text-base font-black tracking-tight text-foreground">Subscription details</h2>
+            <h2 className="text-base font-semibold tracking-[-0.02em] text-foreground">Subscription details</h2>
           </div>
           <div className="divide-y divide-border/60 border-t border-border/60">
             {plan && <DetailRow label="Plan" value={`${plan.name} · ${plan.meals_per_day} meals/day`} />}
@@ -352,8 +352,8 @@ export default function FoodSubscriptionDetail() {
             {sub.notes && <DetailRow label="Notes" value={sub.notes} />}
           </div>
           <div className="flex items-center justify-between gap-3 border-t border-border/60 p-5">
-            <span className="text-base font-black text-foreground">Total</span>
-            <span className="text-xl font-black tabular-nums text-primary">{formatUSD(totalCents)}</span>
+            <span className="text-base font-semibold text-foreground">Total</span>
+            <span className="text-xl font-semibold tabular-nums text-primary">{formatUSD(totalCents)}</span>
           </div>
         </section>
 
@@ -377,7 +377,7 @@ export default function FoodSubscriptionDetail() {
         {access && (
           <div>
             <div className="mb-3 flex items-center justify-between gap-2">
-              <h2 className="text-lg font-black tracking-tight text-foreground">My ration</h2>
+              <h2 className="text-lg font-semibold tracking-[-0.02em] text-foreground">My ration</h2>
               {menu && (
                 <Badge variant="secondary" className="rounded-full text-xs">
                   <CalendarDays className="mr-1 h-3 w-3" />

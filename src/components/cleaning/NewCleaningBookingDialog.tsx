@@ -645,7 +645,7 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
 
             {/* Repeat — bulk-book N visits at the same time slot. Anchored on
                 the Date field above; steps out by cadence. */}
-            <div className="space-y-2 rounded-2xl bg-muted/30 p-3">
+            <div className="space-y-2 rounded-radius-md bg-muted/30 p-3">
               <Label>Repeat</Label>
               <div className="flex flex-wrap gap-1.5">
                 {(Object.keys(CADENCE_LABEL) as Cadence[]).map((c) => (

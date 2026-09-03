@@ -46,11 +46,11 @@ const DialogContent = React.forwardRef<
         // base
         "fixed z-50 grid gap-4 bg-background p-4 duration-200",
         // mobile: bottom sheet
-        "inset-x-0 bottom-0 rounded-t-3xl max-h-[92vh] overflow-y-auto",
+        "inset-x-0 bottom-0 rounded-t-radius-lg max-h-[92vh] overflow-y-auto",
         "data-[state=open]:animate-in data-[state=closed]:animate-out",
         "data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
         // desktop: centered modal
-        "sm:inset-x-auto sm:bottom-auto sm:left-[50%] sm:top-[50%] sm:w-full sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-3xl sm:p-5 sm:max-h-[85vh]",
+        "sm:inset-x-auto sm:bottom-auto sm:left-[50%] sm:top-[50%] sm:w-full sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-radius-lg sm:p-5 sm:max-h-[85vh]",
         "sm:data-[state=closed]:slide-out-to-left-1/2 sm:data-[state=closed]:slide-out-to-top-[48%]",
         "sm:data-[state=open]:slide-in-from-left-1/2 sm:data-[state=open]:slide-in-from-top-[48%]",
         "sm:data-[state=closed]:zoom-out-95 sm:data-[state=open]:zoom-in-95",

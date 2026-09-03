@@ -49,7 +49,7 @@ export function AccessQrCode({ className }: { className?: string }) {
 
   return (
     <div className={cn("flex flex-col items-center gap-2", className)}>
-      <div className="flex h-[180px] w-[180px] items-center justify-center rounded-2xl bg-white p-3">
+      <div className="flex h-[180px] w-[180px] items-center justify-center rounded-radius-md bg-white p-3">
         {loading ? (
           <Spinner />
         ) : error ? (
