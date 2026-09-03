@@ -17,6 +17,10 @@ export { VEHICLES_BASE, carPath, trimPath } from "./lib/routes";
 /** Car-shaped screens that other surfaces host: the admin, the workspace. */
 export { VehicleEditDialog } from "./components/VehicleEditDialog";
 export { RentalTermsTab } from "./components/RentalTermsTab";
+/** The car as a listing row — a PlanCard, so a provider page can shelve its
+ *  fleet exactly where another business shelves its plans. */
+export { VehicleCard } from "./components/VehicleCard";
+export { useVehicles } from "./hooks/useVehicles";
 
 export type {
   RentalVehicle, RentalBooking, VehicleStatus, Transmission, FuelType,

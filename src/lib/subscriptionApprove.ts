@@ -21,7 +21,7 @@
 import { supabaseDb } from "@/integrations/supabase/client";
 import { logAuditEvent, type AuditAction, type EntityType } from "@/lib/auditLog";
 
-export type ApproveService = "cleaning" | "food" | "beach" | "plan";
+export type ApproveService = "cleaning" | "food" | "beach" | "plan" | "cars";
 
 interface TableMeta {
   table: string;
@@ -68,6 +68,15 @@ const META: Record<ApproveService, TableMeta> = {
     auditEntity: "subscription",
     statusField: "status",
     activeValue: "active",
+  },
+  // A rental is booked rather than subscribed, but "the customer paid — mark
+  // it so" is the same act. paid + confirmed is exactly what the reconcile
+  // cron writes when a payment lands, so a manual approve says the same thing.
+  cars: {
+    table: "rental_bookings",
+    auditEntity: "rental_booking",
+    statusField: "status",
+    activeValue: "confirmed",
   },
 };
 

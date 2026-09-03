@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { ServiceArchetypeDialog, type Archetype } from "@/components/admin/ServiceArchetypeDialog";
+import CarRentals from "@/pages/admin/CarRentals";
 import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
 import { cn } from "@/lib/utils";
 import ServiceCategories from "./ServiceCategories";
@@ -15,9 +16,10 @@ import MarketplacePlans from "./MarketplacePlans";
 import ProviderApplications from "./ProviderApplications";
 
 const TABS = ["categories", "providers", "plans", "applications"] as const;
-type Tab = (typeof TABS)[number];
+type Tab = (typeof TABS)[number] | "vehicles";
 
 const TAB_LABELS: Record<Tab, string> = {
+  vehicles: "Vehicles",
   categories: "Categories",
   providers: "Providers",
   plans: "Plans",
@@ -47,8 +49,12 @@ export default function MarketplaceServiceDetail() {
   const archetype = archetypes.find((a) => a.key === key);
 
   const tabs = useMemo<Tab[]>(
-    () => (isUnassigned ? ["providers", "plans"] : [...TABS]),
-    [isUnassigned],
+    // A rental company's offers are cars, so the vehicles archetype swaps its
+    // Plans tab for the fleet screen — same drill-down, its own noun.
+    () => (isUnassigned ? ["providers", "plans"]
+      : key === "vehicles" ? ["categories", "providers", "vehicles", "applications"]
+      : [...TABS]),
+    [isUnassigned, key],
   );
 
   const requested = params.get("tab") as Tab | null;
@@ -158,6 +164,7 @@ export default function MarketplaceServiceDetail() {
         {tab === "categories"   && <ServiceCategories     embedded archetypeKey={key} />}
         {tab === "providers"    && <MarketplaceProviders  embedded archetypeKey={isUnassigned ? "unassigned" : key} />}
         {tab === "plans"        && <MarketplacePlans      embedded archetypeKey={key} />}
+        {tab === "vehicles"     && <CarRentals            embedded />}
         {tab === "applications" && <ProviderApplications  embedded archetypeKey={key} />}
       </div>
     </SuperAdminLayout>

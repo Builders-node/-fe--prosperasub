@@ -34,7 +34,7 @@ import { nowHN } from "@/lib/timezone";
  * different answer, and the two must not be mixed in one figure.
  */
 
-export type RollupServiceKey = "cleaning" | "food" | "beach" | "plan";
+export type RollupServiceKey = "cleaning" | "food" | "beach" | "plan" | "cars";
 
 export const ROLLUP_SERVICES: { key: RollupServiceKey; label: string }[] = [
   { key: "cleaning", label: "Cleaning" },
@@ -44,6 +44,10 @@ export const ROLLUP_SERVICES: { key: RollupServiceKey; label: string }[] = [
   // one-time offer. The view's fourth arm; without this bucket those sales
   // were fetched and then dropped on the floor, so the TOTALS missed them too.
   { key: "plan", label: "Other services" },
+  // Rentals: booked rather than subscribed, but a sale is a sale — the view's
+  // fifth arm, price at the BASE (the deposit and the card fee never reach
+  // revenue anywhere on the platform, and not here either).
+  { key: "cars", label: "Cars" },
 ];
 
 /** How many months the revenue series covers, current month last. */

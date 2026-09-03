@@ -27,6 +27,7 @@ import {
 import { resolveMonthlyPriceCents } from "@/lib/cleaningPlanPricing";
 import { formatUSD } from "@/lib/pricing";
 import { LinkifiedText } from "@/components/patterns/LinkifiedText";
+import { VehicleCard, useVehicles } from "@/features/vehicles";
 import { useTabParam } from "@/hooks/useTabParam";
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -259,6 +260,17 @@ const ProviderDetail = () => {
   const plansQ = useUniversalPlans(providerId, !!providerId);
 
   /**
+   * A rental company's offerings are its cars. The car IS the offer — the
+   * one sales-model difference vehicles legitimately keeps — so the plans tab
+   * shelves the fleet with the same card the /vehicles listing uses, and the
+   * page around it (Reviews, Gallery, Book a time) stays the page every other
+   * business gets. Declared unconditionally per the Rules of Hooks; fetches
+   * only when the business turns out to rent cars.
+   */
+  const isVehicles = providerQ.data?.archetype_key === "vehicles";
+  const vehiclesQ = useVehicles({ providerId, enabled: !!providerId && isVehicles });
+
+  /**
    * Does this business take bookings on a calendar? If it does, the customer
    * needs a way in — the booking screen was reachable from the beach club and
    * nowhere else, so a provider could publish calendars nobody could see.
@@ -367,12 +379,17 @@ const ProviderDetail = () => {
 
   const p = providerQ.data;
 
-  const planPrices = (plansQ.data ?? []).map((r) => r.price_cents ?? 0).filter((n) => n > 0);
-  const offeringsCount = plansQ.data?.length ?? 0;
+  // A rental company's offerings are cars, so the strip reads the fleet: the
+  // cheapest day rate, counted in cars. Everyone else reads their plans.
+  const planPrices = isVehicles
+    ? (vehiclesQ.data ?? []).map((v) => v.daily_price_cents ?? 0).filter((n) => n > 0)
+    : (plansQ.data ?? []).map((r) => r.price_cents ?? 0).filter((n) => n > 0);
+  const offeringsCount = isVehicles ? (vehiclesQ.data?.length ?? 0) : (plansQ.data?.length ?? 0);
   const fromPrice = Math.min(...(planPrices.length ? planPrices : [0]));
   // A plan carries its own period and they need not agree inside one provider,
-  // so the strip stays silent rather than asserting "/ month".
-  const fromUnit = "";
+  // so the strip stays silent rather than asserting "/ month". A day rate is
+  // one honest unit, so cars say it.
+  const fromUnit = isVehicles ? "/ day" : "";
   /**
    * The middle stat is what a period includes — "4 cleanings", "5 meals" —
    * which is the number a customer compares between providers. It used to be
@@ -386,7 +403,8 @@ const ProviderDetail = () => {
   // A range where the plans disagree, because one provider's plans can include
   // 4 cleanings and 26. Picking the first would print whichever happened to
   // sort first and call it the answer.
-  const middleStatLabel = quantities.length && includedUnit
+  const middleStatLabel = isVehicles ? "Cars"
+    : quantities.length && includedUnit
     ? `${includedUnit[0].toUpperCase()}${includedUnit.slice(1)}s`
     : "Plans";
   const middleStatSub = quantities.length ? "Per period" : "Offered";
@@ -545,7 +563,23 @@ const ProviderDetail = () => {
           </div>
         </section>
 
-        {tab === "plans" && (
+        {tab === "plans" && isVehicles && (
+          vehiclesQ.isLoading ? (
+            <div className="space-y-1">
+              {[1, 2, 3].map((i) => <div key={i} className="h-[120px] animate-pulse rounded-radius-md bg-card" />)}
+            </div>
+          ) : vehiclesQ.isError ? (
+            <QueryError title="Couldn't load the fleet" onRetry={() => vehiclesQ.refetch()} retrying={vehiclesQ.isFetching} />
+          ) : (vehiclesQ.data ?? []).length === 0 ? (
+            <TabEmptyState icon={Icon} title="No cars yet" subtitle="We're setting things up. Check back soon." />
+          ) : (
+            <div className="grid gap-2 md:grid-cols-2">
+              {(vehiclesQ.data ?? []).map((v) => <VehicleCard key={v.id} v={v} />)}
+            </div>
+          )
+        )}
+
+        {tab === "plans" && !isVehicles && (
           plansQ.isLoading ? (
             <div className="space-y-1">
               {[1, 2, 3].map((i) => <div key={i} className="h-[120px] animate-pulse rounded-radius-md bg-card" />)}

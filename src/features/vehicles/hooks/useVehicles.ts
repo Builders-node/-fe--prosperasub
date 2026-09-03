@@ -11,14 +11,19 @@ import type { RentalVehicle } from "../types/carRental";
  */
 const VEHICLE_SELECT = "*, provider:providers(id, name, avatar_url)";
 
-/** Public fleet — everything not archived, publicly listable first. */
-export function useVehicles(opts: { includeHidden?: boolean } = {}) {
+/** Public fleet — everything not archived, publicly listable first.
+ *  `providerId` narrows to one business's cars (the provider page's shelf);
+ *  `enabled` exists so a page can declare the hook unconditionally (Rules of
+ *  Hooks) and only fetch when the business turns out to rent cars. */
+export function useVehicles(opts: { includeHidden?: boolean; providerId?: string; enabled?: boolean } = {}) {
   return useQuery({
-    queryKey: ["rental-vehicles", opts.includeHidden ?? false],
+    queryKey: ["rental-vehicles", opts.includeHidden ?? false, opts.providerId ?? "all"],
+    enabled: opts.enabled ?? true,
     queryFn: async () => {
       let q = supabaseDb.from("rental_vehicles").select(VEHICLE_SELECT).order("sort_order", { ascending: true }).order("created_at", { ascending: false });
       if (!opts.includeHidden) q = q.eq("status", "public");
       else q = q.neq("status", "archived");
+      if (opts.providerId) q = q.eq("provider_id", opts.providerId);
       const { data, error } = await q;
       if (error) throw error;
       return (data ?? []) as RentalVehicle[];

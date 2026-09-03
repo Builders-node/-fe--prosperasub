@@ -33,6 +33,8 @@ const SLUG_TO_KEY: Record<string, ArchetypeKey> = {
   rental: "rental",
   cars: "rental",
   "car-rental": "rental",
+  // The archetype's DB key. Any link built from the row itself must resolve.
+  vehicles: "rental",
   "beach-club": "entertainment",
   beach: "entertainment",
   entertainment: "entertainment",
@@ -91,7 +93,7 @@ export interface ServiceMeta {
 export const SERVICE_META: Record<ArchetypeKey, ServiceMeta> = {
   cleaning:      { offeringsHeading: "Plans",    collection: "plans",    icon: SparklesIcon, listingRoute: "/services/cleaning" },
   food:          { offeringsHeading: "Plans",    collection: "plans",    icon: ChefHat,      listingRoute: "/services/food" },
-  rental:        { offeringsHeading: "Vehicles", collection: "vehicles", icon: Car,          listingRoute: "/services/rental" },
+  rental:        { offeringsHeading: "Vehicles", collection: "vehicles", icon: Car,          listingRoute: "/vehicles" },
   entertainment: { offeringsHeading: "Plans",    collection: "plans",    icon: Waves,        listingRoute: "/services/beach-club" },
 };
 

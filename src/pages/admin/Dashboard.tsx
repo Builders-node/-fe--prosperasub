@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { ArrowUpRight, CheckCircle2, Package, SparklesIcon, UtensilsCrossed, Waves } from "lucide-react";
+import { ArrowUpRight, Car, CheckCircle2, Package, SparklesIcon, UtensilsCrossed, Waves } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -28,7 +28,7 @@ import { YdSectionHeading } from "@/components/yd/YdPrimitives";
  */
 
 
-type ServiceKey = "cleaning" | "food" | "beach" | "plan";
+type ServiceKey = "cleaning" | "food" | "beach" | "plan" | "cars";
 
 const SERVICE_META: Record<ServiceKey, { label: string; icon: typeof SparklesIcon; href: string }> = {
   cleaning: { label: "Cleaning",   icon: SparklesIcon,     href: "/admin/analytics?service=cleaning" },
@@ -38,6 +38,7 @@ const SERVICE_META: Record<ServiceKey, { label: string; icon: typeof SparklesIco
   // offers. The queue and the feed read `subscriptions_unified`, whose fourth
   // arm files these under 'plan'.
   plan:     { label: "Other services", icon: Package,      href: "/admin/marketplace/subscriptions" },
+  cars:     { label: "Cars",       icon: Car,              href: "/admin/car-rentals" },
 };
 
 interface PendingRow {
@@ -74,8 +75,9 @@ async function unifiedNames(rows: UnifiedSubRow[]): Promise<(r: UnifiedSubRow) =
   const foodIds = idsOf("food");
   const cleaningIds = idsOf("cleaning");
   const universalIds = idsOf("beach", "plan");
+  const carIds = idsOf("cars");
 
-  const [userMap, food, cleaning, universal] = await Promise.all([
+  const [userMap, food, cleaning, universal, cars] = await Promise.all([
     // fetchUsersByIds drops ids that `users.id` (a uuid column) can't hold.
     // One Google-sub id in the batch made PostgREST reject the whole query
     // with 22P02, emptying the map and turning every name into a fallback.
@@ -89,6 +91,9 @@ async function unifiedNames(rows: UnifiedSubRow[]): Promise<(r: UnifiedSubRow) =
     universalIds.length
       ? supabaseDb.from("provider_subscriptions").select("id, customer_name:metadata->>customer_name").in("id", universalIds)
       : Promise.resolve({ data: [] as any[] }),
+    carIds.length
+      ? supabaseDb.from("rental_bookings").select("id, customer_name").in("id", carIds)
+      : Promise.resolve({ data: [] as any[] }),
   ]);
 
   const clientMap = await fetchClientNames(((cleaning.data ?? []) as any[]).map((r) => r.client_id));
@@ -96,6 +101,7 @@ async function unifiedNames(rows: UnifiedSubRow[]): Promise<(r: UnifiedSubRow) =
   ((food.data ?? []) as any[]).forEach((r) => byId.set(String(r.id), { customerName: r.customer_name }));
   ((cleaning.data ?? []) as any[]).forEach((r) => byId.set(String(r.id), { clientId: r.client_id }));
   ((universal.data ?? []) as any[]).forEach((r) => byId.set(String(r.id), { customerName: r.customer_name }));
+  ((cars.data ?? []) as any[]).forEach((r) => byId.set(String(r.id), { customerName: r.customer_name }));
 
   return (r) => {
     const extra = byId.get(String(r.id)) ?? {};

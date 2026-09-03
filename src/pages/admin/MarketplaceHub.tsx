@@ -8,7 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import { fetchAllRows } from "@/lib/supabasePaging";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
-import { isTransportArchetype } from "@/lib/services/transport";
 import { cn } from "@/lib/utils";
 
 /** Sentinel bucket for rows whose `archetype_key` is null. */
@@ -27,17 +26,18 @@ const UNASSIGNED = "__unassigned";
  * way to reach rows the tree can't show (see the Unassigned card below).
  */
 export default function MarketplaceHub() {
-  const { archetypes: allArchetypes, isLoading: archesLoading } = useServiceArchetypes(false);
-  // Transport is a unit of its own with its own screen; it is not a service to
-  // be managed here alongside categories and plans. See lib/services/transport.
-  const archetypes = allArchetypes.filter((a) => !isTransportArchetype(a.key));
+  // Every archetype, transport included: cars are an archetype like the rest
+  // (provider → offers → sales), and the one thing genuinely different about
+  // them — the offer being a vehicle — is the service detail's business, not a
+  // reason to be missing from the map of the marketplace.
+  const { archetypes, isLoading: archesLoading } = useServiceArchetypes(false);
 
   const { data: counts, isLoading: countsLoading } = useQuery({
     queryKey: ["marketplace-hub-counts"],
     staleTime: 60_000,
     queryFn: async () => {
       // Paged — every one of these is tallied into a card count.
-      const [cats, providerRows, plans, apps] = await Promise.all([
+      const [cats, providerRows, plans, apps, vehicles] = await Promise.all([
         fetchAllRows<{ archetype_key: string | null }>(() => supabaseDb
           .from("service_categories").select("archetype_key").order("key")),
         fetchAllRows<{ id: string; archetype_key: string | null; status: string }>(() => supabaseDb
@@ -46,6 +46,10 @@ export default function MarketplaceHub() {
           .from("provider_plans").select("provider_id, status").order("id")),
         fetchAllRows<{ archetype_key: string | null }>(() => supabaseDb
           .from("provider_applications").select("archetype_key").eq("status", "pending").order("id")),
+        // A rental company's offers are its cars — counted into the same
+        // "plans" figure its card shows, because that is what it sells.
+        fetchAllRows<{ provider_id: string }>(() => supabaseDb
+          .from("rental_vehicles").select("provider_id, status").neq("status", "archived").order("id")),
       ]);
 
       const archetypeOfProvider = new Map(providerRows.map((p) => [p.id, p.archetype_key]));
@@ -63,7 +67,7 @@ export default function MarketplaceHub() {
         categories: tally(cats, (r) => r.archetype_key),
         providers: tally(providerRows, (r) => r.archetype_key),
         providersActive: tally(providerRows.filter((p) => p.status === "active"), (r) => r.archetype_key),
-        plans: tally(plans, (r) => archetypeOfProvider.get(r.provider_id) ?? null),
+        plans: tally([...plans, ...vehicles], (r) => archetypeOfProvider.get(r.provider_id) ?? null),
         pendingApps: tally(apps, (r) => r.archetype_key),
       };
     },
