@@ -1,4 +1,5 @@
 import { supabaseDb } from "@/integrations/supabase/client";
+import { canonicalServiceKey } from "@/services/manifest";
 import { fetchUsersByIds } from "@/lib/admin/customerNames";
 import { pickPhone } from "@/components/patterns/CustomerPhone";
 import { cancelCleaningBookings } from "@/lib/cleaning/cancelBooking";
@@ -134,12 +135,10 @@ export const SUBSCRIBER_SOURCES: Record<string, SubscriberSource> = {
   beach: UNIVERSAL_SUBSCRIBERS,
 };
 
-const ALIASES: Record<string, string> = { beach_club: "beach", entertainment: "beach" };
 
 /** The descriptor for a vertical — the universal one when it has said nothing. */
 export function subscriberSourceFor(sourceKey: string | null | undefined): SubscriberSource {
-  const k = String(sourceKey ?? "").toLowerCase();
-  return SUBSCRIBER_SOURCES[ALIASES[k] ?? k] ?? UNIVERSAL_SUBSCRIBERS;
+  return SUBSCRIBER_SOURCES[canonicalServiceKey(sourceKey)] ?? UNIVERSAL_SUBSCRIBERS;
 }
 
 /**

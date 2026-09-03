@@ -1,4 +1,5 @@
 import { supabaseDb } from "@/integrations/supabase/client";
+import { canonicalServiceKey } from "@/services/manifest";
 import { fetchAllRows } from "@/lib/supabasePaging";
 import { addDaysISO } from "@/lib/timezone";
 import type { recognizedCents } from "@/lib/revenueRecognition";
@@ -137,19 +138,8 @@ export const REVENUE_SOURCES: Record<string, RevenueSource> = {
   },
 };
 
-/**
- * Aliases the archetype keys arrive under. `entertainment` is the Lifestyle
- * archetype the beach lives on; `beach_club` is an older spelling still in
- * data. Cars are matched on the archetype because they never had a legacy
- * `source_service_key` and never will.
- */
-const ALIASES: Record<string, string> = {
-  beach_club: "beach",
-  entertainment: "beach",
-};
 
 /** The descriptor for a vertical — the universal one when it has said nothing. */
 export function revenueSourceFor(key: string | null | undefined): RevenueSource {
-  const k = String(key ?? "").toLowerCase();
-  return REVENUE_SOURCES[ALIASES[k] ?? k] ?? UNIVERSAL_REVENUE;
+  return REVENUE_SOURCES[canonicalServiceKey(key)] ?? UNIVERSAL_REVENUE;
 }
