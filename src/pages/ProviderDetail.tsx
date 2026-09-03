@@ -568,7 +568,7 @@ const ProviderDetail = () => {
                 // The plan's own photograph first. The provider's is a fallback,
                 // and using it alone made every plan a business sells look
                 // identical to every other.
-                image={planPhoto(plan) ?? gallery[0] ?? p.avatar_url ?? null}
+                image={planPhoto(plan) ?? gallery[0] ?? null}
                 onOpen={() => openPlan(plan.id)}
               />
             ))

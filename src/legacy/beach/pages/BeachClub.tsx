@@ -76,11 +76,12 @@ const BeachClub = () => {
   // bucket instead of being smushed into the memberships grid.
   // Ratings and photos both belong to the provider — beach_club_plans has no
   // image of its own, so a plan borrows its club's gallery.
+  // No avatar in this chain: it is a logo, and a logo in a photo slot reads
+  // as a random illustration. No gallery → the card's placeholder.
   const providerMedia = useMemo(() => {
     const m: Record<string, string[]> = {};
     (providersQ.data ?? []).forEach((p: any) => {
-      const gallery: string[] = Array.isArray(p.gallery_urls) ? p.gallery_urls : [];
-      m[p.id] = gallery.length ? gallery : (p.avatar_url ? [p.avatar_url] : []);
+      m[p.id] = Array.isArray(p.gallery_urls) ? p.gallery_urls : [];
     });
     return m;
   }, [providersQ.data]);

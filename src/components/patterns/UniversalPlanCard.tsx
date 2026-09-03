@@ -19,6 +19,18 @@ export interface UniversalPlan {
   features: unknown;
   included_quantity?: number | null;
   included_unit?: string | null;
+  /** The plan's own photographs — the offer editor saves them here. */
+  gallery_urls?: unknown;
+}
+
+/** The card's photo rule: the plan's own pictures first, the provider's as a
+ *  fallback. Never an avatar — that is a logo, and a logo standing in a photo
+ *  slot is why two plans of one business could look like different companies. */
+function planPhotos(plan: UniversalPlan, providerPhotos?: string[]): string[] | undefined {
+  const own = Array.isArray(plan.gallery_urls)
+    ? (plan.gallery_urls as unknown[]).filter((u): u is string => typeof u === "string" && !!u.trim())
+    : [];
+  return own.length ? own : providerPhotos;
 }
 
 /**
@@ -51,7 +63,7 @@ export function UniversalPlanCard({
     <PlanCard
       title={plan.name}
       description={plan.description}
-      photos={photos}
+      photos={planPhotos(plan, photos)}
       rating={rating}
       featured={featured}
       // "4 massages a month" is the offer, not a footnote — it goes where the

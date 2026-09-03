@@ -154,13 +154,15 @@ export function useCategoryHighlights() {
       ((vehicleImages as any).data ?? []).forEach((img: any) =>
         photo(vehicleCategory.get(String(img.vehicle_id)), img.url));
 
-      // Everything else: whatever the business itself uploaded.
+      // Everything else: whatever the business itself uploaded. The avatar is
+      // deliberately NOT a candidate — it is a logo, and a logo blown up to a
+      // 140px banner is what made some slides look randomly illustrated. A
+      // category with no real photo gets the designed imageless card instead.
       ((media as any).data ?? []).forEach((p: any) => {
         const cat = byUniversal.get(String(p.id));
         const gallery = Array.isArray(p.gallery_urls) ? p.gallery_urls : [];
         photo(cat, p.banner_url);
         photo(cat, gallery[0]);
-        photo(cat, p.avatar_url);
       });
 
       return { prices: out, photos };

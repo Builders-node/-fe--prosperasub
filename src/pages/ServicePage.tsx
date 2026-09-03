@@ -73,12 +73,14 @@ const ServicePage = () => {
     enabled: !!archetypeKey,
   });
 
-  // A universal plan has no picture of its own; it borrows its provider's.
+  // The provider's gallery, as the FALLBACK for a plan without photos of its
+  // own (the card prefers plan.gallery_urls — see UniversalPlanCard). The
+  // avatar is deliberately not in this chain: it is a logo, and a logo
+  // standing in a photo slot is why cards looked randomly illustrated.
   const providerMedia = useMemo(() => {
     const m: Record<string, string[]> = {};
     (providersQ.data ?? []).forEach((p: any) => {
-      const gallery: string[] = Array.isArray(p.gallery_urls) ? p.gallery_urls : [];
-      m[p.id] = gallery.length ? gallery : (p.avatar_url ? [p.avatar_url] : []);
+      m[p.id] = Array.isArray(p.gallery_urls) ? p.gallery_urls : [];
     });
     return m;
   }, [providersQ.data]);
@@ -104,7 +106,7 @@ const ServicePage = () => {
     queryFn: async () => {
       const { data, error } = await supabaseDb
         .from("provider_plans")
-        .select("id, provider_id, name, description, price_cents, currency, period, features, included_quantity, included_unit, providers!inner(name, archetype_key, category_key)")
+        .select("id, provider_id, name, description, price_cents, currency, period, features, included_quantity, included_unit, gallery_urls, providers!inner(name, archetype_key, category_key)")
         .eq("providers.archetype_key", archetypeKey!)
         .eq("status", "active")
         // Private plans sell by link, not from the listing.
