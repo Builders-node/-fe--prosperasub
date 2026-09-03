@@ -341,7 +341,7 @@ const CleaningPackages = () => {
                       // The plan's own photos (its offer's gallery) first; the
                       // provider's only when the plan has none — the same rule
                       // as every other card, so one plan wears one picture.
-                      photos={offer?.gallery.length ? offer.gallery : item.gallery}
+                      photos={offer?.gallery?.length ? offer.gallery : item.gallery}
                       onSubscribe={openPlan}
                     />
                   );

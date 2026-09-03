@@ -419,7 +419,7 @@ const FoodListing = () => {
                       key={plan.id}
                       plan={plan}
                       providerName={provider.name}
-                      images={offer?.gallery.length ? offer.gallery : menuDishes}
+                      images={offer?.gallery?.length ? offer.gallery : menuDishes}
                       rating={ratings[provider.id]}
                       offer={offer}
                       onOpen={() => navigate(`/services/food/plans/${plan.id}`)}

@@ -2,7 +2,6 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, ChevronRight } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
-import { LanguageMenu } from "@/components/layout/LanguageMenu";
 import { NotificationBell } from "@/components/layout/NotificationBell";
 import { useI18n } from "@/i18n";
 import { AccountMenu } from "@/components/layout/AccountMenu";
