@@ -28,6 +28,7 @@ import { resolveMonthlyPriceCents } from "@/lib/cleaningPlanPricing";
 import { formatUSD } from "@/lib/pricing";
 import { LinkifiedText } from "@/components/patterns/LinkifiedText";
 import { VehicleCard, useVehicles } from "@/features/vehicles";
+import { YdSectionHeading } from "@/components/yd/YdPrimitives";
 import { useTabParam } from "@/hooks/useTabParam";
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -269,6 +270,22 @@ const ProviderDetail = () => {
    */
   const isVehicles = providerQ.data?.archetype_key === "vehicles";
   const vehiclesQ = useVehicles({ providerId, enabled: !!providerId && isVehicles });
+  // Type labels for the fleet shelf — one business can rent cars AND
+  // motorbikes, and a mixed shelf groups by the vehicle's own type.
+  const vehicleTypesQ = useQuery({
+    queryKey: ["vehicle-type-options"],
+    enabled: isVehicles,
+    queryFn: async () => {
+      const { data, error } = await supabaseDb
+        .from("service_categories")
+        .select("key, label")
+        .eq("archetype_key", "vehicles")
+        .eq("is_active", true)
+        .order("sort_order");
+      if (error) throw error;
+      return (data ?? []) as Array<{ key: string; label: string }>;
+    },
+  });
 
   /**
    * Does this business take bookings on a calendar? If it does, the customer
@@ -572,11 +589,41 @@ const ProviderDetail = () => {
             <QueryError title="Couldn't load the fleet" onRetry={() => vehiclesQ.refetch()} retrying={vehiclesQ.isFetching} />
           ) : (vehiclesQ.data ?? []).length === 0 ? (
             <TabEmptyState icon={Icon} title="No cars yet" subtitle="We're setting things up. Check back soon." />
-          ) : (
-            <div className="grid gap-2 md:grid-cols-2">
-              {(vehiclesQ.data ?? []).map((v) => <VehicleCard key={v.id} v={v} />)}
-            </div>
-          )
+          ) : (() => {
+            // Grouped by the vehicle's own type when the fleet is mixed; a
+            // one-type fleet keeps the plain grid with no headings.
+            const fleet = vehiclesQ.data ?? [];
+            const order = vehicleTypesQ.data ?? [];
+            const grouped = new Map<string, typeof fleet>();
+            fleet.forEach((v) => {
+              const k = v.category_key ?? "";
+              grouped.set(k, [...(grouped.get(k) ?? []), v]);
+            });
+            if (grouped.size <= 1) {
+              return (
+                <div className="grid gap-2 md:grid-cols-2">
+                  {fleet.map((v) => <VehicleCard key={v.id} v={v} />)}
+                </div>
+              );
+            }
+            const keys = [
+              ...order.map((t) => t.key).filter((k) => grouped.has(k)),
+              ...[...grouped.keys()].filter((k) => !order.some((t) => t.key === k)),
+            ];
+            const labelOf = new Map(order.map((t) => [t.key, t.label]));
+            return (
+              <div className="space-y-5">
+                {keys.map((k) => (
+                  <div key={k || "other"}>
+                    <YdSectionHeading title={labelOf.get(k) ?? "Other"} count={grouped.get(k)!.length} />
+                    <div className="grid gap-2 md:grid-cols-2">
+                      {grouped.get(k)!.map((v) => <VehicleCard key={v.id} v={v} />)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            );
+          })()
         )}
 
         {tab === "plans" && !isVehicles && (

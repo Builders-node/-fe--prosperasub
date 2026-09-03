@@ -23,6 +23,13 @@ export interface RentalVehicle {
   sort_order: number;
   /** The business that owns this car — a `providers` row, like every vertical. */
   provider_id: string | null;
+  /**
+   * Vehicle TYPE — a `service_categories` key under the vehicles archetype
+   * (car_rental, motorbikes, …). A property of the product, not the business:
+   * one provider can rent cars and motorbikes. NULL inherits the provider's
+   * own category, so pre-existing rows keep reading correctly.
+   */
+  category_key: string | null;
   /** Joined for display; not a column. */
   provider?: { id: string; name: string; avatar_url: string | null } | null;
   created_at?: string;

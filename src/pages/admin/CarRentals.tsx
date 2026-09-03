@@ -19,6 +19,8 @@ import { fetchUsersByIds, customerNameFrom } from "@/lib/admin/customerNames";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { StatusPill } from "@/components/patterns/StatusPill";
+import ServiceCategories from "./ServiceCategories";
+import ProviderApplications from "./ProviderApplications";
 
 /**
  * Car rentals, run from the same admin as everything else.
@@ -54,7 +56,7 @@ export default function CarRentals({ embedded = false, providerId }: {
   providerId?: string;
 } = {}) {
   const qc = useQueryClient();
-  const [tab, setTab] = useState<"bookings" | "fleet" | "providers">("bookings");
+  const [tab, setTab] = useState<"bookings" | "fleet" | "types" | "providers" | "applications">("bookings");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<string>("all");
   const [busy, setBusy] = useState<string | null>(null);
@@ -98,6 +100,36 @@ export default function CarRentals({ embedded = false, providerId }: {
       const { data, error } = await q.order("sort_order");
       if (error) throw error;
       return (data ?? []) as any[];
+    },
+  });
+
+  /** Type labels for the fleet rows — the categories under vehicles. */
+  const typesQ = useQuery({
+    queryKey: ["vehicle-type-options"],
+    enabled: tab === "fleet",
+    queryFn: async () => {
+      const { data, error } = await supabaseDb
+        .from("service_categories")
+        .select("key, label")
+        .eq("archetype_key", "vehicles")
+        .order("sort_order");
+      if (error) throw error;
+      return (data ?? []) as Array<{ key: string; label: string }>;
+    },
+  });
+  const typeLabel = (key: string | null | undefined) =>
+    key ? typesQ.data?.find((t) => t.key === key)?.label ?? key : null;
+
+  /** Waiting transport applications — the badge on the Applications tab. */
+  const { data: pendingApps = 0 } = useQuery({
+    queryKey: ["admin-provider-applications-pending-count", "vehicles"],
+    enabled: !embedded,
+    queryFn: async () => {
+      const { count, error } = await supabaseDb
+        .from("provider_applications").select("*", { count: "exact", head: true })
+        .eq("status", "pending").eq("archetype_key", "vehicles");
+      if (error) return 0;
+      return count ?? 0;
     },
   });
 
@@ -169,24 +201,34 @@ export default function CarRentals({ embedded = false, providerId }: {
 
   const body = (
     <div className="space-y-space-4">
-      {/* Same pill strip as the route-based AdminPageTabs, but these two are
-          one page: the fleet and its bookings are read together. */}
-      <div className="mb-4 inline-flex gap-1 rounded-full bg-muted/50 p-1">
+      {/* Same drill-down shape as a Marketplace service: the section's own
+          nouns (Fleet, Bookings) plus the shared lists (Types, Companies,
+          Applications) mounted embedded — one implementation of each. Inside
+          one business's workspace only its own two tabs show. */}
+      <div className="mb-4 inline-flex flex-wrap gap-1 rounded-full bg-muted/50 p-1">
         {(embedded
           ? ([["bookings", "Bookings"], ["fleet", "Fleet"]] as const)
-          // Inside one business's workspace there is nobody else to list.
-          : ([["bookings", "Bookings"], ["fleet", "Fleet"], ["providers", "Companies"]] as const)
+          : ([
+              ["bookings", "Bookings"], ["fleet", "Fleet"], ["types", "Types"],
+              ["providers", "Companies"], ["applications", "Applications"],
+            ] as const)
         ).map(([value, label]) => (
           <button
             key={value}
             type="button"
             onClick={() => setTab(value)}
             className={cn(
-              "inline-flex items-center rounded-full px-4 py-1.5 text-sm font-semibold transition-colors",
+              "inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-semibold transition-colors",
               tab === value ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground",
             )}
           >
             {label}
+            {value === "applications" && pendingApps > 0 && (
+              <Badge className={cn(
+                "h-5 min-w-[20px] rounded-full px-1.5 text-[10px]",
+                tab === value ? "bg-background/20 text-background" : "bg-primary/15 text-primary",
+              )}>{pendingApps}</Badge>
+            )}
           </button>
         ))}
       </div>
@@ -303,7 +345,12 @@ export default function CarRentals({ embedded = false, providerId }: {
                     : <div className="flex h-full w-full items-center justify-center"><Car className="h-6 w-6 text-muted-foreground/40" /></div>}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[15px] font-semibold text-foreground">{v.name}</p>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <p className="truncate text-[15px] font-semibold text-foreground">{v.name}</p>
+                    {typeLabel(v.category_key) && (
+                      <Badge className="bg-muted text-[10px] uppercase text-muted-foreground">{typeLabel(v.category_key)}</Badge>
+                    )}
+                  </div>
                   <p className="truncate text-xs text-muted-foreground">
                     {[v.brand, v.model, v.year].filter(Boolean).join(" · ")} · {v.seats} seats
                   </p>
@@ -332,6 +379,13 @@ export default function CarRentals({ embedded = false, providerId }: {
           </div>
         </AdminListShell>
       ) : null}
+
+      {/* The same category CRUD every Marketplace service uses, scoped to the
+          vehicles archetype — a "Motorbikes" row typed here becomes a
+          storefront chip and an option in the vehicle editor, no code. */}
+      {tab === "types" && <ServiceCategories embedded archetypeKey="vehicles" />}
+
+      {tab === "applications" && <ProviderApplications embedded archetypeKey="vehicles" />}
 
       {tab === "providers" && (
         <AdminListShell
@@ -387,7 +441,7 @@ export default function CarRentals({ embedded = false, providerId }: {
   if (embedded) return body;
 
   return (
-    <SuperAdminLayout title="Transport" subtitle="Car rentals — companies, fleet and bookings">
+    <SuperAdminLayout title="Transport" subtitle="Types, companies, fleet, bookings and applications — the transport layer">
       {body}
     </SuperAdminLayout>
   );

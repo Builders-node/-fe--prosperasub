@@ -30,6 +30,7 @@ const EMPTY: Partial<RentalVehicle> = {
   transmission: "automatic", fuel_type: "gasoline", air_conditioning: true, luggage_capacity: 2,
   description: "", daily_price_cents: 0, weekly_price_cents: 0, monthly_price_cents: 0,
   image_url: "", gallery_urls: [], status: "public", sort_order: 0, provider_id: null,
+  category_key: null,
 };
 
 const dollars = centsToInput;
@@ -89,6 +90,33 @@ export function VehicleEditDialog({ vehicle, onClose, onSaved, lockedProviderId 
     }
   }, [vehicle, providers]);
 
+  /**
+   * Vehicle types — the categories under the vehicles archetype, the same rows
+   * the storefront's chips and the admin's Types tab read. The type belongs to
+   * the PRODUCT: one business can rent cars and motorbikes.
+   */
+  const { data: types = [] } = useQuery({
+    queryKey: ["vehicle-type-options"],
+    enabled: !!vehicle,
+    queryFn: async () => {
+      const { data, error } = await supabaseDb
+        .from("service_categories")
+        .select("key, label")
+        .eq("archetype_key", "vehicles")
+        .eq("is_active", true)
+        .order("sort_order");
+      if (error) throw error;
+      return (data ?? []) as Array<{ key: string; label: string }>;
+    },
+  });
+
+  // With one type on the platform there is nothing to choose — fill it in.
+  useEffect(() => {
+    if (vehicle === "new" && types.length === 1) {
+      setEditing((e) => (e && !e.category_key ? { ...e, category_key: types[0].key } : e));
+    }
+  }, [vehicle, types]);
+
   // The form is seeded from the prop rather than mirroring it, so typing does
   // not fight the parent's list refetching underneath.
   useEffect(() => {
@@ -113,6 +141,7 @@ export function VehicleEditDialog({ vehicle, onClose, onSaved, lockedProviderId 
         image_url: editing.image_url || null, gallery_urls: editing.gallery_urls ?? [],
         status: editing.status ?? "public", sort_order: editing.sort_order ?? 0,
         provider_id: editing.provider_id,
+        category_key: editing.category_key ?? null,
       };
       const res = editing.id
         ? await supabaseDb.from("rental_vehicles").update(row).eq("id", editing.id)
@@ -164,6 +193,23 @@ export function VehicleEditDialog({ vehicle, onClose, onSaved, lockedProviderId 
             </div>
             )}
             <div><Label>Name *</Label><Input value={editing.name ?? ""} onChange={(e) => set({ name: e.target.value })} placeholder="Toyota Hilux 2024" /></div>
+            {types.length > 1 && (
+              <div>
+                <Label>Type</Label>
+                <Select
+                  value={editing.category_key ?? undefined}
+                  onValueChange={(v) => set({ category_key: v })}
+                >
+                  <SelectTrigger><SelectValue placeholder="Car, motorbike…" /></SelectTrigger>
+                  <SelectContent>
+                    {types.map((t) => <SelectItem key={t.key} value={t.key}>{t.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  What the storefront's type filter groups this under.
+                </p>
+              </div>
+            )}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div><Label>Brand</Label><Input value={editing.brand ?? ""} onChange={(e) => set({ brand: e.target.value })} /></div>
               <div><Label>Model</Label><Input value={editing.model ?? ""} onChange={(e) => set({ model: e.target.value })} /></div>

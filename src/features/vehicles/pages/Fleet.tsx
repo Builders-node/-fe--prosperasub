@@ -69,9 +69,15 @@ export default function Fleet() {
     },
   });
   const [activeCategory, setActiveCategory] = useCategoryParam();
-  const inCategory = (v: { provider?: { id: string } | null }) =>
-    activeCategory === ALL_CATEGORIES ||
-    (v.provider?.id && (providerCategoryQ.data ?? {})[v.provider.id] === activeCategory);
+  /**
+   * A vehicle's type is its OWN `category_key` — one company can rent cars
+   * and motorbikes, and the chips must split that fleet. A row that predates
+   * the column (NULL) inherits its provider's category, so nothing vanishes.
+   */
+  const typeOf = (v: { category_key?: string | null; provider?: { id: string } | null }) =>
+    v.category_key ?? (v.provider?.id ? (providerCategoryQ.data ?? {})[v.provider.id] ?? null : null);
+  const inCategory = (v: { category_key?: string | null; provider?: { id: string } | null }) =>
+    activeCategory === ALL_CATEGORIES || typeOf(v) === activeCategory;
 
   /**
    * The businesses with a car listed right now — derived from the fleet rather
@@ -134,7 +140,7 @@ export default function Fleet() {
           categories={(categoriesQ.data ?? []).map((c) => ({
             key: c.key,
             label: c.label,
-            count: vehicles.filter((v) => v.provider?.id && (providerCategoryQ.data ?? {})[v.provider.id!] === c.key).length,
+            count: vehicles.filter((v) => typeOf(v) === c.key).length,
           }))}
           value={activeCategory}
           onChange={setActiveCategory}
