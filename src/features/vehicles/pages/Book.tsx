@@ -19,7 +19,7 @@ import { usePaymentMethods } from "@/hooks/usePaymentMethods";
 import { useBtcPrice } from "@/hooks/useBtcPrice";
 import { useAddons } from "../hooks/useAddons";
 import { attachPaymentReference } from "@/lib/payments/pendingReference";
-import { supabaseDb } from "@/integrations/supabase/client";
+import { supabaseDb, accountApi } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useVehicle } from "../hooks/useVehicles";
 import { calcRentalPrice, extraCost } from "../types/carRental";
@@ -70,6 +70,13 @@ export default function Book() {
   const [step, setStep] = useState<"form" | "pay" | "done">("form");
   const [reserving, setReserving] = useState(false);
   const pendingIdRef = useRef<string | null>(null);
+  /**
+   * What the SERVER said this booking costs, when the API reserved it. The
+   * page's own arithmetic stays for display, but the invoice is raised for the
+   * figure on the row — the two should always agree, and when they don't the
+   * row wins.
+   */
+  const [serverCharged, setServerCharged] = useState<number | null>(null);
 
   // Add-ons
   const insuranceTiers = addons?.insurance ?? [];
@@ -94,16 +101,25 @@ export default function Book() {
   const rentalTotal = pricing?.totalCents ?? 0;
   const baseTotal = rentalTotal + addonsCents;
   const effectiveTotal = addSurchargeCents(baseTotal, method);
-  const estimatedSats = convertToSats(centsToDollars(effectiveTotal));
 
   const toggleExtra = (eid: string) =>
     setExtraIds((prev) => { const n = new Set(prev); n.has(eid) ? n.delete(eid) : n.add(eid); return n; });
 
   const activate = async (ref: string, m: string) => {
     if (pendingIdRef.current) {
-      await supabaseDb.from("rental_bookings")
-        .update({ status: "confirmed", payment_status: "paid", payment_method: m, payment_reference: ref })
-        .eq("id", pendingIdRef.current);
+      // The API re-verifies the reference with the payment provider before it
+      // marks anything paid. The direct write below is the pre-API behaviour,
+      // kept as a fallback until the endpoint is deployed — the reconcile cron
+      // re-verifies everything server-side either way.
+      const { error } = await accountApi(`/rentals/bookings/${pendingIdRef.current}/confirm`, {
+        method: "POST",
+        body: JSON.stringify({ payment_reference: ref, payment_method: m }),
+      });
+      if (error) {
+        await supabaseDb.from("rental_bookings")
+          .update({ status: "confirmed", payment_status: "paid", payment_method: m, payment_reference: ref })
+          .eq("id", pendingIdRef.current);
+      }
     }
     setStep("done");
   };
@@ -115,8 +131,49 @@ export default function Book() {
     },
   });
 
-  const reserve = async (): Promise<string | null> => {
+  /** Refusals the API words for a customer — a refusal never falls back. */
+  const REFUSALS: Record<string, string> = {
+    dates_taken: "Sorry — this car was just booked for those dates. Please pick another period.",
+    invalid_dates: "Those dates can't be booked. Please pick them again.",
+    vehicle_unavailable: "This car isn't available for booking.",
+    invalid_insurance: "That insurance option is no longer offered — please reselect.",
+    invalid_extras: "One of the extras is no longer offered — please reselect.",
+    invalid_zone: "That delivery zone is no longer offered — please reselect.",
+  };
+
+  const reserve = async (): Promise<{ id: string; charged: number | null } | null> => {
     if (!v || !pricing || !userData?.id) return null;
+
+    /**
+     * The API reserves first: it prices the rental itself, from the same rows
+     * this page showed, so the request only ever names WHAT is wanted — never
+     * what it costs. The direct insert below is the pre-API path, kept solely
+     * as a fallback while the endpoint ships behind a broken deploy pipeline;
+     * once the API is live and proven the fallback goes, and RLS on
+     * `rental_bookings` closes behind it.
+     */
+    const viaApi = await accountApi("/rentals/bookings", {
+      method: "POST",
+      body: JSON.stringify({
+        vehicle_id: v.id,
+        start_date: fromISO,
+        end_date: toISOParam,
+        insurance_tier_id: insuranceId || undefined,
+        extra_ids: [...extraIds],
+        delivery_zone_id: zoneId || undefined,
+        payment_method: method,
+        customer_name: name.trim() || userData.name || undefined,
+        customer_whatsapp: whatsapp.trim() || undefined,
+        delivery_address: address.trim() || undefined,
+        delivery_notes: notes.trim() || undefined,
+      }),
+    });
+    const apiRow = viaApi.data as { id?: string; charged_cents?: number } | null;
+    if (!viaApi.error && apiRow?.id) {
+      return { id: apiRow.id, charged: Number(apiRow.charged_cents) || null };
+    }
+    const refusal = viaApi.error ? REFUSALS[viaApi.error.message] : null;
+    if (refusal) { toast.error(refusal); return null; }
 
     // The calendar was read when the page loaded; somebody else may have taken
     // these dates since. This re-read is for the MESSAGE — it catches the
@@ -158,7 +215,7 @@ export default function Book() {
         : error.message);
       return null;
     }
-    return data?.id ?? null;
+    return data?.id ? { id: data.id, charged: null } : null;
   };
 
   const startPay = async () => {
@@ -167,15 +224,19 @@ export default function Book() {
     if (!name.trim()) { toast.error("Add your name."); return; }
     setReserving(true);
     try {
-      const pendingId = await reserve();
-      if (!pendingId) return;
-      pendingIdRef.current = pendingId;
+      const reserved = await reserve();
+      if (!reserved) return;
+      pendingIdRef.current = reserved.id;
+      // Charge what the row says, not what this page computed — same inputs,
+      // but the row is what the reconcile cron verifies against.
+      const payTotal = reserved.charged ?? effectiveTotal;
+      setServerCharged(reserved.charged);
       setStep("pay");
       if (method === "lightning" || method === "onchain") {
         inv.start({
           method,
-          amountCents: effectiveTotal,
-          amountSats: estimatedSats,
+          amountCents: payTotal,
+          amountSats: convertToSats(centsToDollars(payTotal)),
           description: `${v?.name} · ${fromISO}→${toISOParam}`,
           // Recorded on the checkout session at invoice time, which is what the
           // team's email and Telegram message read from. Without it a car
@@ -188,7 +249,7 @@ export default function Book() {
             client_phone: whatsapp.trim() || undefined,
             duration: `${pricing.rentalDays} day${pricing.rentalDays > 1 ? "s" : ""}`,
             selected_date_time: `${fromISO} → ${toISOParam}`,
-            booking_id: pendingId,
+            booking_id: reserved.id,
           },
         });
       }
@@ -296,7 +357,7 @@ export default function Book() {
                 <>
                   <h2 className="mb-3 text-[16px] font-semibold tracking-[-0.32px] text-foreground">Pay with PayPal</h2>
                   <PayPalPanel
-                    totalCents={effectiveTotal}
+                    totalCents={serverCharged ?? effectiveTotal}
                     onPaid={(cap: string) => activate(cap, "paypal")}
                     // Write the order id the moment PayPal issues it. Without a
                     // reference on the row, a capture whose browser died before
@@ -324,7 +385,7 @@ export default function Book() {
                 <InvoiceQrPanel
                   mode={method === "onchain" ? "onchain" : "lightning"}
                   invoice={inv.state.invoice} address={inv.state.address} uri={inv.state.uri}
-                  sats={inv.state.sats ?? 0} totalCents={effectiveTotal}
+                  sats={inv.state.sats ?? 0} totalCents={serverCharged ?? effectiveTotal}
                   isPaid={inv.state.isPaid} isExpired={inv.state.isExpired}
                   onRetry={() => inv.reset()} successLabel="Confirming your booking…"
                 />
