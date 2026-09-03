@@ -98,8 +98,14 @@ function Slide({ item }: { item: CategoryHighlight }) {
   );
 }
 
-export function CategoryCarousel() {
-  const { highlights, isLoading } = useCategoryHighlights();
+export function CategoryCarousel({ family }: {
+  /** Show only categories whose service belongs to this family (home tabs). */
+  family?: string;
+} = {}) {
+  const { highlights: allHighlights, isLoading } = useCategoryHighlights();
+  const highlights = family
+    ? allHighlights.filter((h) => h.archetype?.family === family)
+    : allHighlights;
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
 

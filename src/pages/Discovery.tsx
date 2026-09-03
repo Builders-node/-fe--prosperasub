@@ -14,6 +14,7 @@ import { useMyBusinesses } from "@/hooks/useMyBusinesses";
 import { useServiceArchetypes, type ServiceArchetype } from "@/hooks/useServiceArchetypes";
 import { publicListingHref } from "@/lib/services/providerBridge";
 import { CategoryCarousel } from "@/components/discovery/CategoryCarousel";
+import { useTabParam } from "@/hooks/useTabParam";
 import { BusinessCenterIcon, QrCodeIcon } from "@/components/icons/FigmaIcons";
 import { useResidenceMatters } from "@/contexts/LocationContext";
 import { useI18n } from "@/i18n";
@@ -32,6 +33,12 @@ const MY_SUBS_TILE = {
 // container so services read as a unified grid rather than a rainbow of tints.
 const ARCHETYPE_TILE_BG = "bg-card";
 
+/** The words on the family tabs. Anything unnamed falls back to its key. */
+const FAMILY_LABELS: Record<string, string> = {
+  experiences: "Experiences",
+  transport: "Transport",
+};
+
 const Discovery = () => {
   const { userData } = useAuth();
   const [qrOpen, setQrOpen] = useState(false);
@@ -47,8 +54,25 @@ const Discovery = () => {
   // bespoke page, the rest to the generic ServicePage — so nothing is filtered
   // out. The old filter existed because an archetype off the hard-coded route
   // map led nowhere; that map no longer decides what exists.
-  const archetypes = allArchetypes;
   const { t } = useI18n();
+
+  /**
+   * The top of the browse hierarchy: family → service → category. The tabs
+   * answer the visitor's FIRST question — "what kinds of thing are here at
+   * all" — before a single tile is read. Families come from the archetype
+   * rows (`service_archetypes.family`), so a third family is a row edit;
+   * with one family the control hides and the page is exactly what it was.
+   */
+  const families = useMemo(() => {
+    const seen: string[] = [];
+    for (const a of allArchetypes) if (!seen.includes(a.family)) seen.push(a.family);
+    return seen;
+  }, [allArchetypes]);
+  const [family, setFamily] = useTabParam(families, { key: "family" });
+  const showFamilies = families.length > 1;
+  const archetypes = showFamilies
+    ? allArchetypes.filter((a) => a.family === family)
+    : allArchetypes;
 
   // What's actually inside each service. A tile saying "Apartment Cleaning ·
   // Car Wash" tells a customer more in four words than the archetype's prose
@@ -111,7 +135,23 @@ const Discovery = () => {
       */}
       <section className="bg-card pb-4 shadow-figma rounded-b-radius-lg md:rounded-b-none">
         <div className="app-container space-y-4 pt-4">
-          <CategoryCarousel />
+          {showFamilies && (
+            <div className="flex rounded-radius-md bg-inset p-0.5">
+              {families.map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => setFamily(f)}
+                  className={`flex-1 rounded-radius-md px-4 py-2 text-center text-[16px] font-semibold leading-[22px] transition-colors ${
+                    family === f ? "bg-card text-foreground" : "text-foreground/70 hover:text-foreground"
+                  }`}
+                >
+                  {FAMILY_LABELS[f] ?? f.charAt(0).toUpperCase() + f.slice(1)}
+                </button>
+              ))}
+            </div>
+          )}
+          <CategoryCarousel family={showFamilies ? family : undefined} />
 
           {userData && (
             <ShortcutRow

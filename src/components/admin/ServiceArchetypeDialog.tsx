@@ -42,6 +42,8 @@ export interface Archetype {
   default_booking_model: (typeof BOOKING_MODELS)[number] | null;
   source_service_key?: string | null;
   category_key?: string | null;
+  /** Top-level Discovery tab this service files under (experiences | transport | …). */
+  family?: string;
   /** Opaque per-archetype booking config — carried through edits untouched. */
   default_booking_settings?: unknown;
 }
@@ -49,7 +51,7 @@ export interface Archetype {
 export const EMPTY_ARCHETYPE: Archetype = {
   key: "", label: "", description: "",
   icon: "store", accent: "bg-blue-500",
-  sort_order: 0, is_active: true,
+  sort_order: 0, is_active: true, family: "experiences",
   default_capabilities: [], default_resource_type: null, default_booking_model: null,
 };
 
@@ -132,6 +134,13 @@ export function ServiceArchetypeDialog({
           <div>
             <Label>Sort order</Label>
             <Input type="number" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: Number(e.target.value) || 0 })} />
+          </div>
+          <div>
+            <Label>Family</Label>
+            {/* The Discovery tab this service files under. Free text on
+                purpose: a third family is typed here once and the home page
+                grows a third tab — no release. */}
+            <Input value={form.family ?? "experiences"} onChange={(e) => setForm({ ...form, family: e.target.value.trim().toLowerCase() || "experiences" })} placeholder="experiences · transport" />
           </div>
           <div>
             <Label>Default resource type</Label>

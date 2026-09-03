@@ -22,6 +22,11 @@ export interface ServiceArchetypeRow {
   default_booking_settings: unknown;
   /** Optional legacy service key (cars/food/cleaning/beach) — drives legacy listing dispatch. */
   source_service_key: string | null;
+  /**
+   * Top-level browse grouping — the tabs on Discovery (experiences |
+   * transport | …). Data, so a third family is a row edit, not a release.
+   */
+  family: string;
   is_active: boolean;
   sort_order: number;
 }
