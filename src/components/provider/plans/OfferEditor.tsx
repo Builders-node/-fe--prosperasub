@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, X } from "lucide-react";
+import { ChevronDown, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -90,6 +90,22 @@ const numOrNull = (text: string): number | null => {
 const cents = (text: string) => {
   const n = Math.round(Number(String(text).replace(/[^0-9.]/g, "")) * 100);
   return Number.isFinite(n) && n > 0 ? n : 0;
+};
+
+/**
+ * The delivery window is stored as minutes from midnight, but nobody should
+ * compute "600 = 10:00" in their head — the field renders as a time picker
+ * and these two translate at the edge.
+ */
+const minutesToTime = (minutes: string): string => {
+  const n = Number(minutes);
+  if (!Number.isFinite(n) || n <= 0) return "";
+  return `${String(Math.floor(n / 60)).padStart(2, "0")}:${String(n % 60).padStart(2, "0")}`;
+};
+const timeToMinutes = (time: string): string => {
+  if (!time) return "";
+  const [h, m] = time.split(":").map(Number);
+  return String((h || 0) * 60 + (m || 0));
 };
 
 export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }: {
@@ -225,6 +241,33 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
   });
   /** Lines this editor does not manage (a deep clean, a session) — kept as-is. */
   const [otherEntitlements, setOtherEntitlements] = useState<Entitlement[]>([]);
+  /**
+   * The platform's switches live behind one fold. A provider selling
+   * "cleaning, $80, one-time" should answer four questions, not twenty —
+   * pricing modes, period limits and counted units all have working defaults.
+   * A plan already using a non-default opens the fold itself (see the seed
+   * effect), so nothing customized ever hides.
+   */
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  /**
+   * Whether this business has anything bookable — same query (and cache row)
+   * the resource picker runs. The hours-allowance fields used to render for
+   * everyone, so a restaurant was asked when its court hours reset.
+   */
+  const { data: calendarCount = 0 } = useQuery({
+    queryKey: ["plan-resource-picker", providerId],
+    enabled: !!providerId,
+    queryFn: async () => {
+      const { data: res, error } = await supabaseDb
+        .from("bookable_resources")
+        .select("id, name, type")
+        .eq("provider_id", providerId)
+        .order("name", { ascending: true });
+      if (error) throw error;
+      return (res ?? []) as Array<{ id: string; name: string; type: string | null }>;
+    },
+    select: (rows) => rows.length,
+  });
 
   useEffect(() => {
     if (!offer || !data) return;
@@ -276,11 +319,22 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
     // saving here never quietly drops what another screen said.
     setOtherEntitlements(lines.filter((e) => e.unit !== HOUR_UNIT));
     const attrs = data.legacyAttrs?.get(offer.id);
+    const tagList = attrs ? attrs.tags : (offer.tags ?? []);
     setIncludes({
       features: asLines(attrs ? attrs.features : offer.features),
       excludes: asLines(attrs ? attrs.excludes : offer.excludes),
-      tags: (attrs ? attrs.tags : (offer.tags ?? [])).join(", "),
+      tags: tagList.join(", "),
     });
+    // Open the fold for a plan that already uses a non-default — customized
+    // settings must be visible, not merely preserved.
+    setAdvancedOpen(
+      (offer.pricing_mode ?? "flat") !== "flat" ||
+      !!offer.provider_price_cents || !!offer.markup_cents ||
+      (offer.periods_default ?? 1) !== 1 || (offer.periods_min ?? 1) !== 1 ||
+      offer.periods_max != null ||
+      offer.lead_time_minutes != null || offer.window_minutes != null ||
+      tagList.length > 0,
+    );
   }, [offerId, data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
@@ -562,15 +616,6 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
           <Label className="text-xs">Description</Label>
           <Textarea className="mt-1" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
         </div>
-        <p className="text-xs text-muted-foreground">
-          {draftGroups.length
-            ? <>Customers see one card. Its price shows as “from {fromCents ? formatUSD(fromCents) : "—"}”, the cheapest combination below.</>
-            : <>Customers see one card at {fromCents ? formatUSD(fromCents) : "—"}.</>}
-        </p>
-      </section>
-
-      <section className="space-y-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
-        <p className="text-[20px] font-semibold leading-[26px] text-foreground">Photographs</p>
         <GalleryField
           label=""
           value={gallery}
@@ -579,155 +624,56 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
           max={8}
         />
         <p className="text-[14px] leading-[18px] text-muted-foreground">
-          The first one is the picture on this plan's card. Saved with the plan.
+          The first photo is the picture on this plan's card.
         </p>
       </section>
 
       <section className="space-y-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
         <p className="text-[20px] font-semibold leading-[26px] text-foreground">How it's sold</p>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Billed every">
-            <select value={sold.period} onChange={(e) => setSold((v) => ({ ...v, period: e.target.value }))}
-              className="h-9 w-full rounded-radius-md bg-inset px-3 text-sm text-foreground outline-none">
-              {["weekly", "monthly", "quarterly", "yearly"].map((p) => (
-                <option key={p} value={p}>{p[0].toUpperCase() + p.slice(1)}</option>
-              ))}
-              {/* Not a billing cadence but the absence of one: bought once,
-                  never renewed. A product, a single session, a day pass. */}
-              <option value="one_time">One-time — sold once, no renewal</option>
-            </select>
-          </Field>
-          <Field label="Price is" hint={PRICING_HINT[sold.pricingMode] ?? ""}>
-            <select value={sold.pricingMode} onChange={(e) => setSold((v) => ({ ...v, pricingMode: e.target.value }))}
-              className="h-9 w-full rounded-radius-md bg-inset px-3 text-sm text-foreground outline-none">
-              <option value="flat">Flat</option>
-              <option value="per_unit">Per unit</option>
-              <option value="per_person">Per person</option>
-
-            </select>
-          </Field>
-
-          {/*
-            What has to happen after the sale — and the only place it is ever
-            written. Checkout reads it to decide whether to ask for an address
-            (`planCheckoutModel.needsAddress`), so a plan left at "nothing"
-            takes a delivery order with nowhere to deliver it. Every plan
-            created before this defaulted to NULL, which reads the same way.
-          */}
-          <Field label="Fulfilment" hint={FULFILMENT_HINT[sold.fulfilment] ?? ""}>
-            <select value={sold.fulfilment} onChange={(e) => setSold((v) => ({ ...v, fulfilment: e.target.value }))}
-              className="h-9 w-full rounded-radius-md bg-inset px-3 text-sm text-foreground outline-none">
-              <option value="none">Nothing to schedule</option>
-              <option value="visits">Visits</option>
-              <option value="deliveries">Deliveries</option>
-              <option value="resource_hours">Booked hours</option>
-            </select>
-          </Field>
-
-          {/* Independent of the mode above: a per-person price can also be a
-              marked-up one, which is exactly what the beach club is. Filling
-              these in is what makes a price derived. */}
-          {(sold.providerPrice || sold.markup || sold.pricingMode === "derived") && (
-            <>
-              <Field label="Provider is paid ($)">
-        <Input inputSize="sm" inputMode="decimal" value={sold.providerPrice}
-                  onChange={(e) => setSold((v) => ({ ...v, providerPrice: e.target.value }))} />
-              </Field>
-              <Field label="Platform adds ($)">
-        <Input inputSize="sm" inputMode="decimal" value={sold.markup}
-                  onChange={(e) => setSold((v) => ({ ...v, markup: e.target.value }))} />
-              </Field>
-            </>
-          )}
-
-          <Field label="What is counted" hint="cleaning · meal · session">
-      <Input inputSize="sm" value={sold.unit} placeholder="cleaning"
-              onChange={(e) => setSold((v) => ({ ...v, unit: e.target.value }))} />
-          </Field>
-          <Field label={sold.period === "one_time" ? "How many included" : "How many per period"}>
-      <Input inputSize="sm" inputMode="numeric" value={sold.quantity} placeholder="4"
-              onChange={(e) => setSold((v) => ({ ...v, quantity: e.target.value }))} />
-          </Field>
-
-          {/* How many periods may be bought at once — a question a one-time
-              offer does not have, so it is not asked. */}
-          {sold.period !== "one_time" && (
-            <>
-              <Field label="Periods offered by default">
-          <Input inputSize="sm" inputMode="numeric" value={sold.periodsDefault}
-                  onChange={(e) => setSold((v) => ({ ...v, periodsDefault: e.target.value }))} />
-              </Field>
-              <Field label="Fewest / most they may buy">
-                <div className="flex items-center gap-2">
-           <Input inputSize="sm" inputMode="numeric" value={sold.periodsMin}
-                    onChange={(e) => setSold((v) => ({ ...v, periodsMin: e.target.value }))} />
-                  <span className="text-muted-foreground">–</span>
-           <Input inputSize="sm" inputMode="numeric" value={sold.periodsMax} placeholder="no limit"
-                    onChange={(e) => setSold((v) => ({ ...v, periodsMax: e.target.value }))} />
-                </div>
-              </Field>
-            </>
-          )}
-
-          {sold.fulfilment === "deliveries" && (
-            <>
-              <Field label="Arrives after (minutes from midnight)" hint="600 = 10:00">
-        <Input inputSize="sm" inputMode="numeric" value={sold.leadMinutes} placeholder="660"
-                  onChange={(e) => setSold((v) => ({ ...v, leadMinutes: e.target.value }))} />
-              </Field>
-              <Field label="Window width (minutes)" hint="120 = a two-hour promise">
-        <Input inputSize="sm" inputMode="numeric" value={sold.windowMinutes} placeholder="120"
-                  onChange={(e) => setSold((v) => ({ ...v, windowMinutes: e.target.value }))} />
-              </Field>
-            </>
-          )}
-        </div>
-      </section>
-
-      <section className="space-y-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
-        <p className="text-[20px] font-semibold leading-[26px] text-foreground">What they get</p>
-        <Field label="Included" hint="One per line — shown on the plan page.">
-          <Textarea rows={4} value={includes.features}
-            onChange={(e) => setIncludes((v) => ({ ...v, features: e.target.value }))}
-            placeholder={"Full apartment cleaning\nBathroom and kitchen"} />
-        </Field>
-        <Field label="Not included" hint="One per line.">
-          <Textarea rows={3} value={includes.excludes}
-            onChange={(e) => setIncludes((v) => ({ ...v, excludes: e.target.value }))}
-            placeholder={"Windows from outside\nLaundry"} />
-        </Field>
-        <Field label="Tags" hint="Comma separated — what a customer can filter by.">
-          <Input value={includes.tags} placeholder="vegetarian, keto"
-            onChange={(e) => setIncludes((v) => ({ ...v, tags: e.target.value }))} />
-        </Field>
-
-        {/* Booking access. The picker draws nothing when the provider has no
-            calendars, so a restaurant is never asked which court it includes. */}
-        <PlanResourcePicker
-          providerId={providerId}
-          value={access.resourceIds}
-          onChange={(resourceIds) => setAccess((v) => ({ ...v, resourceIds }))}
-        />
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Hours included" hint="Empty means as many as they like.">
-            <Input
-              inputMode="numeric" className="h-9" value={access.hours} placeholder="4"
-              onChange={(e) => setAccess((v) => ({ ...v, hours: e.target.value }))}
-            />
-          </Field>
-          <Field label="Hours reset" hint="When the allowance starts again.">
-            <select
-              value={access.hoursPeriod}
-              onChange={(e) => setAccess((v) => ({ ...v, hoursPeriod: e.target.value }))}
-              className="h-9 w-full rounded-radius-md bg-inset px-3 text-sm text-foreground outline-none"
+        {/* The one question every plan must answer, asked as a visible choice —
+            not as one option buried at the bottom of a select. Everything
+            rarer (pricing modes, period limits, counted units, delivery
+            windows) lives under More settings at the end. */}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="inline-flex gap-1 rounded-full bg-muted/50 p-1">
+            <button
+              type="button"
+              onClick={() => setSold((v) => ({ ...v, period: v.period === "one_time" ? "monthly" : v.period }))}
+              className={cn(
+                "rounded-full px-4 py-1.5 text-sm font-semibold transition-colors",
+                sold.period !== "one_time" ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground",
+              )}
             >
-              <option value="">Same as billing</option>
+              Subscription
+            </button>
+            <button
+              type="button"
+              onClick={() => setSold((v) => ({ ...v, period: "one_time" }))}
+              className={cn(
+                "rounded-full px-4 py-1.5 text-sm font-semibold transition-colors",
+                sold.period === "one_time" ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              One-time
+            </button>
+          </div>
+          {sold.period !== "one_time" && (
+            <select
+              value={sold.period}
+              onChange={(e) => setSold((v) => ({ ...v, period: e.target.value }))}
+              className="h-9 rounded-radius-md bg-inset px-3 text-sm text-foreground outline-none"
+            >
               {["weekly", "monthly", "quarterly", "yearly"].map((p) => (
                 <option key={p} value={p}>{p[0].toUpperCase() + p.slice(1)}</option>
               ))}
             </select>
-          </Field>
+          )}
         </div>
+        <p className="text-[14px] leading-[18px] text-muted-foreground">
+          {sold.period === "one_time"
+            ? "Bought once — a product, a session, a day pass. No renewal."
+            : "Renews every period until the customer stops it."}
+        </p>
       </section>
 
       <section className="space-y-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
@@ -808,9 +754,161 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
         )}
         <p className="text-xs text-muted-foreground">
           {draftGroups.length
-            ? "Leave a price empty to take that combination off sale. Nothing is deleted — anyone already subscribed to it keeps their plan."
-            : "One price, because this plan has no choices yet. Add one above and it becomes a price per combination."}
+            ? <>Customers see one card, priced “from {fromCents ? formatUSD(fromCents) : "—"}” — the cheapest combination. Leave a price empty to take that combination off sale; anyone already subscribed keeps their plan.</>
+            : <>Customers see one card at {fromCents ? formatUSD(fromCents) : "—"}. Add a choice above and this becomes a price per combination.</>}
         </p>
+      </section>
+
+      <section className="space-y-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
+        <p className="text-[20px] font-semibold leading-[26px] text-foreground">What they get</p>
+        <Field label="Included" hint="One per line — shown on the plan page.">
+          <Textarea rows={4} value={includes.features}
+            onChange={(e) => setIncludes((v) => ({ ...v, features: e.target.value }))}
+            placeholder={placeholdersFor(sourceKey).features} />
+        </Field>
+        <Field label="Not included" hint="One per line.">
+          <Textarea rows={3} value={includes.excludes}
+            onChange={(e) => setIncludes((v) => ({ ...v, excludes: e.target.value }))}
+            placeholder={placeholdersFor(sourceKey).excludes} />
+        </Field>
+      </section>
+
+      {/* Only a business with something bookable is asked booking questions —
+          the hours allowance used to render for everyone, so a restaurant was
+          asked when its court hours reset. */}
+      {calendarCount > 0 && (
+        <section className="space-y-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
+          <p className="text-[20px] font-semibold leading-[26px] text-foreground">Booking access</p>
+          <PlanResourcePicker
+            providerId={providerId}
+            value={access.resourceIds}
+            onChange={(resourceIds) => setAccess((v) => ({ ...v, resourceIds }))}
+          />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Hours included" hint="Empty means as many as they like.">
+              <Input
+                inputMode="numeric" className="h-9" value={access.hours} placeholder="4"
+                onChange={(e) => setAccess((v) => ({ ...v, hours: e.target.value }))}
+              />
+            </Field>
+            <Field label="Hours reset" hint="When the allowance starts again.">
+              <select
+                value={access.hoursPeriod}
+                onChange={(e) => setAccess((v) => ({ ...v, hoursPeriod: e.target.value }))}
+                className="h-9 w-full rounded-radius-md bg-inset px-3 text-sm text-foreground outline-none"
+              >
+                <option value="">Same as billing</option>
+                {["weekly", "monthly", "quarterly", "yearly"].map((p) => (
+                  <option key={p} value={p}>{p[0].toUpperCase() + p.slice(1)}</option>
+                ))}
+              </select>
+            </Field>
+          </div>
+        </section>
+      )}
+
+      {/* The platform's switches, behind one fold. Everything here has a
+          working default; a plan already using a non-default opens the fold
+          itself (see the seed effect). */}
+      <section className="rounded-radius-lg bg-card tracking-[-0.02em]">
+        <button
+          type="button"
+          onClick={() => setAdvancedOpen((v) => !v)}
+          className="flex w-full items-center justify-between p-4 text-left"
+        >
+          <span className="text-[20px] font-semibold leading-[26px] text-foreground">More settings</span>
+          <ChevronDown className={cn("h-5 w-5 text-muted-foreground transition-transform", advancedOpen && "rotate-180")} />
+        </button>
+        {advancedOpen && (
+          <div className="grid gap-3 p-4 pt-0 sm:grid-cols-2">
+            <Field label="Price is" hint={PRICING_HINT[sold.pricingMode] ?? ""}>
+              <select value={sold.pricingMode} onChange={(e) => setSold((v) => ({ ...v, pricingMode: e.target.value }))}
+                className="h-9 w-full rounded-radius-md bg-inset px-3 text-sm text-foreground outline-none">
+                <option value="flat">Flat</option>
+                <option value="per_unit">Per unit</option>
+                <option value="per_person">Per person</option>
+              </select>
+            </Field>
+
+            {/*
+              What has to happen after the sale. Checkout reads it to decide
+              whether to ask for an address (`planCheckoutModel.needsAddress`).
+              Defaulted from the service at creation, so it is rarely touched.
+            */}
+            <Field label="Fulfilment" hint={FULFILMENT_HINT[sold.fulfilment] ?? ""}>
+              <select value={sold.fulfilment} onChange={(e) => setSold((v) => ({ ...v, fulfilment: e.target.value }))}
+                className="h-9 w-full rounded-radius-md bg-inset px-3 text-sm text-foreground outline-none">
+                <option value="none">Nothing to schedule</option>
+                <option value="visits">Visits</option>
+                <option value="deliveries">Deliveries</option>
+                <option value="resource_hours">Booked hours</option>
+              </select>
+            </Field>
+
+            {/* Independent of the mode above: a per-person price can also be a
+                marked-up one, which is exactly what the beach club is. Filling
+                these in is what makes a price derived. */}
+            {(sold.providerPrice || sold.markup || sold.pricingMode === "derived") && (
+              <>
+                <Field label="Provider is paid ($)">
+                  <Input inputSize="sm" inputMode="decimal" value={sold.providerPrice}
+                    onChange={(e) => setSold((v) => ({ ...v, providerPrice: e.target.value }))} />
+                </Field>
+                <Field label="Platform adds ($)">
+                  <Input inputSize="sm" inputMode="decimal" value={sold.markup}
+                    onChange={(e) => setSold((v) => ({ ...v, markup: e.target.value }))} />
+                </Field>
+              </>
+            )}
+
+            <Field label="What is counted" hint="cleaning · meal · session">
+              <Input inputSize="sm" value={sold.unit} placeholder="cleaning"
+                onChange={(e) => setSold((v) => ({ ...v, unit: e.target.value }))} />
+            </Field>
+            <Field label={sold.period === "one_time" ? "How many included" : "How many per period"}>
+              <Input inputSize="sm" inputMode="numeric" value={sold.quantity} placeholder="4"
+                onChange={(e) => setSold((v) => ({ ...v, quantity: e.target.value }))} />
+            </Field>
+
+            {/* How many periods may be bought at once — a question a one-time
+                offer does not have, so it is not asked. */}
+            {sold.period !== "one_time" && (
+              <>
+                <Field label="Periods offered by default">
+                  <Input inputSize="sm" inputMode="numeric" value={sold.periodsDefault}
+                    onChange={(e) => setSold((v) => ({ ...v, periodsDefault: e.target.value }))} />
+                </Field>
+                <Field label="Fewest / most they may buy">
+                  <div className="flex items-center gap-2">
+                    <Input inputSize="sm" inputMode="numeric" value={sold.periodsMin}
+                      onChange={(e) => setSold((v) => ({ ...v, periodsMin: e.target.value }))} />
+                    <span className="text-muted-foreground">–</span>
+                    <Input inputSize="sm" inputMode="numeric" value={sold.periodsMax} placeholder="no limit"
+                      onChange={(e) => setSold((v) => ({ ...v, periodsMax: e.target.value }))} />
+                  </div>
+                </Field>
+              </>
+            )}
+
+            {sold.fulfilment === "deliveries" && (
+              <>
+                <Field label="Earliest arrival" hint="When the first delivery window opens.">
+                  <Input inputSize="sm" type="time" value={minutesToTime(sold.leadMinutes)}
+                    onChange={(e) => setSold((v) => ({ ...v, leadMinutes: timeToMinutes(e.target.value) }))} />
+                </Field>
+                <Field label="Window width (minutes)" hint="120 = a two-hour promise.">
+                  <Input inputSize="sm" inputMode="numeric" value={sold.windowMinutes} placeholder="120"
+                    onChange={(e) => setSold((v) => ({ ...v, windowMinutes: e.target.value }))} />
+                </Field>
+              </>
+            )}
+
+            <Field label="Tags" hint="Comma separated — what a customer can filter by.">
+              <Input value={includes.tags} placeholder={placeholdersFor(sourceKey).tags}
+                onChange={(e) => setIncludes((v) => ({ ...v, tags: e.target.value }))} />
+            </Field>
+          </div>
+        )}
       </section>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -881,6 +979,35 @@ const PRICING_HINT: Record<string, string> = {
   per_person: "Price × people on the booking.",
 
 };
+
+/**
+ * Example text in the provider's own trade. The cleaning placeholders used to
+ * show for everyone — a restaurant was invited to exclude "Windows from
+ * outside" and a cleaner to tag their plan "vegetarian, keto".
+ */
+const SERVICE_PLACEHOLDERS: Record<string, { features: string; excludes: string; tags: string }> = {
+  cleaning: {
+    features: "Full apartment cleaning\nBathroom and kitchen",
+    excludes: "Windows from outside\nLaundry",
+    tags: "eco, deep clean",
+  },
+  food: {
+    features: "Lunch and dinner, Monday to Friday\nDelivered to your door",
+    excludes: "Weekends\nDrinks",
+    tags: "vegetarian, keto",
+  },
+  beach: {
+    features: "Pool and beach access\nTowels and loungers",
+    excludes: "Court bookings after 6 PM",
+    tags: "family",
+  },
+};
+const placeholdersFor = (sourceKey: string) =>
+  SERVICE_PLACEHOLDERS[sourceKey] ?? {
+    features: "What the customer gets\nOne line per item",
+    excludes: "What is not part of the plan",
+    tags: "premium, weekend",
+  };
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
