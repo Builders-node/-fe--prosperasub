@@ -1,8 +1,10 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Car, Building2 } from "lucide-react";
+import { Car, Building2 } from "lucide-react";
 import { AppContainer } from "@/components/layout/AppContainer";
-import { Input } from "@/components/ui/input";
+import { DesktopHeader } from "@/components/layout/DesktopHeader";
+import { ListingHeader } from "@/components/listing/ListingHeader";
+import { useGoBack } from "@/hooks/useGoBack";
 import { Spinner } from "@/components/ui/spinner";
 import { QueryError } from "@/components/QueryError";
 import { ProviderRail } from "@/components/listing/ListingNav";
@@ -10,10 +12,6 @@ import { YdSectionHeading } from "@/components/yd/YdPrimitives";
 import { VehicleCard } from "@/components/VehicleCard";
 import { useVehicles } from "@/hooks/useVehicles";
 import { useListingSearch } from "@/hooks/useListingSearch";
-import { SORT_LABELS, type SortKey } from "@/hooks/useListingSearch";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
 
 /**
  * The fleet, built out of the same pieces as every other listing.
@@ -30,6 +28,7 @@ import {
  */
 export default function Fleet() {
   const navigate = useNavigate();
+  const goBack = useGoBack("/discovery");
   const { data: vehicles = [], isLoading, isError, error, refetch } = useVehicles();
   const [providerId, setProviderId] = useState<string | null>(null);
 
@@ -69,34 +68,24 @@ export default function Fleet() {
   const shown = search.results;
 
   return (
-    <div className="pb-2">
-      {/* The search panel, in the shape the other listings use: one card with a
-          24px bottom edge, the controls inside it. */}
-      <div className="rounded-b-radius-lg bg-card shadow-figma">
-        <AppContainer className="flex items-center gap-2 py-4">
-          <div className="relative min-w-0 flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              inputSize="sm"
-              value={search.query}
-              onChange={(e) => search.setQuery(e.target.value)}
-              placeholder="Search cars"
-              className="rounded-full pl-9"
-            />
-          </div>
-          <Select value={search.sort} onValueChange={(v) => search.setSort(v as SortKey)}>
-            <SelectTrigger inputSize="sm" className="w-auto min-w-[132px] shrink-0 rounded-full border-0 bg-muted/50">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {search.availableSorts.map((s) => (
-                <SelectItem key={s} value={s}>{SORT_LABELS[s]}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </AppContainer>
-      </div>
-
+    <div>
+      {/* The same two components the food, cleaning and beach listings are
+          topped with — not a lookalike. ListingHeader carries the title bar,
+          the search field and the sort behind the filter button. */}
+      <DesktopHeader />
+      <ListingHeader
+        title="Car Rental"
+        onBack={goBack}
+        query={search.query}
+        onQueryChange={search.setQuery}
+        placeholder="Search Car Rental"
+        sort={search.sort}
+        onSortChange={search.setSort}
+        sorts={search.availableSorts}
+        // A car is collected, or delivered to an address given at checkout —
+        // narrowing the fleet by residence would filter nothing.
+        showLocation={false}
+      />
       <AppContainer className="py-space-4 md:py-space-8">
         {manyProviders && (
           <div className="mb-6">

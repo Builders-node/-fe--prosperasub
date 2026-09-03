@@ -2,11 +2,11 @@ import { type ReactNode, useEffect } from "react";
 import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
-import { VEHICLES_BASE, carPath, trimPath } from "@/pages/vehicles/routes";
+import { VEHICLES_BASE, carPath } from "@/pages/vehicles/routes";
 import { HomeHeader } from "@/components/HomeHeader";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
-import { BottomNav } from "@/components/BottomNav";
 import { useGoBack } from "@/hooks/useGoBack";
+import { BottomNav } from "@/components/BottomNav";
 import { AppContainer } from "@/components/layout/AppContainer";
 import { PageLoader } from "@/components/ui/spinner";
 import Fleet from "@/pages/vehicles/Fleet";
@@ -32,22 +32,46 @@ import BookingDetail from "@/pages/vehicles/BookingDetail";
 const CARS_TITLE = "EverySub Cars — rent a car in Próspera";
 
 function VehiclesLayout({ children }: { children: ReactNode }) {
-  const { pathname } = useLocation();
-  // Back is the visitor's own history; this is only the fallback for a cold
-  // landing. From the fleet that is the catalogue it was reached from, and
-  // from anywhere deeper it is the fleet.
-  const atFleet = trimPath(pathname) === carPath();
-  const goBack = useGoBack(atFleet ? "/discovery" : carPath());
-
   return (
-    // pb-24 leaves room for the fixed tab bar, which would otherwise sit on
-    // top of the last thing on the page.
+    /*
+      No header here.
+      
+      The shell used to draw one for every car page, which meant the fleet
+      could not use `ListingHeader` — the component every other service listing
+      is topped with — without ending up with two title bars. The result was a
+      header that looked like the others rather than being them.
+      
+      Marketplace pages each bring their own: a listing takes ListingHeader, a
+      detail page takes HomeHeader. Car pages do the same now, so "the same
+      header" is the same component and not a copy of its measurements.
+      
+      pb-24 leaves room for the fixed tab bar, which would otherwise sit on top
+      of the last thing on the page.
+    */
     <div className="min-h-screen bg-background pb-24 md:pb-12">
-      <DesktopHeader />
-      <HomeHeader title="Car Rental" showBackButton onBack={goBack} />
       <main>{children}</main>
       <BottomNav />
     </div>
+  );
+}
+
+/**
+ * An ordinary sub-page of the car section: the app's title bar above it.
+ *
+ * The listing brings `ListingHeader` and the car page brings `DetailHeader`,
+ * because those are what the equivalent marketplace pages bring. Everything
+ * else here is a plain sub-page, and a plain sub-page gets the plain header —
+ * the same two components, wrapped once at the route rather than pasted into
+ * three files with three sets of early returns.
+ */
+function CarPage({ title, children }: { title: string; children: ReactNode }) {
+  const goBack = useGoBack(carPath());
+  return (
+    <>
+      <DesktopHeader />
+      <HomeHeader title={title} showBackButton onBack={goBack} />
+      {children}
+    </>
   );
 }
 
@@ -90,9 +114,9 @@ export default function VehiclesApp() {
       <Routes>
         <Route index element={<Fleet />} />
         <Route path="vehicle/:id" element={<VehicleDetail />} />
-        <Route path="book/:id" element={<RequireAuth><Book /></RequireAuth>} />
-        <Route path="my-bookings" element={<RequireAuth><MyBookings /></RequireAuth>} />
-        <Route path="booking/:id" element={<RequireAuth><BookingDetail /></RequireAuth>} />
+        <Route path="book/:id" element={<RequireAuth><CarPage title="Book"><Book /></CarPage></RequireAuth>} />
+        <Route path="my-bookings" element={<RequireAuth><CarPage title="My bookings"><MyBookings /></CarPage></RequireAuth>} />
+        <Route path="booking/:id" element={<RequireAuth><CarPage title="Booking"><BookingDetail /></CarPage></RequireAuth>} />
         {/*
           The fleet had a second admin of its own here, because on a separate
           origin /admin was out of reach. It is one app now, so cars are run

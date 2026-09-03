@@ -8,6 +8,9 @@ import { Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
 import { DateRangePicker, toISO } from "@/components/DateRangePicker";
 import { PhotoCarousel } from "@/components/patterns/PhotoCarousel";
+import { DetailHeader } from "@/components/patterns/DetailHeader";
+import { ShareButton } from "@/components/ShareButton";
+import { useGoBack } from "@/hooks/useGoBack";
 import { useVehicle } from "@/hooks/useVehicles";
 import { calcRentalPrice, FUEL_LABEL, QUICK_DURATIONS } from "@/types/carRental";
 import { formatUSD } from "@/lib/pricing";
@@ -18,6 +21,7 @@ export default function VehicleDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: v, isLoading } = useVehicle(id);
+  const goBack = useGoBack(carPath());
   const [range, setRange] = useState<DateRange | undefined>();
 
   const rentalDays = useMemo(() => {
@@ -58,6 +62,8 @@ export default function VehicleDetail() {
   const shots = [v.image_url, ...(v.gallery_urls ?? [])]
     .filter((u): u is string => typeof u === "string" && u.trim().length > 0);
 
+  const shareText = [v.provider?.name, v.name].filter(Boolean).join(" · ");
+
   const breadcrumbs = [
     ...(v.provider?.name ? [{ label: v.provider.name, href: carPath() }] : []),
     { label: "Cars", href: carPath() },
@@ -74,6 +80,17 @@ export default function VehicleDetail() {
       already answered elsewhere.
     */
     <div className="pb-28 md:pb-8">
+      {/* The same bar the plan page uses — one component, not one that
+          resembles it. Share rather than a bell: a car is a shop window, and
+          the bell belongs on pages about your own account. */}
+      <DetailHeader
+        title={v.name}
+        centreLabel="Car Rental"
+        onBack={goBack}
+        overPhoto={shots.length > 0}
+        rightAction={<ShareButton title={v.name} text={shareText} className="hover:bg-black/10 md:text-foreground" />}
+      />
+
       <PhotoCarousel
         photos={shots}
         alt={v.name}

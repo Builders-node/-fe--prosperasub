@@ -5,6 +5,7 @@ import { useGoBack } from "@/hooks/useGoBack";
 import { useQuery } from "@tanstack/react-query";
 import { HomeHeader } from "@/components/HomeHeader";
 import { ShareButton } from "@/components/ShareButton";
+import { DetailHeader } from "@/components/patterns/DetailHeader";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
 import { BottomNav } from "@/components/BottomNav";
 import { PageLoader } from "@/components/ui/spinner";
@@ -290,18 +291,6 @@ const PlanDetail = () => {
 
   const [selection, setSelection] = useState<Record<string, string>>({});
 
-  /**
-   * Has the hero scrolled past? The sticky bar is transparent over the photo
-   * and opaque over the page, because white icons on a white card cannot be
-   * seen. 220px is just before the 280px photo clears the 56px bar.
-   */
-  const [scrolled, setScrolled] = useState(false);
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 220);
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
 
   // Opening a plan that is one combination of an offer should show that
   // combination selected, not an empty picker.
@@ -547,48 +536,16 @@ const PlanDetail = () => {
     <div className="min-h-screen bg-background pb-32 md:pb-12">
       <DesktopHeader />
 
-      {/*
-        The bar sticks, the photograph does not. Sticky-then-negative-margin
-        is what lets the photo start at the very top of the screen and slide
-        away underneath the controls, which is what the design shows and what
-        a customer expects from a hero.
-
-        The bar carries no background over the photo — the scrim below does
-        that job — and takes one once the photo has scrolled past, because
-        white icons on a white card are invisible.
-      */}
-      <header
-        className={cn(
-          "sticky top-0 z-40 transition-colors md:hidden",
-          cover && !scrolled ? "text-white" : "bg-card text-foreground",
-          cover && "-mb-14",
-        )}
-      >
-        <div className="relative flex h-14 items-center justify-between p-2">
-          <button
-            type="button"
-            aria-label="Back"
-            onClick={goBack}
-            className="flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-black/10"
-          >
-            <KeyboardArrowLeftIcon className="h-6 w-6" />
-          </button>
-          <span className="pointer-events-none absolute left-1/2 w-[60%] -translate-x-1/2 truncate text-center text-[16px] font-semibold tracking-[-0.32px]">
-            {serviceLabel}
-          </span>
-          {/* A plan is the one thing on this app a person wants to send to
-              someone else — "look at this one". The bell belongs on pages about
-              your own account, not on a shop window. */}
-          <ShareButton title={title} text={shareText} className="hover:bg-black/10" />
-        </div>
-      </header>
-
-      {/* Desktop gets the ordinary title bar; on a phone the sticky bar above
-          floats on the photograph instead. */}
-      <div className="hidden md:block">
-        <HomeHeader title={title} showBackButton onBack={goBack} bare
-          rightAction={<ShareButton title={title} text={shareText} className="text-foreground" />} />
-      </div>
+      {/* Sticky-then-negative-margin is what lets the photo start at the very
+          top and slide away under the controls; the rest of the reasoning
+          lives in DetailHeader, which draws this on both detail pages. */}
+      <DetailHeader
+        title={title}
+        centreLabel={serviceLabel}
+        onBack={goBack}
+        overPhoto={!!cover}
+        rightAction={<ShareButton title={title} text={shareText} className="hover:bg-black/10 md:text-foreground" />}
+      />
 
       {/*
         The photograph, at every width.

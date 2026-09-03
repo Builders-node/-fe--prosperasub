@@ -32,7 +32,6 @@ export default function MyBookings() {
 
   return (
     <AppContainer className="py-6">
-      <h1 className="mb-5 text-[22px] font-black tracking-tight text-foreground">My bookings</h1>
       {isLoading ? (
         <div className="flex justify-center py-20"><Spinner /></div>
       ) : isError ? (
