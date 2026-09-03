@@ -330,16 +330,22 @@ const CleaningPackages = () => {
               <YdEmptyState icon={SearchX} title="No plans match" subtitle="Try a different word, or clear the search." />
             ) : (
               <div className="grid gap-2 md:grid-cols-2">
-                {search.results.map((item) => (
-                  <CleaningPackageCard
-                    key={item.pkg.id}
-                    pkg={item.pkg}
-                    rating={ratings[item.providerId]}
-                    offer={offerBySourcePlanId.get(String(item.pkg.id)) ?? null}
-                    photos={item.gallery}
-                    onSubscribe={openPlan}
-                  />
-                ))}
+                {search.results.map((item) => {
+                  const offer = offerBySourcePlanId.get(String(item.pkg.id)) ?? null;
+                  return (
+                    <CleaningPackageCard
+                      key={item.pkg.id}
+                      pkg={item.pkg}
+                      rating={ratings[item.providerId]}
+                      offer={offer}
+                      // The plan's own photos (its offer's gallery) first; the
+                      // provider's only when the plan has none — the same rule
+                      // as every other card, so one plan wears one picture.
+                      photos={offer?.gallery.length ? offer.gallery : item.gallery}
+                      onSubscribe={openPlan}
+                    />
+                  );
+                })}
               </div>
             )}
           </section>

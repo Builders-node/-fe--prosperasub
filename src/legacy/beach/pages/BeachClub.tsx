@@ -128,6 +128,34 @@ const BeachClub = () => {
   });
 
   /**
+   * The plans' OWN photographs. A legacy `beach_club_plans` row has no image
+   * column — the offer editor saves pictures on the plan's universal mirror
+   * (`provider_plans.gallery_urls`). The provider page reads the mirror, so
+   * without this the SAME plan wore its own photo there and the club's pool
+   * here: two screens, two pictures, one product.
+   */
+  const planGalleriesQ = useQuery({
+    queryKey: ["beach-plan-galleries"],
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabaseDb
+        .from("provider_plans")
+        .select("source_plan_id, gallery_urls")
+        .eq("source_service_key", "beach")
+        .not("source_plan_id", "is", null);
+      if (error) throw error;
+      const m: Record<string, string[]> = {};
+      (data ?? []).forEach((r: any) => {
+        const g = Array.isArray(r.gallery_urls)
+          ? (r.gallery_urls as unknown[]).filter((u): u is string => typeof u === "string" && !!u.trim())
+          : [];
+        if (g.length) m[String(r.source_plan_id)] = g;
+      });
+      return m;
+    },
+  });
+
+  /**
    * Plans for providers under this archetype that have no legacy table.
    * `beach_club_plans` above only knows the Beach Club; a provider like Massage
    * keeps its offer in provider_plans, so without this its plans exist, show on
@@ -142,7 +170,7 @@ const BeachClub = () => {
     queryFn: async () => {
       const { data, error } = await supabaseDb
         .from("provider_plans")
-        .select("id, provider_id, name, description, price_cents, currency, period, features, included_quantity, included_unit, providers!inner(name, archetype_key, source_service_key, category_key)")
+        .select("id, provider_id, name, description, price_cents, currency, period, features, included_quantity, included_unit, gallery_urls, providers!inner(name, archetype_key, source_service_key, category_key)")
         .eq("providers.archetype_key", "entertainment")
         .is("providers.source_service_key", null)
         .eq("status", "active")
@@ -316,7 +344,10 @@ const BeachClub = () => {
                         key={item.plan.id}
                         plan={item.plan}
                         rating={ratings[item.providerId]}
-                        photos={providerMedia[item.providerId]}
+                        // The plan's own photos (from its universal mirror)
+                        // first — the same picture the provider page shows —
+                        // the club's gallery only when the plan has none.
+                        photos={planGalleriesQ.data?.[item.plan.id] ?? providerMedia[item.providerId]}
                         onSubscribe={(id) => navigate(`/services/beach-club/plans/${id}`)}
                       />
                     ) : (
