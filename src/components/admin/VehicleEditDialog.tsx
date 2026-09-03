@@ -62,7 +62,11 @@ export function VehicleEditDialog({ vehicle, onClose, onSaved, lockedProviderId 
    * provider is a car nobody can be paid for, so the field is required rather
    * than optional, and a fleet of one company still has to say which one.
    */
-  const { data: providers = [] } = useQuery({
+  const {
+    data: providers = [],
+    isError: providersError,
+    refetch: refetchProviders,
+  } = useQuery({
     queryKey: ["vehicle-providers"],
     enabled: !!vehicle && !lockedProviderId,
     queryFn: async () => {
@@ -141,9 +145,21 @@ export function VehicleEditDialog({ vehicle, onClose, onSaved, lockedProviderId 
                   {providers.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                 </SelectContent>
               </Select>
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                Earnings, commission and payouts for this car are counted against this business.
-              </p>
+              {/* Business is required, so an empty picker is not a cosmetic
+                  problem — the form cannot be saved and nothing says why. */}
+              {providersError ? (
+                <button
+                  type="button"
+                  onClick={() => void refetchProviders()}
+                  className="mt-1 text-[11px] font-semibold text-red-400 underline"
+                >
+                  Couldn't load the businesses — retry
+                </button>
+              ) : (
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Earnings, commission and payouts for this car are counted against this business.
+                </p>
+              )}
             </div>
             )}
             <div><Label>Name *</Label><Input value={editing.name ?? ""} onChange={(e) => set({ name: e.target.value })} placeholder="Toyota Hilux 2024" /></div>

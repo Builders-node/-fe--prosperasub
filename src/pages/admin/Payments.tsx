@@ -24,6 +24,7 @@ import { ProviderPayoutsPanel } from "@/components/admin/ProviderPayoutsPanel";
 import { PayPalPanel } from "@/components/payment/PayPalPanel";
 import { formatUSD } from "@/lib/pricing";
 import { useTabParam } from "@/hooks/useTabParam";
+import { QueryError } from "@/components/QueryError";
 
 // Dashed placeholder shown before a test payment is generated.
 function TestPaymentPlaceholder({ children }: { children: React.ReactNode }) {
@@ -147,7 +148,12 @@ const AdminPayments = () => {
     },
   });
 
-  const { data: methodSettings = [] } = useQuery({
+  const {
+    data: methodSettings = [],
+    isError: methodSettingsError,
+    error: methodSettingsErrorObj,
+    refetch: refetchMethodSettings,
+  } = useQuery({
     queryKey: ["payment-method-settings"],
     queryFn: async () => {
       const { data, error } = await supabaseDb
@@ -395,7 +401,21 @@ const AdminPayments = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="divide-y divide-border/60 p-0">
-            {PAYMENT_METHOD_META.map(({ method, label, description, icon: Icon }) => {
+            {/* Each toggle reads its state out of this list, so a failed fetch
+                would draw every method in its default position — a settings
+                screen stating a configuration that is not the one in
+                production, on the screen where you would go to change it. */}
+            {methodSettingsError && (
+              <div className="p-space-4">
+                <QueryError
+                  compact
+                  title="Couldn't load payment method settings"
+                  error={methodSettingsErrorObj}
+                  onRetry={() => void refetchMethodSettings()}
+                />
+              </div>
+            )}
+            {!methodSettingsError && PAYMENT_METHOD_META.map(({ method, label, description, icon: Icon }) => {
               const enabled = isMethodEnabled(method);
               const surcharge = methodSurcharge(method);
               return (

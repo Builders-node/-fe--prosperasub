@@ -12,6 +12,7 @@ import { approvePayment, type ApproveService } from "@/lib/subscriptionApprove";
 import { cn } from "@/lib/utils";
 import { fetchUsersByIds, fetchClientNames, customerNameFrom } from "@/lib/admin/customerNames";
 import { formatUSD } from "@/lib/pricing";
+import { QueryError } from "@/components/QueryError";
 
 /**
  * Admin Overview.
@@ -166,7 +167,12 @@ const AdminDashboard = () => {
   // row per generated booking. The old feed emitted five identical rows for a
   // recurring cleaning purchase (one per generated cleaning_booking); the whole
   // point of "Recent activity" is that each event is meaningful.
-  const { data: recentActivity = [] } = useQuery({
+  const {
+    data: recentActivity = [],
+    isError: activityError,
+    error: activityErrorObj,
+    refetch: refetchActivity,
+  } = useQuery({
     queryKey: ["admin-recent-activity-subscriptions"],
     queryFn: async () => {
       const [cleaningSubs, foodSubs, beachSubs] = await Promise.all([
@@ -343,7 +349,14 @@ const AdminDashboard = () => {
           metric tile above uses, so the two read as one idea. */}
       <section className="mt-8">
         <SectionTitle title="Recent activity" count={recentActivity.length} />
-        {recentActivity.length === 0 ? (
+        {activityError ? (
+          /* A quiet day and a failed request are not the same news. */
+          <QueryError
+            title="Couldn't load recent activity"
+            error={activityErrorObj}
+            onRetry={() => void refetchActivity()}
+          />
+        ) : recentActivity.length === 0 ? (
           <div className="rounded-radius-md bg-card p-8 text-center">
             <p className="text-[16px] font-semibold tracking-[-0.32px] text-foreground">Nothing yet today</p>
             <p className="mt-1 text-[12px] tracking-[-0.24px] text-muted-foreground">

@@ -266,7 +266,7 @@ export function ProviderPayoutsPanel() {
 function OpeningBalances() {
   const qc = useQueryClient();
 
-  const { data: rows = [], isLoading } = useQuery({
+  const { data: rows = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: ["admin-payout-outstanding"],
     staleTime: 60_000,
     queryFn: async () => {
@@ -295,6 +295,20 @@ function OpeningBalances() {
     onError: (e: any) => toast.error(e?.message || "Could not settle"),
   });
 
+  // Hiding on empty is deliberate — there is nothing outstanding to show. But
+  // hiding on FAILURE removes the section entirely, so nobody learns the
+  // figures could not be fetched: the panel is simply not there, and money
+  // that is owed reads as money that is not.
+  if (isError) {
+    return (
+      <QueryError
+        compact
+        title="Couldn't load outstanding balances"
+        error={error}
+        onRetry={() => void refetch()}
+      />
+    );
+  }
   if (isLoading || rows.length === 0) return null;
   const total = rows.reduce((s, r) => s + r.availableCents, 0);
 
@@ -367,7 +381,7 @@ function PayoutRequestQueue({ providers }: { providers: Array<{ id: string; name
   const qc = useQueryClient();
   const nameOf = (id: string) => providers.find((p) => p.id === id)?.name ?? id.slice(0, 8);
 
-  const { data: requests = [], isLoading } = useQuery({
+  const { data: requests = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: ["admin-payout-requests"],
     refetchInterval: 60_000,
     queryFn: async () => {
@@ -438,6 +452,16 @@ function PayoutRequestQueue({ providers }: { providers: Array<{ id: string; name
     onError: (e: any) => toast.error(e?.message || "Could not update the request"),
   });
 
+  if (isError) {
+    return (
+      <QueryError
+        compact
+        title="Couldn't load payout requests"
+        error={error}
+        onRetry={() => void refetch()}
+      />
+    );
+  }
   if (isLoading || requests.length === 0) return null;
 
   return (
