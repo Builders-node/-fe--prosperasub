@@ -155,9 +155,18 @@ export default function BookCalendar() {
     },
   });
 
-  const takenBy = useMemo(() => {
-    const m = new Map<string, EngineBooking>();
-    bookings.forEach((b) => m.set(startKeyOf(b), b));
+  /**
+   * How many active bookings sit on each start time. One is enough to close a
+   * court; a capacity_seat calendar (a boat, a row of desks) stays open until
+   * every seat is spoken for, and the slot's own `capacity` says how many that
+   * is.
+   */
+  const takenCount = useMemo(() => {
+    const m = new Map<string, number>();
+    bookings.forEach((b) => {
+      const k = startKeyOf(b);
+      m.set(k, (m.get(k) ?? 0) + 1);
+    });
     return m;
   }, [bookings]);
 
@@ -201,13 +210,17 @@ export default function BookCalendar() {
   const outOfHours = !!allowance && allowance.remaining <= 0;
 
   const options = (availability?.slots ?? []).map((s) => {
-    const taken = takenBy.get(s.from);
+    const capacity = Math.max(1, s.capacity ?? 1);
+    const used = takenCount.get(s.from) ?? 0;
+    const left = capacity - used;
     return {
       start: s.from,
-      label: `${timeLabel(s.from)} – ${timeLabel(s.to)}`,
+      label: `${timeLabel(s.from)} – ${timeLabel(s.to)}`
+        // Seats are only worth mentioning when the time is shared.
+        + (capacity > 1 && left > 0 ? ` · ${left} left` : ""),
       // Nothing left to spend, so the slot is not offered — the engine would
       // refuse it anyway, and it refuses after a customer has chosen a time.
-      disabled: !!taken || outOfHours,
+      disabled: left <= 0 || outOfHours,
     };
   });
 

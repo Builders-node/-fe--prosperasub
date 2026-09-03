@@ -114,6 +114,28 @@ const UniversalPlanCheckout = () => {
   });
 
   /**
+   * Whether the business takes bookings — same query (and cache) as the
+   * provider page's "Book a time" door. A purchase that opens calendars has an
+   * obvious next step, and the success screen should hand it over rather than
+   * leave the customer to find their way back to the provider.
+   */
+  const bookableQ = useQuery({
+    queryKey: ["provider-has-calendars", plan?.providerUniversalId],
+    enabled: !!plan?.providerUniversalId,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { count, error } = await supabaseDb
+        .from("bookable_resources")
+        .select("id", { count: "exact", head: true })
+        .eq("provider_id", plan!.providerUniversalId)
+        .eq("status", "active");
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+  const canBook = (bookableQ.data ?? 0) > 0;
+
+  /**
    * How much of it, and for how long — read off the plan rather than assumed.
    *
    * Until now this checkout sold exactly one period at one price, because that
@@ -458,9 +480,11 @@ const UniversalPlanCheckout = () => {
                 ? `${plan.name} is yours. We'll be in touch with the details.`
                 : `Your ${plan.name} subscription is active. We'll be in touch with the details.`
             }
-            ctaLabel="View my subscriptions"
-            onCta={() => navigate("/my-subscriptions")}
-            secondary={{ label: "Back", onClick: () => navigate(listingHref) }}
+            ctaLabel={canBook ? "Book a time" : "View my subscriptions"}
+            onCta={() => navigate(canBook ? `/providers/${plan.providerUniversalId}/book` : "/my-subscriptions")}
+            secondary={canBook
+              ? { label: "My subscriptions", onClick: () => navigate("/my-subscriptions") }
+              : { label: "Back", onClick: () => navigate(listingHref) }}
           />
         </div>
       </UserLayout>
