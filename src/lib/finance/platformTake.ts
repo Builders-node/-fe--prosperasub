@@ -15,29 +15,11 @@
  * `global_settings.finance_default_commission_pct`.
  */
 
-export type FinanceSourceKey = "cleaning" | "beach" | "food" | "vehicles";
 
 /** The platform's rate when a provider has none of its own. */
 export const DEFAULT_COMMISSION_PCT = 10;
 export const DEFAULT_COMMISSION_KEY = "finance_default_commission_pct";
 
-/**
- * Which tables hold a provider's money.
- *
- * This is a data-source map, not a finance model — the commission is the same
- * everywhere; only the place revenue is recorded differs.
- */
-export function financeSourceFor(sourceKey: string | null | undefined): FinanceSourceKey | null {
-  const k = String(sourceKey ?? "").toLowerCase();
-  if (k === "cleaning") return "cleaning";
-  if (k === "food") return "food";
-  if (k === "beach" || k === "beach_club" || k === "entertainment") return "beach";
-  // Cars have no legacy `source_service_key` — they were never a legacy
-  // service — so a rental business is matched on its archetype. The commission
-  // model is the same one every business is on; only the table differs.
-  if (k === "vehicles") return "vehicles";
-  return null;
-}
 
 /** The rate to apply, given a provider row and the platform's settings map. */
 export function commissionPct(
