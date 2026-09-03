@@ -24,7 +24,7 @@ import { ProviderPayoutsPanel } from "@/components/admin/ProviderPayoutsPanel";
 import { PayPalPanel } from "@/components/payment/PayPalPanel";
 import { formatUSD } from "@/lib/pricing";
 import { useTabParam } from "@/hooks/useTabParam";
-import { QueryError } from "@/components/QueryError";
+import { QueryError } from "@/components/patterns/QueryError";
 
 // Dashed placeholder shown before a test payment is generated.
 function TestPaymentPlaceholder({ children }: { children: React.ReactNode }) {

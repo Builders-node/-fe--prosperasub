@@ -19,8 +19,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { useI18n } from "@/i18n";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
-import { BottomNav } from "@/components/BottomNav";
-import { QueryError } from "@/components/QueryError";
+import { BottomNav } from "@/components/layout/BottomNav";
+import { QueryError } from "@/components/patterns/QueryError";
 import { YdEmptyState } from "@/components/yd/YdPrimitives";
 import { CleaningPackageCard } from "@/components/patterns/CleaningPackageCard";
 

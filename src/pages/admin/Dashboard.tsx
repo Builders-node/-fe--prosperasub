@@ -12,7 +12,7 @@ import { approvePayment, type ApproveService } from "@/lib/subscriptionApprove";
 import { cn } from "@/lib/utils";
 import { fetchUsersByIds, fetchClientNames, customerNameFrom } from "@/lib/admin/customerNames";
 import { formatUSD } from "@/lib/pricing";
-import { QueryError } from "@/components/QueryError";
+import { QueryError } from "@/components/patterns/QueryError";
 import { YdSectionHeading } from "@/components/yd/YdPrimitives";
 
 /**

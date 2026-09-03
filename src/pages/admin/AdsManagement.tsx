@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { AD_PLACEMENTS, EMPTY_AD, type Ad } from "@/types/ad";
-import { QueryError } from "@/components/QueryError";
+import { QueryError } from "@/components/patterns/QueryError";
 
 const placementLabel = (value: string) =>
   AD_PLACEMENTS.find((p) => p.value === value)?.label ?? value;

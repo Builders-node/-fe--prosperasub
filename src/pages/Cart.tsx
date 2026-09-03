@@ -5,9 +5,9 @@ import {
   ShoppingCart, Trash2, Minus, Plus, MapPin, MessageCircle, User as UserIcon,
   Check, UtensilsCrossed, X,
 } from "lucide-react";
-import { HomeHeader } from "@/components/HomeHeader";
+import { HomeHeader } from "@/components/layout/HomeHeader";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
-import { BottomNav } from "@/components/BottomNav";
+import { BottomNav } from "@/components/layout/BottomNav";
 import { CheckoutStickyFooter } from "@/components/patterns/CheckoutStickyFooter";
 import { CheckoutSuccessPanel } from "@/components/patterns/CheckoutSuccessPanel";
 import { NotesField } from "@/components/patterns/NotesField";

@@ -18,7 +18,7 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAuditEvent } from "@/lib/auditLog";
-import { UserPicker } from "@/components/UserPicker";
+import { UserPicker } from "@/components/patterns/UserPicker";
 
 /**
  * Staff tab: owner + managers.

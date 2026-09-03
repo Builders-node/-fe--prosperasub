@@ -1,7 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
-import { LocationSelector } from "@/components/LocationSelector";
+import { LocationSelector } from "@/components/patterns/LocationSelector";
 import { useCart } from "@/contexts/CartContext";
 import { prefetchRoute } from "@/lib/routeChunks";
 import { cn } from "@/lib/utils";

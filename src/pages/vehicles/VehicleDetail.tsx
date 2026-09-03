@@ -6,10 +6,10 @@ import { Users, Fuel, Gauge, Snowflake, Briefcase, Car, ChevronRight } from "luc
 import { AppContainer } from "@/components/layout/AppContainer";
 import { Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
-import { DateRangePicker, toISO } from "@/components/DateRangePicker";
+import { DateRangePicker, toISO } from "@/components/patterns/DateRangePicker";
 import { PhotoCarousel } from "@/components/patterns/PhotoCarousel";
 import { DetailHeader } from "@/components/patterns/DetailHeader";
-import { ShareButton } from "@/components/ShareButton";
+import { ShareButton } from "@/components/patterns/ShareButton";
 import { useGoBack } from "@/hooks/useGoBack";
 import { useVehicle } from "@/hooks/useVehicles";
 import { calcRentalPrice, FUEL_LABEL, QUICK_DURATIONS } from "@/types/carRental";

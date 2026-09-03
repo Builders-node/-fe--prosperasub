@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { UserPicker } from "@/components/UserPicker";
+import { UserPicker } from "@/components/patterns/UserPicker";
 import { Label } from "@/components/ui/label";
 import {
   Table, TableHeader, TableRow, TableHead, TableBody, TableCell,

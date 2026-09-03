@@ -12,10 +12,10 @@ import {
 import { supabase, supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
-import { HomeHeader } from "@/components/HomeHeader";
+import { HomeHeader } from "@/components/layout/HomeHeader";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
-import { BottomNav } from "@/components/BottomNav";
-import { QueryError } from "@/components/QueryError";
+import { BottomNav } from "@/components/layout/BottomNav";
+import { QueryError } from "@/components/patterns/QueryError";
 import { TabEmptyState } from "@/components/subscriptions/MySubsPrimitives";
 import { CleaningPackageCard } from "@/components/patterns/CleaningPackageCard";
 import { EntertainmentPlanCard } from "@/components/patterns/EntertainmentPlanCard";

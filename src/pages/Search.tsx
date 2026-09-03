@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, X } from "lucide-react";
-import { BottomNav } from "@/components/BottomNav";
+import { BottomNav } from "@/components/layout/BottomNav";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
 import { Spinner } from "@/components/ui/spinner";
 import { formatUSD } from "@/lib/pricing";

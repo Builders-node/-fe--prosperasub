@@ -8,7 +8,7 @@ import { format } from "date-fns";
 import { UserLayout } from "@/components/layout/UserLayout";
 import { PageLoader } from "@/components/ui/spinner";
 import { TabEmptyState } from "@/components/subscriptions/MySubsPrimitives";
-import { QueryError } from "@/components/QueryError";
+import { QueryError } from "@/components/patterns/QueryError";
 import { PaymentMethodBadge } from "@/components/admin/PaymentMethodBadge";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";

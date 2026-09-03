@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useGoBack } from "@/hooks/useGoBack";
-import { HomeHeader } from "@/components/HomeHeader";
-import { LocationSelector } from "@/components/LocationSelector";
+import { HomeHeader } from "@/components/layout/HomeHeader";
+import { LocationSelector } from "@/components/patterns/LocationSelector";
 import { ResponsiveDialog } from "@/components/patterns/ResponsiveDialog";
 import { FilterListIcon, SearchIcon } from "@/components/icons/FigmaIcons";
 import { SORT_LABELS, type SortKey } from "@/hooks/useListingSearch";

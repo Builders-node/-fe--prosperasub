@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { effectiveCleaningStatus, effectiveFoodStatus } from "@/lib/subscriptionLifecycle";
-import { QueryError } from "@/components/QueryError";
+import { QueryError } from "@/components/patterns/QueryError";
 import { StatusPill } from "@/components/patterns/StatusPill";
 import { Button } from "@/components/ui/button";
 import { PageLoader, Spinner } from "@/components/ui/spinner";
@@ -49,7 +49,7 @@ import { format, isPast, addWeeks, parseISO } from "date-fns";
 import { addDaysISO, addMonthsISO, addWeeksISO, formatDateHN, formatRangeHN, todayHN } from "@/lib/timezone";
 import { formatUSD } from "@/lib/pricing";
 import { UserLayout } from "@/components/layout/UserLayout";
-import { PullToRefresh } from "@/components/PullToRefresh";
+import { PullToRefresh } from "@/components/patterns/PullToRefresh";
 import { RenewPreviewDialog } from "@/components/subscriptions/RenewPreviewDialog";
 import { SubscriptionCard } from "@/components/subscriptions/SubscriptionCard";
 import { SubscriptionDetailSheet, type PurchaseDetail } from "@/components/subscriptions/SubscriptionDetailSheet";

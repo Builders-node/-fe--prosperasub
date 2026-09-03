@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { adminApi, supabaseDb } from "@/integrations/supabase/client";
 import { formatUSD } from "@/lib/pricing";
 import { formatDateHN } from "@/lib/timezone";
-import { QueryError } from "@/components/QueryError";
+import { QueryError } from "@/components/patterns/QueryError";
 
 /**
  * Recording money sent to a provider.

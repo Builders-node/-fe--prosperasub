@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { HomeHeader } from "@/components/HomeHeader";
+import { HomeHeader } from "@/components/layout/HomeHeader";
 import { KeyboardArrowLeftIcon } from "@/components/icons/FigmaIcons";
 import { cn } from "@/lib/utils";
 

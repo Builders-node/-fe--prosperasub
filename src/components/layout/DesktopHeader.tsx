@@ -2,12 +2,12 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, ChevronRight } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
-import { LanguageMenu } from "@/components/LanguageMenu";
-import { NotificationBell } from "@/components/NotificationBell";
+import { LanguageMenu } from "@/components/layout/LanguageMenu";
+import { NotificationBell } from "@/components/layout/NotificationBell";
 import { useI18n } from "@/i18n";
-import { AccountMenu } from "@/components/AccountMenu";
-import { LocationSelector } from "@/components/LocationSelector";
-import { CartButton } from "@/components/CartButton";
+import { AccountMenu } from "@/components/layout/AccountMenu";
+import { LocationSelector } from "@/components/patterns/LocationSelector";
+import { CartButton } from "@/components/layout/CartButton";
 
 interface DesktopHeaderProps {
   showBackButton?: boolean;

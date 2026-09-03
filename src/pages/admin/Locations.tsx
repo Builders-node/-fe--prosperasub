@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { fetchAllRows } from "@/lib/supabasePaging";
 import { adminApi, supabaseDb } from "@/integrations/supabase/client";
-import { QueryError } from "@/components/QueryError";
+import { QueryError } from "@/components/patterns/QueryError";
 import { toast } from "sonner";
 
 interface Residence {

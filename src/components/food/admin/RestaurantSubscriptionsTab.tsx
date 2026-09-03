@@ -27,7 +27,7 @@ import { nowHN, todayHN, addWeeksISO, addDaysISO, daysUntilHN, formatDateHN } fr
 import { effectiveFoodStatus } from "@/lib/subscriptionLifecycle";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
-import { UserPicker } from "@/components/UserPicker";
+import { UserPicker } from "@/components/patterns/UserPicker";
 import { useResidences } from "@/hooks/useResidences";
 import { useSelectedResidence } from "@/contexts/LocationContext";
 import { logAuditEvent } from "@/lib/auditLog";

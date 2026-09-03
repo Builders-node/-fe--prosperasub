@@ -6,10 +6,10 @@ import { DesktopHeader } from "@/components/layout/DesktopHeader";
 import { ListingHeader } from "@/components/listing/ListingHeader";
 import { useGoBack } from "@/hooks/useGoBack";
 import { Spinner } from "@/components/ui/spinner";
-import { QueryError } from "@/components/QueryError";
+import { QueryError } from "@/components/patterns/QueryError";
 import { ProviderRail } from "@/components/listing/ListingNav";
 import { YdSectionHeading } from "@/components/yd/YdPrimitives";
-import { VehicleCard } from "@/components/VehicleCard";
+import { VehicleCard } from "@/pages/vehicles/VehicleCard";
 import { useVehicles } from "@/hooks/useVehicles";
 import { useListingSearch } from "@/hooks/useListingSearch";
 

@@ -12,9 +12,9 @@ import { ProviderRail, CategoryChips, ALL_CATEGORIES } from "@/components/listin
 import { useCategoryParam } from "@/hooks/useCategoryParam";
 import { groupProvidersByCategory } from "@/lib/services/groupByCategory";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
-import { BottomNav } from "@/components/BottomNav";
+import { BottomNav } from "@/components/layout/BottomNav";
 import { YdEmptyState } from "@/components/yd/YdPrimitives";
-import { QueryError } from "@/components/QueryError";
+import { QueryError } from "@/components/patterns/QueryError";
 import { EntertainmentPlanCard } from "@/components/patterns/EntertainmentPlanCard";
 import { UniversalPlanCard } from "@/components/patterns/UniversalPlanCard";
 import { supabaseDb } from "@/integrations/supabase/client";

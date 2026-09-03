@@ -12,9 +12,9 @@ import { LocationProvider } from "@/contexts/LocationContext";
 import { CartProvider } from "@/contexts/CartContext";
 import { LanguageProvider } from "@/i18n";
 
-import ProtectedRoute from "@/components/ProtectedRoute";
-import InstallAppModal from "@/components/InstallAppModal";
-import { ErrorBoundary } from "@/components/ErrorBoundary";
+import ProtectedRoute from "@/components/app/ProtectedRoute";
+import InstallAppModal from "@/components/patterns/InstallAppModal";
+import { ErrorBoundary } from "@/components/app/ErrorBoundary";
 import { PageLoader } from "@/components/ui/spinner";
 
 // ─── Eager (entry / public surface) ───────────────────────────────────────────

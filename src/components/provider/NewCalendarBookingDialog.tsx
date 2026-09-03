@@ -13,7 +13,7 @@ import { Spinner } from "@/components/ui/spinner";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { UserPicker } from "@/components/UserPicker";
+import { UserPicker } from "@/components/patterns/UserPicker";
 import { accountApi, supabaseDb } from "@/integrations/supabase/client";
 import { todayHN } from "@/lib/timezone";
 import { cn } from "@/lib/utils";

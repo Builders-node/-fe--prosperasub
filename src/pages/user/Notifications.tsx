@@ -17,7 +17,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { UserLayout } from "@/components/layout/UserLayout";
 import { TabEmptyState } from "@/components/subscriptions/MySubsPrimitives";
-import { QueryError } from "@/components/QueryError";
+import { QueryError } from "@/components/patterns/QueryError";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {

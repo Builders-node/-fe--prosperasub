@@ -8,8 +8,8 @@ import {
   Menu,
 } from "lucide-react";
 import { AdminAccountMenu } from "@/components/admin/AdminAccountMenu";
-import { LanguageMenu } from "@/components/LanguageMenu";
-import { LocationSelector } from "@/components/LocationSelector";
+import { LanguageMenu } from "@/components/layout/LanguageMenu";
+import { LocationSelector } from "@/components/patterns/LocationSelector";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,

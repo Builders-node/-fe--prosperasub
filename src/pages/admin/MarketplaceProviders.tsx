@@ -24,7 +24,7 @@ import { logAuditEvent } from "@/lib/auditLog";
 import { toast } from "sonner";
 import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
 import { CAPABILITIES, type CapabilityKey } from "@/components/provider/capabilities";
-import { UserPicker } from "@/components/UserPicker";
+import { UserPicker } from "@/components/patterns/UserPicker";
 import { profileCompleteness } from "@/lib/providerProfile";
 import { AdminPageTabs } from "@/components/admin/AdminPageTabs";
 import { cn } from "@/lib/utils";
