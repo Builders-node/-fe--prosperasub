@@ -95,10 +95,10 @@ export function AdminListShell({
           ))}
         </div>
       ) : isError ? (
-        <div className="flex flex-col items-center justify-center rounded-radius-md border border-destructive/30 bg-destructive/5 py-14 text-center">
+        <div className="flex flex-col items-center justify-center rounded-radius-md bg-card py-14 text-center">
           <AlertTriangle className="mb-3 h-10 w-10 text-destructive/60" />
-          <p className="font-semibold text-foreground">Couldn't load this list</p>
-          <p className="mt-1 max-w-md px-6 text-sm text-muted-foreground">
+          <p className="text-[16px] font-semibold tracking-[-0.32px] text-foreground">Couldn't load this list</p>
+          <p className="mt-1 max-w-md px-6 text-[12px] tracking-[-0.24px] text-muted-foreground">
             {error instanceof Error ? error.message : "The server returned an error."}
           </p>
           {onRetry && (
@@ -108,16 +108,16 @@ export function AdminListShell({
           )}
         </div>
       ) : isEmpty ? (
-        <div className="flex flex-col items-center justify-center rounded-radius-md border border-border bg-card py-14 text-center">
+        <div className="flex flex-col items-center justify-center rounded-radius-md bg-card py-14 text-center">
           <Inbox className="mb-3 h-10 w-10 text-muted-foreground/30" />
-          <p className="font-semibold text-foreground">{emptyTitle}</p>
-          <p className="mt-1 text-sm text-muted-foreground">{emptySubtitle}</p>
+          <p className="text-[16px] font-semibold tracking-[-0.32px] text-foreground">{emptyTitle}</p>
+          <p className="mt-1 text-[12px] tracking-[-0.24px] text-muted-foreground">{emptySubtitle}</p>
         </div>
       ) : isNoResults ? (
-        <div className="flex flex-col items-center justify-center rounded-radius-md border border-border bg-card py-14 text-center">
+        <div className="flex flex-col items-center justify-center rounded-radius-md bg-card py-14 text-center">
           <Search className="mb-3 h-10 w-10 text-muted-foreground/30" />
-          <p className="font-semibold text-foreground">No matches</p>
-          <p className="mt-1 text-sm text-muted-foreground">Nothing matches the current search or filters.</p>
+          <p className="text-[16px] font-semibold tracking-[-0.32px] text-foreground">No matches</p>
+          <p className="mt-1 text-[12px] tracking-[-0.24px] text-muted-foreground">Nothing matches the current search or filters.</p>
           {onClearFilters && (
             <Button variant="outline" size="sm" className="mt-3 rounded-full" onClick={onClearFilters}>
               Clear filters

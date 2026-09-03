@@ -153,7 +153,7 @@ const SuperAdminLayout = ({ children, title, subtitle }: SuperAdminLayoutProps) 
 
   // Footer links (desktop + mobile)
   const SidebarFooter = () => (
-    <div className="shrink-0 border-t border-[hsl(var(--app-divider))] px-space-3 py-space-3 space-y-space-1">
+    <div className="shrink-0 px-space-3 pb-space-4 pt-space-2 space-y-space-1">
       {/* Leaving the admin panel is not the same as leaving the account, but
           only the second had a button — so seeing the storefront meant logging
           out and back in. */}
@@ -179,9 +179,11 @@ const SuperAdminLayout = ({ children, title, subtitle }: SuperAdminLayoutProps) 
     <div className="min-h-screen bg-background lg:grid lg:grid-cols-[272px_minmax(0,1fr)]">
 
       {/* ── Desktop sidebar ─────────────────────────────── */}
-      <aside className="hidden min-h-screen border-r border-[hsl(var(--app-divider))] bg-card lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col">
+      {/* No border: the page behind it is the separation, the way every panel
+          on the customer side is built (DESIGN.md §2). */}
+      <aside className="hidden min-h-screen bg-card lg:sticky lg:top-0 lg:flex lg:h-screen lg:flex-col">
         {/* Logo */}
-        <div className="flex h-[72px] shrink-0 items-center gap-space-3 border-b border-[hsl(var(--app-divider))] px-space-5">
+        <div className="flex h-[72px] shrink-0 items-center gap-space-3 px-space-5">
           <Link to="/admin/dashboard" className="flex min-w-0 items-center gap-space-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-radius-md bg-primary text-black">
               <BadgeDollarSign className="h-5 w-5" aria-hidden />
@@ -200,11 +202,11 @@ const SuperAdminLayout = ({ children, title, subtitle }: SuperAdminLayoutProps) 
       {/* ── Main ────────────────────────────────────────── */}
       <div className="min-w-0">
         {/* Top header */}
-        <header className="sticky top-0 z-40 border-b border-[hsl(var(--app-divider))] bg-[hsl(var(--app-chrome))]">
+        <header className="sticky top-0 z-40 bg-card">
           <div className="flex h-[60px] items-center lg:h-[72px]">
 
             {/* Mobile hamburger */}
-            <div className="flex h-full w-14 shrink-0 items-center justify-center border-r border-[hsl(var(--app-divider))] lg:hidden">
+            <div className="flex h-full w-14 shrink-0 items-center justify-center lg:hidden">
               <Sheet>
                 <SheetTrigger asChild>
                   <Button
@@ -218,7 +220,7 @@ const SuperAdminLayout = ({ children, title, subtitle }: SuperAdminLayoutProps) 
                   </Button>
                 </SheetTrigger>
                 <SheetContent side="left" className="flex w-[88vw] max-w-[360px] flex-col p-0">
-                  <SheetHeader className="border-b border-[hsl(var(--app-divider))] px-space-4 py-space-4 text-left">
+                  <SheetHeader className="px-space-4 pb-space-2 pt-space-4 text-left">
                     <SheetTitle className="flex items-center gap-space-3">
                       <span className="flex h-9 w-9 items-center justify-center rounded-radius-md bg-primary text-black">
                         <BadgeDollarSign className="h-4 w-4" aria-hidden />
@@ -271,12 +273,18 @@ const SuperAdminLayout = ({ children, title, subtitle }: SuperAdminLayoutProps) 
         {/* Page content */}
         <main className="app-container min-w-0 py-space-5 lg:py-space-6">
           {title && (
-            <div className="admin-page-header mb-space-4">
-              <h1 className="text-2xl font-black leading-tight tracking-tight md:text-3xl lg:text-4xl">
+            /* 24px semibold with the design's negative tracking — a page title,
+               not a marketing headline. A 36px black heading above a 12px
+               caption is what made every admin screen read as a different
+               product from the one it administers (DESIGN.md §3). */
+            <div className="admin-page-header mb-space-5">
+              <h1 className="text-[24px] font-semibold leading-tight tracking-[-0.5px] text-foreground md:text-[28px] md:tracking-[-0.6px]">
                 {title}
               </h1>
               {subtitle && (
-                <p className="mt-space-2 type-body-large text-muted-foreground">{subtitle}</p>
+                <p className="mt-1 text-[12px] tracking-[-0.24px] text-muted-foreground md:text-[14px]">
+                  {subtitle}
+                </p>
               )}
             </div>
           )}
