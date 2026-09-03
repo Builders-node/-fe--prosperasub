@@ -404,17 +404,22 @@ const FoodListing = () => {
               <div className="grid gap-3 md:gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {search.results.map(({ plan, provider }) => {
                   const offer = offerBySourcePlanId.get(String(plan.id)) ?? null;
-                  // Photos are saved on the OFFER (provider_plans.gallery_urls)
-                  // since the editor moved there; the legacy per-plan images are
-                  // the fallback's fallback, not the other way round — a photo
-                  // uploaded yesterday used to leave this thumbnail empty.
-                  const legacyImages = planImages[plan.id] ?? [];
+                  /**
+                   * The same photo rule as every card on the platform: the
+                   * offer's OWN gallery first — the picture the provider chose
+                   * for this product, and the one its detail page leads with.
+                   * The RPC's plan_images are menu DISHES picked alphabetically
+                   * by URL; fine as a fallback when no photo was chosen, but
+                   * letting them win showed a random pancake on the card and a
+                   * chicken plate one tap later.
+                   */
+                  const menuDishes = planImages[plan.id] ?? [];
                   return (
                     <MealPlanCard
                       key={plan.id}
                       plan={plan}
                       providerName={provider.name}
-                      images={legacyImages.length ? legacyImages : offer?.gallery ?? []}
+                      images={offer?.gallery.length ? offer.gallery : menuDishes}
                       rating={ratings[provider.id]}
                       offer={offer}
                       onOpen={() => navigate(`/services/food/plans/${plan.id}`)}
