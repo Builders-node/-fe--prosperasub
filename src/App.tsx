@@ -31,10 +31,6 @@ import NotFound from "./pages/NotFound";
 // Auth
 // Car rental — a whole storefront of its own, mounted at /vehicles. One lazy
 // chunk, so a visitor who never opens it never downloads it.
-// eslint-disable-next-line no-restricted-imports -- deliberate deep import:
-// going through the feature's index would pull the whole feature into one
-// chunk and undo the code splitting that keeps the car storefront out of a
-// marketplace visitor's download.
 const VehiclesApp = lazy(() => import("@/features/vehicles/pages/VehiclesApp"));
 
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
@@ -53,8 +49,8 @@ const ProviderApplications = lazy(() => import("./pages/admin/ProviderApplicatio
 const LegacyPortalRedirect = lazy(() => import("./pages/user/LegacyPortalRedirect"));
 
 // Beach Club
-const BeachClub = lazy(() => import("./pages/beach/BeachClub"));
-const BeachCourts = lazy(() => import("./pages/beach/BeachCourts"));
+const BeachClub = lazy(() => import("./features/beach/pages/BeachClub"));
+const BeachCourts = lazy(() => import("./features/beach/pages/BeachCourts"));
 const BookCalendar = lazy(() => import("./pages/BookCalendar"));
 
 // Cleaning
@@ -111,9 +107,9 @@ const AdsManagement = lazy(() => import("./pages/admin/AdsManagement"));
 // a 404 for as long as the entry existed.
 const Locations = lazy(() => import("./pages/admin/Locations"));
 // Admin Beach Club
-const BeachClubPlans = lazy(() => import("./pages/admin/BeachClubPlans"));
-const BeachClubSubscriptions = lazy(() => import("./pages/admin/BeachClubSubscriptions"));
-const BeachClubCourts = lazy(() => import("./pages/admin/BeachClubCourts"));
+const BeachClubPlans = lazy(() => import("./features/beach/pages/BeachClubPlans"));
+const BeachClubSubscriptions = lazy(() => import("./features/beach/pages/BeachClubSubscriptions"));
+const BeachClubCourts = lazy(() => import("./features/beach/pages/BeachClubCourts"));
 
 // ─── Suspense fallback ────────────────────────────────────────────────────────
 // Unified loader (Spinner is a tiny leaf module — no extra chunk).

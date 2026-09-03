@@ -37,7 +37,17 @@ export default tseslint.config(
        */
       "no-restricted-imports": ["error", {
         patterns: [{
-          group: ["@/features/*/*"],
+          // `pages/` is open on purpose: the router lazy-imports each screen
+          // directly, and going through the index would pull a whole feature
+          // into one chunk and undo the code splitting. A page is also the
+          // least dangerous thing to depend on — it renders, it is not
+          // machinery. Everything else is the feature's own business.
+          group: [
+            "@/features/*/components/*",
+            "@/features/*/hooks/*",
+            "@/features/*/lib/*",
+            "@/features/*/types/*",
+          ],
           message:
             "Import a feature through its index — @/features/<name> — not its internals. " +
             "If you need something that is not exported there, export it there.",
