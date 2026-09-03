@@ -18,17 +18,14 @@ import { INFO_TAB_META } from "@/components/provider/capabilities";
 import { UniversalInfoTab, type UniversalProviderRow } from "@/components/provider/UniversalInfoTab";
 import { ProfileCompletenessCard } from "@/components/provider/ProfileCompletenessCard";
 import { PlansTab } from "@/components/provider/plans/PlansTab";
-import { ProviderItemsPanel } from "@/components/provider/ProviderItemsPanel";
 import { OperationsTab } from "@/components/provider/OperationsTab";
 import { PortalTabsView } from "@/components/provider/PortalTabsView";
 import { CalendarsTab } from "@/components/provider/CalendarsTab";
 import { BookingsTab } from "@/components/provider/BookingsTab";
 import { ProviderTeamTab } from "@/components/provider/ProviderTeamTab";
 import { ScheduleAccordion } from "@/components/provider/ScheduleAccordion";
-import { ServiceLocationsSection } from "@/components/food/admin/ServiceLocationsSection";
 import { LegacyOwnerPortal } from "@/components/provider/legacyPortalTabs";
-import { RentalTermsTab } from "@/features/vehicles";
-import CarRentals from "@/pages/admin/CarRentals";
+import { workspaceFor } from "@/services/workspace";
 import { SubscribersList } from "@/components/provider/SubscribersList";
 import { ProviderReviewsPanel } from "@/components/provider/ProviderReviewsPanel";
 import { ProviderEarningsTab } from "@/components/provider/ProviderEarningsTab";
@@ -129,23 +126,26 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
     || membershipQ.data?.role === "owner";
 
   /**
-   * Which table this business's money is in.
+   * Which vertical's descriptors apply to this business.
    *
    * A different question from `sourceKey` below, which asks "does this provider
    * have a legacy twin" and drives the portal bundles and the id bridge. Cars
-   * have no legacy key at all — they were never a legacy service — so their
-   * revenue is matched on the archetype instead. Passing the legacy key here
-   * would have shown every car business a balance of zero.
+   * have no legacy key at all — they were never a legacy service — so they are
+   * matched on the archetype. Passing the legacy key here would have shown
+   * every car business a balance of zero and the wrong tabs.
    */
-  const financeKey = provider?.source_service_key ?? provider?.archetype_key ?? "";
+  const serviceKey = provider?.source_service_key ?? provider?.archetype_key ?? "";
 
-  /** Cars branch in two places: what is on offer, and the fleet itself. */
-  const isVehicles = provider?.archetype_key === "vehicles";
+  /**
+   * What this vertical adds to the standard workspace — nothing, for anything
+   * that has not said otherwise. See services/workspace.
+   */
+  const custom = workspaceFor(serviceKey);
 
   const kpis = useProviderKpis({
     providerId: provider?.id ?? "",
     legacyId: provider ? legacyIdOf(provider) : "",
-    sourceKey: financeKey,
+    sourceKey: serviceKey,
   });
 
   const balanceQ = useQuery({
@@ -241,12 +241,17 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
         <ProviderReviewsPanel providerId={provider.id} />
         <UniversalInfoTab
           provider={provider}
-          extra={sourceKey === "food" && legacyId
-            ? <ServiceLocationsSection providerId={legacyId} />
-            : undefined}
+          extra={custom.infoExtra?.(workspaceCtx)}
         />
       </div>
     ),
+  };
+
+  const workspaceCtx = {
+    providerId: provider.id,
+    legacyId: legacyId ?? "",
+    isOwner,
+    sourceKey,
   };
 
   // Money — what came in, what the platform kept, what has been paid out.
@@ -260,7 +265,7 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
     label: "Money",
     icon: Wallet,
     render: () => (
-      <ProviderEarningsTab providerId={provider.id} legacyId={legacyId} sourceKey={financeKey} />
+      <ProviderEarningsTab providerId={provider.id} legacyId={legacyId} sourceKey={serviceKey} />
     ),
   };
 
@@ -305,40 +310,17 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
       value: "offerings",
       label: "Offerings",
       icon: Package,
-      render: () => isVehicles ? (
-        // What a rental business offers is coverage, extras and delivery — not
-        // plans. A plan is a price for a period sold over and over; a car is
-        // one object for a stretch of days. Showing the plans editor here only
-        // invited someone to create a row nothing would ever read.
-        <RentalTermsTab providerId={provider.id} canManage={isOwner} />
-      ) : (
+      render: () => custom.offerings?.(workspaceCtx) ?? (
         <>
           {/* The booking rules apply to what is below them. */}
           <ScheduleAccordion provider={provider} />
-          {/* What a day is made of, above the plans that sell it: a plan says
-              how many, this says which. Only where something is delivered
-              within a day — a membership has no lunch. */}
-          {sourceKey === "food" && <ProviderItemsPanel providerId={provider.id} />}
+          {custom.offeringsExtra?.(workspaceCtx)}
           <PlansTab providerId={provider.id} sourceKey={sourceKey} />
         </>
       ),
     },
     scheduleTab,
-    // A fleet is not a plan and never will be: availability is per-unit and
-    // continuous, price is a function of duration, and the thing booked is one
-    // physical object. So a rental business gets its own tab here while
-    // remaining an ordinary `providers` row — same Overview, Money and Team as
-    // every other business on the platform.
-    ...(isVehicles
-      ? [{
-          value: "fleet",
-          label: "Fleet",
-          icon: CarFront,
-          // The admin's own car screen, scoped to this business. One place
-          // where cars are managed, whoever is looking at it.
-          render: () => <CarRentals embedded providerId={provider.id} />,
-        } as PortalTab<unknown>]
-      : []),
+    ...(custom.extraTabs?.(workspaceCtx) ?? []),
     // What can be booked here, for everybody. A calendar is a bookable
     // resource — its kind, its hours, its slot length — which is a different
     // job from running the day's work, and it was a beach-only screen for no
