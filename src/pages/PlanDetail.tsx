@@ -34,6 +34,7 @@ import { resolveMonthlyPriceCents, formatFrequencyLabel } from "@/lib/cleaningPl
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { SearchX } from "lucide-react";
+import { LinkifiedText } from "@/components/patterns/LinkifiedText";
 
 /**
  * The plan, before the till.
@@ -596,7 +597,9 @@ const PlanDetail = () => {
           <div className="space-y-2">
             <h1 className="text-[24px] font-semibold leading-tight tracking-[-0.48px] text-foreground">{title}</h1>
             {description && (
-              <p className="text-[16px] leading-[22px] tracking-[-0.32px] text-muted-foreground">{description}</p>
+              <p className="text-[16px] leading-[22px] tracking-[-0.32px] text-muted-foreground">
+                <LinkifiedText text={description} />
+              </p>
             )}
             {plan.meta && (
               <p className="text-[12px] leading-4 tracking-[-0.24px] text-muted-foreground">{plan.meta}</p>

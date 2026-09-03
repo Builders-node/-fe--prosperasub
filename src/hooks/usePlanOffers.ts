@@ -84,6 +84,13 @@ export interface PlanOffer {
   variants: PlanVariant[];
   /** The cheapest variant — what "from $40" on the card means. */
   fromCents: number | null;
+  /**
+   * The offer's own photographs (`provider_plans.gallery_urls` — where the
+   * offer editor saves them). Listings that key photos by the LEGACY plan id
+   * fall back to these, because a photo uploaded on the offer used to be
+   * invisible to every card that collapsed into it.
+   */
+  gallery: string[];
 }
 
 const asOptionKeys = (value: unknown): Record<string, string> => {
@@ -147,7 +154,7 @@ export function usePlanOffers(
       // Offers first: a plan with no parent that some other plan points at.
       const { data: plans, error } = await supabaseDb
         .from("provider_plans")
-        .select("id, provider_id, name, description, period, status, price_cents, parent_plan_id, option_keys, entitlements, source_service_key, source_plan_id, sort_order")
+        .select("id, provider_id, name, description, period, status, price_cents, parent_plan_id, option_keys, entitlements, source_service_key, source_plan_id, sort_order, gallery_urls")
         .in("provider_id", universalIds)
         .eq("status", "active")
         .order("sort_order", { ascending: true });
@@ -234,6 +241,9 @@ export function usePlanOffers(
           groups: [...(groupsByPlan.get(String(r.id)) ?? []), ...periodGroup],
           variants,
           fromCents: prices.length ? Math.min(...prices) : null,
+          gallery: Array.isArray(r.gallery_urls)
+            ? (r.gallery_urls as unknown[]).filter((u): u is string => typeof u === "string" && !!u.trim())
+            : [],
         };
       });
     },

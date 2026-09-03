@@ -64,6 +64,13 @@ export default function VehicleDetail() {
 
   const shareText = [v.provider?.name, v.name].filter(Boolean).join(" · ");
 
+  // "Brand · Model · Year", unless the name already says exactly that — the
+  // description renders as its own paragraph below, so no fallback here.
+  const specParts = [v.brand, v.model, v.year].filter(Boolean).map(String);
+  const specLine = specParts.length && !specParts.every((p) => v.name.toLowerCase().includes(p.toLowerCase()))
+    ? specParts.join(" · ")
+    : null;
+
   const breadcrumbs = [
     ...(v.provider?.name ? [{ label: v.provider.name, href: carPath() }] : []),
     { label: "Cars", href: carPath() },
@@ -121,9 +128,12 @@ export default function VehicleDetail() {
 
           <div className="space-y-2">
             <h1 className="text-[24px] font-semibold leading-tight tracking-[-0.48px] text-foreground">{v.name}</h1>
-            <p className="text-[12px] leading-4 tracking-[-0.24px] text-muted-foreground">
-              {[v.brand, v.model, v.year].filter(Boolean).join(" · ")}
-            </p>
+            {/* Only when the title has not already said it — most cars are
+                named "Brand Model Year", and repeating that directly under the
+                h1 was the page's first line of noise. */}
+            {specLine && (
+              <p className="text-[12px] leading-4 tracking-[-0.24px] text-muted-foreground">{specLine}</p>
+            )}
             {v.description && (
               <p className="text-[16px] leading-[22px] tracking-[-0.32px] text-muted-foreground">{v.description}</p>
             )}

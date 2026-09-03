@@ -9,6 +9,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { TimeSlotPicker } from "@/components/booking/TimePickers";
 import { supabaseDb, accountApi } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAuthModal } from "@/contexts/AuthModalContext";
 import { useUserUuid } from "@/hooks/useUserUuid";
 import { useGoBack } from "@/hooks/useGoBack";
 import { todayHN, addDaysISO, formatDateHN } from "@/lib/timezone";
@@ -66,7 +67,8 @@ export default function BookCalendar() {
   const { providerId = "" } = useParams<{ providerId: string }>();
   const goBack = useGoBack("/discovery");
   const qc = useQueryClient();
-  const { userData } = useAuth();
+  const { userData, isAuthenticated } = useAuth();
+  const { openAuthModal } = useAuthModal();
   const userUuid = useUserUuid();
   const myRefs = useMemo(
     () => [userUuid, userData?.id].filter(Boolean).map((id) => `user:${id}`),
@@ -352,7 +354,15 @@ export default function BookCalendar() {
               <TimeSlotPicker
                 options={options}
                 selected=""
-                onSelect={(start) => { if (!book.isPending) book.mutate(start); }}
+                onSelect={(start) => {
+                  // The calendar is a shop window; the account is asked for at
+                  // the moment it is needed, and the redirect lands back here.
+                  if (!isAuthenticated) {
+                    openAuthModal("login", `/providers/${providerId}/book`);
+                    return;
+                  }
+                  if (!book.isPending) book.mutate(start);
+                }}
                 className="rounded-radius-lg border-0"
               />
             )}

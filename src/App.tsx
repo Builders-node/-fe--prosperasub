@@ -325,11 +325,12 @@ const App = () => {
               <Route path="/my-provider/:providerId" element={
                 <ProtectedRoute><MyProvider /></ProtectedRoute>
               } />
-              {/* Book a time on any provider's calendar. Holding a slot needs
-                  an account — the engine takes the subject from the token. */}
-              <Route path="/providers/:providerId/book" element={
-                <ProtectedRoute><BookCalendar /></ProtectedRoute>
-              } />
+              {/* Book a time on any provider's calendar. The CALENDAR is a
+                  shop window and renders signed out; only holding a slot needs
+                  an account (the engine takes the subject from the token), and
+                  the page asks for it at that moment. Gating the whole route
+                  put the login sheet over a black void. */}
+              <Route path="/providers/:providerId/book" element={<BookCalendar />} />
               {/* Legacy portal URLs — resolve ?providerId=<legacy> to universal and redirect. */}
               <Route path="/my-restaurant"  element={<ProtectedRoute><LegacyPortalRedirect service="food" /></ProtectedRoute>} />
               <Route path="/my-cleaning"    element={<ProtectedRoute><LegacyPortalRedirect service="cleaning" /></ProtectedRoute>} />

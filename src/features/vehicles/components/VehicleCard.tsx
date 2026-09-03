@@ -33,17 +33,35 @@ export function VehicleCard({ v, showProvider = false }: {
     <PlanCard
       title={v.name}
       eyebrow={showProvider && v.provider?.name ? { icon: Building2, text: v.provider.name } : undefined}
-      description={[v.brand, v.model, v.year].filter(Boolean).join(" · ")}
+      description={vehicleSpecLine(v)}
       photos={[v.image_url ?? "", ...(v.gallery_urls ?? [])]}
       chips={[
-        { icon: Users, label: String(v.seats) },
+        // "5" on its own is a number in search of a noun.
+        { icon: Users, label: `${v.seats} seats` },
         { icon: Gauge, label: v.transmission === "automatic" ? "Auto" : "Manual" },
         { icon: Fuel, label: FUEL_LABEL[v.fuel_type] },
         ...(v.air_conditioning ? [{ icon: Snowflake, label: "A/C" }] : []),
       ]}
-      price={{ cents: v.daily_price_cents, unit: "day" }}
+      // "/ day", matching how every other card on the platform writes a unit.
+      price={{ cents: v.daily_price_cents, unit: "/ day" }}
       cta={{ label: "Book", onClick: open }}
       onOpen={open}
     />
   );
+}
+
+/**
+ * "Brand · Model · Year" — but only when the title has not already said it.
+ * Most cars are named exactly "Hyundai Accent 2017", and printing the same
+ * three words again directly underneath told the customer nothing twice. When
+ * the spec is redundant, the card shows the car's own description instead.
+ */
+export function vehicleSpecLine(
+  v: Pick<RentalVehicle, "name" | "brand" | "model" | "year" | "description">,
+): string | undefined {
+  const parts = [v.brand, v.model, v.year].filter(Boolean).map(String);
+  const name = (v.name ?? "").toLowerCase();
+  const redundant = parts.length > 0 && parts.every((p) => name.includes(p.toLowerCase()));
+  if (!redundant) return parts.join(" · ") || undefined;
+  return v.description ?? undefined;
 }

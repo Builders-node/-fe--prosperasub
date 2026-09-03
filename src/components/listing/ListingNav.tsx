@@ -1,4 +1,4 @@
-import type { LucideIcon } from "lucide-react";
+import { ChevronRight, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -34,6 +34,20 @@ export interface RailProvider {
   meta?: string;
 }
 
+/** The face of a business, or its initial where none was uploaded. */
+function ProviderAvatar({ p, className }: { p: RailProvider; className?: string }) {
+  return p.avatarUrl ? (
+    <img src={p.avatarUrl} alt="" loading="lazy" className={cn("shrink-0 rounded-full object-cover", className)} />
+  ) : (
+    <span
+      aria-hidden
+      className={cn("flex shrink-0 items-center justify-center rounded-full bg-inset text-[14px] font-semibold text-muted-foreground", className)}
+    >
+      {(p.name ?? "?").trim().charAt(0).toUpperCase()}
+    </span>
+  );
+}
+
 export function ProviderRail({
   providers, onOpen, label = "Providers",
 }: {
@@ -44,6 +58,36 @@ export function ProviderRail({
   label?: string;
 }) {
   if (providers.length === 0) return null;
+
+  /**
+   * One business is not a rail. A lone half-width tile floating at the left
+   * edge read as a broken carousel — and on most services today there IS one
+   * provider per screen. So a single business gets a full-width row: same
+   * door to the same page, drawn as a fact rather than as a choice of one.
+   */
+  if (providers.length === 1) {
+    const p = providers[0];
+    return (
+      <section className="space-y-3">
+        <h2 className="text-[20px] font-semibold tracking-[-0.4px] text-foreground">{label}</h2>
+        <button
+          type="button"
+          onClick={() => onOpen(p.id)}
+          className="flex w-full items-center gap-3 rounded-radius-md bg-card p-4 text-left transition-colors hover:bg-muted/40"
+        >
+          <ProviderAvatar p={p} className="h-10 w-10" />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[16px] font-semibold tracking-[-0.32px] text-foreground">{p.name}</span>
+            {p.meta && (
+              <span className="block truncate text-[12px] tracking-[-0.24px] text-muted-foreground">{p.meta}</span>
+            )}
+          </span>
+          <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
+        </button>
+      </section>
+    );
+  }
+
   return (
     <section className="space-y-3">
       <h2 className="text-[20px] font-semibold tracking-[-0.4px] text-foreground">{label}</h2>
@@ -60,11 +104,14 @@ export function ProviderRail({
             type="button"
             onClick={() => onOpen(p.id)}
             title={p.meta ? `${p.name} — ${p.meta}` : p.name}
-            className="flex h-20 w-[168px] shrink-0 snap-start items-center justify-center rounded-radius-md bg-card p-4 transition-colors hover:bg-muted/40"
+            className="flex h-20 w-[168px] shrink-0 snap-start items-center gap-3 rounded-radius-md bg-card p-4 text-left transition-colors hover:bg-muted/40"
           >
-            <p className="line-clamp-2 w-full text-center text-[16px] font-semibold leading-tight tracking-[-0.32px] text-foreground">
-              {p.name}
-            </p>
+            <ProviderAvatar p={p} className="h-9 w-9" />
+            <span className="min-w-0 flex-1">
+              <span className="line-clamp-2 block text-[15px] font-semibold leading-tight tracking-[-0.32px] text-foreground">
+                {p.name}
+              </span>
+            </span>
           </button>
         ))}
       </div>

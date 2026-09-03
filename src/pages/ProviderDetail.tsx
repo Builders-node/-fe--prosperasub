@@ -26,6 +26,7 @@ import {
 } from "@/components/reviews/ProviderReviewsBlock";
 import { resolveMonthlyPriceCents } from "@/lib/cleaningPlanPricing";
 import { formatUSD } from "@/lib/pricing";
+import { LinkifiedText } from "@/components/patterns/LinkifiedText";
 import { useTabParam } from "@/hooks/useTabParam";
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -512,10 +513,14 @@ const ProviderDetail = () => {
           <div className="mt-3 space-y-2">
             <h1 className="text-[24px] font-semibold leading-tight text-foreground">{p.name}</h1>
             {p.description && (
-              <p className="text-[16px] leading-[22px] text-muted-foreground">{p.description}</p>
+              <p className="text-[16px] leading-[22px] text-muted-foreground">
+                <LinkifiedText text={p.description} />
+              </p>
             )}
             {hours && <p className="text-[16px] leading-[22px] text-muted-foreground">{hours}</p>}
-            {p.location && <p className="text-[16px] leading-[22px] text-muted-foreground">{p.location}</p>}
+            {/* The location is already the second crumb above the title;
+                printing it again two lines later said "Pristine bay" twice in
+                one card without adding a word. */}
           </div>
 
           {(bookableQ.data ?? 0) > 0 && (

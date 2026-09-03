@@ -393,14 +393,16 @@ export default function Cart() {
             }
             ctaLabel="Great"
             onCta={() => navigate("/my-subscriptions")}
-            secondary={{ label: "Order more", onClick: () => navigate("/services/food") }}
+            secondary={{ label: "Order more", onClick: () => navigate("/discovery") }}
           />
         ) : items.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <ShoppingCart className="mb-4 h-14 w-14 text-muted-foreground/30" />
+            {/* The cart takes any service's plans now, so its empty state must
+                not send everyone to the restaurant. */}
             <h1 className="text-xl font-black tracking-tight">Your cart is empty</h1>
-            <p className="mt-1 text-muted-foreground">Add meal portions and pay for them together.</p>
-            <Button onClick={() => navigate("/services/food")} className="mt-5 rounded-full">Browse food</Button>
+            <p className="mt-1 text-muted-foreground">Add plans from any service and pay for them together.</p>
+            <Button onClick={() => navigate("/discovery")} className="mt-5 rounded-full">Browse services</Button>
           </div>
         ) : (
           <>

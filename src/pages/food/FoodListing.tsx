@@ -399,17 +399,25 @@ const FoodListing = () => {
               </div>
             ) : search.results.length > 0 ? (
               <div className="grid gap-3 md:gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {search.results.map(({ plan, provider }) => (
-                  <MealPlanCard
-                    key={plan.id}
-                    plan={plan}
-                    providerName={provider.name}
-                    images={planImages[plan.id] ?? []}
-                    rating={ratings[provider.id]}
-                    offer={offerBySourcePlanId.get(String(plan.id)) ?? null}
-                    onOpen={() => navigate(`/services/food/plans/${plan.id}`)}
-                  />
-                ))}
+                {search.results.map(({ plan, provider }) => {
+                  const offer = offerBySourcePlanId.get(String(plan.id)) ?? null;
+                  // Photos are saved on the OFFER (provider_plans.gallery_urls)
+                  // since the editor moved there; the legacy per-plan images are
+                  // the fallback's fallback, not the other way round — a photo
+                  // uploaded yesterday used to leave this thumbnail empty.
+                  const legacyImages = planImages[plan.id] ?? [];
+                  return (
+                    <MealPlanCard
+                      key={plan.id}
+                      plan={plan}
+                      providerName={provider.name}
+                      images={legacyImages.length ? legacyImages : offer?.gallery ?? []}
+                      rating={ratings[provider.id]}
+                      offer={offer}
+                      onOpen={() => navigate(`/services/food/plans/${plan.id}`)}
+                    />
+                  );
+                })}
               </div>
             ) : (
               <div className="rounded-3xl bg-card p-8 text-center">

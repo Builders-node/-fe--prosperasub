@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useCategoryHighlights, type CategoryHighlight } from "@/hooks/useCategoryHighlights";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
@@ -24,6 +23,20 @@ import { cn } from "@/lib/utils";
 const ROTATE_MS = 3000;
 
 function Slide({ item }: { item: CategoryHighlight }) {
+  /**
+   * The photo has to PROVE it renders before anything is drawn for it. The
+   * scrim used to key off the URL being set, so a broken link produced the
+   * worst of both designs: no picture, but the black gradient still poured
+   * over the orange card and turned its lower half to mud. Now a URL is just a
+   * candidate — the scrim waits for onLoad, and onError falls back to the
+   * imageless card as if no photo was ever set.
+   */
+  const [loaded, setLoaded] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const hasImage = !!item.imageUrl && !failed;
+  const showPhoto = hasImage && loaded;
+  const Icon = item.archetype?.Icon;
+
   return (
     // 140px tall, 16px radius, orange when there is no photo — the design's
     // own promo card. The service sits above the category in 12px regular and
@@ -34,37 +47,47 @@ function Slide({ item }: { item: CategoryHighlight }) {
       aria-label={item.label}
       className="group relative flex h-[140px] w-full shrink-0 flex-col justify-end overflow-hidden rounded-radius-md bg-primary p-4"
     >
-      {item.imageUrl && (
-        <>
-          <img
-            src={item.imageUrl}
-            alt=""
-            loading="lazy"
-            decoding="async"
-            className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-          />
-          {/* White text on whatever gets uploaded, so the scrim is not
-              optional — weighted to the bottom where the words are. */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
-        </>
+      {hasImage && (
+        <img
+          src={item.imageUrl!}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          onLoad={() => setLoaded(true)}
+          onError={() => setFailed(true)}
+          className={cn(
+            "absolute inset-0 h-full w-full object-cover transition-[opacity,transform] duration-300 group-hover:scale-105",
+            showPhoto ? "opacity-100" : "opacity-0",
+          )}
+        />
+      )}
+      {showPhoto && (
+        // White text on whatever gets uploaded, so the scrim is not
+        // optional — weighted to the bottom where the words are.
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
+      )}
+      {!showPhoto && Icon && (
+        // The imageless card carries the service's own mark, so it reads as a
+        // designed tile rather than a rectangle waiting for a photo.
+        <Icon aria-hidden className="absolute right-4 top-4 h-14 w-14 text-primary-foreground/25" strokeWidth={1.5} />
       )}
 
       <div className="relative flex flex-col gap-0.5">
         {item.archetype && (
-          <p className={cn("text-[12px] tracking-[-0.24px]", item.imageUrl ? "text-white/80" : "text-primary-foreground/70")}>
+          <p className={cn("text-[12px] tracking-[-0.24px]", showPhoto ? "text-white/80" : "text-primary-foreground/70")}>
             {item.archetype.label}
           </p>
         )}
         <p className={cn(
           "text-[16px] font-semibold tracking-[-0.32px]",
-          item.imageUrl ? "text-white" : "text-primary-foreground",
+          showPhoto ? "text-white" : "text-primary-foreground",
         )}>
           {item.label}
         </p>
         {item.fromCents !== null && (
           <p className={cn(
             "text-[12px] tracking-[-0.24px]",
-            item.imageUrl ? "text-white/80" : "text-primary-foreground/70",
+            showPhoto ? "text-white/80" : "text-primary-foreground/70",
           )}>
             from {formatUSD(item.fromCents)}{item.unit ? ` ${item.unit}` : ""}
           </p>
@@ -117,15 +140,29 @@ export function CategoryCarousel() {
   if (count === 0) return null;
 
   return (
+    <>
+      {/*
+        A carousel earns its place on a phone, where one card is all that
+        fits. On a desktop it was one rotating card in a page of empty space —
+        hiding the other categories behind a timer while showing nothing else.
+        Same slides, laid out as a grid: everything visible at once, nothing
+        to wait for. The carousel below keeps the phones.
+      */}
+      {count > 1 && (
+        <section aria-label="Browse by category" className="hidden gap-2 md:grid md:grid-cols-3">
+          {highlights.map((h) => <Slide key={h.key} item={h} />)}
+        </section>
+      )}
     <section
       aria-roledescription="carousel"
       aria-label="Browse by category"
-      className="relative"
+      className={cn("relative", count > 1 && "md:hidden")}
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
     >
-      {/* The arrows are positioned against THIS box, not the section, so the
-          dots underneath don't drag them off centre. */}
+      {/* Arrows used to float over the slide for desktop; the desktop now
+          gets the grid above, so the swipe is the only gesture left and the
+          buttons would never be seen. */}
       <div
         className="relative overflow-hidden rounded-radius-md"
         onTouchStart={onTouchStart}
@@ -144,31 +181,9 @@ export function CategoryCarousel() {
             </div>
           ))}
         </div>
-
-        {count > 1 && (
-          <>
-            {/* Arrows are desktop-only: on a phone the swipe is the gesture and
-                a tap target floating over the slide would fight the link. */}
-            <button
-              type="button"
-              onClick={() => go(-1)}
-              aria-label="Previous category"
-              className="absolute left-3 top-1/2 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur transition-colors hover:bg-black/55 md:flex"
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => go(1)}
-              aria-label="Next category"
-              className="absolute right-3 top-1/2 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-black/35 text-white backdrop-blur transition-colors hover:bg-black/55 md:flex"
-            >
-              <ChevronRight className="h-5 w-5" />
-            </button>
-          </>
-        )}
       </div>
 
     </section>
+    </>
   );
 }
