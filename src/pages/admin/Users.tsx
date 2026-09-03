@@ -25,6 +25,8 @@ import { StatusPill, statusLabel } from "@/components/patterns/StatusPill";
 import { formatDateHN } from "@/lib/timezone";
 import { cn } from "@/lib/utils";
 import { useResidences } from "@/hooks/useResidences";
+import { useTabParam } from "@/hooks/useTabParam";
+import AdminClients from "./Clients";
 import { addressFromProfile, addressPayload, EMPTY_ADDRESS } from "@/lib/address";
 
 type Filter = "all" | "user" | "admin" | "blocked";
@@ -66,6 +68,7 @@ interface Person {
 const AdminUsers = () => {
   const queryClient = useQueryClient();
 
+  const [tab, setTab] = useTabParam(["users", "clients"] as const);
   const [filter, setFilter] = useState<Filter>("all");
   const [blockTarget, setBlockTarget] = useState<{ id: string; name: string } | null>(null);
   const [serviceFilter, setServiceFilter] = useState<"all" | ServiceKey>("all");
@@ -258,7 +261,27 @@ const AdminUsers = () => {
   ];
 
   return (
-    <SuperAdminLayout title="People" subtitle="Everyone who has signed up to the platform.">
+    <SuperAdminLayout title="People" subtitle="Individual accounts, and the businesses and households you bill.">
+      {/* Users vs Clients: individual accounts vs billed organizations. One
+          sidebar entry, two tabs — Clients used to be its own nav item, which
+          made two doors for one section. */}
+      <div className="mb-5 inline-flex gap-1 rounded-full bg-muted/50 p-1">
+        {(["users", "clients"] as const).map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => setTab(t)}
+            className={cn(
+              "rounded-full px-4 py-1.5 text-sm font-semibold capitalize transition-colors",
+              tab === t ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
+
+      {tab === "clients" ? <AdminClients embedded /> : (<>
       {/* The one list scaffold every admin list uses — People had grown its
           own toolbar, its own counter and its own three inline states. */}
       <AdminListShell
@@ -473,6 +496,7 @@ const AdminUsers = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      </>)}
     </SuperAdminLayout>
   );
 };

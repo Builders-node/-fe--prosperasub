@@ -59,14 +59,10 @@ function subscriptionStage(s: SaleRow): { label: string; className: string } {
 }
 
 /**
- * Every sale on the platform, read from each service's own table via
- * `lib/admin/marketplaceSales.ts`.
- *
- * It used to read the universal `provider_subscriptions` / `provider_bookings`
- * mirrors, which a one-off backfill filled in July 2026 and nothing has written
- * to since — so the page showed 20 of 39 sales, six of the visible ones had a
- * stale status, and edits landed on the mirror instead of the row the customer
- * actually has.
+ * Every sale on the platform, read from `subscriptions_unified` via
+ * `lib/admin/marketplaceSales.ts` — all five services (cleaning, food, beach,
+ * universal-only plans, car rentals) in one shape, with effective statuses.
+ * Edits still write to each service's own table through SALE_SOURCES.
  */
 const MarketplaceSubscriptions = () => {
   const qc = useQueryClient();
@@ -141,15 +137,7 @@ const MarketplaceSubscriptions = () => {
   // cleaning_packages, …) and would never match a row in that mirror table, so
   // every Plan cell would read "—". The adapter resolves the name at source.
 
-  /**
-   * One query across every service's own table.
-   *
-   * This used to read `provider_subscriptions` + `provider_bookings` — mirror
-   * tables filled by a one-off backfill in July and never written to since. The
-   * page was therefore a snapshot of that day: it showed 9 of 19 food rows, and
-   * six of the nine had a stale status (cancelled and expired customers still
-   * read "Active"). See lib/admin/marketplaceSales.ts.
-   */
+  // One query over the unified view — see lib/admin/marketplaceSales.ts.
   const {
     data: rows = [], isLoading, isError, error: subsErrObj, refetch: refetchSubs,
   } = useQuery({
@@ -425,7 +413,7 @@ const MarketplaceSubscriptions = () => {
         </AdminListShell>
       </div>
 
-      {/* Edit sheet — mutates the underlying provider_subscriptions / provider_bookings row directly. */}
+      {/* Edit sheet — mutates the row's own table (SALE_SOURCES), not the view. */}
       <Sheet open={!!editRow} onOpenChange={(o) => !o && setEditRow(null)}>
         <SheetContent side="right" className="w-full max-w-md overflow-y-auto">
           <SheetHeader>

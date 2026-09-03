@@ -81,9 +81,7 @@ const AdminDashboard = lazy(() => import("./pages/admin/Dashboard"));
 const Analytics = lazy(() => import("./pages/admin/Analytics"));
 const AdminPayments = lazy(() => import("./pages/admin/Payments"));
 const AdminUsers = lazy(() => import("./pages/admin/Users"));
-const CarRentals = lazy(() => import("./pages/admin/CarRentals"));
 const CleaningPlans = lazy(() => import("./pages/admin/CleaningPlans"));
-const ServiceArchetypes = lazy(() => import("./pages/admin/ServiceArchetypes"));
 const ServiceCategories = lazy(() => import("./pages/admin/ServiceCategories"));
 const MarketplaceProviders = lazy(() => import("./pages/admin/MarketplaceProviders"));
 const MarketplaceProviderDetail = lazy(() => import("./pages/admin/MarketplaceProviderDetail"));
@@ -91,7 +89,6 @@ const LegacyProviderRedirect = lazy(() => import("./pages/admin/LegacyProviderRe
 const MarketplacePlans = lazy(() => import("./pages/admin/MarketplacePlans"));
 const Support = lazy(() => import("./pages/Support"));
 const AdminSupport = lazy(() => import("./pages/admin/Support"));
-const AdminClients = lazy(() => import("./pages/admin/Clients"));
 const MarketplaceHub = lazy(() => import("./pages/admin/MarketplaceHub"));
 const MarketplaceServiceDetail = lazy(() => import("./pages/admin/MarketplaceServiceDetail"));
 const MarketplaceSubscriptions = lazy(() => import("./pages/admin/MarketplaceSubscriptions"));
@@ -354,13 +351,13 @@ const App = () => {
                 <ProtectedRoute allowedRoles={['super_admin']}><CleaningPlans /></ProtectedRoute>
               } />
               <Route path="/admin/cleaning/providers" element={<Navigate to="/admin/marketplace/providers" replace />} />
-              <Route path="/admin/categories" element={<Navigate to="/admin/services" replace />} />
-              <Route path="/admin/services" element={
-                <ProtectedRoute allowedRoles={['super_admin']}><ServiceArchetypes /></ProtectedRoute>
-              } />
-              <Route path="/admin/services/categories" element={
-                <ProtectedRoute allowedRoles={['super_admin']}><ServiceCategories /></ProtectedRoute>
-              } />
+              {/* The flat Services + Categories CRUDs are retired: creating a
+                  service lives on the Marketplace hub, editing/hiding/deleting
+                  on the service's own drill-down, categories in its Categories
+                  tab. Old bookmarks land on the hub. */}
+              <Route path="/admin/categories" element={<Navigate to="/admin/marketplace" replace />} />
+              <Route path="/admin/services" element={<Navigate to="/admin/marketplace" replace />} />
+              <Route path="/admin/services/categories" element={<Navigate to="/admin/marketplace" replace />} />
               {/* Drill-down entry point: Marketplace → service → its lists. The flat
                   lists below stay routable — they're linked from the hub and are the
                   only way to reach providers whose archetype_key went null. */}
@@ -403,25 +400,16 @@ const App = () => {
               <Route path="/admin/users" element={
                 <ProtectedRoute allowedRoles={['super_admin']} requiredPermissions={["users.read"]}><AdminUsers /></ProtectedRoute>
               } />
-              {/* Car rentals: booked on their own origin, run from here. */}
-              {/* Transport is its own unit, not a service inside the marketplace:
-                  a car is one physical object for a stretch of days, priced by
-                  duration, and it is not sold in plans and periods. It keeps
-                  providers, because a rental company earns and is paid like any
-                  other business. */}
-              <Route path="/admin/transport" element={
-                <ProtectedRoute allowedRoles={['super_admin']} requiredPermissions={["subscriptions.read"]}><CarRentals /></ProtectedRoute>
-              } />
-              {/* The address it had before the split. */}
-              <Route path="/admin/car-rentals" element={
-                <ProtectedRoute allowedRoles={['super_admin']} requiredPermissions={["subscriptions.read"]}><CarRentals /></ProtectedRoute>
-              } />
-              {/* Was a redirect to /admin/users. A client is a billed business or
-                  household, not an individual account — the two are different things
-                  and the redirect made the distinction impossible to see. */}
-              <Route path="/admin/clients" element={
-                <ProtectedRoute allowedRoles={['super_admin']} requiredPermissions={["users.read"]}><AdminClients /></ProtectedRoute>
-              } />
+              {/* Cars are managed from the Marketplace hub like every other
+                  service — Vehicles tab of the vehicles drill-down. These are
+                  the fleet's old standalone addresses; bookmarks land on the
+                  tab, which is the same CarRentals screen embedded. */}
+              <Route path="/admin/transport" element={<Navigate to="/admin/marketplace/service/vehicles?tab=vehicles" replace />} />
+              <Route path="/admin/car-rentals" element={<Navigate to="/admin/marketplace/service/vehicles?tab=vehicles" replace />} />
+              {/* Clients are the second tab of /admin/users now — a billed
+                  business is a different thing from an individual account, and
+                  the tab keeps the distinction while the section has one door. */}
+              <Route path="/admin/clients" element={<Navigate to="/admin/users?tab=clients" replace />} />
               <Route path="/admin/provider-applications" element={<Navigate to="/admin/marketplace/providers/applications" replace />} />
               <Route path="/admin/payments" element={
                 <ProtectedRoute allowedRoles={['super_admin']} requiredPermissions={["payments.read"]}><AdminPayments /></ProtectedRoute>

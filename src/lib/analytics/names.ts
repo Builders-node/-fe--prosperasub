@@ -27,17 +27,19 @@ const collect = (results: { data: any[] | null }[]) => {
 };
 
 export async function fetchAnalyticsNames(): Promise<AnalyticsNames> {
-  const [packages, mealPlans, providerPlans, cleaningProviders, foodProviders, providers] =
+  const [packages, mealPlans, providerPlans, vehicles, cleaningProviders, foodProviders, providers] =
     await Promise.all([
       supabaseDb.from("cleaning_packages").select("id, name"),
       supabaseDb.from("food_meal_plans").select("id, name"),
       supabaseDb.from("provider_plans").select("id, name"),
+      // A rental booking's "plan" is the car it books.
+      supabaseDb.from("rental_vehicles").select("id, name"),
       supabaseDb.from("cleaning_providers").select("id, name"),
       supabaseDb.from("food_providers").select("id, name"),
       supabaseDb.from("providers").select("id, name"),
     ]);
   return {
-    plans: collect([packages, mealPlans, providerPlans]),
+    plans: collect([packages, mealPlans, providerPlans, vehicles]),
     providers: collect([cleaningProviders, foodProviders, providers]),
   };
 }

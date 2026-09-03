@@ -11,7 +11,7 @@
 import {
   BarChart3, CalendarDays, DollarSign,
   FileText, Layers, LayoutDashboard, MapPin, Megaphone,
-  LifeBuoy, ShieldCheck, Users, Building2, CarFront, } from "lucide-react";
+  LifeBuoy, ShieldCheck, Users, Building2, } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { adminRoutes } from "./adminRoutes";
 
@@ -78,6 +78,10 @@ export const MARKETPLACE_SECTION: NavSection = {
         adminRoutes.superAdminMarketplacePlans,
         adminRoutes.superAdminMarketplaceProviders,
         adminRoutes.superAdminProviderApplications,
+        // Cars live in the hub like every other service (Marketplace →
+        // Vehicles); the standalone rental URLs stay routable for bookmarks.
+        adminRoutes.superAdminTransport,
+        adminRoutes.superAdminCarRentals,
       ],
       permissions: ["admin_settings.read"] },
     { label: "Subscriptions", path: adminRoutes.superAdminMarketplaceSubscriptions, icon: CalendarDays,
@@ -85,34 +89,21 @@ export const MARKETPLACE_SECTION: NavSection = {
   ],
 };
 
-// ─── TRANSPORT ──────────────────────────────────────────────────────────
-/**
- * Its own section, deliberately not a card inside Marketplace.
- *
- * Renting a car is not subscribing to a service: it is one physical object for
- * a stretch of days, priced by duration, with coverage and a deposit rather
- * than a plan and a period. It has providers like everything else, because a
- * rental company earns and is paid like every other business — but it is
- * managed on its own terms.
- */
-export const TRANSPORT_SECTION: NavSection = {
-  title: "Transport",
-  items: [
-    { label: "Car rentals", path: adminRoutes.superAdminTransport, icon: CarFront,
-      alsoActiveOn: [adminRoutes.superAdminCarRentals],
-      permissions: ["subscriptions.read"] },
-  ],
-};
+// No TRANSPORT section: the vehicles archetype has a card on the Marketplace
+// hub like every other service (its drill-down swaps the Plans tab for
+// Vehicles), so a second sidebar door to the same fleet screen was pure
+// duplication. What is genuinely different about cars — dates, deposit,
+// per-day pricing — lives inside that tab, not in the nav.
 
 // ─── PEOPLE ─────────────────────────────────────────────────────────────
 export const PEOPLE_SECTION: NavSection = {
   title: "People",
   items: [
+    // Clients (the businesses and households we bill) are the second tab of
+    // Users — one door for the whole People section, as the header of this
+    // file has promised all along.
     { label: "Users", path: adminRoutes.superAdminUsers, icon: Users,
-      permissions: ["users.read"] },
-    // Clients are the businesses and households we bill; Users are individual
-    // accounts. Same section, deliberately separate entries.
-    { label: "Clients", path: adminRoutes.superAdminClients, icon: Building2,
+      alsoActiveOn: [adminRoutes.superAdminClients],
       permissions: ["users.read"] },
     { label: "Support", path: adminRoutes.superAdminSupport, icon: LifeBuoy,
       permissions: ["users.read"] },
@@ -148,7 +139,6 @@ export const SETTINGS_SECTION: NavSection = {
 export const NAV_SECTIONS: NavSection[] = [
   OVERVIEW_SECTION,
   MARKETPLACE_SECTION,
-  TRANSPORT_SECTION,
   PEOPLE_SECTION,
   SETTINGS_SECTION,
 ];

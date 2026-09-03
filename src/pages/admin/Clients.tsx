@@ -92,7 +92,8 @@ const emptyDraft = (): Partial<ClientRow> => ({
   invoice_preferences: "",
 });
 
-const AdminClients = () => {
+/** `embedded` mounts just the body — the Clients tab inside /admin/users. */
+const AdminClients = ({ embedded = false }: { embedded?: boolean }) => {
   const qc = useQueryClient();
   const { userData } = useAuth();
   const [search, setSearch] = useState("");
@@ -221,11 +222,8 @@ const AdminClients = () => {
   const pager = usePagination(visible, 25);
   const archivedCount = clients.filter((c) => c.deleted_at).length;
 
-  return (
-    <SuperAdminLayout
-      title="Clients"
-      subtitle="Businesses and households you bill — separate from individual user accounts"
-    >
+  const body = (
+    <>
       <AdminListShell
         search={search} onSearch={setSearch}
         searchPlaceholder="Search by name, contact, email, location…"
@@ -472,6 +470,16 @@ const AdminClients = () => {
           </SheetFooter>
         </SheetContent>
       </Sheet>
+    </>
+  );
+
+  if (embedded) return body;
+  return (
+    <SuperAdminLayout
+      title="Clients"
+      subtitle="Businesses and households you bill — separate from individual user accounts"
+    >
+      {body}
     </SuperAdminLayout>
   );
 };

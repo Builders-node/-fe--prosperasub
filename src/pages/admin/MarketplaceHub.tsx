@@ -1,13 +1,14 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, ChevronRight, CreditCard, Inbox, Layers, Building2 } from "lucide-react";
+import { AlertTriangle, ChevronRight, CreditCard, Inbox, Plus, Building2 } from "lucide-react";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { fetchAllRows } from "@/lib/supabasePaging";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
+import { ServiceArchetypeDialog } from "@/components/admin/ServiceArchetypeDialog";
 import { cn } from "@/lib/utils";
 
 /** Sentinel bucket for rows whose `archetype_key` is null. */
@@ -22,10 +23,16 @@ const UNASSIGNED = "__unassigned";
  * Applications) that each re-filtered the same archetype dropdown. Managing one
  * service used to mean four visits to four lists; now it's one card away.
  *
- * The flat lists still exist and are linked from the footer — they're the only
- * way to reach rows the tree can't show (see the Unassigned card below).
+ * Creating a service happens HERE too (the button by the grid) — the flat
+ * /admin/services CRUD is retired and redirects to this page. Editing, hiding
+ * and deleting a service live on its own drill-down page, where the admin can
+ * see what the change affects.
+ *
+ * The cross-service lists still exist and are linked from the footer — they're
+ * the only way to reach rows the tree can't show (see the Unassigned card).
  */
 export default function MarketplaceHub() {
+  const [creating, setCreating] = useState(false);
   // Every archetype, transport included: cars are an archetype like the rest
   // (provider → offers → sales), and the one thing genuinely different about
   // them — the offer being a vehicle — is the service detail's business, not a
@@ -156,6 +163,19 @@ export default function MarketplaceHub() {
               );
             })}
 
+            {/* Creating a service starts where services live — not on a
+                separate flat page the admin has to know about. */}
+            <button
+              type="button"
+              onClick={() => setCreating(true)}
+              className="group flex min-h-[144px] flex-col items-center justify-center gap-2 rounded-radius-md border border-dashed border-border bg-transparent p-5 text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+            >
+              <span className="flex h-11 w-11 items-center justify-center rounded-radius-md bg-muted">
+                <Plus className="h-5 w-5" />
+              </span>
+              <span className="text-sm font-bold">New service</span>
+            </button>
+
             {hasOrphans && (
               <Link
                 to="/admin/marketplace/service/unassigned"
@@ -189,7 +209,6 @@ export default function MarketplaceHub() {
             Across all services
           </h2>
           <div className="mt-3 flex flex-wrap gap-2">
-            <FlatLink to="/admin/services" icon={Layers} label="Edit services" />
             <FlatLink to="/admin/marketplace/providers" icon={Building2} label="All providers" />
             <FlatLink to="/admin/marketplace/plans" icon={CreditCard} label="All plans" />
             <FlatLink
@@ -201,6 +220,13 @@ export default function MarketplaceHub() {
           </div>
         </div>
       </div>
+
+      <ServiceArchetypeDialog
+        open={creating}
+        onOpenChange={(v) => !v && setCreating(false)}
+        archetype={creating ? "new" : null}
+        invalidateKeys={[["marketplace-hub-counts"]]}
+      />
     </SuperAdminLayout>
   );
 }

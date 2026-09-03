@@ -2,36 +2,29 @@ import { supabaseDb } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/lib/supabasePaging";
 
 /**
- * Every sale across every service, read from where it actually lives.
+ * Every sale across every service — read from `subscriptions_unified`.
  *
- * `/admin/subscriptions` used to read `provider_subscriptions` +
- * `provider_bookings`. Those are the universal tables, populated by a one-off
- * backfill on 2026-07-04 and never written to since — nothing in the app
- * maintains them and there is no trigger in either direction. So the page was
- * a snapshot of one day in July:
+ * This module used to fetch three legacy tables and re-derive names, provider
+ * ids and totals in TypeScript, which meant the sidebar's Subscriptions page
+ * was blind to anything the three tables don't hold: car rentals and every
+ * sale on a universal-only service simply never appeared. The DB view already
+ * folds all five populations into one shape (effective status, universal
+ * provider id, full committed value), so reading it is both shorter and
+ * complete.
  *
- *   - It showed 9 food rows out of 19. Ten subscriptions taken since the
- *     backfill simply didn't exist as far as this page was concerned.
- *   - Six of the nine it did show had the wrong status — customers who had
- *     since cancelled or expired still read "Active".
- *   - Edits and deletes wrote to the mirror, so an admin could cancel a
- *     subscription here, see "Deleted", and leave the customer's real one
- *     running. The page carried a banner admitting this rather than fixing it.
- *
- * Each service keeps its own column names, so a descriptor per service maps
- * them onto one row shape. Reads and writes both go through it — the table an
- * admin edits is the table the customer, the provider portal and the reconcile
- * cron all read.
+ * Reads come from the view; WRITES still go to each service's own table —
+ * the table the customer, the provider portal and the reconcile cron read.
+ * `SALE_SOURCES` maps the edit form's generic fields onto that table's own
+ * column names.
  */
 
-export type SaleService = "food" | "cleaning" | "beach";
+export type SaleService = "food" | "cleaning" | "beach" | "plan" | "cars";
 
 export interface SaleRow {
   id: string;
   kind: "subscription" | "booking";
-  /** Universal `providers.id`, resolved from the legacy id via the bridge. */
+  /** Universal `providers.id`, straight from the view. */
   provider_id: string;
-  /** Legacy plan id — `food_meal_plans`, `cleaning_packages`, … */
   plan_id: string | null;
   plan_name: string | null;
   user_id: string | null;
@@ -39,6 +32,7 @@ export interface SaleRow {
   customer_name: string | null;
   start_date: string | null;
   end_date: string | null;
+  /** EFFECTIVE lifecycle — a period that ended yesterday reads `expired`. */
   status: string;
   payment_status: string;
   payment_method: string | null;
@@ -52,43 +46,43 @@ export interface SaleRow {
 export interface SaleSource {
   service: SaleService;
   table: string;
-  kind: "subscription" | "booking";
   /** Column holding the lifecycle status — cleaning calls it subscription_status. */
   statusCol: string;
   startCol: string;
   endCol: string;
   priceCol: string;
-  /**
-   * Value of `providers.source_service_key` for this service. Not necessarily
-   * the service name — keep them separate, they have drifted before.
-   */
-  bridgeKey: string;
-  /** Plan table, used for the plan name and as a provider fallback. */
-  planTable: string;
 }
 
 export const SALE_SOURCES: Record<SaleService, SaleSource> = {
   food: {
-    service: "food", table: "food_subscriptions", kind: "subscription",
+    service: "food", table: "food_subscriptions",
     statusCol: "status", startCol: "started_at", endCol: "end_date",
-    bridgeKey: "food", planTable: "food_meal_plans",
     // Food prices are per week; the row's total is weekly × commitment. There
     // is no total column to write to, so the edit form's price maps to the
-    // weekly rate — see priceToPatch below.
+    // weekly rate — see buildSalePatch below.
     priceCol: "weekly_price_cents",
   },
   cleaning: {
-    service: "cleaning", table: "cleaning_subscriptions", kind: "subscription",
+    service: "cleaning", table: "cleaning_subscriptions",
     statusCol: "subscription_status", startCol: "service_start_date", endCol: "service_end_date",
     priceCol: "total_price_cents",
-    bridgeKey: "cleaning", planTable: "cleaning_packages",
   },
   beach: {
-    // Universal row, read under the legacy names (see the query below).
-    service: "beach", table: "provider_subscriptions", kind: "subscription",
+    service: "beach", table: "provider_subscriptions",
+    statusCol: "status", startCol: "start_date", endCol: "end_date",
+    priceCol: "price_cents",
+  },
+  // Universal-only services (spa, one-time offers, every new archetype) —
+  // same table as beach, source_service_key IS NULL.
+  plan: {
+    service: "plan", table: "provider_subscriptions",
+    statusCol: "status", startCol: "start_date", endCol: "end_date",
+    priceCol: "price_cents",
+  },
+  cars: {
+    service: "cars", table: "rental_bookings",
     statusCol: "status", startCol: "start_date", endCol: "end_date",
     priceCol: "total_cents",
-    bridgeKey: "beach", planTable: "beach_club_plans",
   },
 };
 
@@ -101,157 +95,37 @@ const num = (v: unknown): number | null => {
 };
 
 /**
- * Legacy provider id → universal `providers.id`.
+ * Read every sale across every service, newest first.
  *
- * The two id-spaces are not the same, and the page's Provider column and
- * service filter both key off the universal one. Beach is platform-owned and
- * carries no provider on the row, so it resolves by service alone.
- */
-async function buildProviderBridge() {
-  const { data } = await supabaseDb
-    .from("providers")
-    .select("id, source_service_key, source_provider_id");
-  const byLegacy = new Map<string, string>();
-  const byService = new Map<string, string>();
-  (data ?? []).forEach((p: any) => {
-    if (p.source_service_key && p.source_provider_id) {
-      byLegacy.set(`${p.source_service_key}:${p.source_provider_id}`, p.id);
-    }
-    if (p.source_service_key && !byService.has(p.source_service_key)) {
-      byService.set(p.source_service_key, p.id);
-    }
-  });
-  return {
-    resolve(service: SaleService, legacyProviderId: string | null | undefined): string {
-      const key = SALE_SOURCES[service].bridgeKey;
-      if (legacyProviderId) {
-        const hit = byLegacy.get(`${key}:${legacyProviderId}`);
-        if (hit) return hit;
-      }
-      // Last resort. Only correct where the service has a single provider —
-      // cleaning has two, which is why callers resolve through the plan first.
-      return byService.get(key) ?? "";
-    },
-  };
-}
-
-/**
- * Plan id → { name, provider_id }.
- *
- * The provider half matters because 8 of 19 cleaning subscriptions carry no
- * `provider_id` of their own. Cleaning has two providers, so guessing by
- * service would have filed all eight under one of them — and one of those
- * eight really belongs to the other.
- */
-async function loadPlans(table: string): Promise<Map<string, { name: string | null; provider_id: string | null }>> {
-  const withProvider = table !== "beach_club_plans"; // platform-owned, no provider column
-  const { data } = await supabaseDb
-    .from(table)
-    .select(withProvider ? "id, name, provider_id" : "id, name");
-  return new Map((data ?? []).map((r: any) => [
-    String(r.id),
-    { name: r.name ?? null, provider_id: withProvider ? r.provider_id ?? null : null },
-  ]));
-}
-
-/**
- * Read every sale across every service.
- *
- * Paged: this feeds counts and totals in the header, and a plain `.select()`
- * is silently truncated at 1000 rows with a 200 — the arithmetic would just
- * quietly be wrong.
+ * Paged: this feeds counts and totals, and a plain `.select()` is silently
+ * truncated at 1000 rows with a 200 — the arithmetic would just be wrong.
  */
 export async function fetchMarketplaceSales(): Promise<SaleRow[]> {
-  const [bridge, mealPlans, packages, beachPlans, cleaningClients] = await Promise.all([
-    buildProviderBridge(),
-    loadPlans("food_meal_plans"),
-    loadPlans("cleaning_packages"),
-    loadPlans("beach_club_plans"),
-    // Company bookings have no user at all — the name lives on the client
-    // record, and without it those rows rendered as a bare "—".
-    supabaseDb.from("cleaning_clients").select("id,company_name,contact_person")
-      .then(({ data }) => new Map((data ?? []).map((c: any) =>
-        [String(c.id), (c.company_name || c.contact_person || null) as string | null]))),
-  ]);
+  const rows = await fetchAllRows<any>(() => supabaseDb
+    .from("subscriptions_unified")
+    .select("service,id,kind,provider_id,plan_id,plan_name,user_id,customer_name,starts_on,ends_on,status,payment_status,payment_method,payment_reference,price_cents,created_at")
+    .order("id"));
 
-  const [food, cleaning, beach] = await Promise.all([
-    fetchAllRows<any>(() => supabaseDb
-      .from("food_subscriptions")
-      .select("id,provider_id,meal_plan_id,user_id,customer_name,status,payment_status,payment_method,payment_reference,started_at,end_date,weekly_price_cents,commitment_weeks,created_at")
-      .order("created_at", { ascending: false }).order("id", { ascending: false })),
-    fetchAllRows<any>(() => supabaseDb
-      .from("cleaning_subscriptions")
-      .select("id,provider_id,package_id,user_id,client_id,subscription_status,payment_status,payment_method,payment_reference,service_start_date,service_end_date,paid_until,end_date,total_price_cents,monthly_price_cents,created_at")
-      .order("created_at", { ascending: false }).order("id", { ascending: false })),
-    fetchAllRows<any>(() => supabaseDb
-      .from("provider_subscriptions")
-      // Aliased: the row keeps the plan name, the buyer and the headcount in
-      // one metadata object, and this file's mapping speaks legacy columns.
-      .select("id,user_id,status,payment_status,payment_method,payment_reference,start_date,end_date,created_at,total_cents:price_cents,plan_name:metadata->>plan_name,customer_name:metadata->>customer_name,provider_plans(source_plan_id)")
-      .eq("source_service_key", "beach")
-      .order("created_at", { ascending: false }).order("id", { ascending: false })),
-  ]);
-
-  const rows: SaleRow[] = [];
-
-  food.forEach((r) => rows.push({
-    id: r.id, kind: "subscription",
-    provider_id: bridge.resolve("food", r.provider_id ?? mealPlans.get(String(r.meal_plan_id))?.provider_id),
-    plan_id: r.meal_plan_id ?? null,
-    plan_name: mealPlans.get(String(r.meal_plan_id))?.name ?? null,
-    user_id: r.user_id ?? null,
-    customer_name: r.customer_name ?? null,
-    start_date: day(r.started_at), end_date: day(r.end_date),
-    status: r.status ?? "unknown",
-    payment_status: r.payment_status ?? "pending",
-    payment_method: r.payment_method ?? null,
-    // Weekly × committed weeks — the same total the customer was charged and
-    // the food provider's own list shows.
-    price_cents: num(Number(r.weekly_price_cents || 0) * Math.max(Number(r.commitment_weeks) || 1, 1)),
-    payment_reference: r.payment_reference ?? null,
-    source_service_key: "food", created_at: r.created_at,
-  }));
-
-  cleaning.forEach((r) => rows.push({
-    id: r.id, kind: "subscription",
-    // The package's provider when the row has none — see loadPlans.
-    provider_id: bridge.resolve("cleaning", r.provider_id ?? packages.get(String(r.package_id))?.provider_id),
-    plan_id: r.package_id ?? null,
-    plan_name: packages.get(String(r.package_id))?.name ?? null,
-    user_id: r.user_id ?? null,
-    customer_name: r.client_id ? cleaningClients.get(String(r.client_id)) ?? null : null,
-    start_date: day(r.service_start_date),
-    // paid_until is the authoritative period end when it's set; the other two
-    // are what older rows carry.
-    end_date: day(r.paid_until ?? r.service_end_date ?? r.end_date),
-    status: r.subscription_status ?? "unknown",
-    payment_status: r.payment_status ?? "pending",
-    payment_method: r.payment_method ?? null,
-    price_cents: num(r.total_price_cents ?? r.monthly_price_cents),
-    payment_reference: r.payment_reference ?? null,
-    source_service_key: "cleaning", created_at: r.created_at,
-  }));
-
-  beach.forEach((r) => rows.push({
-    id: r.id, kind: "subscription",
-    provider_id: bridge.resolve("beach", null),
-    // The legacy plan id, which is what every other sale row here carries.
-    plan_id: r.provider_plans?.source_plan_id ?? null,
-    plan_name: r.plan_name ?? beachPlans.get(String(r.provider_plans?.source_plan_id))?.name ?? null,
-    user_id: r.user_id ?? null,
-    customer_name: r.customer_name ?? null,
-    start_date: day(r.start_date), end_date: day(r.end_date),
-    status: r.status ?? "unknown",
-    payment_status: r.payment_status ?? "pending",
-    payment_method: r.payment_method ?? null,
-    price_cents: num(r.total_cents),
-    payment_reference: r.payment_reference ?? null,
-    source_service_key: "beach", created_at: r.created_at,
-  }));
-
-  // One list, newest first, so the table's default sort is meaningful across
-  // services rather than grouped by whichever query returned first.
-  return rows.sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+  return rows
+    .map((r): SaleRow => ({
+      id: String(r.id),
+      kind: r.kind === "booking" ? "booking" : "subscription",
+      provider_id: r.provider_id ? String(r.provider_id) : "",
+      plan_id: r.plan_id ?? null,
+      plan_name: r.plan_name ?? null,
+      user_id: r.user_id ?? null,
+      customer_name: r.customer_name ?? null,
+      start_date: day(r.starts_on),
+      end_date: day(r.ends_on),
+      status: r.status ?? "unknown",
+      payment_status: r.payment_status ?? "pending",
+      payment_method: r.payment_method ?? null,
+      price_cents: num(r.price_cents),
+      payment_reference: r.payment_reference ?? null,
+      source_service_key: (r.service ?? "plan") as SaleService,
+      created_at: r.created_at,
+    }))
+    .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
 }
 
 /**
