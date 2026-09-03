@@ -6,6 +6,9 @@ import { toast } from "sonner";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { AdminListShell } from "@/components/admin/AdminListShell";
 import { usePagination, TablePagination } from "@/components/ui/table-pagination";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
 import { SaleOriginBadge, isFromBuildersNode } from "@/components/patterns/SaleOrigin";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -310,30 +313,30 @@ const MarketplaceSubscriptions = () => {
           emptyTitle="No sales yet" emptySubtitle="Subscriptions and bookings will appear here."
           onClearFilters={() => { setSearch(""); setService("all"); setStatus("all"); setPayment("all"); setKind("all"); setOrigin("all"); }}
         >
-          <div className="overflow-x-auto rounded-radius-md border border-border">
-            <table className="w-full min-w-[900px] text-sm">
-              <thead>
-                <tr className="border-b border-border bg-muted/40 text-left">
+          <div>
+            <Table className="min-w-[900px]">
+              <TableHeader>
+                <TableRow>
                   <SortHeader label="Customer" sortKey="name" active={sortBy} dir={sortDir} onSort={toggleSort} />
-                  <th className="px-4 py-3 font-bold text-muted-foreground">Plan</th>
-                  <th className="px-4 py-3 font-bold text-muted-foreground">Provider</th>
+                  <TableHead className="px-4 py-3">Plan</TableHead>
+                  <TableHead className="px-4 py-3">Provider</TableHead>
                   <SortHeader label="Service" sortKey="service" active={sortBy} dir={sortDir} onSort={toggleSort} />
-                  <th className="px-4 py-3 font-bold text-muted-foreground">Type</th>
+                  <TableHead className="px-4 py-3">Type</TableHead>
                   <SortHeader label="Period" sortKey="date" active={sortBy} dir={sortDir} onSort={toggleSort} />
-                  <th className="px-4 py-3 font-bold text-muted-foreground">Stage</th>
-                  <th className="px-4 py-3 text-right font-bold text-muted-foreground">Amount</th>
-                  <th className="w-10 px-2 py-3" aria-label="Actions" />
-                </tr>
-              </thead>
-              <tbody>
+                  <TableHead className="px-4 py-3">Stage</TableHead>
+                  <TableHead className="px-4 py-3 text-right">Amount</TableHead>
+                  <TableHead className="w-10 px-2 py-3" aria-label="Actions" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {pager.paged.map((s) => {
                   const prov = providerById.get(s.provider_id);
                   const arche = prov ? archetypes.find((a) => a.key === prov.archetype_key) : undefined;
                   const AIcon = arche?.Icon ?? Building2;
                   const stage = subscriptionStage(s);
                   return (
-                    <tr key={s.id} className="border-b border-border/60 last:border-0 hover:bg-muted/30">
-                      <td className="px-4 py-3 font-semibold text-foreground">
+                    <TableRow key={s.id} className="border-b border-border/60 last:border-0 hover:bg-muted/30">
+                      <TableCell className="px-4 py-3 font-semibold text-foreground">
                         <span className="flex flex-wrap items-center gap-2">
                           {s.user_id ? (
                             <Link
@@ -347,11 +350,11 @@ const MarketplaceSubscriptions = () => {
                           )}
                           <SaleOriginBadge paymentReference={s.payment_reference} />
                         </span>
-                      </td>
-                      <td className="px-4 py-3">
+                      </TableCell>
+                      <TableCell className="px-4 py-3">
                         {s.plan_name ?? <em className="italic text-muted-foreground/70">no plan</em>}
-                      </td>
-                      <td className="px-4 py-3 text-muted-foreground">
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-muted-foreground">
                         {prov ? (
                           <Link
                             to={`/admin/marketplace/providers?id=${encodeURIComponent(prov.id)}`}
@@ -362,36 +365,36 @@ const MarketplaceSubscriptions = () => {
                         ) : (
                           "—"
                         )}
-                      </td>
-                      <td className="px-4 py-3">
+                      </TableCell>
+                      <TableCell className="px-4 py-3">
                         <span className="inline-flex items-center gap-1.5">
                           <span className={cn("flex h-5 w-5 shrink-0 items-center justify-center rounded-md", arche?.accent ?? "bg-muted")}>
                             <AIcon className="h-3 w-3 text-white" />
                           </span>
                           <span className="text-muted-foreground">{arche?.label ?? "—"}</span>
                         </span>
-                      </td>
-                      <td className="px-4 py-3">
+                      </TableCell>
+                      <TableCell className="px-4 py-3">
                         <span className={cn(
                           "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider",
                           s.kind === "booking" ? "bg-amber-500/15 text-amber-400" : "bg-sky-500/15 text-sky-400",
                         )}>{s.kind === "booking" ? "Booking" : "Sub"}</span>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-xs text-muted-foreground">
+                      </TableCell>
+                      <TableCell className="px-4 py-3 whitespace-nowrap text-xs text-muted-foreground">
                         {s.start_date ? `${s.start_date}${s.end_date ? " → " + s.end_date : ""}` : "—"}
-                      </td>
-                      <td className="px-4 py-3">
+                      </TableCell>
+                      <TableCell className="px-4 py-3">
                         <div className="flex flex-wrap items-center gap-1.5">
                           <Badge className={`rounded-full text-xs ${stage.className}`}>{stage.label}</Badge>
                           {s.payment_method && (
                             <Badge variant="outline" className="rounded-full text-[10px] uppercase">{s.payment_method}</Badge>
                           )}
                         </div>
-                      </td>
-                      <td className="px-4 py-3 text-right font-black text-foreground whitespace-nowrap">
+                      </TableCell>
+                      <TableCell className="px-4 py-3 text-right font-black text-foreground whitespace-nowrap">
                         {typeof s.price_cents === "number" ? formatUSD(s.price_cents) : "—"}
-                      </td>
-                      <td className="px-2 py-3">
+                      </TableCell>
+                      <TableCell className="px-2 py-3">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <button
@@ -411,12 +414,12 @@ const MarketplaceSubscriptions = () => {
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   );
                 })}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
           <TablePagination {...pager} onPage={pager.setPage} />
         </AdminListShell>
@@ -588,7 +591,7 @@ function SortHeader({
   const isActive = active === sortKey;
   const Icon = !isActive ? ChevronsUpDown : dir === "asc" ? ChevronUp : ChevronDown;
   return (
-    <th className="px-4 py-3 font-bold text-muted-foreground">
+    <TableHead className="px-4 py-3">
       <button
         type="button"
         onClick={() => onSort(sortKey)}
@@ -600,7 +603,7 @@ function SortHeader({
         {label}
         <Icon className={cn("h-3.5 w-3.5", !isActive && "text-muted-foreground/50")} />
       </button>
-    </th>
+    </TableHead>
   );
 }
 

@@ -10,6 +10,9 @@ import {
 } from "@/lib/analytics/platformRollup";
 import { formatUSD } from "@/lib/pricing";
 import { nowHN } from "@/lib/timezone";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
 
 /**
  * The platform, as one set of figures — in the same layout, in the same order,
@@ -65,45 +68,45 @@ export function PlatformAnalytics() {
       details={{
         title: "By service",
         children: (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[560px] text-[16px] leading-[22px]">
-              <thead>
-                <tr className="border-b border-border text-left text-muted-foreground">
-                  <th className="px-3 py-2 font-normal">Service</th>
-                  <th className="px-3 py-2 text-right font-normal">Revenue</th>
-                  <th className="px-3 py-2 text-right font-normal">{monthLabel}</th>
-                  <th className="px-3 py-2 text-right font-normal">Active</th>
-                  <th className="px-3 py-2 text-right font-normal">Subs</th>
-                  <th className="px-3 py-2 text-right font-normal">Customers</th>
-                  <th className="px-3 py-2 text-right font-normal">Awaiting</th>
-                  <th className="w-10 px-3 py-2" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
+          <div>
+            <Table className="min-w-[560px]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="px-3 py-2">Service</TableHead>
+                  <TableHead className="px-3 py-2 text-right">Revenue</TableHead>
+                  <TableHead className="px-3 py-2 text-right">{monthLabel}</TableHead>
+                  <TableHead className="px-3 py-2 text-right">Active</TableHead>
+                  <TableHead className="px-3 py-2 text-right">Subs</TableHead>
+                  <TableHead className="px-3 py-2 text-right">Customers</TableHead>
+                  <TableHead className="px-3 py-2 text-right">Awaiting</TableHead>
+                  <TableHead className="w-10 px-3 py-2" />
+                </TableRow>
+              </TableHeader>
+              <TableBody className="divide-y divide-border">
                 {services.map((s) => (
-                  <tr key={s.key} className="transition-colors hover:bg-muted/40">
-                    <td className="px-3 py-3">
+                  <TableRow key={s.key} className="transition-colors hover:bg-muted/40">
+                    <TableCell className="px-3 py-3">
                       <Link to={`/admin/analytics?service=${s.key}`} className="font-semibold text-foreground">
                         {s.label}
                       </Link>
-                    </td>
-                    <td className="px-3 py-3 text-right font-semibold tabular-nums text-foreground">{formatUSD(s.revenueCents)}</td>
-                    <td className="px-3 py-3 text-right tabular-nums text-muted-foreground">{formatUSD(s.monthRevenueCents)}</td>
-                    <td className="px-3 py-3 text-right tabular-nums text-foreground">{s.active}</td>
-                    <td className="px-3 py-3 text-right tabular-nums text-muted-foreground">{s.subs}</td>
-                    <td className="px-3 py-3 text-right tabular-nums text-muted-foreground">{s.customers}</td>
-                    <td className={`px-3 py-3 text-right tabular-nums ${s.awaitingPayment > 0 ? "text-amber-500" : "text-muted-foreground"}`}>
+                    </TableCell>
+                    <TableCell className="px-3 py-3 text-right font-semibold tabular-nums text-foreground">{formatUSD(s.revenueCents)}</TableCell>
+                    <TableCell className="px-3 py-3 text-right tabular-nums text-muted-foreground">{formatUSD(s.monthRevenueCents)}</TableCell>
+                    <TableCell className="px-3 py-3 text-right tabular-nums text-foreground">{s.active}</TableCell>
+                    <TableCell className="px-3 py-3 text-right tabular-nums text-muted-foreground">{s.subs}</TableCell>
+                    <TableCell className="px-3 py-3 text-right tabular-nums text-muted-foreground">{s.customers}</TableCell>
+                    <TableCell className={`px-3 py-3 text-right tabular-nums ${s.awaitingPayment > 0 ? "text-amber-500" : "text-muted-foreground"}`}>
                       {s.awaitingPayment}
-                    </td>
-                    <td className="px-3 py-3">
+                    </TableCell>
+                    <TableCell className="px-3 py-3">
                       <Link to={`/admin/analytics?service=${s.key}`} aria-label={`Open ${s.label} analytics`}>
                         <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
                       </Link>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         ),
       }}

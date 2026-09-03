@@ -13,6 +13,9 @@ import { formatUSD } from "@/lib/pricing";
 import { recognizedCents, addDaysISO } from "@/lib/revenueRecognition";
 import { cn } from "@/lib/utils";
 import { fetchUsersByIds } from "@/lib/admin/customerNames";
+import {
+  Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
 
 type RangeKey = "week" | "month" | "custom";
 
@@ -461,54 +464,54 @@ export function FinanceBreakdown() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border/60 text-left text-xs uppercase tracking-wide text-muted-foreground">
-                <th className="py-2 pr-4 font-semibold">Service</th>
+        <div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="py-2 pr-4">Service</TableHead>
                 {METHODS.map((m) => (
-                  <th key={m.key} className="px-3 py-2 text-right font-semibold">{m.label}</th>
+                  <TableHead key={m.key} className="px-3 py-2 text-right">{m.label}</TableHead>
                 ))}
-                <th className="pl-3 py-2 text-right font-semibold">Total</th>
-              </tr>
-            </thead>
-            <tbody className={cn(isLoading && "opacity-50")}>
+                <TableHead className="pl-3 py-2 text-right">Total</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody className={cn(isLoading && "opacity-50")}>
               {CATEGORIES.map((c) => {
                 const Icon = c.icon;
                 return (
-                  <tr key={c.key} className="border-b border-border/40">
-                    <td className="py-2.5 pr-4">
+                  <TableRow key={c.key} className="border-b border-border/40">
+                    <TableCell className="py-2.5 pr-4">
                       <span className="flex items-center gap-2 font-semibold text-foreground">
                         <Icon className={cn("h-4 w-4", c.color)} />
                         {c.label}
                       </span>
-                    </td>
+                    </TableCell>
                     {METHODS.map((m) => (
-                      <td key={m.key} className={cn("px-3 py-2.5 text-right tabular-nums", matrix[c.key][m.key] ? "text-foreground" : "text-muted-foreground/40")}>
+                      <TableCell key={m.key} className={cn("px-3 py-2.5 text-right tabular-nums", matrix[c.key][m.key] ? "text-foreground" : "text-muted-foreground/40")}>
                         {matrix[c.key][m.key] ? formatUSD(matrix[c.key][m.key]) : "—"}
-                      </td>
+                      </TableCell>
                     ))}
-                    <td className="pl-3 py-2.5 text-right font-bold tabular-nums text-foreground">
+                    <TableCell className="pl-3 py-2.5 text-right font-bold tabular-nums text-foreground">
                       {categoryTotal(c.key) ? formatUSD(categoryTotal(c.key)) : "—"}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 );
               })}
-            </tbody>
-            <tfoot>
-              <tr className="border-t border-border text-foreground">
-                <td className="py-2.5 pr-4 font-bold">Total</td>
+            </TableBody>
+            <TableFooter>
+              <TableRow className="border-t border-border text-foreground">
+                <TableCell className="py-2.5 pr-4 font-bold">Total</TableCell>
                 {METHODS.map((m) => (
-                  <td key={m.key} className="px-3 py-2.5 text-right font-bold tabular-nums">
+                  <TableCell key={m.key} className="px-3 py-2.5 text-right font-bold tabular-nums">
                     {methodTotals(m.key) ? formatUSD(methodTotals(m.key)) : "—"}
-                  </td>
+                  </TableCell>
                 ))}
-                <td className="pl-3 py-2.5 text-right font-black tabular-nums text-primary">
+                <TableCell className="pl-3 py-2.5 text-right font-black tabular-nums text-primary">
                   {formatUSD(grandTotal)}
-                </td>
-              </tr>
-            </tfoot>
-          </table>
+                </TableCell>
+              </TableRow>
+            </TableFooter>
+          </Table>
         </div>
       </CardContent>
     </Card>

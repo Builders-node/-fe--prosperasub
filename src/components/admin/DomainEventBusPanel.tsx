@@ -2,6 +2,9 @@ import { useQuery } from "@tanstack/react-query";
 import { Activity } from "lucide-react";
 import { adminApi } from "@/integrations/supabase/client";
 import { formatUSD } from "@/lib/pricing";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
 
 interface Summary { totals: Array<{ type: string; total: number }>; grandTotal: number }
 interface Revenue { totalCents: number; byMethod: Array<{ method: string; cents: number }> }
@@ -48,20 +51,20 @@ export function DomainEventBusPanel() {
             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Events by type</span>
             <span className="text-sm tabular-nums text-muted-foreground">{summary?.grandTotal ?? 0} total</span>
           </div>
-          <div className="overflow-x-auto rounded-radius-md bg-muted/30">
-            <table className="w-full text-sm">
-              <tbody>
+          <div>
+            <Table>
+              <TableBody>
                 {(summary?.totals ?? []).slice(0, 12).map((r) => (
-                  <tr key={r.type} className="border-b border-border/40 last:border-0">
-                    <td className="px-3 py-1.5 font-mono text-xs text-foreground">{r.type}</td>
-                    <td className="px-3 py-1.5 text-right tabular-nums">{r.total}</td>
-                  </tr>
+                  <TableRow key={r.type}>
+                    <TableCell className="px-3 py-1.5 font-mono text-xs text-foreground">{r.type}</TableCell>
+                    <TableCell className="px-3 py-1.5 text-right tabular-nums">{r.total}</TableCell>
+                  </TableRow>
                 ))}
                 {(!summary || summary.totals.length === 0) && (
-                  <tr><td className="px-3 py-3 text-sm text-muted-foreground">No events yet — they appear as payments/bookings happen.</td></tr>
+                  <TableRow><TableCell className="px-3 py-3 text-sm text-muted-foreground">No events yet — they appear as payments/bookings happen.</TableCell></TableRow>
                 )}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         </div>
 
@@ -70,20 +73,20 @@ export function DomainEventBusPanel() {
             <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Revenue by method (projection)</span>
             <span className="text-sm font-bold tabular-nums text-primary">{formatUSD(revenue?.totalCents ?? 0)}</span>
           </div>
-          <div className="overflow-x-auto rounded-radius-md bg-muted/30">
-            <table className="w-full text-sm">
-              <tbody>
+          <div>
+            <Table>
+              <TableBody>
                 {(revenue?.byMethod ?? []).map((r) => (
-                  <tr key={r.method} className="border-b border-border/40 last:border-0">
-                    <td className="px-3 py-1.5 capitalize text-foreground">{r.method}</td>
-                    <td className="px-3 py-1.5 text-right font-mono tabular-nums">{formatUSD(r.cents)}</td>
-                  </tr>
+                  <TableRow key={r.method}>
+                    <TableCell className="px-3 py-1.5 capitalize text-foreground">{r.method}</TableCell>
+                    <TableCell className="px-3 py-1.5 text-right font-mono tabular-nums">{formatUSD(r.cents)}</TableCell>
+                  </TableRow>
                 ))}
                 {(!revenue || revenue.byMethod.length === 0) && (
-                  <tr><td className="px-3 py-3 text-sm text-muted-foreground">No captured revenue in the projection yet.</td></tr>
+                  <TableRow><TableCell className="px-3 py-3 text-sm text-muted-foreground">No captured revenue in the projection yet.</TableCell></TableRow>
                 )}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         </div>
       </div>

@@ -16,6 +16,9 @@ import { formatUSD } from "@/lib/pricing";
 import { commissionPct, splitTake, DEFAULT_COMMISSION_KEY, DEFAULT_COMMISSION_PCT } from "@/lib/finance/platformTake";
 import { fetchEarned } from "@/lib/finance/providerEarnings";
 import { cn } from "@/lib/utils";
+import {
+  Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
 import { toast } from "sonner";
 
 /**
@@ -267,38 +270,38 @@ export function NetProfitPanel() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[520px] text-sm">
-              <thead>
-                <tr className="border-b border-border/60 text-left text-xs uppercase tracking-wide text-muted-foreground">
-                  <th className="py-2 pr-4 font-semibold">Business</th>
-                  <th className="px-3 py-2 text-right font-semibold">Revenue</th>
-                  <th className="px-3 py-2 text-right font-semibold">Rate</th>
-                  <th className="px-3 py-2 text-right font-semibold">Our commission</th>
-                  <th className="px-3 py-2 text-right font-semibold">They keep</th>
-                </tr>
-              </thead>
-              <tbody className={cn(isLoading && "opacity-50")}>
+          <div>
+            <Table className="min-w-[520px]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="py-2 pr-4">Business</TableHead>
+                  <TableHead className="px-3 py-2 text-right">Revenue</TableHead>
+                  <TableHead className="px-3 py-2 text-right">Rate</TableHead>
+                  <TableHead className="px-3 py-2 text-right">Our commission</TableHead>
+                  <TableHead className="px-3 py-2 text-right">They keep</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody className={cn(isLoading && "opacity-50")}>
                 {(earning.length ? earning : rows).map((row) => (
-                  <tr key={row.id} className="border-b border-border/40">
-                    <td className="py-2.5 pr-4 font-semibold text-foreground">{row.name}</td>
-                    <td className="px-3 py-2.5 text-right font-mono tabular-nums text-foreground">{formatUSD(row.revenue)}</td>
-                    <td className="px-3 py-2.5 text-right font-mono tabular-nums text-muted-foreground">{row.pct}%</td>
-                    <td className="px-3 py-2.5 text-right font-mono font-bold tabular-nums text-primary">{money(row.ours)}</td>
-                    <td className="px-3 py-2.5 text-right font-mono tabular-nums text-muted-foreground">{formatUSD(row.theirs)}</td>
-                  </tr>
+                  <TableRow key={row.id} className="border-b border-border/40">
+                    <TableCell className="py-2.5 pr-4 font-semibold text-foreground">{row.name}</TableCell>
+                    <TableCell className="px-3 py-2.5 text-right font-mono tabular-nums text-foreground">{formatUSD(row.revenue)}</TableCell>
+                    <TableCell className="px-3 py-2.5 text-right font-mono tabular-nums text-muted-foreground">{row.pct}%</TableCell>
+                    <TableCell className="px-3 py-2.5 text-right font-mono font-bold tabular-nums text-primary">{money(row.ours)}</TableCell>
+                    <TableCell className="px-3 py-2.5 text-right font-mono tabular-nums text-muted-foreground">{formatUSD(row.theirs)}</TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-              <tfoot>
-                <tr className="border-t border-border text-foreground">
-                  <td className="py-2.5 pr-4 font-bold">Total</td>
-                  <td className="px-3 py-2.5 text-right font-mono font-bold tabular-nums">{formatUSD(totalRevenue)}</td>
-                  <td />
-                  <td className="px-3 py-2.5 text-right font-mono font-black tabular-nums text-primary">{money(netProfit)}</td>
-                  <td className="px-3 py-2.5 text-right font-mono font-bold tabular-nums">{formatUSD(toProviders)}</td>
-                </tr>
-              </tfoot>
-            </table>
+              </TableBody>
+              <TableFooter>
+                <TableRow className="border-t border-border text-foreground">
+                  <TableCell className="py-2.5 pr-4 font-bold">Total</TableCell>
+                  <TableCell className="px-3 py-2.5 text-right font-mono font-bold tabular-nums">{formatUSD(totalRevenue)}</TableCell>
+                  <TableCell />
+                  <TableCell className="px-3 py-2.5 text-right font-mono font-black tabular-nums text-primary">{money(netProfit)}</TableCell>
+                  <TableCell className="px-3 py-2.5 text-right font-mono font-bold tabular-nums">{formatUSD(toProviders)}</TableCell>
+                </TableRow>
+              </TableFooter>
+            </Table>
           </div>
         </CardContent>
       </Card>
