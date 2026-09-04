@@ -28,7 +28,7 @@ import { resolveMonthlyPriceCents } from "@/lib/cleaningPlanPricing";
 import { formatUSD } from "@/lib/pricing";
 import { LinkifiedText } from "@/components/patterns/LinkifiedText";
 import { VehicleCard, useVehicles, useVehicleTypes } from "@/features/vehicles";
-import { isTransportProvider } from "@/lib/services/transport";
+import { isVehiclesProvider, VEHICLES_LABEL } from "@/lib/services/vehiclesUnit";
 import { carProviderPath } from "@/features/vehicles";
 import { YdSectionHeading } from "@/components/yd/YdPrimitives";
 import { useTabParam } from "@/hooks/useTabParam";
@@ -198,6 +198,8 @@ const ProviderDetail = () => {
   // In the URL, so a reload — or a link to this provider's gallery — lands
   // where it should. See useTabParam.
   const [tab, setTab] = useTabParam<TabKey>(["plans", "reviews", "gallery"]);
+  // "Plans" for a service, "Vehicles" for a fleet — the same three tabs, named
+  // after what the business sells (SERVICE_META.offeringsHeading).
   /**
    * Whether the bar has left the photograph behind.
    *
@@ -216,7 +218,14 @@ const ProviderDetail = () => {
   const { archetypeKey: serviceSegment, providerId } = useParams<{ archetypeKey: string; providerId: string }>();
   // `beach-club` and `entertainment` are the same service. Resolve to the
   // canonical key once, here.
-  const archetypeKey = archetypeFromSlug(serviceSegment);
+  /**
+   * Which vertical this page is showing.
+   *
+   * Normally the URL says so (/services/<slug>/providers/<id>). The transport
+   * unit owns its own address (/vehicles/providers/<id>) and carries no slug,
+   * so an absent segment is not a wrong URL there — the provider row decides.
+   */
+  const archetypeKey = serviceSegment ? archetypeFromSlug(serviceSegment) : "rental";
 
   const providerQ = useQuery({
     queryKey: ["provider-detail", providerId],
@@ -233,7 +242,11 @@ const ProviderDetail = () => {
     enabled: !!providerId,
   });
 
-  const meta = serviceMetaFromSlug(serviceSegment) ?? FALLBACK_META;
+  // Inside the unit there is no slug in the URL, and a transport provider has
+  // no archetype to derive one from — it names its own vertical instead.
+  const meta = serviceMetaFromSlug(
+    serviceSegment ?? (isVehiclesProvider(providerQ.data) ? "vehicles" : undefined),
+  ) ?? FALLBACK_META;
   // Where the visitor actually was; the listing is only the cold-landing
   // fallback. See hooks/useGoBack.
   const goBack = useGoBack(meta.listingRoute);
@@ -272,14 +285,16 @@ const ProviderDetail = () => {
    * business gets. Declared unconditionally per the Rules of Hooks; fetches
    * only when the business turns out to rent cars.
    */
-  const isVehicles = isTransportProvider(providerQ.data);
+  const isVehicles = isVehiclesProvider(providerQ.data);
   /**
-   * A rental business has its own page inside its own unit, at
-   * /vehicles/providers/<id>. This URL is the marketplace's shape and only
-   * still resolves because the slug map predates the split — so it hands over
-   * rather than rendering a second copy of the same business.
+   * The canonical address of a rental business is inside its own unit
+   * (/vehicles/providers/<id>). THIS component renders both — one design for
+   * every provider on the platform — so the redirect fires only when we were
+   * reached through the marketplace's URL shape, which is what
+   * `serviceSegment` being present means. Without that guard the unit's route
+   * would redirect to itself.
    */
-  const transportHome = isVehicles && providerQ.data?.id
+  const transportHome = isVehicles && serviceSegment && providerQ.data?.id
     ? carProviderPath(providerQ.data.id)
     : null;
   const vehiclesQ = useVehicles({ providerId, enabled: !!providerId && isVehicles });
@@ -350,8 +365,9 @@ const ProviderDetail = () => {
   // ── Loading / not-found (mirror FoodProviderDetail) ──────────────────────
   // An unknown service segment is a wrong URL, not an empty business. Saying so
   // beats the old silent fallback, which rendered a bare "Offerings" heading
-  // over nothing and looked like the provider had simply stopped trading.
-  if (!archetypeKey) {
+  // over nothing and looked like the provider had simply stopped trading. A
+  // MISSING segment is not unknown — see archetypeKey above.
+  if (serviceSegment && !archetypeKey) {
     return (
       <BrowseLayout className="md:pb-0">
         <HomeHeader title="Not found" showBackButton onBack={goBack} />
@@ -439,10 +455,13 @@ const ProviderDetail = () => {
   const reviewService: ProviderReviewService =
     archetypeKey === "cleaning" ? "cleaning" :
     archetypeKey === "entertainment" ? "beach" :
-    archetypeKey === "food" ? "food" : "plan";
+    archetypeKey === "food" ? "food" :
+    isVehicles ? "cars" : "plan";
   // "Cleaning", "Food", "Beach Club" — the word the customer arrived through.
-  const serviceLabel = serviceSlug(archetypeKey ?? "")
-    .split("-").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+  const serviceLabel = isVehicles
+    ? VEHICLES_LABEL
+    : serviceSlug(archetypeKey ?? "")
+        .split("-").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
   const gallery = Array.isArray(p.gallery_urls)
     ? p.gallery_urls.filter((u): u is string => typeof u === "string" && !!u.trim())
     : [];
@@ -569,7 +588,7 @@ const ProviderDetail = () => {
           {/* One segmented control instead of three stacked sections: the page
               had plans, reviews and pictures all scrolling past each other. */}
           <div className="mt-3 flex rounded-radius-md bg-inset p-0.5">
-            {TABS.map((t) => (
+            {TABS.map((t) => ({ ...t, label: t.key === "plans" ? meta.offeringsHeading : t.label })).map((t) => (
               <button
                 key={t.key}
                 type="button"
@@ -590,9 +609,9 @@ const ProviderDetail = () => {
               {[1, 2, 3].map((i) => <div key={i} className="h-[120px] animate-pulse rounded-radius-md bg-card" />)}
             </div>
           ) : vehiclesQ.isError ? (
-            <QueryError title="Couldn't load the fleet" onRetry={() => vehiclesQ.refetch()} retrying={vehiclesQ.isFetching} />
+            <QueryError title="Couldn't load vehicles" onRetry={() => vehiclesQ.refetch()} retrying={vehiclesQ.isFetching} />
           ) : (vehiclesQ.data ?? []).length === 0 ? (
-            <TabEmptyState icon={Icon} title="No cars yet" subtitle="We're setting things up. Check back soon." />
+            <TabEmptyState icon={Icon} title="No vehicles yet" subtitle="We're setting things up. Check back soon." />
           ) : (() => {
             // Grouped by the vehicle's own type when the fleet is mixed; a
             // one-type fleet keeps the plain grid with no headings.

@@ -37,7 +37,7 @@ export default function VehicleDetail() {
   if (!v) return (
     <AppContainer className="py-24 text-center">
       <p className="font-semibold text-foreground">Car not found</p>
-      <Link to={carPath()} className="mt-3 inline-block text-sm font-semibold text-primary">Back to the fleet</Link>
+      <Link to={carPath()} className="mt-3 inline-block text-sm font-semibold text-primary">Back to vehicles</Link>
     </AppContainer>
   );
 
@@ -77,7 +77,7 @@ export default function VehicleDetail() {
     ...(v.provider?.name && v.provider.id
       ? [{ label: v.provider.name, href: carProviderPath(v.provider.id) }]
       : []),
-    { label: "Cars", href: carPath() },
+    { label: "Vehicles", href: carPath() },
   ];
 
   return (
@@ -96,7 +96,7 @@ export default function VehicleDetail() {
           the bell belongs on pages about your own account. */}
       <DetailHeader
         title={v.name}
-        centreLabel="Car Rental"
+        centreLabel="Vehicles"
         onBack={goBack}
         overPhoto={shots.length > 0}
         rightAction={<ShareButton title={v.name} text={shareText} className="hover:bg-black/10 md:text-foreground" />}

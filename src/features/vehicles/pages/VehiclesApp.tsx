@@ -11,7 +11,7 @@ import { AppContainer } from "@/components/layout/AppContainer";
 import { PageLoader } from "@/components/ui/spinner";
 import Fleet from "./Fleet";
 import VehicleDetail from "./VehicleDetail";
-import VehicleProvider from "./VehicleProvider";
+import ProviderDetail from "@/pages/ProviderDetail";
 import Book from "./Book";
 import MyBookings from "./MyBookings";
 import BookingDetail from "./BookingDetail";
@@ -30,7 +30,7 @@ import BookingDetail from "./BookingDetail";
  */
 
 /** What the tab says while the marketplace is not the thing on screen. */
-const CARS_TITLE = "EverySub Cars — rent a car in Próspera";
+const CARS_TITLE = "EverySub Vehicles — rent a vehicle in Próspera";
 
 function VehiclesLayout({ children }: { children: ReactNode }) {
   /**
@@ -43,6 +43,8 @@ function VehiclesLayout({ children }: { children: ReactNode }) {
    */
   const { pathname } = useLocation();
   const isDecisionPage = /\/vehicles\/(vehicle|book)\//.test(pathname);
+  /** A page that arrives with its own frame — the shell adds nothing to it. */
+  const bringsOwnFrame = /\/vehicles\/providers\//.test(pathname);
 
   return (
     /*
@@ -60,10 +62,12 @@ function VehiclesLayout({ children }: { children: ReactNode }) {
       pb-24 leaves room for the fixed tab bar, which would otherwise sit on top
       of the last thing on the page; decision pages pad for their own CTA bar.
     */
+    bringsOwnFrame ? <>{children}</> : (
     <div className={isDecisionPage ? "min-h-screen bg-background" : "min-h-screen bg-background pb-24 md:pb-12"}>
       <main>{children}</main>
       {!isDecisionPage && <BottomNav />}
     </div>
+    )
   );
 }
 
@@ -126,10 +130,12 @@ export default function VehiclesApp() {
       <Routes>
         <Route index element={<Fleet />} />
         <Route path="vehicle/:id" element={<VehicleDetail />} />
-        {/* One rental business — its fleet, its contacts, its reviews. Inside
-            the unit, because a transport provider has no service slug to live
-            under (lib/services/transport). */}
-        <Route path="providers/:providerId" element={<VehicleProvider />} />
+        {/* One rental business. The unit owns the URL — a transport provider
+            has no service slug to live under — but the PAGE is the platform's
+            one, so a rental company reads exactly like a restaurant: banner,
+            breadcrumbs, Plans/Reviews/Gallery, contacts. A second design here
+            was the mistake this route corrects. */}
+        <Route path="providers/:providerId" element={<ProviderDetail />} />
         <Route path="book/:id" element={<RequireAuth><CarPage title="Book"><Book /></CarPage></RequireAuth>} />
         <Route path="my-bookings" element={<RequireAuth><CarPage title="My bookings"><MyBookings /></CarPage></RequireAuth>} />
         <Route path="booking/:id" element={<RequireAuth><CarPage title="Booking"><BookingDetail /></CarPage></RequireAuth>} />

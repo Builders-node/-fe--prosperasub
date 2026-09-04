@@ -46,9 +46,9 @@ export interface WorkspaceCustomisation {
 const NONE: WorkspaceCustomisation = {};
 
 const WORKSPACE: Record<string, WorkspaceCustomisation> = {
-  // Keyed by the UNIT, not an archetype — transport has none (see
-  // lib/services/transport.ts).
-  transport: {
+  // Keyed by the UNIT, not an archetype — vehicles has none (see
+  // lib/services/vehiclesUnit.ts).
+  vehicles: {
     // What a rental business offers is coverage, extras and delivery — not
     // plans. A plan is a price for a period sold over and over; a car is one
     // object for a stretch of days. Showing the plans editor here only invited
@@ -62,7 +62,7 @@ const WORKSPACE: Record<string, WorkspaceCustomisation> = {
     // same Overview, Money and Team as every other business.
     extraTabs: ({ providerId }) => [{
       value: "fleet",
-      label: "Fleet",
+      label: "Vehicles",
       icon: CarFront,
       // The admin's own car screen, scoped to this business. One place where
       // cars are managed, whoever is looking at it.
@@ -83,7 +83,7 @@ const WORKSPACE: Record<string, WorkspaceCustomisation> = {
 /**
  * What this vertical adds — nothing, for anything that has not said otherwise.
  *
- * Transport is keyed by its UNIT and food by its legacy `source_service_key`,
+ * Vehicles is keyed by its UNIT and food by its legacy `source_service_key`,
  * so the caller passes whichever it has and both land here.
  */
 export function workspaceFor(key: string | null | undefined): WorkspaceCustomisation {

@@ -265,7 +265,7 @@ export default function Book() {
         {problem ?? "Something's missing for this booking."}
       </p>
       <Button variant="secondary" className="mt-3" onClick={() => navigate(v ? carPath(`vehicle/${v.id}`) : carPath())}>
-        {v ? "Choose dates" : "Back to fleet"}
+        {v ? "Choose dates" : "Back to vehicles"}
       </Button>
     </AppContainer>
   );

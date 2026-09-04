@@ -251,7 +251,7 @@ export default function BookingDetail() {
               </div>
             </div>
           </div>
-          <Link to={carPath()} className="block text-center text-[13px] font-semibold text-primary">Browse the fleet</Link>
+          <Link to={carPath()} className="block text-center text-[13px] font-semibold text-primary">Browse vehicles</Link>
         </div>
       </div>
     </AppContainer>

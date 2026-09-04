@@ -26,7 +26,7 @@ import { ProviderTeamTab } from "@/components/provider/ProviderTeamTab";
 import { ScheduleAccordion } from "@/components/provider/ScheduleAccordion";
 import { LegacyOwnerPortal } from "@/components/provider/legacyPortalTabs";
 import { workspaceFor } from "@/services/workspace";
-import { TRANSPORT_UNIT } from "@/lib/services/transport";
+import { VEHICLES_UNIT } from "@/lib/services/vehiclesUnit";
 import { SubscribersList } from "@/components/provider/SubscribersList";
 import { ProviderReviewsPanel } from "@/components/provider/ProviderReviewsPanel";
 import { ProviderEarningsTab } from "@/components/provider/ProviderEarningsTab";
@@ -137,8 +137,8 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
    * the wrong tabs and a balance of zero.
    */
   const serviceKey =
-    provider?.unit === TRANSPORT_UNIT
-      ? TRANSPORT_UNIT
+    provider?.unit === VEHICLES_UNIT
+      ? VEHICLES_UNIT
       : provider?.source_service_key ?? provider?.archetype_key ?? "";
 
   /**

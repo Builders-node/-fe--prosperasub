@@ -42,7 +42,7 @@ export default function MyBookings() {
         <div className="flex flex-col items-center py-20 text-center">
           <Car className="mb-3 h-12 w-12 text-muted-foreground/40" />
           <p className="font-semibold text-foreground">No bookings yet</p>
-          <Link to={carPath()} className="mt-3 text-sm font-semibold text-primary">Browse the fleet</Link>
+          <Link to={carPath()} className="mt-3 text-sm font-semibold text-primary">Browse vehicles</Link>
         </div>
       ) : (
         <div className="space-y-3">

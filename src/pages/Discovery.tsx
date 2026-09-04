@@ -40,7 +40,7 @@ const ARCHETYPE_TILE_BG = "bg-card";
 /** The words on the family tabs. Anything unnamed falls back to its key. */
 const FAMILY_LABELS: Record<string, string> = {
   experiences: "Experiences",
-  transport: "Transport",
+  vehicles: "Vehicles",
 };
 
 const Discovery = () => {
@@ -70,8 +70,8 @@ const Discovery = () => {
   const families = useMemo(() => {
     const seen: string[] = [];
     for (const a of allArchetypes) if (!seen.includes(a.family)) seen.push(a.family);
-    // A unit that owns its storefront is not an archetype at all — transport
-    // has none by design — so its tab comes from the manifest.
+    // A unit that owns its storefront is not an archetype at all — the
+    // vehicles unit has none by design — so its tab comes from the manifest.
     for (const f of Object.keys(FAMILY_STOREFRONTS)) if (!seen.includes(f)) seen.push(f);
     return seen;
   }, [allArchetypes]);
@@ -81,9 +81,9 @@ const Discovery = () => {
     ? allArchetypes.filter((a) => a.family === family)
     : allArchetypes;
 
-  /** Set when the open tab is a unit with its own section (transport). */
+  /** Set when the open tab is a unit with its own section (vehicles). */
   const storefront = showFamilies ? familyStorefront(family) : null;
-  // Its own types, not service-categories: transport has no service layer.
+  // Its own types, not service-categories: the unit has no service layer.
   const { data: vehicleTypes = [] } = useVehicleTypes({ enabled: !!storefront });
 
   // What's actually inside each service. A tile saying "Apartment Cleaning ·

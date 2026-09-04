@@ -85,18 +85,18 @@ export const MARKETPLACE_SECTION: NavSection = {
   ],
 };
 
-// ─── TRANSPORT ──────────────────────────────────────────────────────────
+// ─── VEHICLES ───────────────────────────────────────────────────────────
 /**
  * Its own layer, Booking.com-style: the sidebar mirrors the storefront's
- * family split (Experiences | Transport). Marketplace is the experiences
- * tree; transport-family services live here and are filtered OUT of the hub.
- * Renting a car is one physical object for a stretch of days with a deposit —
- * not a plan and a period — and it is managed on its own terms.
+ * family split (Experiences | Vehicles). Marketplace is the experiences tree;
+ * the vehicles unit lives here and has no archetype at all. Renting a vehicle
+ * is one physical object for a stretch of days with a deposit — not a plan and
+ * a period — and it is managed on its own terms.
  */
-export const TRANSPORT_SECTION: NavSection = {
-  title: "Transport",
+export const VEHICLES_SECTION: NavSection = {
+  title: "Vehicles",
   items: [
-    { label: "Car rentals", path: adminRoutes.superAdminTransport, icon: CarFront,
+    { label: "Vehicles", path: adminRoutes.superAdminTransport, icon: CarFront,
       alsoActiveOn: [adminRoutes.superAdminCarRentals, "/admin/marketplace/service/vehicles"],
       permissions: ["subscriptions.read"] },
   ],
@@ -146,7 +146,7 @@ export const SETTINGS_SECTION: NavSection = {
 export const NAV_SECTIONS: NavSection[] = [
   OVERVIEW_SECTION,
   MARKETPLACE_SECTION,
-  TRANSPORT_SECTION,
+  VEHICLES_SECTION,
   PEOPLE_SECTION,
   SETTINGS_SECTION,
 ];

@@ -262,7 +262,7 @@ export function VehicleTypesPanel() {
                   value={form.sort_order}
                   onChange={(e) => setForm((f) => ({ ...f, sort_order: Number(e.target.value) || 0 }))}
                 />
-                <p className="mt-1 text-[11px] text-muted-foreground">Lower shows first in the fleet's filter.</p>
+                <p className="mt-1 text-[11px] text-muted-foreground">Lower shows first in the storefront's filter.</p>
               </div>
               <div>
                 <Label>On the storefront</Label>

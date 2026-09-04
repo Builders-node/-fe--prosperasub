@@ -92,11 +92,11 @@ export default function Fleet() {
           the search field and the sort behind the filter button. */}
       <DesktopHeader />
       <ListingHeader
-        title="Car Rental"
+        title="Vehicles"
         onBack={goBack}
         query={search.query}
         onQueryChange={search.setQuery}
-        placeholder="Search Car Rental"
+        placeholder="Search vehicles"
         sort={search.sort}
         onSortChange={search.setSort}
         sorts={search.availableSorts}
@@ -121,7 +121,7 @@ export default function Fleet() {
                 id: p.id,
                 name: p.name,
                 avatarUrl: p.avatarUrl ?? null,
-                meta: `${p.count} car${p.count === 1 ? "" : "s"}`,
+                meta: `${p.count} vehicle${p.count === 1 ? "" : "s"}`,
               }))}
               icon={Building2}
               label="Providers"
@@ -134,19 +134,19 @@ export default function Fleet() {
         )}
 
         <YdSectionHeading
-          title={providerId ? providers.find((p) => p.id === providerId)?.name ?? "Available cars" : "Available cars"}
+          title={providerId ? providers.find((p) => p.id === providerId)?.name ?? "Available vehicles" : "Available vehicles"}
           count={!isLoading && !isError ? shown.length : null}
         />
 
         {isLoading ? (
           <div className="flex justify-center py-20"><Spinner /></div>
         ) : isError ? (
-          <QueryError title="Couldn't load the fleet" error={error} onRetry={() => void refetch()} />
+          <QueryError title="Couldn't load vehicles" error={error} onRetry={() => void refetch()} />
         ) : shown.length === 0 ? (
           <div className="flex flex-col items-center rounded-radius-md bg-card py-14 text-center">
             <Car className="mb-3 h-10 w-10 text-muted-foreground/30" />
             <p className="text-[16px] font-semibold tracking-[-0.32px] text-foreground">
-              {search.isActive ? "No cars match your search" : "No cars available yet"}
+              {search.isActive ? "No vehicles match your search" : "No vehicles available yet"}
             </p>
             <p className="mt-1 text-[12px] tracking-[-0.24px] text-muted-foreground">
               {search.isActive ? "Try a different word." : "Check back soon."}

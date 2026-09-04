@@ -1,7 +1,7 @@
 /**
  * A family that owns its storefront.
  *
- * Transport is a unit of its own: it sells a physical object for a range of
+ * Vehicles is a unit of its own: it sells a physical object for a range of
  * days, it lives at `/vehicles` with its own header, its own type chips and
  * its own fleet, and it is administered on its own terms. Discovery's job for
  * such a family is to be a DOOR to that unit — rebuilding its browse UI as a
@@ -14,7 +14,7 @@
  * them.
  *
  * Declared here rather than branched on inside Discovery so the home page
- * asks "does this family own a storefront?" instead of "is this transport?".
+ * asks "does this family own a storefront?" instead of naming a unit.
  */
 export interface FamilyStorefront {
   /** Where the unit's own section lives. */
@@ -27,11 +27,11 @@ export interface FamilyStorefront {
 }
 
 export const FAMILY_STOREFRONTS: Record<string, FamilyStorefront> = {
-  transport: {
+  vehicles: {
     href: "/vehicles",
-    title: "Rent a vehicle",
+    title: "Vehicles",
     allLabel: "All vehicles",
-    caption: "The whole fleet, priced by the day",
+    caption: "Every vehicle, priced by the day",
   },
 };
 

@@ -10,7 +10,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabaseDb } from "@/integrations/supabase/client";
-import { TRANSPORT_UNIT } from "@/lib/services/transport";
+import { VEHICLES_UNIT } from "@/lib/services/vehiclesUnit";
 import { useVehicleTypes } from "../hooks/useVehicleTypes";
 import type { RentalVehicle } from "../types/carRental";
 
@@ -77,7 +77,7 @@ export function VehicleEditDialog({ vehicle, onClose, onSaved, lockedProviderId 
       const { data, error } = await supabaseDb
         .from("providers")
         .select("id, name")
-        .eq("unit", TRANSPORT_UNIT)
+        .eq("unit", VEHICLES_UNIT)
         .eq("status", "active")
         .order("name");
       if (error) throw error;

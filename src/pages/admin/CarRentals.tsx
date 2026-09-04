@@ -20,7 +20,7 @@ import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { StatusPill } from "@/components/patterns/StatusPill";
 import { VehicleTypesPanel, useVehicleTypes } from "@/features/vehicles";
-import { TRANSPORT_UNIT } from "@/lib/services/transport";
+import { VEHICLES_UNIT } from "@/lib/services/vehiclesUnit";
 
 /**
  * Car rentals, run from the same admin as everything else.
@@ -115,7 +115,7 @@ export default function CarRentals({ embedded = false, providerId }: {
       const { data, error } = await supabaseDb
         .from("providers")
         .select("id, name, status, admin_user_id, avatar_url")
-        .eq("unit", TRANSPORT_UNIT)
+        .eq("unit", VEHICLES_UNIT)
         .order("name");
       if (error) throw error;
       return (data ?? []) as Array<{
@@ -182,9 +182,9 @@ export default function CarRentals({ embedded = false, providerId }: {
           one business's workspace only its own two tabs show. */}
       <div className="mb-4 inline-flex flex-wrap gap-1 rounded-full bg-muted/50 p-1">
         {(embedded
-          ? ([["bookings", "Bookings"], ["fleet", "Fleet"]] as const)
+          ? ([["bookings", "Bookings"], ["fleet", "Vehicles"]] as const)
           : ([
-              ["bookings", "Bookings"], ["fleet", "Fleet"], ["types", "Types"],
+              ["bookings", "Bookings"], ["fleet", "Vehicles"], ["types", "Types"],
               // "Providers", because that is the word everywhere else on the
               // platform — one noun for one concept.
               ["providers", "Providers"],
@@ -299,7 +299,7 @@ export default function CarRentals({ embedded = false, providerId }: {
           onRetry={() => vehiclesQ.refetch()}
           isEmpty={!vehiclesQ.isLoading && (vehiclesQ.data ?? []).length === 0}
           count={(vehiclesQ.data ?? []).length}
-          emptyTitle="No cars in the fleet"
+          emptyTitle="No vehicles yet"
           emptySubtitle="Add the first one and it appears in the storefront."
           actions={
             <Button className="gap-2" onClick={() => setEditing("new")}>
@@ -409,7 +409,7 @@ export default function CarRentals({ embedded = false, providerId }: {
   if (embedded) return body;
 
   return (
-    <SuperAdminLayout title="Transport" subtitle="Types, providers, fleet, bookings and applications — the transport layer">
+    <SuperAdminLayout title="Vehicles" subtitle="Types, providers, vehicles and bookings — the vehicles unit">
       {body}
     </SuperAdminLayout>
   );
