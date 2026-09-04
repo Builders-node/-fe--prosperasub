@@ -40,13 +40,11 @@ export default defineConfig(() => ({
           // triggers "Cannot access 'L' before initialization" (TDZ) at load.
           // It stays in the shared "vendor" chunk below.
 
-          // Recharts + d3 — heavy charts, only used in admin analytics
-          if (id.includes("recharts") || id.includes("/d3-")) {
-            return "charts";
-          }
+          // No "charts" chunk: recharts was dropped when the analytics
+          // screens moved to AnalyticsPrimitives, which draws its bars itself.
 
           // Everything else (React, react-dom, react-router, Radix, next-themes,
-          // lucide, date-fns, react-hook-form, react-query, etc.) stays in a
+          // lucide, date-fns, react-query, etc.) stays in a
           // single shared "vendor" chunk so React identity is preserved.
           return "vendor";
         },

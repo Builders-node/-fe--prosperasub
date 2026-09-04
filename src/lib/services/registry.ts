@@ -179,6 +179,6 @@ export const SERVICE_KEYS: ServiceKey[] = [
 /** All service configs in the registry's canonical order. */
 export const ALL_SERVICES: ServiceConfig[] = SERVICE_KEYS.map((k) => SERVICES[k]);
 
-/** Map of visibility key → service key, used by useServiceVisibility. */
-export const VISIBILITY_KEY_TO_SERVICE: Record<string, ServiceKey> =
-  Object.fromEntries(ALL_SERVICES.map((s) => [s.visibilityKey, s.key])) as Record<string, ServiceKey>;
+// No VISIBILITY_KEY_TO_SERVICE: its only consumer was `useServiceVisibility`,
+// and the `category_*_visible` flags in `global_settings` it looked up were
+// retired when visibility became `service_archetypes.is_active`.
