@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Edit, Trash2, Megaphone, ExternalLink, X } from "lucide-react";
 import { adminApi } from "@/integrations/supabase/client";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
+import { AdminListShell } from "@/components/admin/AdminListShell";
 import { Skeleton } from "@/components/patterns/Skeleton";
 import { YdEmptyState } from "@/components/yd/YdPrimitives";
 import { Button } from "@/components/ui/button";
@@ -187,19 +188,22 @@ const AdsManagement = () => {
   return (
     <SuperAdminLayout title="Ads" subtitle="Home-page promo banners shown to users">
       <div className="max-w-3xl space-y-space-5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-muted-foreground">Promotional banners shown across the site. Only the highest-priority active ad per placement is displayed.</p>
-          <Button onClick={openNew}><Plus className="mr-2 h-4 w-4" /> Add Ad</Button>
-        </div>
+        <p className="text-sm text-muted-foreground">Promotional banners shown across the site. Only the highest-priority active ad per placement is displayed.</p>
 
-        {isLoading ? (
-          <div className="space-y-3">{[1, 2].map((i) => <Skeleton key={i} className="h-24" />)}</div>
-        ) : isError ? (
-          /* Not "no ads" — we could not ask. */
-          <QueryError title="Couldn't load ads" error={error as Error} onRetry={() => void refetch()} />
-        ) : ads.length === 0 ? (
-          <YdEmptyState icon={Megaphone} title="No ads yet" subtitle="Create one to show a banner." />
-        ) : (
+        {/* The one list scaffold: it owns the toolbar, the count and the three
+            states, so this page cannot answer them differently from its
+            neighbours (PAGE_TYPES section 10). */}
+        <AdminListShell
+          isLoading={isLoading}
+          isError={isError}
+          error={error as Error}
+          onRetry={() => void refetch()}
+          isEmpty={!isLoading && ads.length === 0}
+          count={ads.length}
+          emptyTitle="No ads yet"
+          emptySubtitle="Create one to show a banner."
+          actions={<Button onClick={openNew}><Plus className="mr-2 h-4 w-4" /> Add Ad</Button>}
+        >
           <div className="space-y-3">
             {ads.map((a) => (
               <div key={a.id} className={`rounded-radius-md border bg-card p-4 ${a.is_active ? "border-border" : "border-border/40 opacity-60"}`}>
@@ -228,7 +232,7 @@ const AdsManagement = () => {
               </div>
             ))}
           </div>
-        )}
+        </AdminListShell>
       </div>
 
       <Dialog open={isNew || !!editItem} onOpenChange={(o) => !o && close()}>

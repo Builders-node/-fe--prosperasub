@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { Building2, ExternalLink } from "lucide-react";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { AdminListShell } from "@/components/admin/AdminListShell";
+import { usePagination, TablePagination } from "@/components/ui/table-pagination";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -106,6 +107,9 @@ const MarketplacePlans = ({ embedded = false, archetypeKey }: MarketplacePlansPr
     });
   }, [plans, service, providerId, status, search, providerById]);
 
+  // Client-side: the filters already have every row in hand.
+  const pager = usePagination(visible, 25);
+
   const formatPeriod = (period: string) => period.replace(/_/g, " ");
 
   const filters = (
@@ -166,7 +170,7 @@ const MarketplacePlans = ({ embedded = false, archetypeKey }: MarketplacePlansPr
           </div>
 
           <div className="divide-y divide-border/40">
-            {visible.map((p) => {
+            {pager.paged.map((p) => {
               const prov = providerById.get(p.provider_id);
               const arche = prov ? archetypes.find((a) => a.key === prov.archetype_key) : undefined;
               const AIcon = arche?.Icon ?? Building2;
@@ -267,6 +271,7 @@ const MarketplacePlans = ({ embedded = false, archetypeKey }: MarketplacePlansPr
             })}
           </div>
         </div>
+        <TablePagination {...pager} onPage={pager.setPage} />
       </AdminListShell>
   );
 

@@ -10,6 +10,7 @@ import {
 import { todayHN, addDaysISO, addMonthsISO, formatDateHN } from "@/lib/timezone";
 import { effectiveBeachStatus } from "@/lib/subscriptionLifecycle";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
+import { AdminListShell } from "@/components/admin/AdminListShell";
 import { PageLoader, Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
 import {
@@ -147,7 +148,7 @@ export default function BeachClubSubscriptions({ embedded = false }: { embedded?
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const { data: subs = [], isLoading } = useQuery({
+  const { data: subs = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: ["admin-beach-club-subscriptions"],
     queryFn: async () => {
       const { data, error } = await supabaseDb
@@ -264,40 +265,40 @@ export default function BeachClubSubscriptions({ embedded = false }: { embedded?
     onError: (e: Error) => toast.error(e.message),
   });
 
-  if (isLoading) {
-    if (embedded) return <PageLoader />;
-    return <SuperAdminLayout title="Beach Club Subscriptions"><PageLoader /></SuperAdminLayout>;
-  }
-
   const activeCount = subs.filter((s) => s.status === "active").length;
   const unpaidCount = subs.filter((s) => s.payment_status !== "paid" && s.status !== "cancelled").length;
 
   const body = (
     <>
-      <div className="mb-space-4 flex flex-wrap items-center justify-between gap-space-3">
-        <div className="flex items-center gap-space-3">
-          <div className="relative w-full sm:w-[220px]">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-      <Input inputSize="sm" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search members…" className="rounded-full pl-9" />
-          </div>
-          <div className="hidden gap-space-3 text-sm text-muted-foreground sm:flex">
-            <span>{subs.length} total</span>
-            <span>·</span>
-            <span>{activeCount} active</span>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {unpaidCount > 0 && (
-            <Button variant="outline" className="gap-2" onClick={() => remindAllMutation.mutate()} disabled={remindAllMutation.isPending}>
-              <Bell className="h-4 w-4" /> Remind unpaid ({unpaidCount})
+      {/* The shared scaffold. This page hand-drew the same search field, the
+          same count line and the same buttons — and, having drawn them itself,
+          had no error state at all: a failed request rendered "No
+          subscriptions yet." (PAGE_TYPES section 10) */}
+      <AdminListShell
+        search={search} onSearch={setSearch} searchPlaceholder="Search members…"
+        isLoading={isLoading} isError={isError} error={error as Error} onRetry={() => void refetch()}
+        isEmpty={!isLoading && subs.length === 0}
+        isNoResults={subs.length > 0 && filteredSubs.length === 0}
+        count={filteredSubs.length}
+        emptyTitle="No subscriptions yet"
+        emptySubtitle="Memberships sold at the club appear here."
+        onClearFilters={() => setSearch("")}
+        filters={
+          <span className="hidden text-sm text-muted-foreground sm:inline">{activeCount} active</span>
+        }
+        actions={
+          <>
+            {unpaidCount > 0 && (
+              <Button variant="outline" className="gap-2" onClick={() => remindAllMutation.mutate()} disabled={remindAllMutation.isPending}>
+                <Bell className="h-4 w-4" /> Remind unpaid ({unpaidCount})
+              </Button>
+            )}
+            <Button onClick={() => { setForm(emptyForm); setOpen(true); }} className="gap-2">
+              <Plus className="h-4 w-4" /> Add subscription
             </Button>
-          )}
-          <Button onClick={() => { setForm(emptyForm); setOpen(true); }} className="gap-2">
-            <Plus className="h-4 w-4" /> Add subscription
-          </Button>
-        </div>
-      </div>
-
+          </>
+        }
+      >
       <div className="overflow-hidden rounded-radius-md border border-[hsl(var(--app-divider))]">
         <Table>
           <TableHeader>
@@ -313,14 +314,7 @@ export default function BeachClubSubscriptions({ embedded = false }: { embedded?
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredSubs.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
-                  <Waves className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                  {subs.length === 0 ? "No subscriptions yet." : "No members match your search."}
-                </TableCell>
-              </TableRow>
-            ) : subsPager.paged.map((s) => (
+            {subsPager.paged.map((s) => (
               <TableRow key={s.id}>
                 <TableCell>
                   <p className="font-bold text-foreground">{s.customer_name || "—"}</p>
@@ -403,6 +397,7 @@ export default function BeachClubSubscriptions({ embedded = false }: { embedded?
         </Table>
         <TablePagination {...subsPager} onPage={subsPager.setPage} />
       </div>
+      </AdminListShell>
 
       {/* Add subscription dialog */}
       <Dialog open={open} onOpenChange={setOpen}>

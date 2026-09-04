@@ -56,7 +56,7 @@ export function PaymentMethodSelector({ value, onChange, disabled, available }: 
 
   if (methods.length === 0) {
     return (
-      <p className="rounded-radius-md bg-muted/40 p-3 text-sm text-muted-foreground">
+      <p className="rounded-radius-md bg-inset p-3 text-sm text-muted-foreground">
         No payment methods are currently available. Please try again later.
       </p>
     );

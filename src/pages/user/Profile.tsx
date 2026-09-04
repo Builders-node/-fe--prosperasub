@@ -7,8 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Spinner } from "@/components/ui/spinner";
-import { BrowseLayout } from "@/components/layout/BrowseLayout";
-import { HomeHeader } from "@/components/layout/HomeHeader";
+import { UserLayout } from "@/components/layout/UserLayout";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { KeyboardArrowRightIcon } from "@/components/icons/FigmaIcons";
@@ -206,7 +205,13 @@ const Profile = () => {
   };
   // Back out of a section the same way the browser would, so the two routes
   // never disagree about where "back" goes.
-  const back = () => (section === "view" ? navigate("/discovery") : navigate(-1));
+  /**
+   * Out of here: the profile itself goes home, a sub-screen goes back to the
+   * profile. A path rather than history(-1), so arriving straight at
+   * /account?section=password (a link, a reload) still has somewhere to go.
+   */
+  const backTo = section === "view" ? "/discovery" : "/account";
+  const back = () => navigate(backTo);
 
   const [savedName,     setSavedName]     = useState("");
   const [savedPhone,    setSavedPhone]    = useState("");
@@ -350,10 +355,12 @@ const Profile = () => {
   ].filter(Boolean) as Array<{ key: string; label: string; value: string; icon: JSX.Element }>;
 
   return (
-    <BrowseLayout>
-      <HomeHeader title={SECTION_TITLES[section]} showBackButton onBack={back} bare />
-
-      <main className="app-container space-y-4 py-space-4 md:py-space-8">
+    // The account frame, like every other /account screen. This page sat in
+    // BrowseLayout and mounted its own HomeHeader as a child, so the one
+    // screen behind the Account tab was assembled differently from the six
+    // beside it (PAGE_TYPES section 6).
+    <UserLayout title={SECTION_TITLES[section]} showBackButton backTo={backTo}>
+      <div className="space-y-4">
         {section === "view" && (
           <>
             {/* Who you are. One white card: avatar, name, email — the same
@@ -531,9 +538,8 @@ const Profile = () => {
             </div>
           </section>
         )}
-      </main>
-
-    </BrowseLayout>
+      </div>
+    </UserLayout>
   );
 };
 

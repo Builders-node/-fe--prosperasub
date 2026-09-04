@@ -4,6 +4,8 @@ import { ArrowLeft, X } from "lucide-react";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { BrowseLayout } from "@/components/layout/BrowseLayout";
 import { Spinner } from "@/components/ui/spinner";
+import { QueryError } from "@/components/patterns/QueryError";
+import { YdEmptyState } from "@/components/yd/YdPrimitives";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { SEARCH_GROUPS, useGlobalSearch, type SearchHit } from "@/hooks/useGlobalSearch";
@@ -26,7 +28,7 @@ const SearchPage = () => {
   const query = params.get("q") ?? "";
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const { results, isLoading } = useGlobalSearch(query);
+  const { results, isLoading, isError, error, refetch } = useGlobalSearch(query);
   const { highlights } = useCategoryHighlights();
 
   // Opening the search means wanting to type.
@@ -136,13 +138,15 @@ const SearchPage = () => {
           </section>
         ) : isLoading ? (
           <div className="flex justify-center py-16"><Spinner /></div>
+        ) : isError ? (
+          // Not "nothing matches" — we never got the catalogue to search.
+          <QueryError title="Couldn't search right now" error={error} onRetry={() => void refetch()} />
         ) : grouped.length === 0 ? (
-          <div className="rounded-radius-md bg-card p-8 text-center">
-            <p className="text-[16px] font-semibold text-foreground">Nothing matches "{query.trim()}"</p>
-            <p className="mt-1 text-[12px] tracking-[-0.24px] text-muted-foreground">
-              Try a shorter word — a service, a business or the name of a plan.
-            </p>
-          </div>
+          <YdEmptyState
+            icon={SearchIcon}
+            title={`Nothing matches "${query.trim()}"`}
+            subtitle="Try a shorter word — a service, a business or the name of a plan."
+          />
         ) : (
           grouped.map((group) => (
             <section key={group.kind} className="space-y-2">

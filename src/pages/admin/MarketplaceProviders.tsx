@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Eye, EyeOff, ExternalLink, Building2, Mail, Phone, ShieldCheck, MoreVertical, Pencil, Plus } from "lucide-react";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { AdminListShell } from "@/components/admin/AdminListShell";
+import { usePagination, TablePagination } from "@/components/ui/table-pagination";
 import { StatusPill } from "@/components/patterns/StatusPill";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -144,6 +145,9 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
       return true;
     });
   }, [providers, service, status, search]);
+
+  // Client-side: the filters already have every row in hand.
+  const pager = usePagination(visible, 25);
 
   // Everything in the current service, before search/status narrowing — tells
   // "this service has no providers" apart from "your filters matched nothing".
@@ -342,7 +346,7 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
             </div>
 
             <div className="divide-y divide-border/40">
-              {visible.map((p) => {
+              {pager.paged.map((p) => {
                 const arche = archetypes.find((a) => a.key === p.archetype_key);
                 const AIcon = arche?.Icon ?? Building2;
                 // Only what the app still branches on. The column keeps older
@@ -503,6 +507,8 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
               })}
             </div>
           </div>
+          {/* Every row used to render, however many there were. */}
+          <TablePagination {...pager} onPage={pager.setPage} />
         </AdminListShell>
       </div>
 

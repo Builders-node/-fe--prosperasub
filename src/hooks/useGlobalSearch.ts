@@ -50,7 +50,7 @@ const norm = (s: string) => s.toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g
 export function useGlobalSearch(query: string) {
   const { archetypes } = useServiceArchetypes(true);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["global-search-catalogue"],
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
@@ -211,7 +211,7 @@ export function useGlobalSearch(query: string) {
       })
     : [];
 
-  return { results, isLoading, hasCatalogue: !!data };
+  return { results, isLoading, isError, error, refetch, hasCatalogue: !!data };
 }
 
 /** Group order on screen: the broadest answer first, the most specific last. */

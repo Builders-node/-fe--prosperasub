@@ -68,7 +68,7 @@ export function InvoiceQrPanel({
         </a>
       )}
 
-      <div className="rounded-radius-md bg-muted/40 p-4 text-center">
+      <div className="rounded-radius-md bg-inset p-4 text-center">
         <p className="text-sm text-muted-foreground">Amount</p>
         <p className="text-2xl font-semibold text-bitcoin">{sats.toLocaleString()} sats</p>
         <p className="text-sm text-muted-foreground">
@@ -79,7 +79,7 @@ export function InvoiceQrPanel({
       <div className="space-y-2">
         <Label className="text-sm text-muted-foreground">{rowLabel}</Label>
         <div className="flex items-center gap-2">
-          <code className="flex-1 rounded-xl bg-muted/40 p-3 text-xs break-all max-h-20 overflow-y-auto">{rowValue}</code>
+          <code className="flex-1 rounded-radius-md bg-inset p-3 text-xs break-all max-h-20 overflow-y-auto">{rowValue}</code>
           <Button variant="secondary" size="icon" onClick={() => copy(rowValue)} aria-label={`Copy ${rowLabel}`}>
             <Copy className="h-4 w-4" />
           </Button>
