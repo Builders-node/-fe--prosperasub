@@ -269,14 +269,19 @@ export default function ServiceCategories({ embedded = false, archetypeKey }: Se
           <div className="space-y-6">
             {grouped.map((group) => (
               <div key={group.key} className="space-y-3">
-                {/* Parent service header — makes the hierarchy legible. */}
-                <div className="flex items-center gap-2">
-                  <Layers className="h-3.5 w-3.5 text-muted-foreground" />
-                  <h3 className="text-caption font-bold uppercase tracking-[0.16em] text-muted-foreground">
-                    {group.label}
-                  </h3>
-                  <span className="text-caption text-muted-foreground/60">· {group.categories.length}</span>
-                </div>
+                {/* Parent service header — makes the hierarchy legible on the
+                    cross-service list. Scoped to ONE service (a drill-down
+                    tab), the page is already inside that service and the
+                    header would just repeat its name. */}
+                {!archetypeKey && (
+                  <div className="flex items-center gap-2">
+                    <Layers className="h-3.5 w-3.5 text-muted-foreground" />
+                    <h3 className="text-caption font-bold uppercase tracking-[0.16em] text-muted-foreground">
+                      {group.label}
+                    </h3>
+                    <span className="text-caption text-muted-foreground/60">· {group.categories.length}</span>
+                  </div>
+                )}
 
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {group.categories.map((c) => {

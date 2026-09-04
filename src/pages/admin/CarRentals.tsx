@@ -210,7 +210,9 @@ export default function CarRentals({ embedded = false, providerId }: {
           ? ([["bookings", "Bookings"], ["fleet", "Fleet"]] as const)
           : ([
               ["bookings", "Bookings"], ["fleet", "Fleet"], ["types", "Types"],
-              ["providers", "Companies"], ["applications", "Applications"],
+              // "Providers", because that is the word everywhere else on the
+              // platform — one noun for one concept.
+              ["providers", "Providers"], ["applications", "Applications"],
             ] as const)
         ).map(([value, label]) => (
           <button
@@ -395,7 +397,7 @@ export default function CarRentals({ embedded = false, providerId }: {
           onRetry={() => companiesQ.refetch()}
           isEmpty={!companiesQ.isLoading && (companiesQ.data ?? []).length === 0}
           count={(companiesQ.data ?? []).length}
-          emptyTitle="No rental companies yet"
+          emptyTitle="No rental providers yet"
           emptySubtitle="Approve an application, or add one from Marketplace → All providers."
         >
           <div className="space-y-space-2">
@@ -441,7 +443,7 @@ export default function CarRentals({ embedded = false, providerId }: {
   if (embedded) return body;
 
   return (
-    <SuperAdminLayout title="Transport" subtitle="Types, companies, fleet, bookings and applications — the transport layer">
+    <SuperAdminLayout title="Transport" subtitle="Types, providers, fleet, bookings and applications — the transport layer">
       {body}
     </SuperAdminLayout>
   );
