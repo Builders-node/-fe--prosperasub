@@ -26,7 +26,7 @@ import { supabaseDb, accountApi } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useVehicle } from "../hooks/useVehicles";
 import { calcRentalPrice, extraCost } from "../types/carRental";
-import { fetchHeldRanges, overlapsHeld } from "../lib/availability";
+import { fetchHeldRanges, overlapsHeld, releaseDeadHolds } from "../lib/availability";
 import { formatUSD, centsToDollars } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { carPath } from "../lib/routes";
@@ -196,7 +196,7 @@ export default function Book() {
       // paying customer on a transient network error.
     }
 
-    const { data, error } = await supabaseDb.from("rental_bookings").insert({
+    const row = {
       user_id: userData.id, vehicle_id: v.id, start_date: fromISO, end_date: toISOParam,
       rental_days: pricing.rentalDays, daily_price_cents: pricing.effectiveDailyRate,
       subtotal_cents: pricing.subtotalCents, discount_pct: pricing.discountPct, discount_cents: pricing.discountCents,
@@ -207,14 +207,35 @@ export default function Book() {
       customer_name: name.trim() || userData.name || null, customer_whatsapp: whatsapp.trim() || null,
       delivery_address: address.trim() || (zone ? zone.name : null), delivery_notes: notes.trim() || null,
       status: "pending", payment_status: "pending", payment_method: method,
-    }).select("id").single();
+    };
+
+    let { data, error } = await supabaseDb.from("rental_bookings").insert(row).select("id").single();
+
+    /**
+     * 23P01 — the overlap constraint refused it. That USUALLY means somebody
+     * else holds these dates, and the message below says so.
+     *
+     * But it also fired when nobody held them at all. The constraint ignores
+     * only cancelled rows, while `stillHolds` frees an abandoned checkout
+     * after twenty minutes — so the calendar offered dates the database was
+     * always going to refuse, and the customer was told the car "was just
+     * booked" by a row that had been dead for days. Release exactly those and
+     * try once more; if the refusal was real, nothing is released and the
+     * message stands.
+     */
+    const isOverlap = (e: unknown) =>
+      (e as { code?: string } | null)?.code === "23P01"
+      || /exclusion constraint/i.test((e as { message?: string } | null)?.message ?? "");
+
+    if (error && isOverlap(error)) {
+      const released = await releaseDeadHolds(v.id, fromISO, toISOParam);
+      if (released > 0) {
+        ({ data, error } = await supabaseDb.from("rental_bookings").insert(row).select("id").single());
+      }
+    }
+
     if (error) {
-      // 23P01 — the overlap constraint refused it, so somebody else's booking
-      // holds these dates. Postgres phrases that as a key conflict with a
-      // daterange in it, which is not a sentence to show a customer.
-      const raced = (error as { code?: string }).code === "23P01"
-        || /exclusion constraint/i.test(error.message ?? "");
-      toast.error(raced
+      toast.error(isOverlap(error)
         ? "Sorry — this car was just booked for those dates. Please pick another period."
         : error.message);
       return null;

@@ -2,6 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { publicListingHref } from "@/lib/services/providerBridge";
 import { providerHref } from "@/lib/services/serviceUrls";
+import { VEHICLES_UNIT } from "@/lib/services/vehiclesUnit";
+import { carPath, carProviderPath } from "@/features/vehicles";
 import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
 
 /**
@@ -54,11 +56,11 @@ export function useGlobalSearch(query: string) {
     queryKey: ["global-search-catalogue"],
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
-      const [categories, providers, plans, cleaning, food, beach] = await Promise.all([
+      const [categories, providers, plans, cleaning, food, beach, vehicles] = await Promise.all([
         supabaseDb.from("service_categories")
           .select("key, label, archetype_key").eq("is_active", true),
         supabaseDb.from("providers")
-          .select("id, name, description, archetype_key, category_key, source_service_key, source_provider_id")
+          .select("id, name, description, archetype_key, category_key, source_service_key, source_provider_id, unit")
           .eq("status", "active"),
         // Offers AND variants: the variants are what tells us which legacy
         // rows have collapsed into one offer, and which of them a hit on the
@@ -74,6 +76,11 @@ export function useGlobalSearch(query: string) {
           .select("id, name, description, provider_id, weekly_price_cents").eq("status", "active"),
         supabaseDb.from("beach_club_plans")
           .select("id, name, tagline, price_per_person_cents").eq("is_active", true),
+        // The fleet: a car is an offer like any other, and searching its make
+        // used to return nothing at all.
+        supabaseDb.from("rental_vehicles")
+          .select("id, name, brand, model, year, daily_price_cents, provider_id")
+          .eq("status", "public"),
       ]);
       return {
         categories: categories.data ?? [],
@@ -82,6 +89,7 @@ export function useGlobalSearch(query: string) {
         cleaning: cleaning.data ?? [],
         food: food.data ?? [],
         beach: beach.data ?? [],
+        vehicles: vehicles.data ?? [],
       };
     },
   });
@@ -123,12 +131,16 @@ export function useGlobalSearch(query: string) {
       providerRows.set(String(p.id), p);
       if (p.source_provider_id) legacyProviderName.set(String(p.source_provider_id), p.name);
       const a = archetypeByKey.get(p.archetype_key);
+      // A unit's business has no archetype, so the marketplace URL builder
+      // produced "/services//providers/<id>" — a link to nowhere. It lives at
+      // its own address instead.
+      const isVehicles = p.unit === VEHICLES_UNIT;
       hits.push({
         kind: "provider", id: String(p.id), title: p.name,
-        subtitle: a?.label ?? null,
-        href: providerHref(p.archetype_key ?? "", String(p.id)),
+        subtitle: isVehicles ? "Vehicles" : a?.label ?? null,
+        href: isVehicles ? carProviderPath(String(p.id)) : providerHref(p.archetype_key ?? "", String(p.id)),
         priceCents: null, priceUnit: null,
-        haystack: [p.name, p.description, a?.label].filter(Boolean).join(" "),
+        haystack: [p.name, p.description, isVehicles ? "vehicles cars" : a?.label].filter(Boolean).join(" "),
       });
     });
 
@@ -180,6 +192,12 @@ export function useGlobalSearch(query: string) {
       push(String(p.id), p.name, "Beach Club",
            `/services/beach-club/plans/${p.id}`, p.price_per_person_cents ?? null,
            "/ person · month", [p.tagline]);
+    });
+    // Cars, by make and model — "hyundai", "tucson", "2024" all find one.
+    data.vehicles.forEach((v: any) => {
+      push(String(v.id), v.name, providerName.get(String(v.provider_id)) ?? "Vehicles",
+           carPath(`vehicle/${v.id}`), v.daily_price_cents ?? null,
+           "/ day", [v.brand, v.model, v.year ? String(v.year) : null]);
     });
     data.plans.forEach((p: any) => {
       // A variant is represented by its offer; a mirror of a standalone legacy

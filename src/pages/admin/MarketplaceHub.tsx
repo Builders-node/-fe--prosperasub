@@ -34,7 +34,7 @@ const UNASSIGNED = "__unassigned";
 export default function MarketplaceHub() {
   const [creating, setCreating] = useState(false);
   // Every service there is. Transport is not among them by construction — it
-  // is a unit of its own with no archetype at all (lib/services/transport).
+  // is a unit of its own with no archetype at all (lib/services/vehiclesUnit).
   const { archetypes, isLoading: archesLoading } = useServiceArchetypes(false);
 
   const { data: counts, isLoading: countsLoading } = useQuery({

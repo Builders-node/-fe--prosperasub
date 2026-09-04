@@ -66,3 +66,45 @@ export async function fetchHeldRanges(vehicleId: string): Promise<HeldRange[]> {
 export function overlapsHeld(startISO: string, endISO: string, held: HeldRange[]): boolean {
   return held.some((r) => startISO <= r.end && endISO >= r.start);
 }
+
+/**
+ * Release the holds this module already considers dead.
+ *
+ * The app and the database disagreed about what holds a car, and the
+ * disagreement was invisible until it bit. `stillHolds` above frees a pending
+ * booking that never reached an invoice after twenty minutes, so the calendar
+ * offers those dates again — but the exclusion constraint on `rental_bookings`
+ * only ignores CANCELLED rows, so the insert is refused and the customer is
+ * told the car "was just booked". It was not: they were shown dates that the
+ * database was always going to refuse, and no amount of retrying would help.
+ *
+ * The server sweep that expires unpayable rows (`expireUnverifiablePending`)
+ * is the real fix and runs every ten minutes — when it is deployed. This is
+ * the same rule applied from the booking path, scoped to the one car and the
+ * one date range in front of the customer, and it only ever cancels a row this
+ * file has already stopped counting: pending, never invoiced, past the hold.
+ *
+ * Returns how many it released, so the caller knows whether a retry is worth
+ * anything.
+ */
+export async function releaseDeadHolds(vehicleId: string, startISO: string, endISO: string): Promise<number> {
+  const { data, error } = await supabaseDb
+    .from("rental_bookings")
+    .select("id,start_date,end_date,status,payment_status,payment_reference,created_at")
+    .eq("vehicle_id", vehicleId)
+    .neq("status", "cancelled")
+    .is("deleted_at", null);
+  if (error) return 0;
+
+  const now = Date.now();
+  const dead = ((data ?? []) as Array<BookingRow & { id: string }>)
+    .filter((b) => !stillHolds(b, now))
+    .filter((b) => startISO <= b.end_date && endISO >= b.start_date);
+  if (dead.length === 0) return 0;
+
+  const { error: cancelErr } = await supabaseDb
+    .from("rental_bookings")
+    .update({ status: "cancelled", payment_status: "failed", updated_at: new Date().toISOString() })
+    .in("id", dead.map((b) => b.id));
+  return cancelErr ? 0 : dead.length;
+}

@@ -548,11 +548,14 @@ const ProviderDetail = () => {
             Card radius 24 at 16 of padding, per the design; the trail, the
             name, and the three lines that describe the business. */}
         <section className="rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
-          {/* Service → where → who. A crumb that repeats the one before it is
-              dropped: the Beach Club is its own service, and "Beach Club ›
-              Beach Club" tells the customer nothing twice. */}
+          {/* The trail says where this page SITS, not what it is: service →
+              where. The business's own name is the <h1> immediately below, and
+              printing it here too made the screen read "Vehicles · Vehicles ·
+              Atlantis · Atlantis" from the header down. A crumb that repeats
+              the one before it is dropped as well — the Beach Club is its own
+              service, and "Beach Club › Beach Club" says nothing twice. */}
           <div className="flex flex-wrap gap-2">
-            {[serviceLabel, p.location, p.name]
+            {[serviceLabel, p.location]
               .filter((c): c is string => !!c && !!c.trim())
               .filter((c, i, all) => all.findIndex((o) => o.toLowerCase() === c.toLowerCase()) === i)
               .map((c, i) => (
