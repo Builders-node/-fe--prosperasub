@@ -4,6 +4,7 @@ import { format } from "date-fns";
 import { ScrollText, Search } from "lucide-react";
 
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
+import { AdminListShell } from "@/components/admin/AdminListShell";
 import { Skeleton } from "@/components/patterns/Skeleton";
 import { QueryError } from "@/components/patterns/QueryError";
 import { YdEmptyState } from "@/components/yd/YdPrimitives";
@@ -108,8 +109,25 @@ const AuditLogs = () => {
 
   return (
     <SuperAdminLayout title="Audit Logs" subtitle="Track all admin actions">
-      {/* Toolbar */}
-      <div className="mb-space-4 flex flex-wrap items-center gap-3">
+      {/* The shared scaffold owns the search field, the count and the three
+          states; the selects and the date range ride in its `filters` slot.
+          Paging stays server-side below — the shell does not own that
+          (PAGE_TYPES section 10). */}
+      <AdminListShell
+        search={search}
+        onSearch={(v) => { setSearch(v); setPage(0); }}
+        searchPlaceholder="Search entity id, type or action…"
+        isLoading={isLoading}
+        isError={isError}
+        error={error as Error}
+        onRetry={() => void refetch()}
+        isEmpty={!isLoading && filtered.length === 0 && !search && entityFilter === "all" && actionFilter === "all" && !from && !to}
+        isNoResults={!isLoading && filtered.length === 0 && !!(search || entityFilter !== "all" || actionFilter !== "all" || from || to)}
+        count={filtered.length}
+        emptyTitle="No audit logs"
+        emptySubtitle="Admin actions will appear here as they happen."
+        onClearFilters={() => { setSearch(""); setEntityFilter("all"); setActionFilter("all"); setFrom(""); setTo(""); setPage(0); }}
+        filters={<>
         <Select value={entityFilter} onValueChange={(v) => { setEntityFilter(v); setPage(0); }}>
           <SelectTrigger className="w-40">
             <SelectValue placeholder="Entity" />
@@ -136,15 +154,6 @@ const AuditLogs = () => {
             ))}
           </SelectContent>
         </Select>
-        <div className="relative w-64">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(0); }}
-            placeholder="Search entity id, type or action…"
-            className="pl-9"
-          />
-        </div>
         <div className="flex items-center gap-2">
           <Input
             type="date"
@@ -161,30 +170,14 @@ const AuditLogs = () => {
             className="w-full sm:w-[150px]"
             aria-label="To date"
           />
-          {(from || to) && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => { setFrom(""); setTo(""); setPage(0); }}
-            >
-              Clear
-            </Button>
-          )}
         </div>
-      </div>
+        </>}
+      >
 
       {/* Table */}
       <Card>
         <CardContent className="p-0">
-          {isLoading ? (
-            <div className="space-y-space-2 p-space-4">{[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-12" />)}</div>
-          ) : isError ? (
-            <div className="p-space-4">
-              <QueryError title="Couldn't load audit logs" error={error} onRetry={() => void refetch()} />
-            </div>
-          ) : filtered.length === 0 ? (
-            <YdEmptyState icon={ScrollText} title="No audit logs" subtitle="Admin actions will appear here as they happen." className="rounded-none" />
-          ) : (
+          {(
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -263,6 +256,7 @@ const AuditLogs = () => {
           )}
         </CardContent>
       </Card>
+      </AdminListShell>
     </SuperAdminLayout>
   );
 };

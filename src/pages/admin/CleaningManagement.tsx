@@ -19,6 +19,8 @@ import {
 import { toast } from "sonner";
 
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
+import { QueryError } from "@/components/patterns/QueryError";
+import { Skeleton } from "@/components/patterns/Skeleton";
 import { TabEmptyState, SectionOverline } from "@/components/subscriptions/MySubsPrimitives";
 import { supabase, supabaseDb, adminApi } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/lib/supabasePaging";
@@ -233,7 +235,10 @@ const CleaningManagement = ({
     },
   });
 
-  const { data: bookings = [], isLoading: bookingsLoading } = useQuery({
+  const {
+    data: bookings = [], isLoading: bookingsLoading,
+    isError: bookingsError, error: bookingsErrorObj, refetch: refetchBookings,
+  } = useQuery({
     // Include providerId + resolved sub-id list in the key so admin view and
     // per-provider embeds cache separately.
     queryKey: ["admin-cleaning-bookings", providerId ?? "all", (scopeSubIds ?? []).join(",")],
@@ -879,7 +884,7 @@ const CleaningManagement = ({
                       className={cn(
                         "rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
                         period === p.key
-                          ? "bg-primary text-primary-foreground"
+                          ? "bg-foreground text-background"
                           : "bg-muted/40 text-muted-foreground hover:text-foreground",
                       )}
                     >
@@ -937,7 +942,17 @@ const CleaningManagement = ({
               </div>
 
               {bookingsLoading ? (
-                <p className="py-space-8 text-center text-muted-foreground">Loading bookings...</p>
+                // The shape of what is coming, not a sentence about it.
+                <div className="space-y-space-3">
+                  {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-20" />)}
+                </div>
+              ) : bookingsError ? (
+                // A failed request used to render "No cleaning bookings".
+                <QueryError
+                  title="Couldn't load bookings"
+                  error={bookingsErrorObj as Error}
+                  onRetry={() => void refetchBookings()}
+                />
               ) : bookings.length === 0 ? (
                 <TabEmptyState icon={CalendarDays} title="No cleaning bookings" subtitle="Bookings created from subscriptions or assigned plans will appear here." />
               ) : visibleBookings.length === 0 ? (

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { ArrowUpRight, Car, Pencil, Plus } from "lucide-react";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { AdminListShell } from "@/components/admin/AdminListShell";
+import { TabPills } from "@/components/admin/TabPills";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -181,33 +182,20 @@ export default function CarRentals({ embedded = false, providerId }: {
 
   const body = (
     <div className="space-y-space-4">
-      {/* Same drill-down shape as a Marketplace service: the section's own
-          nouns (Fleet, Bookings) plus the shared lists (Types, Companies,
-          Applications) mounted embedded — one implementation of each. Inside
-          one business's workspace only its own two tabs show. */}
-      <div className="mb-4 inline-flex flex-wrap gap-1 rounded-full bg-muted/50 p-1">
-        {(embedded
+      {/* Same drill-down shape as a Marketplace service: the unit's own nouns
+          (Vehicles, Bookings) beside the shared lists, mounted embedded. */}
+      <TabPills
+        className="mb-4"
+        tabs={(embedded
           ? ([["bookings", "Bookings"], ["fleet", "Vehicles"]] as const)
           : ([
               ["bookings", "Bookings"], ["fleet", "Vehicles"], ["types", "Types"],
-              // "Providers", because that is the word everywhere else on the
-              // platform — one noun for one concept.
               ["providers", "Providers"],
             ] as const)
-        ).map(([value, label]) => (
-          <button
-            key={value}
-            type="button"
-            onClick={() => setTab(value)}
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-semibold transition-colors",
-              tab === value ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+        ).map(([value, label]) => ({ value, label }))}
+        value={tab}
+        onChange={setTab}
+      />
 
       {tab === "bookings" ? (
         <>

@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { MobileActionSheet } from "@/components/admin/MobileActionSheet";
 import { ServiceLocationsEditor } from "@/components/admin/ServiceLocationsEditor";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
+import { AdminListShell } from "@/components/admin/AdminListShell";
 import { fetchAllRows } from "@/lib/supabasePaging";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { logAuditEvent } from "@/lib/auditLog";
@@ -127,7 +128,7 @@ const CleaningPlans = ({
 
   // ── Queries ──────────────────────────────────────────────────────────────
 
-  const { data: plans = [], isLoading } = useQuery({
+  const { data: plans = [], isLoading, isError, error, refetch } = useQuery({
     // Cache-key includes providerId so admin (all plans) and each embedded
     // provider mount don't share results.
     queryKey: ["admin-cleaning-plans", providerId ?? "all"],
@@ -447,8 +448,22 @@ const CleaningPlans = ({
         ))}
       </div>
 
-      {/* Filter chips + primary actions */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      {/* The shared scaffold: the chips ride in `filters`, the two buttons in
+          `actions`, and the states come from the shell — this page used a
+          plain sentence for loading, another for empty, and had no error
+          branch at all (PAGE_TYPES section 10). */}
+      <AdminListShell
+        isLoading={isLoading}
+        isError={isError}
+        error={error as Error}
+        onRetry={() => void refetch()}
+        isEmpty={!isLoading && plans.length === 0}
+        isNoResults={plans.length > 0 && filteredPlans.length === 0}
+        count={filteredPlans.length}
+        emptyTitle="No cleaning plans yet"
+        emptySubtitle="Create one and it appears in the storefront."
+        onClearFilters={() => setFilter(FILTERS[0].value)}
+        filters={<>
         <div className="flex flex-wrap gap-1.5">
           {FILTERS.map((f) => {
             const on = filter === f.value;
@@ -469,20 +484,17 @@ const CleaningPlans = ({
             );
           })}
         </div>
-        <div className="flex gap-2">
+        </>}
+        actions={<>
           <Button variant="ghost" size="sm" onClick={() => setAssignOpen(true)}>Assign to client</Button>
           <Button size="sm" onClick={openCreate}><Plus className="h-4 w-4" />New plan</Button>
-        </div>
-      </div>
+        </>}
+      >
 
       {/* Plans list — single card list on every viewport (kills the desktop
           Table so mobile-first stays consistent). Each row: plan name +
           visibility/status chips + freq/price/subs meta + ⋯ menu. */}
-      {isLoading ? (
-        <div className="py-12 text-center text-sm text-muted-foreground">Loading plans…</div>
-      ) : filteredPlans.length === 0 ? (
-        <div className="rounded-radius-lg bg-card py-12 text-center text-sm text-muted-foreground">No plans match this filter</div>
-      ) : (
+      {(
         <div className="space-y-2">
           {plansPager.paged.map((plan) => (
             <div key={plan.id} className="flex items-center gap-3 rounded-radius-md bg-card p-4">
@@ -517,6 +529,7 @@ const CleaningPlans = ({
           <TablePagination {...plansPager} onPage={plansPager.setPage} />
         </div>
       )}
+      </AdminListShell>
 
       {/* Client Assignments — matching row style */}
       {visibleAssignments.length > 0 && (

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { AdminListShell } from "@/components/admin/AdminListShell";
+import { TabPills } from "@/components/admin/TabPills";
 import { fetchAllRows } from "@/lib/supabasePaging";
 import { adminApi, supabaseDb } from "@/integrations/supabase/client";
 import {
@@ -265,21 +266,12 @@ const AdminUsers = () => {
       {/* Users vs Clients: individual accounts vs billed organizations. One
           sidebar entry, two tabs — Clients used to be its own nav item, which
           made two doors for one section. */}
-      <div className="mb-5 inline-flex gap-1 rounded-full bg-muted/50 p-1">
-        {(["users", "clients"] as const).map((t) => (
-          <button
-            key={t}
-            type="button"
-            onClick={() => setTab(t)}
-            className={cn(
-              "rounded-full px-4 py-1.5 text-sm font-semibold capitalize transition-colors",
-              tab === t ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            {t}
-          </button>
-        ))}
-      </div>
+      <TabPills
+        className="mb-5"
+        tabs={[{ value: "users", label: "Users" }, { value: "clients", label: "Clients" }] as const}
+        value={tab}
+        onChange={setTab}
+      />
 
       {tab === "clients" ? <AdminClients embedded /> : (<>
       {/* The one list scaffold every admin list uses — People had grown its

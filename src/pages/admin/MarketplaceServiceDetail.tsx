@@ -18,6 +18,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { logAuditEvent } from "@/lib/auditLog";
 import { ServiceArchetypeDialog, type Archetype } from "@/components/admin/ServiceArchetypeDialog";
 import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
+import { TabPills } from "@/components/admin/TabPills";
 import { cn } from "@/lib/utils";
 import ServiceCategories from "./ServiceCategories";
 import MarketplaceProviders from "./MarketplaceProviders";
@@ -207,29 +208,17 @@ export default function MarketplaceServiceDetail() {
           )}
         </div>
 
-        {/* Tab strip — same pill treatment as AdminPageTabs, but these switch a
-            query param instead of navigating, so list state survives. */}
-        <div className="inline-flex gap-1 rounded-full bg-muted/50 p-1">
-          {tabs.map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setTab(t)}
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-semibold transition-colors",
-                tab === t ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {TAB_LABELS[t]}
-              {t === "applications" && pendingApps > 0 && (
-                <Badge className={cn(
-                  "h-5 min-w-[20px] rounded-full px-1.5 text-[10px]",
-                  tab === t ? "bg-background/20 text-background" : "bg-primary/15 text-primary",
-                )}>{pendingApps}</Badge>
-              )}
-            </button>
-          ))}
-        </div>
+        {/* The admin's controlled tab strip — one component, not a third copy
+            of the same markup. */}
+        <TabPills
+          tabs={tabs.map((t) => ({
+            value: t,
+            label: TAB_LABELS[t],
+            badge: t === "applications" ? pendingApps : undefined,
+          }))}
+          value={tab}
+          onChange={setTab}
+        />
 
         <ServiceArchetypeDialog
           open={editing !== null}
