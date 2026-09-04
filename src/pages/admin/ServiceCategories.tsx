@@ -79,7 +79,7 @@ export interface ServiceCategoriesProps {
   counts?: "providers" | "vehicles";
 }
 
-export default function ServiceCategories({ embedded = false, archetypeKey, counts = "providers" }: ServiceCategoriesProps = {}) {
+export default function ServiceCategories({ embedded = false, archetypeKey, counts: countMode = "providers" }: ServiceCategoriesProps = {}) {
   const qc = useQueryClient();
   const { userData } = useAuth();
   const { archetypes } = useServiceArchetypes();
@@ -106,9 +106,9 @@ export default function ServiceCategories({ embedded = false, archetypeKey, coun
   // What each category holds — tells the admin what a hide/delete affects.
   // Providers in experiences, vehicles in transport (see the `counts` prop).
   const { data: providerCounts = {} } = useQuery({
-    queryKey: ["admin-category-member-counts", counts],
+    queryKey: ["admin-category-member-counts", countMode],
     queryFn: async () => {
-      const { data, error } = counts === "vehicles"
+      const { data, error } = countMode === "vehicles"
         ? await supabaseDb.from("rental_vehicles").select("category_key").neq("status", "archived")
         : await supabaseDb.from("providers").select("category_key");
       if (error) throw error;
@@ -121,7 +121,7 @@ export default function ServiceCategories({ embedded = false, archetypeKey, coun
     staleTime: 30_000,
   });
   /** The noun the counts speak in. */
-  const noun = counts === "vehicles" ? "vehicle" : "provider";
+  const noun = countMode === "vehicles" ? "vehicle" : "provider";
 
   const archetypeLabel = (key: string) =>
     archetypes.find((a) => a.key === key)?.label ?? key;
@@ -275,7 +275,7 @@ export default function ServiceCategories({ embedded = false, archetypeKey, coun
           isEmpty={inScope.length === 0}
           isNoResults={inScope.length > 0 && filtered.length === 0} count={filtered.length}
           emptyTitle="No categories yet"
-          emptySubtitle={counts === "vehicles"
+          emptySubtitle={countMode === "vehicles"
             ? "Types split the fleet by what the product is — Cars, Motorbikes, Boats. Each vehicle picks one."
             : "Categories group providers inside a service. Create one to split e.g. Cleaning into Apartment Cleaning and Car Wash."}
           onClearFilters={() => { setSearch(""); setArchetypeFilterState("all"); }}
