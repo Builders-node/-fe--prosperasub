@@ -12,7 +12,7 @@
  * keeps the car storefront out of a marketplace visitor's download.
  */
 
-export { VEHICLES_BASE, carPath, trimPath } from "./lib/routes";
+export { VEHICLES_BASE, carPath, carProviderPath, trimPath } from "./lib/routes";
 
 /** Car-shaped screens that other surfaces host: the admin, the workspace. */
 export { VehicleEditDialog } from "./components/VehicleEditDialog";

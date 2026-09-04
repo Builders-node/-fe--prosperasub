@@ -11,6 +11,7 @@ import { AppContainer } from "@/components/layout/AppContainer";
 import { PageLoader } from "@/components/ui/spinner";
 import Fleet from "./Fleet";
 import VehicleDetail from "./VehicleDetail";
+import VehicleProvider from "./VehicleProvider";
 import Book from "./Book";
 import MyBookings from "./MyBookings";
 import BookingDetail from "./BookingDetail";
@@ -125,6 +126,10 @@ export default function VehiclesApp() {
       <Routes>
         <Route index element={<Fleet />} />
         <Route path="vehicle/:id" element={<VehicleDetail />} />
+        {/* One rental business — its fleet, its contacts, its reviews. Inside
+            the unit, because a transport provider has no service slug to live
+            under (lib/services/transport). */}
+        <Route path="providers/:providerId" element={<VehicleProvider />} />
         <Route path="book/:id" element={<RequireAuth><CarPage title="Book"><Book /></CarPage></RequireAuth>} />
         <Route path="my-bookings" element={<RequireAuth><CarPage title="My bookings"><MyBookings /></CarPage></RequireAuth>} />
         <Route path="booking/:id" element={<RequireAuth><CarPage title="Booking"><BookingDetail /></CarPage></RequireAuth>} />

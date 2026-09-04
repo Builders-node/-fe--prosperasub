@@ -8,8 +8,8 @@ import { useGoBack } from "@/hooks/useGoBack";
 import { Spinner } from "@/components/ui/spinner";
 import { QueryError } from "@/components/patterns/QueryError";
 import { ProviderRail, CategoryChips, ALL_CATEGORIES } from "@/components/listing/ListingNav";
-import { providerHref } from "@/lib/services/serviceUrls";
 import { YdSectionHeading } from "@/components/yd/YdPrimitives";
+import { carProviderPath } from "../lib/routes";
 import { VehicleCard } from "../components/VehicleCard";
 import { useVehicles } from "../hooks/useVehicles";
 import { useVehicleTypes } from "../hooks/useVehicleTypes";
@@ -128,7 +128,7 @@ export default function Fleet() {
               // The rail is a DOOR, as on every other listing — it opens the
               // business's own page (fleet shelf, reviews, gallery). Narrowing
               // the grid is the chips' job, not the rail's.
-              onOpen={(id) => navigate(providerHref("vehicles", id))}
+              onOpen={(id) => navigate(carProviderPath(id))}
             />
           </div>
         )}

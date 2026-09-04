@@ -11,7 +11,7 @@ import { StarRating } from "@/components/food/StarRating";
 import { CommentIcon, InfoIcon, StarIcon } from "@/components/icons/FigmaIcons";
 import { toast } from "sonner";
 
-export type ProviderReviewService = "cleaning" | "beach" | "food" | "plan";
+export type ProviderReviewService = "cleaning" | "beach" | "food" | "plan" | "cars";
 
 interface ProviderReviewRow {
   id: string;
@@ -98,6 +98,13 @@ export function ProviderReviewsBlock({ providerId, service, ownerUserId, placeho
         // customer buy from this business" is one query — no hop through legacy
         // plans to find the owner.
         const { data } = await supabaseDb.from("provider_subscriptions")
+          .select("id").eq("provider_id", providerId).in("user_id", ids).limit(1);
+        return (data?.length ?? 0) > 0;
+      }
+      if (service === "cars") {
+        // A rental is booked, not subscribed: the customer's proof is a
+        // booking against this business.
+        const { data } = await supabaseDb.from("rental_bookings")
           .select("id").eq("provider_id", providerId).in("user_id", ids).limit(1);
         return (data?.length ?? 0) > 0;
       }

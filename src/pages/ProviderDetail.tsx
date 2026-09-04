@@ -29,6 +29,7 @@ import { formatUSD } from "@/lib/pricing";
 import { LinkifiedText } from "@/components/patterns/LinkifiedText";
 import { VehicleCard, useVehicles, useVehicleTypes } from "@/features/vehicles";
 import { isTransportProvider } from "@/lib/services/transport";
+import { carProviderPath } from "@/features/vehicles";
 import { YdSectionHeading } from "@/components/yd/YdPrimitives";
 import { useTabParam } from "@/hooks/useTabParam";
 
@@ -272,6 +273,15 @@ const ProviderDetail = () => {
    * only when the business turns out to rent cars.
    */
   const isVehicles = isTransportProvider(providerQ.data);
+  /**
+   * A rental business has its own page inside its own unit, at
+   * /vehicles/providers/<id>. This URL is the marketplace's shape and only
+   * still resolves because the slug map predates the split — so it hands over
+   * rather than rendering a second copy of the same business.
+   */
+  const transportHome = isVehicles && providerQ.data?.id
+    ? carProviderPath(providerQ.data.id)
+    : null;
   const vehiclesQ = useVehicles({ providerId, enabled: !!providerId && isVehicles });
   // Type labels for the fleet shelf — one business can rent cars AND
   // motorbikes, and a mixed shelf groups by the vehicle's own type.
@@ -358,6 +368,10 @@ const ProviderDetail = () => {
       </BrowseLayout>
     );
   }
+
+  // Transport keeps its businesses in its own section — one page per company,
+  // not one here and one there.
+  if (transportHome) return <Navigate to={transportHome} replace />;
 
   if (providerQ.isLoading) {
     return (

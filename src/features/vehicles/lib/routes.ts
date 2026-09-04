@@ -18,6 +18,15 @@ export const carPath = (sub = ""): string => {
 };
 
 /**
+ * One rental business's own page, inside the unit.
+ *
+ * A transport provider is not a marketplace service's provider — it has no
+ * archetype and no service slug — so its page lives here rather than at
+ * /services/<slug>/providers/<id>, where every other vertical's does.
+ */
+export const carProviderPath = (providerId: string): string => carPath(`providers/${providerId}`);
+
+/**
  * A path with its trailing slash removed, so "/vehicles/" and "/vehicles"
  * compare equal. The 301 from the retired subdomain lands people on the former,
  * and without this the tab bar showed no active tab on arrival.

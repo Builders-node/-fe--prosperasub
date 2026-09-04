@@ -16,7 +16,7 @@ import { useVehicle } from "../hooks/useVehicles";
 import { calcRentalPrice, FUEL_LABEL, QUICK_DURATIONS } from "../types/carRental";
 import { unitSuffix } from "@/lib/checkout/ctaLabel";
 import { formatUSD } from "@/lib/pricing";
-import { carPath } from "../lib/routes";
+import { carPath, carProviderPath } from "../lib/routes";
 import { addDays } from "date-fns";
 
 export default function VehicleDetail() {
@@ -74,7 +74,9 @@ export default function VehicleDetail() {
     : null;
 
   const breadcrumbs = [
-    ...(v.provider?.name ? [{ label: v.provider.name, href: carPath() }] : []),
+    ...(v.provider?.name && v.provider.id
+      ? [{ label: v.provider.name, href: carProviderPath(v.provider.id) }]
+      : []),
     { label: "Cars", href: carPath() },
   ];
 
