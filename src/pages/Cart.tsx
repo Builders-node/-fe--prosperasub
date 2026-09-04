@@ -44,6 +44,7 @@ import { todayHN, addDaysISO } from "@/lib/timezone";
 import { DURATION_OPTIONS } from "@/lib/durations";
 import { CART_SERVICES, lineTotalCents, periodLabel, quantityLabel } from "@/lib/cart/cartItem";
 import { CART_TABLES, buildRows, paidPatch, needsUuidUser, isUuid } from "@/lib/cart/checkoutRows";
+import { notifyProviderOfOrder } from "@/lib/orders/notifyProvider";
 import { resolveCheckoutPlan, type CheckoutPlan } from "@/lib/checkout/planCheckoutModel";
 import type { CartService } from "@/lib/cart/cartItem";
 import { Sparkles, Waves, Package } from "lucide-react";
@@ -251,8 +252,12 @@ export default function Cart() {
     });
 
     for (const [table, rows] of byTable) {
-      const { error } = await supabaseDb.from(table).insert(rows);
+      // `.select("id")` so each new order can be announced to the business
+      // that has to fulfil it — a bare insert returns nothing to name.
+      const { data, error } = await supabaseDb.from(table).insert(rows).select("id");
       if (error) throw error;
+      (data ?? []).forEach((r: { id?: string }) =>
+        void notifyProviderOfOrder(table as any, r?.id));
     }
     return batchId;
   };

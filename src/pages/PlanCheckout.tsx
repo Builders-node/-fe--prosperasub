@@ -9,6 +9,7 @@ import { CheckCircle2, RefreshCw, Wallet, CalendarDays, Sparkles, MapPin, Messag
 import { CheckoutSuccessPanel } from "@/components/patterns/CheckoutSuccessPanel";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabaseDb } from "@/integrations/supabase/client";
+import { notifyProviderOfOrder } from "@/lib/orders/notifyProvider";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserUuid } from "@/hooks/useUserUuid";
 import { toast } from "sonner";
@@ -333,7 +334,11 @@ const UniversalPlanCheckout = () => {
       pendingSubIdRef.current = data.id;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (row: any) => {
+      // The business that has to fulfil this hears about it now — owner and
+      // team both. Fire-and-forget; the reconcile cron covers a tab that dies
+      // first, and the server's ledger stops the two colliding.
+      void notifyProviderOfOrder(subTable() as any, row?.id);
       queryClient.invalidateQueries({ queryKey: ["my-universal-subscriptions"] });
       queryClient.invalidateQueries({ queryKey: ["admin-marketplace-subscriptions"] });
       // A renewal changes a row the subscriptions page is already showing, and

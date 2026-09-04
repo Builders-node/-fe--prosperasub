@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Car, ShieldCheck, Check, ChevronRight, MapPin } from "lucide-react";
 import { AppContainer } from "@/components/layout/AppContainer";
 import { CheckoutSuccessPanel } from "@/components/patterns/CheckoutSuccessPanel";
+import { notifyProviderOfOrder } from "@/lib/orders/notifyProvider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -230,6 +231,10 @@ export default function Book() {
       const reserved = await reserve();
       if (!reserved) return;
       pendingIdRef.current = reserved.id;
+      // The rental company hears about it as soon as the booking exists —
+      // owner and team. Idempotent server-side, so the reconcile cron
+      // confirming the payment later does not send a second one.
+      void notifyProviderOfOrder("rental_bookings", reserved.id);
       // Charge what the row says, not what this page computed — same inputs,
       // but the row is what the reconcile cron verifies against.
       const payTotal = reserved.charged ?? effectiveTotal;
