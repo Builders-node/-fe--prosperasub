@@ -4,6 +4,7 @@ import { ShieldCheck, Plus, Archive, Save } from "lucide-react";
 import { toast } from "sonner";
 
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
+import { AdminListShell } from "@/components/admin/AdminListShell";
 import { Skeleton } from "@/components/patterns/Skeleton";
 import { YdEmptyState } from "@/components/yd/YdPrimitives";
 import { adminApi } from "@/integrations/supabase/client";
@@ -123,25 +124,27 @@ export default function RoleManagement() {
 
   return (
     <SuperAdminLayout title="Roles" subtitle="Define who can access which admin surfaces">
-      <div className="mb-space-4 flex justify-end">
-        <Button onClick={() => setCreating(true)}><Plus className="h-4 w-4" />New Role</Button>
-      </div>
-
+      {/* One scaffold: the primary action, the count and the three states come
+          from the shell, as they do on every other admin list. The button used
+          to hang on its own above the grid (PAGE_TYPES section 10). */}
+      <AdminListShell
+        isLoading={isLoading}
+        isError={isError}
+        error={error as Error}
+        onRetry={() => void refetch()}
+        isEmpty={!isLoading && roles.length === 0}
+        count={roles.length}
+        emptyTitle="No roles yet"
+        emptySubtitle="Create a role to grant admin access."
+        actions={<Button onClick={() => setCreating(true)}><Plus className="h-4 w-4" />New Role</Button>}
+      >
       <div className="grid gap-space-3 xl:grid-cols-[minmax(0,1fr)_360px]">
         <Card>
           <CardHeader>
             <CardTitle>Roles</CardTitle>
           </CardHeader>
           <CardContent className="space-y-space-2">
-            {isLoading ? (
-              <div className="space-y-space-2">{[1, 2, 3].map((i) => <Skeleton key={i} className="h-16" />)}</div>
-            ) : isError ? (
-              /* A failed request is not an empty table. Painting both the same
-                 way is how a 401 read as "you have no roles". */
-              <QueryError title="Couldn't load roles" error={error as Error} onRetry={() => void refetch()} />
-            ) : roles.length === 0 ? (
-              <YdEmptyState icon={Archive} title="No roles yet" subtitle="Create a role to grant admin access." />
-            ) : (
+            {(
               [...activeRoles, ...inactiveRoles].map((role) => (
                 <div key={role.id} className="flex flex-wrap items-center justify-between gap-space-3 rounded-radius-md bg-inset px-space-4 py-space-3">
                   <div className="min-w-0">
@@ -198,6 +201,7 @@ export default function RoleManagement() {
           </CardContent>
         </Card>
       </div>
+      </AdminListShell>
 
       <RoleSheet
         open={creating || !!editingRole}

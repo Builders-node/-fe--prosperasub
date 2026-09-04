@@ -64,8 +64,15 @@ export default function Fleet() {
     return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
   }, [vehicles]);
 
-  // One rental company is the current state; a rail of one and a name on every
-  // row would be chrome around a choice nobody has.
+  /**
+   * The rail is drawn on every listing, and ProviderRail already knows what to
+   * do with one business: a full-width row rather than a lone half tile. This
+   * page used to hide it below two providers, so the one section on the
+   * platform with a single company was also the one with no door to it.
+   *
+   * Naming the business on every ROW is still gated: with one company that is
+   * the same word repeated down the page.
+   */
   const manyProviders = providers.length > 1;
 
   const scoped = useMemo(
@@ -113,7 +120,7 @@ export default function Fleet() {
           value={activeCategory}
           onChange={setActiveCategory}
         />
-        {manyProviders && (
+        {providers.length > 0 && (
           <div className="mb-6 mt-4">
             <ProviderRail
               providers={providers.map((p) => ({
