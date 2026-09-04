@@ -19,8 +19,8 @@ import { fetchUsersByIds, customerNameFrom } from "@/lib/admin/customerNames";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { StatusPill } from "@/components/patterns/StatusPill";
-import ServiceCategories from "./ServiceCategories";
-import ProviderApplications from "./ProviderApplications";
+import { VehicleTypesPanel, useVehicleTypes } from "@/features/vehicles";
+import { TRANSPORT_UNIT } from "@/lib/services/transport";
 
 /**
  * Car rentals, run from the same admin as everything else.
@@ -56,7 +56,7 @@ export default function CarRentals({ embedded = false, providerId }: {
   providerId?: string;
 } = {}) {
   const qc = useQueryClient();
-  const [tab, setTab] = useState<"bookings" | "fleet" | "types" | "providers" | "applications">("bookings");
+  const [tab, setTab] = useState<"bookings" | "fleet" | "types" | "providers">("bookings");
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<string>("all");
   const [busy, setBusy] = useState<string | null>(null);
@@ -103,35 +103,10 @@ export default function CarRentals({ embedded = false, providerId }: {
     },
   });
 
-  /** Type labels for the fleet rows — the categories under vehicles. */
-  const typesQ = useQuery({
-    queryKey: ["vehicle-type-options"],
-    enabled: tab === "fleet",
-    queryFn: async () => {
-      const { data, error } = await supabaseDb
-        .from("service_categories")
-        .select("key, label")
-        .eq("archetype_key", "vehicles")
-        .order("sort_order");
-      if (error) throw error;
-      return (data ?? []) as Array<{ key: string; label: string }>;
-    },
-  });
+  /** Type labels for the fleet rows — the unit's own types. */
+  const typesQ = useVehicleTypes({ activeOnly: false, enabled: tab === "fleet" });
   const typeLabel = (key: string | null | undefined) =>
     key ? typesQ.data?.find((t) => t.key === key)?.label ?? key : null;
-
-  /** Waiting transport applications — the badge on the Applications tab. */
-  const { data: pendingApps = 0 } = useQuery({
-    queryKey: ["admin-provider-applications-pending-count", "vehicles"],
-    enabled: !embedded,
-    queryFn: async () => {
-      const { count, error } = await supabaseDb
-        .from("provider_applications").select("*", { count: "exact", head: true })
-        .eq("status", "pending").eq("archetype_key", "vehicles");
-      if (error) return 0;
-      return count ?? 0;
-    },
-  });
 
   const companiesQ = useQuery({
     queryKey: ["transport-providers"],
@@ -140,7 +115,7 @@ export default function CarRentals({ embedded = false, providerId }: {
       const { data, error } = await supabaseDb
         .from("providers")
         .select("id, name, status, admin_user_id, avatar_url")
-        .eq("archetype_key", "vehicles")
+        .eq("unit", TRANSPORT_UNIT)
         .order("name");
       if (error) throw error;
       return (data ?? []) as Array<{
@@ -212,7 +187,7 @@ export default function CarRentals({ embedded = false, providerId }: {
               ["bookings", "Bookings"], ["fleet", "Fleet"], ["types", "Types"],
               // "Providers", because that is the word everywhere else on the
               // platform — one noun for one concept.
-              ["providers", "Providers"], ["applications", "Applications"],
+              ["providers", "Providers"],
             ] as const)
         ).map(([value, label]) => (
           <button
@@ -225,12 +200,6 @@ export default function CarRentals({ embedded = false, providerId }: {
             )}
           >
             {label}
-            {value === "applications" && pendingApps > 0 && (
-              <Badge className={cn(
-                "h-5 min-w-[20px] rounded-full px-1.5 text-[10px]",
-                tab === value ? "bg-background/20 text-background" : "bg-primary/15 text-primary",
-              )}>{pendingApps}</Badge>
-            )}
           </button>
         ))}
       </div>
@@ -382,12 +351,9 @@ export default function CarRentals({ embedded = false, providerId }: {
         </AdminListShell>
       ) : null}
 
-      {/* The same category CRUD every Marketplace service uses, scoped to the
-          vehicles archetype — a "Motorbikes" row typed here becomes a
+      {/* Transport's own type editor — a "Motorbikes" row typed here becomes a
           storefront chip and an option in the vehicle editor, no code. */}
-      {tab === "types" && <ServiceCategories embedded archetypeKey="vehicles" counts="vehicles" />}
-
-      {tab === "applications" && <ProviderApplications embedded archetypeKey="vehicles" />}
+      {tab === "types" && <VehicleTypesPanel />}
 
       {tab === "providers" && (
         <AdminListShell

@@ -12,6 +12,10 @@ import { AccessQrCode } from "@/components/account/AccessQrCode";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMyBusinesses } from "@/hooks/useMyBusinesses";
 import { useServiceArchetypes, type ServiceArchetype } from "@/hooks/useServiceArchetypes";
+import { FAMILY_STOREFRONTS, familyStorefront } from "@/lib/services/families";
+import { useVehicleTypes } from "@/features/vehicles";
+import { resolveCategoryIcon } from "@/lib/services/categoryIcons";
+import { CarFront as CarFrontIcon } from "lucide-react";
 import { publicListingHref } from "@/lib/services/providerBridge";
 import { CategoryCarousel } from "@/components/discovery/CategoryCarousel";
 import { useTabParam } from "@/hooks/useTabParam";
@@ -66,6 +70,9 @@ const Discovery = () => {
   const families = useMemo(() => {
     const seen: string[] = [];
     for (const a of allArchetypes) if (!seen.includes(a.family)) seen.push(a.family);
+    // A unit that owns its storefront is not an archetype at all — transport
+    // has none by design — so its tab comes from the manifest.
+    for (const f of Object.keys(FAMILY_STOREFRONTS)) if (!seen.includes(f)) seen.push(f);
     return seen;
   }, [allArchetypes]);
   const [family, setFamily] = useTabParam(families, { key: "family" });
@@ -73,6 +80,11 @@ const Discovery = () => {
   const archetypes = showFamilies
     ? allArchetypes.filter((a) => a.family === family)
     : allArchetypes;
+
+  /** Set when the open tab is a unit with its own section (transport). */
+  const storefront = showFamilies ? familyStorefront(family) : null;
+  // Its own types, not service-categories: transport has no service layer.
+  const { data: vehicleTypes = [] } = useVehicleTypes({ enabled: !!storefront });
 
   // What's actually inside each service. A tile saying "Apartment Cleaning ·
   // Car Wash" tells a customer more in four words than the archetype's prose
@@ -177,25 +189,63 @@ const Discovery = () => {
       </section>
 
       <main className="app-container space-y-4 py-4 md:space-y-8 md:py-space-8">
-        {/* ─── Services ─────────────────────────────────────────────── */}
-        <section className="space-y-3">
-          <h2 className="text-[20px] font-semibold tracking-[-0.4px] text-foreground">
-            {t("discovery.services")}
-          </h2>
-          {archetypesLoading ? (
-            <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-              {[0, 1, 2, 3].map((i) => (
-                <Skeleton key={i} className="h-[120px]" />
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-              {archetypes.map((a) => (
-                <ArchetypeTile key={a.key} archetype={a} categories={categoriesByArchetype.get(a.key) ?? []} />
-              ))}
-            </div>
-          )}
-        </section>
+        {storefront ? (
+          /*
+            A unit that owns its storefront gets its own doors, not a copy of
+            the marketplace's grid. Transport has no services to choose
+            between — it has vehicle TYPES, and a fleet behind them.
+          */
+          <section className="space-y-3">
+            <h2 className="text-[20px] font-semibold tracking-[-0.4px] text-foreground">
+              {storefront.title}
+            </h2>
+            {vehicleTypes.length > 0 && (
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                {vehicleTypes.map((t) => {
+                  const Icon = resolveCategoryIcon(t.icon);
+                  return (
+                    <Link
+                      key={t.key}
+                      to={`${storefront.href}?category=${encodeURIComponent(t.key)}`}
+                      className="flex h-[120px] flex-col justify-between rounded-radius-md bg-card p-4 shadow-figma transition-colors active:scale-[0.98] hover:bg-muted/40"
+                    >
+                      <Icon className="h-6 w-6 text-foreground" />
+                      <p className="line-clamp-2 text-[16px] font-semibold tracking-[-0.32px] text-foreground">
+                        {t.label}
+                      </p>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+            <ShortcutRow
+              icon={({ className }) => <CarFrontIcon className={className} />}
+              title={storefront.allLabel}
+              caption={storefront.caption}
+              to={storefront.href}
+            />
+          </section>
+        ) : (
+          /* ─── Services ─────────────────────────────────────────────── */
+          <section className="space-y-3">
+            <h2 className="text-[20px] font-semibold tracking-[-0.4px] text-foreground">
+              {t("discovery.services")}
+            </h2>
+            {archetypesLoading ? (
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                {[0, 1, 2, 3].map((i) => (
+                  <Skeleton key={i} className="h-[120px]" />
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+                {archetypes.map((a) => (
+                  <ArchetypeTile key={a.key} archetype={a} categories={categoriesByArchetype.get(a.key) ?? []} />
+                ))}
+              </div>
+            )}
+          </section>
+        )}
 
       </main>
 

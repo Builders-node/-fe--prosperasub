@@ -33,15 +33,9 @@ const UNASSIGNED = "__unassigned";
  */
 export default function MarketplaceHub() {
   const [creating, setCreating] = useState(false);
-  // Experiences only, Booking.com-style: transport is its own layer with its
-  // own sidebar section, mirroring the storefront's family tabs. Filtered by
-  // FAMILY, not by key — a future boats archetype files under Transport with
-  // no code change here.
-  const { archetypes: allArchetypes, isLoading: archesLoading } = useServiceArchetypes(false);
-  const archetypes = useMemo(
-    () => allArchetypes.filter((a) => a.family !== "transport"),
-    [allArchetypes],
-  );
+  // Every service there is. Transport is not among them by construction — it
+  // is a unit of its own with no archetype at all (lib/services/transport).
+  const { archetypes, isLoading: archesLoading } = useServiceArchetypes(false);
 
   const { data: counts, isLoading: countsLoading } = useQuery({
     queryKey: ["marketplace-hub-counts"],
@@ -51,8 +45,11 @@ export default function MarketplaceHub() {
       const [cats, providerRows, plans, apps] = await Promise.all([
         fetchAllRows<{ archetype_key: string | null }>(() => supabaseDb
           .from("service_categories").select("archetype_key").order("key")),
-        fetchAllRows<{ id: string; archetype_key: string | null; status: string }>(() => supabaseDb
-          .from("providers").select("id, archetype_key, status").order("id")),
+        fetchAllRows<{ id: string; archetype_key: string | null; status: string; unit: string | null }>(() => supabaseDb
+          // Transport's businesses are excluded: they carry no archetype by
+          // design and would otherwise fill the Unassigned bucket, which is
+          // for rows ORPHANED by a deleted service.
+          .from("providers").select("id, archetype_key, status, unit").eq("unit", "marketplace").order("id")),
         fetchAllRows<{ provider_id: string }>(() => supabaseDb
           .from("provider_plans").select("provider_id, status").order("id")),
         fetchAllRows<{ archetype_key: string | null }>(() => supabaseDb

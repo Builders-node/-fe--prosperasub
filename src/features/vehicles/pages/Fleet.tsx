@@ -12,6 +12,7 @@ import { providerHref } from "@/lib/services/serviceUrls";
 import { YdSectionHeading } from "@/components/yd/YdPrimitives";
 import { VehicleCard } from "../components/VehicleCard";
 import { useVehicles } from "../hooks/useVehicles";
+import { useVehicleTypes } from "../hooks/useVehicleTypes";
 import { useListingSearch } from "@/hooks/useListingSearch";
 import { useCategoryParam } from "@/hooks/useCategoryParam";
 import { useQuery } from "@tanstack/react-query";
@@ -37,46 +38,14 @@ export default function Fleet() {
   const [providerId, setProviderId] = useState<string | null>(null);
 
   /**
-   * Categories under the vehicles archetype, as chips — the same narrowing
-   * control every other listing has. With one category (Car Rental today) the
-   * chips hide themselves; a second (motorbikes, boats) appears here with no
-   * code, exactly as it does on Cleaning.
+   * The unit's own vehicle types, as chips. With one type the chips hide
+   * themselves; a second (motorbikes, boats) appears here with no code.
    */
-  const categoriesQ = useQuery({
-    queryKey: ["vehicles-categories-public"],
-    queryFn: async () => {
-      const { data, error: err } = await supabaseDb
-        .from("service_categories")
-        .select("key, label, sort_order")
-        .eq("archetype_key", "vehicles")
-        .eq("is_active", true)
-        .order("sort_order", { ascending: true });
-      if (err) throw err;
-      return (data ?? []) as Array<{ key: string; label: string; sort_order: number }>;
-    },
-  });
-  const providerCategoryQ = useQuery({
-    queryKey: ["vehicles-provider-categories"],
-    queryFn: async () => {
-      const { data, error: err } = await supabaseDb
-        .from("providers")
-        .select("id, category_key")
-        .eq("archetype_key", "vehicles");
-      if (err) throw err;
-      const m: Record<string, string | null> = {};
-      (data ?? []).forEach((r: any) => { m[String(r.id)] = r.category_key ?? null; });
-      return m;
-    },
-  });
+  const categoriesQ = useVehicleTypes();
   const [activeCategory, setActiveCategory] = useCategoryParam();
-  /**
-   * A vehicle's type is its OWN `category_key` — one company can rent cars
-   * and motorbikes, and the chips must split that fleet. A row that predates
-   * the column (NULL) inherits its provider's category, so nothing vanishes.
-   */
-  const typeOf = (v: { category_key?: string | null; provider?: { id: string } | null }) =>
-    v.category_key ?? (v.provider?.id ? (providerCategoryQ.data ?? {})[v.provider.id] ?? null : null);
-  const inCategory = (v: { category_key?: string | null; provider?: { id: string } | null }) =>
+  /** A vehicle's type is its own — the business has none. */
+  const typeOf = (v: { category_key?: string | null }) => v.category_key ?? null;
+  const inCategory = (v: { category_key?: string | null }) =>
     activeCategory === ALL_CATEGORIES || typeOf(v) === activeCategory;
 
   /**
@@ -103,7 +72,7 @@ export default function Fleet() {
     () => vehicles
       .filter((v) => (providerId ? v.provider?.id === providerId : true))
       .filter(inCategory),
-    [vehicles, providerId, activeCategory, providerCategoryQ.data],
+    [vehicles, providerId, activeCategory],
   );
 
   // Search and sort in the URL, like every other listing — a filtered fleet can

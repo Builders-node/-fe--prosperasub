@@ -10,6 +10,8 @@ import { Spinner } from "@/components/ui/spinner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabaseDb } from "@/integrations/supabase/client";
+import { TRANSPORT_UNIT } from "@/lib/services/transport";
+import { useVehicleTypes } from "../hooks/useVehicleTypes";
 import type { RentalVehicle } from "../types/carRental";
 
 /**
@@ -75,7 +77,7 @@ export function VehicleEditDialog({ vehicle, onClose, onSaved, lockedProviderId 
       const { data, error } = await supabaseDb
         .from("providers")
         .select("id, name")
-        .eq("archetype_key", "vehicles")
+        .eq("unit", TRANSPORT_UNIT)
         .eq("status", "active")
         .order("name");
       if (error) throw error;
@@ -90,25 +92,10 @@ export function VehicleEditDialog({ vehicle, onClose, onSaved, lockedProviderId 
     }
   }, [vehicle, providers]);
 
-  /**
-   * Vehicle types — the categories under the vehicles archetype, the same rows
-   * the storefront's chips and the admin's Types tab read. The type belongs to
-   * the PRODUCT: one business can rent cars and motorbikes.
-   */
-  const { data: types = [] } = useQuery({
-    queryKey: ["vehicle-type-options"],
-    enabled: !!vehicle,
-    queryFn: async () => {
-      const { data, error } = await supabaseDb
-        .from("service_categories")
-        .select("key, label")
-        .eq("archetype_key", "vehicles")
-        .eq("is_active", true)
-        .order("sort_order");
-      if (error) throw error;
-      return (data ?? []) as Array<{ key: string; label: string }>;
-    },
-  });
+  // Vehicle types — transport's own rows, the same the storefront's chips and
+  // the admin's Types tab read. The type belongs to the PRODUCT: one business
+  // can rent cars and motorbikes.
+  const { data: types = [] } = useVehicleTypes({ enabled: !!vehicle });
 
   // With one type on the platform there is nothing to choose — fill it in.
   useEffect(() => {

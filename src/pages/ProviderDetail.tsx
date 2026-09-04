@@ -27,7 +27,8 @@ import {
 import { resolveMonthlyPriceCents } from "@/lib/cleaningPlanPricing";
 import { formatUSD } from "@/lib/pricing";
 import { LinkifiedText } from "@/components/patterns/LinkifiedText";
-import { VehicleCard, useVehicles } from "@/features/vehicles";
+import { VehicleCard, useVehicles, useVehicleTypes } from "@/features/vehicles";
+import { isTransportProvider } from "@/lib/services/transport";
 import { YdSectionHeading } from "@/components/yd/YdPrimitives";
 import { useTabParam } from "@/hooks/useTabParam";
 
@@ -44,6 +45,8 @@ interface Provider {
   contact_phone: string | null;
   contact_email: string | null;
   archetype_key: string | null;
+  /** Which unit runs this business: marketplace, or transport (vehicles). */
+  unit?: string | null;
   /** Null means the provider has no legacy table — its offer is in provider_plans. */
   source_service_key: string | null;
   gallery_urls?: string[] | null;
@@ -221,7 +224,7 @@ const ProviderDetail = () => {
         .from("providers")
         // source_provider_id is needed to hand food off to its legacy page — see the
         // redirect below.
-        .select("id, name, description, avatar_url, banner_url, location, working_hours, contact_phone, contact_email, archetype_key, source_provider_id, source_service_key, gallery_urls, admin_user_id")
+        .select("id, name, description, avatar_url, banner_url, location, working_hours, contact_phone, contact_email, archetype_key, unit, source_provider_id, source_service_key, gallery_urls, admin_user_id")
         .eq("id", providerId!).single();
       if (error) throw error;
       return data as Provider;
@@ -268,24 +271,11 @@ const ProviderDetail = () => {
    * business gets. Declared unconditionally per the Rules of Hooks; fetches
    * only when the business turns out to rent cars.
    */
-  const isVehicles = providerQ.data?.archetype_key === "vehicles";
+  const isVehicles = isTransportProvider(providerQ.data);
   const vehiclesQ = useVehicles({ providerId, enabled: !!providerId && isVehicles });
   // Type labels for the fleet shelf — one business can rent cars AND
   // motorbikes, and a mixed shelf groups by the vehicle's own type.
-  const vehicleTypesQ = useQuery({
-    queryKey: ["vehicle-type-options"],
-    enabled: isVehicles,
-    queryFn: async () => {
-      const { data, error } = await supabaseDb
-        .from("service_categories")
-        .select("key, label")
-        .eq("archetype_key", "vehicles")
-        .eq("is_active", true)
-        .order("sort_order");
-      if (error) throw error;
-      return (data ?? []) as Array<{ key: string; label: string }>;
-    },
-  });
+  const vehicleTypesQ = useVehicleTypes({ enabled: isVehicles });
 
   /**
    * Does this business take bookings on a calendar? If it does, the customer

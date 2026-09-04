@@ -27,6 +27,8 @@ export interface UniversalProviderRow {
   category_key?: string;
   /** Which service this provider belongs to — drives its public URL. */
   archetype_key?: string | null;
+  /** Which unit runs this business — 'transport' has no archetype at all. */
+  unit?: string | null;
   capabilities?: string[];
   source_service_key?: string | null;
   source_provider_id?: string | null;

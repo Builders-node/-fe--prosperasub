@@ -20,6 +20,8 @@ export { RentalTermsTab } from "./components/RentalTermsTab";
 /** The car as a listing row — a PlanCard, so a provider page can shelve its
  *  fleet exactly where another business shelves its plans. */
 export { VehicleCard } from "./components/VehicleCard";
+export { useVehicleTypes, VEHICLE_TYPES_KEY, type VehicleType } from "./hooks/useVehicleTypes";
+export { VehicleTypesPanel } from "./components/VehicleTypesPanel";
 export { useVehicles } from "./hooks/useVehicles";
 
 export type {

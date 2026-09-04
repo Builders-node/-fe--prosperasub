@@ -26,6 +26,7 @@ import { ProviderTeamTab } from "@/components/provider/ProviderTeamTab";
 import { ScheduleAccordion } from "@/components/provider/ScheduleAccordion";
 import { LegacyOwnerPortal } from "@/components/provider/legacyPortalTabs";
 import { workspaceFor } from "@/services/workspace";
+import { TRANSPORT_UNIT } from "@/lib/services/transport";
 import { SubscribersList } from "@/components/provider/SubscribersList";
 import { ProviderReviewsPanel } from "@/components/provider/ProviderReviewsPanel";
 import { ProviderEarningsTab } from "@/components/provider/ProviderEarningsTab";
@@ -129,12 +130,16 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
    * Which vertical's descriptors apply to this business.
    *
    * A different question from `sourceKey` below, which asks "does this provider
-   * have a legacy twin" and drives the portal bundles and the id bridge. Cars
-   * have no legacy key at all — they were never a legacy service — so they are
-   * matched on the archetype. Passing the legacy key here would have shown
-   * every car business a balance of zero and the wrong tabs.
+   * have a legacy twin" and drives the portal bundles and the id bridge.
+   * Transport has no legacy key AND no archetype — it is its own unit — so a
+   * rental business is matched on `providers.unit`, which is the only thing it
+   * carries. Reading the archetype here would have shown every rental business
+   * the wrong tabs and a balance of zero.
    */
-  const serviceKey = provider?.source_service_key ?? provider?.archetype_key ?? "";
+  const serviceKey =
+    provider?.unit === TRANSPORT_UNIT
+      ? TRANSPORT_UNIT
+      : provider?.source_service_key ?? provider?.archetype_key ?? "";
 
   /**
    * What this vertical adds to the standard workspace — nothing, for anything
