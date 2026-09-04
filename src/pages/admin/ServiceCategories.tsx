@@ -70,9 +70,16 @@ export interface ServiceCategoriesProps {
   embedded?: boolean;
   /** Locks the list to one service; the chip-row filter is hidden when set. */
   archetypeKey?: string;
+  /**
+   * What a category is a category OF. In experiences it groups PROVIDERS
+   * (a business is "Apartment Cleaning"); in transport it types PRODUCTS
+   * (a vehicle is a car or a motorbike, its provider has no category at all).
+   * The counts and every warning speak in the right noun.
+   */
+  counts?: "providers" | "vehicles";
 }
 
-export default function ServiceCategories({ embedded = false, archetypeKey }: ServiceCategoriesProps = {}) {
+export default function ServiceCategories({ embedded = false, archetypeKey, counts = "providers" }: ServiceCategoriesProps = {}) {
   const qc = useQueryClient();
   const { userData } = useAuth();
   const { archetypes } = useServiceArchetypes();
@@ -96,20 +103,25 @@ export default function ServiceCategories({ embedded = false, archetypeKey }: Se
     },
   });
 
-  // Provider count per category — tells the admin what a hide/delete affects.
+  // What each category holds — tells the admin what a hide/delete affects.
+  // Providers in experiences, vehicles in transport (see the `counts` prop).
   const { data: providerCounts = {} } = useQuery({
-    queryKey: ["admin-category-provider-counts"],
+    queryKey: ["admin-category-member-counts", counts],
     queryFn: async () => {
-      const { data, error } = await supabaseDb.from("providers").select("category_key");
+      const { data, error } = counts === "vehicles"
+        ? await supabaseDb.from("rental_vehicles").select("category_key").neq("status", "archived")
+        : await supabaseDb.from("providers").select("category_key");
       if (error) throw error;
-      const counts: Record<string, number> = {};
+      const tally: Record<string, number> = {};
       (data ?? []).forEach((p: any) => {
-        if (p.category_key) counts[p.category_key] = (counts[p.category_key] ?? 0) + 1;
+        if (p.category_key) tally[p.category_key] = (tally[p.category_key] ?? 0) + 1;
       });
-      return counts;
+      return tally;
     },
     staleTime: 30_000,
   });
+  /** The noun the counts speak in. */
+  const noun = counts === "vehicles" ? "vehicle" : "provider";
 
   const archetypeLabel = (key: string) =>
     archetypes.find((a) => a.key === key)?.label ?? key;
@@ -263,7 +275,9 @@ export default function ServiceCategories({ embedded = false, archetypeKey }: Se
           isEmpty={inScope.length === 0}
           isNoResults={inScope.length > 0 && filtered.length === 0} count={filtered.length}
           emptyTitle="No categories yet"
-          emptySubtitle="Categories group providers inside a service. Create one to split e.g. Cleaning into Apartment Cleaning and Car Wash."
+          emptySubtitle={counts === "vehicles"
+            ? "Types split the fleet by what the product is — Cars, Motorbikes, Boats. Each vehicle picks one."
+            : "Categories group providers inside a service. Create one to split e.g. Cleaning into Apartment Cleaning and Car Wash."}
           onClearFilters={() => { setSearch(""); setArchetypeFilterState("all"); }}
         >
           <div className="space-y-6">
@@ -303,7 +317,7 @@ export default function ServiceCategories({ embedded = false, archetypeKey }: Se
                           <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                             {c.is_active ? "Active" : "Hidden"}
                             {" · "}
-                            <span className="tabular-nums">{count}</span> {count === 1 ? "provider" : "providers"}
+                            <span className="tabular-nums">{count}</span> {count === 1 ? noun : `${noun}s`}
                           </p>
                         </div>
                         <DropdownMenu>
@@ -460,8 +474,8 @@ export default function ServiceCategories({ embedded = false, archetypeKey }: Se
             <AlertDialogDescription>
               {(() => {
                 const n = deleteTarget ? providerCounts[deleteTarget.key] ?? 0 : 0;
-                if (n === 0) return "No providers are in this category — safe to delete.";
-                return `${n} ${n === 1 ? "provider is" : "providers are"} in this category. Deleting leaves them uncategorised: they'll show under "Other" on the public service page until you reassign them.`;
+                if (n === 0) return `No ${noun}s are in this category — safe to delete.`;
+                return `${n} ${n === 1 ? `${noun} is` : `${noun}s are`} in this category. Deleting leaves them uncategorised: they'll show under "Other" until you reassign them.`;
               })()}
             </AlertDialogDescription>
           </AlertDialogHeader>

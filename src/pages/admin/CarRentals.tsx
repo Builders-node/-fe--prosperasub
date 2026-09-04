@@ -385,7 +385,7 @@ export default function CarRentals({ embedded = false, providerId }: {
       {/* The same category CRUD every Marketplace service uses, scoped to the
           vehicles archetype — a "Motorbikes" row typed here becomes a
           storefront chip and an option in the vehicle editor, no code. */}
-      {tab === "types" && <ServiceCategories embedded archetypeKey="vehicles" />}
+      {tab === "types" && <ServiceCategories embedded archetypeKey="vehicles" counts="vehicles" />}
 
       {tab === "applications" && <ProviderApplications embedded archetypeKey="vehicles" />}
 

@@ -193,7 +193,9 @@ export function VehicleEditDialog({ vehicle, onClose, onSaved, lockedProviderId 
             </div>
             )}
             <div><Label>Name *</Label><Input value={editing.name ?? ""} onChange={(e) => set({ name: e.target.value })} placeholder="Toyota Hilux 2024" /></div>
-            {types.length > 1 && (
+            {/* Always shown: the type is an attribute of the PRODUCT, and
+                every vehicle states its own — the provider carries none. */}
+            {types.length > 0 && (
               <div>
                 <Label>Type</Label>
                 <Select
