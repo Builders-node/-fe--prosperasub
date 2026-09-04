@@ -1,5 +1,4 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { HomeHeader } from "@/components/layout/HomeHeader";
 import { KeyboardArrowLeftIcon } from "@/components/icons/FigmaIcons";
 import { cn } from "@/lib/utils";
 
@@ -68,8 +67,30 @@ export function DetailHeader({
         </div>
       </header>
 
-      <div className="hidden md:block">
-        <HomeHeader title={title} showBackButton onBack={onBack} bare rightAction={rightAction} />
+      {/*
+        The desktop bar, drawn here rather than delegated.
+
+        This used to wrap `HomeHeader` in `hidden md:block` — but HomeHeader's
+        own root is `md:hidden`, so the two cancelled out and every detail page
+        had NO title bar at all above 768px: no back button, no title, no
+        share. It looked deliberate because the desktop header sits above it on
+        some pages and not others.
+      */}
+      <div className="sticky top-0 z-40 hidden bg-card md:block">
+        <div className="app-container flex h-14 items-center gap-3">
+          <button
+            type="button"
+            aria-label="Back"
+            onClick={onBack}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-foreground transition-colors hover:bg-muted"
+          >
+            <KeyboardArrowLeftIcon className="h-6 w-6" />
+          </button>
+          <p className="min-w-0 flex-1 truncate text-[16px] font-semibold tracking-[-0.32px] text-foreground">
+            {title}
+          </p>
+          {rightAction}
+        </div>
       </div>
     </>
   );

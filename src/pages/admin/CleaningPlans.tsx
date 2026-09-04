@@ -460,7 +460,7 @@ const CleaningPlans = ({
                 className={cn(
                   "rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wider transition-colors",
                   on
-                    ? "bg-primary/15 text-primary ring-1 ring-primary"
+                    ? "bg-foreground text-background"
                     : "bg-muted/40 text-muted-foreground hover:text-foreground",
                 )}
               >

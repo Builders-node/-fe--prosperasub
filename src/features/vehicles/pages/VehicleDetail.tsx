@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { DateRangePicker, toISO } from "../components/DateRangePicker";
 import { PhotoCarousel } from "@/components/patterns/PhotoCarousel";
 import { DetailHeader } from "@/components/patterns/DetailHeader";
+import { DesktopHeader } from "@/components/layout/DesktopHeader";
 import { DecisionBar } from "@/components/patterns/DecisionBar";
 import { ShareButton } from "@/components/patterns/ShareButton";
 import { useGoBack } from "@/hooks/useGoBack";
@@ -91,6 +92,10 @@ export default function VehicleDetail() {
       already answered elsewhere.
     */
     <div className="pb-[calc(var(--decision-bar-h,120px)+16px)] md:pb-8">
+      {/* The platform's desktop header, as every other detail page has. Its
+          absence here was the only reason a car page looked like a different
+          product on a laptop. */}
+      <DesktopHeader />
       {/* The same bar the plan page uses — one component, not one that
           resembles it. Share rather than a bell: a car is a shop window, and
           the bell belongs on pages about your own account. */}

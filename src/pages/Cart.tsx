@@ -7,7 +7,6 @@ import {
 } from "lucide-react";
 import { HomeHeader } from "@/components/layout/HomeHeader";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
-import { BottomNav } from "@/components/layout/BottomNav";
 import { CheckoutStickyFooter } from "@/components/patterns/CheckoutStickyFooter";
 import { CheckoutSuccessPanel } from "@/components/patterns/CheckoutSuccessPanel";
 import { NotesField } from "@/components/patterns/NotesField";
@@ -376,8 +375,12 @@ export default function Cart() {
   // ─── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-background pb-28 md:pb-12">
-      <HomeHeader title={atCheckout ? "Checkout" : "Cart"} showBackButton onBack={goBack} />
+      {/* Desktop header first, as BrowseLayout and UserLayout both do — this
+          page had them the other way round, which put the mobile bar above the
+          desktop one in the DOM and made the sticky order differ from every
+          other screen. */}
       <DesktopHeader showBackButton breadcrumb="Cart" />
+      <HomeHeader title={atCheckout ? "Checkout" : "Cart"} showBackButton onBack={goBack} />
 
       <main className={atCheckout
         ? "mx-auto max-w-xl space-y-1 pt-1 pb-[calc(var(--checkout-footer-h,180px)+16px)] md:px-4 md:py-space-6"
@@ -741,12 +744,11 @@ export default function Cart() {
       )}
 
       {/* The sticky checkout bar and the bottom nav occupy the same strip, so
-          only one may render. This used to test `!isAuthenticated`, which is
-          merely correlated with "no sticky bar" — a logged-out user can't
-          check out. The consequence was that a signed-in user lost the bottom
-          nav on /cart even with an empty basket, on the one page in the app
-          that hid it. Test the actual condition instead. */}
-      {!showStickyCheckout && <BottomNav />}
+          only one may render, and which one must not depend on how many
+          things are in the basket: the tab bar used to appear on an empty cart
+          and vanish the moment you added a plan, on the same URL. A cart is a
+          decision surface (PAGE_TYPES §5) — out is the back arrow, or the
+          empty state's own "Browse services" button. */}
     </div>
   );
 }

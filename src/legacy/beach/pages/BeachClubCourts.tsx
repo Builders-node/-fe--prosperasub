@@ -389,7 +389,7 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
             onClick={() => setCourtId(c.id)}
             className={cn(
               "inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors",
-              c.id === activeCourtId ? "bg-primary text-black" : "bg-muted/50 text-muted-foreground hover:text-foreground",
+              c.id === activeCourtId ? "bg-foreground text-background" : "bg-muted/50 text-muted-foreground hover:text-foreground",
             )}
           >
             <CircleDot className="h-4 w-4" />

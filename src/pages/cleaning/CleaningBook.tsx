@@ -7,6 +7,7 @@ import { CalendarDays, CheckCircle2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 import { UserLayout } from "@/components/layout/UserLayout";
+import { CheckoutStickyFooter } from "@/components/patterns/CheckoutStickyFooter";
 import { Button } from "@/components/ui/button";
 import { PageLoader, Spinner } from "@/components/ui/spinner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -405,8 +406,8 @@ const CleaningBook = () => {
 
   return (
     <UserLayout title="Schedule Cleaning" showBackButton backTo="/my-subscriptions" showBottomNav={false}>
-      {/* Outer shell — accounts for sticky bottom bar height */}
-      <div className="flex min-h-[calc(100dvh-60px)] flex-col bg-[hsl(var(--background))]">
+      {/* Outer shell — pads for the measured bar rather than guessing at it. */}
+      <div className="flex min-h-[calc(100dvh-60px)] flex-col bg-[hsl(var(--background))] pb-[calc(var(--checkout-footer-h,140px)+16px)]">
 
         {/* ── Loading state ── */}
         {isLoading && <PageLoader />}
@@ -593,71 +594,34 @@ const CleaningBook = () => {
           </div>
         )}
 
-        {/* ── Sticky bottom action bar ─────────────────────────────────────── */}
+        {/*
+          One bar, measured, for both widths — this page had two hand-rolled
+          ones (a fixed md:hidden bar and a separate in-flow desktop bar) with
+          the same two buttons written twice. CheckoutStickyFooter publishes
+          its height so the page pads itself (PAGE_TYPES section 0).
+        */}
         {!isLoading && schedulableSubscriptions.length > 0 && (
-          <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-card/95 px-4 py-4  md:hidden"
-               style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px), 1rem)" }}>
-            <div className="mx-auto flex max-w-2xl gap-3">
-              <button
-                type="button"
+          <CheckoutStickyFooter>
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                className="h-12 flex-1 rounded-full md:flex-none md:px-8"
                 onClick={() => navigate("/my-subscriptions")}
-                className="flex h-12 flex-1 items-center justify-center rounded-full border border-border bg-background text-sm font-semibold text-foreground transition-colors hover:bg-muted"
               >
                 Cancel
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                className="h-12 flex-[2] gap-2 rounded-full md:ml-auto md:flex-none md:px-10"
+                disabled={!canConfirm}
+                loading={scheduleMutation.isPending}
+                loadingText="Scheduling..."
                 onClick={handleConfirmSchedule}
-                disabled={!canConfirm || scheduleMutation.isPending}
-                className={cn(
-                  "flex h-12 flex-[2] items-center justify-center gap-2 rounded-full text-sm font-bold transition-all",
-                  canConfirm && !scheduleMutation.isPending
-                    ? "bg-foreground text-background hover:bg-foreground/90"
-                    : "bg-muted text-muted-foreground cursor-not-allowed",
-                )}
               >
-                {scheduleMutation.isPending ? (
-                  <Spinner size="sm" />
-                ) : (
-                  <CheckCircle2 className="h-4 w-4" />
-                )}
+                <CheckCircle2 className="h-4 w-4" />
                 Confirm schedule
-              </button>
+              </Button>
             </div>
-          </div>
-        )}
-
-        {/* Desktop bottom bar (same buttons, different layout) */}
-        {!isLoading && schedulableSubscriptions.length > 0 && (
-          <div className="hidden border-t border-border bg-card px-6 py-4 md:block">
-            <div className="mx-auto flex max-w-2xl items-center justify-between gap-4">
-              <button
-                type="button"
-                onClick={() => navigate("/my-subscriptions")}
-                className="flex h-11 items-center justify-center rounded-full border border-border px-8 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleConfirmSchedule}
-                disabled={!canConfirm || scheduleMutation.isPending}
-                className={cn(
-                  "flex h-11 items-center justify-center gap-2 rounded-full px-10 text-sm font-bold transition-all",
-                  canConfirm && !scheduleMutation.isPending
-                    ? "bg-foreground text-background hover:bg-foreground/90"
-                    : "bg-muted text-muted-foreground cursor-not-allowed",
-                )}
-              >
-                {scheduleMutation.isPending ? (
-                  <Spinner size="sm" />
-                ) : (
-                  <CheckCircle2 className="h-4 w-4" />
-                )}
-                Confirm weekly schedule
-              </button>
-            </div>
-          </div>
+          </CheckoutStickyFooter>
         )}
       </div>
     </UserLayout>

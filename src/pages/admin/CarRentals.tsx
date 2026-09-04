@@ -20,6 +20,7 @@ import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { StatusPill } from "@/components/patterns/StatusPill";
 import { VehicleTypesPanel, useVehicleTypes } from "@/features/vehicles";
+import { useTabParam } from "@/hooks/useTabParam";
 import { VEHICLES_UNIT } from "@/lib/services/vehiclesUnit";
 
 /**
@@ -56,7 +57,11 @@ export default function CarRentals({ embedded = false, providerId }: {
   providerId?: string;
 } = {}) {
   const qc = useQueryClient();
-  const [tab, setTab] = useState<"bookings" | "fleet" | "types" | "providers">("bookings");
+  // In the URL, like every other drill-down: a reload or a Back used to drop
+  // the admin back on Bookings from whatever tab they were working in.
+  const [tab, setTab] = useTabParam(
+    embedded ? (["bookings", "fleet"] as const) : (["bookings", "fleet", "types", "providers"] as const),
+  );
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<string>("all");
   const [busy, setBusy] = useState<string | null>(null);

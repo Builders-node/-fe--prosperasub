@@ -2,13 +2,13 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Car, Building2 } from "lucide-react";
 import { AppContainer } from "@/components/layout/AppContainer";
-import { DesktopHeader } from "@/components/layout/DesktopHeader";
+import { BrowseLayout } from "@/components/layout/BrowseLayout";
 import { ListingHeader } from "@/components/listing/ListingHeader";
 import { useGoBack } from "@/hooks/useGoBack";
 import { Spinner } from "@/components/ui/spinner";
 import { QueryError } from "@/components/patterns/QueryError";
 import { ProviderRail, CategoryChips, ALL_CATEGORIES } from "@/components/listing/ListingNav";
-import { YdSectionHeading } from "@/components/yd/YdPrimitives";
+import { YdSectionHeading, YdEmptyState } from "@/components/yd/YdPrimitives";
 import { carProviderPath } from "../lib/routes";
 import { VehicleCard } from "../components/VehicleCard";
 import { useVehicles } from "../hooks/useVehicles";
@@ -86,12 +86,11 @@ export default function Fleet() {
   const shown = search.results;
 
   return (
-    <div>
-      {/* The same two components the food, cleaning and beach listings are
-          topped with — not a lookalike. ListingHeader carries the title bar,
-          the search field and the sort behind the filter button. */}
-      <DesktopHeader />
-      <ListingHeader
+    // The platform's listing frame — the same one every other listing sits in.
+    // This page used to be a bare <div> that mounted DesktopHeader itself and
+    // took its tab bar from the section shell: the same screen, assembled by
+    // hand, and therefore free to drift.
+    <BrowseLayout header={<ListingHeader
         title="Vehicles"
         onBack={goBack}
         query={search.query}
@@ -100,10 +99,10 @@ export default function Fleet() {
         sort={search.sort}
         onSortChange={search.setSort}
         sorts={search.availableSorts}
-        // A car is collected, or delivered to an address given at checkout —
-        // narrowing the fleet by residence would filter nothing.
+        // A vehicle is collected, or delivered to an address given at
+        // checkout — narrowing by residence would filter nothing.
         showLocation={false}
-      />
+      />}>
       <AppContainer className="py-space-4 md:py-space-8">
         <CategoryChips
           categories={(categoriesQ.data ?? []).map((c) => ({
@@ -143,21 +142,17 @@ export default function Fleet() {
         ) : isError ? (
           <QueryError title="Couldn't load vehicles" error={error} onRetry={() => void refetch()} />
         ) : shown.length === 0 ? (
-          <div className="flex flex-col items-center rounded-radius-md bg-card py-14 text-center">
-            <Car className="mb-3 h-10 w-10 text-muted-foreground/30" />
-            <p className="text-[16px] font-semibold tracking-[-0.32px] text-foreground">
-              {search.isActive ? "No vehicles match your search" : "No vehicles available yet"}
-            </p>
-            <p className="mt-1 text-[12px] tracking-[-0.24px] text-muted-foreground">
-              {search.isActive ? "Try a different word." : "Check back soon."}
-            </p>
-          </div>
+          <YdEmptyState
+            icon={Car}
+            title={search.isActive ? "No vehicles match your search" : "No vehicles available yet"}
+            subtitle={search.isActive ? "Try a different word." : "Check back soon."}
+          />
         ) : (
           <div className="space-y-3">
             {shown.map((v) => <VehicleCard key={v.id} v={v} showProvider={manyProviders} />)}
           </div>
         )}
       </AppContainer>
-    </div>
+    </BrowseLayout>
   );
 }

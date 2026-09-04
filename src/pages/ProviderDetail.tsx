@@ -16,6 +16,7 @@ import { HomeHeader } from "@/components/layout/HomeHeader";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { QueryError } from "@/components/patterns/QueryError";
+import { Skeleton } from "@/components/patterns/Skeleton";
 import { TabEmptyState } from "@/components/subscriptions/MySubsPrimitives";
 import { CleaningPackageCard } from "@/components/patterns/CleaningPackageCard";
 import { EntertainmentPlanCard } from "@/components/patterns/EntertainmentPlanCard";
@@ -394,9 +395,9 @@ const ProviderDetail = () => {
       <BrowseLayout className="md:pb-0">
         <HomeHeader title="Provider" showBackButton onBack={goBack} />
         <main className="app-container py-space-6 space-y-4">
-          <div className="h-48 animate-pulse rounded-radius-lg bg-muted" />
-          <div className="h-24 animate-pulse rounded-radius-lg bg-muted" />
-          <div className="h-64 animate-pulse rounded-radius-lg bg-muted" />
+          <Skeleton className="h-48" />
+          <Skeleton className="h-24" />
+          <Skeleton className="h-64" />
         </main>
       </BrowseLayout>
     );
@@ -606,7 +607,7 @@ const ProviderDetail = () => {
         {tab === "plans" && isVehicles && (
           vehiclesQ.isLoading ? (
             <div className="space-y-1">
-              {[1, 2, 3].map((i) => <div key={i} className="h-[120px] animate-pulse rounded-radius-md bg-card" />)}
+              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-[120px]" />)}
             </div>
           ) : vehiclesQ.isError ? (
             <QueryError title="Couldn't load vehicles" onRetry={() => vehiclesQ.refetch()} retrying={vehiclesQ.isFetching} />
@@ -652,7 +653,7 @@ const ProviderDetail = () => {
         {tab === "plans" && !isVehicles && (
           plansQ.isLoading ? (
             <div className="space-y-1">
-              {[1, 2, 3].map((i) => <div key={i} className="h-[120px] animate-pulse rounded-radius-md bg-card" />)}
+              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-[120px]" />)}
             </div>
           ) : plansQ.isError ? (
             <QueryError title="Couldn't load plans" onRetry={() => plansQ.refetch()} retrying={plansQ.isFetching} />
@@ -784,15 +785,6 @@ function PlanRow({ plan, image, onOpen }: {
         </span>
       </span>
     </button>
-  );
-}
-
-// ─── Reusable states ────────────────────────────────────────────────────────
-function SkeletonGrid() {
-  return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-      {[1, 2, 3].map((i) => <div key={i} className="h-64 animate-pulse rounded-radius-lg bg-muted" />)}
-    </div>
   );
 }
 

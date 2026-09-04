@@ -15,6 +15,7 @@ import { BrowseLayout } from "@/components/layout/BrowseLayout";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { YdEmptyState } from "@/components/yd/YdPrimitives";
 import { QueryError } from "@/components/patterns/QueryError";
+import { Skeleton } from "@/components/patterns/Skeleton";
 import { EntertainmentPlanCard } from "@/components/patterns/EntertainmentPlanCard";
 import { UniversalPlanCard } from "@/components/patterns/UniversalPlanCard";
 import { supabaseDb } from "@/integrations/supabase/client";
@@ -297,7 +298,7 @@ const BeachClub = () => {
         {providersQ.isLoading ? (
           <section>
             <div className="grid gap-3 md:gap-4 md:grid-cols-2">
-              {[1, 2].map((i) => <div key={i} className="h-72 animate-pulse rounded-radius-lg bg-muted" />)}
+              {[1, 2].map((i) => <Skeleton key={i} className="h-72" />)}
             </div>
           </section>
         ) : providersQ.isError ? (
@@ -322,7 +323,7 @@ const BeachClub = () => {
 
           {plansQ.isLoading ? (
             <div className="grid gap-3 md:gap-4 md:grid-cols-2">
-              {[1, 2].map((i) => <div key={i} className="h-64 animate-pulse rounded-radius-lg bg-muted" />)}
+              {[1, 2].map((i) => <Skeleton key={i} className="h-64" />)}
             </div>
           ) : plansQ.isError ? (
             <QueryError

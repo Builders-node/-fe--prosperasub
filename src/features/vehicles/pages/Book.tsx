@@ -2,8 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { differenceInCalendarDays, format } from "date-fns";
 import { toast } from "sonner";
-import { CheckCircle2, ShieldCheck, Check, ChevronRight, MapPin } from "lucide-react";
+import { Car, ShieldCheck, Check, ChevronRight, MapPin } from "lucide-react";
 import { AppContainer } from "@/components/layout/AppContainer";
+import { CheckoutSuccessPanel } from "@/components/patterns/CheckoutSuccessPanel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -270,17 +271,19 @@ export default function Book() {
     </AppContainer>
   );
 
+  // The platform's success screen. This was a bespoke card — same idea, its
+  // own icon, its own spacing, its own single way out (PAGE_TYPES §7).
   if (step === "done") return (
-    <AppContainer className="py-16">
-      <div className="mx-auto max-w-md rounded-radius-md bg-card p-8 text-center shadow-figma">
-        <CheckCircle2 className="mx-auto mb-4 h-14 w-14 text-emerald-500" />
-        <h1 className="text-[20px] font-semibold tracking-[-0.4px] text-foreground">Booking confirmed</h1>
-        <p className="mt-2 text-[12px] tracking-[-0.24px] text-muted-foreground">
-          {v.name} · {format(new Date(fromISO + "T00:00:00"), "MMM d")} → {format(new Date(toISOParam + "T00:00:00"), "MMM d")}
-        </p>
-        <p className="mt-1 text-[16px] font-semibold tabular-nums text-foreground">{formatUSD(baseTotal)}</p>
-        <Button className="mt-6 w-full" onClick={() => navigate(carPath("my-bookings"))}>View my bookings</Button>
-      </div>
+    <AppContainer className="py-space-6">
+      <CheckoutSuccessPanel
+        icon={Car}
+        amount={formatUSD(baseTotal)}
+        eyebrow="Booking confirmed"
+        subtitle={`${v.name} · ${format(new Date(fromISO + "T00:00:00"), "MMM d")} → ${format(new Date(toISOParam + "T00:00:00"), "MMM d")}`}
+        ctaLabel="View my bookings"
+        onCta={() => navigate(carPath("my-bookings"))}
+        secondary={{ label: "Browse vehicles", onClick: () => navigate(carPath()) }}
+      />
     </AppContainer>
   );
 

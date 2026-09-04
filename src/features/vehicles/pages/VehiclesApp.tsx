@@ -43,8 +43,13 @@ function VehiclesLayout({ children }: { children: ReactNode }) {
    */
   const { pathname } = useLocation();
   const isDecisionPage = /\/vehicles\/(vehicle|book)\//.test(pathname);
-  /** A page that arrives with its own frame — the shell adds nothing to it. */
-  const bringsOwnFrame = /\/vehicles\/providers\//.test(pathname);
+  /**
+   * A page that arrives inside one of the platform's own frames (BrowseLayout
+   * brings the desktop header, the tab bar and the page padding). The shell
+   * adds nothing to those, or they get two of each.
+   */
+  const bringsOwnFrame =
+    /\/vehicles\/providers\//.test(pathname) || /^\/vehicles\/?$/.test(pathname);
 
   return (
     /*

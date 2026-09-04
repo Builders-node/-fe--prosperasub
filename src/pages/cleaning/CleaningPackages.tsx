@@ -21,6 +21,7 @@ import { useI18n } from "@/i18n";
 import { BrowseLayout } from "@/components/layout/BrowseLayout";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { QueryError } from "@/components/patterns/QueryError";
+import { Skeleton } from "@/components/patterns/Skeleton";
 import { YdEmptyState } from "@/components/yd/YdPrimitives";
 import { CleaningPackageCard } from "@/components/patterns/CleaningPackageCard";
 
@@ -294,7 +295,7 @@ const CleaningPackages = () => {
         {packagesQ.isLoading || providersQ.isLoading || categoriesQ.isLoading || offersLoading ? (
           <section>
             <div className="grid gap-3 md:gap-4 md:grid-cols-2">
-              {[1, 2, 3].map((i) => <div key={i} className="h-56 animate-pulse rounded-radius-lg bg-muted" />)}
+              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-56" />)}
             </div>
           </section>
         ) : providersQ.isError || packagesQ.isError ? (
