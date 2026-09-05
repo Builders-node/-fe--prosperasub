@@ -33,6 +33,7 @@ import { isVehiclesProvider, VEHICLES_LABEL } from "@/lib/services/vehiclesUnit"
 import { carProviderPath } from "@/features/vehicles";
 import { YdSectionHeading } from "@/components/yd/YdPrimitives";
 import { useTabParam } from "@/hooks/useTabParam";
+import { useSeo, businessJsonLd } from "@/hooks/useSeo";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 interface Provider {
@@ -368,6 +369,39 @@ const ProviderDetail = () => {
   // beats the old silent fallback, which rendered a bare "Offerings" heading
   // over nothing and looked like the provider had simply stopped trading. A
   // MISSING segment is not unknown — see archetypeKey above.
+  /**
+   * What this page says it is, hoisted above the early returns below —
+   * a hook after a `return` is the crash the build gate exists to catch.
+   * It reads the query rather than the unwrapped row, so it runs on the
+   * loading pass too and simply says nothing until the business arrives.
+   */
+  const seoProvider = providerQ.data;
+  const seoPath = seoProvider
+    ? (isVehicles
+        ? carProviderPath(seoProvider.id)
+        : `/services/${serviceSegment ?? ""}/providers/${seoProvider.id}`)
+    : null;
+  useSeo({
+    title: seoProvider?.name ?? null,
+    description: seoProvider
+      ? seoProvider.description
+        ?? `${seoProvider.name}${seoProvider.location ? ` · ${seoProvider.location}` : ""} on EverySub.`
+      : null,
+    path: seoPath,
+    image: seoProvider?.banner_url ?? seoProvider?.avatar_url ?? null,
+    jsonLd: seoProvider && seoPath
+      ? businessJsonLd({
+          name: seoProvider.name,
+          description: seoProvider.description,
+          image: seoProvider.banner_url ?? seoProvider.avatar_url,
+          url: seoPath,
+          phone: seoProvider.contact_phone,
+          email: seoProvider.contact_email,
+          address: seoProvider.location,
+        })
+      : null,
+  });
+
   if (serviceSegment && !archetypeKey) {
     return (
       <BrowseLayout className="md:pb-0">
@@ -388,6 +422,7 @@ const ProviderDetail = () => {
 
   // Transport keeps its businesses in its own section — one page per company,
   // not one here and one there.
+
   if (transportHome) return <Navigate to={transportHome} replace />;
 
   if (providerQ.isLoading) {

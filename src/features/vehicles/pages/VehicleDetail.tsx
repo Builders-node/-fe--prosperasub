@@ -19,6 +19,7 @@ import { unitSuffix } from "@/lib/checkout/ctaLabel";
 import { formatUSD } from "@/lib/pricing";
 import { carPath, carProviderPath } from "../lib/routes";
 import { addDays } from "date-fns";
+import { useSeo, offerJsonLd } from "@/hooks/useSeo";
 
 export default function VehicleDetail() {
   const { id } = useParams<{ id: string }>();
@@ -33,6 +34,31 @@ export default function VehicleDetail() {
   }, [range]);
 
   const pricing = useMemo(() => (v && rentalDays > 0 ? calcRentalPrice(v, rentalDays) : null), [v, rentalDays]);
+
+  /**
+   * Above the early returns: a hook after a `return` is the crash the build
+   * gate catches. Reads the query, so it runs on the loading pass and simply
+   * says nothing until the car arrives.
+   */
+  useSeo({
+    title: v?.name ?? null,
+    description: v
+      ? v.description ?? ([v.brand, v.model, v.year].filter(Boolean).join(" ") || v.name)
+      : null,
+    path: v ? carPath(`vehicle/${v.id}`) : null,
+    image: v?.image_url ?? v?.gallery_urls?.[0] ?? null,
+    type: "product",
+    jsonLd: v
+      ? offerJsonLd({
+          name: v.name,
+          description: v.description,
+          image: v.image_url ?? v.gallery_urls?.[0] ?? null,
+          priceCents: v.daily_price_cents,
+          url: carPath(`vehicle/${v.id}`),
+          providerName: v.provider?.name ?? null,
+        })
+      : null,
+  });
 
   if (isLoading) return <AppContainer className="flex justify-center py-24"><Spinner /></AppContainer>;
   if (!v) return (

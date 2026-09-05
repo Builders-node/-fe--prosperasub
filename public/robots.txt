@@ -12,3 +12,7 @@ Allow: /
 
 User-agent: *
 Allow: /
+
+# Every public URL, with a real lastmod — the app is a single page, so a
+# crawler cannot discover a plan or a provider by following markup alone.
+Sitemap: https://everysub.net/sitemap.xml

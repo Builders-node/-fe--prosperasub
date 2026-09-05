@@ -36,6 +36,7 @@ import { cn } from "@/lib/utils";
 import { SearchX } from "lucide-react";
 import { LinkifiedText } from "@/components/patterns/LinkifiedText";
 import { DecisionBar } from "@/components/patterns/DecisionBar";
+import { useSeo, offerJsonLd } from "@/hooks/useSeo";
 
 /**
  * The plan, before the till.
@@ -256,6 +257,27 @@ const PlanDetail = () => {
   });
 
   const plan = planQ.data ?? null;
+
+  // A shared plan link used to preview as the site's own front page; a search
+  // result for it said nothing about the plan. Both read the plan now.
+  const seoPath = plan ? `/services/${archetypeKey || "plans"}/plans/${plan.id}` : null;
+  useSeo({
+    title: plan?.title ?? null,
+    description: plan?.description
+      ?? (plan ? `${plan.title} on EverySub.` : null),
+    path: seoPath,
+    image: plan?.gallery?.[0] ?? null,
+    type: "product",
+    jsonLd: plan && seoPath
+      ? offerJsonLd({
+          name: plan.title,
+          description: plan.description,
+          image: plan.gallery?.[0] ?? null,
+          priceCents: plan.priceCents,
+          url: seoPath,
+        })
+      : null,
+  });
 
   const providerQ = useQuery({
     queryKey: ["plan-detail-provider", plan?.providerId],
