@@ -4,6 +4,7 @@ import { useAuthModal } from "@/contexts/AuthModalContext";
 import { getNavigationForRoles, isNavItemActive } from "@/config/navigation";
 import { useEffect } from "react";
 import { useCart } from "@/contexts/CartContext";
+import { useI18n, type TranslationKey } from "@/i18n";
 import { prefetchRoute, prefetchShellRoutes } from "@/lib/routeChunks";
 import { cn } from "@/lib/utils";
 
@@ -12,6 +13,7 @@ export function BottomNav() {
   const { roles, isAuthenticated } = useAuth();
   const { openAuthModal } = useAuthModal();
   const { count: cartCount } = useCart();
+  const { t } = useI18n();
 
   const navItems = getNavigationForRoles(roles);
   /**
@@ -82,7 +84,7 @@ export function BottomNav() {
                   </span>
                 )}
               </span>
-              <span className={cn("text-[12px] leading-4", tone)}>{item.label}</span>
+              <span className={cn("text-[12px] leading-4", tone)}>{t(item.label as TranslationKey)}</span>
             </>
           );
 

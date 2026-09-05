@@ -11,6 +11,7 @@ import {
   AppDropdownItem,
   AppDropdownSeparator,
   AppDropdownThemeItem,
+  AppDropdownLanguageItem,
 } from "@/components/ui/app-dropdown";
 import { publicRoutes } from "@/config/adminRoutes";
 import { useAuth } from "@/contexts/AuthContext";
@@ -64,6 +65,7 @@ export function AdminAccountMenu() {
           <AppDropdownSeparator />
 
           <div className="space-y-space-1">
+            <AppDropdownLanguageItem />
             <AppDropdownThemeItem />
             <AppDropdownItem
               icon={LogOut}

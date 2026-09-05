@@ -12,6 +12,7 @@ import {
   AppDropdownProfile,
   AppDropdownSeparator,
   AppDropdownThemeItem,
+  AppDropdownLanguageItem,
 } from "@/components/ui/app-dropdown";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMyBusinesses } from "@/hooks/useMyBusinesses";
@@ -91,6 +92,7 @@ export function AccountMenu() {
           )}
           <AppDropdownSeparator />
           <div className="space-y-space-1">
+            <AppDropdownLanguageItem />
             <AppDropdownThemeItem />
             <AppDropdownItem
               icon={LogOut}

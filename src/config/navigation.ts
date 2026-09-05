@@ -31,27 +31,30 @@ export interface NavigationConfig {
  * you glance at. Account routes to /account like the other three: the profile
  * used to be a modal, which made it the one surface with no address.
  */
+// `label` is a TRANSLATION KEY (see i18n.tsx), not a word: the tab bar is on
+// screen the whole session, so it is the first thing that has to speak the
+// customer's language.
 const USER_NAV: NavItem[] = [
   {
     icon: HomeIcon,
-    label: "Home",
+    label: "common.home",
     path: "/discovery",
     activePatterns: ["/discovery", "/services"],
   },
   {
     icon: Inventory2Icon,
-    label: "Subs",
+    label: "nav.subs",
     path: "/my-subscriptions",
     requiresAuth: true,
   },
   {
     icon: ShoppingBagIcon,
-    label: "Cart",
+    label: "nav.cart",
     path: "/cart",
   },
   {
     icon: PersonIcon,
-    label: "Account",
+    label: "nav.account",
     path: "/account",
     requiresAuth: true,
   },

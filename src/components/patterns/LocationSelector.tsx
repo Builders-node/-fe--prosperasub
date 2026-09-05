@@ -5,6 +5,7 @@ import { ResponsiveDialog } from "@/components/patterns/ResponsiveDialog";
 import { useResidences } from "@/hooks/useResidences";
 import { useLocationControl } from "@/contexts/LocationContext";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/i18n";
 
 interface Props {
   /**
@@ -27,6 +28,7 @@ interface Props {
  * the viewport on narrow screens.
  */
 export function LocationSelector({ variant = "chip", className }: Props) {
+  const { t } = useI18n();
   const { data: residences = [] } = useResidences();
   const { residence, setResidence, residenceMatters } = useLocationControl();
   const [open, setOpen] = useState(false);
@@ -51,7 +53,7 @@ export function LocationSelector({ variant = "chip", className }: Props) {
     <button
       type="button"
       onClick={() => setOpen(true)}
-      aria-label="Choose your location"
+      aria-label={t("nav.chooseLocation")}
       className={cn(
         "flex w-full items-center gap-2 bg-card px-4 py-3 text-left transition-colors hover:bg-muted/40",
         className,
@@ -62,7 +64,7 @@ export function LocationSelector({ variant = "chip", className }: Props) {
         "min-w-0 flex-1 truncate text-[16px] tracking-[-0.32px]",
         residence ? "text-foreground" : "text-muted-foreground",
       )}>
-        {residence || "Choose your location"}
+        {residence || t("nav.chooseLocation")}
       </span>
       <KeyboardArrowRightIcon className="h-6 w-6 shrink-0 text-muted-foreground" />
     </button>
@@ -70,7 +72,7 @@ export function LocationSelector({ variant = "chip", className }: Props) {
     <button
       type="button"
       onClick={() => setOpen(true)}
-      aria-label="Choose your location"
+      aria-label={t("nav.chooseLocation")}
       className={cn(
         "flex h-10 w-10 items-center justify-center rounded-full transition-colors hover:bg-muted",
         residence ? "text-primary" : "text-foreground",
@@ -83,7 +85,7 @@ export function LocationSelector({ variant = "chip", className }: Props) {
     <button
       type="button"
       onClick={() => setOpen(true)}
-      aria-label="Choose your location"
+      aria-label={t("nav.chooseLocation")}
       className={cn(
         "flex items-center gap-1.5 font-semibold transition-colors",
         variant === "chip"

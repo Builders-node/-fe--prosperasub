@@ -79,6 +79,60 @@ const en = {
   "error.couldntLoad": "Couldn't load this",
   "error.retry": "Retry",
   "error.retrying": "Retrying…",
+
+  // ── App chrome: the tab bar and the header, on every screen
+  "nav.subs": "Subs",
+  "nav.cart": "Cart",
+  "nav.search": "Search on EverySub",
+  "nav.chooseLocation": "Choose your location",
+  "nav.notifications": "Notifications",
+
+  // ── Listing
+  "listing.searchIn": "Search {service}",
+  "listing.providers": "Providers",
+  "listing.plans": "Plans",
+  "listing.all": "All",
+  "listing.sort": "Sort",
+  "listing.nothingYet": "Nothing here yet",
+  "listing.noMatch": "Nothing matches your search",
+  "listing.tryAnother": "Try a different word.",
+  "listing.checkBack": "Check back soon.",
+
+  // ── Offer / plan
+  "plan.included": "What's included",
+  "plan.notIncluded": "Not included",
+  "plan.reviews": "Reviews",
+  "plan.gallery": "Gallery",
+  "plan.from": "from",
+  "plan.subscribe": "Subscribe",
+  "plan.book": "Book",
+  "plan.perDay": "/ day",
+
+  // ── Checkout — the path that takes money
+  "checkout.title": "Checkout",
+  "checkout.summary": "Your order",
+  "checkout.startDate": "Start date",
+  "checkout.term": "How long",
+  "checkout.people": "People",
+  "checkout.address": "Service address",
+  "checkout.contact": "Contact details",
+  "checkout.paymentMethod": "How would you like to pay?",
+  "checkout.total": "Total",
+  "checkout.pay": "Pay {amount}",
+  "checkout.paying": "Waiting for payment…",
+  "checkout.paid": "Paid",
+  "checkout.successTitle": "You're all set",
+  "checkout.successBody": "We've sent the details to your email.",
+  "checkout.viewSubs": "View my subscriptions",
+  "checkout.oneTimeNote": "A single purchase — it does not renew.",
+
+  // ── Subscriptions
+  "subs.title": "My Subs",
+  "subs.active": "Active",
+  "subs.expiring": "Expiring soon",
+  "subs.expired": "Expired",
+  "subs.renew": "Renew",
+  "subs.none": "Nothing here yet",
 } as const;
 
 export type TranslationKey = keyof typeof en;
@@ -158,6 +212,60 @@ const es: Record<TranslationKey, string> = {
   "error.couldntLoad": "No se pudo cargar",
   "error.retry": "Reintentar",
   "error.retrying": "Reintentando…",
+
+  // ── App chrome
+  "nav.subs": "Subs",
+  "nav.cart": "Carrito",
+  "nav.search": "Buscar en EverySub",
+  "nav.chooseLocation": "Elige tu ubicación",
+  "nav.notifications": "Notificaciones",
+
+  // ── Listado
+  "listing.searchIn": "Buscar en {service}",
+  "listing.providers": "Proveedores",
+  "listing.plans": "Planes",
+  "listing.all": "Todos",
+  "listing.sort": "Ordenar",
+  "listing.nothingYet": "Todavía no hay nada aquí",
+  "listing.noMatch": "Nada coincide con tu búsqueda",
+  "listing.tryAnother": "Prueba con otra palabra.",
+  "listing.checkBack": "Vuelve pronto.",
+
+  // ── Oferta / plan
+  "plan.included": "Qué incluye",
+  "plan.notIncluded": "No incluye",
+  "plan.reviews": "Reseñas",
+  "plan.gallery": "Galería",
+  "plan.from": "desde",
+  "plan.subscribe": "Suscribirme",
+  "plan.book": "Reservar",
+  "plan.perDay": "/ día",
+
+  // ── Pago
+  "checkout.title": "Pago",
+  "checkout.summary": "Tu pedido",
+  "checkout.startDate": "Fecha de inicio",
+  "checkout.term": "Duración",
+  "checkout.people": "Personas",
+  "checkout.address": "Dirección del servicio",
+  "checkout.contact": "Datos de contacto",
+  "checkout.paymentMethod": "¿Cómo quieres pagar?",
+  "checkout.total": "Total",
+  "checkout.pay": "Pagar {amount}",
+  "checkout.paying": "Esperando el pago…",
+  "checkout.paid": "Pagado",
+  "checkout.successTitle": "Todo listo",
+  "checkout.successBody": "Te enviamos los detalles por correo.",
+  "checkout.viewSubs": "Ver mis suscripciones",
+  "checkout.oneTimeNote": "Una compra única — no se renueva.",
+
+  // ── Suscripciones
+  "subs.title": "Mis Subs",
+  "subs.active": "Activa",
+  "subs.expiring": "Vence pronto",
+  "subs.expired": "Vencida",
+  "subs.renew": "Renovar",
+  "subs.none": "Todavía no hay nada aquí",
 };
 
 const dictionaries: Record<LanguageCode, Record<TranslationKey, string>> = { en, es };
@@ -167,18 +275,35 @@ export const languages: Array<{ code: LanguageCode; labelKey: TranslationKey; na
   { code: "es", labelKey: "language.spanish", nativeLabelKey: "language.spanishNative" },
 ];
 
+/** Values for the `{placeholders}` a string carries. */
+export type TranslationVars = Record<string, string | number>;
+
 interface I18nContextValue {
   language: LanguageCode;
   setLanguage: (language: LanguageCode) => void;
-  t: (key: TranslationKey) => string;
+  t: (key: TranslationKey, vars?: TranslationVars) => string;
 }
+
+/** "Hi, {name}" + { name: "Ana" } → "Hi, Ana". An unfilled slot is left alone. */
+const fill = (template: string, vars?: TranslationVars): string =>
+  vars ? template.replace(/\{(\w+)\}/g, (whole, k) => (k in vars ? String(vars[k]) : whole)) : template;
 
 const I18nContext = createContext<I18nContextValue | undefined>(undefined);
 
+/**
+ * The language to open in.
+ *
+ * A stored choice always wins. Failing that we follow the browser, which in
+ * Honduras is usually Spanish — the app used to hard-default to English and
+ * offered no way to change it, so a Spanish-speaking customer had no Spanish
+ * anywhere.
+ */
 function getInitialLanguage(): LanguageCode {
   if (typeof window === "undefined") return "en";
   const stored = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
-  return stored === "es" ? "es" : "en";
+  if (stored === "es" || stored === "en") return stored;
+  const preferred = [navigator.language, ...(navigator.languages ?? [])];
+  return preferred.some((l) => l?.toLowerCase().startsWith("es")) ? "es" : "en";
 }
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
@@ -192,7 +317,9 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   const value = useMemo<I18nContextValue>(() => ({
     language,
     setLanguage,
-    t: (key) => dictionaries[language][key] ?? en[key],
+    // English is the fallback for a key Spanish has not been given yet, so a
+    // missing translation shows the word rather than the key.
+    t: (key, vars) => fill(dictionaries[language][key] ?? en[key] ?? String(key), vars),
   }), [language]);
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;

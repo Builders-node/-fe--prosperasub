@@ -1,6 +1,6 @@
 import * as React from "react";
 import { Link } from "react-router-dom";
-import { ChevronRight, Moon, Sun, type LucideIcon } from "lucide-react";
+import { ChevronRight, Moon, Sun, type LucideIcon, Languages } from "lucide-react";
 import { useTheme } from "next-themes";
 
 import {
@@ -9,6 +9,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/i18n";
 
 type AppDropdownContentProps = React.ComponentPropsWithoutRef<typeof DropdownMenuContent>;
 
@@ -136,6 +137,41 @@ function AppDropdownSeparator({ className }: { className?: string }) {
  * Theme toggle row — keeps dropdown open on click so the user can
  * immediately see the result and toggle back if needed.
  */
+/**
+ * Language, beside the theme toggle.
+ *
+ * The app has shipped an en/es dictionary and a LanguageProvider since the
+ * beginning, with nothing anywhere to change the language — the one switcher
+ * that existed was never mounted and was deleted as dead code. A Spanish
+ * speaker now opens in Spanish (see getInitialLanguage) and can say so
+ * explicitly here.
+ */
+function AppDropdownLanguageItem() {
+  const { language, setLanguage, t } = useI18n();
+  const isSpanish = language === "es";
+
+  return (
+    <DropdownMenuItem
+      onSelect={(e) => {
+        e.preventDefault(); // stay open, like the theme toggle
+        setLanguage(isSpanish ? "en" : "es");
+      }}
+      className="group flex min-h-12 w-full cursor-pointer items-center gap-space-4 rounded-radius-lg px-space-4 py-space-3 text-left outline-none transition-colors hover:bg-muted/70 focus:bg-muted/70 data-[highlighted]:bg-muted/70"
+    >
+      <Languages className="h-5 w-5 shrink-0 text-muted-foreground transition-colors group-hover:text-foreground group-data-[highlighted]:text-foreground" />
+
+      <span className="min-w-0 flex-1 block text-[0.95rem] font-bold leading-tight text-foreground">
+        {t("language.label")}
+      </span>
+
+      {/* The language you would switch TO, in its own words. */}
+      <span className="shrink-0 rounded-full bg-inset px-space-3 py-space-1 text-[0.8rem] font-bold text-muted-foreground">
+        {isSpanish ? t("language.englishNative") : t("language.spanishNative")}
+      </span>
+    </DropdownMenuItem>
+  );
+}
+
 function AppDropdownThemeItem() {
   const { resolvedTheme, setTheme } = useTheme();
   const isDark = resolvedTheme !== "light";
@@ -182,4 +218,5 @@ export {
   AppDropdownProfile,
   AppDropdownSeparator,
   AppDropdownThemeItem,
+  AppDropdownLanguageItem,
 };

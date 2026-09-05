@@ -3,6 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { LocationSelector } from "@/components/patterns/LocationSelector";
 import { useCart } from "@/contexts/CartContext";
+import { useI18n } from "@/i18n";
 import { prefetchRoute } from "@/lib/routeChunks";
 import { cn } from "@/lib/utils";
 import {
@@ -40,6 +41,7 @@ export function HomeHeader({ title, showBackButton = false, onBack, variant = "t
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { openAuthModal } = useAuthModal();
   const { count: cartCount } = useCart();
+  const { t } = useI18n();
 
   const handleBack = () => {
     if (onBack) { onBack(); return; }
@@ -80,7 +82,7 @@ export function HomeHeader({ title, showBackButton = false, onBack, variant = "t
           >
             <SearchIcon className="h-6 w-6 shrink-0 text-muted-foreground" />
             <span className="truncate text-[16px] tracking-[-0.32px] text-muted-foreground">
-              Search on EverySub
+              {t("nav.search")}
             </span>
           </button>
 
