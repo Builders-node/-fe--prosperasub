@@ -11,7 +11,8 @@
     "preview": "vite preview --host 127.0.0.1 --port 8080",
     "storybook": "STORYBOOK_DISABLE_TELEMETRY=1 HOME=.storybook-home storybook dev -p 6006 --host 127.0.0.1",
     "build-storybook": "STORYBOOK_DISABLE_TELEMETRY=1 HOME=.storybook-home storybook build",
-    "verify": "node scripts/verify.mjs"
+    "verify": "node scripts/verify.mjs",
+    "test": "vitest"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.14",
@@ -62,6 +63,7 @@
     "tailwindcss": "^3.4.17",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.38.0",
-    "vite": "^5.4.19"
+    "vite": "^5.4.19",
+    "vitest": "^2.1.9"
   }
 }

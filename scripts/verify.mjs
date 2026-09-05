@@ -11,7 +11,7 @@ import { execSync } from "node:child_process";
 
 // Pre-existing tsc errors (mostly TS1320 await-on-thenable noise). Ratchet this
 // DOWN as they're fixed; never up. A PR that adds an error fails here.
-const TSC_BASELINE = 17;
+const TSC_BASELINE = 10;
 
 function run(cmd) {
   // 64MB buffer — eslint --format=json over the whole src tree blows the 1MB
