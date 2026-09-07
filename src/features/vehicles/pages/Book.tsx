@@ -107,7 +107,11 @@ export default function Book() {
   const effectiveTotal = addSurchargeCents(baseTotal, method);
 
   const toggleExtra = (eid: string) =>
-    setExtraIds((prev) => { const n = new Set(prev); n.has(eid) ? n.delete(eid) : n.add(eid); return n; });
+    setExtraIds((prev) => {
+      const n = new Set(prev);
+      if (n.has(eid)) n.delete(eid); else n.add(eid);
+      return n;
+    });
 
   const activate = async (ref: string, m: string) => {
     if (pendingIdRef.current) {

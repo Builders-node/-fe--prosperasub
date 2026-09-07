@@ -485,12 +485,13 @@ const MySubscriptions = () => {
     queryKey: ["my-cleaning-subscriptions-all", userUuid],
     queryFn: async () => {
       if (!userUuid) return [];
-      let { data: subs, error } = await supabaseDb
+      const { data: initialSubs, error } = await supabaseDb
         .from("cleaning_subscriptions")
         .select("*")
         .eq("user_id", userUuid)
         .order("created_at", { ascending: false });
       if (error) throw error;
+      let subs = initialSubs;
 
       // Fallback: if no subs found by user_id, try matching via users.email
       // (handles cases where the subscription was created with a different user_id format)

@@ -49,7 +49,10 @@ class RootErrorBoundary extends React.Component<
                 }
                 localStorage.clear();
                 sessionStorage.clear();
-              } catch {}
+              } catch {
+                // Already on the way to a hard reload — a storage API that
+                // throws here must not stop it.
+              }
               // Cache-busting reload — appends a query param so the HTML is re-fetched fresh
               const url = new URL(location.href);
               url.searchParams.set("_t", String(Date.now()));
@@ -97,7 +100,9 @@ const tryAutoRecover = (msg: string) => {
         const keys = await caches.keys();
         await Promise.all(keys.map((k) => caches.delete(k)));
       }
-    } catch {}
+    } catch {
+      // Same: the reload below is the recovery, not this cleanup.
+    }
     const url = new URL(location.href);
     url.searchParams.set("_t", String(Date.now()));
     location.replace(url.toString());

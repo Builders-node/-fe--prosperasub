@@ -43,7 +43,7 @@ export function PlanResourcePicker({ providerId, value, onChange }: {
   const all = selected.size === 0;
   const toggle = (id: string) => {
     const next = new Set(selected);
-    next.has(id) ? next.delete(id) : next.add(id);
+    if (next.has(id)) next.delete(id); else next.add(id);
     // Selecting every one of them is the same statement as selecting none, and
     // the shorter one survives a court being added later.
     onChange(next.size === resources.length ? [] : [...next]);
