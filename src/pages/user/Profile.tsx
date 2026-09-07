@@ -14,6 +14,7 @@ import { KeyboardArrowRightIcon } from "@/components/icons/FigmaIcons";
 import { AccessQrCode } from "@/components/account/AccessQrCode";
 import { SavedLocations, useUserLocations } from "@/components/account/SavedLocations";
 import { ReferralPanel } from "@/components/account/ReferralPanel";
+import { useReferrals } from "@/hooks/useReferrals";
 import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/i18n";
 import { accountApi, supabase } from "@/integrations/supabase/client";
@@ -198,6 +199,7 @@ const Profile = () => {
   const queryClient = useQueryClient();
   const { t } = useI18n();
 
+  const referrals = useReferrals();
   const section = (params.get("section") as Section) || "view";
   const openSection = (next: Section) => {
     const p = new URLSearchParams(params);
@@ -414,12 +416,19 @@ const Profile = () => {
                   : "Disabled"}
                 onClick={() => openSection("reminders")}
               />
-              <Row
-                icon={Gift}
-                label={t("profile.inviteFriend")}
-                value={t("profile.inviteFriendValue")}
-                onClick={() => openSection("referrals")}
-              />
+              {/* Only once the endpoint answers. The reward half of referrals
+                  is a database trigger and is already live, but this screen
+                  needs the API — and a menu row that leads to a retry button
+                  is worse than no row at all. It appears on its own the day
+                  the backend ships. */}
+              {referrals.data?.enabled && referrals.data.code && (
+                <Row
+                  icon={Gift}
+                  label={t("profile.inviteFriend")}
+                  value={t("profile.inviteFriendValue")}
+                  onClick={() => openSection("referrals")}
+                />
+              )}
               <Row icon={Pencil} label="Edit profile"
                 value={contacts.length === 0 ? "Add your contact details" : undefined}
                 onClick={() => openSection("edit")} />
