@@ -14,6 +14,7 @@ import { LanguageProvider } from "@/i18n";
 
 import ProtectedRoute from "@/components/app/ProtectedRoute";
 import { SiteAdBanner } from "@/components/patterns/AdBanner";
+import { ReferralCapture } from "@/components/account/ReferralCapture";
 import InstallAppModal from "@/components/patterns/InstallAppModal";
 import { ErrorBoundary } from "@/components/app/ErrorBoundary";
 import { PageLoader } from "@/components/ui/spinner";
@@ -197,6 +198,8 @@ const App = () => {
                     customer-facing route instead of living on Discovery alone
                     and vanishing on the first click. See SiteAdBanner. */}
                 <SiteAdBanner />
+                {/* Remembers a ?ref= code until there is an account to attach it to. */}
+                <ReferralCapture />
                 <Suspense fallback={<PageFallback />}>
                 <Routes>
               {/* Home → Discovery */}

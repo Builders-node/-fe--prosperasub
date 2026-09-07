@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ComponentType, type SVGProps } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Bell, BellOff, Eye, EyeOff, KeyRound, LogOut, MapPin, Pencil, Shield } from "lucide-react";
+import { Bell, BellOff, Eye, EyeOff, Gift, KeyRound, LogOut, MapPin, Pencil, Shield } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { BottomNav } from "@/components/layout/BottomNav";
 import { KeyboardArrowRightIcon } from "@/components/icons/FigmaIcons";
 import { AccessQrCode } from "@/components/account/AccessQrCode";
 import { SavedLocations, useUserLocations } from "@/components/account/SavedLocations";
+import { ReferralPanel } from "@/components/account/ReferralPanel";
 import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/i18n";
 import { accountApi, supabase } from "@/integrations/supabase/client";
@@ -30,7 +31,7 @@ import { cn } from "@/lib/utils";
  * step, a section can be linked to, and a reload lands where you were.
  */
 
-type Section = "view" | "edit" | "password" | "locations" | "reminders";
+type Section = "view" | "edit" | "password" | "locations" | "reminders" | "referrals";
 
 const SECTION_TITLES: Record<Section, string> = {
   view: "Profile",
@@ -38,6 +39,7 @@ const SECTION_TITLES: Record<Section, string> = {
   password: "Change Password",
   locations: "Saved Locations",
   reminders: "Cleaning Reminders",
+  referrals: "Invite a Friend",
 };
 
 interface CleaningPrefs {
@@ -412,6 +414,12 @@ const Profile = () => {
                   : "Disabled"}
                 onClick={() => openSection("reminders")}
               />
+              <Row
+                icon={Gift}
+                label={t("profile.inviteFriend")}
+                value={t("profile.inviteFriendValue")}
+                onClick={() => openSection("referrals")}
+              />
               <Row icon={Pencil} label="Edit profile"
                 value={contacts.length === 0 ? "Add your contact details" : undefined}
                 onClick={() => openSection("edit")} />
@@ -454,6 +462,8 @@ const Profile = () => {
             </section>
           </>
         )}
+
+        {section === "referrals" && <ReferralPanel />}
 
         {section === "edit" && (
           <section className="space-y-2">
