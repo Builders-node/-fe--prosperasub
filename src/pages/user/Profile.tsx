@@ -425,7 +425,11 @@ const Profile = () => {
                 <Row
                   icon={Gift}
                   label={t("profile.inviteFriend")}
-                  value={t("profile.inviteFriendValue")}
+                  value={t(
+                    (referrals.data.rewardCents > 0 || referrals.data.welcomeCents > 0)
+                      ? "profile.inviteFriendValue"
+                      : "profile.inviteFriendValuePlain",
+                  )}
                   onClick={() => openSection("referrals")}
                 />
               )}

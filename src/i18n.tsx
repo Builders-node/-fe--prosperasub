@@ -160,6 +160,12 @@ const en = {
   "referral.offDescription": "The referral programme is not running at the moment. Check back soon.",
   "profile.inviteFriend": "Invite a friend",
   "profile.inviteFriendValue": "Both of you get credit",
+  "referral.headlinePlain": "Invite a neighbour",
+  "referral.subheadPlain": "Share EverySub with someone who lives here. You will see who joined and who ordered.",
+  "referral.shareTextPlain": "I use EverySub for cleaning, meals and the beach club in Pr\u00f3spera \u2014 everything in one place. Have a look: {link}",
+  "referral.joinedAndBought": "Joined and ordered",
+  "referral.claimAcceptedPlain": "Code applied \u2014 thanks, we know who sent you.",
+  "profile.inviteFriendValuePlain": "Share EverySub with a neighbour",
 } as const;
 
 export type TranslationKey = keyof typeof en;
@@ -320,6 +326,12 @@ const es: Record<TranslationKey, string> = {
   "referral.offDescription": "El programa de invitaciones no est\u00e1 activo por ahora. Vuelve pronto.",
   "profile.inviteFriend": "Invita a un amigo",
   "profile.inviteFriendValue": "Ambos reciben saldo",
+  "referral.headlinePlain": "Invita a un vecino",
+  "referral.subheadPlain": "Comparte EverySub con alguien que viva aqu\u00ed. Ver\u00e1s qui\u00e9n entr\u00f3 y qui\u00e9n pidi\u00f3.",
+  "referral.shareTextPlain": "Uso EverySub para limpieza, comidas y el club de playa en Pr\u00f3spera: todo en un solo lugar. \u00c9chale un vistazo: {link}",
+  "referral.joinedAndBought": "Entr\u00f3 y pidi\u00f3",
+  "referral.claimAcceptedPlain": "C\u00f3digo aplicado: gracias, ya sabemos qui\u00e9n te envi\u00f3.",
+  "profile.inviteFriendValuePlain": "Comparte EverySub con un vecino",
 };
 
 const dictionaries: Record<LanguageCode, Record<TranslationKey, string>> = { en, es };

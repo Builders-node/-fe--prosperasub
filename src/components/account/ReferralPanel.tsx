@@ -66,8 +66,20 @@ export function ReferralPanel() {
   const invitedCount = data.invited.length;
   const joinedCount = data.invited.filter((i) => i.status === "qualified").length;
 
+  /**
+   * Referrals can run without paying anything: the amounts are settings and
+   * both are zero right now. Invitations are still attributed and a friend's
+   * first order still counts — the platform is learning who brings whom before
+   * deciding what that is worth. So the screen must not promise money it is
+   * not going to hand over.
+   */
+  const paysOut = data.rewardCents > 0 || data.welcomeCents > 0;
+  const hasCredit = data.balanceCents !== 0;
+
   const share = async () => {
-    const text = t("referral.shareText", { amount: usd(data.welcomeCents), link });
+    const text = paysOut
+      ? t("referral.shareText", { amount: usd(data.welcomeCents), link })
+      : t("referral.shareTextPlain", { link });
     // The OS sheet when there is one — it puts WhatsApp first on the phones
     // these customers actually use. Clipboard is the desktop fallback.
     if (navigator.share) {
@@ -98,7 +110,7 @@ export function ReferralPanel() {
       onSuccess: (result) => {
         if (result.claimed) {
           setEnteredCode("");
-          toast.success(t("referral.claimAccepted"));
+          toast.success(t(paysOut ? "referral.claimAccepted" : "referral.claimAcceptedPlain"));
         } else {
           toast.error(t(REFUSAL_KEYS[result.reason ?? ""] ?? "referral.refusedUnknownCode"));
         }
@@ -115,13 +127,17 @@ export function ReferralPanel() {
           <Gift className="h-6 w-6 text-primary" />
         </span>
         <h2 className="text-[20px] font-semibold tracking-[-0.4px] text-foreground">
-          {t("referral.headline", { amount: usd(data.rewardCents) })}
+          {paysOut
+            ? t("referral.headline", { amount: usd(data.rewardCents) })
+            : t("referral.headlinePlain")}
         </h2>
         <p className="mt-1 text-[14px] text-muted-foreground">
-          {t("referral.subhead", {
-            friendAmount: usd(data.welcomeCents),
-            yourAmount: usd(data.rewardCents),
-          })}
+          {paysOut
+            ? t("referral.subhead", {
+                friendAmount: usd(data.welcomeCents),
+                yourAmount: usd(data.rewardCents),
+              })
+            : t("referral.subheadPlain")}
         </p>
 
         <div className="mt-4 rounded-radius-md bg-inset p-4">
@@ -145,18 +161,25 @@ export function ReferralPanel() {
         </div>
       </section>
 
-      {/* Two numbers, because two is what this screen is actually about. */}
-      <section className="grid grid-cols-2 gap-2">
+      {/*
+        The credit figure only earns its half of the row when there is credit to
+        show — either the programme pays, or this person is holding a balance
+        from when it did. Otherwise "$0.00" is a promise the screen is not
+        keeping, and the count of friends takes the full width.
+      */}
+      <section className={(paysOut || hasCredit) ? "grid grid-cols-2 gap-2" : "grid grid-cols-1"}>
         <Stat label={t("referral.friendsJoined")} value={`${joinedCount}`} sub={
           invitedCount > joinedCount
             ? t("referral.pendingCount", { n: invitedCount - joinedCount })
             : undefined
         } />
-        <Stat label={t("referral.creditBalance")} value={usd(data.balanceCents)} sub={
-          data.earnedCents > 0
-            ? t("referral.earnedTotal", { amount: usd(data.earnedCents) })
-            : undefined
-        } />
+        {(paysOut || hasCredit) && (
+          <Stat label={t("referral.creditBalance")} value={usd(data.balanceCents)} sub={
+            data.earnedCents > 0
+              ? t("referral.earnedTotal", { amount: usd(data.earnedCents) })
+              : undefined
+          } />
+        )}
       </section>
 
       {data.invited.length > 0 && (
@@ -178,9 +201,11 @@ export function ReferralPanel() {
                     ? "shrink-0 text-[13px] font-semibold text-emerald-500"
                     : "shrink-0 text-[13px] text-muted-foreground"
                 }>
-                  {person.status === "qualified"
-                    ? `+${usd(data.rewardCents)}`
-                    : t("referral.waitingFirstOrder")}
+                  {person.status !== "qualified"
+                    ? t("referral.waitingFirstOrder")
+                    : paysOut
+                      ? `+${usd(data.rewardCents)}`
+                      : t("referral.joinedAndBought")}
                 </span>
               </li>
             ))}
