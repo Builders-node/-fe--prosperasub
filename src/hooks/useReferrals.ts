@@ -1,7 +1,8 @@
 import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { accountApi } from "@/integrations/supabase/client";
+import { accountApi, supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useUserUuid } from "./useUserUuid";
 
 /**
  * Bring a neighbour.
@@ -25,6 +26,13 @@ const STORED_CODE_KEY = "prospera_referral_code";
 const CODE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 export interface ReferralSummary {
+  /**
+   * False when the account API could not be reached, in which case everything
+   * below `code` is a placeholder: the code itself is read straight from the
+   * user's own row, and the invitee list and balance — which live in
+   * service-role-only tables — are simply not knowable from the browser.
+   */
+  apiAvailable: boolean;
   enabled: boolean;
   code: string | null;
   rewardCents: number;
@@ -115,15 +123,42 @@ export function useReferralCapture() {
 
 export function useReferrals() {
   const { isAuthenticated } = useAuth();
+  const userUuid = useUserUuid();
 
   return useQuery<ReferralSummary>({
-    queryKey: ["account-referrals"],
+    queryKey: ["account-referrals", userUuid],
     enabled: isAuthenticated,
     staleTime: 60_000,
     queryFn: async () => {
-      const { data, error } = await accountApi("/account/referrals");
-      if (error) throw error;
-      return data as ReferralSummary;
+      const { data, error } = await accountApi("/account/referrals")
+        .catch(() => ({ data: null, error: new Error("unreachable") }));
+      if (!error && data) return { ...(data as ReferralSummary), apiAvailable: true };
+
+      // The API is the whole story, but it is not the only way to learn one
+      // fact: your own code. It sits on your own users row and is a share
+      // token by design, so the browser can read it directly — which keeps the
+      // code copyable while /account/referrals is still undeployed. Everything
+      // that lives in the service-role-only tables stays unknown rather than
+      // being guessed at.
+      if (!userUuid) throw error ?? new Error("no user");
+      const { data: row, error: dbError } = await supabaseDb
+        .from("users")
+        .select("referral_code")
+        .eq("id", userUuid)
+        .maybeSingle();
+      if (dbError || !row?.referral_code) throw error ?? dbError ?? new Error("no code");
+
+      return {
+        apiAvailable: false,
+        enabled: true,
+        code: row.referral_code as string,
+        rewardCents: 0,
+        welcomeCents: 0,
+        balanceCents: 0,
+        earnedCents: 0,
+        invited: [],
+        credits: [],
+      };
     },
   });
 }

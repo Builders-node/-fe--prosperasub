@@ -162,11 +162,19 @@ export function ReferralPanel() {
       </section>
 
       {/*
-        The credit figure only earns its half of the row when there is credit to
-        show — either the programme pays, or this person is holding a balance
-        from when it did. Otherwise "$0.00" is a promise the screen is not
-        keeping, and the count of friends takes the full width.
+        Everything below needs the account API: who used your code and what you
+        are holding live in service-role-only tables the browser cannot read.
+        Without it these are UNKNOWN, not zero — and a screen that renders "0
+        friends" when it simply could not ask is lying. The code above stays
+        usable either way, which is the part that matters today.
       */}
+      {!data.apiAvailable && (
+        <p className="rounded-radius-md bg-inset px-4 py-3 text-[13px] text-muted-foreground">
+          {t("referral.statsUnavailable")}
+        </p>
+      )}
+
+      {data.apiAvailable && (<>
       <section className={(paysOut || hasCredit) ? "grid grid-cols-2 gap-2" : "grid grid-cols-1"}>
         <Stat label={t("referral.friendsJoined")} value={`${joinedCount}`} sub={
           invitedCount > joinedCount
@@ -242,6 +250,7 @@ export function ReferralPanel() {
           </Button>
         </div>
       </section>
+      </>)}
     </div>
   );
 }

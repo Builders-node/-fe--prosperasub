@@ -416,12 +416,11 @@ const Profile = () => {
                   : "Disabled"}
                 onClick={() => openSection("reminders")}
               />
-              {/* Only once the endpoint answers. The reward half of referrals
-                  is a database trigger and is already live, but this screen
-                  needs the API — and a menu row that leads to a retry button
-                  is worse than no row at all. It appears on its own the day
-                  the backend ships. */}
-              {referrals.data?.enabled && referrals.data.code && (
+              {/* Shown as soon as there is a code to copy. The screen behind
+                  it degrades honestly when the account API is missing: the
+                  code and the share link work, the invitee list says it
+                  cannot be read rather than showing a zero. */}
+              {referrals.data?.code && (
                 <Row
                   icon={Gift}
                   label={t("profile.inviteFriend")}

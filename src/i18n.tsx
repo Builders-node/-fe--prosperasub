@@ -166,6 +166,7 @@ const en = {
   "referral.joinedAndBought": "Joined and ordered",
   "referral.claimAcceptedPlain": "Code applied \u2014 thanks, we know who sent you.",
   "profile.inviteFriendValuePlain": "Share EverySub with a neighbour",
+  "referral.statsUnavailable": "Your code works now. Who used it and what it earned will show up here shortly.",
 } as const;
 
 export type TranslationKey = keyof typeof en;
@@ -332,6 +333,7 @@ const es: Record<TranslationKey, string> = {
   "referral.joinedAndBought": "Entr\u00f3 y pidi\u00f3",
   "referral.claimAcceptedPlain": "C\u00f3digo aplicado: gracias, ya sabemos qui\u00e9n te envi\u00f3.",
   "profile.inviteFriendValuePlain": "Comparte EverySub con un vecino",
+  "referral.statsUnavailable": "Tu c\u00f3digo ya funciona. Qui\u00e9n lo us\u00f3 y qu\u00e9 gener\u00f3 aparecer\u00e1 aqu\u00ed pronto.",
 };
 
 const dictionaries: Record<LanguageCode, Record<TranslationKey, string>> = { en, es };
