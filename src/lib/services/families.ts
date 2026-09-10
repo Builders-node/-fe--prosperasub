@@ -21,7 +21,14 @@ export interface FamilyStorefront {
   href: string;
   /** The heading above the unit's tiles on Discovery. */
   title: string;
-  /** The "everything" row — its title and what the visitor gets there. */
+  /**
+   * The way in when the family has no tiles to show.
+   *
+   * Not a permanent row: once the unit has types, those tiles ARE the doors,
+   * and an "All …" row beside them is a third target pointing at the union of
+   * what is already on screen — with the family's own word said three times
+   * running (tab, heading, row).
+   */
   allLabel: string;
   caption: string;
 }

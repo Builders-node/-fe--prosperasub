@@ -218,12 +218,22 @@ const Discovery = () => {
                 })}
               </div>
             )}
-            <ShortcutRow
-              icon={({ className }) => <CarFrontIcon className={className} />}
-              title={storefront.allLabel}
-              caption={storefront.caption}
-              to={storefront.href}
-            />
+            {/*
+              The "everything" door, only when the tiles are not already it.
+              With Cars and Motorbikes on screen, "All vehicles" is a third tap
+              target leading to the union of the two above it — and the word
+              Vehicles then appears at three levels running: the tab, this
+              heading, and the row. PAGE_TYPES §1 forbids exactly that. With no
+              types to show, this row is the only way in, so it stays.
+            */}
+            {vehicleTypes.length === 0 && (
+              <ShortcutRow
+                icon={({ className }) => <CarFrontIcon className={className} />}
+                title={storefront.allLabel}
+                caption={storefront.caption}
+                to={storefront.href}
+              />
+            )}
           </section>
         ) : (
           /* ─── Services ─────────────────────────────────────────────── */
