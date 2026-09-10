@@ -16,6 +16,7 @@ import { TabEmptyState, SectionOverline } from "@/components/subscriptions/MySub
 import { cn } from "@/lib/utils";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { cancelCleaningBookings } from "@/lib/cleaning/cancelBooking";
+import { cancelCourtBooking } from "@/lib/booking/courtBooking";
 import { toast } from "sonner";
 import { useUnifiedBookings, type UnifiedBookingRow } from "@/hooks/useUnifiedBookings";
 import { WeekTimeGrid } from "@/components/provider/WeekTimeGrid";
@@ -123,6 +124,19 @@ export function UnifiedBookingCalendar({
       if (next === "cancelled" && row.sourceTable === "cleaning_bookings") {
         const { cancelled } = await cancelCleaningBookings(supabaseDb, [row.id]);
         if (cancelled.length === 0) throw new Error("This booking is already cancelled or completed");
+        return;
+      }
+      // The booking engine's table is service-role only, and a PostgREST
+      // update it refuses comes back 200 with zero rows — no error to catch.
+      // So the write below reported "Status updated" and changed nothing at
+      // all. It goes through the API, which also frees the slot and lets the
+      // waitlist move; anything other than cancelling belongs to the engine
+      // and is refused here rather than silently dropped.
+      if (row.sourceTable === "bookings") {
+        if (next !== "cancelled") {
+          throw new Error("A booked hour can only be cancelled here — rebook it for another time instead.");
+        }
+        await cancelCourtBooking(row.id);
         return;
       }
       const { error } = await supabaseDb

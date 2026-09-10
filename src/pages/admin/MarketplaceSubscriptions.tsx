@@ -26,6 +26,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { supabaseDb } from "@/integrations/supabase/client";
+import { cancelCourtBooking } from "@/lib/booking/courtBooking";
 import {
   fetchMarketplaceSales, buildSalePatch, SALE_SOURCES, type SaleRow,
 } from "@/lib/admin/marketplaceSales";
@@ -94,6 +95,19 @@ const MarketplaceSubscriptions = () => {
   const updateMutation = useMutation({
     mutationFn: async ({ row, patch }: { row: SaleRow; patch: Record<string, any> }) => {
       const b = backing(row);
+      // An hour on a calendar is not a row to be patched: the engine owns an
+      // exclusion constraint over the slot, and its table refuses browser
+      // writes by returning 200 with zero rows — success, and nothing changed.
+      // Cancelling is the one edit that exists, and it goes through the API
+      // that also frees the slot and lets the waitlist move.
+      if (b.apiManaged) {
+        if (patch.status !== "cancelled") {
+          throw new Error("A booked hour can only be cancelled from here — change its time on the provider's calendar.");
+        }
+        await cancelCourtBooking(row.id);
+        if (userData?.id) await logAuditEvent(userData.id, "edit", "bookings", row.id, { status: "cancelled" });
+        return;
+      }
       const { error } = await supabaseDb.from(b.table).update({ ...patch, updated_at: new Date().toISOString() }).eq("id", row.id);
       if (error) throw error;
       if (userData?.id) await logAuditEvent(userData.id, "edit", backing(row).table, row.id, patch);
@@ -105,6 +119,7 @@ const MarketplaceSubscriptions = () => {
   const deleteMutation = useMutation({
     mutationFn: async (row: SaleRow) => {
       const b = backing(row);
+      if (b.apiManaged) throw new Error("Cancel a booked hour rather than deleting it — the slot has to be given back.");
       const { error } = await supabaseDb.from(b.table).delete().eq("id", row.id);
       if (error) throw error;
       if (userData?.id) await logAuditEvent(userData.id, "delete", backing(row).table, row.id, {});
@@ -231,7 +246,7 @@ const MarketplaceSubscriptions = () => {
   const pager = usePagination(sorted, 25);
 
   return (
-    <SuperAdminLayout title="Subscriptions" subtitle="Every recurring subscription and one-off booking across all services">
+    <SuperAdminLayout title="Orders" subtitle="Every subscription, booking and booked hour across all services">
       <div className="space-y-5">
         <div className="flex flex-wrap items-end gap-3">
           <FilterBlock label="Service">
@@ -369,7 +384,13 @@ const MarketplaceSubscriptions = () => {
                         )}>{s.kind === "booking" ? "Booking" : "Sub"}</span>
                       </TableCell>
                       <TableCell className="px-4 py-3 whitespace-nowrap text-xs text-muted-foreground">
-                        {s.start_date ? `${s.start_date}${s.end_date ? " → " + s.end_date : ""}` : "—"}
+                        {/* A booked hour is one date and a time, not a range —
+                            printing "2026-09-09 → 2026-09-09" says nothing. */}
+                        {s.time_label
+                          ? `${s.start_date} · ${s.time_label}`
+                          : s.start_date
+                            ? `${s.start_date}${s.end_date ? " → " + s.end_date : ""}`
+                            : "—"}
                       </TableCell>
                       <TableCell className="px-4 py-3">
                         <div className="flex flex-wrap items-center gap-1.5">
@@ -397,9 +418,13 @@ const MarketplaceSubscriptions = () => {
                             <DropdownMenuItem onSelect={() => setEditRow(s)}>
                               <Pencil className="mr-2 h-3.5 w-3.5" /> Edit
                             </DropdownMenuItem>
-                            <DropdownMenuItem onSelect={() => setDeleteRow(s)} className="text-red-400 focus:text-red-400">
-                              <Trash2 className="mr-2 h-3.5 w-3.5" /> Delete
-                            </DropdownMenuItem>
+                            {/* A booked hour is cancelled, never deleted: the
+                                slot has to go back to the calendar. */}
+                            {!backing(s).apiManaged && (
+                              <DropdownMenuItem onSelect={() => setDeleteRow(s)} className="text-red-400 focus:text-red-400">
+                                <Trash2 className="mr-2 h-3.5 w-3.5" /> Delete
+                              </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -422,14 +447,21 @@ const MarketplaceSubscriptions = () => {
               {editRow ? `${customerLabel(editRow)} · ${providerById.get(editRow.provider_id)?.name ?? "—"}` : ""}
             </SheetDescription>
           </SheetHeader>
-          {editRow && (
+          {editRow && (SALE_SOURCES[editRow.source_service_key].apiManaged ? (
+            <CourtEditForm
+              key={editRow.id}
+              row={editRow}
+              onCancelBooking={() => updateMutation.mutate({ row: editRow, patch: { status: "cancelled" } })}
+              saving={updateMutation.isPending}
+            />
+          ) : (
             <EditForm
               key={editRow.id}
               row={editRow}
               onSave={(patch) => updateMutation.mutate({ row: editRow, patch })}
               saving={updateMutation.isPending}
             />
-          )}
+          ))}
         </SheetContent>
       </Sheet>
 
@@ -458,6 +490,61 @@ const MarketplaceSubscriptions = () => {
     </SuperAdminLayout>
   );
 };
+
+/**
+ * A booked hour, edited.
+ *
+ * Deliberately not the six-field form below. The engine holds an exclusion
+ * constraint over the slot, so moving a booking means checking the new time
+ * against everything else on that calendar — which is what the provider's
+ * calendar does and a pair of date inputs does not. There is no price either:
+ * court time comes with a membership and is settled at the desk.
+ *
+ * So this offers the one edit that is both meaningful and safe from here.
+ */
+function CourtEditForm({
+  row, onCancelBooking, saving,
+}: {
+  row: SaleRow;
+  onCancelBooking: () => void;
+  saving: boolean;
+}) {
+  const cancelled = row.status === "cancelled";
+  return (
+    <div className="mt-6 space-y-4">
+      <dl className="rounded-radius-md bg-inset p-4 text-[14px]">
+        <Field label="Calendar" value={row.plan_name ?? "—"} />
+        <Field label="Date" value={row.start_date ?? "—"} />
+        <Field label="Time" value={row.time_label ?? "—"} />
+        <Field label="Status" value={row.status} />
+      </dl>
+      <p className="text-[13px] text-muted-foreground">
+        To move this booking to another time, use the provider's calendar — it
+        checks the new slot against everything else booked on it.
+      </p>
+      <SheetFooter className="mt-4">
+        <Button
+          variant="destructive"
+          onClick={onCancelBooking}
+          disabled={saving || cancelled}
+          loading={saving}
+          loadingText="Cancelling…"
+        >
+          {cancelled ? "Already cancelled" : "Cancel booking"}
+        </Button>
+      </SheetFooter>
+    </div>
+  );
+}
+
+function Field({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between gap-3 py-1">
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="font-semibold text-foreground">{value}</dd>
+    </div>
+  );
+}
 
 function EditForm({
   row, onSave, saving,

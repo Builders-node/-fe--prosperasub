@@ -1,4 +1,4 @@
-import { supabaseDb } from "@/integrations/supabase/client";
+import { supabaseDb, accountApi } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/lib/supabasePaging";
 
 /**
@@ -18,7 +18,7 @@ import { fetchAllRows } from "@/lib/supabasePaging";
  * column names.
  */
 
-export type SaleService = "food" | "cleaning" | "beach" | "plan" | "cars";
+export type SaleService = "food" | "cleaning" | "beach" | "plan" | "cars" | "court";
 
 export interface SaleRow {
   id: string;
@@ -34,6 +34,12 @@ export interface SaleRow {
   end_date: string | null;
   /** EFFECTIVE lifecycle — a period that ended yesterday reads `expired`. */
   status: string;
+  /**
+   * "14:00–15:00" for a booked hour. A subscription runs between two dates and
+   * has none; a court booking IS a time, and showing only its date would hide
+   * the thing the admin is looking at.
+   */
+  time_label?: string | null;
   payment_status: string;
   payment_method: string | null;
   price_cents: number | null;
@@ -45,7 +51,17 @@ export interface SaleRow {
 /** Where a row came from, and what to write back to when it's edited. */
 export interface SaleSource {
   service: SaleService;
+  /** Empty when the row is API-managed — see `apiManaged`. */
   table: string;
+  /**
+   * True when this row cannot be written from the browser at all.
+   *
+   * The booking engine's table is service-role only (RLS on, no policies), and
+   * a PostgREST update it refuses returns 200 with zero rows — no error to
+   * catch. Anything that wrote to it directly reported success and changed
+   * nothing. Rows marked here go through the API instead.
+   */
+  apiManaged?: true;
   /** Column holding the lifecycle status — cleaning calls it subscription_status. */
   statusCol: string;
   startCol: string;
@@ -84,6 +100,15 @@ export const SALE_SOURCES: Record<SaleService, SaleSource> = {
     statusCol: "status", startCol: "start_date", endCol: "end_date",
     priceCol: "total_cents",
   },
+  // An hour on a calendar — a court, a room, a seat on a trip. Lives in the
+  // booking engine, which owns an exclusion constraint over the slot, so it is
+  // never edited field-by-field from here: cancelling goes through the API,
+  // which frees the slot and writes the legacy row back.
+  court: {
+    service: "court", table: "", apiManaged: true,
+    statusCol: "status", startCol: "start_at", endCol: "end_at",
+    priceCol: "",
+  },
 };
 
 const day = (v: unknown): string | null =>
@@ -100,11 +125,87 @@ const num = (v: unknown): number | null => {
  * Paged: this feeds counts and totals, and a plain `.select()` is silently
  * truncated at 1000 rows with a 200 — the arithmetic would just be wrong.
  */
+/**
+ * Hours booked on somebody's calendar.
+ *
+ * These do not come from the view and cannot: the booking engine's table is
+ * service-role only, so the browser is not allowed to read it either. They
+ * come through the API, per provider that owns a calendar — which today is the
+ * beach club and tomorrow is whoever else gets one.
+ *
+ * Thirty-one of these existed while this page showed sixty-six rows and called
+ * that "every sale": a court booked by a member was an order the admin could
+ * not see from the orders screen at all.
+ */
+async function fetchCourtBookings(): Promise<SaleRow[]> {
+  // Who owns a calendar. Reading the resources rather than hard-coding the
+  // beach club is what makes this work for the next provider that gets one.
+  const { data: resources } = await supabaseDb
+    .from("bookable_resources")
+    .select("provider_id");
+  const providerIds = [...new Set(((resources ?? []) as Array<{ provider_id: string | null }>)
+    .map((r) => r.provider_id)
+    .filter((id): id is string => !!id))];
+  if (providerIds.length === 0) return [];
+
+  // Wide enough to cover the whole history this page is expected to show; the
+  // endpoint wants an explicit window.
+  const today = new Date();
+  const from = new Date(today.getFullYear() - 2, today.getMonth(), today.getDate()).toISOString().slice(0, 10);
+  const to   = new Date(today.getFullYear() + 1, today.getMonth(), today.getDate()).toISOString().slice(0, 10);
+
+  const perProvider = await Promise.all(providerIds.map(async (providerId) => {
+    const { data, error } = await accountApi(
+      `/booking/by-provider?providerId=${encodeURIComponent(providerId)}&from=${from}&to=${to}`,
+    ).catch(() => ({ data: null, error: new Error("unreachable") }));
+    if (error || !Array.isArray(data)) return [] as SaleRow[];
+
+    return (data as any[]).map((row): SaleRow => {
+      const start = row.start_at ? new Date(row.start_at) : null;
+      const end   = row.end_at   ? new Date(row.end_at)   : null;
+      const hhmm  = (d: Date | null) => d ? d.toISOString().slice(11, 16) : "";
+      return {
+        id: String(row.id),
+        kind: "booking",
+        provider_id: String(row.provider_id ?? providerId),
+        plan_id: row.resource_id ?? null,
+        // The calendar's name is what this booking is FOR — "Tennis Court 2".
+        plan_name: row.resource_name ?? null,
+        user_id: typeof row.subject_ref === "string" && row.subject_ref.startsWith("user:")
+          ? row.subject_ref.slice(5)
+          : null,
+        // `label` is what staff typed when they took it over the counter.
+        customer_name: row.customer_name ?? row.label ?? null,
+        start_date: day(row.start_at),
+        end_date: day(row.end_at ?? row.start_at),
+        time_label: start ? `${hhmm(start)}–${hhmm(end)}` : null,
+        status: row.status ?? "unknown",
+        // Court time is included in a membership and settled at the desk —
+        // there is no payment_status column to report, and inventing "pending"
+        // would put every one of them in the admin's chase list.
+        payment_status: "n/a",
+        payment_method: null,
+        price_cents: null,
+        payment_reference: null,
+        source_service_key: "court",
+        created_at: row.created_at ?? row.start_at,
+      };
+    });
+  }));
+
+  return perProvider.flat();
+}
+
 export async function fetchMarketplaceSales(): Promise<SaleRow[]> {
-  const rows = await fetchAllRows<any>(() => supabaseDb
+  const [courts, rows] = await Promise.all([
+    // Never lets the whole page fail: a calendar the API cannot reach must not
+    // hide sixty-six subscriptions that load fine.
+    fetchCourtBookings().catch(() => [] as SaleRow[]),
+    fetchAllRows<any>(() => supabaseDb
     .from("subscriptions_unified")
     .select("service,id,kind,provider_id,plan_id,plan_name,user_id,customer_name,starts_on,ends_on,status,payment_status,payment_method,payment_reference,price_cents,created_at")
-    .order("id"));
+    .order("id")),
+  ]);
 
   return rows
     .map((r): SaleRow => ({
@@ -125,6 +226,7 @@ export async function fetchMarketplaceSales(): Promise<SaleRow[]> {
       source_service_key: (r.service ?? "plan") as SaleService,
       created_at: r.created_at,
     }))
+    .concat(courts)
     .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
 }
 
@@ -146,6 +248,11 @@ export function buildSalePatch(
   },
 ): Record<string, unknown> {
   const src = SALE_SOURCES[row.source_service_key];
+  if (src.apiManaged) {
+    // Caught here rather than producing a patch aimed at a table that will
+    // accept it and change nothing.
+    throw new Error(`${row.source_service_key} rows are managed through the booking API, not a table write`);
+  }
   const patch: Record<string, unknown> = {};
 
   if (edit.status !== undefined) patch[src.statusCol] = edit.status;
