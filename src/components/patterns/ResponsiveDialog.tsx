@@ -41,7 +41,7 @@ export function ResponsiveDialog({
   if (!isMobile) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className={cn("max-w-lg gap-0 p-0", className)}>
+        <DialogContent className={cn("sm:max-w-lg p-0", className)} bodyClassName="gap-0">
           <DialogHeader className="border-b border-border/50 px-6 pb-4 pt-6">
             <DialogTitle className="text-2xl font-bold leading-tight tracking-tight">
               {title}

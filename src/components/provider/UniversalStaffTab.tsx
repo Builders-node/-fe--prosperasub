@@ -326,7 +326,7 @@ export function UniversalStaffTab({
 
       {/* Set Owner dialog */}
       <Dialog open={ownerDialog} onOpenChange={(o) => { if (!o) setOwnerDialog(false); }}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{owner ? "Change Owner" : "Set Owner"}</DialogTitle>
           </DialogHeader>
@@ -382,7 +382,7 @@ export function UniversalStaffTab({
 
       {/* Add Manager dialog */}
       <Dialog open={managerDialog} onOpenChange={(o) => { if (!o) setManagerDialog(false); }}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>Add Manager</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div>

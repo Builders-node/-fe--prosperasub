@@ -146,7 +146,7 @@ export function VehicleEditDialog({ vehicle, onClose, onSaved, lockedProviderId 
 
   return (
     <Dialog open={!!vehicle} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader><DialogTitle>{editing?.id ? "Edit vehicle" : "Add vehicle"}</DialogTitle></DialogHeader>
         {editing && (
           <div className="space-y-3">

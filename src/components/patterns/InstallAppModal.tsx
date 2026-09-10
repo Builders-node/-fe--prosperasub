@@ -122,7 +122,7 @@ export default function InstallAppModal() {
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && handleClose()}>
-      <DialogContent className="max-w-sm">
+      <DialogContent className="sm:max-w-sm">
         <div className="flex flex-col items-center gap-space-5 pt-2">
           <h2 className="text-panel-title text-center">{copy.title}</h2>
 

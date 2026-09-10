@@ -261,7 +261,7 @@ export function RescheduleCleaningDialog({ booking, onClose, slotProviderId }: P
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CalendarClock className="h-5 w-5 text-primary" /> Reschedule cleaning

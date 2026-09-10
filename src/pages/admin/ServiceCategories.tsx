@@ -342,7 +342,7 @@ export default function ServiceCategories({ embedded = false, archetypeKey }: Se
 
       {/* Editor */}
       <Dialog open={editing !== null} onOpenChange={(v) => !v && setEditing(null)}>
-        <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader><DialogTitle>{editing === "new" ? "New category" : "Edit category"}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div>

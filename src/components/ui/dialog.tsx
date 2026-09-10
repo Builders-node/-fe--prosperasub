@@ -33,10 +33,21 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
  *  – Desktop (sm:): centered modal (no shadow, no border)
  *  – Flat surface in both modes
  */
+interface DialogContentProps
+  extends React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> {
+  /**
+   * Classes for the scrolling body.
+   *
+   * A caller that lays its own sections out — ResponsiveDialog, with a bordered
+   * header and footer — needs to cancel the default gap between them.
+   */
+  bodyClassName?: string;
+}
+
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => (
+  DialogContentProps
+>(({ className, children, bodyClassName, ...props }, ref) => (
   <DialogPortal>
     <DialogOverlay />
     <DialogPrimitive.Content
@@ -44,9 +55,16 @@ const DialogContent = React.forwardRef<
       style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px), 1.5rem)" }}
       className={cn(
         // base
-        "fixed z-50 grid gap-4 bg-background p-4 duration-200",
+        //
+        // The shell does NOT scroll — the body inside it does. When the shell
+        // was the scroller, the close button (absolutely positioned against
+        // it) scrolled away with the content: measured at +16px from the top
+        // before scrolling and -784px after, so a tall form had no way to be
+        // closed once you had scrolled down. The header only stayed because it
+        // is sticky; nothing made the button stay.
+        "fixed z-50 flex flex-col bg-background p-4 duration-200 overflow-hidden",
         // mobile: bottom sheet
-        "inset-x-0 bottom-0 rounded-t-radius-lg max-h-[92vh] overflow-y-auto",
+        "inset-x-0 bottom-0 rounded-t-radius-lg max-h-[92vh]",
         "data-[state=open]:animate-in data-[state=closed]:animate-out",
         "data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
         // desktop: centered modal
@@ -61,7 +79,16 @@ const DialogContent = React.forwardRef<
     >
       {/* Mobile drag handle (visual cue that this is a bottom sheet) */}
       <div className="absolute left-1/2 top-2 h-1 w-10 -translate-x-1/2 rounded-full bg-muted-foreground/20 sm:hidden" />
-      {children}
+      {/*
+        The scrolling half. Children keep the grid they have always been laid
+        out in, so nothing about how a dialog composes its header, fields and
+        footer changes — only which box owns the overflow. `min-h-0` is what
+        lets a flex child actually shrink and scroll instead of growing past
+        its parent.
+      */}
+      <div className={cn("grid min-h-0 gap-4 overflow-y-auto", bodyClassName)}>
+        {children}
+      </div>
       <DialogPrimitive.Close className="absolute right-4 top-4 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:pointer-events-none">
         <X className="h-4 w-4" />
         <span className="sr-only">Close</span>

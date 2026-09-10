@@ -168,7 +168,7 @@ export function NewBeachMembershipDialog({ providerUniversalId, trigger }: Props
       {trigger ? <span onClick={() => setOpen(true)}>{trigger}</span> : defaultTrigger}
 
       <Dialog open={open} onOpenChange={(o) => { if (!o) resetAndClose(); }}>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Waves className="h-5 w-5 text-primary" /> New membership

@@ -480,7 +480,7 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
       {trigger ? <span onClick={() => setOpen(true)}>{trigger}</span> : defaultTrigger}
 
       <Dialog open={open} onOpenChange={(o) => { if (!o) resetAndClose(); }}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CalendarIcon className="h-5 w-5 text-primary" /> New cleaning booking

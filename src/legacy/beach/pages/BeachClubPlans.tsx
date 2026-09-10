@@ -223,7 +223,7 @@ export default function BeachClubPlans({ embedded = false }: { embedded?: boolea
 
       {/* Create / edit dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{editing ? "Edit Plan" : "New Plan"}</DialogTitle>
           </DialogHeader>
@@ -312,7 +312,7 @@ export default function BeachClubPlans({ embedded = false }: { embedded?: boolea
 
       {/* Delete confirm */}
       <Dialog open={!!deleteTarget} onOpenChange={(o) => { if (!o) setDeleteTarget(null); }}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="sm:max-w-sm">
           <DialogHeader><DialogTitle>Delete plan?</DialogTitle></DialogHeader>
           <p className="text-sm text-muted-foreground">
             "{deleteTarget?.name}" will be permanently removed from the public page.

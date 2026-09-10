@@ -530,7 +530,7 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
 
       {/* Book slot dialog */}
       <Dialog open={bookSlot !== null} onOpenChange={(o) => { if (!o) setBookSlot(null); }}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Waves className="h-5 w-5 text-primary" /> Book {activeCourt?.name}
@@ -562,7 +562,7 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
 
       {/* Manage courts dialog — list, toggle, edit, delete */}
       <Dialog open={manageOpen} onOpenChange={setManageOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Manage courts</DialogTitle>
             <DialogDescription>Create, edit, hide or remove courts. Hidden courts don't accept new bookings.</DialogDescription>
@@ -614,7 +614,7 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
 
       {/* Create / edit court dialog */}
       <Dialog open={!!editing} onOpenChange={(o) => { if (!o) setEditing(null); }}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{editing === "new" ? "New court" : "Edit court"}</DialogTitle>
           </DialogHeader>
@@ -774,7 +774,7 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
 
       {/* Delete court confirm */}
       <Dialog open={!!deleteTarget} onOpenChange={(o) => { if (!o) setDeleteTarget(null); }}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-destructive">
               <Trash2 className="h-5 w-5" /> Delete court?

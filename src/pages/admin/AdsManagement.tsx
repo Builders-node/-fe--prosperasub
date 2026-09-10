@@ -236,7 +236,7 @@ const AdsManagement = () => {
       </div>
 
       <Dialog open={isNew || !!editItem} onOpenChange={(o) => !o && close()}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader><DialogTitle>{isNew ? "Add Ad" : "Edit Ad"}</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
             {/* Live preview */}

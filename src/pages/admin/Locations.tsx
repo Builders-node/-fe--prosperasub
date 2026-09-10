@@ -169,7 +169,7 @@ const Locations = () => {
 
         {/* Create / edit */}
         <Dialog open={!!editing} onOpenChange={(o) => { if (!o) setEditing(null); }}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="sm:max-w-md">
             <DialogHeader><DialogTitle>{editing === "new" ? "New Location" : "Edit Location"}</DialogTitle></DialogHeader>
             <div className="space-y-4">
               <div>

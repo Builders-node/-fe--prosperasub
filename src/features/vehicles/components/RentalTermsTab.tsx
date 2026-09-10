@@ -198,7 +198,7 @@ export function RentalTermsTab({ providerId, canManage }: {
       />
 
       <Dialog open={!!draft} onOpenChange={(o) => { if (!o) setDraft(null); }}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>
               {draft?.id ? "Edit" : "Add"}{" "}
