@@ -28,6 +28,7 @@ import {
 import { supabaseDb } from "@/integrations/supabase/client";
 import { cancelCourtBooking } from "@/lib/booking/courtBooking";
 import { downloadCsv, datedFilename } from "@/lib/admin/exportCsv";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   fetchMarketplaceSales, buildSalePatch, SALE_SOURCES, type SaleRow,
 } from "@/lib/admin/marketplaceSales";
@@ -78,6 +79,8 @@ const MarketplaceSubscriptions = () => {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulk, setBulk] = useState<null | "paid" | "cancel">(null);
   const [editRow, setEditRow] = useState<SaleRow | null>(null);
   const [deleteRow, setDeleteRow] = useState<SaleRow | null>(null);
 
@@ -127,6 +130,60 @@ const MarketplaceSubscriptions = () => {
     },
     onSuccess: () => { toast.success("Deleted"); invalidate(); setDeleteRow(null); },
     onError: (e: any) => toast.error(e?.message || "Could not delete"),
+  });
+
+  /**
+   * The same two edits an admin makes one row at a time, made to many.
+   *
+   * Deliberately only two: marking money received and ending something. A
+   * bulk price change or a bulk date shift is a mistake nobody can see the
+   * shape of until it has happened to forty rows.
+   *
+   * Rows are handled one at a time rather than in a single PATCH because they
+   * live in five different tables — and a booked hour is not a table write at
+   * all. A row that fails is counted and named; it does not stop the rest.
+   */
+  const bulkMutation = useMutation({
+    mutationFn: async (action: "paid" | "cancel") => {
+      const rows = sorted.filter((r) => selected.has(r.id));
+      let done = 0;
+      const failed: string[] = [];
+
+      for (const row of rows) {
+        try {
+          const b = backing(row);
+          if (b.apiManaged) {
+            // Only cancelling exists for a booked hour, and it is the API's.
+            if (action !== "cancel") { failed.push(customerLabel(row)); continue; }
+            await cancelCourtBooking(row.id);
+          } else {
+            const patch = action === "paid"
+              ? buildSalePatch(row, { payment_status: "paid" })
+              : buildSalePatch(row, { status: "cancelled" });
+            const { error } = await supabaseDb
+              .from(b.table)
+              .update({ ...patch, updated_at: new Date().toISOString() })
+              .eq("id", row.id);
+            if (error) throw error;
+          }
+          if (userData?.id) {
+            await logAuditEvent(userData.id, "edit", backing(row).table || "bookings", row.id, { bulk: action });
+          }
+          done++;
+        } catch {
+          failed.push(customerLabel(row));
+        }
+      }
+      return { done, failed };
+    },
+    onSuccess: ({ done, failed }) => {
+      if (done) toast.success(`${done} updated`);
+      if (failed.length) toast.error(`${failed.length} could not be changed: ${failed.slice(0, 3).join(", ")}${failed.length > 3 ? "…" : ""}`);
+      setSelected(new Set());
+      setBulk(null);
+      invalidate();
+    },
+    onError: (e: any) => { toast.error(e?.message || "Could not apply"); setBulk(null); },
   });
 
   const toggleSort = (key: SortKey) => {
@@ -245,6 +302,7 @@ const MarketplaceSubscriptions = () => {
   // there's nothing to re-fetch — it resets to page 1 whenever a filter changes
   // the result count.
   const pager = usePagination(sorted, 25);
+  const pageAllSelected = pager.paged.length > 0 && pager.paged.every((r) => selected.has(r.id));
 
   /**
    * The rows as filtered, not the whole table: the admin has already said what
@@ -334,6 +392,29 @@ const MarketplaceSubscriptions = () => {
           </FilterBlock>
         </div>
 
+        {/* Only while something is picked — an always-present toolbar of
+            destructive verbs is an invitation. */}
+        {selected.size > 0 && (
+          <div className="flex flex-wrap items-center gap-3 rounded-radius-md bg-card px-4 py-3">
+            <span className="text-sm font-semibold text-foreground">
+              {selected.size} selected
+            </span>
+            <Button variant="outline" size="sm" onClick={() => setBulk("paid")}>
+              Mark paid
+            </Button>
+            <Button variant="outline" size="sm" className="text-destructive" onClick={() => setBulk("cancel")}>
+              Cancel
+            </Button>
+            <button
+              type="button"
+              className="ml-auto text-sm text-muted-foreground hover:text-foreground"
+              onClick={() => setSelected(new Set())}
+            >
+              Clear
+            </button>
+          </div>
+        )}
+
         <AdminListShell
           search={search} onSearch={setSearch} searchPlaceholder="Search by provider, plan, user, payment ref…"
           isLoading={isLoading} isError={isError} error={subsErrObj}
@@ -353,6 +434,20 @@ const MarketplaceSubscriptions = () => {
             <Table className="min-w-[900px]">
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10 px-2 py-3">
+                    <Checkbox
+                      aria-label="Select every row on this page"
+                      checked={pageAllSelected}
+                      onCheckedChange={(v) => setSelected((prev) => {
+                        const next = new Set(prev);
+                        // Only this page: "select all" that silently picks up
+                        // rows the admin has not looked at is how forty things
+                        // get cancelled at once.
+                        pager.paged.forEach((r) => v ? next.add(r.id) : next.delete(r.id));
+                        return next;
+                      })}
+                    />
+                  </TableHead>
                   <SortHeader label="Customer" sortKey="name" active={sortBy} dir={sortDir} onSort={toggleSort} />
                   <TableHead className="px-4 py-3">Plan</TableHead>
                   <TableHead className="px-4 py-3">Provider</TableHead>
@@ -372,6 +467,17 @@ const MarketplaceSubscriptions = () => {
                   const stage = subscriptionStage(s);
                   return (
                     <TableRow key={s.id} className="border-b border-border/60 last:border-0 hover:bg-muted/30">
+                      <TableCell className="px-2 py-3">
+                        <Checkbox
+                          aria-label={`Select ${customerLabel(s)}`}
+                          checked={selected.has(s.id)}
+                          onCheckedChange={(v) => setSelected((prev) => {
+                            const next = new Set(prev);
+                            if (v) next.add(s.id); else next.delete(s.id);
+                            return next;
+                          })}
+                        />
+                      </TableCell>
                       <TableCell className="px-4 py-3 font-semibold text-foreground">
                         <span className="flex flex-wrap items-center gap-2">
                           {s.user_id ? (
@@ -497,6 +603,33 @@ const MarketplaceSubscriptions = () => {
           ))}
         </SheetContent>
       </Sheet>
+
+      {/* Bulk confirmation. It names the count and the verb, because after this
+          there is no single row to point at and say "that one was wrong". */}
+      <AlertDialog open={!!bulk} onOpenChange={(o) => !o && setBulk(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {bulk === "paid" ? "Mark as paid" : "Cancel"} {selected.size} {selected.size === 1 ? "order" : "orders"}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {bulk === "paid"
+                ? "Each one counts as money received from that moment: it enters revenue and the business's withdrawable balance. Booked hours cannot be marked paid and will be skipped."
+                : "Each one stops. A booked hour is cancelled through the calendar, which gives its slot back; the rest have their status set to cancelled."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => bulk && bulkMutation.mutate(bulk)}
+              disabled={bulkMutation.isPending}
+              className={bulk === "cancel" ? "bg-red-600 text-white hover:bg-red-600/90" : undefined}
+            >
+              {bulkMutation.isPending ? "Applying…" : bulk === "paid" ? "Mark paid" : "Cancel them"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Delete confirmation — hard-deletes the row. */}
       <AlertDialog open={!!deleteRow} onOpenChange={(o) => !o && setDeleteRow(null)}>
