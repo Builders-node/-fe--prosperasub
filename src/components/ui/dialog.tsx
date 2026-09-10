@@ -94,7 +94,17 @@ const DialogTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Title
     ref={ref}
-    className={cn("text-panel-title", className)}
+    className={cn(
+      "text-panel-title",
+      // Keep clear of the close button, which is absolutely positioned at
+      // right-4 top-4, is opaque and sits a layer above the header. No title
+      // in the app is long enough to reach it today; the first one that is
+      // would have run underneath it. Symmetric on mobile because the header
+      // centres its text there, so padding one side alone would push a short
+      // title off-centre.
+      "pl-10 pr-10 sm:pl-0",
+      className,
+    )}
     {...props}
   />
 ));
