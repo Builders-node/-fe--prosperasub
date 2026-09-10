@@ -46,6 +46,7 @@ async function fetchRating(universalProviderId: string) {
     .from("provider_reviews")
     .select("rating")
     .eq("provider_id", universalProviderId)
+    .is("hidden_at", null)
     .not("rating", "is", null);
   if (!data?.length) return { avg: null as number | null, count: 0 };
   const nums = data

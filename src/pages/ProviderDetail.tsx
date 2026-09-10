@@ -332,7 +332,8 @@ const ProviderDetail = () => {
       const { data, error } = await supabaseDb
         .from("provider_reviews")
         .select("rating")
-        .eq("provider_id", providerId!);
+        .eq("provider_id", providerId!)
+        .is("hidden_at", null);
       if (error) throw error;
       const rows = (data ?? []) as { rating: number }[];
       const count = rows.length;

@@ -57,6 +57,7 @@ export function ProviderReviewsPanel({ providerId }: { providerId: string }) {
         .from("provider_reviews")
         .select("id, rating, comment, customer_name, service, created_at")
         .eq("provider_id", providerId)
+        .is("hidden_at", null)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as ReviewRow[];

@@ -52,7 +52,8 @@ export function useProviderRatings(
       const { data: rows, error } = await supabaseDb
         .from("provider_reviews")
         .select("provider_id, rating")
-        .in("provider_id", universalIds);
+        .in("provider_id", universalIds)
+        .is("hidden_at", null);
       if (error) throw error;
 
       const totals = new Map<string, { sum: number; count: number }>();

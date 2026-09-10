@@ -63,6 +63,8 @@ export function ProviderReviewsBlock({ providerId, service, ownerUserId, placeho
       const { data, error } = await supabaseDb
         .from("provider_reviews").select("*")
         .eq("provider_id", providerId)
+        // A review an admin took down is off the storefront but still on file.
+        .is("hidden_at", null)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as ProviderReviewRow[];

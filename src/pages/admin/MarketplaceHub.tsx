@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, ChevronRight, CreditCard, Inbox, Plus, Building2 } from "lucide-react";
+import { AlertTriangle, ChevronRight, CreditCard, Inbox, Plus, Building2, Star } from "lucide-react";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -208,6 +208,7 @@ export default function MarketplaceHub() {
           <div className="mt-3 flex flex-wrap gap-2">
             <FlatLink to="/admin/marketplace/providers" icon={Building2} label="All providers" />
             <FlatLink to="/admin/marketplace/plans" icon={CreditCard} label="All plans" />
+            <FlatLink to="/admin/marketplace/reviews" icon={Star} label="Reviews" />
             <FlatLink
               to="/admin/marketplace/providers/applications"
               icon={Inbox}

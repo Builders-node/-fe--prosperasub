@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Building2, ChevronsUpDown, ChevronUp, ChevronDown, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { Building2, ChevronsUpDown, ChevronUp, ChevronDown, Download, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { AdminListShell } from "@/components/admin/AdminListShell";
@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { cancelCourtBooking } from "@/lib/booking/courtBooking";
+import { downloadCsv, datedFilename } from "@/lib/admin/exportCsv";
 import {
   fetchMarketplaceSales, buildSalePatch, SALE_SOURCES, type SaleRow,
 } from "@/lib/admin/marketplaceSales";
@@ -245,6 +246,32 @@ const MarketplaceSubscriptions = () => {
   // the result count.
   const pager = usePagination(sorted, 25);
 
+  /**
+   * The rows as filtered, not the whole table: the admin has already said what
+   * they are looking at, and every column here is one they can see. Money goes
+   * out in dollars rather than cents so a spreadsheet sums it without being
+   * told to divide by a hundred.
+   */
+  const exportRows = () => {
+    downloadCsv(datedFilename("orders"), sorted, [
+      { header: "Service", value: (s) => s.source_service_key },
+      { header: "Kind", value: (s) => s.kind },
+      { header: "Customer", value: (s) => customerLabel(s) },
+      { header: "Business", value: (s) => providerById.get(s.provider_id)?.name ?? "" },
+      { header: "What", value: (s) => s.plan_name ?? "" },
+      { header: "Starts", value: (s) => s.start_date ?? "" },
+      { header: "Ends", value: (s) => s.end_date ?? "" },
+      { header: "Time", value: (s) => s.time_label ?? "" },
+      { header: "Status", value: (s) => s.status },
+      { header: "Payment", value: (s) => s.payment_status },
+      { header: "Method", value: (s) => s.payment_method ?? "" },
+      { header: "Amount USD", value: (s) => (s.price_cents ?? 0) / 100 },
+      { header: "Reference", value: (s) => s.payment_reference ?? "" },
+      { header: "Created", value: (s) => s.created_at },
+      { header: "Id", value: (s) => s.id },
+    ]);
+  };
+
   return (
     <SuperAdminLayout title="Orders" subtitle="Every subscription, booking and booked hour across all services">
       <div className="space-y-5">
@@ -315,6 +342,12 @@ const MarketplaceSubscriptions = () => {
           isNoResults={rows.length > 0 && visible.length === 0} count={visible.length}
           emptyTitle="No sales yet" emptySubtitle="Subscriptions and bookings will appear here."
           onClearFilters={() => { setSearch(""); setService("all"); setStatus("all"); setPayment("all"); setKind("all"); setOrigin("all"); }}
+          actions={
+            <Button variant="outline" size="sm" onClick={exportRows} disabled={sorted.length === 0}>
+              <Download className="mr-1.5 h-3.5 w-3.5" />
+              Export {sorted.length}
+            </Button>
+          }
         >
           <div>
             <Table className="min-w-[900px]">
