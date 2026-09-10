@@ -10,7 +10,7 @@
 
 import {
   BarChart3, CalendarDays, DollarSign,
-  FileText, Layers, LayoutDashboard, MapPin, Megaphone,
+  BellRing, FileText, Layers, LayoutDashboard, MapPin, Megaphone,
   LifeBuoy, ShieldCheck, Users, Building2, CarFront, } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { adminRoutes } from "./adminRoutes";
@@ -111,6 +111,8 @@ export const PEOPLE_SECTION: NavSection = {
     // file has promised all along.
     { label: "Users", path: adminRoutes.superAdminUsers, icon: Users,
       alsoActiveOn: [adminRoutes.superAdminClients],
+      permissions: ["users.read"] },
+    { label: "Announcements", path: adminRoutes.superAdminAnnouncements, icon: BellRing,
       permissions: ["users.read"] },
     { label: "Support", path: adminRoutes.superAdminSupport, icon: LifeBuoy,
       permissions: ["users.read"] },

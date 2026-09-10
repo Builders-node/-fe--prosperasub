@@ -7,7 +7,7 @@ import { useUserUuid } from "./useUserUuid";
 export interface UserNotification {
   id: string;
   recipientUserId: string;
-  category: "payment" | "subscription" | "booking" | "reminder" | "plan";
+  category: "payment" | "subscription" | "booking" | "reminder" | "plan" | "announcement";
   type: string;
   title: string;
   body: string;
