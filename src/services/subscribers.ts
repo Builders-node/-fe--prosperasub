@@ -44,6 +44,16 @@ export interface SubscriberRow {
   paymentReference?: string | null;
 }
 
+/** One editable fact about where a subscription is delivered or performed. */
+export interface DeliveryField {
+  column: string;
+  label: string;
+  /** One grey line under the control, where the label is not enough. */
+  hint?: string;
+  multiline?: boolean;
+  placeholder?: string;
+}
+
 export interface SubscriberSource {
   /** Table the subscriptions live in. */
   table: string;
@@ -61,6 +71,18 @@ export interface SubscriberSource {
   statusPatch?: (next: "active" | "paused" | "cancelled") => Record<string, unknown>;
   /** Work a cancellation implies beyond writing a column. */
   onCancelled?: (subscriptionId: string) => Promise<void>;
+  /**
+   * Where this goes, and who to reach — the part of a subscription that
+   * changes while everything else stays.
+   *
+   * The list has always SHOWN one line of it (`detail` — an address for food,
+   * an apartment note for cleaning) and offered no way to change it: a
+   * customer who moved had to be cancelled and re-sold. Which columns those
+   * are is a per-service fact, so it is stated here with the rest of them
+   * rather than as another branch inside the list.
+   */
+  deliveryLabel?: string;
+  deliveryFields?: DeliveryField[];
 }
 
 /** What a business gets when it has said nothing: the universal tables. */
@@ -76,6 +98,12 @@ export const UNIVERSAL_SUBSCRIBERS: SubscriberSource = {
     periods_paid: (row.periodsPaid || 1) + 1,
     updated_at: new Date().toISOString(),
   }),
+  deliveryLabel: "Where it happens",
+  deliveryFields: [
+    { column: "service_address", label: "Address", multiline: true, placeholder: "Building, unit, landmark" },
+    { column: "customer_whatsapp", label: "WhatsApp", placeholder: "+504 …" },
+    { column: "notes", label: "Notes", multiline: true, hint: "Anything the person doing the work should know." },
+  ],
 };
 
 export const SUBSCRIBER_SOURCES: Record<string, SubscriberSource> = {
@@ -112,6 +140,15 @@ export const SUBSCRIBER_SOURCES: Record<string, SubscriberSource> = {
       const ids = (future ?? []).map((b: any) => b.id);
       if (ids.length) await cancelCleaningBookings(supabaseDb, ids);
     },
+    deliveryLabel: "Address & access",
+    deliveryFields: [
+      { column: "apartment_note", label: "Address / apartment", multiline: true, placeholder: "Tower, unit, floor" },
+      { column: "customer_whatsapp", label: "WhatsApp", placeholder: "+504 …" },
+      // The recurring day and time are NOT here: a visit holds a seat in a
+      // slot, and moving one without the slot engine leaves the old seat
+      // taken. Rescheduling stays on the Bookings tab, which gives it back.
+      { column: "admin_notes", label: "Access notes", multiline: true, hint: "Keys, gate code, dog — whoever cleans reads this." },
+    ],
   },
 
   food: {
@@ -128,6 +165,14 @@ export const SUBSCRIBER_SOURCES: Record<string, SubscriberSource> = {
     }),
     // Food records WHEN it was paused, and clears that on resume.
     statusPatch: (next) => ({ paused_at: next === "paused" ? todayHN() : null }),
+    deliveryLabel: "Delivery details",
+    deliveryFields: [
+      { column: "delivery_address", label: "Delivery address", multiline: true, placeholder: "Building, unit, floor" },
+      { column: "residence", label: "Residence", hint: "The building or community, used for grouping a run." },
+      { column: "customer_name", label: "Name on the order" },
+      { column: "customer_whatsapp", label: "WhatsApp", placeholder: "+504 …" },
+      { column: "notes", label: "Delivery notes", multiline: true, hint: "Gate code, floor, who to hand it to." },
+    ],
   },
 
   // A membership is a universal row already; only which rows are its own
@@ -269,4 +314,49 @@ async function fetchUniversal(providerId: string, sourceKey: string): Promise<Su
       periodsPaid: Number(r.periods_paid) || 1,
     };
   });
+}
+
+
+/**
+ * Read the delivery fields of one subscription.
+ *
+ * The list's own fetch carries a single `detail` line — enough to read, not
+ * enough to edit — so the form asks for exactly the columns the service
+ * declared, at the moment it opens.
+ */
+export async function fetchDelivery(
+  source: SubscriberSource,
+  subscriptionId: string,
+): Promise<Record<string, string>> {
+  const fields = source.deliveryFields ?? [];
+  if (!fields.length) return {};
+  const { data, error } = await supabaseDb
+    .from(source.table)
+    .select(fields.map((f) => f.column).join(","))
+    .eq("id", subscriptionId)
+    .maybeSingle();
+  if (error) throw error;
+  const row = (data ?? {}) as Record<string, unknown>;
+  return Object.fromEntries(fields.map((f) => [f.column, String(row[f.column] ?? "")]));
+}
+
+/**
+ * Write them back. An emptied field is stored as NULL rather than "", so a
+ * cleared address reads as absent everywhere instead of as an address that
+ * happens to be blank.
+ */
+export async function saveDelivery(
+  source: SubscriberSource,
+  subscriptionId: string,
+  values: Record<string, string>,
+): Promise<void> {
+  const fields = source.deliveryFields ?? [];
+  if (!fields.length) throw new Error("This service has no delivery details to edit.");
+  const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  for (const f of fields) {
+    const v = (values[f.column] ?? "").trim();
+    patch[f.column] = v === "" ? null : v;
+  }
+  const { error } = await supabaseDb.from(source.table).update(patch).eq("id", subscriptionId);
+  if (error) throw error;
 }
