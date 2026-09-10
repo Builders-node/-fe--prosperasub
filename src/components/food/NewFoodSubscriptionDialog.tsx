@@ -20,6 +20,8 @@ import { useResidences } from "@/hooks/useResidences";
 import { logAuditEvent } from "@/lib/auditLog";
 import { todayHN, addDaysISO } from "@/lib/timezone";
 import { formatUSD } from "@/lib/pricing";
+import { MealSelectionPicker, defaultMealsForCount, type MealKey } from "@/components/food/MealSelectionPicker";
+import { useProviderItemsByLegacy, itemKeys } from "@/lib/services/providerItems";
 
 /**
  * Admin one-off "add food subscription for user" dialog — mounted on the
@@ -40,6 +42,25 @@ interface PlanOption {
   id: string;
   name: string;
   weekly_price_cents: number;
+  /** How many of the provider's day this plan buys — and WHICH is a further choice. */
+  meals_per_day: number | null;
+  days_per_week: number | null;
+  meals_per_week: number | null;
+}
+
+/**
+ * What a plan actually is, in one line.
+ *
+ * The picker used to read "Standard Plan - 2 Times — $90.00/week", which does
+ * not say what separates it from "Mon-Fri: 2 Times" at $75 — the answer is six
+ * delivery days against five, and it was nowhere on the screen.
+ */
+function planSummary(p: PlanOption): string {
+  const parts: string[] = [];
+  if (p.meals_per_day) parts.push(`${p.meals_per_day}/day`);
+  if (p.days_per_week) parts.push(`${p.days_per_week} days/week`);
+  if (p.meals_per_week) parts.push(`${p.meals_per_week} meals/week`);
+  return parts.join(" · ");
 }
 
 function endDateFor(startISO: string, weeks: number): string {
@@ -62,6 +83,10 @@ export function NewFoodSubscriptionDialog({ providerId, trigger }: Props) {
   const [residence, setResidence] = useState<string>("");
   const [deliveryAddress, setDeliveryAddress] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
+  const [meals, setMeals] = useState<MealKey[]>([]);
+
+  // Breakfast/lunch/dinner is this restaurant's own list, not a platform enum.
+  const { items: providerItems } = useProviderItemsByLegacy("food", providerId);
 
   const { data: plans = [], isLoading: plansLoading } = useQuery<PlanOption[]>({
     queryKey: ["admin-new-food-sub-plans", providerId],
@@ -69,7 +94,7 @@ export function NewFoodSubscriptionDialog({ providerId, trigger }: Props) {
     queryFn: async () => {
       const { data, error } = await supabaseDb
         .from("food_meal_plans")
-        .select("id,name,weekly_price_cents")
+        .select("id,name,weekly_price_cents,meals_per_day,days_per_week,meals_per_week")
         .eq("provider_id", providerId)
         .order("sort_order", { ascending: true });
       if (error) throw error;
@@ -85,6 +110,18 @@ export function NewFoodSubscriptionDialog({ providerId, trigger }: Props) {
     if (selectedPlan) setWeeklyPriceCents(selectedPlan.weekly_price_cents);
   }, [selectedPlan]);
 
+  const mealsPerDay = selectedPlan?.meals_per_day ?? 0;
+
+  // "2 Times" says how many, never which. Seed the provider's own default —
+  // the LAST n of their day — and let it be changed; without this the row went
+  // in with selected_meals NULL and the kitchen guessed.
+  useEffect(() => {
+    setMeals(mealsPerDay > 0 ? defaultMealsForCount(mealsPerDay, providerItems) : []);
+  }, [selectedPlan?.id, mealsPerDay, providerItems]);
+
+  const mealChoiceCount = Math.max(1, Math.min(mealsPerDay || 1, itemKeys(providerItems).length));
+  const mealsChosen = meals.length === mealChoiceCount;
+
   const totalCents = weeklyPriceCents * Math.max(weeks || 1, 1);
   const endDate = endDateFor(startedAt, weeks);
 
@@ -95,6 +132,9 @@ export function NewFoodSubscriptionDialog({ providerId, trigger }: Props) {
       if (!startedAt) throw new Error("Pick a start date");
       if (weeklyPriceCents <= 0) throw new Error("Weekly price must be greater than 0");
       if (weeks < 1) throw new Error("Duration must be at least 1 week");
+      if (mealsPerDay > 0 && !mealsChosen) {
+        throw new Error(`Pick ${mealChoiceCount} meal${mealChoiceCount === 1 ? "" : "s"} for this plan`);
+      }
 
       const payload = {
         user_id: userId,
@@ -108,6 +148,9 @@ export function NewFoodSubscriptionDialog({ providerId, trigger }: Props) {
         payment_status: "paid",
         payment_method: "manual",
         periods_paid: 1,
+        // Which of the day the customer gets. Free text by design — it carries
+        // "Tennis Court 1" elsewhere — so the provider's own keys go in as-is.
+        selected_meals: meals.length ? meals : null,
         customer_name: customerName.trim() || null,
         customer_whatsapp: customerWhatsapp.trim() || null,
         residence: residence.trim() || null,
@@ -204,12 +247,40 @@ export function NewFoodSubscriptionDialog({ providerId, trigger }: Props) {
                   )}
                   {plans.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
-                      {p.name} — {formatUSD(p.weekly_price_cents)}/week
+                      {/* Two lines, because the name alone does not separate
+                          "Standard Plan - 2 Times" from "Mon-Fri: 2 Times" —
+                          six delivery days against five, at $15 difference. */}
+                      <span className="block">{p.name} — {formatUSD(p.weekly_price_cents)}/week</span>
+                      {planSummary(p) && (
+                        <span className="block text-[12px] text-muted-foreground">{planSummary(p)}</span>
+                      )}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {selectedPlan && planSummary(selectedPlan) && (
+                <p className="mt-1 text-[12px] text-muted-foreground">{planSummary(selectedPlan)}</p>
+              )}
             </div>
+
+            {/*
+              Which of the day they get.
+              A plan says HOW MANY meals — "2 Times" — and never which two, so
+              the row used to go in with selected_meals NULL and the kitchen
+              fell back to the last n of the provider's day. It is a real
+              choice inside the tariff, so it is asked here.
+            */}
+            {mealsPerDay > 0 && (
+              <div>
+                <Label>Meals *</Label>
+                <MealSelectionPicker
+                  value={meals}
+                  onChange={setMeals}
+                  mealsPerDay={mealsPerDay}
+                  items={providerItems}
+                />
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -306,7 +377,12 @@ export function NewFoodSubscriptionDialog({ providerId, trigger }: Props) {
             <Button variant="ghost" onClick={resetAndClose}>Cancel</Button>
             <Button
               onClick={() => create.mutate()}
-              disabled={!userId || !planId || weeklyPriceCents <= 0 || create.isPending}
+              // The meal choice is part of the plan, so it gates the button
+              // rather than failing on submit after everything else is filled.
+              disabled={
+                !userId || !planId || weeklyPriceCents <= 0 || create.isPending ||
+                (mealsPerDay > 0 && !mealsChosen)
+              }
             >
               {create.isPending && <Spinner size="sm" className="mr-2" />}
               Create subscription
