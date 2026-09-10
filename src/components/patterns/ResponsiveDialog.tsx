@@ -41,7 +41,22 @@ export function ResponsiveDialog({
   if (!isMobile) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className={cn("sm:max-w-lg p-0", className)} bodyClassName="gap-0">
+        {/*
+          `contents` dissolves the shared scrolling body: this component
+          already implements the model that body exists to provide — a pinned
+          header, a middle that scrolls, a pinned footer — and wrapping it
+          would nest a second scroller inside the first, which is how a footer
+          ends up scrolling out of a dialog that has one.
+
+          `sm:p-0` because the shell's own `sm:p-5` is a different tailwind-merge
+          key from `p-0` and therefore survived it: the bordered header and
+          footer are meant to run edge to edge and have been inset 20px this
+          whole time.
+        */}
+        <DialogContent
+          className={cn("sm:max-w-lg p-0 sm:p-0", className)}
+          bodyClassName="contents"
+        >
           <DialogHeader className="border-b border-border/50 px-6 pb-4 pt-6">
             <DialogTitle className="text-2xl font-bold leading-tight tracking-tight">
               {title}
