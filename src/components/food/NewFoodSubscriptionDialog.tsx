@@ -49,11 +49,7 @@ interface PlanOption {
 }
 
 /**
- * What a plan actually is, in one line.
- *
- * The picker used to read "Standard Plan - 2 Times — $90.00/week", which does
- * not say what separates it from "Mon-Fri: 2 Times" at $75 — the answer is six
- * delivery days against five, and it was nowhere on the screen.
+ * The full breakdown — shown once, under the plan that was chosen.
  */
 function planSummary(p: PlanOption): string {
   const parts: string[] = [];
@@ -61,6 +57,20 @@ function planSummary(p: PlanOption): string {
   if (p.days_per_week) parts.push(`${p.days_per_week} days/week`);
   if (p.meals_per_week) parts.push(`${p.meals_per_week} meals/week`);
   return parts.join(" · ");
+}
+
+/**
+ * The one fact a name leaves out.
+ *
+ * "Standard Plan - 2 Times" and "Mon-Fri: 2 Times" differ by $15 and nothing
+ * on screen said why: six delivery days against five. But spelling out all
+ * three numbers on every row turned a list of six into fourteen lines of
+ * text — the name already says how many times a day, and meals-per-week is
+ * just the two multiplied. So the row carries the days and nothing else, and
+ * the full breakdown waits under the plan once it is picked.
+ */
+function planDays(p: PlanOption): string {
+  return p.days_per_week ? `${p.days_per_week} days/week` : "";
 }
 
 function endDateFor(startISO: string, weeks: number): string {
@@ -96,9 +106,19 @@ export function NewFoodSubscriptionDialog({ providerId, trigger }: Props) {
         .from("food_meal_plans")
         .select("id,name,weekly_price_cents,meals_per_day,days_per_week,meals_per_week")
         .eq("provider_id", providerId)
+        // A draft is not for sale. Two "New plan" rows at $0.00 were sitting
+        // in this list, one keystroke away from being sold to somebody.
+        .eq("status", "active")
         .order("sort_order", { ascending: true });
       if (error) throw error;
-      return (data ?? []) as PlanOption[];
+      // Every plan this restaurant has carries sort_order 0, so that ORDER BY
+      // decides nothing and the list came back in whatever order Postgres
+      // felt like — the shortest plan above the longest, the two families
+      // interleaved. Sorted by what actually separates them instead.
+      return ((data ?? []) as PlanOption[]).sort((a, b) =>
+        (a.days_per_week ?? 0) - (b.days_per_week ?? 0) ||
+        (a.meals_per_day ?? 0) - (b.meals_per_day ?? 0) ||
+        a.weekly_price_cents - b.weekly_price_cents);
     },
   });
 
@@ -242,18 +262,16 @@ export function NewFoodSubscriptionDialog({ providerId, trigger }: Props) {
                 <SelectContent>
                   {plans.length === 0 && (
                     <div className="px-3 py-2 text-xs text-muted-foreground">
-                      {plansLoading ? "Loading plans…" : "This provider has no meal plans yet."}
+                      {plansLoading ? "Loading plans…" : "This provider has no active meal plans."}
                     </div>
                   )}
                   {plans.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
-                      {/* Two lines, because the name alone does not separate
-                          "Standard Plan - 2 Times" from "Mon-Fri: 2 Times" —
-                          six delivery days against five, at $15 difference. */}
-                      <span className="block">{p.name} — {formatUSD(p.weekly_price_cents)}/week</span>
-                      {planSummary(p) && (
-                        <span className="block text-[12px] text-muted-foreground">{planSummary(p)}</span>
+                      {p.name}
+                      {planDays(p) && (
+                        <span className="text-muted-foreground"> · {planDays(p)}</span>
                       )}
+                      {" — "}{formatUSD(p.weekly_price_cents)}/week
                     </SelectItem>
                   ))}
                 </SelectContent>
