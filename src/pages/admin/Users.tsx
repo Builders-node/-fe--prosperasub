@@ -9,6 +9,7 @@ import { AdminListShell } from "@/components/admin/AdminListShell";
 import { TabPills } from "@/components/admin/TabPills";
 import { fetchAllRows } from "@/lib/supabasePaging";
 import { adminApi, supabaseDb } from "@/integrations/supabase/client";
+import { adminApiMessage, isNotDeployed } from "@/lib/admin/apiError";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -1005,7 +1006,7 @@ function CustomerCredit({ userId }: { userId: string }) {
   const [note, setNote] = useState("");
 
   const KEY = ["admin-customer-credits", userId] as const;
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, error: creditError } = useQuery({
     queryKey: KEY,
     enabled: !!userId,
     queryFn: async () => {
@@ -1029,14 +1030,18 @@ function CustomerCredit({ userId }: { userId: string }) {
       setAmount(""); setNote("");
       void qc.invalidateQueries({ queryKey: KEY });
     },
-    onError: (e: any) => toast.error(e?.message || "Could not change the balance"),
+    onError: (e) => toast.error(adminApiMessage(e, "Could not change the balance")),
   });
 
   return (
     <div>
       <Label>Platform credit</Label>
       {isError ? (
-        <p className="mt-1 text-xs text-muted-foreground">Not available right now.</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {isNotDeployed(creditError)
+            ? "Credit needs the server updating before it can be read or given."
+            : "Not available right now."}
+        </p>
       ) : (
         <>
           <p className="mt-1 text-2xl font-black tabular-nums text-foreground">

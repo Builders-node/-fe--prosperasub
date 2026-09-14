@@ -30,6 +30,7 @@ import { cancelCourtBooking } from "@/lib/booking/courtBooking";
 import { downloadCsv, datedFilename } from "@/lib/admin/exportCsv";
 import { Checkbox } from "@/components/ui/checkbox";
 import { adminApi } from "@/integrations/supabase/client";
+import { adminApiMessage } from "@/lib/admin/apiError";
 import {
   fetchMarketplaceSales, buildSalePatch, SALE_SOURCES, type SaleRow,
 } from "@/lib/admin/marketplaceSales";
@@ -220,7 +221,7 @@ const MarketplaceSubscriptions = () => {
       invalidate();
       setRefundRow(null);
     },
-    onError: (e: any) => toast.error(e?.message || "Could not refund"),
+    onError: (e) => toast.error(adminApiMessage(e, "Could not refund")),
   });
 
   const toggleSort = (key: SortKey) => {
