@@ -92,6 +92,7 @@ const LegacyProviderRedirect = lazy(() => import("./pages/admin/LegacyProviderRe
 const MarketplacePlans = lazy(() => import("./pages/admin/MarketplacePlans"));
 const MarketplaceReviews = lazy(() => import("./pages/admin/MarketplaceReviews"));
 const Announcements = lazy(() => import("./pages/admin/Announcements"));
+const PromoCodes = lazy(() => import("./pages/admin/PromoCodes"));
 const Support = lazy(() => import("./pages/Support"));
 const AdminSupport = lazy(() => import("./pages/admin/Support"));
 const MarketplaceHub = lazy(() => import("./pages/admin/MarketplaceHub"));
@@ -395,6 +396,9 @@ const App = () => {
               } />
               <Route path="/admin/announcements" element={
                 <ProtectedRoute allowedRoles={['super_admin']}><Announcements /></ProtectedRoute>
+              } />
+              <Route path="/admin/promo-codes" element={
+                <ProtectedRoute allowedRoles={['super_admin']}><PromoCodes /></ProtectedRoute>
               } />
               <Route path="/admin/marketplace/subscriptions" element={
                 <ProtectedRoute allowedRoles={['super_admin']}><MarketplaceSubscriptions /></ProtectedRoute>

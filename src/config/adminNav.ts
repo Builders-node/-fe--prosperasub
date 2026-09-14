@@ -10,7 +10,7 @@
 
 import {
   BarChart3, CalendarDays, DollarSign,
-  BellRing, FileText, Layers, LayoutDashboard, MapPin, Megaphone,
+  BellRing, FileText, Layers, LayoutDashboard, MapPin, Megaphone, TicketPercent,
   LifeBuoy, ShieldCheck, Users, Building2, CarFront, } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { adminRoutes } from "./adminRoutes";
@@ -49,6 +49,8 @@ export const OVERVIEW_SECTION: NavSection = {
     { label: "Analytics", path: adminRoutes.superAdminAnalytics, icon: BarChart3,
       permissions: ["subscriptions.read", "payments.read"] },
     { label: "Finance",   path: adminRoutes.superAdminPayments,  icon: DollarSign,
+      permissions: ["payments.read"] },
+    { label: "Promo codes", path: adminRoutes.superAdminPromoCodes, icon: TicketPercent,
       permissions: ["payments.read"] },
   ],
 };

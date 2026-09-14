@@ -65,6 +65,18 @@ interface PlanRow {
   provider_name: string | null;
 }
 
+/** The quote answers with a reason, not a sentence. */
+const PROMO_REFUSALS: Record<string, string> = {
+  unknown: "No such code.",
+  inactive: "That code is not running.",
+  "not-yet": "That code has not started yet.",
+  expired: "That code has expired.",
+  "wrong-business": "That code is for a different business.",
+  "too-small": "Your order is below this code's minimum.",
+  "used-up": "That code has been fully used.",
+  "already-used": "You have already used that code.",
+};
+
 const UniversalPlanCheckout = () => {
   const { archetypeKey: serviceSegment, planId } = useParams<{ archetypeKey: string; planId: string }>();
   const [searchParams] = useSearchParams();
@@ -202,7 +214,51 @@ const UniversalPlanCheckout = () => {
   const perPerson = plan?.pricingMode === "per_person";
   const unitCents = plan?.unitCents ?? 0;
   const totalCents = plan ? totalFor(plan, periods, people) : 0;
-  const effectiveTotalCents = addSurchargeCents(totalCents, paymentMethod);
+
+  /**
+   * A promo code, and what the DATABASE says it is worth.
+   *
+   * The figure is never computed here. `promo_quote` is the only thing that
+   * decides it, and a trigger recomputes the same answer when the row is
+   * written — so a page that claimed more would simply be refused by Postgres.
+   * This asks, shows the answer, and passes it along.
+   */
+  const [promoInput, setPromoInput] = useState("");
+  const [promo, setPromo] = useState<{ code: string; discountCents: number } | null>(null);
+  const [promoError, setPromoError] = useState<string | null>(null);
+  const [promoChecking, setPromoChecking] = useState(false);
+
+  const applyPromo = async () => {
+    const code = promoInput.trim().toUpperCase();
+    if (!code || !plan) return;
+    setPromoChecking(true);
+    setPromoError(null);
+    try {
+      const { data, error } = await supabaseDb.rpc("promo_quote", {
+        p_code: code,
+        p_user_id: userUuid ?? null,
+        p_provider_id: plan.providerUniversalId ?? null,
+        p_amount_cents: totalCents,
+      });
+      if (error) throw error;
+      const q = data as { ok: boolean; reason?: string; discount_cents?: number; code?: string };
+      if (!q?.ok) {
+        setPromo(null);
+        setPromoError(PROMO_REFUSALS[q?.reason ?? ""] ?? "That code will not work here.");
+        return;
+      }
+      setPromo({ code: q.code ?? code, discountCents: q.discount_cents ?? 0 });
+    } catch {
+      setPromo(null);
+      setPromoError("Could not check that code just now.");
+    } finally {
+      setPromoChecking(false);
+    }
+  };
+
+  const discountCents = Math.min(promo?.discountCents ?? 0, totalCents);
+  const payableCents = Math.max(0, totalCents - discountCents);
+  const effectiveTotalCents = addSurchargeCents(payableCents, paymentMethod);
   const feePct = surchargePercent(paymentMethod);
   const estimatedSats = convertToSats(centsToDollars(effectiveTotalCents));
   // A renewal does not get to choose when it starts: it starts the day the
@@ -251,6 +307,8 @@ const UniversalPlanCheckout = () => {
     address: address.trim(),
     area: area.trim(),
     selections,
+    promoCode: promo?.code ?? null,
+    promoDiscountCents: discountCents,
   });
   const buildRow = (method: string) => write(method).row;
   const subTable = () => write("lightning").table;
@@ -683,12 +741,53 @@ const UniversalPlanCheckout = () => {
 
         {/* 4 — what it adds up to. The processing fee is a line of its own:
             a number that appears only in the total is a surprise. */}
+        {/* A code, and what it took off. The field is the only place a
+            customer can put one in, so it sits with the money rather than
+            hidden behind a link. */}
+        <section className="rounded-radius-md bg-card p-4">
+          <Label htmlFor="promo">Promo code</Label>
+          <div className="mt-1 flex gap-2">
+            <Input
+              id="promo"
+              value={promoInput}
+              onChange={(e) => { setPromoInput(e.target.value.toUpperCase()); setPromoError(null); }}
+              placeholder="VILLAGE20"
+              className="font-mono tracking-[0.12em]"
+              maxLength={24}
+              disabled={!!promo}
+            />
+            {promo ? (
+              <Button variant="secondary" onClick={() => { setPromo(null); setPromoInput(""); }}>
+                Remove
+              </Button>
+            ) : (
+              <Button
+                variant="secondary"
+                onClick={() => void applyPromo()}
+                disabled={promoChecking || promoInput.trim().length < 3}
+                loading={promoChecking}
+              >
+                Apply
+              </Button>
+            )}
+          </div>
+          {promoError && <p className="mt-1 text-[13px] text-destructive">{promoError}</p>}
+          {promo && (
+            <p className="mt-1 text-[13px] text-emerald-500">
+              {promo.code} applied — {formatUSD(discountCents)} off
+            </p>
+          )}
+        </section>
+
         <ResumeCard
           goodsCents={totalCents}
-          feeCents={Math.max(0, effectiveTotalCents - totalCents)}
+          feeCents={Math.max(0, effectiveTotalCents - payableCents)}
           feeLabel={feePct > 0 ? `Fee · ${feePct}%` : "Fee"}
           totalCents={effectiveTotalCents}
           extra={[
+            ...(discountCents > 0
+              ? [{ label: `Promo · ${promo?.code}`, value: `−${formatUSD(discountCents)}` }]
+              : []),
             ...(includedLabel(plan.unitQuantity, plan.unitLabel, plan.period)
               ? [{ label: "Included", value: includedLabel(plan.unitQuantity, plan.unitLabel, plan.period)! }]
               : []),

@@ -40,6 +40,17 @@ export interface CheckoutAnswers {
   area: string;
   /** Whatever the plan's selection group offered, as chosen. */
   selections: string[];
+  /**
+   * A promo code and what it takes off.
+   *
+   * The price columns keep the FULL figure — the business is paid on them and
+   * did not agree to a sale — and the reduction sits beside them, exactly as
+   * `surcharge_cents` does for the payment fee. A database trigger recomputes
+   * the discount from the row and refuses anything larger, so these two are a
+   * claim rather than an instruction.
+   */
+  promoCode?: string | null;
+  promoDiscountCents?: number;
 }
 
 export interface SubscriptionWrite {
@@ -64,7 +75,13 @@ export function buildSubscriptionWrite(
   extra: Record<string, unknown> = {},
 ): SubscriptionWrite {
   const end = format(endDateOf(plan, a.startDate, a.periods), "yyyy-MM-dd");
-  const surcharge = Math.max(0, a.chargedCents - a.totalCents);
+  const discount = Math.max(0, Math.min(a.promoDiscountCents ?? 0, a.totalCents));
+  // The fee is charged on what actually moves, so it is measured against the
+  // discounted figure rather than the list price.
+  const surcharge = Math.max(0, a.chargedCents - (a.totalCents - discount));
+  const promo = a.promoCode
+    ? { promo_code: a.promoCode.toUpperCase(), promo_discount_cents: discount }
+    : {};
   const included = (plan.unitQuantity ?? 0) * Math.max(1, a.periods);
 
   if (plan.service === "food") {
@@ -88,6 +105,7 @@ export function buildSubscriptionWrite(
         delivery_address: a.address || null,
         notes: a.notes || null,
         selected_meals: a.selections.length ? a.selections : null,
+        ...promo,
       }, extra),
     };
   }
@@ -117,6 +135,7 @@ export function buildSubscriptionWrite(
         subscription_status: "pending_payment",
         apartment_note: a.address || null,
         customer_whatsapp: a.phone || null,
+        ...promo,
       }, extra),
     };
   }
@@ -154,6 +173,7 @@ export function buildSubscriptionWrite(
           customer_email: a.customerEmail,
           surcharge_cents: surcharge,
         },
+        ...promo,
       }, extra),
     };
   }
@@ -192,6 +212,7 @@ export function buildSubscriptionWrite(
         surcharge_cents: surcharge,
         total_charged_cents: a.chargedCents,
       },
+      ...promo,
     }, extra),
   };
 }
