@@ -225,6 +225,23 @@ export async function api(path: string, init?: RequestInit, retryOnUnauthorized 
   try {
     response = await fetch(`${API_URL}${path}`, {
       ...init,
+      /**
+       * Never let the HTTP cache near an authenticated response.
+       *
+       * The API answers with an ETag and `cache-control: public, max-age=0,
+       * must-revalidate`, so the browser revalidates every call and the server
+       * replies **304 Not Modified** — and a 304 has `response.ok === false`
+       * with no body, which this function then reported as the bare "API
+       * request failed" that emptied half the admin panel. Ads, Locations,
+       * Support and the permissions panel all failed this way while the list
+       * beside them, freshly fetched, loaded fine.
+       *
+       * `no-store` means no conditional request is ever sent, so the answer is
+       * always a whole one. It is also what an authenticated, per-user
+       * response deserves: `public` on one of these is a shared cache away
+       * from handing an admin somebody else's data.
+       */
+      cache: "no-store",
       signal: init?.signal ?? controller.signal,
       headers: {
         "Content-Type": "application/json",
@@ -271,6 +288,13 @@ export async function api(path: string, init?: RequestInit, retryOnUnauthorized 
     if (refreshedSession?.access_token) {
       return api(path, init, false);
     }
+  }
+
+  // Belt and braces: if a 304 ever reaches here again — a proxy, an extension,
+  // a browser that ignores no-store — say what it is instead of the blank
+  // "API request failed" that took a week to trace.
+  if (response.status === 304) {
+    return { data: null, error: new Error("The server said nothing changed but sent no data. Reload the page.") };
   }
 
   if (!response.ok) {
