@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
+import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { GalleryField } from "@/components/patterns/GalleryField";
@@ -56,6 +57,11 @@ interface PlanRow {
   markup_cents: number | null;
   lead_time_minutes: number | null;
   window_minutes: number | null;
+  /** Whether the CUSTOMER may move an appointment, and on what terms. */
+  reschedule_allowed: boolean | null;
+  reschedule_min_notice_minutes: number | null;
+  reschedule_max_per_occurrence: number | null;
+  reschedule_window_days: number | null;
   /** Which calendars this plan opens. Empty = every one the provider has. */
   resource_ids: string[] | null;
   /** What the plan includes, as lines. See lib/plans/entitlements.ts. */
@@ -97,6 +103,16 @@ const cents = (text: string) => {
  * compute "600 = 10:00" in their head — the field renders as a time picker
  * and these two translate at the edge.
  */
+/** The provider says "24 hours"; the column, like its neighbours, is minutes. */
+const hoursFromMinutes = (mins: string): string => {
+  const n = Number(mins);
+  return Number.isFinite(n) && n > 0 ? String(n / 60) : "";
+};
+const minutesFromHours = (hours: string): string => {
+  const n = Number(hours);
+  return Number.isFinite(n) && n > 0 ? String(Math.round(n * 60)) : "";
+};
+
 const minutesToTime = (minutes: string): string => {
   const n = Number(minutes);
   if (!Number.isFinite(n) || n <= 0) return "";
@@ -211,6 +227,13 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
     periodsDefault: "1", periodsMin: "1", periodsMax: "",
     pricingMode: "flat", providerPrice: "", markup: "",
     fulfilment: "none",
+    // Off until a provider says otherwise: a business that has not thought
+    // about its notice period should not be discovering the answer from a
+    // customer who has already moved something.
+    rescheduleAllowed: false,
+    rescheduleNotice: "",
+    rescheduleMax: "",
+    rescheduleWindow: "",
     leadMinutes: "", windowMinutes: "",
   });
   const [includes, setIncludes] = useState({ features: "", excludes: "", tags: "" });
@@ -302,6 +325,10 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
       markup: dollars(offer.markup_cents ?? 0),
       leadMinutes: offer.lead_time_minutes != null ? String(offer.lead_time_minutes) : "",
       windowMinutes: offer.window_minutes != null ? String(offer.window_minutes) : "",
+      rescheduleAllowed: !!offer.reschedule_allowed,
+      rescheduleNotice: offer.reschedule_min_notice_minutes != null ? String(offer.reschedule_min_notice_minutes) : "",
+      rescheduleMax: offer.reschedule_max_per_occurrence != null ? String(offer.reschedule_max_per_occurrence) : "",
+      rescheduleWindow: offer.reschedule_window_days != null ? String(offer.reschedule_window_days) : "",
     });
     setGallery(Array.isArray(offer.gallery_urls) ? offer.gallery_urls.filter(Boolean) : []);
 
@@ -411,6 +438,10 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
         markup_cents: cents(sold.markup) || null,
         lead_time_minutes: numOrNull(sold.leadMinutes),
         window_minutes: numOrNull(sold.windowMinutes),
+        reschedule_allowed: sold.rescheduleAllowed,
+        reschedule_min_notice_minutes: numOrNull(sold.rescheduleNotice),
+        reschedule_max_per_occurrence: numOrNull(sold.rescheduleMax),
+        reschedule_window_days: numOrNull(sold.rescheduleWindow),
         tags: fromLines(includes.tags.replace(/,/g, "\n")),
         excludes: fromLines(includes.excludes),
         features: fromLines(includes.features),
@@ -900,6 +931,51 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
                   <Input inputSize="sm" inputMode="numeric" value={sold.windowMinutes} placeholder="120"
                     onChange={(e) => setSold((v) => ({ ...v, windowMinutes: e.target.value }))} />
                 </Field>
+              </>
+            )}
+
+            {/*
+              Moving an appointment.
+
+              Only for a plan that HAS appointments — a plan fulfilled by
+              nothing has none to move, and offering the setting there would be
+              a question with no subject. The provider can always move their
+              own day from Operations; this decides whether the customer gets a
+              door of their own, and on what terms.
+            */}
+            {sold.fulfilment !== "none" && (
+              <>
+                <Field
+                  label="Customer can move an appointment"
+                  hint="Off means they have to ask you. You can always move one yourself."
+                >
+                  <Switch
+                    checked={sold.rescheduleAllowed}
+                    onCheckedChange={(on) => setSold((v) => ({ ...v, rescheduleAllowed: on }))}
+                  />
+                </Field>
+
+                {sold.rescheduleAllowed && (
+                  <>
+                    <Field label="Notice needed (hours)" hint="How long before it starts they can still move it. Empty = any time before.">
+                      <Input
+                        inputSize="sm"
+                        inputMode="numeric"
+                        value={hoursFromMinutes(sold.rescheduleNotice)}
+                        placeholder="24"
+                        onChange={(e) => setSold((v) => ({ ...v, rescheduleNotice: minutesFromHours(e.target.value) }))}
+                      />
+                    </Field>
+                    <Field label="Times one appointment can move" hint="Empty = no limit. Bounds the customer who keeps pushing the same visit a day at a time.">
+                      <Input inputSize="sm" inputMode="numeric" value={sold.rescheduleMax} placeholder="no limit"
+                        onChange={(e) => setSold((v) => ({ ...v, rescheduleMax: e.target.value }))} />
+                    </Field>
+                    <Field label="How far it can move (days)" hint="Empty = anywhere ahead. Stops something bought for September being parked in December.">
+                      <Input inputSize="sm" inputMode="numeric" value={sold.rescheduleWindow} placeholder="14"
+                        onChange={(e) => setSold((v) => ({ ...v, rescheduleWindow: e.target.value }))} />
+                    </Field>
+                  </>
+                )}
               </>
             )}
 
