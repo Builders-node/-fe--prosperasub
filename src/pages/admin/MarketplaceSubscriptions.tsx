@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Building2, ChevronsUpDown, ChevronUp, ChevronDown, Download, MoreVertical, Pencil, Trash2 } from "lucide-react";
+import { Building2, ChevronsUpDown, ChevronUp, ChevronDown, Download, MoreVertical, Pencil, Trash2, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { AdminListShell } from "@/components/admin/AdminListShell";
@@ -29,6 +29,7 @@ import { supabaseDb } from "@/integrations/supabase/client";
 import { cancelCourtBooking } from "@/lib/booking/courtBooking";
 import { downloadCsv, datedFilename } from "@/lib/admin/exportCsv";
 import { Checkbox } from "@/components/ui/checkbox";
+import { adminApi } from "@/integrations/supabase/client";
 import {
   fetchMarketplaceSales, buildSalePatch, SALE_SOURCES, type SaleRow,
 } from "@/lib/admin/marketplaceSales";
@@ -82,6 +83,9 @@ const MarketplaceSubscriptions = () => {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulk, setBulk] = useState<null | "paid" | "cancel">(null);
   const [editRow, setEditRow] = useState<SaleRow | null>(null);
+  const [refundRow, setRefundRow] = useState<SaleRow | null>(null);
+  const [refundAmount, setRefundAmount] = useState("");
+  const [refundReason, setRefundReason] = useState("");
   const [deleteRow, setDeleteRow] = useState<SaleRow | null>(null);
 
   const invalidate = () => {
@@ -184,6 +188,39 @@ const MarketplaceSubscriptions = () => {
       invalidate();
     },
     onError: (e: any) => { toast.error(e?.message || "Could not apply"); setBulk(null); },
+  });
+
+  /**
+   * Give money back.
+   *
+   * Server-side on purpose: only PayPal can actually be reversed, the ledger
+   * row has to be written with the service key, and the amount must not be
+   * something the browser gets to decide. The endpoint answers `manual: true`
+   * when software could not move the money — Bitcoin has no reverse — and that
+   * answer is shown rather than swallowed, because somebody then has to send
+   * it by hand.
+   */
+  const refundMutation = useMutation({
+    mutationFn: async ({ row, amountCents, reason }: { row: SaleRow; amountCents: number; reason: string }) => {
+      const table = SALE_SOURCES[row.source_service_key].table;
+      const { data, error } = await adminApi(
+        `/admin/orders/${encodeURIComponent(table)}/${encodeURIComponent(row.id)}/refund`,
+        { method: "POST", body: JSON.stringify({ amount_cents: amountCents, reason }) },
+      );
+      if (error) throw error;
+      return data as { amountCents: number; manual: boolean; note: string };
+    },
+    onSuccess: (res) => {
+      toast.success(
+        res.manual
+          ? `Recorded — ${res.note}`
+          : `Refunded ${formatUSD(res.amountCents)}`,
+        { duration: res.manual ? 10000 : 4000 },
+      );
+      invalidate();
+      setRefundRow(null);
+    },
+    onError: (e: any) => toast.error(e?.message || "Could not refund"),
   });
 
   const toggleSort = (key: SortKey) => {
@@ -557,6 +594,16 @@ const MarketplaceSubscriptions = () => {
                             <DropdownMenuItem onSelect={() => setEditRow(s)}>
                               <Pencil className="mr-2 h-3.5 w-3.5" /> Edit
                             </DropdownMenuItem>
+                            {/* Only what was actually paid can go back. */}
+                            {s.payment_status === "paid" && !backing(s).apiManaged && (
+                              <DropdownMenuItem onSelect={() => {
+                                setRefundRow(s);
+                                setRefundAmount(((s.price_cents ?? 0) / 100).toFixed(2));
+                                setRefundReason("");
+                              }}>
+                                <Undo2 className="mr-2 h-3.5 w-3.5" /> Refund…
+                              </DropdownMenuItem>
+                            )}
                             {/* A booked hour is cancelled, never deleted: the
                                 slot has to go back to the calendar. */}
                             {!backing(s).apiManaged && (
@@ -603,6 +650,62 @@ const MarketplaceSubscriptions = () => {
           ))}
         </SheetContent>
       </Sheet>
+
+      {/* Refund. Bitcoin is warned about BEFORE the button, not after: the
+          admin is agreeing to send it themselves. */}
+      <AlertDialog open={!!refundRow} onOpenChange={(o) => !o && setRefundRow(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Refund {refundRow ? customerLabel(refundRow) : ""}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {refundRow?.payment_method === "paypal"
+                ? "This sends the capture back through PayPal."
+                : refundRow?.payment_method === "lightning" || refundRow?.payment_method === "onchain"
+                  ? "Bitcoin cannot be sent back automatically. This records the refund and takes the order out of revenue and out of the business's balance — you still have to pay the customer yourself."
+                  : "This was paid off platform, so it goes back off platform. The record is kept here."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label htmlFor="refund-amount">Amount ($)</Label>
+              <Input
+                id="refund-amount"
+                type="number"
+                step="0.01"
+                min="0"
+                max={((refundRow?.price_cents ?? 0) / 100).toFixed(2)}
+                value={refundAmount}
+                onChange={(e) => setRefundAmount(e.target.value)}
+              />
+              <p className="mt-1 text-[12px] text-muted-foreground">
+                Paid {formatUSD(refundRow?.price_cents ?? 0)}. A partial refund leaves the order running.
+              </p>
+            </div>
+            <div>
+              <Label htmlFor="refund-reason">Why</Label>
+              <Input
+                id="refund-reason"
+                value={refundReason}
+                onChange={(e) => setRefundReason(e.target.value)}
+                placeholder="Delivery never arrived"
+              />
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={refundMutation.isPending || !(Number(refundAmount) > 0)}
+              onClick={() => refundRow && refundMutation.mutate({
+                row: refundRow,
+                amountCents: Math.round(Number(refundAmount) * 100),
+                reason: refundReason,
+              })}
+            >
+              {refundMutation.isPending ? "Refunding…" : `Refund $${refundAmount || "0.00"}`}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Bulk confirmation. It names the count and the verb, because after this
           there is no single row to point at and say "that one was wrong". */}

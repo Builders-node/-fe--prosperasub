@@ -799,6 +799,9 @@ function EditUserForm({ user, auditLogs, onSave, onSoftDelete, saving, deleting 
           </Button>
         </div>
 
+        {/* Platform credit — what they hold, and the one way to change it. */}
+        <CustomerCredit userId={user.id} />
+
         {/* Linked Client Profiles */}
         <div>
           <Label>Linked Client Profiles</Label>
@@ -984,3 +987,101 @@ function EditUserForm({ user, auditLogs, onSave, onSoftDelete, saving, deleting 
 }
 
 export default AdminUsers;
+
+
+/**
+ * What a customer is holding, and the only way to change it by hand.
+ *
+ * `user_credits` is service-role only — it decides who gets money — so this
+ * goes through the API rather than writing the row itself. Before it existed,
+ * compensating anybody for a ruined delivery meant SQL.
+ *
+ * A note is required, because it is the entire record of why somebody was
+ * given money.
+ */
+function CustomerCredit({ userId }: { userId: string }) {
+  const qc = useQueryClient();
+  const [amount, setAmount] = useState("");
+  const [note, setNote] = useState("");
+
+  const KEY = ["admin-customer-credits", userId] as const;
+  const { data, isLoading, isError } = useQuery({
+    queryKey: KEY,
+    enabled: !!userId,
+    queryFn: async () => {
+      const { data: d, error } = await adminApi(`/admin/customers/${encodeURIComponent(userId)}/credits`);
+      if (error) throw error;
+      return d as { balanceCents: number; entries: Array<{ amountCents: number; note: string | null; createdAt: string }> };
+    },
+  });
+
+  const adjust = useMutation({
+    mutationFn: async () => {
+      const cents = Math.round(Number(amount) * 100);
+      const { error } = await adminApi(`/admin/customers/${encodeURIComponent(userId)}/credits`, {
+        method: "POST",
+        body: JSON.stringify({ amount_cents: cents, note: note.trim() }),
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Credit updated");
+      setAmount(""); setNote("");
+      void qc.invalidateQueries({ queryKey: KEY });
+    },
+    onError: (e: any) => toast.error(e?.message || "Could not change the balance"),
+  });
+
+  return (
+    <div>
+      <Label>Platform credit</Label>
+      {isError ? (
+        <p className="mt-1 text-xs text-muted-foreground">Not available right now.</p>
+      ) : (
+        <>
+          <p className="mt-1 text-2xl font-black tabular-nums text-foreground">
+            {isLoading ? "…" : formatUSD(data?.balanceCents ?? 0)}
+          </p>
+          <div className="mt-2 flex gap-2">
+            <Input
+              type="number"
+              step="0.01"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="10.00"
+              className="w-28"
+              aria-label="Amount in dollars; negative takes it back"
+            />
+            <Input
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Why — this is the record"
+            />
+            <Button
+              variant="secondary"
+              onClick={() => adjust.mutate()}
+              disabled={adjust.isPending || !Number(amount) || !note.trim()}
+            >
+              Apply
+            </Button>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            A negative amount takes credit back. The balance can never go below zero.
+          </p>
+          {!!data?.entries?.length && (
+            <ul className="mt-2 divide-y divide-border/60 text-xs">
+              {data.entries.slice(0, 5).map((e, i) => (
+                <li key={i} className="flex justify-between gap-2 py-1.5">
+                  <span className="truncate text-muted-foreground">{e.note || "—"}</span>
+                  <span className={e.amountCents < 0 ? "tabular-nums text-destructive" : "tabular-nums text-emerald-500"}>
+                    {e.amountCents < 0 ? "" : "+"}{formatUSD(e.amountCents)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
