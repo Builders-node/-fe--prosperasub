@@ -1,0 +1,1307 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Beach Club — Pools, Courts &amp; Water Park at Pristine Bay, Roatán | EverySub</title>
+<meta name="description" content="One membership at Pristine Bay, Roatán — $75 a month per person. Pools, water park, gym, tennis and pickleball, and a daily bucket of balls at Pete's golf range. No contract." />
+<link rel="canonical" href="https://beachclub.everysub.net/" />
+<meta name="theme-color" content="#084887" />
+
+<meta property="og:type" content="website" />
+<meta property="og:title" content="Beach Club — $75/month at Pristine Bay, Roatán" />
+<meta property="og:description" content="Pools, water park, gym, tennis and pickleball, and a daily bucket of balls at Pete's golf range. One membership, month by month." />
+<meta property="og:url" content="https://beachclub.everysub.net/" />
+<meta property="og:site_name" content="EverySub" />
+<meta property="og:image" content="https://beachclub.everysub.net/photos/sun-water.jpg" />
+<meta property="og:image:width" content="1600" />
+<meta property="og:image:height" content="900" />
+<meta name="twitter:card" content="summary_large_image" />
+
+<link rel="icon" href="/favicon.ico" sizes="32x32" />
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+
+<!--
+  ═══════════════════════════════════════════════════════════════════════════
+  AIDA down the page · Hook Model across the offer · editorial chapters
+  ═══════════════════════════════════════════════════════════════════════════
+
+    ATTENTION  00 masthead     oversized wordmark over a full-bleed frame
+    INTEREST   01 the problem  the sentence they say to themselves
+               02 what's here  a mosaic — six things, shown not described
+    DESIRE     03 the day      full-bleed warm chapter, the rhythm of a week
+               04 the courts   A/B/C, the part you actively use
+               05 membership   the whole number, including the catch
+    ACTION     06 questions    the last three reasons to leave
+               07 close        the same tap as the masthead
+
+  HOOK  trigger  → the ad, then §01 naming the feeling
+        action   → one tap to checkout; no form, no callback, four identical CTAs
+        reward   → §03, deliberately VARIABLE. Six doors, so a Saturday is never
+                   the same twice. A fixed perk stops pulling by the third visit.
+        invest   → §04, booking a court — a small deposit that makes the next
+                   visit likelier, not a bigger bill.
+
+  ── PHOTOGRAPHY ───────────────────────────────────────────────────────────
+  Every <figure class="shot"> names the picture it wants in `data-shot`. Drop a
+  file at that path and it appears — no code change. Until then a captioned
+  placeholder renders, so a missing photo is visible rather than an empty box.
+
+  Nothing here uses stock imagery. This page sells membership of one specific
+  club; another club's pool on it would be a claim about a place that doesn't
+  exist. The briefs below double as the shot list.
+-->
+
+<!-- Inter, self-hosted. Latin subset only — this page is English with two
+     accented place names, so the other nine subsets Google serves would be
+     dead weight. Variable, so every weight comes from one file. Self-hosted
+     rather than from Google: one origin, no third-party request, no DNS hop
+     in front of the first paint. -->
+<link rel="preload" href="/fonts/inter-latin-normal.woff2" as="font" type="font/woff2" crossorigin />
+<style>
+  @font-face{
+    font-family:"Inter"; font-style:normal; font-weight:100 900; font-display:swap;
+    src:url("/fonts/inter-latin-normal.woff2") format("woff2");
+    unicode-range:U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+  }
+</style>
+
+<style>
+  /* ═══ TOKENS ═════════════════════════════════════════════════════════════
+     Interface achromatic; colour arrives from content. The five palette
+     values stay, but they stop decorating: orange is the CTA and one
+     full-bleed chapter, sand is its partner there, azure is the dark
+     chapters, lavender is demoted to hairlines only. Micro-labels used to be
+     lavender and orange on paper — 2.51:1 and 2.28:1, both failing AA — and
+     white-on-orange in the CTA was 2.46:1, the worst contrast on the page
+     sitting on its most important element. Achromatic labels and ink-on-orange
+     measure 5.92:1 and 7.40:1.
+
+     Scale jumps deliberately: 11 / 13 / 16 / 20 / 32 / 64 / 140, almost
+     nothing between. Mobile gets its OWN scale rather than a scaled-down
+     desktop one — display sizes don't interpolate gracefully.
+     ═════════════════════════════════════════════════════════════════════ */
+  :root{
+    /* palette, unchanged */
+    --azure:#084887; --azure-deep:#04294c; --orange:#F58A07; --sand:#F9AB55;
+    --lavender:#909CC2; --ghost:#F7F5FB;
+    /* paper in two tones — page slightly cooler than the sections on it */
+    --paper:#EFEDF4; --paper-up:#F7F5FB;
+    --ink:#0A1622; --ink-60:#56606B;
+    --rule:rgba(10,22,34,.13);
+
+    /* One family, no alternatives — including the micro-labels, which used a
+       system mono. Their technical texture now comes from the treatment
+       (uppercase, .1em tracking, 11px) rather than a second typeface, which is
+       what "one grotesque, no alternatives" actually asks for. */
+    --sans:"Inter",ui-sans-serif,system-ui,-apple-system,"Helvetica Neue",sans-serif;
+    --mono:var(--sans);
+
+    /* type scale — big jumps, no mid-sizes */
+    --t-label:11px; --t-micro:13px; --t-body:16px; --t-lead:20px;
+    --t-h3:32px; --t-h2:64px; --t-display:140px;
+
+    /* One radius for every photo frame on the page. Images are the only thing
+       that gets rounded — sections, panels and the pill keep their own shapes. */
+    --r-frame:18px;
+
+    /* 4/8 spacing, section rhythm 96/128/160/200 */
+    --s-2:8px; --s-3:12px; --s-4:16px; --s-6:24px; --s-8:32px;
+    --s-12:48px; --s-16:64px; --s-24:96px; --s-32:128px; --s-40:160px; --s-50:200px;
+    --gut:40px;
+  }
+  @media (max-width:900px){
+    :root{
+      --t-h3:24px; --t-h2:36px; --t-display:64px; --t-lead:17px;
+      --s-24:64px; --s-32:72px; --s-40:88px; --s-50:96px; --gut:20px;
+    }
+  }
+
+  *,*::before,*::after{box-sizing:border-box}
+    /* No CSS smooth-scroll: Lenis owns scrolling and the two fight each other.
+     Re-enabled in the reduced-motion block below, where Lenis is never started. */
+  html{-webkit-text-size-adjust:100%}
+  html.lenis,html.lenis body{height:auto}
+  .lenis.lenis-smooth{scroll-behavior:auto !important}
+  .lenis.lenis-smooth [data-lenis-prevent]{overscroll-behavior:contain}
+  .lenis.lenis-stopped{overflow:hidden}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font:400 var(--t-body)/1.55 var(--sans);
+    -webkit-font-smoothing:antialiased; font-synthesis:none;
+    /* Tabular figures so $75 and the 01–06 list don't shift width between
+       weights; cv11 gives the single-storey a, which reads better at 140px. */
+    font-feature-settings:"tnum" 1,"cv11" 1;
+  }
+  h1,h2,h3,p{margin:0}
+  a{color:inherit; text-decoration:none}
+  img{display:block; width:100%; height:100%; object-fit:cover}
+  .wrap{max-width:1440px; margin:0 auto; padding:0 var(--gut)}
+  section{padding:var(--s-40) 0}
+
+  /* ── micro-language ──────────────────────────────────────────────────── */
+  .tag{
+    font:500 var(--t-label)/1 var(--mono); letter-spacing:.1em; text-transform:uppercase;
+    color:var(--ink-60); display:inline-flex; align-items:center; gap:.6em;
+  }
+  .tag::before{content:"◆"; font-size:.72em; color:var(--orange)}
+  .tag--plain::before{display:none}
+
+  /* No rule above the heading. The section spacing already separates chapters,
+     and the hairline was doing the same job twice. */
+  .chap{
+    display:flex; align-items:baseline; gap:var(--s-12);
+    margin-bottom:var(--s-16);
+  }
+  .chap b{font:500 var(--t-label)/1 var(--mono); letter-spacing:.1em; color:var(--ink-60)}
+  .chap h2{
+    font-size:var(--t-h2); font-weight:600; letter-spacing:-.035em;
+    line-height:1; text-wrap:balance; flex:1;
+  }
+  .chap .aside{font-size:var(--t-micro); line-height:1.5; color:var(--ink-60); max-width:32ch; flex:0 1 32ch}
+  @media (max-width:900px){ .chap{flex-wrap:wrap; gap:var(--s-3)} .chap .aside{flex:1 1 100%} }
+
+  .dark{background:var(--azure); color:#fff}
+  .dark .tag{color:#C4D3E2}
+  .dark .chap .aside{color:#C4D3E2}
+
+  /* ── pill, radius = full height ──────────────────────────────────────── */
+  .pill{
+    display:inline-flex; align-items:center; gap:.55em;
+    background:var(--orange); color:var(--ink); border-radius:999px;
+    font:600 var(--t-micro)/1 var(--sans); letter-spacing:-.005em;
+    padding:14px 24px; transition:background .18s, transform .18s;
+  }
+  .pill:hover{background:var(--sand); transform:translateY(-1px)}
+  .pill:focus-visible{outline:2px solid var(--ink); outline-offset:3px}
+  .pill--light{background:var(--ghost); color:var(--ink)}
+  .pill--light:hover{background:#fff}
+
+  /* ── photo slot — radius 0, editorial ────────────────────────────────── */
+  .shot{
+    position:relative; margin:0; overflow:hidden; background:var(--azure-deep);
+    display:grid; place-items:center; isolation:isolate; border-radius:0;
+  }
+  .shot img{position:absolute; inset:0; z-index:2}
+  .shot::before{
+    content:""; position:absolute; inset:0; z-index:0;
+    background:
+      radial-gradient(120% 90% at 20% 15%, rgba(249,171,85,.42), transparent 60%),
+      radial-gradient(110% 100% at 85% 90%, rgba(144,156,194,.4), transparent 62%),
+      linear-gradient(150deg, var(--azure) 0%, var(--azure-deep) 100%);
+  }
+  .shot::after{
+    content:"◻ " attr(data-shot); position:relative; z-index:1;
+    font:500 var(--t-label)/1.5 var(--mono); letter-spacing:.08em; text-transform:uppercase;
+    color:rgba(255,255,255,.72); text-align:center; padding:var(--s-4); max-width:26ch;
+  }
+
+  /* ── nav ─────────────────────────────────────────────────────────────── */
+  /* Over the hero the pinned row IS the navigation — brand left, wordmark
+     centre, CTA right, exactly as the reference arranges it. A second bar
+     saying the same words on top of it is just noise, so the real nav stays
+     out of the way until the hero is behind you. */
+  nav{position:fixed; top:0; left:0; right:0; z-index:40;
+      background:rgba(239,237,244,.9); backdrop-filter:blur(14px);
+      border-bottom:1px solid var(--rule);
+      transform:translateY(-100%); transition:transform .35s ease}
+  nav.is-shown{transform:none}
+  nav .wrap{display:flex; align-items:center; justify-content:space-between; height:60px; gap:var(--s-4)}
+  nav .brand{font:600 var(--t-micro)/1 var(--mono); letter-spacing:.2em; text-transform:uppercase}
+  nav .links{display:flex; gap:var(--s-6)}
+  nav .links a{font:500 var(--t-label)/1 var(--mono); letter-spacing:.1em;
+               text-transform:uppercase; color:var(--ink-60)}
+  nav .links a:hover{color:var(--ink)}
+  nav .pill{padding:10px 18px}
+  @media (max-width:820px){ nav .links{display:none} }
+
+  /* ── 00 masthead — photograph, then one word ─────────────────────────────
+     Anatomy of the reference, measured off it:
+       · a single dark photograph of people, edge to edge, held for the whole
+         viewport — no crop, no card, no wash
+       · stacked wordmark top-left at body size; nav and a light pill top-right
+       · one sentence at mid-left, then a rule-and-arrow text link beneath it
+       · a small pill bottom-left carrying a fact
+       · the name across the bottom at display size, in the one bright colour
+         on the page, with a ™ riding its cap-height
+
+     The previous masthead drew its light instead of shooting it, which was
+     right when the reference was a lit gradient. This one is a photograph by
+     definition — so it loads one, and the whole composition is arranged so the
+     picture is the subject rather than a texture behind type.
+     ──────────────────────────────────────────────────────────────────────── */
+  .mast{
+    position:relative; min-height:100svh; overflow:hidden; isolation:isolate;
+    background:#060C14; color:#fff;
+    display:grid; grid-template-rows:auto 1fr auto; gap:var(--s-8);
+    padding:var(--s-8) var(--gut) var(--s-6);
+  }
+  .mast > *{position:relative; z-index:2}
+
+  .mast-photo{position:absolute; inset:0; z-index:0}
+  .mast-photo img{position:absolute; inset:0; opacity:0; transition:opacity .9s ease}
+  .mast-photo img[data-loaded]{opacity:1}
+  /* Darkened at top and bottom, not overall: the wordmark needs a floor and
+     the sentence needs a field, but the middle should stay a photograph. The
+     stops are what carry the text contrast, so they are not decoration —
+     measured white-on-frame at the sentence and sand-on-frame at the wordmark. */
+  .mast-photo::after{
+    content:""; position:absolute; inset:0;
+    background:
+      linear-gradient(180deg, rgba(6,12,20,.74) 0%, rgba(6,12,20,.30) 30%,
+                      rgba(6,12,20,.34) 55%, rgba(6,12,20,.90) 100%),
+      linear-gradient(90deg, rgba(6,12,20,.68) 0%, rgba(6,12,20,.30) 34%, rgba(6,12,20,0) 60%);
+  }
+
+  .mast-top{display:flex; align-items:flex-start; justify-content:space-between; gap:var(--s-6)}
+  .mast-mark{font:600 var(--t-micro)/1.06 var(--sans); letter-spacing:-.01em}
+  .mast-join{
+    display:inline-flex; align-items:center; gap:.6em; white-space:nowrap;
+    background:var(--ghost); color:var(--ink);
+    padding:.72em 1.15em; border-radius:999px;
+    font:600 var(--t-micro)/1 var(--sans); letter-spacing:-.01em;
+  }
+  .mast-join:hover{background:#fff}
+
+  .mast-mid{align-self:center; max-width:38ch}
+  .mast-mid p{font-size:var(--t-lead); line-height:1.35; letter-spacing:-.015em}
+  .mast-link{
+    display:inline-flex; align-items:center; gap:.7em; margin-top:var(--s-6);
+    padding-bottom:var(--s-3); border-bottom:1px solid rgba(255,255,255,.32);
+    font:500 var(--t-label)/1 var(--mono); letter-spacing:.1em; text-transform:uppercase;
+  }
+  .mast-link:hover{border-color:#fff}
+  .mast-link em{font-style:normal}
+
+  .mast-bottom{display:grid; gap:var(--s-6); justify-items:start}
+  .mast-badge{
+    display:inline-flex; align-items:center; gap:.8em;
+    border:1px solid rgba(255,255,255,.34); border-radius:999px;
+    padding:.5em 1.1em .5em .5em;
+    font:500 var(--t-label)/1 var(--mono); letter-spacing:.1em; text-transform:uppercase;
+  }
+  .mast-badge b{font-weight:600; color:var(--sand)}
+  /* Three crops from the page's own photographs, overlapped. Deliberately NOT
+     avatars with a "+25" beside them: that number would be a claim about how
+     many members exist, and this page doesn't get to invent one. */
+  .faces{display:inline-flex}
+  .faces i{
+    display:block; width:22px; height:22px; border-radius:50%;
+    background-size:cover; background-position:center;
+    box-shadow:0 0 0 2px #060C14; margin-left:-7px;
+  }
+  .faces i:first-child{margin-left:0}
+  /* Real paths rather than the data-src probe the <img> frames use: at 22px a
+     missing file is an empty dark disc, which costs nothing, whereas the probe
+     would buy that safety with three extra requests. */
+  .faces i:nth-child(1){background-image:url("/photos/pool-main.jpg")}
+  .faces i:nth-child(2){background-image:url("/photos/tennis.jpg")}
+  .faces i:nth-child(3){background-image:url("/photos/water-park.jpg")}
+
+  .mast-word{
+    font-size:17.4vw; line-height:.8; font-weight:700; letter-spacing:-.055em;
+    color:var(--sand); white-space:nowrap; margin-left:-.012em;
+  }
+  .mast-word sup{
+    font-size:.13em; font-weight:500; letter-spacing:0;
+    vertical-align:super; margin-left:.12em;
+  }
+
+  @media (max-width:900px){
+    .mast{gap:var(--s-6)}
+    .mast-mid{max-width:26ch}
+    /* 10 characters at 17.4vw stop fitting long before the phone does; the
+       name breaks to two lines and the size is set from the longer word. */
+    .mast-word{font-size:26vw; white-space:normal; line-height:.86}
+  }
+
+
+  /* ── 01 opacity-focus list ───────────────────────────────────────────── */
+  /* ── §01 · centred display with photo cut-outs ───────────────────────────
+     The ovals sit ON TOP of the sentence, which is the device: the line is
+     big enough to survive being interrupted, and being interrupted is what
+     makes you read it as an image rather than a banner.
+
+     They are aria-hidden and carry no caption. Every claim this page makes
+     is made in text that nothing overlaps — the pictures here are texture,
+     so losing them costs nothing but the look.
+
+     The headline is ink, not orange. Orange on paper measures 2.46:1, which
+     fails even the 3:1 allowed for display sizes; it is the exact ratio that
+     was fixed out of this page once already. Colour arrives from the photos.
+     ──────────────────────────────────────────────────────────────────────── */
+  .mega{position:relative; text-align:center; padding:var(--s-16) 0 var(--s-12)}
+  .mega-h{
+    font-size:clamp(32px,6.4vw,96px); line-height:.94; letter-spacing:-.035em;
+    font-weight:600; text-transform:uppercase; text-wrap:balance;
+    max-width:17ch; margin:0 auto; position:relative; z-index:1;
+  }
+  .mega-p{
+    margin:var(--s-12) auto 0; max-width:52ch; position:relative; z-index:1;
+    font-size:var(--t-micro); line-height:1.6; color:var(--ink-60);
+  }
+  .mega-more{
+    display:inline-flex; align-items:center; gap:.7em; margin-top:var(--s-8);
+    font:500 var(--t-label)/1 var(--mono); letter-spacing:.1em;
+    text-transform:uppercase; position:relative; z-index:1;
+  }
+  .mega-mark{display:inline-flex; gap:2px; transform:skewX(-18deg)}
+  .mega-mark i{width:3px; height:11px; background:var(--orange)}
+  .mega-more:hover{color:var(--ink-60)}
+
+  .blobs{display:contents}
+  .blob{
+    position:absolute; margin:0; z-index:2; overflow:hidden;
+    border-radius:50%; pointer-events:none;
+  }
+  /* Placed to cut INTO the text column, not to frame it. The headline caps at
+     17ch, so it runs roughly 15%–85% of this box; anything further out than
+     that is a decoration standing politely beside the sentence, which is the
+     one thing the reference isn't doing. */
+  .blob--a{width:clamp(74px,9.6vw,142px); aspect-ratio:1/1.22; left:8%;   top:30%}
+  .blob--b{width:clamp(64px,8vw,118px);   aspect-ratio:1/1.3;  left:21%;  top:60%}
+  .blob--c{width:clamp(86px,11vw,162px);  aspect-ratio:1/1.14; right:8%;  top:14%}
+  .blob--d{width:clamp(66px,8.4vw,124px); aspect-ratio:1.35/1; right:21%; top:57%}
+
+  /* Below 760px an oval lands on a 32px headline and eats it. They stop being
+     an overlay and become a row above the sentence — same four pictures, no
+     longer competing with the only words in the section. */
+  @media (max-width:760px){
+    .mega{display:flex; flex-direction:column; align-items:center}
+    .blobs{display:flex; order:-1; gap:8px; margin-bottom:var(--s-8)}
+    .blob{position:static; width:56px; aspect-ratio:1/1.2}
+  }
+
+  .stack{text-align:center; display:grid; gap:var(--s-2)}
+  .stack p{font-size:var(--t-h3); font-weight:500; letter-spacing:-.03em;
+           line-height:1.2; text-wrap:balance}
+  .stack p:nth-child(1),.stack p:nth-child(5){color:rgba(10,22,34,.22)}
+  .stack p:nth-child(2),.stack p:nth-child(4){color:rgba(10,22,34,.45)}
+  .stack p:nth-child(3){color:var(--ink)}
+
+  /* ── 02 horizontal rail, driven by vertical scroll ───────────────────
+     The section pins and the row translates sideways as you scroll down, so
+     one flick of the wheel walks the whole set. Portrait cards, because a
+     3:4 crop of a person doing something reads at a glance where a landscape
+     one needs a caption.
+
+     The rail is a plain overflow-x scroller underneath. That matters: with no
+     JS it is still a usable, swipeable row rather than a stack of cards
+     stranded off-screen — the failure mode of every pinned-horizontal section
+     that assumes its script arrived. */
+  .rail-wrap{position:relative; overflow:hidden}
+  .rail{
+    display:flex; gap:var(--s-4); padding:0 var(--gut);
+    overflow-x:auto; scroll-snap-type:x mandatory;
+    scrollbar-width:none; -ms-overflow-style:none;
+  }
+  .rail::-webkit-scrollbar{display:none}
+  html.has-rail-motion .rail{overflow-x:visible} /* GSAP drives it instead */
+  .card{
+    position:relative; flex:0 0 auto; width:clamp(220px,23vw,330px); aspect-ratio:3/4;
+    border-radius:var(--r-frame); overflow:hidden; background:var(--azure-deep);
+    scroll-snap-align:center; isolation:isolate;
+  }
+  .card img{position:absolute; inset:0; opacity:0; transition:opacity .5s ease}
+  .card img[data-loaded]{opacity:1}
+  .card::after{ /* legibility floor for the label, and it hides a flat frame */
+    content:""; position:absolute; inset:0; z-index:1;
+    background:linear-gradient(180deg, rgba(4,41,76,0) 46%, rgba(4,41,76,.82) 100%);
+  }
+  .card .cap-in{
+    position:absolute; z-index:2; left:var(--s-4); right:var(--s-4); bottom:var(--s-4);
+    color:var(--ghost);
+  }
+  .card .cap-in b{display:block; font-size:var(--t-lead); font-weight:600; letter-spacing:-.025em}
+  .card .cap-in span{
+    display:block; margin-top:6px;
+    font:500 var(--t-label)/1.5 var(--sans); letter-spacing:.1em; text-transform:uppercase;
+    color:rgba(247,245,251,.78);
+  }
+  /* the drag bubble from the reference — pointer-fine only, it has no meaning
+     on a touchscreen where you just swipe */
+  .rail-cursor{
+    position:fixed; z-index:60; width:64px; height:64px; border-radius:50%;
+    background:var(--orange); color:var(--ink); display:none;
+    place-items:center; font:600 13px/1 var(--sans); letter-spacing:.05em;
+    pointer-events:none; transform:translate(-50%,-50%) scale(.6); opacity:0;
+  }
+  @media (pointer:fine){ .rail-cursor{display:grid} }
+
+  /* ── Bands — full-bleed photo strips with type set INTO the image ─────
+     The reference stacks edge-to-edge frames, each with one phrase centred and
+     partly swallowed by the subject. That occlusion is mix-blend-mode: the
+     label sits in the image's own light rather than on top of it.
+
+     Two things follow from that, and both matter:
+
+     · The label is texture, not information. It is deliberately low contrast —
+       that is the effect — so nothing is said here that isn't also said at full
+       contrast in the chapter heading above. A screen reader gets the heading;
+       the band is decoration and marked aria-hidden.
+
+     · With no photograph the band still has to be finished, not empty. Each
+       carries its own wash from the palette plus the same grain as the hero, so
+       an unshot band reads as a designed colour field. Drop a photo in and it
+       layers underneath the type, and the blend does the rest. */
+  .bands{display:grid}
+  .band{
+    position:relative; isolation:isolate; overflow:hidden;
+    aspect-ratio:21/8; min-height:300px; display:grid; place-items:center;
+    border-radius:var(--r-frame);
+  }
+  @media (max-width:820px){ .band{aspect-ratio:4/3; min-height:340px} }
+  .band-media{position:absolute; inset:0; z-index:0}
+  .band-media img{position:absolute; inset:0; opacity:0; transition:opacity .5s ease}
+  .band-media img[data-loaded]{opacity:1}
+  .band:nth-child(1) .band-media{background:linear-gradient(140deg,#0B5FA8,var(--azure) 55%,var(--azure-deep))}
+  .band:nth-child(2) .band-media{background:linear-gradient(140deg,var(--sand),var(--orange) 60%,#C96A05)}
+  .band:nth-child(3) .band-media{background:linear-gradient(140deg,#A9B4D4,var(--lavender) 50%,#5E6B92)}
+  .band-media::after{ /* the hero's grain, so the two read as one page */
+    content:""; position:absolute; inset:0; opacity:.26; mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml;utf8,\
+<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'>\
+<filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4'/></filter>\
+<rect width='160' height='160' filter='url(%23n)' opacity='.6'/></svg>");
+  }
+  .band-label{
+    position:relative; z-index:2; color:var(--ghost);
+    font-size:var(--t-h2); font-weight:600; letter-spacing:-.035em; line-height:1;
+    text-align:center; padding:0 var(--gut);
+    mix-blend-mode:soft-light; opacity:.95;
+  }
+  /* soft-light over a photo is the reference's look; over a flat wash it goes
+     nearly invisible, so an unshot band uses plain type instead. */
+  .band:not(.has-photo) .band-label{mix-blend-mode:normal; opacity:.92}
+  .band-meta{
+    position:absolute; z-index:3; left:var(--gut); bottom:var(--s-6);
+    font:500 var(--t-label)/1.6 var(--sans); letter-spacing:.1em; text-transform:uppercase;
+    color:rgba(247,245,251,.86);
+  }
+
+  /* ── 03 dark chapter — no picture, everything on the centre line ─────────
+     The photograph is gone rather than dimmed. With nothing behind the type
+     there is no scrim to tune and no worst-case pixel to measure: white on a
+     flat #060C14 is 18.1:1 everywhere, at every size, on every screen. */
+  /* No ground of its own: it sits on the page like §01, and shares that
+     section's .mega block rather than copying it, so the two centred displays
+     cannot drift apart. No photograph either — the type is the whole thing. */
+  .bleed{position:relative; padding:0}
+  .bleed .inner{position:relative; padding:var(--s-40) 0; text-align:center}
+  .mega--plain{padding-top:0}
+  .mega--plain .mega-h{margin-top:var(--s-6)}
+
+  .rhythm{display:grid; gap:var(--s-4); margin-top:var(--s-24);
+          grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+  .rhythm div{border-top:1px solid var(--rule); padding-top:var(--s-3)}
+  .rhythm b{font:500 var(--t-label)/1 var(--mono); letter-spacing:.1em;
+            text-transform:uppercase; color:var(--ink-60)}
+  .rhythm p{margin-top:var(--s-2); font-size:var(--t-micro); line-height:1.45;
+            font-weight:500}
+
+  /* ── 04 the three things you actively use ───────────────────────────────
+     No panel behind the copy: the picture is the card, and the text sits on
+     the page directly beneath it. The white fill was drawing a box around
+     type that already had a left edge and a column to align to, so it was
+     adding a border and taking away the air. */
+  .abc{display:grid; gap:var(--s-8); grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+  .abc article{background:none; border:0}
+  .abc .shot{aspect-ratio:4/3; border-radius:var(--r-frame)}
+  .abc .body{padding:var(--s-4) 0 0}
+  .abc h3{font-size:var(--t-lead); font-weight:500; letter-spacing:-.025em;
+          line-height:1.2; margin:var(--s-2) 0 0}
+  .abc p{margin-top:var(--s-2); font-size:var(--t-micro); line-height:1.5; color:var(--ink-60)}
+
+  /* ── 05 membership — cards laid on a photograph ──────────────────────────
+     The reference's ground is one picture running the full width, with the
+     white cards set on top of it at the right and the headline reading
+     straight off it at the left. Nothing here is a panel. */
+  #membership{position:relative; isolation:isolate; overflow:hidden}
+  .price-bg{position:absolute; inset:0; z-index:0; margin:0}
+  .price-bg img{position:absolute; inset:0; opacity:0; transition:opacity .8s ease}
+  .price-bg img[data-loaded]{opacity:1}
+  /* Darkest at the left, where the headline and the price sit, and lifted just
+     enough behind the cards to keep white edges off a white sky. */
+  .price-bg::after{
+    content:""; position:absolute; inset:0;
+    background:
+      linear-gradient(90deg, rgba(4,20,40,.90) 0%, rgba(4,20,40,.72) 38%, rgba(4,20,40,.46) 100%),
+      linear-gradient(180deg, rgba(4,20,40,.30) 0%, rgba(4,20,40,0) 30%);
+  }
+
+  .price-grid{
+    position:relative; z-index:2;
+    display:grid; grid-template-columns:minmax(0,1fr) minmax(0,34%);
+    gap:var(--s-16); align-items:center;
+    padding-left:var(--gut);   /* the column runs to the right edge, as it does
+                                  in the reference — no gutter on that side */
+  }
+  .price-panel h2{font-size:var(--t-h2); font-weight:600; letter-spacing:-.035em; line-height:1}
+  .price-aside{font-size:var(--t-micro); line-height:1.5; color:#D4E2F0;
+               max-width:34ch; margin-top:var(--s-6)}
+  .price-panel .huge{font-size:var(--t-display); font-weight:700; letter-spacing:-.055em;
+                     line-height:.84; margin-top:var(--s-8)}
+  .price-panel .huge sub{font:500 var(--t-label)/1 var(--mono); letter-spacing:.1em;
+                  text-transform:uppercase; vertical-align:baseline; color:#D4E2F0; margin-left:var(--s-3)}
+  .price-cta{margin-top:var(--s-8)}
+  /* The reference's button is a white lozenge, not the orange one the rest of
+     the page uses — on a photograph the neutral reads as part of the card
+     system rather than as a third colour. */
+  .pill--light{background:var(--ghost); color:var(--ink)}
+  .pill--light:hover{background:#fff}
+
+  .price-col{position:relative}
+  .price-rail{display:grid; gap:var(--s-4)}
+  /* White frame around the photo, then the label row — the card is a mount,
+     not a crop. */
+  .pcard{
+    background:#fff; color:var(--ink); border-radius:var(--r-frame);
+    padding:14px 14px 0; overflow:hidden;
+  }
+  /* The global img rule is height:100%; these need to size from their ratio. */
+  .pcard img{aspect-ratio:16/10; height:auto; border-radius:calc(var(--r-frame) - 8px)}
+  .pcard p{
+    display:flex; align-items:baseline; justify-content:space-between; gap:var(--s-4);
+    padding:var(--s-4) var(--s-2) var(--s-4);
+  }
+  .pcard b{font-size:var(--t-lead); font-weight:500; letter-spacing:-.02em}
+  .pcard span{font:500 var(--t-micro)/1 var(--mono); color:var(--ink-60)}
+
+  /* The window is opened ONLY once the pin is confirmed running. Applied
+     unconditionally, a script that failed to arrive would leave four of the
+     six cards clipped inside a box that never scrolls — the offer's own
+     argument, hidden by its animation. */
+  /* The column is the full height of the screen and the section carries no
+     vertical padding while pinned, so a card is cut by the top and bottom
+     edges instead of stopping short of them. The inset version read as a box
+     being scrolled; this reads as the screen being the window. */
+  html.has-price-motion #membership{padding-top:0; padding-bottom:0; min-height:100vh}
+  html.has-price-motion .price-col{height:100vh; overflow:hidden}
+  @supports (height:100svh){
+    html.has-price-motion #membership{min-height:100svh}
+    html.has-price-motion .price-col{height:100svh}
+  }
+
+  @media (max-width:900px){
+    .price-grid{grid-template-columns:1fr; gap:var(--s-12)}
+    .price-aside{margin-bottom:var(--s-8)}
+  }
+
+  /* ── 06 questions ────────────────────────────────────────────────────── */
+  details{border-bottom:1px solid var(--rule); padding:var(--s-6) 0}
+  details summary{cursor:pointer; list-style:none; display:flex; justify-content:space-between;
+                  gap:var(--s-6); font-size:var(--t-lead); font-weight:500; letter-spacing:-.025em}
+  details summary::-webkit-details-marker{display:none}
+  details summary::after{content:"+"; color:var(--ink-60); font-weight:400; font-size:24px; line-height:.9}
+  details[open] summary::after{content:"–"}
+  details p{margin-top:var(--s-3); color:var(--ink-60); max-width:68ch; font-size:var(--t-micro); line-height:1.6}
+
+  /* ── 07 close ────────────────────────────────────────────────────────── */
+  .close{position:relative; overflow:hidden; padding:0; background:var(--azure-deep)}
+  .close .shot{position:absolute; inset:0; opacity:.38}
+  .close .shot::after{content:""}
+  .close .inner{position:relative; z-index:3; padding:var(--s-50) 0; text-align:center; color:#fff}
+  .close h2{font-size:var(--t-display); font-weight:700; letter-spacing:-.055em;
+            line-height:.88; text-transform:uppercase; text-wrap:balance}
+
+  footer{background:var(--ink); color:#8FA3B8; padding:var(--s-16) 0 var(--s-8); font-size:var(--t-micro)}
+  footer .cols{display:grid; gap:var(--s-8); grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+  footer b{display:block; color:#fff; font:500 var(--t-label)/1 var(--mono);
+           letter-spacing:.1em; text-transform:uppercase; margin-bottom:var(--s-3)}
+  footer a{display:block; padding:3px 0}
+  footer a:hover{color:#fff}
+  footer .base{margin-top:var(--s-12); padding-top:var(--s-4); border-top:1px solid rgba(255,255,255,.12);
+               display:flex; justify-content:space-between; flex-wrap:wrap; gap:var(--s-3);
+               font:500 var(--t-label)/1.4 var(--mono); letter-spacing:.08em; text-transform:uppercase}
+
+  .sticky{position:fixed; left:0; right:0; bottom:0; z-index:50; display:none;
+          background:rgba(239,237,244,.96); backdrop-filter:blur(14px); border-top:1px solid var(--rule);
+          padding:var(--s-2) var(--s-4) calc(var(--s-2) + env(safe-area-inset-bottom));
+          align-items:center; justify-content:space-between; gap:var(--s-3)}
+  .sticky b{font-size:var(--t-lead); font-weight:600; letter-spacing:-.025em}
+  .sticky small{display:block; font:500 var(--t-label)/1.4 var(--mono);
+                letter-spacing:.1em; text-transform:uppercase; color:var(--ink-60)}
+  @media (max-width:820px){ .sticky{display:flex} body{padding-bottom:78px} }
+  /* ── MOTION ───────────────────────────────────────────────────────────
+     Not one rule here hides anything. Every effect is written as gsap.from(),
+     which reads the element's CURRENT state as its destination — so if the
+     scripts fail, are blocked, or simply haven't arrived yet, the page is
+     already in its finished state. The usual failure mode of this genre is
+     `opacity:0` in CSS plus a script that never runs, which is a blank page
+     bought with ad money.
+
+     The only thing declared up front is will-change on the handful of elements
+     that actually transform, so the compositor promotes them once rather than
+     on every frame. */
+  .shot img,.parallax{will-change:transform}
+  .stack p{transition:color .45s ease, opacity .45s ease}
+
+  @media (prefers-reduced-motion:reduce){
+    /* Lenis is never started in this mode — hand scrolling back to the browser. */
+    html{scroll-behavior:auto}
+    *{transition:none !important; animation:none !important}
+    .shot img,.parallax{will-change:auto; transform:none !important}
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a class="brand" href="/">Beach Club</a>
+    <div class="links">
+      <a href="#included">Included</a>
+      <a href="#courts">Courts</a>
+      <a href="#membership">Membership</a>
+      <a href="#questions">Questions</a>
+    </div>
+    <a class="pill" href="#membership" data-checkout style="padding:10px 20px">Join ↗</a>
+  </div>
+</nav>
+
+<!-- ═══ 00 · ATTENTION ════════════════════════════════════════════════════ -->
+<header class="mast">
+  <div class="mast-photo"><img alt="" data-src="/photos/hero-pool-deck.jpg" /></div>
+
+  <div class="mast-top">
+    <p class="mast-mark">Beach<br />Club</p>
+    <a class="mast-join" href="#membership" data-checkout>Join <em aria-hidden="true">&#8594;</em></a>
+  </div>
+
+  <div class="mast-mid">
+    <p>Pools, the water park, the gym and the courts at Pristine Bay &mdash; one membership, one key, open every day.</p>
+    <a class="mast-link" href="#included">
+      <span class="mega-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+      See what&rsquo;s included <em aria-hidden="true">&#8594;</em>
+    </a>
+  </div>
+
+  <div class="mast-bottom">
+    <p class="mast-badge">
+      <span class="faces" aria-hidden="true"><i></i><i></i><i></i></span>
+      <b>$75</b> per person / month
+    </p>
+    <h1 class="mast-word">Beach Club</h1>
+  </div>
+</header>
+
+<!-- ═══ 01 · INTEREST — internal trigger ══════════════════════════════════ -->
+<section>
+  <div class="wrap">
+    <div class="mega">
+      <div class="blobs" aria-hidden="true">
+        <figure class="blob blob--a"><img alt="" data-src="/photos/pool-main.jpg" /></figure>
+        <figure class="blob blob--b"><img alt="" data-src="/photos/family.jpg" /></figure>
+        <figure class="blob blob--c"><img alt="" data-src="/photos/tennis.jpg" /></figure>
+        <figure class="blob blob--d"><img alt="" data-src="/photos/sun-water.jpg" /></figure>
+      </div>
+
+      <h2 class="mega-h">The island is beautiful. Saturday still ends on the sofa.</h2>
+
+      <p class="mega-p">Not for lack of options — for the friction in front of each one. A day pass here, a court fee there, a gym you're paying for and haven't set foot in since March.</p>
+
+      <a class="mega-more" href="#included">
+        <span class="mega-mark" aria-hidden="true"><i></i><i></i><i></i></span>See what's included
+      </a>
+    </div>
+
+    <div class="stack">
+      <p>"I'll go to the gym once it's cooler."</p>
+      <p>"What do we do with the kids this weekend?"</p>
+      <p>"I'd play more tennis if booking a court weren't a phone call."</p>
+      <p>"We should get out of the house more."</p>
+      <p>"Maybe next weekend."</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 02 · INTEREST — what's here ═══════════════════════════════════════ -->
+<section id="included">
+  <div class="wrap">
+    <div class="chap">
+      <h2>Six doors. One key.</h2>
+      <p class="aside">Everything below is included at $75. Nothing on this page is an upsell.</p>
+    </div>
+  </div>
+
+  <!-- Outside .wrap on purpose: the rail runs the full viewport, so the row
+       reaches both edges and the last card is cut by the screen rather than by
+       a 1440px column — which is what tells you there is more to the right. -->
+  <div class="rail-wrap">
+    <div class="rail">
+      <article class="card">
+        <img alt="" data-src="/photos/pool-main.jpg" />
+        <p class="cap-in"><b>Pools</b><span>Swim any day</span></p>
+      </article>
+      <article class="card">
+        <img alt="" data-src="/photos/water-park.jpg" />
+        <p class="cap-in"><b>Water park</b><span>The kids set the schedule</span></p>
+      </article>
+      <article class="card">
+        <img alt="" data-src="/photos/gym.jpg" />
+        <p class="cap-in"><b>Gym</b><span>Before the heat</span></p>
+      </article>
+      <article class="card">
+        <img alt="" data-src="/photos/tennis.jpg" />
+        <p class="cap-in"><b>Tennis</b><span>Two courts, by the hour</span></p>
+      </article>
+      <article class="card">
+        <img alt="" data-src="/photos/pickleball.jpg" />
+        <p class="cap-in"><b>Pickleball</b><span>On court 2, same key</span></p>
+      </article>
+      <article class="card">
+        <img alt="" data-src="/photos/petes-range.jpg" />
+        <p class="cap-in"><b>Pete's golf range</b><span>A bucket daily</span></p>
+      </article>
+    </div>
+  </div>
+
+</section>
+
+<!-- ═══ 03 · DESIRE — variable reward ═════════════════════════════════════ -->
+<section class="bleed">
+  <div class="inner">
+    <div class="wrap">
+      <div class="mega mega--plain">
+        <p class="tag tag--plain">Why it keeps working</p>
+        <h2 class="mega-h">No two Saturdays look the same</h2>
+        <p class="mega-p">
+          A single-facility membership gets used hard for three weeks and then forgotten.
+          Six doors means the answer to "what shall we do" changes with the mood, the
+          weather and whoever's around.
+        </p>
+      </div>
+
+      <div class="rhythm">
+        <div><b>Mon</b><p>Gym before the heat, pool after.</p></div>
+        <div><b>Wed</b><p>An hour of pickleball with whoever answers.</p></div>
+        <div><b>Fri</b><p>A bucket at Pete's golf range on the way home.</p></div>
+        <div><b>Sat</b><p>Water park. The kids set the schedule.</p></div>
+        <div><b>Sun</b><p>Tennis at eight, before anyone's up.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 04 · DESIRE — investment ══════════════════════════════════════════ -->
+<!-- Three worlds, edge to edge. Labels are decorative; the chapter heading
+     below carries the same meaning at full contrast. -->
+<section style="padding:0">
+  <div class="bands">
+    <figure class="band">
+      <div class="band-media"><img alt="" data-src="/photos/band-water.jpg" /></div>
+      <p class="band-label" aria-hidden="true">Pool days</p>
+      <p class="band-meta">Pools &amp; water park<br />Turn up, no booking</p>
+    </figure>
+    <figure class="band">
+      <div class="band-media"><img alt="" data-src="/photos/band-courts.jpg" /></div>
+      <p class="band-label" aria-hidden="true">Court time</p>
+      <p class="band-meta">Tennis &amp; pickleball<br />By the hour, 6–19</p>
+    </figure>
+    <figure class="band">
+      <div class="band-media"><img alt="" data-src="/photos/band-range.jpg" /></div>
+      <p class="band-label" aria-hidden="true">Golf range</p>
+      <p class="band-meta">A bucket at Pete's<br />Every day</p>
+    </figure>
+  </div>
+</section>
+
+<section id="courts">
+  <div class="wrap">
+    <div class="chap">
+      <h2>Courts without the phone call.</h2>
+      <p class="aside">Two courts, bookable by the hour from your phone, 6am to 7pm.</p>
+    </div>
+
+    <div class="abc">
+      <article>
+        <figure class="shot" data-shot="Tennis Court 1 — full court from the corner"><img alt="" data-src="/photos/tennis.jpg" /></figure>
+        <div class="body">
+          <p class="tag">Book by the hour</p>
+          <h3>Tennis on both courts</h3>
+          <p>Reserve from your phone, 6am–7pm. Pick the hour, turn up, play.</p>
+        </div>
+      </article>
+      <article>
+        <figure class="shot" data-shot="Pickleball court — from the service line, whole court visible"><img alt="" data-src="/photos/court-pickleball.jpg" /></figure>
+        <div class="body">
+          <p class="tag">Easiest game to fill</p>
+          <h3>Pickleball</h3>
+          <p>Court 2 doubles as a pickleball court. Same booking, same hours. The easiest game on the island to talk someone into.</p>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 05 · DESIRE → ACTION — the price ══════════════════════════════════ -->
+<section class="dark" id="membership">
+  <!-- One photograph across the whole section. The cards are laid ON it at the
+       right, so the picture is the ground rather than a panel beside them. -->
+  <figure class="price-bg"><img alt="" data-src="/photos/hero-pool-deck.jpg" /></figure>
+
+  <div class="price-grid">
+    <div class="price-panel">
+      <h2>The whole price.</h2>
+      <p class="huge">$75<sub>Per person / month</sub></p>
+      <p class="price-aside">Paid month by month — no contract, no joining fee. Don't renew and it simply ends.</p>
+
+      <p class="price-cta"><a class="pill pill--light" href="#" data-checkout>Become a member</a></p>
+    </div>
+
+    <!-- Taller than the screen on purpose. The section pins and this column
+         walks up through its window, so the next chapter cannot arrive until
+         all six have gone past — the list is the argument for the price, and
+         scrolling straight past it is the thing to prevent. -->
+    <div class="price-col">
+      <div class="price-rail">
+        <article class="pcard">
+          <img alt="" data-src="/photos/pool-main.jpg" />
+          <p><b>Pools</b><span>01</span></p>
+        </article>
+        <article class="pcard">
+          <img alt="" data-src="/photos/water-park.jpg" />
+          <p><b>Water park</b><span>02</span></p>
+        </article>
+        <article class="pcard">
+          <img alt="" data-src="/photos/gym.jpg" />
+          <p><b>Gym access</b><span>03</span></p>
+        </article>
+        <article class="pcard">
+          <img alt="" data-src="/photos/tennis.jpg" />
+          <p><b>Tennis courts — by the hour</b><span>04</span></p>
+        </article>
+        <article class="pcard">
+          <img alt="" data-src="/photos/pickleball.jpg" />
+          <p><b>Pickleball — by the hour</b><span>05</span></p>
+        </article>
+        <article class="pcard">
+          <img alt="" data-src="/photos/petes-range.jpg" />
+          <p><b>A bucket daily at Pete's</b><span>06</span></p>
+        </article>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 06 · ACTION — objections ══════════════════════════════════════════ -->
+<section id="questions">
+  <div class="wrap">
+    <div class="chap">
+      <h2>The things everyone checks.</h2>
+    </div>
+
+    <details open>
+      <summary>Can I cancel?</summary>
+      <p>There's nothing to cancel. You pay month by month — don't renew and it simply ends when the month you've paid for runs out. No contract, no notice period, no exit fee.</p>
+    </details>
+    <details>
+      <summary>Do I have to book ahead?</summary>
+      <p>For pools, the water park, the gym and the range — no, just turn up. Courts are booked by the hour so two people don't arrive for the same slot; members do that from their phone, 6am to 7pm.</p>
+    </details>
+    <details>
+      <summary>How do I pay?</summary>
+      <p>Bitcoin over Lightning — exactly $75. PayPal and on-chain Bitcoin also work; they add the payment processor's fee on top (5% and 2.5%).</p>
+    </details>
+  </div>
+</section>
+
+<!-- ═══ 07 · ACTION — close ═══════════════════════════════════════════════ -->
+<section class="close">
+  <figure class="shot" data-shot=""><img alt="" data-src="/photos/sun-water.jpg" /></figure>
+  <div class="inner">
+    <div class="wrap">
+      <h2>Six doors<br />One key<br />$75</h2>
+      <p style="margin:26px auto 0; max-width:44ch; color:#dbe8f5; font-size:1.06rem">
+        Join now and use it this weekend.
+      </p>
+      <p style="margin-top:32px"><a class="pill pill--light" href="#" data-checkout>Become a member ↗</a></p>
+      <p class="tag tag--plain" style="justify-content:center; margin-top:18px; color:rgba(255,255,255,.66)">
+        Month by month · no contract
+      </p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="cols">
+      <div>
+        <b>Beach Club</b>
+        <a href="#included">What's included</a>
+        <a href="#courts">Courts</a>
+        <a href="#membership">Membership</a>
+      </div>
+      <div>
+        <b>EverySub</b>
+        <a href="https://everysub.net">Marketplace</a>
+        <a href="https://everysub.net/support">Support</a>
+      </div>
+      <div>
+        <b>Where</b>
+        <a href="https://www.google.com/maps/search/?api=1&amp;query=Pristine+Bay+Resort+Roatan" target="_blank" rel="noopener">Pristine Bay Resort</a>
+        <a href="https://www.google.com/maps/search/?api=1&amp;query=Pristine+Bay+Resort+Roatan" target="_blank" rel="noopener">Roatán, Honduras</a>
+      </div>
+      <div>
+        <b>Join</b>
+        <a href="#" data-checkout>Become a member ↗</a>
+      </div>
+    </div>
+    <div class="base">
+      <span>© EverySub</span>
+      <span>$75 per person / month · no contract</span>
+    </div>
+  </div>
+</footer>
+
+<div class="rail-cursor" aria-hidden="true">↔</div>
+
+<div class="sticky">
+  <div><b>$75 / month</b><small>per person</small></div>
+  <a class="pill" href="#" data-checkout>Join ↗</a>
+</div>
+
+<script>
+(function () {
+  // ── The one link that matters ──────────────────────────────────────────
+  // Kept in a single constant so a plan-id change is a one-line edit, and so
+  // every CTA on the page provably points at the same URL.
+  var CHECKOUT =
+    "https://everysub.net/services/beach-club/checkout/6d258149-6cf5-43d8-a0ce-fa60fcc8dfa0";
+
+  // Carry ad parameters through to the app. Without this every conversion from
+  // here lands in analytics as direct traffic and the campaign looks dead while
+  // it is working — the most common way a landing page gets judged wrong.
+  var KEEP = /^(utm_|gclid$|fbclid$|ttclid$|msclkid$|ref$)/;
+  var target = new URL(CHECKOUT);
+  new URLSearchParams(location.search).forEach(function (v, k) {
+    if (KEEP.test(k)) target.searchParams.set(k, v);
+  });
+  if (!target.searchParams.has("utm_source")) target.searchParams.set("utm_source", "beach-landing");
+  var href = target.toString();
+  document.querySelectorAll("[data-checkout]").forEach(function (a) { a.href = href; });
+
+  // ── Photos ─────────────────────────────────────────────────────────────
+  // Images carry their path in `data-src`, not `src`. A missing file would
+  // otherwise fire a broken-image icon over the placeholder and log a 404 for
+  // every frame; this way the caption simply stays until a real file exists.
+  // Drop the file at the named path and it appears — nothing else to change.
+  document.querySelectorAll("img[data-src]").forEach(function (img) {
+    var probe = new Image();
+    probe.onload = function () {
+      img.src = img.dataset.src;
+      img.loading = "lazy";
+      img.decoding = "async";
+      img.setAttribute("data-loaded", "");
+      // A band with a real photo switches its label to the blend treatment;
+      // over a flat wash that blend is all but invisible.
+      var band = img.closest(".band");
+      if (band) band.classList.add("has-photo");
+    };
+    probe.src = img.dataset.src;
+  });
+})();
+</script>
+
+
+<!-- Motion. Deferred, so neither script blocks first paint: the CTA above is
+     wired by the inline script and works before any of this arrives. -->
+<script src="/vendor/lenis.min.js" defer></script>
+<script src="/vendor/gsap.min.js" defer></script>
+<script src="/vendor/ScrollTrigger.min.js" defer></script>
+<script defer>
+window.addEventListener("DOMContentLoaded", function () {
+  var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var finePointer = window.matchMedia("(pointer: fine)").matches;
+
+  // Bail out completely rather than degrade. The page is already correct.
+  if (reduced || !window.gsap || !window.ScrollTrigger || !window.Lenis) {
+    document.documentElement.style.scrollBehavior = "smooth";
+    // No script, no scroll trigger — so the nav has to be present from the
+    // start rather than waiting for a reveal that will never fire.
+    var n = document.querySelector("nav");
+    if (n) n.classList.add("is-shown");
+    return;
+  }
+
+  gsap.registerPlugin(ScrollTrigger);
+
+  // ── Lenis ───────────────────────────────────────────────────────────────
+  // smoothWheel only. On touch, Lenis fights the platform's own momentum and
+  // the result feels laggy on exactly the devices most ad traffic arrives on.
+  var lenis = new Lenis({
+    duration: 1.05,
+    easing: function (t) { return Math.min(1, 1.001 - Math.pow(2, -10 * t)); },
+    smoothWheel: true,
+    syncTouch: false
+  });
+
+  // One clock. Two rAF loops would tear on heavy frames.
+  lenis.on("scroll", ScrollTrigger.update);
+  gsap.ticker.add(function (time) { lenis.raf(time * 1000); });
+  gsap.ticker.lagSmoothing(0);
+
+  // Anchors have to go through Lenis or they jump while it animates.
+  document.querySelectorAll('a[href^="#"]').forEach(function (a) {
+    a.addEventListener("click", function (e) {
+      var el = document.querySelector(a.getAttribute("href"));
+      if (!el) return;
+      e.preventDefault();
+      lenis.scrollTo(el, { offset: -70 });
+    });
+  });
+
+  // The nav only exists once the masthead is behind you.
+  var navEl = document.querySelector("nav");
+  if (navEl) {
+    ScrollTrigger.create({
+      trigger: ".mast", start: "bottom top+=60",
+      onEnter: function () { navEl.classList.add("is-shown"); },
+      onLeaveBack: function () { navEl.classList.remove("is-shown"); }
+    });
+  }
+
+  // ── Masthead: the frame settles, then the copy, then the name ───────────
+  // The name lands last and from furthest away — it is the largest thing on
+  // the page and arriving with everything else would flatten the order.
+  gsap.timeline({ defaults: { ease: "power3.out" } })
+      .from(".mast-photo img", { scale: 1.06, duration: 1.4 })
+      .from(".mast-top > *", { y: -14, opacity: 0, duration: .7, stagger: .08 }, .15)
+      .from(".mast-mid > *", { y: 18, opacity: 0, duration: .8, stagger: .1 }, .3)
+      .from(".mast-badge",   { y: 16, opacity: 0, duration: .7 }, .45)
+      .from(".mast-word",    { y: 64, opacity: 0, duration: 1.1 }, .5);
+
+  // Leaving the hero: the photograph drifts slower than the page and the name
+  // fades before it clears the top, so the frame reads as depth rather than as
+  // a panel sliding away.
+  gsap.to(".mast-photo img", {
+    yPercent: 10, ease: "none",
+    scrollTrigger: { trigger: ".mast", start: "top top", end: "bottom top", scrub: true }
+  });
+  // On .mast-bottom, NOT on .mast-word. Two tweens on one element is what
+  // broke this the first time: the scrub tween reads its start value on first
+  // render, the intro was still holding the name at opacity 0 at that moment,
+  // so the scrub animated 0 → .25 and the largest thing on the page never
+  // appeared at all. Parallax the parent, animate the child.
+  gsap.to(".mast-bottom", {
+    yPercent: -6, opacity: .3, ease: "none",
+    scrollTrigger: { trigger: ".mast", start: "top top", end: "bottom top", scrub: true }
+  });
+
+  // ── Chapter headings rise into place ────────────────────────────────────
+  gsap.utils.toArray(".chap").forEach(function (chap) {
+    gsap.from(chap.children, {
+      y: 24, opacity: 0, duration: .7, ease: "power3.out", stagger: .07,
+      scrollTrigger: { trigger: chap, start: "top 88%" }
+    });
+  });
+
+  // ── §01 · the sentence lands, then the cut-outs arrive on top of it ─────
+  // Order matters: the ovals interrupt the line, so they should read as
+  // arriving over something already there rather than as part of the word.
+  // Each drifts at its own rate on scroll, which is what stops four circles
+  // on a flat field from looking pasted on.
+  // Every .mega gets its own, scoped to itself. Selecting ".blob" globally
+  // here would hand §03's four ovals to §01's trigger: they would sit at
+  // opacity 0 until a section two screens above them came into view, and
+  // then drift on its scroll rather than their own.
+  gsap.utils.toArray(".mega").forEach(function (mega) {
+    var copy = [".mega-h", ".mega-p", ".mega-more"]
+      .map(function (sel) { return mega.querySelector(sel); })
+      .filter(Boolean);   // §03 has no link; a null in the array kills the tween
+
+    gsap.from(copy, {
+      y: 28, opacity: 0, duration: .8, ease: "power3.out", stagger: .08,
+      scrollTrigger: { trigger: mega, start: "top 82%" }
+    });
+
+    var blobs = gsap.utils.toArray(mega.querySelectorAll(".blob"));
+    if (!blobs.length) return;
+
+    gsap.from(blobs, {
+      scale: .82, opacity: 0, duration: .6, ease: "power2.out", stagger: .06,
+      scrollTrigger: { trigger: mega, start: "top 74%" }
+    });
+
+    // Skipped under 760px, where the ovals are a static row and drifting them
+    // would just push the row off its own baseline.
+    if (window.matchMedia("(min-width:761px)").matches) {
+      blobs.forEach(function (b, i) {
+        gsap.to(b, {
+          yPercent: [-22, 16, -14, 20][i] || 0, ease: "none",
+          scrollTrigger: { trigger: mega, start: "top bottom", end: "bottom top", scrub: 1 }
+        });
+      });
+    }
+  });
+
+  // ── clip-path reveal on every photo frame ───────────────────────────────
+  // The frame's own placeholder is revealed too, so this reads as designed
+  // before the photography exists rather than as an empty animation.
+  gsap.utils.toArray(".shot").forEach(function (shot) {
+    if (shot.closest(".bleed") || shot.closest(".close")) return; // backdrops
+    gsap.from(shot, {
+      clipPath: "inset(0% 0% 100% 0%)",
+      duration: 1.05, ease: "power3.out",
+      scrollTrigger: { trigger: shot, start: "top 90%" }
+    });
+  });
+
+  // ── Horizontal rail: vertical scroll walks the row sideways ─────────────
+  // The section pins for exactly the distance the row overflows, so the
+  // traverse finishes as the section leaves — no dead scrolling at either end.
+  var rail = document.querySelector(".rail");
+  if (rail && window.innerWidth > 820) {
+    document.documentElement.classList.add("has-rail-motion");
+    ScrollTrigger.create({
+      trigger: ".rail-wrap",
+      start: "center center",
+      end: function () { return "+=" + (rail.scrollWidth - window.innerWidth + 120); },
+      pin: ".rail-wrap", scrub: 1, invalidateOnRefresh: true,
+      animation: gsap.to(rail, {
+        x: function () { return -(rail.scrollWidth - window.innerWidth + 120); },
+        ease: "none"
+      })
+    });
+
+    // Drag bubble — follows the pointer while it is over the rail.
+    var bubble = document.querySelector(".rail-cursor");
+    if (bubble) {
+      var qx = gsap.quickTo(bubble, "left", { duration: .35, ease: "power3" });
+      var qy = gsap.quickTo(bubble, "top",  { duration: .35, ease: "power3" });
+      document.querySelector(".rail-wrap").addEventListener("pointerenter", function () {
+        gsap.to(bubble, { opacity: 1, scale: 1, duration: .3, ease: "back.out(2)" });
+      });
+      document.querySelector(".rail-wrap").addEventListener("pointerleave", function () {
+        gsap.to(bubble, { opacity: 0, scale: .6, duration: .25 });
+      });
+      window.addEventListener("pointermove", function (e) { qx(e.clientX); qy(e.clientY); });
+    }
+  }
+
+  // ── Price section holds while the six cards walk up past it ─────────────
+  // The offer stays put; the list moves. The pin lasts exactly as long as the
+  // column overflows its window, so the section releases the moment the last
+  // card is in view rather than holding the reader on a finished screen.
+  (function () {
+    var sec  = document.querySelector("#membership");
+    var col  = sec && sec.querySelector(".price-col");
+    var rail = sec && sec.querySelector(".price-rail");
+    if (!sec || !col || !rail) return;
+
+    // Under 901px the grid is one column and the panel is already stacked
+    // above the list; pinning there would trap a full screen of scrolling on
+    // the smallest screens, which is where that costs most.
+    if (!window.matchMedia("(min-width:901px)").matches) return;
+
+    document.documentElement.classList.add("has-price-motion");
+
+    // Measured only AFTER the class lands, since the class is what gives the
+    // column its height. If the six cards happen to fit — a very tall window —
+    // there is nothing to walk, and pinning would hold the reader on a still
+    // image for no reason, so the class comes straight back off.
+    var travel = function () { return Math.max(0, rail.scrollHeight - col.clientHeight); };
+    if (travel() <= 0) {
+      document.documentElement.classList.remove("has-price-motion");
+      return;
+    }
+
+    ScrollTrigger.create({
+      trigger: sec, start: "top top",
+      end: function () { return "+=" + travel(); },
+      pin: true, scrub: 1, invalidateOnRefresh: true,
+      animation: gsap.to(rail, { y: function () { return -travel(); }, ease: "none" })
+    });
+
+    ScrollTrigger.refresh();
+  })();
+
+  // ── Opacity focus — the line at the centre of the viewport is the live one ──
+  var lines = gsap.utils.toArray(".stack p");
+  if (lines.length) {
+    ScrollTrigger.create({
+      trigger: ".stack", start: "top bottom", end: "bottom top", onUpdate: focus, onRefresh: focus
+    });
+    function focus() {
+      var mid = window.innerHeight / 2;
+      lines.forEach(function (line) {
+        var r = line.getBoundingClientRect();
+        var d = Math.abs(r.top + r.height / 2 - mid);
+        // Full ink within a quarter-viewport of centre, fading to .18 by one full viewport.
+        var t = gsap.utils.clamp(0, 1, 1 - (d - window.innerHeight * .12) / (window.innerHeight * .42));
+        line.style.color = "rgba(10,22,34," + (0.18 + 0.82 * t).toFixed(3) + ")";
+      });
+    }
+  }
+
+  // ── Bands: media drifts behind a label that holds still ─────────────────
+  gsap.utils.toArray(".band").forEach(function (band) {
+    gsap.fromTo(band.querySelector(".band-media"),
+      { yPercent: -7, scale: 1.14 },
+      { yPercent: 7, ease: "none",
+        scrollTrigger: { trigger: band, start: "top bottom", end: "bottom top", scrub: true } });
+    gsap.from(band.querySelector(".band-label"), {
+      y: 26, opacity: 0, duration: .9, ease: "power3.out",
+      scrollTrigger: { trigger: band, start: "top 78%" }
+    });
+  });
+
+  // ── Full-bleed backdrops drift ──────────────────────────────────────────
+  gsap.utils.toArray(".bleed .shot, .close .shot").forEach(function (bg) {
+    gsap.fromTo(bg, { yPercent: -8 }, {
+      yPercent: 8, ease: "none",
+      scrollTrigger: { trigger: bg.parentElement, start: "top bottom", end: "bottom top", scrub: true }
+    });
+  });
+
+  // ── Display type in the warm chapter and the close ──────────────────────
+  gsap.utils.toArray(".bleed h2, .close h2").forEach(function (h) {
+    // A heading inside a .mega already has its reveal from that block. Two
+    // from() tweens on one element is not additive: the second records the
+    // first's from-state as its destination, so it animates 0 -> 0 and the
+    // heading never appears. This is what hid "No two Saturdays".
+    if (h.closest(".mega")) return;
+    gsap.from(h, {
+      y: 40, opacity: 0, duration: .9, ease: "power3.out",
+      scrollTrigger: { trigger: h, start: "top 85%" }
+    });
+  });
+
+  // ── Sticky bar arrives only once the masthead CTA is gone ───────────────
+  var sticky = document.querySelector(".sticky");
+  if (sticky) {
+    gsap.set(sticky, { yPercent: 110 });
+    ScrollTrigger.create({
+      trigger: ".mast", start: "bottom top+=80",
+      onEnter: function () { gsap.to(sticky, { yPercent: 0, duration: .4, ease: "power3.out" }); },
+      onLeaveBack: function () { gsap.to(sticky, { yPercent: 110, duration: .3, ease: "power2.in" }); }
+    });
+  }
+
+  // ── Magnetic pills ──────────────────────────────────────────────────────
+  // Pointer-fine only: on a touchscreen there is no hover to be magnetic about,
+  // and the transform would leave the button offset under the finger.
+  if (finePointer) {
+    document.querySelectorAll(".pill").forEach(function (pill) {
+      pill.addEventListener("pointermove", function (e) {
+        var r = pill.getBoundingClientRect();
+        gsap.to(pill, {
+          x: (e.clientX - r.left - r.width / 2) * .22,
+          y: (e.clientY - r.top - r.height / 2) * .32,
+          duration: .4, ease: "power3.out"
+        });
+      });
+      pill.addEventListener("pointerleave", function () {
+        gsap.to(pill, { x: 0, y: 0, duration: .5, ease: "elastic.out(1,.4)" });
+      });
+    });
+  }
+
+  // Photos land after their frames, so measurements have to be retaken.
+  window.addEventListener("load", function () { ScrollTrigger.refresh(); });
+});
+</script>
+
+</body>
+</html>
