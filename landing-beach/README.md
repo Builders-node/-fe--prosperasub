@@ -29,7 +29,12 @@ cd frontend/landing-beach && python3 -m http.server 4321
 ## Deploying
 
 Its own Vercel project, **`everysub-beachclub`** (team `frorexstudios-projects`),
-serving `beachclub.everysub.net`. Framework **Other**, no build, output `.`.
+serving `beachclub.everysub.net`. It is Git-linked to `-fe--prosperasub`, so a
+push to the frontend mirror redeploys it — which is only right because the
+project's **Root Directory is `landing-beach`**, framework **Other**, no build,
+no install, output `.`. Without the root directory the project builds the whole
+frontend repo and the subdomain serves the marketplace (it did, on 2026-09-28;
+`sw.js` here is the clean-up for browsers that caught the SPA's worker).
 No environment variables, no backend, no database.
 
 The source lives in `frontend/landing-beach/`, so it travels with the frontend
