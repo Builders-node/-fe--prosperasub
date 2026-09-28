@@ -20,6 +20,7 @@ import { logAuditEvent } from "@/lib/auditLog";
 import { todayHN, addDaysISO } from "@/lib/timezone";
 import { cn } from "@/lib/utils";
 import { fetchUsersByIds } from "@/lib/admin/customerNames";
+import { fetchAllRows } from "@/lib/supabasePaging";
 
 /**
  * Admin/owner one-off booking creator for a cleaning provider — mounted on the
@@ -73,6 +74,9 @@ interface UserOption {
  * subscription for them. `cleaning_bookings` only insists on a user OR a client
  * (`cleaning_bookings_has_owner`), so a subscription-less visit is legal.
  */
+/** One bookable time on the chosen day, and how many places it has left. */
+interface SlotWindow { start: string; end: string; left: number }
+
 type Target =
   | { kind: "subscription"; sub: SubOption }
   | { kind: "user"; user: UserOption };
@@ -257,36 +261,88 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
    * instead is what keeps a hand-added visit inside the same schedule
    * everything else is booked against.
    */
-  const { data: slotWindows = [], isLoading: windowsLoading } = useQuery<Array<{ start: string; end: string }>>({
-    queryKey: ["admin-new-booking-slot-windows", universalProviderId ?? "shared"],
-    enabled: open,
+  //
+  // Scoped to THIS provider and THE CHOSEN DATE. It used to read every active
+  // future slot of every provider (~1,700 rows, half a year of three grids) and
+  // PostgREST silently cut that at 1,000 — of Apartment Cleaning's 468 rows
+  // exactly one survived, so the list offered a single time ("10:00 – 11:45")
+  // out of three, and on another day it could hand back the shared grid's
+  // 14:00 that this provider does not run. It also ignored the date: a Sunday,
+  // when no slot exists, still listed times. One day of one provider is at
+  // most a handful of rows, so there is nothing left to truncate.
+  /**
+   * Does this provider keep a grid of its own at all? Decides two things the
+   * per-day read cannot: whether an empty day means "not a working day" (it
+   * does keep one) or "no grid yet" (it does not), and whether falling back to
+   * the shared grid is allowed — a provider with its own grid must never be
+   * offered the shared one's times just because the chosen day is empty.
+   */
+  const { data: providerKeepsGrid = false, isLoading: gridCheckLoading } = useQuery<boolean>({
+    queryKey: ["admin-new-booking-has-grid", universalProviderId ?? "shared"],
+    enabled: open && !!universalProviderId,
     queryFn: async () => {
-      const { data } = await supabaseDb
+      const { data, error } = await supabaseDb
         .from("cleaning_available_slots")
-        .select("start_time,end_time,provider_id,is_active,date")
+        .select("id")
+        .eq("provider_id", universalProviderId)
+        .eq("is_active", true)
         .gte("date", todayHN())
-        .eq("is_active", true);
-      const rows = (data ?? []) as any[];
+        .limit(1);
+      if (error) throw error;
+      return (data ?? []).length > 0;
+    },
+  });
+
+  const { data: slotWindows = [], isLoading: windowsLoading } = useQuery<SlotWindow[]>({
+    queryKey: ["admin-new-booking-slot-windows", universalProviderId ?? "shared", date, providerKeepsGrid],
+    // Wait for the grid check: before it answers, an empty day would fall
+    // through to the shared grid and offer times this provider does not run.
+    enabled: open && !!date && !gridCheckLoading,
+    queryFn: async () => {
+      const read = (own: boolean) => {
+        let q = supabaseDb
+          .from("cleaning_available_slots")
+          .select("start_time,end_time,max_bookings,current_bookings")
+          .eq("date", date)
+          .eq("is_active", true)
+          .order("start_time");
+        q = own ? q.eq("provider_id", universalProviderId) : q.is("provider_id", null);
+        return q;
+      };
       // Same rule as the booking page: the provider's own grid when it keeps
       // one, the shared grid otherwise. Mixing them books against a schedule
       // this provider does not run.
-      const own = universalProviderId ? rows.filter((r) => r.provider_id === universalProviderId) : [];
-      const use = own.length ? own : rows.filter((r) => r.provider_id == null);
+      let rows: any[] = [];
+      if (universalProviderId) {
+        const { data, error } = await read(true);
+        if (error) throw error;
+        rows = data ?? [];
+      }
+      if (!rows.length && !providerKeepsGrid) {
+        const { data, error } = await read(false);
+        if (error) throw error;
+        rows = data ?? [];
+      }
 
       const hhmm = (t: string) => String(t ?? "").slice(0, 5);
-      const seen = new Map<string, { start: string; end: string }>();
-      for (const r of use) {
+      const seen = new Map<string, SlotWindow>();
+      for (const r of rows) {
         const start = hhmm(r.start_time);
         const end = hhmm(r.end_time);
         if (!start) continue;
-        if (!seen.has(`${start}-${end}`)) seen.set(`${start}-${end}`, { start, end });
+        const key = `${start}-${end}`;
+        const left = Math.max(0, (Number(r.max_bookings) || 0) - (Number(r.current_bookings) || 0));
+        const prev = seen.get(key);
+        seen.set(key, { start, end, left: (prev?.left ?? 0) + left });
       }
       return [...seen.values()].sort((a, b) => a.start.localeCompare(b.start));
     },
   });
 
   /** No grid at all — fall back to typing a time rather than blocking the admin. */
-  const noGrid = !windowsLoading && slotWindows.length === 0;
+  const noGrid = !windowsLoading && !gridCheckLoading && slotWindows.length === 0 && !providerKeepsGrid;
+  /** The provider has a grid, just not on this day (a Sunday, a day off). */
+  const dayOff = !windowsLoading && !gridCheckLoading && slotWindows.length === 0 && providerKeepsGrid;
 
   // Snap to a real window as soon as the grid is known.
   useEffect(() => {
@@ -336,6 +392,51 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
   /** Weekday choice only means something for the two weekly cadences. */
   const weekdaysApply = cadence === "weekly" || cadence === "biweekly";
 
+  /**
+   * Every date the chosen time actually exists on, across the seeded grid.
+   *
+   * The dialog checked only the first date; a repeat then walked through
+   * Sundays and days off, and ensureCleaningSlot seeded a slot on each — a
+   * visit on a day the provider does not work, counted against nothing. The
+   * series now keeps to the days this time is really run.
+   */
+  const { data: grid } = useQuery<{ dates: Set<string>; weekdays: Set<number>; last: string | null }>({
+    queryKey: ["admin-new-booking-working-dates", universalProviderId ?? "shared", providerKeepsGrid, startTime],
+    enabled: open && !!startTime && !gridCheckLoading && !noGrid,
+    queryFn: async () => {
+      const rows = await fetchAllRows<{ date: string }>(() => {
+        let q = supabaseDb
+          .from("cleaning_available_slots")
+          .select("date")
+          .eq("is_active", true)
+          .gte("date", todayHN())
+          .like("start_time", `${startTime}%`)
+          .order("date");
+        q = providerKeepsGrid && universalProviderId ? q.eq("provider_id", universalProviderId) : q.is("provider_id", null);
+        return q;
+      }, { maxRows: 5_000 });
+      const dates = new Set(rows.map((r) => String(r.date).slice(0, 10)));
+      const sorted = [...dates].sort();
+      return {
+        dates,
+        weekdays: new Set(sorted.map(dowOf)),
+        last: sorted.length ? sorted[sorted.length - 1] : null,
+      };
+    },
+  });
+
+  /**
+   * Is the chosen time run on `d`? Inside the seeded grid the grid answers.
+   * Past its end (it is seeded ahead a day at a time) the weekday pattern
+   * answers — a provider off on Sundays will still be off on Sundays. With no
+   * grid loaded yet, or none at all, nothing is refused.
+   */
+  const isWorkingDay = useMemo(() => (d: string) => {
+    if (!grid || !grid.dates.size) return true;
+    if (grid.last && d <= grid.last) return grid.dates.has(d);
+    return grid.weekdays.has(dowOf(d));
+  }, [grid]);
+
   // Build the list of dates to book — anchored on `date`, N entries total.
   // `once` = just the anchor.
   const dates = useMemo(() => {
@@ -356,6 +457,7 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
       for (let offset = 0; offset < horizon && out.length < n; offset += 1) {
         const d = offset === 0 ? date : addDaysISO(date, offset);
         if (!wanted.has(dowOf(d))) continue;
+        if (!isWorkingDay(d)) continue;
         if (cadence === "biweekly") {
           const weekIndex = Math.floor((offset + anchorMonday) / 7);
           if (weekIndex % 2 !== 0) continue;
@@ -365,9 +467,36 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
       return out;
     }
 
+    // Daily: take the next N days the time is run, stepping over days off.
+    if (cadence === "daily") {
+      const out: string[] = [];
+      for (let offset = 0; offset < n * 3 + 14 && out.length < n; offset += 1) {
+        const d = offset === 0 ? date : addDaysISO(date, offset);
+        if (isWorkingDay(d)) out.push(d);
+      }
+      return out;
+    }
+
+    // Weekly / every 2 weeks / monthly: a visit that lands on a day off moves
+    // to the next working day rather than disappearing — a monthly customer
+    // whose date falls on a Sunday still gets that month's cleaning. Never
+    // past the next scheduled visit, so two visits cannot collapse into one.
     const step = CADENCE_DAYS[cadence];
-    return Array.from({ length: n }, (_, i) => (i === 0 ? date : addDaysISO(date, i * step)));
-  }, [cadence, count, date, weekdays, weekdaysApply]);
+    const out: string[] = [];
+    for (let i = 0; i < n; i += 1) {
+      const target = i === 0 ? date : addDaysISO(date, i * step);
+      let d: string | null = null;
+      for (let shift = 0; shift < step; shift += 1) {
+        const c = shift === 0 ? target : addDaysISO(target, shift);
+        if (isWorkingDay(c)) { d = c; break; }
+      }
+      if (d && !out.includes(d)) out.push(d);
+    }
+    return out;
+  }, [cadence, count, date, weekdays, weekdaysApply, isWorkingDay]);
+
+  /** Visits the series had to drop because no working day was left in their window. */
+  const droppedVisits = cadence === "once" ? 0 : Math.max(0, Math.max(1, Math.min(count, 60)) - dates.length);
 
   const create = useMutation({
     mutationFn: async () => {
@@ -598,6 +727,14 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
                   slots to keep bookings on one schedule.
                 </p>
               </div>
+            ) : dayOff ? (
+              <div>
+                <Label>Time slot *</Label>
+                <p className="rounded-radius-md bg-muted/40 px-3 py-2.5 text-sm text-muted-foreground">
+                  This provider doesn't work on {WEEKDAYS.find((d) => d.dow === dowOf(date))?.short ?? "this day"}s
+                  — no slots on {date}. Pick another date.
+                </p>
+              </div>
             ) : (
               <div>
                 <Label>Time slot *</Label>
@@ -617,6 +754,11 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
                     {slotWindows.map((w) => (
                       <SelectItem key={`${w.start}-${w.end}`} value={w.start}>
                         {w.start}{w.end ? ` – ${w.end}` : ""}
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          {/* Still selectable when full: squeezing one more
+                              visit in is what this dialog is for. */}
+                          {w.left > 0 ? `${w.left} left` : "full"}
+                        </span>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -673,16 +815,21 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
                   <div className="flex flex-wrap gap-1">
                     {WEEKDAYS.map((d) => {
                       const on = weekdays.includes(d.dow);
+                      // A day the provider never runs this time cannot be picked.
+                      const off = !!grid?.weekdays.size && !grid.weekdays.has(d.dow);
                       return (
                         <button
                           key={d.dow}
                           type="button"
+                          disabled={off && !on}
+                          title={off ? "The provider doesn't run this time on this day" : undefined}
                           onClick={() => setWeekdays((prev) =>
                             prev.includes(d.dow) ? prev.filter((x) => x !== d.dow) : [...prev, d.dow])}
                           className={cn(
                             "rounded-full px-2.5 py-1 text-xs font-semibold transition-colors",
                             on ? "bg-primary text-primary-foreground"
                                : "bg-card text-muted-foreground hover:text-foreground",
+                            off && !on && "pointer-events-none opacity-40 line-through",
                           )}
                         >
                           {d.short}
@@ -728,6 +875,15 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
                   </span>
                 </div>
               )}
+              {cadence !== "once" && grid?.dates.size ? (
+                <p className="text-xs text-muted-foreground">
+                  Days the provider doesn't run {startTime} are skipped
+                  {cadence === "daily" || weekdays.length ? "" : " — a visit that lands on one moves to the next working day"}.
+                  {droppedVisits > 0 && (
+                    <span className="text-amber-500"> {droppedVisits} visit{droppedVisits === 1 ? "" : "s"} had no working day left and won't be booked.</span>
+                  )}
+                </p>
+              ) : null}
             </div>
           </div>
 
@@ -737,7 +893,7 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
               onClick={() => create.mutate()}
               // `target`, not `subId` — booking for a bare customer never sets
               // a subscription id, so the old check left the button dead.
-              disabled={!target || !date || !startTime || !dates.length || create.isPending}
+              disabled={!target || !date || !startTime || !dates.length || dayOff || create.isPending}
             >
               {create.isPending && <Spinner size="sm" className="mr-2" />}
               {dates.length > 1 ? `Create ${dates.length} bookings` : "Create booking"}
