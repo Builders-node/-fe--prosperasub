@@ -21,7 +21,7 @@ place that doesn't exist this file warns against.
 | `hero-pool-deck.jpg` | **Real** — the main pool and the resort behind it | Pool deck at golden hour, water and loungers, one or two people. Leave headroom — type sits over the top. Landscape 16:7. |
 | `pool-main.jpg` | **Real** — the pool complex wide, lazy river through it | The main pool, shot wide, water filling most of the frame. This is the largest tile in the mosaic — make it the best picture you have. |
 | `water-park.jpg` | **Missing** | A slide mid-use. Kids, spray, movement. |
-| `gym.jpg` | **Missing** | Equipment with daylight through the windows. |
+| `gym.jpg` | **Real** — the club gym, benches and treadmills | Equipment with daylight through the windows. |
 | `tennis.jpg` | **Real** — two players at the net | Court from behind the baseline, net in frame. |
 | `pickleball.jpg` | **Real** — four players mid-rally (the brief asks for a tighter shot) | Paddle and ball, close and tight. |
 | `petes-range.jpg` | **Real** — a tee shot over the water at Pete Dye (the brief asks for the range mat) | A bucket of balls on the mat, tee line behind. |
