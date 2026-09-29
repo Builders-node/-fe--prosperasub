@@ -51,6 +51,15 @@ export interface CheckoutAnswers {
    */
   promoCode?: string | null;
   promoDiscountCents?: number;
+  /**
+   * Bonus balance spent on this order.
+   *
+   * A claim, not an instruction: `bonus_spend_on_order` re-reads the balance
+   * when the row lands and refuses the whole insert if it is not there — which
+   * is the right failure, because a checkout that fails is recoverable and a
+   * customer charged less than they had is not.
+   */
+  creditAppliedCents?: number;
 }
 
 export interface SubscriptionWrite {
@@ -82,6 +91,9 @@ export function buildSubscriptionWrite(
   const promo = a.promoCode
     ? { promo_code: a.promoCode.toUpperCase(), promo_discount_cents: discount }
     : {};
+  const credit = a.creditAppliedCents && a.creditAppliedCents > 0
+    ? { credit_applied_cents: Math.round(a.creditAppliedCents) }
+    : {};
   const included = (plan.unitQuantity ?? 0) * Math.max(1, a.periods);
 
   if (plan.service === "food") {
@@ -106,6 +118,7 @@ export function buildSubscriptionWrite(
         notes: a.notes || null,
         selected_meals: a.selections.length ? a.selections : null,
         ...promo,
+        ...credit,
       }, extra),
     };
   }
@@ -136,6 +149,7 @@ export function buildSubscriptionWrite(
         apartment_note: a.address || null,
         customer_whatsapp: a.phone || null,
         ...promo,
+        ...credit,
       }, extra),
     };
   }
@@ -174,6 +188,7 @@ export function buildSubscriptionWrite(
           surcharge_cents: surcharge,
         },
         ...promo,
+        ...credit,
       }, extra),
     };
   }
@@ -213,6 +228,7 @@ export function buildSubscriptionWrite(
         total_charged_cents: a.chargedCents,
       },
       ...promo,
+      ...credit,
     }, extra),
   };
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Bitcoin, Copy, CreditCard, ExternalLink, Loader2, Mail, MessageCircle, RefreshCw, Zap } from "lucide-react";
+import { Bitcoin, Coins, Copy, CreditCard, ExternalLink, Loader2, Mail, MessageCircle, RefreshCw, Zap } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -39,7 +39,11 @@ const PAYMENT_METHOD_META = [
   { method: "lightning", label: "Lightning", description: "Instant Bitcoin Lightning payments (Blink).", icon: Zap },
   { method: "onchain", label: "On-chain Bitcoin", description: "On-chain BTC via Blink.", icon: Bitcoin },
   { method: "paypal", label: "PayPal", description: "Pay with PayPal or card.", icon: CreditCard },
+  { method: "crypto_gateway", label: "Other crypto", description: "USDT, USDC, ETH, SOL… via the crypto gateway (NOWPayments). Needs NOWPAYMENTS_API_KEY on the backend.", icon: Coins },
 ] as const;
+
+/** Off until switched on — mirrors usePaymentMethods, so the toggle shows what the till does. */
+const OFF_UNLESS_ENABLED = new Set<string>(["crypto_gateway"]);
 
 type TestInvoice = {
   payment_hash: string;
@@ -197,7 +201,7 @@ const AdminPayments = () => {
       const { error } = await supabaseDb
         .from("payment_method_settings")
         .upsert(
-          { method, enabled: existing?.enabled ?? true, surcharge_percent: percent, updated_at: new Date().toISOString() },
+          { method, enabled: existing?.enabled ?? !OFF_UNLESS_ENABLED.has(method), surcharge_percent: percent, updated_at: new Date().toISOString() },
           { onConflict: "method" },
         );
       if (error) throw error;
@@ -211,7 +215,7 @@ const AdminPayments = () => {
 
   const isMethodEnabled = (method: string) => {
     const row = methodSettings.find((r) => r.method === method);
-    return row ? row.enabled : true;
+    return row ? row.enabled : !OFF_UNLESS_ENABLED.has(method);
   };
   const methodSurcharge = (method: string) => {
     const row = methodSettings.find((r) => r.method === method);

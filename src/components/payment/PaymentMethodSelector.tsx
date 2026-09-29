@@ -1,7 +1,12 @@
-import { Zap, Bitcoin, Check } from "lucide-react";
+import { Zap, Bitcoin, Check, Coins } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type PaymentMethod = "lightning" | "onchain" | "paypal";
+/**
+ * `crypto_gateway` — any non-Bitcoin coin (USDT, USDC, ETH, SOL…) taken
+ * through a gateway; see backend/src/payments/crypto-gateway. A checkout opts
+ * in to it through `usePaymentMethods({ supported })`; the others never see it.
+ */
+export type PaymentMethod = "lightning" | "onchain" | "paypal" | "crypto_gateway";
 
 interface Props {
   value: PaymentMethod;
@@ -18,7 +23,7 @@ const PayPalIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-const ALL: PaymentMethod[] = ["lightning", "onchain", "paypal"];
+const ALL: PaymentMethod[] = ["lightning", "onchain", "crypto_gateway", "paypal"];
 
 // Yandex Lavka pattern: each method is a row with a brand-tinted icon tile
 // (48×48 rounded), title + subtitle, and a filled/outlined radio circle on the
@@ -48,6 +53,13 @@ const META: Record<
     tileBg: "bg-[#0070ba]/15",
     iconColor: "text-[#0070ba]",
     Icon: PayPalIcon,
+  },
+  crypto_gateway: {
+    label: "Other crypto",
+    subtitle: "USDT, USDC, ETH, SOL and more",
+    tileBg: "bg-[#26a17b]/15",
+    iconColor: "text-[#26a17b]",
+    Icon: ({ className }) => <Coins className={className} />,
   },
 };
 

@@ -1,5 +1,8 @@
-import type { ReactNode } from "react";
-import { ArrowRight } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import { ArrowRight, MapPin } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { DeliveryDialog } from "@/components/account/DeliveryDialog";
+import { subscriberSourceFor } from "@/services/subscribers";
 import { ResponsiveDialog } from "@/components/patterns/ResponsiveDialog";
 import { StatusPill } from "@/components/patterns/StatusPill";
 import { PaymentMethodBadge, PaymentReference } from "@/components/admin/PaymentMethodBadge";
@@ -39,6 +42,19 @@ export interface PurchaseDetail {
   tip?: { service: string; subscriptionRef: string; providerId?: string | null; providerName?: string | null; customerName?: string | null };
   /** Rate the provider — the same widget on every service. */
   review?: { service: Service; itemId?: string | null; subscriptionId: string; providerId?: string | null; customerName?: string | null };
+  /**
+   * Where this one goes, and the door to change it.
+   *
+   * A customer who moved had to ask the business, who moved it from their own
+   * screen — the same change, from the wrong side of it. `ownerUserId` is what
+   * keeps the write to their own row.
+   */
+  delivery?: {
+    sourceKey: string;
+    subscriptionId: string;
+    ownerUserId: string | null;
+    current?: string | null;
+  };
 }
 
 function Row({ label, value }: { label: string; value: ReactNode }) {
@@ -52,11 +68,15 @@ function Row({ label, value }: { label: string; value: ReactNode }) {
 }
 
 export function SubscriptionDetailSheet({
-  detail, onClose,
+  detail, onClose, onDeliverySaved,
 }: {
   detail: PurchaseDetail | null;
   onClose: () => void;
+  /** So the list behind the sheet reloads the address it is showing. */
+  onDeliverySaved?: () => void;
 }) {
+  const [editingDelivery, setEditingDelivery] = useState(false);
+
   return (
     <ResponsiveDialog open={!!detail} onOpenChange={(o) => !o && onClose()} title="Your purchase">
       {detail && (
@@ -139,6 +159,27 @@ export function SubscriptionDetailSheet({
             </div>
           )}
 
+          {/* Where it goes. A row rather than a field, because most of the time
+              it is just a fact — the button is for the day it is not. */}
+          {detail.delivery && (
+            <div className="mt-4 rounded-radius-md bg-inset p-4">
+              <div className="flex items-start gap-3">
+                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[12px] uppercase tracking-wider text-muted-foreground">
+                    Delivered to
+                  </p>
+                  <p className="break-words text-[14px] font-semibold text-foreground">
+                    {detail.delivery.current || "Not set"}
+                  </p>
+                </div>
+                <Button size="sm" variant="secondary" onClick={() => setEditingDelivery(true)}>
+                  Change
+                </Button>
+              </div>
+            </div>
+          )}
+
           {detail.action && (
             <button
               type="button"
@@ -168,6 +209,20 @@ export function SubscriptionDetailSheet({
             </button>
           )}
         </div>
+      )}
+
+      {/* The same dialog the business uses on its own subscriber list — one
+          change, one form, whichever side of it you are on. */}
+      {detail?.delivery && (
+        <DeliveryDialog
+          open={editingDelivery}
+          shape={subscriberSourceFor(detail.delivery.sourceKey)}
+          subscriptionId={detail.delivery.subscriptionId}
+          title={detail.title}
+          ownerUserId={detail.delivery.ownerUserId}
+          onClose={() => setEditingDelivery(false)}
+          onSaved={() => { setEditingDelivery(false); onDeliverySaved?.(); }}
+        />
       )}
     </ResponsiveDialog>
   );

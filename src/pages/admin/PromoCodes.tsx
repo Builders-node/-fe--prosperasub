@@ -57,6 +57,78 @@ interface PromoRow {
 const valueOf = (p: PromoRow) =>
   p.kind === "percent" ? `${p.percent_off}% off` : `${formatUSD(p.amount_off_cents ?? 0)} off`;
 
+/**
+ * Cashback, on the same page as promo codes because it is the same money: a
+ * discount the platform funds out of its commission, not the business.
+ */
+function BonusSettings() {
+  const qc = useQueryClient();
+  const [draft, setDraft] = useState<{ cashback: string; share: string } | null>(null);
+
+  const { data, isError } = useQuery({
+    queryKey: ["admin-bonus-settings"],
+    queryFn: async () => {
+      const { data: d, error } = await adminApi("/admin/bonus-settings");
+      if (error) throw error;
+      return d as { cashbackPct: number; maxSharePct: number };
+    },
+  });
+
+  const save = useMutation({
+    mutationFn: async () => {
+      const { error } = await adminApi("/admin/bonus-settings", {
+        method: "PATCH",
+        body: JSON.stringify({
+          cashback_pct: Number(draft?.cashback ?? 0),
+          max_share_pct: Number(draft?.share ?? 100),
+        }),
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Saved");
+      setDraft(null);
+      void qc.invalidateQueries({ queryKey: ["admin-bonus-settings"] });
+    },
+    onError: (e) => toast.error(adminApiMessage(e, "Could not save")),
+  });
+
+  if (isError) return null;
+
+  const cashback = draft?.cashback ?? String(data?.cashbackPct ?? 0);
+  const share = draft?.share ?? String(data?.maxSharePct ?? 100);
+  const edit = (patch: Partial<{ cashback: string; share: string }>) =>
+    setDraft({ cashback, share, ...patch });
+
+  return (
+    <section className="mb-5 rounded-radius-md bg-card p-5">
+      <h2 className="text-caption font-bold uppercase tracking-[0.16em] text-muted-foreground">
+        Bonus
+      </h2>
+      <p className="mt-1 text-[13px] text-muted-foreground">
+        Customers earn this share of what they actually pay — after any promo —
+        and spend it on a later order. Zero switches it off.
+      </p>
+      <div className="mt-3 flex flex-wrap items-end gap-3">
+        <div className="w-[160px]">
+          <Label htmlFor="b-cashback">Give back (%)</Label>
+          <Input id="b-cashback" type="number" min="0" max="100" value={cashback}
+                 onChange={(e) => edit({ cashback: e.target.value })} />
+        </div>
+        <div className="w-[200px]">
+          <Label htmlFor="b-share">Max of one order (%)</Label>
+          <Input id="b-share" type="number" min="0" max="100" value={share}
+                 onChange={(e) => edit({ share: e.target.value })} />
+        </div>
+        <Button variant="secondary" disabled={!draft || save.isPending}
+                onClick={() => save.mutate()} loading={save.isPending}>
+          Save
+        </Button>
+      </div>
+    </section>
+  );
+}
+
 const PromoCodes = () => {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
@@ -113,6 +185,7 @@ const PromoCodes = () => {
 
   return (
     <SuperAdminLayout title="Promo codes" subtitle="Discounts the platform pays for, not the business">
+      <BonusSettings />
       <AdminListShell
         search={search}
         onSearch={setSearch}

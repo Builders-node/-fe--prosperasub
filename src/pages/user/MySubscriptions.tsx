@@ -1162,6 +1162,12 @@ const MySubscriptions = () => {
                         cancel: cancelSheetAction("food", s, s.food_meal_plans?.name ?? "meal plan"),
                         tip: { service: "food", subscriptionRef: String(s.id), providerId: s.provider_id ?? null, providerName: s.food_providers?.name ?? null, customerName: s.customer_name ?? userData?.name ?? null },
                         review: { service: "food_provider", itemId: s.provider_id, subscriptionId: String(s.id), customerName: s.customer_name ?? userData?.name ?? null },
+                        delivery: {
+                          sourceKey: "food",
+                          subscriptionId: String(s.id),
+                          ownerUserId: s.user_id ?? null,
+                          current: s.delivery_address ?? null,
+                        },
                         action: (s.provider_id && s.meal_plan_id)
                           ? { label: "View plan", onClick: () => navigate(`/services/food/${s.provider_id}/plans/${s.meal_plan_id}`) }
                           : undefined,
@@ -1324,6 +1330,12 @@ const MySubscriptions = () => {
                         cancel: cancelSheetAction("plan", s, s.provider_plans?.name ?? "subscription"),
                         tip: { service: "plan", subscriptionRef: String(s.id), providerId: s.provider_id ?? s.providers?.id ?? null, providerName: providerName, customerName: userData?.name ?? null },
                         review: { service: "plan", subscriptionId: String(s.id), providerId: s.provider_id ?? s.providers?.id ?? null, customerName: userData?.name ?? null },
+                        delivery: {
+                          sourceKey: "plan",
+                          subscriptionId: String(s.id),
+                          ownerUserId: s.user_id ?? null,
+                          current: s.service_address ?? null,
+                        },
                       })}
                       statusBadge={<StatusPill status={label} />}
                       actions={st === "cancelled" ? [] : [
@@ -1529,6 +1541,12 @@ const MySubscriptions = () => {
                             cancel: cancelSheetAction("cleaning", sub, (sub as any).cleaning_packages?.name ?? "cleaning plan"),
                             tip: { service: "cleaning", subscriptionRef: String(sub.id), providerId: null, providerName: (sub as any).cleaning_packages?.name ?? null, customerName: userData?.name ?? null },
                             review: { service: "cleaning", itemId: sub.package_id, subscriptionId: String(sub.id), customerName: userData?.name ?? null },
+                            delivery: {
+                              sourceKey: "cleaning",
+                              subscriptionId: String(sub.id),
+                              ownerUserId: sub.user_id ?? null,
+                              current: sub.apartment_note ?? null,
+                            },
                             action: sub.package_id ? { label: "View plan", onClick: () => navigate(`/services/cleaning/plans/${encodeURIComponent(sub.package_id)}`) } : undefined,
                             sessions: bookingSessions(sub.id),
                           })}
@@ -1622,6 +1640,12 @@ const MySubscriptions = () => {
                             action: sub.package_id ? { label: "View plan", onClick: () => navigate(`/services/cleaning/plans/${encodeURIComponent(sub.package_id)}`) } : undefined,
                             tip: { service: "cleaning", subscriptionRef: String(sub.id), providerId: null, providerName: (sub as any).cleaning_packages?.name ?? null, customerName: userData?.name ?? null },
                             review: { service: "cleaning", itemId: sub.package_id, subscriptionId: String(sub.id), customerName: userData?.name ?? null },
+                            delivery: {
+                              sourceKey: "cleaning",
+                              subscriptionId: String(sub.id),
+                              ownerUserId: sub.user_id ?? null,
+                              current: sub.apartment_note ?? null,
+                            },
                             sessions: bookingSessions(sub.id),
                           })}
                           actions={sub.package_id ? [
@@ -1891,7 +1915,15 @@ const MySubscriptions = () => {
           onConfirm={() => navigate(pendingRenewal.targetUrl)}
         />
       )}
-      <SubscriptionDetailSheet detail={detail} onClose={() => setDetail(null)} />
+      <SubscriptionDetailSheet
+        detail={detail}
+        onClose={() => setDetail(null)}
+        onDeliverySaved={() => {
+          // The address is printed on the card behind the sheet too.
+          void queryClient.invalidateQueries();
+          setDetail(null);
+        }}
+      />
       </PullToRefresh>
     </UserLayout>
   );

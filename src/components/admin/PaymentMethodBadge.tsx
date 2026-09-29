@@ -10,18 +10,22 @@ export function normalizePaymentMethod(method?: string | null): PaymentMethodKey
   // stores this as "crypto", so treat crypto/solana/lives as Infinita.
   if (m === "infinita" || m === "lives" || m === "crypto" || m === "solana") return "infinita";
   if (m === "paypal") return "paypal";
+  // Any non-Bitcoin coin through the gateway (NOWPayments…). Not "crypto":
+  // that value belongs to historical Infinita/LIVES rows.
+  if (m === "crypto_gateway") return "crypto_gateway";
   if (m === "cash") return "cash";
   if (m === "free" || m === "comp") return "free";
   if (m === "manual" || m === "external" || m === "offline" || m === "bank") return "manual";
   return "unknown";
 }
 
-type PaymentMethodKey = "lightning" | "onchain" | "infinita" | "paypal" | "cash" | "free" | "manual" | "unknown";
+type PaymentMethodKey = "lightning" | "onchain" | "infinita" | "crypto_gateway" | "paypal" | "cash" | "free" | "manual" | "unknown";
 
 const META: Record<PaymentMethodKey, { label: string; Icon: LucideIcon; className: string }> = {
   lightning: { label: "Lightning", Icon: Zap,      className: "bg-yellow-500/15 text-yellow-500" },
   onchain:   { label: "On-chain",  Icon: Bitcoin,  className: "bg-orange-500/15 text-orange-400" },
   infinita:  { label: "LIVES",     Icon: Coins,    className: "bg-violet-500/15 text-violet-400" },
+  crypto_gateway: { label: "Crypto", Icon: Coins, className: "bg-emerald-500/15 text-emerald-400" },
   paypal:    { label: "PayPal",    Icon: Wallet,   className: "bg-blue-500/15 text-blue-400" },
   cash:      { label: "Cash",      Icon: Banknote, className: "bg-green-500/15 text-green-400" },
   free:      { label: "Free",      Icon: Gift,     className: "bg-pink-500/15 text-pink-400" },

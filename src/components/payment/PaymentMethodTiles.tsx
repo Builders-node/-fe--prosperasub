@@ -1,4 +1,4 @@
-import { Bitcoin, CreditCard } from "lucide-react";
+import { Bitcoin, Coins, CreditCard } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PaymentMethod } from "./PaymentMethodSelector";
 
@@ -26,7 +26,7 @@ interface Props {
   available?: PaymentMethod[];
 }
 
-const ALL: PaymentMethod[] = ["lightning", "onchain", "paypal"];
+const ALL: PaymentMethod[] = ["lightning", "onchain", "crypto_gateway", "paypal"];
 
 /** The ₿ the design uses for both Bitcoin rails. */
 const BitcoinGlyph = ({ className }: { className?: string }) => (
@@ -40,6 +40,8 @@ const META: Record<
   lightning: { label: "Bitcoin", sub: "Lightning", tile: "bg-[#f7931a]", glyph: "text-[#f7931a]", Icon: BitcoinGlyph },
   onchain:   { label: "Bitcoin", sub: "On-chain",  tile: "bg-[#f7931a]", glyph: "text-[#f7931a]", Icon: BitcoinGlyph },
   paypal:    { label: "PayPal",  sub: null,        tile: "bg-[#5b6ee1]", glyph: "text-[#5b6ee1]", Icon: CreditCard },
+  // Tether green: USDT is what most of these payments will be.
+  crypto_gateway: { label: "Crypto", sub: "USDT · ETH…", tile: "bg-[#26a17b]", glyph: "text-[#26a17b]", Icon: Coins },
 };
 
 export function PaymentMethodTiles({ value, onChange, disabled, available }: Props) {
@@ -54,7 +56,7 @@ export function PaymentMethodTiles({ value, onChange, disabled, available }: Pro
   }
 
   return (
-    <div className="grid grid-cols-3 gap-2">
+    <div className={cn("grid gap-2", methods.length === 4 ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3")}>
       {methods.map((m) => {
         const active = value === m;
         const { label, sub, tile, glyph, Icon } = META[m];

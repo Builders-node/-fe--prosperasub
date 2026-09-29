@@ -349,6 +349,15 @@ export async function saveDelivery(
   source: SubscriberSource,
   subscriptionId: string,
   values: Record<string, string>,
+  /**
+   * Set when the CUSTOMER is editing their own subscription.
+   *
+   * The service tables carry a permissive policy for legacy reasons, so the
+   * row id alone would let that screen write to anybody's. Carrying the owner
+   * as a filter means the customer's own door can only ever move their own
+   * address — the update matches nothing otherwise.
+   */
+  ownerUserId?: string,
 ): Promise<void> {
   const fields = source.deliveryFields ?? [];
   if (!fields.length) throw new Error("This service has no delivery details to edit.");
@@ -357,6 +366,13 @@ export async function saveDelivery(
     const v = (values[f.column] ?? "").trim();
     patch[f.column] = v === "" ? null : v;
   }
-  const { error } = await supabaseDb.from(source.table).update(patch).eq("id", subscriptionId);
+  let q = supabaseDb.from(source.table).update(patch).eq("id", subscriptionId);
+  if (ownerUserId) q = q.eq("user_id", ownerUserId);
+  // `select` so the update reports which rows it actually matched: with the
+  // owner filter on, no rows means the id was not theirs.
+  const { data, error } = await q.select("id");
   if (error) throw error;
+  if (ownerUserId && !(data ?? []).length) {
+    throw new Error("That subscription is not yours to change.");
+  }
 }

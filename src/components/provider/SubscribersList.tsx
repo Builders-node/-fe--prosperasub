@@ -15,9 +15,7 @@ import {
   subscriberSourceFor, fetchDelivery, saveDelivery,
   type SubscriberRow, type SubscriberSource,
 } from "@/services/subscribers";
-import { ResponsiveDialog } from "@/components/patterns/ResponsiveDialog";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
+import { DeliveryDialog } from "@/components/account/DeliveryDialog";
 import { WorkspaceCard, WorkspaceEmpty, WorkspaceSection } from "@/components/provider/WorkspaceUI";
 import { CustomerPhone } from "@/components/patterns/CustomerPhone";
 import { SaleOriginBadge } from "@/components/patterns/SaleOrigin";
@@ -256,8 +254,10 @@ export function SubscribersList({ providerId, legacyId, sourceKey }: {
       )}
 
       <DeliveryDialog
-        row={deliveryFor}
+        open={!!deliveryFor}
         shape={shape}
+        subscriptionId={deliveryFor?.id ?? null}
+        title={deliveryFor ? (deliveryFor.customerName || deliveryFor.customerEmail || "Customer") : null}
         onClose={() => setDeliveryFor(null)}
         onSaved={() => { void qc.invalidateQueries({ queryKey: KEY }); setDeliveryFor(null); }}
       />
@@ -274,84 +274,3 @@ export function SubscribersList({ providerId, legacyId, sourceKey }: {
  * vertical it is looking at, which is the point: a new service that names its
  * columns gets this form for free.
  */
-function DeliveryDialog({ row, shape, onClose, onSaved }: {
-  row: SubscriberRow | null;
-  shape: SubscriberSource;
-  onClose: () => void;
-  onSaved: () => void;
-}) {
-  const fields = shape.deliveryFields ?? [];
-  const [values, setValues] = useState<Record<string, string>>({});
-  const [saving, setSaving] = useState(false);
-
-  const { data: loaded, isLoading } = useQuery({
-    queryKey: ["subscription-delivery", shape.table, row?.id],
-    enabled: !!row && fields.length > 0,
-    // Always the row as it is right now: this list can be minutes old, and
-    // saving a stale address would quietly overwrite a newer one.
-    staleTime: 0,
-    queryFn: () => fetchDelivery(shape, row!.id),
-  });
-
-  // Seed the draft once the real values arrive, keyed on the row so opening a
-  // second customer does not inherit the first one's address. An effect, not a
-  // memo: setting state is the whole point of it.
-  useEffect(() => { setValues(loaded ?? {}); }, [loaded, row?.id]);
-
-  const submit = async () => {
-    if (!row) return;
-    setSaving(true);
-    try {
-      await saveDelivery(shape, row.id, values);
-      toast.success("Saved");
-      onSaved();
-    } catch (e: any) {
-      toast.error(e?.message || "Could not save");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <ResponsiveDialog
-      open={!!row}
-      onOpenChange={(o) => !o && onClose()}
-      title={shape.deliveryLabel ?? "Delivery details"}
-      description={row ? (row.customerName || row.customerEmail || "Customer") : undefined}
-      footer={
-        <Button className="w-full" onClick={() => void submit()} disabled={saving || isLoading} loading={saving} loadingText="Saving…">
-          Save
-        </Button>
-      }
-    >
-      {isLoading ? (
-        <PageLoader />
-      ) : (
-        <div className="space-y-4">
-          {fields.map((f) => (
-            <div key={f.column}>
-              <Label htmlFor={`d-${f.column}`}>{f.label}</Label>
-              {f.multiline ? (
-                <Textarea
-                  id={`d-${f.column}`}
-                  rows={2}
-                  value={values[f.column] ?? ""}
-                  placeholder={f.placeholder}
-                  onChange={(e) => setValues((v) => ({ ...v, [f.column]: e.target.value }))}
-                />
-              ) : (
-                <Input
-                  id={`d-${f.column}`}
-                  value={values[f.column] ?? ""}
-                  placeholder={f.placeholder}
-                  onChange={(e) => setValues((v) => ({ ...v, [f.column]: e.target.value }))}
-                />
-              )}
-              {f.hint && <p className="mt-1 text-[12px] text-muted-foreground">{f.hint}</p>}
-            </div>
-          ))}
-        </div>
-      )}
-    </ResponsiveDialog>
-  );
-}

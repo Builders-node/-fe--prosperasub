@@ -5,7 +5,7 @@ import { CheckoutStickyFooter } from "@/components/patterns/CheckoutStickyFooter
 import { AddToCartButton } from "@/components/cart/AddToCartButton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CheckCircle2, RefreshCw, Wallet, CalendarDays, Sparkles, MapPin, MessageCircle } from "lucide-react";
+import { CheckCircle2, Gift, RefreshCw, Wallet, CalendarDays, Sparkles, MapPin, MessageCircle } from "lucide-react";
 import { CheckoutSuccessPanel } from "@/components/patterns/CheckoutSuccessPanel";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabaseDb } from "@/integrations/supabase/client";
@@ -18,6 +18,8 @@ import { nowHN } from "@/lib/timezone";
 import { UserLayout } from "@/components/layout/UserLayout";
 import { useBtcPrice } from "@/hooks/useBtcPrice";
 import { formatUSD, centsToDollars } from "@/lib/pricing";
+import { useBonusBalance } from "@/hooks/useBonusBalance";
+import { Switch } from "@/components/ui/switch";
 import { NotesField } from "@/components/patterns/NotesField";
 import { phoneError } from "@/components/patterns/CustomerPhone";
 import { usePhonePrefill } from "@/hooks/useAccountPhone";
@@ -25,6 +27,7 @@ import type { PaymentMethod } from "@/components/payment/PaymentMethodSelector";
 import { usePaymentMethods } from "@/hooks/usePaymentMethods";
 import { PayPalPanel } from "@/components/payment/PayPalPanel";
 import { InvoiceQrPanel } from "@/components/payment/InvoiceQrPanel";
+import { CryptoGatewayPanel } from "@/components/payment/CryptoGatewayPanel";
 import { attachPaymentReference } from "@/lib/payments/pendingReference";
 import { useInvoicePayment } from "@/hooks/useInvoicePayment";
 import { serviceListingHref, serviceSlug } from "@/lib/services/serviceUrls";
@@ -111,7 +114,11 @@ const UniversalPlanCheckout = () => {
   const renewKeyRef = useRef<string | null>(null);
 
   const { btcPrice, isLoading: isPriceLoading, convertToSats, refreshPrice } = useBtcPrice();
-  const { enabled: enabledMethods, addSurchargeCents, surchargePercent } = usePaymentMethods();
+  // Renewals are verified server-side per rail, and the renewal endpoint does
+  // not know the crypto gateway yet — so it is offered on new purchases only.
+  const { enabled: enabledMethods, addSurchargeCents, surchargePercent } = usePaymentMethods({
+    supported: renewSubId ? ["lightning", "onchain", "paypal"] : ["lightning", "onchain", "crypto_gateway", "paypal"],
+  });
 
   useEffect(() => {
     if (enabledMethods.length > 0 && !enabledMethods.includes(paymentMethod)) {
@@ -257,7 +264,21 @@ const UniversalPlanCheckout = () => {
   };
 
   const discountCents = Math.min(promo?.discountCents ?? 0, totalCents);
-  const payableCents = Math.max(0, totalCents - discountCents);
+
+  /**
+   * Bonus balance, spent on this order.
+   *
+   * Applied AFTER the promo, on what is left — two reductions that each took
+   * the full price could between them exceed it. The figure written to the row
+   * is a claim: the database re-reads the balance when the order is written
+   * and refuses anything larger, so nothing here is load-bearing.
+   */
+  const { balanceCents } = useBonusBalance();
+  const [useBonus, setUseBonus] = useState(false);
+  const afterPromoCents = Math.max(0, totalCents - discountCents);
+  const bonusCents = useBonus ? Math.min(balanceCents, afterPromoCents) : 0;
+
+  const payableCents = Math.max(0, afterPromoCents - bonusCents);
   const effectiveTotalCents = addSurchargeCents(payableCents, paymentMethod);
   const feePct = surchargePercent(paymentMethod);
   const estimatedSats = convertToSats(centsToDollars(effectiveTotalCents));
@@ -309,6 +330,7 @@ const UniversalPlanCheckout = () => {
     selections,
     promoCode: promo?.code ?? null,
     promoDiscountCents: discountCents,
+    creditAppliedCents: bonusCents,
   });
   const buildRow = (method: string) => write(method).row;
   const subTable = () => write("lightning").table;
@@ -450,7 +472,9 @@ const UniversalPlanCheckout = () => {
       const reserved = await reservePending(methodKey);
       if (!reserved) return;
 
-      if (paymentMethod === "paypal") {
+      // Both take the money in their own panel (PayPal's buttons, the coin
+      // picker), so there is nothing to generate here.
+      if (paymentMethod === "paypal" || paymentMethod === "crypto_gateway") {
         setShowPayment(true);
         return;
       }
@@ -475,7 +499,7 @@ const UniversalPlanCheckout = () => {
     }
   };
 
-  const onExternalPaid = (ref: string, method: "crypto" | "paypal") => {
+  const onExternalPaid = (ref: string, method: "crypto_gateway" | "paypal") => {
     setIsPaid(true);
     if (!mutationCalledRef.current) {
       mutationCalledRef.current = true;
@@ -779,6 +803,26 @@ const UniversalPlanCheckout = () => {
           )}
         </section>
 
+        {/* Bonus. Only when there is some — an empty balance is a row that
+            teaches the customer nothing and takes up the same space. */}
+        {balanceCents > 0 && afterPromoCents > 0 && (
+          <section className="flex items-center gap-3 rounded-radius-md bg-card p-4">
+            <Gift className="h-5 w-5 shrink-0 text-primary" />
+            <div className="min-w-0 flex-1">
+              <p className="text-[15px] font-semibold text-foreground">
+                Use your bonus
+              </p>
+              <p className="text-[13px] text-muted-foreground">
+                {formatUSD(balanceCents)} available
+                {useBonus && bonusCents < balanceCents
+                  ? ` — ${formatUSD(bonusCents)} covers this order`
+                  : ""}
+              </p>
+            </div>
+            <Switch checked={useBonus} onCheckedChange={setUseBonus} />
+          </section>
+        )}
+
         <ResumeCard
           goodsCents={totalCents}
           feeCents={Math.max(0, effectiveTotalCents - payableCents)}
@@ -787,6 +831,9 @@ const UniversalPlanCheckout = () => {
           extra={[
             ...(discountCents > 0
               ? [{ label: `Promo · ${promo?.code}`, value: `−${formatUSD(discountCents)}` }]
+              : []),
+            ...(bonusCents > 0
+              ? [{ label: "Bonus", value: `−${formatUSD(bonusCents)}` }]
               : []),
             ...(includedLabel(plan.unitQuantity, plan.unitLabel, plan.period)
               ? [{ label: "Included", value: includedLabel(plan.unitQuantity, plan.unitLabel, plan.period)! }]
@@ -817,6 +864,20 @@ const UniversalPlanCheckout = () => {
               />
             )}
           </section>
+        ) : showPayment && paymentMethod === "crypto_gateway" ? (
+          <CryptoGatewayPanel
+            totalCents={effectiveTotalCents}
+            meta={{ description: orderDescription, ...paymentMeta() }}
+            isPaid={isPaid}
+            successLabel="Activating subscription…"
+            onPaid={(id) => onExternalPaid(id, "crypto_gateway")}
+            // Same reason as the Bitcoin rails: the reference must be on the
+            // reserved row before the customer pays, or a closed tab strands it.
+            onInvoiceReady={(id) => {
+              if (renewSubId) return;
+              void attachPaymentReference(supabaseDb, subTable(), pendingSubIdRef.current, id, "crypto_gateway");
+            }}
+          />
         ) : showPayment && (inv.state.invoice || inv.state.address) ? (
           <InvoiceQrPanel
             mode={inv.state.invoice ? "lightning" : "onchain"}
@@ -848,6 +909,11 @@ const UniversalPlanCheckout = () => {
                   <RefreshCw className="h-3 w-3" />
                 </Button>
               </div>
+            )}
+            {paymentMethod === "crypto_gateway" && (
+              <p className="mt-3 rounded-radius-sm bg-inset px-3 py-2.5 text-sm text-muted-foreground">
+                USDT, USDC, ETH, SOL and more. You pick the coin on the next step.
+              </p>
             )}
             {paymentMethod === "paypal" && (
               <p className="mt-3 rounded-radius-sm bg-inset px-3 py-2.5 text-sm text-muted-foreground">
