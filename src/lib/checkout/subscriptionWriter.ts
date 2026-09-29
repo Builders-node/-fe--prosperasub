@@ -1,6 +1,7 @@
 import { format } from "date-fns";
 import { endDateFor } from "@/lib/services/planPeriod";
 import type { CheckoutPlan } from "./planCheckoutModel";
+import { readAttribution } from "@/lib/attribution";
 
 /**
  * Where a purchase is written, per service.
@@ -186,6 +187,7 @@ export function buildSubscriptionWrite(
           customer_name: a.customerName,
           customer_email: a.customerEmail,
           surcharge_cents: surcharge,
+          attribution: readAttribution(),
         },
         ...promo,
         ...credit,
@@ -226,6 +228,8 @@ export function buildSubscriptionWrite(
         customer_email: a.customerEmail,
         surcharge_cents: surcharge,
         total_charged_cents: a.chargedCents,
+        // Which ad / landing variant sold it — see lib/attribution.ts.
+        attribution: readAttribution(),
       },
       ...promo,
       ...credit,

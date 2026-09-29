@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-variant="a">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -979,6 +979,10 @@
     if (KEEP.test(k)) target.searchParams.set(k, v);
   });
   if (!target.searchParams.has("utm_source")) target.searchParams.set("utm_source", "beach-landing");
+  // Which A/B variant this visitor saw (see middleware.js). Its own parameter,
+  // so an ad's utm_content is never overwritten; the app stores it on the
+  // subscription row and the test is scored against paid rows.
+  target.searchParams.set("landing_variant", "beach-" + document.documentElement.dataset.variant);
   var href = target.toString();
   document.querySelectorAll("[data-checkout]").forEach(function (a) { a.href = href; });
 

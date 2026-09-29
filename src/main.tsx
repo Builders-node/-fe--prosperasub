@@ -2,6 +2,7 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
+import { captureAttribution } from "./lib/attribution";
 
 // ─── Top-level error boundary so a blank screen always surfaces the cause ─────
 class RootErrorBoundary extends React.Component<
@@ -119,6 +120,9 @@ window.addEventListener("unhandledrejection", (e) => {
   console.error("[unhandledrejection]", e.reason);
   tryAutoRecover(String(e.reason?.message ?? e.reason ?? ""));
 });
+
+// Before the router can redirect to sign-in and lose the query string.
+captureAttribution();
 
 try {
   createRoot(document.getElementById("root")!).render(

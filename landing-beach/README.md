@@ -26,6 +26,34 @@ Any static server. There is nothing to build.
 cd frontend/landing-beach && python3 -m http.server 4321
 ```
 
+## A/B test
+
+Two versions of the page live side by side: `a/index.html` and
+`b/index.html` (photos, fonts and scripts are shared). `middleware.js` serves
+`/` from one of them — a random draw on the first visit, pinned for 30 days in
+the `bc_ab` cookie, no redirect and no flicker. `?ab=a` / `?ab=b` forces a
+variant (and re-pins it). Both pages stay reachable directly at `/a` and `/b`.
+
+Every checkout link carries `landing_variant=beach-a|beach-b` next to the ad's
+own utm_* (never overwriting `utm_content`). The app captures those on first
+load (`frontend/src/lib/attribution.ts`, before sign-in can drop the query
+string) and writes them into `provider_subscriptions.metadata.attribution`.
+Score the test on paid rows:
+
+```sql
+select metadata->'attribution'->>'landing_variant' as variant,
+       count(*) filter (where payment_status = 'paid') as paid,
+       count(*) as started
+from provider_subscriptions
+where source_service_key = 'beach'
+  and metadata->'attribution'->>'landing_variant' is not null
+group by 1;
+```
+
+Locally the static server has no middleware: open `/a/` and `/b/` directly.
+To change the split, edit `middleware.js`; to end the test, point `/` at the
+winner there (or delete the middleware and move the winner back to `index.html`).
+
 ## Deploying
 
 Its own Vercel project, **`everysub-beachclub`** (team `frorexstudios-projects`),
