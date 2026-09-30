@@ -643,9 +643,32 @@
     *{transition:none !important; animation:none !important}
     .shot img,.parallax{will-change:auto; transform:none !important}
   }
+
+  /* ── Variant B: one photograph behind the whole page ─────────────────────
+     A fixed layer, not background-attachment:fixed (iOS ignores that). The
+     sections that carried their own pictures (hero, price, close) are made
+     transparent and lose them, so the page reads as one scene with the copy
+     laid on it. The wash is what keeps white text legible over sky. */
+  body{background:#060C14; color:#fff}
+  .page-bg{position:fixed; inset:0; z-index:-1; margin:0; pointer-events:none}
+  .page-bg img{position:absolute; inset:0; opacity:0; transition:opacity .9s ease}
+  .page-bg img[data-loaded]{opacity:1}
+  .page-bg::after{
+    content:""; position:absolute; inset:0;
+    background:
+      linear-gradient(180deg, rgba(6,12,20,.62) 0%, rgba(6,12,20,.38) 35%, rgba(6,12,20,.70) 100%),
+      linear-gradient(90deg, rgba(6,12,20,.55) 0%, rgba(6,12,20,.15) 60%);
+  }
+  .mast, .dark, .close{background:transparent}
+  #questions{background:rgba(6,12,20,.55); backdrop-filter:blur(6px); color:#fff}
+  #questions .chap .aside, details p, details summary::after{color:#C4D3E2}
+  #questions details{border-bottom-color:rgba(255,255,255,.18)}
+  footer{background:rgba(10,22,34,.88)}
 </style>
 </head>
 <body>
+
+<figure class="page-bg" aria-hidden="true"><img alt="" data-src="/photos/hero-pool-deck.jpg" /></figure>
 
 <nav>
   <div class="wrap">
@@ -660,7 +683,6 @@
 
 <!-- ═══ 00 · ATTENTION ════════════════════════════════════════════════════ -->
 <header class="mast">
-  <div class="mast-photo"><img alt="" data-src="/photos/hero-pool-deck.jpg" /></div>
 
   <div class="mast-top">
     <p class="mast-mark">Beach<br />Club</p>
@@ -688,7 +710,6 @@
 <section class="dark" id="membership">
   <!-- One photograph across the whole section. The cards are laid ON it at the
        right, so the picture is the ground rather than a panel beside them. -->
-  <figure class="price-bg"><img alt="" data-src="/photos/hero-pool-deck.jpg" /></figure>
 
   <div class="price-grid">
     <div class="price-panel">
@@ -758,7 +779,6 @@
 
 <!-- ═══ 07 · ACTION — close ═══════════════════════════════════════════════ -->
 <section class="close">
-  <figure class="shot" data-shot=""><img alt="" data-src="/photos/sun-water.jpg" /></figure>
   <div class="inner">
     <div class="wrap">
       <h2>Six doors<br />One key<br />$75</h2>
@@ -916,7 +936,7 @@ window.addEventListener("DOMContentLoaded", function () {
   // The name lands last and from furthest away — it is the largest thing on
   // the page and arriving with everything else would flatten the order.
   gsap.timeline({ defaults: { ease: "power3.out" } })
-      .from(".mast-photo img", { scale: 1.06, duration: 1.4 })
+      .from(".page-bg img", { scale: 1.06, duration: 1.4 })
       .from(".mast-top > *", { y: -14, opacity: 0, duration: .7, stagger: .08 }, .15)
       .from(".mast-mid > *", { y: 18, opacity: 0, duration: .8, stagger: .1 }, .3)
       .from(".mast-badge",   { y: 16, opacity: 0, duration: .7 }, .45)
@@ -925,10 +945,7 @@ window.addEventListener("DOMContentLoaded", function () {
   // Leaving the hero: the photograph drifts slower than the page and the name
   // fades before it clears the top, so the frame reads as depth rather than as
   // a panel sliding away.
-  gsap.to(".mast-photo img", {
-    yPercent: 10, ease: "none",
-    scrollTrigger: { trigger: ".mast", start: "top top", end: "bottom top", scrub: true }
-  });
+  // Variant B: the photograph is the fixed page background, so it does not drift.
   // On .mast-bottom, NOT on .mast-word. Two tweens on one element is what
   // broke this the first time: the scrub tween reads its start value on first
   // render, the intro was still holding the name at opacity 0 at that moment,
