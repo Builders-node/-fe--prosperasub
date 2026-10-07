@@ -3,6 +3,13 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 import { captureAttribution } from "./lib/attribution";
+import { installTranslatedDomGuard } from "./lib/translatedDomGuard";
+
+// Before React touches the DOM: a machine-translated page rewrites the text
+// nodes React is holding, and the first re-render after that throws
+// removeChild. See lib/translatedDomGuard — a customer in Próspera hit it at
+// the payment step and could not buy anything.
+installTranslatedDomGuard();
 
 // ─── Top-level error boundary so a blank screen always surfaces the cause ─────
 class RootErrorBoundary extends React.Component<
