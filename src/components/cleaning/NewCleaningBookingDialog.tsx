@@ -525,13 +525,23 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
           }).select("id").single();
           if (bErr) throw new Error(bErr.message);
 
-          // Bump slot capacity so a hand-added booking counts toward the day's cap.
-          await supabaseDb.from("cleaning_available_slots")
-            .update({
-              current_bookings: (Number(slot.current_bookings) || 0) + 1,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", slot.id);
+          // Bump slot capacity so a hand-added booking counts toward the day's
+          // cap. Through the RPC, not a read-modify-write: the count read
+          // before the insert is already stale if anything else booked the
+          // same hour meanwhile, and writing it back lost their seat.
+          const { error: incErr } = await supabaseDb.rpc("increment_slot_bookings", { p_slot_id: slot.id });
+          if (incErr) {
+            // Same fallback the reschedule dialog keeps, for a deploy where the
+            // function is not there yet. The booking is already made; an
+            // uncounted seat is a capacity bug, not a lost visit, so this never
+            // fails the date.
+            await supabaseDb.from("cleaning_available_slots")
+              .update({
+                current_bookings: (Number(slot.current_bookings) || 0) + 1,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", slot.id);
+          }
           if (bRow?.id) createdIds.push(bRow.id);
         } catch (e: any) {
           failed.push({ date: d, reason: e?.message || "unknown error" });
