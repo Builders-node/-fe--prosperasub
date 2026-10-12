@@ -371,13 +371,28 @@ export async function ensureCleaningSlot(
     provider_id: providerId ?? null,
   };
 
-  const { data } = await db
+  const { data, error } = await db
     .from("cleaning_available_slots")
     .insert(slot)
     .select()
     .single();
 
-  return data ?? slot;
+  if (data) return data;
+
+  // The insert failed. Returning the local object was worse than useless: its
+  // id does not exist, so the caller's booking then died on the foreign key
+  // with a message about a constraint instead of about the slot. Two races can
+  // land here legitimately — another writer seeding the same hour, or a row
+  // with this id but a different end_time — so look once more before giving up.
+  const { data: raced } = await (providerId
+    ? db.from("cleaning_available_slots").select("*").eq("id", slot.id).eq("provider_id", providerId)
+    : db.from("cleaning_available_slots").select("*").eq("id", slot.id).is("provider_id", null)
+  ).maybeSingle();
+  if (raced) return raced;
+
+  throw new Error(
+    `Could not open a ${normalizedStart.slice(0, 5)} slot on ${date}: ${error?.message ?? "unknown error"}`,
+  );
 }
 
 // ============================================================

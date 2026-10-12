@@ -17,7 +17,10 @@ import { adminApi, ensureCleaningSlot, supabaseDb } from "@/integrations/supabas
 import { useUniversalIdForLegacy } from "@/lib/services/providerBridge";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAuditEvent } from "@/lib/auditLog";
-import { todayHN, addDaysISO } from "@/lib/timezone";
+import { todayHN, formatDateHN } from "@/lib/timezone";
+import {
+  buildBookingSeries, droppedCount, dowOf, MAX_VISITS, type Cadence,
+} from "@/lib/cleaning/bookingSeries";
 import { cn } from "@/lib/utils";
 import { fetchUsersByIds } from "@/lib/admin/customerNames";
 import { fetchAllRows } from "@/lib/supabasePaging";
@@ -81,15 +84,6 @@ type Target =
   | { kind: "subscription"; sub: SubOption }
   | { kind: "user"; user: UserOption };
 
-type Cadence = "once" | "daily" | "weekly" | "biweekly" | "monthly";
-
-const CADENCE_DAYS: Record<Exclude<Cadence, "once">, number> = {
-  daily:    1,
-  weekly:   7,
-  biweekly: 14,
-  monthly:  30,
-};
-
 /**
  * Monday-first, matching every other calendar in the product. Values are
  * JS `getDay()` numbers so they can be compared without a lookup.
@@ -99,11 +93,6 @@ const WEEKDAYS = [
   { dow: 4, short: "Thu" }, { dow: 5, short: "Fri" }, { dow: 6, short: "Sat" },
   { dow: 0, short: "Sun" },
 ] as const;
-
-/** Honduras-local weekday of a YYYY-MM-DD string, without a timezone shift. */
-function dowOf(iso: string): number {
-  return new Date(`${iso}T12:00:00Z`).getUTCDay();
-}
 
 const CADENCE_LABEL: Record<Cadence, string> = {
   once:     "Just this date",
@@ -437,66 +426,34 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
     return grid.weekdays.has(dowOf(d));
   }, [grid]);
 
-  // Build the list of dates to book — anchored on `date`, N entries total.
-  // `once` = just the anchor.
-  const dates = useMemo(() => {
-    if (cadence === "once" || !date) return date ? [date] : [];
-    const n = Math.max(1, Math.min(count, 60));
+  // Which dates this actually books. The arithmetic lives in
+  // `lib/cleaning/bookingSeries` with a spec: an admin asked for four visits,
+  // got four thirty days apart, and read it as "only one was added" because
+  // the first was the only one in the list's window.
+  const seriesInput = useMemo(() => ({
+    anchor: date, cadence, count,
+    weekdays: weekdaysApply ? weekdays : [],
+    isWorkingDay,
+  }), [date, cadence, count, weekdays, weekdaysApply, isWorkingDay]);
 
-    // Specific days of the week: walk forward from the anchor and take every
-    // day that matches, so "Mon + Thu, 8 visits" books four real weeks rather
-    // than eight Mondays. A fixed +7 step could never express that.
-    if (weekdaysApply && weekdays.length > 0) {
-      const wanted = new Set(weekdays);
-      // Every-2-weeks keeps only alternate weeks; weeks are counted from the
-      // Monday of the anchor's week so the parity doesn't shift with the day
-      // the admin happened to start on.
-      const anchorMonday = (dowOf(date) + 6) % 7; // days since Monday
-      const out: string[] = [];
-      const horizon = 60 * (cadence === "biweekly" ? 14 : 7) + 14;
-      for (let offset = 0; offset < horizon && out.length < n; offset += 1) {
-        const d = offset === 0 ? date : addDaysISO(date, offset);
-        if (!wanted.has(dowOf(d))) continue;
-        if (!isWorkingDay(d)) continue;
-        if (cadence === "biweekly") {
-          const weekIndex = Math.floor((offset + anchorMonday) / 7);
-          if (weekIndex % 2 !== 0) continue;
-        }
-        out.push(d);
-      }
-      return out;
-    }
-
-    // Daily: take the next N days the time is run, stepping over days off.
-    if (cadence === "daily") {
-      const out: string[] = [];
-      for (let offset = 0; offset < n * 3 + 14 && out.length < n; offset += 1) {
-        const d = offset === 0 ? date : addDaysISO(date, offset);
-        if (isWorkingDay(d)) out.push(d);
-      }
-      return out;
-    }
-
-    // Weekly / every 2 weeks / monthly: a visit that lands on a day off moves
-    // to the next working day rather than disappearing — a monthly customer
-    // whose date falls on a Sunday still gets that month's cleaning. Never
-    // past the next scheduled visit, so two visits cannot collapse into one.
-    const step = CADENCE_DAYS[cadence];
-    const out: string[] = [];
-    for (let i = 0; i < n; i += 1) {
-      const target = i === 0 ? date : addDaysISO(date, i * step);
-      let d: string | null = null;
-      for (let shift = 0; shift < step; shift += 1) {
-        const c = shift === 0 ? target : addDaysISO(target, shift);
-        if (isWorkingDay(c)) { d = c; break; }
-      }
-      if (d && !out.includes(d)) out.push(d);
-    }
-    return out;
-  }, [cadence, count, date, weekdays, weekdaysApply, isWorkingDay]);
+  const dates = useMemo(() => buildBookingSeries(seriesInput), [seriesInput]);
 
   /** Visits the series had to drop because no working day was left in their window. */
-  const droppedVisits = cadence === "once" ? 0 : Math.max(0, Math.max(1, Math.min(count, 60)) - dates.length);
+  const droppedVisits = droppedCount(seriesInput);
+
+  /**
+   * How many different months the series touches. The Bookings list shows the
+   * near term, so a series that leaves this month is one the admin has to be
+   * told about in words.
+   */
+  const spansMonths = useMemo(
+    () => new Set(dates.map((d) => d.slice(0, 7))).size,
+    [dates],
+  );
+
+  /** Short, readable date for the preview — "Tue 13 Oct". */
+  const dayLabel = (d: string) =>
+    `${WEEKDAYS.find((w) => w.dow === dowOf(d))?.short ?? ""} ${formatDateHN(d, { day: "numeric", month: "short" })}`;
 
   const create = useMutation({
     mutationFn: async () => {
@@ -507,51 +464,80 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
 
       // Loop sequentially — ensureCleaningSlot may seed a new slot per date, and
       // running these in parallel could double-seed for the same day+time.
-      let created = 0;
+      //
+      // A date that fails no longer aborts the run. It used to throw, which
+      // kept every booking made before it, told the admin nothing about which
+      // ones those were, left the lists un-refreshed, and double-booked them
+      // all on the retry. Each date now stands on its own and the run reports
+      // what happened to all of them.
       const createdIds: string[] = [];
+      const failed: Array<{ date: string; reason: string }> = [];
+      let skipped = 0;
+
+      const owner = target.kind === "subscription"
+        ? {
+            // A visit booked straight for a user has no subscription behind it.
+            // The table only requires a user OR a client
+            // (cleaning_bookings_has_owner), so that's a legal row — it just
+            // doesn't draw down anyone's remaining cleanings, because there is
+            // no balance to draw from.
+            user_id: target.sub.user_id, client_id: target.sub.client_id,
+            cleaning_subscription_id: target.sub.id, subscription_id: target.sub.id,
+          }
+        : {
+            user_id: target.user.id, client_id: null,
+            cleaning_subscription_id: null, subscription_id: null,
+          };
+
       for (const d of dates) {
-        const slot = await ensureCleaningSlot(d, startTime, endTime || startTime, universalProviderId ?? null);
-        // A visit booked straight for a user has no subscription behind it. The
-        // table only requires a user OR a client (cleaning_bookings_has_owner),
-        // so that's a legal row — it just doesn't draw down anyone's remaining
-        // cleanings, because there is no balance to draw from.
-        const owner = target.kind === "subscription"
-          ? {
-              user_id: target.sub.user_id, client_id: target.sub.client_id,
-              cleaning_subscription_id: target.sub.id, subscription_id: target.sub.id,
-            }
-          : {
-              user_id: target.user.id, client_id: null,
-              cleaning_subscription_id: null, subscription_id: null,
-            };
-        const { data: bRow, error: bErr } = await supabaseDb.from("cleaning_bookings").insert({
-          ...owner,
-          // Stamped directly. Without it a subscription-less visit belongs to
-          // nobody — the provider's Bookings list finds rows by walking
-          // booking → subscription → package → provider, and that walk has no
-          // starting point here.
-          provider_id: providerId,
-          slot_id: slot.id,
-          status: "booked",
-          reservation_type: "booking_reserved",
-          source: cadence === "once" ? "admin_manual" : "admin_bulk",
-          notes: notes.trim() || null,
-          google_calendar_sync_status: "pending",
-        }).select("id").single();
-        if (bErr) {
-          // Surface which date failed so the admin knows what to retry.
-          throw new Error(`Booking for ${d} failed: ${bErr.message}${created ? ` (${created} already created)` : ""}`);
+        try {
+          const slot = await ensureCleaningSlot(d, startTime, endTime || startTime, universalProviderId ?? null);
+
+          // Already booked? Say so and move on. This is what makes a retry
+          // after a partial failure safe, and it also stops a double-click
+          // from booking the same customer onto the same hour twice.
+          let dup = supabaseDb
+            .from("cleaning_bookings")
+            .select("id")
+            .eq("slot_id", slot.id)
+            .neq("status", "cancelled")
+            .limit(1);
+          dup = owner.user_id ? dup.eq("user_id", owner.user_id) : dup.eq("client_id", owner.client_id);
+          const { data: existing, error: dupErr } = await dup;
+          // A failed lookup must not be read as "no booking yet" — that is how
+          // a duplicate gets written. Refuse the date instead.
+          if (dupErr) throw new Error(dupErr.message);
+          if (existing?.length) { skipped += 1; continue; }
+
+          const { data: bRow, error: bErr } = await supabaseDb.from("cleaning_bookings").insert({
+            ...owner,
+            // Stamped directly. Without it a subscription-less visit belongs to
+            // nobody — the provider's Bookings list finds rows by walking
+            // booking → subscription → package → provider, and that walk has no
+            // starting point here.
+            provider_id: providerId,
+            slot_id: slot.id,
+            status: "booked",
+            reservation_type: "booking_reserved",
+            source: cadence === "once" ? "admin_manual" : "admin_bulk",
+            notes: notes.trim() || null,
+            google_calendar_sync_status: "pending",
+          }).select("id").single();
+          if (bErr) throw new Error(bErr.message);
+
+          // Bump slot capacity so a hand-added booking counts toward the day's cap.
+          await supabaseDb.from("cleaning_available_slots")
+            .update({
+              current_bookings: (Number(slot.current_bookings) || 0) + 1,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", slot.id);
+          if (bRow?.id) createdIds.push(bRow.id);
+        } catch (e: any) {
+          failed.push({ date: d, reason: e?.message || "unknown error" });
         }
-        // Bump slot capacity so a hand-added booking counts toward the day's cap.
-        await supabaseDb.from("cleaning_available_slots")
-          .update({
-            current_bookings: (Number(slot.current_bookings) || 0) + 1,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", slot.id);
-        if (bRow?.id) createdIds.push(bRow.id);
-        created++;
       }
+      const created = createdIds.length;
 
       // Push all new bookings to Google Calendar — fire-and-forget in parallel
       // so the mutation returns fast even for large bulk runs.
@@ -568,16 +554,52 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
             : { booked_for_user: target.user.id, without_subscription: true }),
           dates, start_time: startTime, end_time: endTime,
           count: created, cadence,
+          ...(skipped ? { already_booked: skipped } : {}),
+          ...(failed.length ? { failed } : {}),
           ...(weekdaysApply && weekdays.length ? { weekdays } : {}),
         });
       }
-      return { created };
+      return { created, skipped, failed, asked: dates.length };
     },
-    onSuccess: ({ created }) => {
-      toast.success(created > 1 ? `${created} bookings created` : "Booking created");
+    onSuccess: ({ created, skipped, failed, asked }) => {
+      // Whatever happened, the lists have to catch up: the old version threw
+      // on the first bad date and left the screen showing a stale schedule
+      // that was already missing bookings it had just made.
       qc.invalidateQueries({ queryKey: ["unified-bookings"] });
       qc.invalidateQueries({ queryKey: ["admin-cleaning-bookings"] });
       qc.invalidateQueries({ queryKey: ["provider-analytics"] });
+
+      const note = [
+        created ? `${created} of ${asked} booked` : null,
+        skipped ? `${skipped} already booked` : null,
+      ].filter(Boolean).join(" · ");
+
+      if (failed.length) {
+        // Named dates, so the admin knows exactly what to try again — and the
+        // dialog stays open with the series intact to do it with. Re-running
+        // skips what already exists instead of doubling it.
+        toast.error(
+          `${note || "Nothing booked"}. Failed: ${failed.map((f) => f.date).join(", ")} — ${failed[0].reason}`,
+          { duration: 10_000 },
+        );
+        return;
+      }
+      // Name the span. The Bookings list is a single week, so a monthly series
+      // shows one row out of four and reads as "it only added one" — which is
+      // exactly how this was reported. The confirmation has to say where the
+      // rest went.
+      toast.success(
+        asked > 1 ? note : "Booking created",
+        asked > 1
+          ? {
+              description: `${dayLabel(dates[0])} → ${dayLabel(dates[dates.length - 1])}`
+                + (spansMonths > 1
+                  ? ` · across ${spansMonths} months. The list shows one week at a time.`
+                  : ""),
+              duration: spansMonths > 1 ? 10_000 : 5_000,
+            }
+          : undefined,
+      );
       resetAndClose();
     },
     onError: (e: Error) => toast.error(e.message || "Could not create booking"),
@@ -630,7 +652,15 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
                   <button
                     key={m.key}
                     type="button"
-                    onClick={() => setMode(m.key)}
+                    // Dropping the other side's pick matters: `selectedSub`
+                    // survived a switch to "Any customer" and went on driving
+                    // the visit count and the "matches subscription period"
+                    // note for a subscription that was no longer the target.
+                    onClick={() => {
+                      if (m.key === mode) return;
+                      setMode(m.key);
+                      if (m.key === "user") setSubId(""); else { setUserId(""); setUserSearch(""); }
+                    }}
                     className={cn(
                       "flex-1 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
                       mode === m.key
@@ -651,7 +681,7 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
                   <SelectContent>
                     {subs.length === 0 && (
                       <div className="px-3 py-2 text-xs text-muted-foreground">
-                        {subsLoading ? "Loading subscriptions…" : "No paid subscriptions for this provider yet."}
+                        {subsLoading ? "Loading subscriptions…" : "Nothing to pick — see below."}
                       </div>
                     )}
                     {subs.map((s) => (
@@ -661,7 +691,24 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
                     ))}
                   </SelectContent>
                 </Select>
-              ) : (
+              ) : null}
+              {/* Said on the page, not only inside the dropdown. An admin
+                  facing an empty list had to open it to find out why, and the
+                  way forward — book for anyone — is the tab next to it. */}
+              {mode === "subscription" && !subsLoading && subs.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  No paid subscriptions for this provider yet. Use{" "}
+                  <button
+                    type="button"
+                    className="font-semibold text-primary underline-offset-2 hover:underline"
+                    onClick={() => { setMode("user"); setSubId(""); }}
+                  >
+                    Any customer
+                  </button>{" "}
+                  to book a visit anyway.
+                </p>
+              ) : null}
+              {mode === "user" ? (
                 <>
                   <Select value={userId} onValueChange={setUserId}>
                     <SelectTrigger>
@@ -696,7 +743,7 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
                     remaining cleanings. Use it for off-platform or complimentary visits.
                   </p>
                 </>
-              )}
+              ) : null}
             </div>
 
             <div>
@@ -850,31 +897,53 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
                   <Input
                     type="number"
                     min={1}
-                    max={60}
+                    max={MAX_VISITS}
                     value={count}
-                    onChange={(e) => setCount(Math.max(1, Math.min(60, parseInt(e.target.value || "1", 10))))}
+                    onChange={(e) => setCount(Math.max(1, Math.min(MAX_VISITS, parseInt(e.target.value || "1", 10))))}
                     className="h-8 w-20"
                   />
-                  <span className="text-xs text-muted-foreground">
-                    {(() => {
-                      // "matches subscription period" is only truthful when
-                      // BOTH the count is the suggested total AND the cadence
-                      // matches the plan's natural rhythm — otherwise we're
-                      // spanning way more (or fewer) days than the paid window.
-                      // No `cadence !== "once"` test: this whole block only
-                      // renders when that's already true.
-                      const isMatch =
-                        !!selectedSub &&
-                        count === selectedSub.suggested_count &&
-                        weekdays.length === 0 &&
-                        cadence === suggestCadenceFor(selectedSub.per_month);
-                      return isMatch
-                        ? "(matches subscription period)"
-                        : `first ${dates[0]} → last ${dates[dates.length - 1]}`;
-                    })()}
-                  </span>
+                  {!!selectedSub && count === selectedSub.suggested_count
+                    && weekdays.length === 0
+                    && cadence === suggestCadenceFor(selectedSub.per_month) && (
+                    // Only truthful when BOTH the count is the suggested total
+                    // AND the cadence matches the plan's rhythm — otherwise the
+                    // series spans more (or less) than the paid window.
+                    <span className="text-xs text-muted-foreground">(matches subscription period)</span>
+                  )}
                 </div>
               )}
+
+              {/* What this will actually create.
+                  Four visits a month apart were reported as "it only added
+                  one": they were all there, three of them months away, and the
+                  dialog said so in one line of grey 12px type. Every date, in
+                  full, before the button is pressed. */}
+              {cadence !== "once" && dates.length > 0 && (
+                <div className="mt-2 space-y-1.5 rounded-radius-md bg-card p-2.5">
+                  <p className="text-xs font-semibold">
+                    {dates.length} visit{dates.length === 1 ? "" : "s"}, {dayLabel(dates[0])}
+                    {dates.length > 1 ? ` → ${dayLabel(dates[dates.length - 1])}` : ""}
+                    {spansMonths > 1 && (
+                      <span className="font-normal text-muted-foreground"> · across {spansMonths} months</span>
+                    )}
+                  </p>
+                  <div className="flex flex-wrap gap-1">
+                    {dates.map((d) => (
+                      <span
+                        key={d}
+                        className="rounded-full bg-muted/60 px-2 py-0.5 text-[11px] tabular-nums text-muted-foreground"
+                      >
+                        {dayLabel(d)}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    All at {startTime}{endTime ? `–${endTime}` : ""}.
+                    {spansMonths > 1 && " Only the nearest ones show in this month's list."}
+                  </p>
+                </div>
+              )}
+
               {cadence !== "once" && grid?.dates.size ? (
                 <p className="text-xs text-muted-foreground">
                   Days the provider doesn't run {startTime} are skipped

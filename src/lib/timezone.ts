@@ -67,10 +67,21 @@ export function addWeeksISO(dateStr: string, weeks: number): string {
   return addDaysISO(dateStr, weeks * 7);
 }
 
-/** Add N calendar months to a YYYY-MM-DD string. */
+/**
+ * Add N calendar months to a YYYY-MM-DD string, clamped to the target month.
+ *
+ * `setUTCMonth` overflows: 31 January plus one month is 3 March, which handed
+ * a subscription started on the 31st three free days and walked a monthly
+ * cleaning into the next month. The last day of the shorter month is what
+ * everyone means by "a month later".
+ */
 export function addMonthsISO(dateStr: string, months: number): string {
   const d = parseYmdUTC(dateStr);
+  const day = d.getUTCDate();
+  d.setUTCDate(1);
   d.setUTCMonth(d.getUTCMonth() + months);
+  const lastDay = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+  d.setUTCDate(Math.min(day, lastDay));
   return d.toISOString().slice(0, 10);
 }
 
