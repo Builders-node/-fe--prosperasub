@@ -47,6 +47,9 @@ const EDGE_ROUTES: RegExp[] = [
   /^\/analytics\/(summary|revenue)$/,
   /^\/support\/messages$/,
   /^\/admin\/support\/messages(\/[^/]+)?$/,
+  // Both halves of the access QR move together: the Edge verify secret is not Nest's.
+  /^\/verify\/token$/,
+  /^\/verify-access$/,
 ];
 
 /** Full URL for an API path — the Edge Function if that path has moved, else the Nest API. */

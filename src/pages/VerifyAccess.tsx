@@ -5,8 +5,8 @@ import { PageLoader } from "@/components/ui/spinner";
 import { useI18n } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { formatDateHN, formatTimestampHN } from "@/lib/timezone";
+import { apiUrlFor } from "@/integrations/supabase/config";
 
-const API_URL = (import.meta.env.VITE_API_URL as string)?.trim() || "https://api.prosperasub.com";
 
 /**
  * What the platform's subscription rows actually say. There is no "trial"
@@ -75,7 +75,7 @@ export default function VerifyAccess() {
         return;
       }
       try {
-        const res = await fetch(`${API_URL}/verify-access`, {
+        const res = await fetch(apiUrlFor("/verify-access"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ token }),
