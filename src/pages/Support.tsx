@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Spinner } from "@/components/ui/spinner";
 import { useAuth } from "@/contexts/AuthContext";
+import { apiUrlFor } from "@/integrations/supabase/config";
 
 /**
  * Contact support.
@@ -22,8 +23,6 @@ import { useAuth } from "@/contexts/AuthContext";
  * exactly who needs to reach a human.
  */
 
-// Same resolution as the other pages that talk to NestJS directly.
-const API_URL = (import.meta.env.VITE_API_URL as string) || "https://api.prosperasub.com";
 
 const SUPPORT_WHATSAPP = "+50488776655";
 // Change alongside the mailbox itself — a support address that bounces is
@@ -59,7 +58,7 @@ export default function Support() {
     if (!valid || sending) return;
     setSending(true);
     try {
-      const res = await fetch(`${API_URL}/support/messages`, {
+      const res = await fetch(apiUrlFor("/support/messages"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

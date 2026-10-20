@@ -44,6 +44,9 @@ export const EDGE_API_URL = `${SUPABASE_URL}/functions/v1/api`;
 
 const EDGE_ROUTES: RegExp[] = [
   /^\/health$/,
+  /^\/analytics\/(summary|revenue)$/,
+  /^\/support\/messages$/,
+  /^\/admin\/support\/messages(\/[^/]+)?$/,
 ];
 
 /** Full URL for an API path — the Edge Function if that path has moved, else the Nest API. */
