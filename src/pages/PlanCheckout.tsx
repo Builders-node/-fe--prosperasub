@@ -26,12 +26,13 @@ import { usePhonePrefill } from "@/hooks/useAccountPhone";
 import type { PaymentMethod } from "@/components/payment/PaymentMethodSelector";
 import { usePaymentMethods } from "@/hooks/usePaymentMethods";
 import { PayPalPanel } from "@/components/payment/PayPalPanel";
+import { PayPalSubscriptionPanel } from "@/components/payment/PayPalSubscriptionPanel";
 import { InvoiceQrPanel } from "@/components/payment/InvoiceQrPanel";
 import { CryptoGatewayPanel } from "@/components/payment/CryptoGatewayPanel";
 import { attachPaymentReference } from "@/lib/payments/pendingReference";
 import { useInvoicePayment } from "@/hooks/useInvoicePayment";
 import { serviceListingHref, serviceSlug } from "@/lib/services/serviceUrls";
-import { termLabel, termLabelFor, includedLabel } from "@/lib/services/planPeriod";
+import { termLabel, termLabelFor, includedLabel, periodNoun } from "@/lib/services/planPeriod";
 import { resolveCheckoutPlan, totalFor } from "@/lib/checkout/planCheckoutModel";
 import { buildSubscriptionWrite, endDateOf } from "@/lib/checkout/subscriptionWriter";
 import { payLabel } from "@/lib/checkout/ctaLabel";
@@ -280,6 +281,18 @@ const UniversalPlanCheckout = () => {
 
   const payableCents = Math.max(0, afterPromoCents - bonusCents);
   const effectiveTotalCents = addSurchargeCents(payableCents, paymentMethod);
+
+  /**
+   * PayPal can renew a membership by itself (PayPal Subscriptions). Offered
+   * only where the first charge IS one period at list price — a promo, a bonus
+   * credit or several periods up front cannot become a repeating charge — and
+   * only for the rows that live in provider_subscriptions (beach + universal).
+   * On by default and said plainly next to the button.
+   */
+  const [autoRenew, setAutoRenew] = useState(true);
+  const autoRenewEligible =
+    !!plan && (plan.service === "beach" || plan.service === "universal") &&
+    !plan.oneTime && !renewSubId && periods === 1 && discountCents === 0 && bonusCents === 0;
   const feePct = surchargePercent(paymentMethod);
   const estimatedSats = convertToSats(centsToDollars(effectiveTotalCents));
   // A renewal does not get to choose when it starts: it starts the day the
@@ -857,11 +870,41 @@ const UniversalPlanCheckout = () => {
                 <span className="text-sm font-medium text-green-500">Payment received! Activating…</span>
               </div>
             ) : (
-              <PayPalPanel
-                totalCents={effectiveTotalCents}
-                onPaid={(id: string) => onExternalPaid(id, "paypal")}
-                orderMeta={{ description: orderDescription, ...paymentMeta() }}
-              />
+              <div className="space-y-4">
+                {autoRenewEligible && (
+                  <label className="flex cursor-pointer items-start gap-3 rounded-radius-md bg-muted p-3 text-sm">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 h-4 w-4 accent-primary"
+                      checked={autoRenew}
+                      onChange={(e) => setAutoRenew(e.target.checked)}
+                    />
+                    <span>
+                      <span className="font-medium text-foreground">
+                        Renew automatically every {periodNoun(plan.period) || "period"}
+                      </span>
+                      <span className="block text-muted-foreground">
+                        PayPal charges {formatUSD(effectiveTotalCents)} each {periodNoun(plan.period) || "period"} until you cancel —
+                        any time, from My subscriptions or your PayPal account.
+                      </span>
+                    </span>
+                  </label>
+                )}
+                {autoRenewEligible && autoRenew ? (
+                  <PayPalSubscriptionPanel
+                    key="paypal-subscription"
+                    getRowId={() => pendingSubIdRef.current}
+                    onPaid={(id: string) => onExternalPaid(id, "paypal")}
+                  />
+                ) : (
+                  <PayPalPanel
+                    key="paypal-once"
+                    totalCents={effectiveTotalCents}
+                    onPaid={(id: string) => onExternalPaid(id, "paypal")}
+                    orderMeta={{ description: orderDescription, ...paymentMeta() }}
+                  />
+                )}
+              </div>
             )}
           </section>
         ) : showPayment && paymentMethod === "crypto_gateway" ? (

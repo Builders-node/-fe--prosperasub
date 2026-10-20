@@ -55,6 +55,13 @@ const EDGE_ROUTES: RegExp[] = [
   /^\/verify\/token$/,
   /^\/verify-access$/,
   /^\/account\/locations(\/[^/]+(\/default)?)?$/,
+  // PayPal auto-renew (Edge only — Nest never had it).
+  /^\/payments\/paypal\/subscription\/config$/,
+  /^\/payments\/paypal\/subscriptions(\/[^/]+\/activate)?$/,
+  /^\/account\/subscriptions\/[^/]+\/auto-renew\/cancel$/,
+  // Cancel/resume moved with it: for a PayPal-renewed membership they must
+  // suspend/re-activate PayPal billing too.
+  /^\/account\/(cleaning|food|beach|plan)\/subscriptions\/[^/]+\/(cancel|resume)$/,
 ];
 
 /** Full URL for an API path — the Edge Function if that path has moved, else the Nest API. */
