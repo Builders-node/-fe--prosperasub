@@ -10,7 +10,7 @@
  *
  * Everything is re-exported from client.ts, so no call site moved.
  */
-import { API_URL } from "@/integrations/supabase/config";
+import { API_URL, apiUrlFor } from "@/integrations/supabase/config";
 
 export type AuthStateChangeCallback = (event: "SIGNED_IN" | "SIGNED_OUT", session: any) => void;
 
@@ -223,7 +223,7 @@ export async function api(path: string, init?: RequestInit, retryOnUnauthorized 
 
   let response: Response;
   try {
-    response = await fetch(`${API_URL}${path}`, {
+    response = await fetch(apiUrlFor(path), {
       ...init,
       /**
        * Never let the HTTP cache near an authenticated response.

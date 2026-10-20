@@ -33,4 +33,21 @@ export const SUPABASE_ANON_KEY =
   (import.meta.env.VITE_SUPABASE_ANON_KEY as string) ||
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlnYnl0cmFpZGxka2hoYW1zZmRvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk5OTQxMzEsImV4cCI6MjA5NTU3MDEzMX0.VbaT7LMvtwswdfyDZI1rWkZtKSC0ICBDHeVbO4hLJeI";
 
+/**
+ * The NestJS API is moving into Supabase one endpoint at a time
+ * (backend/supabase/functions/api). A path listed here is served by the Edge
+ * Function; everything else still goes to API_URL. Moving an endpoint is adding
+ * its pattern here once the Edge route is deployed and checked — and moving it
+ * back is deleting the line.
+ */
+export const EDGE_API_URL = `${SUPABASE_URL}/functions/v1/api`;
 
+const EDGE_ROUTES: RegExp[] = [
+  /^\/health$/,
+];
+
+/** Full URL for an API path — the Edge Function if that path has moved, else the Nest API. */
+export function apiUrlFor(path: string): string {
+  const bare = path.split("?")[0];
+  return EDGE_ROUTES.some((re) => re.test(bare)) ? `${EDGE_API_URL}${path}` : `${API_URL}${path}`;
+}
