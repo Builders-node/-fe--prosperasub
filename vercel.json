@@ -111,6 +111,10 @@
   ],
   "rewrites": [
     {
+      "source": "/nest/:path*",
+      "destination": "https://api.prosperasub.com/:path*"
+    },
+    {
       "source": "/((?!assets/|api/|.*\\.[a-zA-Z0-9]+$).*)",
       "destination": "/index.html"
     }

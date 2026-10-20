@@ -40,7 +40,11 @@ export const SUPABASE_ANON_KEY =
  * its pattern here once the Edge route is deployed and checked — and moving it
  * back is deleting the line.
  */
-export const EDGE_API_URL = `${SUPABASE_URL}/functions/v1/api`;
+// The dev branch builds with VITE_EDGE_API_URL pointing at the `api-dev` copy
+// of the function (Vercel Preview env), so backend changes are tried there
+// before `api` — production — is redeployed.
+export const EDGE_API_URL =
+  (import.meta.env.VITE_EDGE_API_URL as string | undefined)?.trim() || `${SUPABASE_URL}/functions/v1/api`;
 
 const EDGE_ROUTES: RegExp[] = [
   /^\/health$/,
