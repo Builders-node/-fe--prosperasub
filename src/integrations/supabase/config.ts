@@ -62,6 +62,8 @@ const EDGE_ROUTES: RegExp[] = [
   // Cancel/resume moved with it: for a PayPal-renewed membership they must
   // suspend/re-activate PayPal billing too.
   /^\/account\/(cleaning|food|beach|plan)\/subscriptions\/[^/]+\/(cancel|resume)$/,
+  // Provider withdrawals: pays from the BTC wallet when USD is short.
+  /^\/account\/providers\/[^/]+\/payouts(\/available|\/request)?$/,
 ];
 
 /** Full URL for an API path — the Edge Function if that path has moved, else the Nest API. */
