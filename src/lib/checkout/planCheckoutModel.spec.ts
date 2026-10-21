@@ -10,7 +10,7 @@ import { totalFor, type CheckoutPlan } from "./planCheckoutModel";
  * four times for a flat monthly plan is the failure this guards.
  */
 const plan = (over: Partial<CheckoutPlan> = {}): CheckoutPlan => ({
-  service: "universal", universalId: "u1", subjectPlanId: "p1",
+  service: "universal", status: "active", universalId: "u1", subjectPlanId: "p1",
   providerUniversalId: "pr1", providerLegacyId: null,
   name: "Plan", providerName: null, description: null,
   unitCents: 7900, period: "monthly",

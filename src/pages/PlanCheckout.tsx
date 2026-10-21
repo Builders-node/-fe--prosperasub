@@ -531,7 +531,9 @@ const UniversalPlanCheckout = () => {
     );
   }
 
-  if (planError || !plan) {
+  // A switched-off plan (a draft, or one withdrawn) cannot be bought by a
+  // direct link — only renewed by someone who already holds it.
+  if (planError || !plan || (plan.status !== "active" && !renewSubId)) {
     return (
       <UserLayout title="Checkout" showBackButton backTo={listingHref} showBottomNav={false}>
         <div className="mx-auto max-w-xl px-4 py-16 text-center">

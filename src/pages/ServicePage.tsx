@@ -23,6 +23,8 @@ import { useAuthModal } from "@/contexts/AuthModalContext";
 import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
 import { PageLoader } from "@/components/ui/spinner";
 import { SearchX } from "lucide-react";
+import { useDraftPreview } from "@/hooks/useDraftPreview";
+import { DraftPreviewBanner } from "@/components/patterns/DraftPreviewBanner";
 
 /**
  * The listing for a service that has no bespoke page of its own.
@@ -55,19 +57,21 @@ const ServicePage = () => {
   const goBack = useGoBack("/discovery");
   const { isAuthenticated } = useAuth();
   const { openAuthModal } = useAuthModal();
-  const { archetypes, isLoading: archetypesLoading } = useServiceArchetypes(true);
+  // ?preview=1 for an admin: the service before it is switched on.
+  const preview = useDraftPreview();
+  const { archetypes, isLoading: archetypesLoading } = useServiceArchetypes(!preview);
 
   const archetype = archetypes.find((a) => a.key === archetypeKey);
 
   const providersQ = useQuery({
-    queryKey: ["service-providers-public", archetypeKey],
+    queryKey: ["service-providers-public", archetypeKey, preview],
     queryFn: async () => {
-      const { data, error } = await supabaseDb
+      let q = supabaseDb
         .from("providers")
         .select("id, name, category_key, avatar_url, gallery_urls")
-        .eq("archetype_key", archetypeKey!)
-        .eq("status", "active")
-        .order("sort_order", { ascending: true });
+        .eq("archetype_key", archetypeKey!);
+      if (!preview) q = q.eq("status", "active");
+      const { data, error } = await q.order("sort_order", { ascending: true });
       if (error) throw error;
       return (data ?? []) as ProviderRow[];
     },
@@ -88,14 +92,14 @@ const ServicePage = () => {
   const ratings = useProviderRatings((providersQ.data ?? []).map((p: any) => p.id));
 
   const categoriesQ = useQuery({
-    queryKey: ["service-categories-public", archetypeKey],
+    queryKey: ["service-categories-public", archetypeKey, preview],
     queryFn: async () => {
-      const { data, error } = await supabaseDb
+      let q = supabaseDb
         .from("service_categories")
         .select("key, label, sort_order")
-        .eq("archetype_key", archetypeKey!)
-        .eq("is_active", true)
-        .order("sort_order", { ascending: true });
+        .eq("archetype_key", archetypeKey!);
+      if (!preview) q = q.eq("is_active", true);
+      const { data, error } = await q.order("sort_order", { ascending: true });
       if (error) throw error;
       return (data ?? []) as Array<{ key: string; label: string; sort_order: number }>;
     },
@@ -103,13 +107,14 @@ const ServicePage = () => {
   });
 
   const plansQ = useQuery({
-    queryKey: ["service-plans-public", archetypeKey],
+    queryKey: ["service-plans-public", archetypeKey, preview],
     queryFn: async () => {
-      const { data, error } = await supabaseDb
+      let q = supabaseDb
         .from("provider_plans")
         .select("id, provider_id, name, description, price_cents, currency, period, features, included_quantity, included_unit, gallery_urls, providers!inner(name, archetype_key, category_key)")
-        .eq("providers.archetype_key", archetypeKey!)
-        .eq("status", "active")
+        .eq("providers.archetype_key", archetypeKey!);
+      if (!preview) q = q.eq("status", "active");
+      const { data, error } = await q
         // Private plans sell by link, not from the listing.
         .eq("visibility", "public")
         // Variants are reached by picking options on their offer, never listed
@@ -181,8 +186,9 @@ const ServicePage = () => {
     );
   }
 
-  const openProvider = (providerId: string) => navigate(providerHref(archetype.key, providerId));
-  const openPlan = (planId: string) => navigate(`/services/${archetype.key}/plans/${planId}`);
+  const keep = preview ? "?preview=1" : "";
+  const openProvider = (providerId: string) => navigate(providerHref(archetype.key, providerId) + keep);
+  const openPlan = (planId: string) => navigate(`/services/${archetype.key}/plans/${planId}${keep}`);
 
   return (
     <BrowseLayout>
@@ -200,6 +206,7 @@ const ServicePage = () => {
       />
 
       <main className="app-container py-space-4 md:py-space-8">
+        {preview && <div className="mb-4"><DraftPreviewBanner /></div>}
         {providersQ.isLoading ? (
           <div className="grid gap-3 md:grid-cols-2 md:gap-4">
             {[1, 2].map((i) => <Skeleton key={i} className="h-72" />)}

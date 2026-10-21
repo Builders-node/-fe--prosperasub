@@ -30,6 +30,8 @@ export interface SelectionGroup {
 
 export interface CheckoutPlan {
   service: CheckoutService;
+  /** provider_plans.status. A new purchase needs "active"; a renewal of what was already bought does not. */
+  status: string;
   /** `provider_plans.id` — the universal row, always present. */
   universalId: string;
   /** The id a subscription will carry: the legacy plan id, or the universal one. */
@@ -116,6 +118,7 @@ export async function resolveCheckoutPlan(planId: string): Promise<CheckoutPlan 
 
   return {
     service,
+    status: String(row.status ?? "active"),
     universalId: String(row.id),
     subjectPlanId: String(row.source_plan_id ?? row.id),
     providerUniversalId: String(row.provider_id),

@@ -34,6 +34,8 @@ import { carProviderPath } from "@/features/vehicles";
 import { YdSectionHeading } from "@/components/yd/YdPrimitives";
 import { useTabParam } from "@/hooks/useTabParam";
 import { useSeo, businessJsonLd } from "@/hooks/useSeo";
+import { useDraftPreview } from "@/hooks/useDraftPreview";
+import { DraftPreviewBanner } from "@/components/patterns/DraftPreviewBanner";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 interface Provider {
@@ -127,15 +129,17 @@ function useEntertainmentPlans(providerId: string | undefined) {
  * Without this the provider renders with a "Plans" heading over "No plans yet"
  * no matter how many plans an admin has entered.
  */
-function useUniversalPlans(providerId: string | undefined, enabled: boolean) {
+function useUniversalPlans(providerId: string | undefined, enabled: boolean, preview = false) {
   return useQuery({
-    queryKey: ["provider-detail:universal-plans", providerId],
+    queryKey: ["provider-detail:universal-plans", providerId, preview],
     queryFn: async () => {
-      const { data, error } = await supabaseDb
+      let q = supabaseDb
         .from("provider_plans")
         .select("id, name, description, price_cents, currency, period, features, included_quantity, included_unit, source_plan_id, gallery_urls")
-        .eq("provider_id", providerId!)
-        .eq("status", "active")
+        .eq("provider_id", providerId!);
+      // ?preview=1 (admin): a draft provider's plans before they go live.
+      if (!preview) q = q.eq("status", "active");
+      const { data, error } = await q
         // Private plans sell by link, not from the provider's public page.
         .eq("visibility", "public")
         // Offers only. A variant is reached by picking options on its offer.
@@ -277,7 +281,8 @@ const ProviderDetail = () => {
    * business it is looking at. Food used to be a fourth branch and got a whole
    * second page instead; that fork is gone above.
    */
-  const plansQ = useUniversalPlans(providerId, !!providerId);
+  const preview = useDraftPreview();
+  const plansQ = useUniversalPlans(providerId, !!providerId, preview);
 
   /**
    * A rental company's offerings are its cars. The car IS the offer — the
@@ -362,7 +367,7 @@ const ProviderDetail = () => {
    */
   const openPlan = (planId: string) => {
     const row = (plansQ.data ?? []).find((p) => p.id === planId) as { source_plan_id?: string | null } | undefined;
-    navigate(planHref(serviceSegment ?? "", row?.source_plan_id ? String(row.source_plan_id) : planId));
+    navigate(planHref(serviceSegment ?? "", row?.source_plan_id ? String(row.source_plan_id) : planId) + (preview ? "?preview=1" : ""));
   };
 
   // ── Loading / not-found (mirror FoodProviderDetail) ──────────────────────
@@ -506,6 +511,7 @@ const ProviderDetail = () => {
 
   return (
     <BrowseLayout className="md:pb-0">
+      {preview && <div className="app-container pt-3"><DraftPreviewBanner /></div>}
 
       {/*
         The banner IS the header.

@@ -1,5 +1,5 @@
 import {
-  Car, ChefHat, Dumbbell, Flower2, GraduationCap, HeartPulse,
+  Car, ChefHat, Droplets, Dumbbell, Flower2, GraduationCap, HeartPulse,
   Home, ShoppingBag, SparklesIcon, Store, Trophy, UtensilsCrossed,
   Waves, Wrench, type LucideIcon,
 } from "lucide-react";
@@ -19,6 +19,8 @@ export const CATEGORY_ICONS: Record<string, LucideIcon> = {
   // reads as medical, which a massage room is not.
   "flower-2":         Flower2,
   "waves":            Waves,
+  // Drinking-water delivery (Sun Water).
+  "droplets":         Droplets,
   "trophy":           Trophy,
   "dumbbell":         Dumbbell,
   "graduation-cap":   GraduationCap,
