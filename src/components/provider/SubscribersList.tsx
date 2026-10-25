@@ -20,7 +20,9 @@ import { WorkspaceCard, WorkspaceEmpty, WorkspaceSection } from "@/components/pr
 import { CustomerPhone } from "@/components/patterns/CustomerPhone";
 import { SaleOriginBadge } from "@/components/patterns/SaleOrigin";
 import { todayHN, addDaysISO, addMonthsISO } from "@/lib/timezone";
-import { MapPin, MoreHorizontal, PauseCircle, PlayCircle, RefreshCcw, XCircle } from "lucide-react";
+import { CalendarClock, MapPin, MoreHorizontal, PauseCircle, PlayCircle, RefreshCcw, XCircle } from "lucide-react";
+import { ResponsiveDialog } from "@/components/patterns/ResponsiveDialog";
+import { Label } from "@/components/ui/label";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -49,6 +51,7 @@ export function SubscribersList({ providerId, legacyId, sourceKey }: {
   const { userData } = useAuth();
   const [q, setQ] = useState("");
   const [deliveryFor, setDeliveryFor] = useState<SubscriberRow | null>(null);
+  const [datesFor, setDatesFor] = useState<SubscriberRow | null>(null);
   const KEY = ["provider-subscribers", providerId, legacyId ?? "", sourceKey] as const;
   const shape = subscriberSourceFor(sourceKey);
 
@@ -228,6 +231,9 @@ export function SubscribersList({ providerId, legacyId, sourceKey }: {
                     <MapPin className="mr-2 h-4 w-4" /> Edit {(shape.deliveryLabel ?? "delivery").toLowerCase()}
                   </DropdownMenuItem>
                 ) : null}
+                <DropdownMenuItem onClick={() => setDatesFor(r)}>
+                  <CalendarClock className="mr-2 h-4 w-4" /> Change dates
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => renew(r)}>
                   <RefreshCcw className="mr-2 h-4 w-4" /> Renew — paid off platform
                 </DropdownMenuItem>
@@ -253,6 +259,18 @@ export function SubscribersList({ providerId, legacyId, sourceKey }: {
         ])
       )}
 
+      <DatesDialog
+        row={datesFor}
+        shape={shape}
+        onClose={() => setDatesFor(null)}
+        onSaved={() => {
+          void qc.invalidateQueries({ queryKey: KEY });
+          qc.invalidateQueries({ queryKey: ["provider-analytics"] });
+          qc.invalidateQueries({ queryKey: ["unified-bookings"] });
+          setDatesFor(null);
+        }}
+      />
+
       <DeliveryDialog
         open={!!deliveryFor}
         shape={shape}
@@ -274,3 +292,76 @@ export function SubscribersList({ providerId, legacyId, sourceKey }: {
  * vertical it is looking at, which is the point: a new service that names its
  * columns gets this form for free.
  */
+
+/**
+ * Move a subscription's current period — a customer who started late, or a
+ * date typed wrong at sale. Changing the start shifts the end by the same
+ * length, so the customer keeps exactly what they paid for; the end can still
+ * be set by hand. Price and payment are not touched.
+ */
+function DatesDialog({ row, shape, onClose, onSaved }: {
+  row: SubscriberRow | null;
+  shape: SubscriberSource;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [start, setStart] = useState("");
+  const [end, setEnd] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const origStart = (row?.start ?? "").slice(0, 10);
+  const origEnd = (row?.end ?? "").slice(0, 10);
+  const lengthDays = origStart && origEnd
+    ? Math.max(1, Math.round((Date.parse(`${origEnd}T00:00:00Z`) - Date.parse(`${origStart}T00:00:00Z`)) / 86_400_000))
+    : 7;
+
+  useEffect(() => {
+    setStart(origStart || todayHN());
+    setEnd(origEnd || addDaysISO(origStart || todayHN(), lengthDays));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [row?.id]);
+
+  const onStart = (v: string) => {
+    setStart(v);
+    if (v) setEnd(addDaysISO(v, lengthDays));
+  };
+
+  const invalid = !start || !end || end < start;
+
+  const save = async () => {
+    if (!row || invalid) return;
+    setSaving(true);
+    const { error } = await supabaseDb.from(shape.table).update(shape.datesPatch({ start, end })).eq("id", row.id);
+    setSaving(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Dates updated", shape.datesNote ? { description: shape.datesNote } : undefined);
+    onSaved();
+  };
+
+  return (
+    <ResponsiveDialog
+      open={!!row}
+      onOpenChange={(o) => { if (!o) onClose(); }}
+      title={row ? `Dates · ${row.customerName || row.customerEmail || "Customer"}` : "Dates"}
+    >
+      <div className="space-y-4 pb-2">
+        <div className="space-y-1.5">
+          <Label htmlFor="sub-start">Starts</Label>
+          <Input id="sub-start" type="date" value={start} onChange={(e) => onStart(e.target.value)} />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="sub-end">Ends</Label>
+          <Input id="sub-end" type="date" value={end} min={start} onChange={(e) => setEnd(e.target.value)} />
+          <p className="text-[13px] text-muted-foreground">
+            Moves with the start so the length stays {lengthDays} day{lengthDays === 1 ? "" : "s"}. Price and payment don't change.
+          </p>
+        </div>
+        {shape.datesNote && <p className="text-[13px] text-muted-foreground">{shape.datesNote}</p>}
+        <div className="flex justify-end gap-2">
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button onClick={save} disabled={invalid || saving}>{saving ? "Saving…" : "Save dates"}</Button>
+        </div>
+      </div>
+    </ResponsiveDialog>
+  );
+}

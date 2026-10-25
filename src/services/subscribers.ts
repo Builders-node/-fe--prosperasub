@@ -67,6 +67,13 @@ export interface SubscriberSource {
   renewPatch: (row: SubscriberRow, at: { start: string; length: number }) => Record<string, unknown>;
   /** A word to add after renewing, where the service needs one. */
   renewNote?: string;
+  /**
+   * Move the current period: what "Change dates" writes. Only the period's
+   * own columns — status, payment and price stay as they are.
+   */
+  datesPatch: (dates: { start: string; end: string }) => Record<string, unknown>;
+  /** A word to add after moving the dates, where the service needs one. */
+  datesNote?: string;
   /** Columns beyond the status one, on pause and resume. */
   statusPatch?: (next: "active" | "paused" | "cancelled") => Record<string, unknown>;
   /** Work a cancellation implies beyond writing a column. */
@@ -98,6 +105,7 @@ export const UNIVERSAL_SUBSCRIBERS: SubscriberSource = {
     periods_paid: (row.periodsPaid || 1) + 1,
     updated_at: new Date().toISOString(),
   }),
+  datesPatch: ({ start, end }) => ({ start_date: start, end_date: end, updated_at: new Date().toISOString() }),
   deliveryLabel: "Where it happens",
   deliveryFields: [
     { column: "service_address", label: "Address", multiline: true, placeholder: "Building, unit, landmark" },
@@ -122,6 +130,12 @@ export const SUBSCRIBER_SOURCES: Record<string, SubscriberSource> = {
     },
     // The recurrence engine seeds visits on create, not on renew.
     renewNote: "Add visits for the new period from the Bookings tab.",
+    datesPatch: ({ start, end }) => ({
+      service_start_date: start, start_date: start,
+      service_end_date: end, paid_until: end, end_date: end,
+    }),
+    // A visit holds a seat in a slot; moving the period does not move them.
+    datesNote: "Visits already booked keep their dates — move them from the Bookings tab.",
     /**
      * Cancelling has to cancel the visits it booked.
      *
@@ -163,6 +177,7 @@ export const SUBSCRIBER_SOURCES: Record<string, SubscriberSource> = {
       periods_paid: (row.periodsPaid || 1) + 1,
       updated_at: new Date().toISOString(),
     }),
+    datesPatch: ({ start, end }) => ({ started_at: start, end_date: end, updated_at: new Date().toISOString() }),
     // Food records WHEN it was paused, and clears that on resume.
     statusPatch: (next) => ({ paused_at: next === "paused" ? todayHN() : null }),
     deliveryLabel: "Delivery details",
