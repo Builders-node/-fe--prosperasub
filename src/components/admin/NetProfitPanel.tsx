@@ -20,6 +20,7 @@ import {
   Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
+import { PayoutBasisCard } from "@/components/admin/PayoutBasisCard";
 
 /**
  * What the platform makes, business by business.
@@ -305,6 +306,8 @@ export function NetProfitPanel() {
           </div>
         </CardContent>
       </Card>
+
+      <PayoutBasisCard />
 
       {/* The rates themselves */}
       <Card className="mt-space-4">

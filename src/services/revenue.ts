@@ -95,11 +95,23 @@ export const REVENUE_SOURCES: Record<string, RevenueSource> = {
 
   food: {
     table: "food_subscriptions",
-    select: "weekly_price_cents, commitment_weeks, periods_paid, created_at, started_at",
+    select: "weekly_price_cents, commitment_weeks, periods_paid, created_at, started_at, end_date",
     scope: "legacy",
     where: (q) => q.in("status", ["active", "paused", "expired"]).eq("payment_status", "paid"),
     toInput: (r) => {
       const weeks = (r.commitment_weeks || 1) * (r.periods_paid || 1);
+      // A renewal moves started_at to the new period while the total covers
+      // every period paid; counting back from end_date keeps the weeks already
+      // delivered in the past. Same rule as the payout cap (Edge lib/earnings).
+      if (r.end_date) {
+        const endDay = String(r.end_date).slice(0, 10);
+        return {
+          totalCents: (r.weekly_price_cents || 0) * weeks,
+          serviceStart: addDaysISO(endDay, -weeks * 7),
+          serviceEnd: endDay,
+          fallbackDays: weeks * 7,
+        };
+      }
       const startDay = r.started_at || r.created_at;
       return {
         totalCents: (r.weekly_price_cents || 0) * weeks,
