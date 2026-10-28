@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useGoBack } from "@/hooks/useGoBack";
 import {
   ShoppingCart, Trash2, Minus, Plus, MapPin, MessageCircle, User as UserIcon,
-  Check, UtensilsCrossed, X,
+  Check, UtensilsCrossed, X, RefreshCw,
 } from "lucide-react";
 import { HomeHeader } from "@/components/layout/HomeHeader";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
@@ -21,6 +21,8 @@ import {
 } from "@/components/ui/select";
 import type { PaymentMethod } from "@/components/payment/PaymentMethodSelector";
 import { PayPalPanel } from "@/components/payment/PayPalPanel";
+import { PayPalSubscriptionPanel } from "@/components/payment/PayPalSubscriptionPanel";
+import { termLabelFor, periodNoun } from "@/lib/services/planPeriod";
 import { InvoiceQrPanel } from "@/components/payment/InvoiceQrPanel";
 import { useInvoicePayment } from "@/hooks/useInvoicePayment";
 import { toast } from "sonner";
@@ -163,6 +165,29 @@ export default function Cart() {
     }));
   }, [userData, globalResidence]);
 
+  /**
+   * PayPal renews a subscription by itself, but one PayPal subscription pays
+   * for one row — so the cart offers it only for a single line of one unit
+   * that is not a one-off. The plan is resolved up front because "one-off"
+   * and the period are what the plan says, not what the cart line carries.
+   */
+  const soleItem = items.length === 1 && items[0].qty === 1 ? items[0] : null;
+  const [solePlan, setSolePlan] = useState<CheckoutPlan | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    setSolePlan(null);
+    if (soleItem) void resolveCheckoutPlan(soleItem.planId).then((p) => { if (!cancelled) setSolePlan(p ?? null); });
+    return () => { cancelled = true; };
+  }, [soleItem?.planId]);
+  const autoRenewEligible = !!soleItem && !!solePlan && !solePlan.oneTime;
+  const [autoRenew, setAutoRenew] = useState(true);
+  const subscribeWithPayPal = paymentMethod === "paypal" && autoRenewEligible && autoRenew;
+  const renewTerm = soleItem && solePlan
+    ? (soleItem.periods > 1 ? termLabelFor(solePlan.period, soleItem.periods) : periodNoun(solePlan.period) || "period")
+    : "period";
+  /** Ids of the rows reserved before payment — the PayPal subscription pays for exactly one. */
+  const reservedIdsRef = useRef<string[]>([]);
+
   const effectiveTotalCents = addSurchargeCents(totalCents, paymentMethod);
   const feePct = surchargePercent(paymentMethod);
   const totalUsd = centsToDollars(effectiveTotalCents);
@@ -251,11 +276,13 @@ export default function Cart() {
       byTable.set(table, [...(byTable.get(table) ?? []), ...rows]);
     });
 
+    reservedIdsRef.current = [];
     for (const [table, rows] of byTable) {
       // `.select("id")` so each new order can be announced to the business
       // that has to fulfil it — a bare insert returns nothing to name.
       const { data, error } = await supabaseDb.from(table).insert(rows).select("id");
       if (error) throw error;
+      (data ?? []).forEach((r: { id?: string }) => { if (r?.id) reservedIdsRef.current.push(r.id); });
       (data ?? []).forEach((r: { id?: string }) =>
         void notifyProviderOfOrder(table as any, r?.id));
     }
@@ -347,6 +374,17 @@ export default function Cart() {
     const description = `${[...new Set(items.map((i) => CART_SERVICES[i.service]?.label ?? i.service))].join(" + ")} — ${count} item${count > 1 ? "s" : ""} — ${formatUSD(totalCents)}`;
 
     if (paymentMethod === "paypal") {
+      // A PayPal subscription is opened for a row that already exists, so the
+      // basket is reserved first — the one-off button writes after capture.
+      if (subscribeWithPayPal) {
+        setIsGenerating(true);
+        try {
+          await reserveRecords("");
+        } finally {
+          setIsGenerating(false);
+        }
+        if (!pendingBatchRef.current) { toast.error("Could not prepare your subscription — try again."); return; }
+      }
       setStep("pay");
       return;
     }
@@ -665,12 +703,43 @@ export default function Cart() {
 
                 <CheckoutCard title="Payment method">
                   <PaymentMethodTiles value={paymentMethod} onChange={setPaymentMethod} available={enabledMethods} />
+
+                  {/* Said before the PayPal step, not on it: choosing PayPal
+                      here means the plan renews by itself, and that should
+                      never be news on the button that charges. */}
+                  {paymentMethod === "paypal" && autoRenewEligible && (
+                    <label className="mt-3 flex cursor-pointer items-start gap-3 rounded-radius-sm bg-inset px-3 py-2.5 text-sm">
+                      <input
+                        type="checkbox"
+                        className="mt-0.5 h-4 w-4 accent-primary"
+                        checked={autoRenew}
+                        onChange={(e) => setAutoRenew(e.target.checked)}
+                      />
+                      <span>
+                        <span className="flex items-center gap-1.5 font-medium text-foreground">
+                          <RefreshCw className="h-3.5 w-3.5 text-primary" />
+                          Renew automatically every {renewTerm}
+                        </span>
+                        <span className="block text-muted-foreground">
+                          With PayPal this renews by itself: {formatUSD(effectiveTotalCents)} every {renewTerm} until you cancel —
+                          any time, from My subscriptions or your PayPal account. Untick to pay once.
+                        </span>
+                      </span>
+                    </label>
+                  )}
                 </CheckoutCard>
               </>
             )}
 
             {/* Payment panels */}
-            {step === "pay" && paymentMethod === "paypal" && (
+            {step === "pay" && subscribeWithPayPal && (
+              <PayPalSubscriptionPanel
+                service={soleItem!.service}
+                getRowId={() => (reservedIdsRef.current.length === 1 ? reservedIdsRef.current[0] : null)}
+                onPaid={(id: string) => onPaidComplete(id)}
+              />
+            )}
+            {step === "pay" && paymentMethod === "paypal" && !subscribeWithPayPal && (
               <PayPalPanel
                 totalCents={effectiveTotalCents}
                 onPaid={(cap) => onPaidComplete(cap)}
