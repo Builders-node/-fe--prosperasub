@@ -643,6 +643,19 @@
     *{transition:none !important; animation:none !important}
     .shot img,.parallax{will-change:auto; transform:none !important}
   }
+
+  /* ── Events at The Club — included in the membership ─────────────────── */
+  .events-grid{display:grid; gap:var(--s-6); grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}
+  .event{display:block; color:inherit; text-decoration:none}
+  .event figure{margin:0; aspect-ratio:1/1; border-radius:var(--r-frame); overflow:hidden; background:#0b1a2a}
+  .event img{opacity:0; transition:opacity .6s ease, transform .6s ease}
+  .event img[data-loaded]{opacity:1}
+  .event:hover img{transform:scale(1.03)}
+  .event .tag{margin-top:var(--s-4)}
+  .event h3{margin-top:var(--s-2); font-size:var(--t-lead); font-weight:600; letter-spacing:-.025em}
+  .event p.who{margin-top:var(--s-2); font-size:var(--t-micro); line-height:1.5; color:var(--ink-60)}
+  .events-more{margin-top:var(--s-8); font-size:var(--t-micro); color:var(--ink-60)}
+  .events-more a{color:var(--ink); text-decoration:underline; text-underline-offset:3px}
 </style>
 </head>
 <body>
@@ -653,6 +666,7 @@
     <div class="links">
       <a href="#included">Included</a>
       <a href="#courts">Courts</a>
+      <a href="#events">Events</a>
       <a href="#membership">Membership</a>
       <a href="#questions">Questions</a>
     </div>
@@ -835,6 +849,40 @@
   </div>
 </section>
 
+<!-- ═══ Events at The Club — the membership is the guest list ════════════ -->
+<section id="events">
+  <div class="wrap">
+    <div class="chap">
+      <h2>Every event at The Club is included.</h2>
+      <p class="aside">Parties, pool days and sunset sessions at The Club at Pristine Bay. Members are on the list for all of them — no tickets, no door price.</p>
+    </div>
+
+    <div class="events-grid">
+      <a class="event" href="https://luma.com/grvgg7hl" target="_blank" rel="noopener">
+        <figure><img alt="SPLASH — Day 1 at The Club, with DJ Francisco Guerrero" data-src="/photos/events/splash.jpg" /></figure>
+        <p class="tag">Day 1</p>
+        <h3>SPLASH</h3>
+        <p class="who">DJ Francisco Guerrero</p>
+      </a>
+      <a class="event" href="https://luma.com/zo5ljahr" target="_blank" rel="noopener">
+        <figure><img alt="ABOARD — Day 2, a sunset boat party with DJ Tijaax" data-src="/photos/events/aboard.jpg" /></figure>
+        <p class="tag">Day 2 · Sunset boat party</p>
+        <h3>ABOARD</h3>
+        <p class="who">DJ Tijaax</p>
+      </a>
+      <a class="event" href="https://luma.com/bg4ibk9o" target="_blank" rel="noopener">
+        <figure><img alt="DO NOT DISTURB — Day 3, the night party at The Club" data-src="/photos/events/dnd.jpg" /></figure>
+        <p class="tag">Day 3 · Night party</p>
+        <h3>DO NOT DISTURB</h3>
+        <p class="who">Check in, tune out</p>
+      </a>
+    </div>
+
+    <p class="events-more">October 2026: three days, three parties. The next ones go up on The Club's calendar —
+      <a href="https://luma.com/theclubroatan" target="_blank" rel="noopener">see what's coming ↗</a></p>
+  </div>
+</section>
+
 <!-- ═══ 05 · DESIRE → ACTION — the price ══════════════════════════════════ -->
 <section class="dark" id="membership">
   <!-- One photograph across the whole section. The cards are laid ON it at the
@@ -880,6 +928,10 @@
           <img alt="" data-src="/photos/petes-range.jpg" />
           <p><b>A bucket daily at Pete's</b><span>06</span></p>
         </article>
+        <article class="pcard">
+          <img alt="" data-src="/photos/events/aboard.jpg" />
+          <p><b>Every event at The Club</b><span>07</span></p>
+        </article>
       </div>
     </div>
   </div>
@@ -903,6 +955,10 @@
     <details>
       <summary>Do I have to book ahead?</summary>
       <p>For pools, the water park, the gym and the range — no, just turn up. Courts are booked by the hour so two people don't arrive for the same slot; members do that from their phone, 6am to 7pm.</p>
+    </details>
+    <details>
+      <summary>Are the parties and events included?</summary>
+      <p>Yes. Every event at The Club at Pristine Bay — parties, pool days, sunset sessions — is included in the membership; members are on the list. New dates are posted on The Club's calendar at luma.com/theclubroatan.</p>
     </details>
     <details>
       <summary>How do I pay?</summary>
