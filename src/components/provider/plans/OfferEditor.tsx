@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, Plus, Trash2, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -717,6 +717,23 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
                 onChange={(e) => setDraftGroups((gs) => gs.map((g, i) => i === gi ? { ...g, label: e.target.value } : g))}
                 className="h-9 max-w-xs font-semibold"
               />
+              {/* Order is what the customer sees: choices top to bottom, values
+                  left to right, and the price list below follows both. Saved as
+                  sort_order; prices are keyed by value, so moving loses none. */}
+              {draftGroups.length > 1 && (
+                <>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" aria-label={`Move ${group.label} up`}
+                    disabled={gi === 0}
+                    onClick={() => setDraftGroups((gs) => moveItem(gs, gi, -1))}>
+                    <ChevronUp className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" aria-label={`Move ${group.label} down`}
+                    disabled={gi === draftGroups.length - 1}
+                    onClick={() => setDraftGroups((gs) => moveItem(gs, gi, 1))}>
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </>
+              )}
               <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0"
                 onClick={() => setDraftGroups((gs) => gs.filter((_, i) => i !== gi))}>
                 <X className="h-4 w-4" />
@@ -724,8 +741,24 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               {group.options.map((option, oi) => (
-                <span key={option.key} className="flex items-center gap-1 rounded-full bg-muted px-3 py-1 text-sm">
+                <span key={option.key} className="flex items-center gap-1 rounded-full bg-muted px-2 py-1 text-sm">
+                  {group.options.length > 1 && (
+                    <button type="button" aria-label={`Move ${option.label} left`} disabled={oi === 0}
+                      className="disabled:opacity-30"
+                      onClick={() => setDraftGroups((gs) => gs.map((g, i) =>
+                        i === gi ? { ...g, options: moveItem(g.options, oi, -1) } : g))}>
+                      <ChevronLeft className="h-3.5 w-3.5 text-muted-foreground" />
+                    </button>
+                  )}
                   {option.label}
+                  {group.options.length > 1 && (
+                    <button type="button" aria-label={`Move ${option.label} right`} disabled={oi === group.options.length - 1}
+                      className="disabled:opacity-30"
+                      onClick={() => setDraftGroups((gs) => gs.map((g, i) =>
+                        i === gi ? { ...g, options: moveItem(g.options, oi, 1) } : g))}>
+                      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                    </button>
+                  )}
                   <button type="button" aria-label={`Remove ${option.label}`}
                     onClick={() => setDraftGroups((gs) => gs.map((g, i) =>
                       i === gi ? { ...g, options: g.options.filter((_, j) => j !== oi) } : g))}>
@@ -1390,4 +1423,13 @@ async function findMirror(service: string, sourcePlanId: string): Promise<string
   const { data } = await supabaseDb.from("provider_plans")
     .select("id").eq("source_service_key", service).eq("source_plan_id", sourcePlanId).maybeSingle();
   return data?.id ? String(data.id) : null;
+}
+
+/** A copy of `items` with the one at `index` moved one step (-1 left/up, +1 right/down). */
+function moveItem<T>(items: T[], index: number, step: -1 | 1): T[] {
+  const to = index + step;
+  if (to < 0 || to >= items.length) return items;
+  const next = items.slice();
+  [next[index], next[to]] = [next[to], next[index]];
+  return next;
 }
