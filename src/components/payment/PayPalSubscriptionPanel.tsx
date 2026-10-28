@@ -41,10 +41,12 @@ function loadSdk(clientId: string): Promise<void> {
 interface Props {
   /** The reserved provider_subscriptions row this subscription pays for. */
   getRowId: () => string | null;
+  /** Which table the row is in: "beach" | "universal" | "food" | "cleaning". */
+  service: string;
   onPaid: (subscriptionId: string) => void;
 }
 
-export function PayPalSubscriptionPanel({ getRowId, onPaid }: Props) {
+export function PayPalSubscriptionPanel({ getRowId, service, onPaid }: Props) {
   const [status, setStatus] = useState<"loading" | "ready" | "settling" | "unconfigured" | "error">("loading");
   const [message, setMessage] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
@@ -71,7 +73,7 @@ export function PayPalSubscriptionPanel({ getRowId, onPaid }: Props) {
               if (!rowId) throw new Error("Checkout is not ready yet — try again in a second.");
               const { data, error } = await accountApi("/payments/paypal/subscriptions", {
                 method: "POST",
-                body: JSON.stringify({ row_id: rowId }),
+                body: JSON.stringify({ row_id: rowId, service }),
               });
               if (error || !data?.id) {
                 setMessage(error?.message || "Could not start PayPal.");

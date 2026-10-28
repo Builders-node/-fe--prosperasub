@@ -283,16 +283,17 @@ const UniversalPlanCheckout = () => {
   const effectiveTotalCents = addSurchargeCents(payableCents, paymentMethod);
 
   /**
-   * PayPal can renew a membership by itself (PayPal Subscriptions). Offered
-   * only where the first charge IS one period at list price — a promo, a bonus
-   * credit or several periods up front cannot become a repeating charge — and
-   * only for the rows that live in provider_subscriptions (beach + universal).
-   * On by default and said plainly next to the button.
+   * PayPal can renew any subscription by itself (PayPal Subscriptions) — food,
+   * cleaning, memberships and universal plans alike. The repeating charge is
+   * the term bought here (N weeks, N months…) at list price, so a promo or a
+   * bonus credit, which only make the FIRST term cheaper, rules it out, as
+   * does a one-off. On by default and said plainly next to the button.
    */
   const [autoRenew, setAutoRenew] = useState(true);
   const autoRenewEligible =
-    !!plan && (plan.service === "beach" || plan.service === "universal") &&
-    !plan.oneTime && !renewSubId && periods === 1 && discountCents === 0 && bonusCents === 0;
+    !!plan && !plan.oneTime && !renewSubId && discountCents === 0 && bonusCents === 0;
+  /** "month", "4 weeks", "3 months" — the term PayPal will repeat. */
+  const renewTerm = plan ? (periods > 1 ? termLabelFor(plan.period, periods) : periodNoun(plan.period) || "period") : "period";
   const feePct = surchargePercent(paymentMethod);
   const estimatedSats = convertToSats(centsToDollars(effectiveTotalCents));
   // A renewal does not get to choose when it starts: it starts the day the
@@ -883,10 +884,10 @@ const UniversalPlanCheckout = () => {
                     />
                     <span>
                       <span className="font-medium text-foreground">
-                        Renew automatically every {periodNoun(plan.period) || "period"}
+                        Renew automatically every {renewTerm}
                       </span>
                       <span className="block text-muted-foreground">
-                        PayPal charges {formatUSD(effectiveTotalCents)} each {periodNoun(plan.period) || "period"} until you cancel —
+                        PayPal charges {formatUSD(effectiveTotalCents)} every {renewTerm} until you cancel —
                         any time, from My subscriptions or your PayPal account.
                       </span>
                     </span>
@@ -894,6 +895,7 @@ const UniversalPlanCheckout = () => {
                 )}
                 {autoRenewEligible && autoRenew ? (
                   <PayPalSubscriptionPanel
+                    service={plan.service}
                     key="paypal-subscription"
                     getRowId={() => pendingSubIdRef.current}
                     onPaid={(id: string) => onExternalPaid(id, "paypal")}
@@ -939,6 +941,19 @@ const UniversalPlanCheckout = () => {
         ) : !showPayment ? (
           <CheckoutCard title="Payment method">
             <PaymentMethodTiles value={paymentMethod} onChange={setPaymentMethod} available={enabledMethods} />
+
+            {/* Said before the PayPal step, not only on it: choosing PayPal here
+                means the plan renews by itself, and that should never be news
+                on the button that charges. */}
+            {paymentMethod === "paypal" && autoRenewEligible && (
+              <div className="mt-3 flex items-start gap-2 rounded-radius-sm bg-inset px-3 py-2.5 text-sm text-muted-foreground">
+                <RefreshCw className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                <span>
+                  With PayPal this renews automatically: {formatUSD(effectiveTotalCents)} every {renewTerm} until you cancel.
+                  You can switch it off on the next step, or cancel any time in My subscriptions.
+                </span>
+              </div>
+            )}
 
             {/* The sats figure lives here rather than in the button: it moves
                 with the exchange rate, and a total that changes while you read
