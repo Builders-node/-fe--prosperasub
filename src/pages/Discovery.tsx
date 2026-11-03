@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { Users, ChevronRight, ChefHat, QrCode, Store } from "lucide-react";
 import { useServiceCategories } from "@/hooks/useServiceCategories";
@@ -7,8 +7,6 @@ import { HomeHeader } from "@/components/layout/HomeHeader";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { AdBanner } from "@/components/patterns/AdBanner";
-import { ResponsiveDialog } from "@/components/patterns/ResponsiveDialog";
-import { AccessQrCode } from "@/components/account/AccessQrCode";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMyBusinesses } from "@/hooks/useMyBusinesses";
 import { useServiceArchetypes, type ServiceArchetype } from "@/hooks/useServiceArchetypes";
@@ -19,7 +17,7 @@ import { CarFront as CarFrontIcon } from "lucide-react";
 import { publicListingHref } from "@/lib/services/providerBridge";
 import { CategoryCarousel } from "@/components/discovery/CategoryCarousel";
 import { useTabParam } from "@/hooks/useTabParam";
-import { BusinessCenterIcon, QrCodeIcon } from "@/components/icons/FigmaIcons";
+import { BusinessCenterIcon } from "@/components/icons/FigmaIcons";
 import { useResidenceMatters } from "@/contexts/LocationContext";
 import { useI18n } from "@/i18n";
 import { prefetchRoute } from "@/lib/routeChunks";
@@ -45,7 +43,6 @@ const FAMILY_LABELS: Record<string, string> = {
 
 const Discovery = () => {
   const { userData } = useAuth();
-  const [qrOpen, setQrOpen] = useState(false);
   const { hasAny: managesBusiness } = useMyBusinesses();
   const { archetypes: allArchetypes, isLoading: archetypesLoading } = useServiceArchetypes(true);
 
@@ -105,8 +102,8 @@ const Discovery = () => {
   /**
    * One shortcut row, exactly as the design draws it: a #f6f6f6 card with a
    * white 8px-radius icon tile, a 16px semibold title and an optional 12px
-   * caption. Used for My Access, My Business and Become a provider so the
-   * three read as one list rather than three ideas.
+   * caption. Used for My Business and Become a provider so the
+   * two read as one list rather than three ideas.
    */
   const ShortcutRow = ({
     icon: Icon, title, caption, onClick, to,
@@ -169,15 +166,6 @@ const Discovery = () => {
             </div>
           )}
           <CategoryCarousel family={showFamilies ? family : undefined} />
-
-          {userData && (
-            <ShortcutRow
-              icon={QrCodeIcon}
-              title="My Access"
-              caption="Show this to personnel"
-              onClick={() => setQrOpen(true)}
-            />
-          )}
 
           {/* The home screen is for buying, so it only carries the door into a
               business you already run. Signing up to be a provider lives in
@@ -258,12 +246,6 @@ const Discovery = () => {
         )}
 
       </main>
-
-      <ResponsiveDialog open={qrOpen} onOpenChange={setQrOpen} title="My Access">
-        <div className="flex flex-col items-center justify-center py-6">
-          <AccessQrCode />
-        </div>
-      </ResponsiveDialog>
 
     </BrowseLayout>
   );

@@ -6,11 +6,11 @@ import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 
 /**
- * A user's personal access QR code. The token is short-lived and signed by the
+ * The access QR of one subscription. The token is short-lived and signed by the
  * backend, so the QR auto-refreshes a little before it expires. Staff scan it to
- * verify the user's subscription access at /verify.
+ * verify exactly this subscription at /verify.
  */
-export function AccessQrCode({ className }: { className?: string }) {
+export function AccessQrCode({ subscriptionId, className }: { subscriptionId: string; className?: string }) {
   const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -20,7 +20,10 @@ export function AccessQrCode({ className }: { className?: string }) {
     let cancelled = false;
 
     const fetchToken = async () => {
-      const { data, error: apiError } = await accountApi("/verify/token", { method: "POST" });
+      const { data, error: apiError } = await accountApi("/verify/token", {
+        method: "POST",
+        body: JSON.stringify({ subscription_id: subscriptionId }),
+      });
       if (cancelled) return;
 
       if (apiError || !data?.token) {
@@ -45,7 +48,7 @@ export function AccessQrCode({ className }: { className?: string }) {
       cancelled = true;
       if (timerRef.current) window.clearTimeout(timerRef.current);
     };
-  }, []);
+  }, [subscriptionId]);
 
   return (
     <div className={cn("flex flex-col items-center gap-2", className)}>

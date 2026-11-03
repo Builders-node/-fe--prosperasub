@@ -11,7 +11,6 @@ import { UserLayout } from "@/components/layout/UserLayout";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { KeyboardArrowRightIcon } from "@/components/icons/FigmaIcons";
-import { AccessQrCode } from "@/components/account/AccessQrCode";
 import { SavedLocations, useUserLocations } from "@/components/account/SavedLocations";
 import { ReferralPanel } from "@/components/account/ReferralPanel";
 import { useReferrals } from "@/hooks/useReferrals";
@@ -462,12 +461,6 @@ const Profile = () => {
                 </section>
               </>
             )}
-
-            {/* Staff scan this to check a subscription at the door. */}
-            <SectionTitle>My access</SectionTitle>
-            <section className="rounded-radius-md bg-card p-4 shadow-figma">
-              <AccessQrCode />
-            </section>
 
             <section className="rounded-radius-md bg-card p-1.5 shadow-figma">
               <Row icon={LogOut} tone="danger" label={t("profile.logOut")} onClick={() => void logout().then(() => navigate("/"))} />

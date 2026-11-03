@@ -433,6 +433,7 @@ const MySubscriptions = () => {
       return (data ?? []).map((r: any) => ({
         ...r,
         id: r.source_subscription_id ?? r.id,
+        access_id: r.id,
         plan_id: r.provider_plans?.source_plan_id ?? r.plan_id,
         plan_name: r.metadata?.plan_name ?? "Beach Club Membership",
         people: Number(r.metadata?.people) || 1,
@@ -1146,6 +1147,7 @@ const MySubscriptions = () => {
                       statusBadge={<StatusPill status={s.status} />}
                       metadata={<span className="tabular-nums">{formatUSD((s.weekly_price_cents || 0) * (s.commitment_weeks || 1))}</span>}
                       onClick={() => setDetail({
+                        accessId: s.id,
                         title: s.food_meal_plans?.name ?? "Meal plan",
                         provider: s.food_providers?.name ?? null,
                         status: s.status,
@@ -1246,6 +1248,7 @@ const MySubscriptions = () => {
                         </>}
                         metadata={<span className="tabular-nums">{formatUSD(s.total_cents || 0)}</span>}
                         onClick={() => setDetail({
+                          accessId: s.access_id,
                           title: s.plan_name || "Beach Club Membership",
                           provider: "Beach Club",
                           status: label,
@@ -1316,6 +1319,7 @@ const MySubscriptions = () => {
                       </>}
                       metadata={<span className="tabular-nums">{formatUSD(s.price_cents || 0)}</span>}
                       onClick={() => setDetail({
+                        accessId: s.id,
                         title: planName,
                         provider: providerName,
                         status: label,
@@ -1525,6 +1529,7 @@ const MySubscriptions = () => {
                             ? "Weekly schedule active"
                             : `${sub.cleanings_remaining ?? 0} cleanings remaining`}
                           onClick={() => setDetail({
+                            accessId: sub.id,
                             title: (sub as any).cleaning_packages?.name ?? "Cleaning plan",
                             status: effectiveCleaningStatus(sub),
                             amountCents: sub.total_price_cents

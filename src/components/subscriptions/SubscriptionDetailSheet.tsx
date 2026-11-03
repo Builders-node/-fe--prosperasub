@@ -10,6 +10,7 @@ import { formatUSD } from "@/lib/pricing";
 import { formatRangeHN, formatDateHN } from "@/lib/timezone";
 import { TipPanel } from "@/components/subscriptions/TipPanel";
 import { RateProviderButton, type Service } from "@/components/reviews/RateProviderButton";
+import { AccessQrCode } from "@/components/account/AccessQrCode";
 
 /**
  * What a customer sees when they tap a subscription: the purchase, not the
@@ -43,6 +44,11 @@ export interface PurchaseDetail {
   /** Rate the provider — the same widget on every service. */
   review?: { service: Service; itemId?: string | null; subscriptionId: string; providerId?: string | null; customerName?: string | null };
   /**
+   * The row staff scan to check this subscription at the door. The id the
+   * server knows it by, which for a beach membership is not the card's id.
+   */
+  accessId?: string;
+  /**
    * Where this one goes, and the door to change it.
    *
    * A customer who moved had to ask the business, who moved it from their own
@@ -66,6 +72,9 @@ function Row({ label, value }: { label: string; value: ReactNode }) {
     </div>
   );
 }
+
+/** The statuses the access check says yes to — a QR on anything else would only be refused. */
+const GRANTS_ACCESS = ["active", "pending_schedule"];
 
 export function SubscriptionDetailSheet({
   detail, onClose, onDeliverySaved,
@@ -92,6 +101,13 @@ export function SubscriptionDetailSheet({
             </div>
             <StatusPill status={detail.status} />
           </div>
+
+          {/* First, because at the door this is what the sheet is opened for. */}
+          {detail.accessId && GRANTS_ACCESS.includes(detail.status.toLowerCase()) && (
+            <div className="mb-2 rounded-radius-md bg-inset p-4">
+              <AccessQrCode subscriptionId={detail.accessId} />
+            </div>
+          )}
 
           {detail.amountCents != null && (
             <div className="mb-2 rounded-radius-md bg-inset p-4">
