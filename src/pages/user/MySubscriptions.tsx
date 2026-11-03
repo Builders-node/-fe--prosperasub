@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { effectiveCleaningStatus, effectiveFoodStatus } from "@/lib/subscriptionLifecycle";
+import { useTabParam } from "@/hooks/useTabParam";
 import { QueryError } from "@/components/patterns/QueryError";
 import { StatusPill } from "@/components/patterns/StatusPill";
 import { Button } from "@/components/ui/button";
