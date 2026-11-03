@@ -35,7 +35,6 @@ import {
   LandPlot,
   LayoutGrid,
   Search,
-  SlidersHorizontal,
   CarFront,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
@@ -115,6 +114,11 @@ interface PendingRenewal {
  * The browse action is a link at the end of the same line now: it is how you
  * leave this page, not the thing the page is for.
  */
+const SCOPES = ["active", "past"] as const;
+const SCOPE_LABELS = { active: "Current", past: "Past" } as const;
+
+const ENDED_STATUSES = ["expired", "cancelled", "canceled", "completed", "failed", "refunded"];
+
 function ListControls({
   scope, onChange, browse,
 }: {
@@ -359,7 +363,7 @@ const MySubscriptions = () => {
    * Cleaning already sectioned itself, so it keeps its own layout and ignores
    * this.
    */
-  const [scope, setScope] = useState<"active" | "past">("active");
+  const [scope, setScope] = useTabParam(SCOPES, { key: "scope" });
   /** Tapping a card opens the purchase — the tariff taken and how it was paid. */
   const [detail, setDetail] = useState<PurchaseDetail | null>(null);
   /** Search across the visible cards — the design's search pill. */
@@ -843,9 +847,13 @@ const MySubscriptions = () => {
 
   // ── Derived data ─────────────────────────────────────────────────────────
 
-  const pendingScheduleCleaningSubs = cleaningSubscriptions?.filter(
+  // Every cleaning list below answers to the Active/Past switch too: this was
+  // the one service that ignored it, so its plans sat in both views.
+  const onlyActive = <T,>(rows: T[]): T[] => (scope === "active" ? rows : []);
+  const pendingScheduleCleaningSubs = onlyActive((cleaningSubscriptions ?? []).filter(
     (s) => s.payment_status === "paid" && s.subscription_status === "pending_schedule",
-  ) || [];
+  ).filter(matchesQuery));
+  const visibleLinkedClientSubs = onlyActive(linkedClientSubscriptions as any[]);
   // One-time cleanings (no package/plan) should drop off the active list once the
   // single cleaning is done — its booking is completed/cancelled or the date passed.
   const oneTimeDoneSubIds = new Set(
@@ -903,30 +911,43 @@ const MySubscriptions = () => {
    * issue a fresh invoice for one (/account/subscriptions/:id/invoice); only
    * admin-assigned client plans ever offered the button.
    */
-  const unpaidCleaningSubs = (cleaningSubscriptions ?? []).filter((s: any) => {
+  const unpaidCleaningSubs = onlyActive((cleaningSubscriptions ?? []).filter((s: any) => {
     const status = String(s.subscription_status ?? "").toLowerCase();
     return s.payment_status !== "paid" && status !== "cancelled" && status !== "expired";
-  });
-  const activeCleaningSubs = paidCleaningSubs.filter(
-    (s) => s.is_active && effectiveCleaningStatus(s) === "active",
-  ).filter(matchesQuery);
-  /** Ran their course but are still renewable — previously invisible. */
-  const expiredCleaningSubs = paidCleaningSubs.filter(
-    (s) => effectiveCleaningStatus(s) === "expired",
-  ).filter(matchesQuery);
+  }).filter(matchesQuery));
+  const isRunningCleaning = (s: any) => s.is_active && effectiveCleaningStatus(s) === "active";
+  const isPausedCleaning = (s: any) => effectiveCleaningStatus(s) === "paused";
+  const activeCleaningSubs = onlyActive(paidCleaningSubs.filter(isRunningCleaning).filter(matchesQuery));
+  /** Paid for and on hold: not over, so not Past, and until now not anywhere. */
+  const pausedCleaningSubs = onlyActive(paidCleaningSubs.filter(isPausedCleaning).filter(matchesQuery));
+  /**
+   * Everything paid for that is over: expired, cancelled, or a one-off that has
+   * happened. Starts from all the paid rows rather than paidCleaningSubs, which
+   * leaves finished one-offs out.
+   */
+  const pastCleaningSubs = scope === "past"
+    ? (cleaningSubscriptions ?? []).filter((s: any) =>
+        s.payment_status === "paid"
+        && s.subscription_status !== "pending_schedule"
+        && (isOneTimeComplete(s) || (!isRunningCleaning(s) && !isPausedCleaning(s))),
+      ).filter(matchesQuery)
+    : [];
 
   // "Running" per service. Anything else is history.
-  const isLiveFood = (s: any) => effectiveFoodStatus(s) === "active" || String(s.status).toLowerCase() === "paused";
-  const isLiveBeach = (s: any) =>
-    String(s.status).toLowerCase() === "active" && (!s.end_date || s.end_date >= todayHN());
+  // A plan waiting for payment is not over, so it is not Past either: past means
+  // it ended, and everything else is still asking for something.
+  const isNotOver = (s: any) =>
+    !ENDED_STATUSES.includes(String(s.status).toLowerCase())
+    && (!s.end_date || String(s.end_date).slice(0, 10) >= todayHN());
+  const isLiveFood = isNotOver;
+  const isLiveBeach = isNotOver;
 
   const inScope = <T,>(rows: T[], isLive: (r: T) => boolean) =>
     rows.filter((r) => (scope === "active" ? isLive(r) : !isLive(r))).filter(matchesQuery);
 
   const visibleFood   = inScope(foodSubscriptions as any[], isLiveFood);
   const visibleBeach  = inScope(beachSubs as any[], isLiveBeach);
-  const isLiveUniversal = (s: any) =>
-    String(s.status).toLowerCase() === "active" && (!s.end_date || s.end_date >= todayHN());
+  const isLiveUniversal = isNotOver;
   const visibleUniversal = inScope(universalSubs as any[], isLiveUniversal);
   /**
    * A rental counts as live until the day it is due back — an unpaid one
@@ -982,9 +1003,9 @@ const MySubscriptions = () => {
   // content at all — so a single skeleton and a single empty state replace the
   // four per-service ones the tabs used to hide from each other.
   const hasCleaningContent =
-    activeCleaningSubs.length > 0 || expiredCleaningSubs.length > 0 ||
+    activeCleaningSubs.length > 0 || pastCleaningSubs.length > 0 ||
     pendingScheduleCleaningSubs.length > 0 || unpaidCleaningSubs.length > 0 ||
-    (linkedClientSubscriptions?.length ?? 0) > 0;
+    visibleLinkedClientSubs.length > 0 || pausedCleaningSubs.length > 0;
   const anyContent =
     visibleFood.length > 0 || visibleBeach.length > 0 ||
     visibleUniversal.length > 0 || hasCleaningContent || visibleRentals.length > 0;
@@ -1040,17 +1061,24 @@ const MySubscriptions = () => {
           </button>
         )}
       </div>
-      <button
-        type="button"
-        aria-label={scope === "active" ? "Showing active — tap for past" : "Showing past — tap for active"}
-        onClick={() => setScope(scope === "active" ? "past" : "active")}
-        className={cn(
-          "flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors",
-          scope === "past" ? "bg-primary/15 text-primary" : "text-muted-foreground hover:text-foreground",
-        )}
-      >
-        <SlidersHorizontal className="h-5 w-5" />
-      </button>
+    </div>
+  );
+  /** Up top and drawn like the home screen's family tabs: it decides what the whole page lists. */
+  const scopeTabs = (
+    <div className="flex rounded-radius-md bg-inset p-0.5">
+      {SCOPES.map((key) => (
+        <button
+          key={key}
+          type="button"
+          aria-pressed={scope === key}
+          onClick={() => setScope(key)}
+          className={`flex-1 rounded-radius-md px-4 py-2 text-center text-[16px] font-semibold leading-[22px] transition-colors ${
+            scope === key ? "bg-card text-foreground" : "text-foreground/70 hover:text-foreground"
+          }`}
+        >
+          {SCOPE_LABELS[key]}
+        </button>
+      ))}
     </div>
   );
 
@@ -1066,17 +1094,12 @@ const MySubscriptions = () => {
       <div className="app-container pb-28 pt-5">
 
         {/* Page title lives in the mobile header — no inline H1 needed. */}
+        <div className="mb-5">{scopeTabs}</div>
 
         {/* Above the list on purpose: it is about a job that happened, not
             about one of the services below, and it disappears once answered. */}
         <div className="mb-5">
           <ReviewPromptCard />
-        </div>
-
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-[20px] font-semibold leading-[24px] tracking-[-0.4px] text-foreground">
-            {scope === "active" ? "Plans" : "Past plans"}
-          </h2>
         </div>
 
         {/* The tabs are gone, so the empties are one. A skeleton while the
@@ -1088,7 +1111,7 @@ const MySubscriptions = () => {
           <TabEmptyState
             icon={LayoutGrid}
             title={query ? "Nothing matches your search"
-              : scope === "active" ? "No active subscriptions" : "No past subscriptions"}
+              : scope === "active" ? "No current subscriptions" : "No past subscriptions"}
             subtitle={query ? "Try a different word, or clear the search."
               : scope === "active" ? "Subscribe to a plan and it shows up here."
               : "Plans that end or are cancelled show up here."}
@@ -1107,7 +1130,7 @@ const MySubscriptions = () => {
             ) : visibleFood.length === 0 ? (
               <TabEmptyState
                 icon={ChefHat}
-                title={scope === "active" ? "No active meal plans" : "No past meal plans"}
+                title={scope === "active" ? "No current meal plans" : "No past meal plans"}
                 subtitle={scope === "active"
                   ? "Subscribe to a weekly meal plan to see it here."
                   : "Plans that end or are cancelled show up here."}
@@ -1144,13 +1167,13 @@ const MySubscriptions = () => {
                       subtitle={s.started_at
                         ? formatRangeHN(s.started_at, foodEnd(s))
                         : undefined}
-                      statusBadge={<StatusPill status={s.status} />}
+                      statusBadge={<StatusPill status={effectiveFoodStatus(s)} />}
                       metadata={<span className="tabular-nums">{formatUSD((s.weekly_price_cents || 0) * (s.commitment_weeks || 1))}</span>}
                       onClick={() => setDetail({
                         accessId: s.id,
                         title: s.food_meal_plans?.name ?? "Meal plan",
                         provider: s.food_providers?.name ?? null,
-                        status: s.status,
+                        status: effectiveFoodStatus(s),
                         amountCents: (s.weekly_price_cents || 0) * (s.commitment_weeks || 1),
                         periodStart: s.started_at,
                         periodEnd: foodEnd(s)?.toISOString().slice(0, 10) ?? null,
@@ -1201,7 +1224,7 @@ const MySubscriptions = () => {
               ) : visibleBeach.length === 0 ? (
                 <TabEmptyState
                   icon={Waves}
-                  title={scope === "active" ? "No active memberships" : "No past memberships"}
+                  title={scope === "active" ? "No current memberships" : "No past memberships"}
                   subtitle={scope === "active"
                     ? "Subscribe to the Beach Club to access the gym, pools and courts."
                     : "Memberships that end or are cancelled show up here."}
@@ -1484,9 +1507,10 @@ const MySubscriptions = () => {
                 )}
 
                 {/* ── Active plan ── */}
-                {(activeCleaningSubs.length > 0 || linkedClientSubscriptions.length > 0) && (
+                {(activeCleaningSubs.length > 0 || pausedCleaningSubs.length > 0 || visibleLinkedClientSubs.length > 0) && (
                   <section className="space-y-2">
-                    {activeCleaningSubs.map((sub) => {
+                    {[...activeCleaningSubs, ...pausedCleaningSubs].map((sub) => {
+                      const paused = isPausedCleaning(sub);
                       const openRenewDialog = () => {
                         const preview = computeRenewPreview(sub.end_date, {
                           months: sub.billing_period_months || 1,
@@ -1504,7 +1528,7 @@ const MySubscriptions = () => {
                           navigate(`/checkout/${sub.package_id}?renew=${sub.id}`);
                         }
                       };
-                      const actions: any[] = [
+                      const actions: any[] = paused ? [] : [
                         {
                           key: "edit",
                           label: "Edit Schedule",
@@ -1525,7 +1549,9 @@ const MySubscriptions = () => {
                           key={sub.id}
                           icon={SparklesIcon}
                           title={(sub as any).cleaning_packages?.name}
-                          subtitle={(sub as any).recurring_day_of_week != null
+                          subtitle={paused
+                            ? "Paused"
+                            : (sub as any).recurring_day_of_week != null
                             ? "Weekly schedule active"
                             : `${sub.cleanings_remaining ?? 0} cleanings remaining`}
                           onClick={() => setDetail({
@@ -1562,7 +1588,7 @@ const MySubscriptions = () => {
                         />
                       );
                     })}
-                    {linkedClientSubscriptions.map((sub: any) => {
+                    {visibleLinkedClientSubs.map((sub: any) => {
                       const isPending = sub.payment_status !== "paid";
                       return (
                         <SubscriptionCard
@@ -1592,15 +1618,15 @@ const MySubscriptions = () => {
                   </section>
                 )}
 
-                {/* ── Expired plans ──
+                {/* ── Past plans ──
                     Cleaning was the only tab that hid expired rows: once the
                     nightly cron flipped the status they disappeared, and with
                     them the only route to renewing. Food and Beach have always
                     kept them visible with a Renew button. */}
-                {expiredCleaningSubs.length > 0 && (
+                {pastCleaningSubs.length > 0 && (
                   <section className="space-y-2">
-                    <SectionOverline label="Expired" count={expiredCleaningSubs.length} />
-                    {expiredCleaningSubs.map((sub) => {
+                    {pastCleaningSubs.map((sub) => {
+                      const pastStatus = isOneTimeComplete(sub) ? "completed" : effectiveCleaningStatus(sub);
                       const openRenewDialog = () => {
                         if (!sub.package_id) return;
                         const preview = computeRenewPreview(sub.end_date, {
@@ -1627,11 +1653,11 @@ const MySubscriptions = () => {
                           subtitle={sub.service_start_date || sub.start_date
                             ? formatRangeHN(sub.service_start_date || sub.start_date, sub.service_end_date || sub.end_date)
                             : undefined}
-                          statusBadge={<StatusPill status="expired" />}
+                          statusBadge={<StatusPill status={pastStatus} />}
                           metadata={<span className="tabular-nums">{formatUSD((sub.monthly_price_cents || 0) * (sub.billing_period_months || 1))}</span>}
                           onClick={() => setDetail({
                             title: (sub as any).cleaning_packages?.name ?? "Cleaning plan",
-                            status: "expired",
+                            status: pastStatus,
                             amountCents: sub.total_price_cents
                               ?? (sub.monthly_price_cents || 0) * (sub.billing_period_months || 1),
                             periodStart: sub.service_start_date ?? sub.start_date,
@@ -1653,7 +1679,7 @@ const MySubscriptions = () => {
                             },
                             sessions: bookingSessions(sub.id),
                           })}
-                          actions={sub.package_id ? [
+                          actions={sub.package_id && pastStatus === "expired" ? [
                             { key: "renew", label: "Renew", icon: RefreshCw, onClick: openRenewDialog, variant: "primary" as const },
                           ] : []}
                         />
@@ -1663,7 +1689,7 @@ const MySubscriptions = () => {
                 )}
 
                 {/* ── Door-access reminder alert ── */}
-                {(activeCleaningSubs.length > 0 || linkedClientSubscriptions.length > 0) && (
+                {(activeCleaningSubs.length > 0 || visibleLinkedClientSubs.length > 0) && (
                   <div className="flex items-start gap-3 rounded-radius-md border border-primary/20 bg-primary/5 p-4">
                     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/15">
                       <DoorOpen className="h-5 w-5 text-primary" />
@@ -1690,7 +1716,7 @@ const MySubscriptions = () => {
                 )}
 
                 {/* ── No plan empty state ── */}
-                {activeCleaningSubs.length === 0 && expiredCleaningSubs.length === 0 && pendingScheduleCleaningSubs.length === 0 && unpaidCleaningSubs.length === 0 && linkedClientSubscriptions.length === 0 && (
+                {activeCleaningSubs.length === 0 && pausedCleaningSubs.length === 0 && pastCleaningSubs.length === 0 && pendingScheduleCleaningSubs.length === 0 && unpaidCleaningSubs.length === 0 && visibleLinkedClientSubs.length === 0 && (
                   <TabEmptyState
                     icon={SparklesIcon}
                     title="No active cleaning plan"
