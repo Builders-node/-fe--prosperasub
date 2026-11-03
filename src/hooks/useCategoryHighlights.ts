@@ -27,6 +27,8 @@ export interface CategoryHighlight {
   /** Where the tile goes: the listing, already narrowed to this category. */
   href: string;
   imageUrl: string | null;
+  /** An admin chose this picture, as opposed to one borrowed from a provider. */
+  imageIsChosen: boolean;
   /** Cheapest live offer, in cents. Null when the category has nothing to sell yet. */
   fromCents: number | null;
   /** "/ month", "/ week", "/ day" — whatever this service actually charges by. */
@@ -184,6 +186,7 @@ export function useCategoryHighlights() {
         // An admin's cover photo wins; otherwise borrow a real one from what
         // this category actually sells.
         imageUrl: c.image_url ?? facts?.photos?.[c.key] ?? null,
+        imageIsChosen: !!c.image_url,
         fromCents: price?.cents ?? null,
         unit: price?.unit ?? null,
       };

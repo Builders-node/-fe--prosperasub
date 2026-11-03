@@ -4,6 +4,7 @@ import { useCategoryHighlights, type CategoryHighlight } from "@/hooks/useCatego
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/patterns/Skeleton";
+import { CategoryBannerArt, hasCategoryBannerArt } from "@/components/discovery/categoryBannerArt";
 
 /**
  * The wide banner above the services grid: one slide per category, each a
@@ -15,10 +16,10 @@ import { Skeleton } from "@/components/patterns/Skeleton";
  * category on the front page, priced, and links each one straight to its
  * listing already narrowed to it.
  *
- * Deliberately not an image banner. Not one category has a picture set today,
- * so a photo-first design would ship six grey boxes; this leans on the
- * archetype's own accent and icon, and uses the image as a backdrop the moment
- * an admin adds one in /admin/services/categories.
+ * Each category has its own drawing (categoryBannerArt). A picture an admin
+ * sets on the category replaces it; a photo merely borrowed from a provider
+ * does not, because that made some cards a stranger's breakfast and others a
+ * drawing. A category with neither falls back to a borrowed photo or the icon.
  */
 
 const ROTATE_MS = 3000;
@@ -34,7 +35,8 @@ function Slide({ item }: { item: CategoryHighlight }) {
    */
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
-  const hasImage = !!item.imageUrl && !failed;
+  const drawn = hasCategoryBannerArt(item.key);
+  const hasImage = !!item.imageUrl && !failed && (item.imageIsChosen || !drawn);
   const showPhoto = hasImage && loaded;
   const Icon = item.archetype?.Icon;
 
@@ -67,7 +69,13 @@ function Slide({ item }: { item: CategoryHighlight }) {
         // optional — weighted to the bottom where the words are.
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
       )}
-      {!showPhoto && Icon && (
+      {!showPhoto && drawn && (
+        <CategoryBannerArt
+          categoryKey={item.key}
+          className="absolute inset-y-0 right-0 h-full w-[180px] origin-bottom-right transition-transform duration-300 group-hover:scale-105"
+        />
+      )}
+      {!showPhoto && !drawn && Icon && (
         // The imageless card carries the service's own mark, so it reads as a
         // designed tile rather than a rectangle waiting for a photo.
         <Icon aria-hidden className="absolute right-4 top-4 h-14 w-14 text-primary-foreground/25" strokeWidth={1.5} />
