@@ -60,7 +60,12 @@ export function AccessQrCode({ subscriptionId, className }: { subscriptionId: st
             Could not load your access code
           </p>
         ) : (
-          url && <QRCodeSVG value={url} size={154} level="M" />
+          url && (
+            // The same page a scan opens, for whoever is holding the phone.
+            <a href={url} target="_blank" rel="noopener noreferrer" aria-label="Open access page">
+              <QRCodeSVG value={url} size={154} level="M" />
+            </a>
+          )
         )}
       </div>
       <p className="flex items-center gap-1.5 text-[12px] font-semibold text-muted-foreground">
