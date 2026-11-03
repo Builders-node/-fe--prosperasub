@@ -162,6 +162,29 @@ const FoodListing = () => {
     [visibleProviders, foodCategoriesQ.data, foodProviderCategoriesQ.data],
   );
 
+  /**
+   * Plans that have collapsed into an offer show up once, not once per
+   * combination. The card that survives is the cheapest variant — it carries
+   * the "from" price the customer sees, and tapping it opens the plan screen
+   * where the option chips switch between siblings.
+   */
+  const { offerBySourcePlanId, isLoading: offersLoading } = usePlanOffers(
+    (providers ?? []).map((p) => p.id),
+    { legacyService: "food" },
+  );
+
+  const isShownPlan = (plan: { id: unknown }) => {
+    const offer = offerBySourcePlanId.get(String(plan.id));
+    if (!offer) return true;                       // a plain plan, shown as-is
+    const cheapest = offer.variants.reduce(
+      (best, v) => (best === null || v.priceCents < best.priceCents ? v : best),
+      null as null | { priceCents: number; sourcePlanId: string | null },
+    );
+    return cheapest?.sourcePlanId === String(plan.id);
+  };
+  /** How many cards a restaurant has below, not how many rows: one offer is one plan. */
+  const shownPlanCount = (p: any) => (p.plans ?? []).filter(isShownPlan).length;
+
   // All meal plans across restaurants, flattened with their provider for context.
   // ── Providers rail + category chips (shared shape across all four
   //    listings — see components/listing/ListingNav) ──────────────────────
@@ -172,17 +195,18 @@ const FoodListing = () => {
         name: p.name,
         avatarUrl: p.logo_url ?? p.avatar_url ?? null,
         gallery: (p.images ?? []).map((i: any) => i.url ?? i.image_url).filter(Boolean),
-        meta: `${(p.plans ?? []).length} plan${(p.plans ?? []).length !== 1 ? "s" : ""}`,
+        // Blank until the offers land, or every restaurant reads "6 plans" first.
+        meta: offersLoading ? undefined : `${shownPlanCount(p)} plan${shownPlanCount(p) !== 1 ? "s" : ""}`,
       }))),
-    [restaurantGroups],
+    [restaurantGroups, offerBySourcePlanId, offersLoading],
   );
   const chipCategories = useMemo(
     () => restaurantGroups.map((g) => ({
       key: g.key,
       label: g.label,
-      count: g.providers.reduce((n: number, p: any) => n + (p.plans ?? []).length, 0),
+      count: g.providers.reduce((n: number, p: any) => n + shownPlanCount(p), 0),
     })),
-    [restaurantGroups],
+    [restaurantGroups, offerBySourcePlanId],
   );
   const [activeCategory, setActiveCategory] = useCategoryParam();
   const visibleGroups = activeCategory === ALL_CATEGORIES
@@ -196,38 +220,19 @@ const FoodListing = () => {
   );
 
   /**
-   * Plans that have collapsed into an offer show up once, not once per
-   * combination. The card that survives is the cheapest variant — it carries
-   * the "from" price the customer sees, and tapping it opens the plan screen
-   * where the option chips switch between siblings.
-   */
-  const { offerBySourcePlanId, isLoading: offersLoading } = usePlanOffers(
-    (providers ?? []).map((p) => p.id),
-    { legacyService: "food" },
-  );
-
-  /**
    * The catalog and the offer lookup are two queries, and the catalog wins.
    * Rendering on the first one alone meant every combination appeared as its
    * own card for as long as the second was in flight — six meal plans, then a
    * blink, then the one card that was always the answer. The grid waits for
-   * both; the rail and the header do not, because neither changes when the
-   * offers land.
+   * both; the rail and the header do not, because the rail only leaves its
+   * plan count blank until the offers land.
    */
   const plansLoading = isLoading || offersLoading;
 
   const allPlans = visibleProviders
     .filter((p) => scopedProviderIds.size === 0 || scopedProviderIds.has(p.id))
     .flatMap((p) => p.plans.map((plan) => ({ plan, provider: p })))
-    .filter(({ plan }) => {
-      const offer = offerBySourcePlanId.get(String(plan.id));
-      if (!offer) return true;                       // a plain plan, shown as-is
-      const cheapest = offer.variants.reduce(
-        (best, v) => (best === null || v.priceCents < best.priceCents ? v : best),
-        null as null | { priceCents: number; sourcePlanId: string | null },
-      );
-      return cheapest?.sourcePlanId === String(plan.id);
-    });
+    .filter(({ plan }) => isShownPlan(plan));
 
   // Dietary filter — customer taps Keto → we hide plans without that tag.
   // Only surface filter chips for tags at least one plan actually carries; a
