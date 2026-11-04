@@ -17,6 +17,7 @@ import { providerHref } from "@/lib/services/serviceUrls";
 import { INFO_TAB_META } from "@/components/provider/capabilities";
 import { UniversalInfoTab, type UniversalProviderRow } from "@/components/provider/UniversalInfoTab";
 import { ProfileCompletenessCard } from "@/components/provider/ProfileCompletenessCard";
+import { ProviderQrCard } from "@/components/provider/ProviderQrCard";
 import { PlansTab } from "@/components/provider/plans/PlansTab";
 import { OperationsTab } from "@/components/provider/OperationsTab";
 import { PortalTabsView } from "@/components/provider/PortalTabsView";
@@ -244,6 +245,14 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
         {/* Reputation, right under the header's Rating tile that it explains.
             Renders nothing until somebody has actually rated the business. */}
         <ProviderReviewsPanel providerId={provider.id} />
+        {/* A vehicles business has no service, and its storefront is the section. */}
+        {(provider.archetype_key || provider.unit === "vehicles") && (
+          <ProviderQrCard
+            name={provider.name}
+            publicHref={provider.archetype_key ? resolvedPublicHref : "/vehicles"}
+            isPublic={provider.status === "active"}
+          />
+        )}
         <UniversalInfoTab
           provider={provider}
           extra={custom.infoExtra?.(workspaceCtx)}
