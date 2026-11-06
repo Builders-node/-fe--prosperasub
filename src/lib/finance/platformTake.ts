@@ -48,11 +48,41 @@ export interface TakeResult {
  * provider owe the platform money out of a period they earned nothing in.
  */
 export function splitTake(revenueCents: number, pct: number): TakeResult {
-  const rate = Math.min(Math.max(pct, 0), 100);
-  const platformCents = Math.min(Math.round((revenueCents * rate) / 100), Math.max(0, revenueCents));
+  return splitTakeParts([{ cents: revenueCents, pct: null }], pct);
+}
+
+/** One order's recognised money and the rate stamped on it (NULL = the provider's). */
+export interface RevenuePart {
+  cents: number;
+  pct: number | null;
+}
+
+/**
+ * The same split, order by order.
+ *
+ * Every order now carries the commission it was sold under
+ * (`commission_pct`, stamped by a DB trigger): 0 for a client the business
+ * brought itself, the provider's rate otherwise. Rows from before that column
+ * existed are NULL and take `defaultPct` — the provider's current rate, which
+ * is what this whole calculation used to apply to everything.
+ */
+export function splitTakeParts(parts: RevenuePart[], defaultPct: number): TakeResult & { ownClientsCents: number } {
+  const clamp = (p: number) => Math.min(Math.max(p, 0), 100);
+  let revenue = 0;
+  let platformCents = 0;
+  let ownClientsCents = 0;
+  for (const part of parts) {
+    const cents = Math.max(0, Math.round(part.cents || 0));
+    const rate = clamp(part.pct != null && Number.isFinite(Number(part.pct)) ? Number(part.pct) : defaultPct);
+    revenue += cents;
+    platformCents += Math.min(Math.round((cents * rate) / 100), cents);
+    if (part.pct != null && Number(part.pct) === 0) ownClientsCents += cents;
+  }
+  const base = `Platform keeps ${clamp(defaultPct)}% of what customers paid`;
   return {
     platformCents,
-    providerCents: revenueCents - platformCents,
-    explanation: `Platform keeps ${rate}% of what customers paid`,
+    providerCents: revenue - platformCents,
+    ownClientsCents,
+    explanation: ownClientsCents > 0 ? `${base} · 0% on orders from clients you brought` : base,
   };
 }

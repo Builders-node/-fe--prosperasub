@@ -2,6 +2,7 @@ import { supabaseDb } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/lib/supabasePaging";
 import { overlapDays, recognizedCents } from "@/lib/revenueRecognition";
 import { revenueSourceFor } from "@/services/revenue";
+import type { RevenuePart } from "@/lib/finance/platformTake";
 
 /**
  * What a provider earned in a window — one definition, used everywhere.
@@ -35,13 +36,13 @@ export async function fetchEarned(
   // a vertical needs is the descriptor's business, not this function's — see
   // lib/services/providerBridge for why there are two id spaces at all.
   const scopeId = source.scope === "universal" ? (providerId || legacyId) : legacyId;
-  if (!scopeId) return { revenue: 0, units: 0 };
+  if (!scopeId) return { revenue: 0, units: 0, parts: [] as RevenuePart[] };
 
   // Rows a provider owns indirectly — cleaning's, which name a package.
   let indirect: { column: string; ids: string[] } | null = null;
   if (source.resolveScope) {
     indirect = await source.resolveScope(scopeId);
-    if (!indirect || indirect.ids.length === 0) return { revenue: 0, units: 0 };
+    if (!indirect || indirect.ids.length === 0) return { revenue: 0, units: 0, parts: [] as RevenuePart[] };
   }
 
   const rows = await fetchAllRows<any>(() => {
@@ -54,11 +55,17 @@ export async function fetchEarned(
 
   let revenue = 0;
   let units = 0;
+  // Each order keeps the commission it was sold under — 0% for a client the
+  // business brought itself — so callers split order by order
+  // (splitTakeParts), never total × one rate.
+  const parts: RevenuePart[] = [];
   (rows ?? []).forEach((r) => {
     const input = source.toInput(r);
     if (overlapDays(input, start, end) <= 0) return;
-    revenue += recognizedCents(input, start, end);
+    const cents = recognizedCents(input, start, end);
+    revenue += cents;
     units += source.units ? source.units(r) : 1;
+    parts.push({ cents, pct: r.commission_pct == null ? null : Number(r.commission_pct) });
   });
-  return { revenue, units };
+  return { revenue, units, parts };
 }

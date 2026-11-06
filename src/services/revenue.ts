@@ -57,7 +57,7 @@ export interface RevenueSource {
  */
 export const UNIVERSAL_REVENUE: RevenueSource = {
   table: "provider_subscriptions",
-  select: "price_cents, metadata, created_at, start_date, end_date",
+  select: "price_cents, metadata, created_at, start_date, end_date, commission_pct",
   scope: "universal",
   where: (q) => q.eq("payment_status", "paid"),
   toInput: (r) => ({
@@ -71,7 +71,7 @@ export const UNIVERSAL_REVENUE: RevenueSource = {
 export const REVENUE_SOURCES: Record<string, RevenueSource> = {
   cleaning: {
     table: "cleaning_subscriptions",
-    select: "total_price_cents, monthly_price_cents, created_at, service_start_date, service_end_date, start_date, end_date",
+    select: "total_price_cents, monthly_price_cents, created_at, service_start_date, service_end_date, start_date, end_date, commission_pct",
     scope: "legacy",
     where: (q) => q.eq("payment_status", "paid").is("deleted_at", null),
     // A cleaning subscription names a package, not a business.
@@ -95,7 +95,7 @@ export const REVENUE_SOURCES: Record<string, RevenueSource> = {
 
   food: {
     table: "food_subscriptions",
-    select: "weekly_price_cents, commitment_weeks, periods_paid, created_at, started_at, end_date",
+    select: "weekly_price_cents, commitment_weeks, periods_paid, created_at, started_at, end_date, commission_pct",
     scope: "legacy",
     where: (q) => q.in("status", ["active", "paused", "expired"]).eq("payment_status", "paid"),
     toInput: (r) => {
@@ -135,7 +135,7 @@ export const REVENUE_SOURCES: Record<string, RevenueSource> = {
 
   vehicles: {
     table: "rental_bookings",
-    select: "total_cents, start_date, end_date, created_at, rental_days",
+    select: "total_cents, start_date, end_date, created_at, rental_days, commission_pct",
     scope: "universal",
     where: (q) => q.eq("payment_status", "paid").neq("status", "cancelled").is("deleted_at", null),
     // total_cents is the BASE. The payment surcharge has its own column

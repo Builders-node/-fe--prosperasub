@@ -13,7 +13,7 @@ import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover
 import { Spinner } from "@/components/ui/spinner";
 import { supabaseDb, adminApi } from "@/integrations/supabase/client";
 import { formatUSD } from "@/lib/pricing";
-import { commissionPct, splitTake, DEFAULT_COMMISSION_KEY, DEFAULT_COMMISSION_PCT } from "@/lib/finance/platformTake";
+import { commissionPct, splitTakeParts, DEFAULT_COMMISSION_KEY, DEFAULT_COMMISSION_PCT, type RevenuePart } from "@/lib/finance/platformTake";
 import { fetchEarned } from "@/lib/finance/providerEarnings";
 import { cn } from "@/lib/utils";
 import {
@@ -103,18 +103,19 @@ export function NetProfitPanel() {
       const pairs = await Promise.all(providers.map(async (p) => {
         const sourceKey = p.source_service_key ?? p.archetype_key ?? "";
         const legacyId = p.source_provider_id ?? p.id;
-        const { revenue } = await fetchEarned(sourceKey, legacyId, start, end, p.id);
-        return [p.id, revenue] as const;
+        const { revenue, parts } = await fetchEarned(sourceKey, legacyId, start, end, p.id);
+        return [p.id, { revenue, parts }] as const;
       }));
-      return Object.fromEntries(pairs) as Record<string, number>;
+      return Object.fromEntries(pairs) as Record<string, { revenue: number; parts: RevenuePart[] }>;
     },
   });
 
   const rows = providers.map((p) => {
-    const revenue = revenues[p.id] ?? 0;
+    const revenue = revenues[p.id]?.revenue ?? 0;
     const pct = commissionPct(p.commission_pct, settings);
-    const split = splitTake(revenue, pct);
-    return { ...p, revenue, pct, ours: split.platformCents, theirs: split.providerCents };
+    // Order by order: a client the business brought itself pays 0%.
+    const split = splitTakeParts(revenues[p.id]?.parts ?? [], pct);
+    return { ...p, revenue, pct, ours: split.platformCents, theirs: split.providerCents, ownClients: split.ownClientsCents };
   });
 
   const earning = rows.filter((r) => r.revenue > 0);
@@ -287,7 +288,14 @@ export function NetProfitPanel() {
                   <TableRow key={row.id} className="border-b border-border/40">
                     <TableCell className="py-2.5 pr-4 font-semibold text-foreground">{row.name}</TableCell>
                     <TableCell className="px-3 py-2.5 text-right font-mono tabular-nums text-foreground">{formatUSD(row.revenue)}</TableCell>
-                    <TableCell className="px-3 py-2.5 text-right font-mono tabular-nums text-muted-foreground">{row.pct}%</TableCell>
+                    <TableCell className="px-3 py-2.5 text-right font-mono tabular-nums text-muted-foreground">
+                      {row.pct}%
+                      {row.ownClients > 0 && (
+                        <span className="block text-[11px] font-sans" title="Orders from clients this business brought itself carry no commission">
+                          0% on {formatUSD(row.ownClients)}
+                        </span>
+                      )}
+                    </TableCell>
                     <TableCell className="px-3 py-2.5 text-right font-mono font-bold tabular-nums text-primary">{money(row.ours)}</TableCell>
                     <TableCell className="px-3 py-2.5 text-right font-mono tabular-nums text-muted-foreground">{formatUSD(row.theirs)}</TableCell>
                   </TableRow>

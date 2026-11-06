@@ -9,7 +9,7 @@ import {
   RAIL_HINT, RAIL_LABEL, RAIL_PLACEHOLDER, bareDestination, destinationProblem, isPayable,
   type PayoutRail,
 } from "@/lib/payouts/destination";
-import { commissionPct, splitTake } from "@/lib/finance/platformTake";
+import { commissionPct, splitTakeParts } from "@/lib/finance/platformTake";
 import { fetchEarned } from "@/lib/finance/providerEarnings";
 import { cn } from "@/lib/utils";
 import { WorkspaceStat } from "@/components/provider/WorkspaceUI";
@@ -331,7 +331,8 @@ export function ProviderEarningsTab({ providerId, legacyId, sourceKey }: {
 
   const revenue = earned?.revenue ?? 0;
   const pct = commissionPct(providerRow?.commission_pct, settings);
-  const split = splitTake(revenue, pct);
+  // Order by order: clients the business brought itself pay no commission.
+  const split = splitTakeParts(earned?.parts ?? [], pct);
 
   // Payouts inside the selected window, so "paid" answers the same question
   // "earned" does. All-time totals would make a monthly view unreadable.
@@ -398,7 +399,9 @@ export function ProviderEarningsTab({ providerId, legacyId, sourceKey }: {
         <MoneyCard
           label={`Platform fee · ${pct}%`}
           value={isLoading ? "—" : formatUSD(split.platformCents)}
-          hint={split.explanation}
+          hint={split.ownClientsCents > 0
+            ? `${split.explanation} (${formatUSD(split.ownClientsCents)})`
+            : split.explanation}
         />
         <MoneyCard
           label="You earned"

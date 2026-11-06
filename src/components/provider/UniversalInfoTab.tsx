@@ -15,6 +15,8 @@ import { formatWorkingHours, parseWorkingHours, type HoursSchedule } from "@/lib
 export interface UniversalProviderRow {
   id: string;
   name: string;
+  /** The code a business hands its own clients; they pay no commission on its orders. */
+  client_code?: string | null;
   description?: string | null;
   location?: string | null;
   /** JSONB on `providers`; the legacy tables still hold the same JSON as text. */
