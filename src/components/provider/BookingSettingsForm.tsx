@@ -241,6 +241,10 @@ export function BookingSettingsEditor({
 
           {/* What the settings produce, next to the hours that make it. */}
           <div className="space-y-2 rounded-radius-md bg-inset p-3">
+            <div>
+              <p className="text-body font-semibold text-foreground">How customers see it</p>
+              <p className="text-meta text-muted-foreground">The times a customer can pick on a given day.</p>
+            </div>
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-meta font-semibold text-muted-foreground">Slots on</span>
               <input type="date" value={previewDate} onChange={(e) => setPreviewDate(e.target.value)} className={cn(inputCls, "bg-card")} />
