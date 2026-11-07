@@ -22,7 +22,6 @@ export const adminRoutes = {
   /** The old address; still resolves so bookmarks survive. */
   superAdminCarRentals: "/admin/car-rentals",
   superAdminUsers: "/admin/users",
-  superAdminClients: "/admin/clients",
   superAdminSupport: "/admin/support",
   superAdminLocations: "/admin/locations",
   superAdminAds: "/admin/ads",

@@ -28,12 +28,12 @@ export function KpiCard({
   change?: { text: string; up: boolean } | null;
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
+    <div className="flex items-center gap-3 rounded-radius-lg bg-card p-4">
       <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-radius-md bg-inset ${accent}`}>
         <Icon className="h-5 w-5" />
       </span>
       <div className="min-w-0">
-        <p className="truncate text-[16px] leading-[22px] text-muted-foreground">{label}</p>
+        <p className="truncate text-title text-muted-foreground">{label}</p>
         <p className="mt-0.5 text-[24px] font-semibold leading-[29px] tabular-nums text-foreground">
           {value}
           {change && (
@@ -50,8 +50,8 @@ export function KpiCard({
 // ─── Small labelled figure ──────────────────────────────────────────────────
 export function StatItem({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-radius-md bg-inset p-3 tracking-[-0.02em]">
-      <dt className="text-[16px] leading-[22px] text-muted-foreground">{label}</dt>
+    <div className="rounded-radius-md bg-inset p-3">
+      <dt className="text-title text-muted-foreground">{label}</dt>
       <dd className="mt-1 text-[24px] font-semibold leading-[29px] tabular-nums text-foreground">{value}</dd>
     </div>
   );
@@ -71,7 +71,7 @@ export function StatusBar({
   const pct = total > 0 ? Math.round((count / total) * 100) : 0;
   return (
     <div>
-      <div className="mb-1.5 flex items-center justify-between text-[16px] leading-[22px] tracking-[-0.02em]">
+      <div className="mb-1.5 flex items-center justify-between text-title">
         <span className={`flex items-center gap-1.5 ${textColor}`}>{icon}{label}</span>
         <span className="tabular-nums text-muted-foreground">{count} · {pct}%</span>
       </div>
@@ -101,7 +101,7 @@ export function MonthlyRevenueChart({
   const max = Math.max(...months.map((m) => m.rev), 0);
   if (max === 0) {
     return (
-      <p className="py-8 text-center text-[16px] leading-[22px] text-muted-foreground">
+      <p className="py-8 text-center text-title text-muted-foreground">
         No revenue recorded in the last 6 months.
       </p>
     );
@@ -110,14 +110,14 @@ export function MonthlyRevenueChart({
     <div className="flex h-48 items-end justify-between gap-2">
       {months.map((m) => (
         <div key={m.label} className="flex flex-1 flex-col items-center gap-2">
-          <span className="text-[12px] tabular-nums text-muted-foreground">
+          <span className="text-meta tabular-nums text-muted-foreground">
             {m.rev > 0 ? formatValue(m.rev) : ""}
           </span>
           <div
             className={`w-full rounded-t-radius-sm ${barClass}`}
             style={{ height: `${Math.max((m.rev / max) * 100, 2)}%` }}
           />
-          <span className="text-[14px] text-muted-foreground">{m.label}</span>
+          <span className="text-body text-muted-foreground">{m.label}</span>
         </div>
       ))}
     </div>
@@ -151,7 +151,7 @@ export function StackedRevenueChart({
   const max = Math.max(...totals, 0);
   if (max === 0) {
     return (
-      <p className="py-8 text-center text-[16px] leading-[22px] text-muted-foreground">
+      <p className="py-8 text-center text-title text-muted-foreground">
         No revenue recorded in the last 6 months.
       </p>
     );
@@ -161,7 +161,7 @@ export function StackedRevenueChart({
       <div className="flex h-48 items-end justify-between gap-2">
         {months.map((label, i) => (
           <div key={label} className="flex h-full flex-1 flex-col items-center justify-end gap-2">
-            <span className="text-[12px] tabular-nums text-muted-foreground">
+            <span className="text-meta tabular-nums text-muted-foreground">
               {totals[i] > 0 ? formatValue(totals[i]) : ""}
             </span>
             {/* The column is one stack: segments share a rounded top so it
@@ -185,7 +185,7 @@ export function StackedRevenueChart({
                 );
               })}
             </div>
-            <span className="text-[14px] text-muted-foreground">{label}</span>
+            <span className="text-body text-muted-foreground">{label}</span>
           </div>
         ))}
       </div>
@@ -193,7 +193,7 @@ export function StackedRevenueChart({
           alternative — only draw it when the column is actually split. */}
       <div className={`flex-wrap items-center gap-x-4 gap-y-1.5 ${series.length > 1 ? "flex" : "hidden"}`}>
         {series.map((s) => (
-          <span key={s.key} className="flex items-center gap-1.5 text-[14px] text-muted-foreground">
+          <span key={s.key} className="flex items-center gap-1.5 text-body text-muted-foreground">
             <span className={`h-2.5 w-2.5 rounded-sm ${s.barClass}`} />
             {s.label}
           </span>
@@ -224,18 +224,18 @@ export function RankedBarList({
   const visible = includeZero ? rows : rows.filter((r) => r.value > 0);
   const max = Math.max(...visible.map((r) => r.value), 0);
   if (visible.length === 0 || max === 0) {
-    return <p className="py-6 text-center text-[16px] leading-[22px] text-muted-foreground">{emptyMessage}</p>;
+    return <p className="py-6 text-center text-title text-muted-foreground">{emptyMessage}</p>;
   }
   return (
     <div className="space-y-3">
       {visible.map((r) => (
         <div key={r.key}>
-          <div className="mb-1.5 flex items-center justify-between gap-3 tracking-[-0.02em]">
-            <span className="min-w-0 truncate text-[16px] leading-[22px] text-foreground">
+          <div className="mb-1.5 flex items-center justify-between gap-3">
+            <span className="min-w-0 truncate text-title text-foreground">
               {r.label}
-              {r.sublabel && <span className="ml-1.5 text-[14px] text-muted-foreground">{r.sublabel}</span>}
+              {r.sublabel && <span className="ml-1.5 text-body text-muted-foreground">{r.sublabel}</span>}
             </span>
-            <span className="shrink-0 text-[16px] font-semibold tabular-nums text-foreground">
+            <span className="shrink-0 text-title font-semibold tabular-nums text-foreground">
               {formatValue(r.value)}
             </span>
           </div>

@@ -307,7 +307,7 @@ export function ProviderPayoutsPanel() {
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-foreground">
                         {formatDateHN(p.paid_at ?? p.requested_at ?? p.created_at)} · {formatUSD(p.amount_cents)}
-                        {p.method && <span className="ml-2 text-xs uppercase text-muted-foreground">{p.method}</span>}
+                        {p.method && <span className="ml-2 text-meta text-muted-foreground">{p.method}</span>}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {p.period_start && p.period_end ? `${p.period_start} → ${p.period_end}` : "Ad-hoc"}
@@ -659,7 +659,7 @@ function PayoutRequestQueue({ providers }: { providers: Array<{ id: string; name
   return (
     <div className="rounded-radius-lg bg-card p-space-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+        <p className="text-meta font-semibold text-muted-foreground">
           Payout requests ({requests.length})
         </p>
         {/* Payouts leave the USD wallet, and on-chain receipts land in the BTC
@@ -677,7 +677,7 @@ function PayoutRequestQueue({ providers }: { providers: Array<{ id: string; name
             <div className="min-w-0">
               <p className="text-sm font-semibold text-foreground">
                 {nameOf(r.provider_id)}
-                <span className="ml-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                <span className="ml-2 text-meta text-muted-foreground">
                   {r.status}
                 </span>
               </p>

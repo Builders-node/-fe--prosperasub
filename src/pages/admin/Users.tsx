@@ -8,7 +8,6 @@ import { toast } from "sonner";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { AdminListShell } from "@/components/admin/AdminListShell";
 import { MobileActionSheet } from "@/components/admin/MobileActionSheet";
-import { TabPills } from "@/components/admin/TabPills";
 import { ContactActions } from "@/components/admin/customers/ContactActions";
 import {
   CUSTOMER_SERVICE_META, CUSTOMER_SERVICE_ORDER, type CustomerService,
@@ -33,8 +32,6 @@ import { pickPhone } from "@/components/patterns/CustomerPhone";
 import { formatDateHN } from "@/lib/timezone";
 import { cn } from "@/lib/utils";
 import { useResidences } from "@/hooks/useResidences";
-import { useTabParam } from "@/hooks/useTabParam";
-import AdminClients from "./Clients";
 import { addressFromProfile, addressPayload, EMPTY_ADDRESS } from "@/lib/address";
 
 type Filter = "all" | "user" | "admin" | "blocked";
@@ -71,9 +68,8 @@ interface Person {
 
 const AdminUsers = () => {
   const queryClient = useQueryClient();
-  const [params, setParams] = useSearchParams();
+  const [params] = useSearchParams();
 
-  const [tab, setTab] = useTabParam(["users", "clients"] as const);
   const [filter, setFilter] = useState<Filter>("all");
   const [blockTarget, setBlockTarget] = useState<{ id: string; name: string } | null>(null);
   const [serviceFilter, setServiceFilter] = useState<"all" | CustomerService>("all");
@@ -204,17 +200,7 @@ const AdminUsers = () => {
 
   return (
     <SuperAdminLayout title="Customers" subtitle="Everyone with an account — tap a person to see everything about them">
-      {/* Users vs Clients: individual accounts vs billed organizations. One
-          sidebar entry, two tabs — Clients used to be its own nav item, which
-          made two doors for one section. */}
-      <TabPills
-        className="mb-5"
-        tabs={[{ value: "users", label: "Users" }, { value: "clients", label: "Clients" }] as const}
-        value={tab}
-        onChange={setTab}
-      />
-
-      {tab === "clients" ? <AdminClients embedded /> : (<>
+      <>
       {/* The one list scaffold every admin list uses — People had grown its
           own toolbar, its own counter and its own three inline states. */}
       <AdminListShell
@@ -230,6 +216,7 @@ const AdminUsers = () => {
         isNoResults={people.length > 0 && filteredPeople.length === 0}
         emptyTitle="No people yet"
         emptySubtitle="Everyone who signs up appears here."
+
         onClearFilters={() => { setSearch(""); setFilter("all"); setServiceFilter("all"); }}
         filters={
           <>
@@ -425,7 +412,7 @@ const AdminUsers = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      </>)}
+      </>
     </SuperAdminLayout>
   );
 };

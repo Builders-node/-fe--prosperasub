@@ -65,8 +65,8 @@ function Card({ title, icon: Icon, children }: {
   children: ReactNode;
 }) {
   return (
-    <div className="space-y-4 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
-      <h2 className="flex items-center gap-2 text-[20px] font-semibold leading-[26px] text-foreground">
+    <div className="space-y-4 rounded-radius-lg bg-card p-4">
+      <h2 className="flex items-center gap-2 text-heading font-semibold text-foreground">
         <Icon className="h-5 w-5 text-primary" />
         {title}
       </h2>
@@ -115,7 +115,7 @@ export function AnalyticsView({
             <StatusBar label="Paused" count={figures.paused} total={figures.subs} color="bg-attention" textColor="text-attention" />
             <StatusBar label="Cancelled" count={figures.cancelled} total={figures.subs} color="bg-muted-foreground" textColor="text-muted-foreground" />
           </div>
-          <div className="flex items-center justify-between border-t border-border pt-3 text-[16px] leading-[22px]">
+          <div className="flex items-center justify-between border-t border-border pt-3 text-title">
             <span className="text-muted-foreground">Awaiting payment</span>
             <span className={`font-semibold tabular-nums ${figures.awaitingPayment > 0 ? "text-attention" : "text-foreground"}`}>
               {figures.awaitingPayment}
@@ -143,8 +143,8 @@ export function AnalyticsView({
       </div>
 
       {/* 4 — the same eight numbers, in the same order, on every screen. */}
-      <div className="rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
-        <h2 className="mb-4 text-[20px] font-semibold leading-[26px] text-foreground">Overview</h2>
+      <div className="rounded-radius-lg bg-card p-4">
+        <h2 className="mb-4 text-heading font-semibold text-foreground">Overview</h2>
         <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatItem label="Total subscriptions" value={String(figures.subs)} />
           <StatItem label="Active" value={String(figures.active)} />
@@ -159,13 +159,13 @@ export function AnalyticsView({
 
       {/* 5 — the service's own numbers, last, so the shared part reads first. */}
       {details && (
-        <div className="rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
-          <h2 className="mb-4 text-[20px] font-semibold leading-[26px] text-foreground">{details.title}</h2>
+        <div className="rounded-radius-lg bg-card p-4">
+          <h2 className="mb-4 text-heading font-semibold text-foreground">{details.title}</h2>
           {details.children}
         </div>
       )}
 
-      <p className="text-[14px] leading-[20px] text-muted-foreground">
+      <p className="text-body text-muted-foreground">
         Revenue counts each paid, non-cancelled subscription at its full committed
         value, in the month it was sold — the same rule on every service and on the
         Overview. Active means paid and running today (Honduras time).

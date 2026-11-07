@@ -160,7 +160,7 @@ const MarketplacePlans = ({ embedded = false, archetypeKey }: MarketplacePlansPr
       >
         <div className="overflow-hidden rounded-radius-md bg-card">
           {/* Desktop header row */}
-          <div className="hidden grid-cols-[minmax(0,3fr)_minmax(0,2fr)_120px_minmax(0,1fr)_80px_80px] items-center gap-4 border-b border-border/40 px-space-5 py-space-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground md:grid">
+          <div className="hidden grid-cols-[minmax(0,3fr)_minmax(0,2fr)_120px_minmax(0,1fr)_80px_80px] items-center gap-4 border-b border-border/40 px-space-5 py-space-3 text-meta font-semibold text-muted-foreground md:grid">
             <div>Plan</div>
             <div>Provider</div>
             <div>Service</div>
@@ -187,11 +187,11 @@ const MarketplacePlans = ({ embedded = false, archetypeKey }: MarketplacePlansPr
                           the list says which is which — otherwise "Meal Plan"
                           and its six combinations read as seven products. */}
                       {variantCounts[p.id] ? (
-                        <span className="shrink-0 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-primary">
+                        <span className="shrink-0 rounded-full bg-primary/15 px-2 py-0.5 text-meta font-semibold text-primary">
                           {variantCounts[p.id]} options
                         </span>
                       ) : p.parent_plan_id ? (
-                        <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                        <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-meta font-semibold text-muted-foreground">
                           {Object.values(p.option_keys ?? {}).join(" · ") || "variant"}
                         </span>
                       ) : null}
@@ -208,7 +208,7 @@ const MarketplacePlans = ({ embedded = false, archetypeKey }: MarketplacePlansPr
                   <p className="text-sm font-bold tabular-nums text-foreground">
                     {formatUSD(p.price_cents, p.currency)}
                   </p>
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                  <p className="text-meta text-muted-foreground">
                     /{formatPeriod(p.period)}
                   </p>
                 </div>
@@ -260,7 +260,7 @@ const MarketplacePlans = ({ embedded = false, archetypeKey }: MarketplacePlansPr
                       </span>
                       <span className="font-bold tabular-nums text-foreground">
                         {formatUSD(p.price_cents, p.currency)}
-                        <span className="ml-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+                        <span className="ml-1 text-meta text-muted-foreground">
                           /{formatPeriod(p.period)}
                         </span>
                       </span>

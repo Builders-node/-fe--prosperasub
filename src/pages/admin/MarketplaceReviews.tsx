@@ -212,8 +212,8 @@ const MarketplaceReviews = ({ embedded = false, providerId: scopedProvider }: Ma
             <TableRow>
               <TableHead className="px-4 py-3">Rating</TableHead>
               <TableHead className="px-4 py-3">Review</TableHead>
-              <TableHead className="px-4 py-3">Business</TableHead>
-              <TableHead className="px-4 py-3">When</TableHead>
+              <TableHead className="hidden px-4 py-3 md:table-cell">Business</TableHead>
+              <TableHead className="hidden px-4 py-3 md:table-cell">When</TableHead>
               <TableHead className="w-10" />
             </TableRow>
           </TableHeader>
@@ -226,18 +226,19 @@ const MarketplaceReviews = ({ embedded = false, providerId: scopedProvider }: Ma
                     {r.rating ?? "—"}
                   </span>
                 </TableCell>
-                <TableCell className="max-w-[420px] px-4 py-3">
+                <TableCell className="max-w-[420px] whitespace-normal px-4 py-3">
                   <p className="truncate text-foreground">{r.comment || <span className="text-muted-foreground">— no text —</span>}</p>
                   <p className="truncate text-xs text-muted-foreground">
                     {r.customer_name || "Anonymous"}
+                    <span className="md:hidden"> · {providerName.get(r.provider_id) ?? "—"} · {formatDateHN(r.created_at)}</span>
                     {r.hidden_at && (
-                      <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+                      <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-meta">
                         hidden{r.hidden_reason ? ` · ${r.hidden_reason}` : ""}
                       </span>
                     )}
                   </p>
                 </TableCell>
-                <TableCell className="px-4 py-3">
+                <TableCell className="hidden px-4 py-3 md:table-cell">
                   <Link
                     to={`/admin/marketplace/providers/${r.provider_id}`}
                     className="text-primary hover:underline"
@@ -245,7 +246,7 @@ const MarketplaceReviews = ({ embedded = false, providerId: scopedProvider }: Ma
                     {providerName.get(r.provider_id) ?? "—"}
                   </Link>
                 </TableCell>
-                <TableCell className="px-4 py-3 text-muted-foreground">{formatDateHN(r.created_at)}</TableCell>
+                <TableCell className="hidden px-4 py-3 text-muted-foreground md:table-cell">{formatDateHN(r.created_at)}</TableCell>
                 <TableCell className="px-4 py-3">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>

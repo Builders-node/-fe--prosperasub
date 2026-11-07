@@ -439,7 +439,7 @@ const App = () => {
               {/* Clients are the second tab of /admin/users now — a billed
                   business is a different thing from an individual account, and
                   the tab keeps the distinction while the section has one door. */}
-              <Route path="/admin/clients" element={<Navigate to="/admin/users?tab=clients" replace />} />
+              <Route path="/admin/clients" element={<Navigate to="/admin/users" replace />} />
               <Route path="/admin/provider-applications" element={<Navigate to="/admin/marketplace/providers/applications" replace />} />
               <Route path="/admin/payments" element={
                 <ProtectedRoute allowedRoles={['super_admin']} requiredPermissions={["payments.read"]}><AdminPayments /></ProtectedRoute>

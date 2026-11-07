@@ -312,7 +312,7 @@ export default function CarRentals({ embedded = false, providerId }: {
                   <div className="flex flex-wrap items-center gap-1.5">
                     <p className="truncate text-[15px] font-semibold text-foreground">{v.name}</p>
                     {typeLabel(v.category_key) && (
-                      <Badge className="bg-muted text-[10px] uppercase text-muted-foreground">{typeLabel(v.category_key)}</Badge>
+                      <Badge className="bg-muted text-meta text-muted-foreground">{typeLabel(v.category_key)}</Badge>
                     )}
                   </div>
                   <p className="truncate text-xs text-muted-foreground">

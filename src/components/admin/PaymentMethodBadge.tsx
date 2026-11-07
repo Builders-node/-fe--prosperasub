@@ -22,14 +22,14 @@ export function normalizePaymentMethod(method?: string | null): PaymentMethodKey
 type PaymentMethodKey = "lightning" | "onchain" | "infinita" | "crypto_gateway" | "paypal" | "cash" | "free" | "manual" | "unknown";
 
 const META: Record<PaymentMethodKey, { label: string; Icon: LucideIcon; className: string }> = {
-  lightning: { label: "Lightning", Icon: Zap,      className: "bg-yellow-500/15 text-yellow-500" },
-  onchain:   { label: "On-chain",  Icon: Bitcoin,  className: "bg-orange-500/15 text-orange-400" },
-  infinita:  { label: "LIVES",     Icon: Coins,    className: "bg-violet-500/15 text-violet-400" },
-  crypto_gateway: { label: "Crypto", Icon: Coins, className: "bg-emerald-500/15 text-emerald-400" },
-  paypal:    { label: "PayPal",    Icon: Wallet,   className: "bg-blue-500/15 text-blue-400" },
-  cash:      { label: "Cash",      Icon: Banknote, className: "bg-green-500/15 text-green-400" },
-  free:      { label: "Free",      Icon: Gift,     className: "bg-pink-500/15 text-pink-400" },
-  manual:    { label: "Manual",    Icon: HandCoins, className: "bg-teal-500/15 text-teal-400" },
+  lightning: { label: "Lightning", Icon: Zap,      className: "bg-muted text-foreground" },
+  onchain:   { label: "On-chain",  Icon: Bitcoin,  className: "bg-muted text-foreground" },
+  infinita:  { label: "LIVES",     Icon: Coins,    className: "bg-muted text-foreground" },
+  crypto_gateway: { label: "Crypto", Icon: Coins, className: "bg-muted text-foreground" },
+  paypal:    { label: "PayPal",    Icon: Wallet,   className: "bg-muted text-foreground" },
+  cash:      { label: "Cash",      Icon: Banknote, className: "bg-muted text-foreground" },
+  free:      { label: "Free",      Icon: Gift,     className: "bg-muted text-foreground" },
+  manual:    { label: "Manual",    Icon: HandCoins, className: "bg-muted text-foreground" },
   unknown:   { label: "—",         Icon: Minus,    className: "bg-muted text-muted-foreground" },
 };
 
@@ -46,7 +46,7 @@ export function PaymentReference({ method, reference }: { method?: string | null
         target="_blank"
         rel="noopener noreferrer"
         title={`View on Solscan: ${reference}`}
-        className="inline-flex items-center gap-1 font-mono text-[11px] text-violet-400 hover:underline"
+        className="inline-flex items-center gap-1 font-mono text-meta text-primary hover:underline"
       >
         {short}
         <ExternalLink className="h-3 w-3" />

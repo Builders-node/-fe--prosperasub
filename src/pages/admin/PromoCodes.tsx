@@ -213,10 +213,10 @@ const PromoCodes = () => {
             <TableRow>
               <TableHead className="px-4 py-3">Code</TableHead>
               <TableHead className="px-4 py-3">Takes off</TableHead>
-              <TableHead className="px-4 py-3">Where</TableHead>
+              <TableHead className="hidden px-4 py-3 md:table-cell">Where</TableHead>
               <TableHead className="px-4 py-3">Used</TableHead>
-              <TableHead className="px-4 py-3 text-right">Given away</TableHead>
-              <TableHead className="px-4 py-3">Until</TableHead>
+              <TableHead className="hidden px-4 py-3 text-right md:table-cell">Given away</TableHead>
+              <TableHead className="hidden px-4 py-3 md:table-cell">Until</TableHead>
               <TableHead className="px-4 py-3">Status</TableHead>
               <TableHead className="w-10" />
             </TableRow>
@@ -225,7 +225,7 @@ const PromoCodes = () => {
             {filtered.map((p) => (
               <TableRow key={p.id}>
                 <TableCell className="px-4 py-3">
-                  <p className="font-mono font-bold tracking-[0.1em] text-foreground">{p.code}</p>
+                  <p className="font-mono font-semibold text-foreground">{p.code}</p>
                   {p.description && <p className="text-xs text-muted-foreground">{p.description}</p>}
                 </TableCell>
                 <TableCell className="px-4 py-3">
@@ -234,16 +234,16 @@ const PromoCodes = () => {
                     <p className="text-xs text-muted-foreground">from {formatUSD(p.min_order_cents)}</p>
                   )}
                 </TableCell>
-                <TableCell className="px-4 py-3 text-muted-foreground">
+                <TableCell className="hidden px-4 py-3 text-muted-foreground md:table-cell">
                   {p.provider_id ? providerName.get(p.provider_id) ?? "—" : "Anywhere"}
                 </TableCell>
                 <TableCell className="px-4 py-3 tabular-nums">
                   {p.redemptions}{p.max_redemptions ? ` / ${p.max_redemptions}` : ""}
                 </TableCell>
-                <TableCell className="px-4 py-3 text-right tabular-nums">
+                <TableCell className="hidden px-4 py-3 text-right tabular-nums md:table-cell">
                   {formatUSD(p.given_away_cents)}
                 </TableCell>
-                <TableCell className="px-4 py-3 text-muted-foreground">
+                <TableCell className="hidden px-4 py-3 text-muted-foreground md:table-cell">
                   {p.ends_at ? formatDateHN(p.ends_at) : "—"}
                 </TableCell>
                 <TableCell className="px-4 py-3"><StatusPill status={p.status} /></TableCell>
@@ -252,7 +252,7 @@ const PromoCodes = () => {
                     <DropdownMenuTrigger asChild>
                       <button
                         type="button"
-                        className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+                        className="flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
                         aria-label="Row actions"
                       >
                         <MoreVertical className="h-4 w-4" />
