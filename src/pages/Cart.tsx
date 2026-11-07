@@ -243,7 +243,9 @@ export default function Cart() {
     for (const item of items) {
       if (plans.has(item.planId)) continue;
       const resolved = await resolveCheckoutPlan(item.planId);
-      if (!resolved) throw new Error(`"${item.planName}" is no longer on sale.`);
+      if (!resolved || resolved.status !== "active" || !resolved.providerActive) {
+        throw new Error(`"${item.planName}" is no longer on sale.`);
+      }
       plans.set(item.planId, resolved);
     }
 

@@ -285,7 +285,7 @@ const PlanDetail = () => {
     queryFn: async () => {
       const { data, error } = await supabaseDb
         .from("providers")
-        .select("id, name, description, avatar_url, gallery_urls, category_key, archetype_key")
+        .select("id, name, description, avatar_url, gallery_urls, category_key, archetype_key, status")
         .eq("id", plan!.providerId!)
         .maybeSingle();
       if (error) throw error;
@@ -550,8 +550,13 @@ const PlanDetail = () => {
    * act itself.
    */
   const unit = normalizeUnit(priceUnit);
+  // A hidden (inactive) shop sells nothing: its plan can be looked at — an admin
+  // previews it — but not bought.
+  const shopStatus = (providerQ.data as { status?: string | null } | null | undefined)?.status;
+  const notOnSale = !!shopStatus && !["active", "approved"].includes(shopStatus);
   const ctaLabel =
-    isFood ? ADD_TO_CART
+    notOnSale ? "Not on sale yet"
+    : isFood ? ADD_TO_CART
     : typeof priceCents === "number" && priceCents > 0 && !showFrom ? payLabel(priceCents, unit)
     : SUBSCRIBE;
   const fromRange = showFrom ? fromLabel(priceCents, unit) : null;
@@ -702,7 +707,7 @@ const PlanDetail = () => {
           <button
             type="button"
             onClick={subscribe}
-            disabled={(!!offer && !chosen) || (mealsPerDay > 0 && meals.length !== Math.min(mealsPerDay, 3))}
+            disabled={notOnSale || (!!offer && !chosen) || (mealsPerDay > 0 && meals.length !== Math.min(mealsPerDay, 3))}
             className="w-full rounded-radius-md bg-primary px-4 py-3 text-[16px] font-semibold leading-6 tracking-[-0.32px] text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
           >
             {/* Three actions, three labels. This button used to word itself

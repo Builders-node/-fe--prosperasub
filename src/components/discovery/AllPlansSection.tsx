@@ -97,8 +97,10 @@ function PlanTile({ plan }: { plan: PlanRow }) {
       to={href}
       className="flex flex-col overflow-hidden rounded-radius-md bg-card shadow-figma transition-colors active:scale-[0.98] hover:bg-muted/40"
     >
-      <div className="aspect-[4/3] w-full bg-muted">
-        {image && <img src={image} alt="" loading="lazy" className="h-full w-full object-cover" />}
+      {/* The frame owns the size: the photo is pinned inside it and cropped,
+          so a tall picture can never stretch its card past the others. */}
+      <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden bg-muted">
+        {image && <img src={image} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />}
       </div>
       <div className="flex flex-1 flex-col gap-1 p-3 tracking-[-0.02em]">
         <p className="line-clamp-2 text-[15px] font-semibold leading-[20px] text-foreground">{plan.name}</p>

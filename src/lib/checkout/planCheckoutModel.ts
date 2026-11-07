@@ -32,6 +32,12 @@ export interface CheckoutPlan {
   service: CheckoutService;
   /** provider_plans.status. A new purchase needs "active"; a renewal of what was already bought does not. */
   status: string;
+  /**
+   * Whether the business is live. A plan of a hidden (inactive) shop is not
+   * for sale, whatever the plan's own status says — the plan page, checkout
+   * and cart all refuse it, and a DB trigger refuses the row as well.
+   */
+  providerActive: boolean;
   /** `provider_plans.id` — the universal row, always present. */
   universalId: string;
   /** The id a subscription will carry: the legacy plan id, or the universal one. */
@@ -95,7 +101,7 @@ const asSelection = (value: unknown): SelectionGroup | null => {
 export async function resolveCheckoutPlan(planId: string): Promise<CheckoutPlan | null> {
   const { data: rows } = await supabaseDb
     .from("provider_plans")
-    .select("*, providers(name, source_provider_id)")
+    .select("*, providers(name, source_provider_id, status)")
     .or(`id.eq.${planId},source_plan_id.eq.${planId}`)
     .limit(1);
 
@@ -119,6 +125,7 @@ export async function resolveCheckoutPlan(planId: string): Promise<CheckoutPlan 
   return {
     service,
     status: String(row.status ?? "active"),
+    providerActive: ["active", "approved"].includes(String(row.providers?.status ?? "active")),
     universalId: String(row.id),
     subjectPlanId: String(row.source_plan_id ?? row.id),
     providerUniversalId: String(row.provider_id),
