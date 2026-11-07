@@ -201,7 +201,7 @@ export function PlansTab({ providerId, sourceKey }: {
               {offers.find((o) => o.id === editing)?.name || "Plan"}
             </SheetTitle>
           </SheetHeader>
-          <div className="min-h-0 flex-1 overflow-y-auto bg-background px-4 pb-8 pt-1">
+          <div className="mt-1 min-h-0 flex-1 overflow-y-auto bg-background pb-8">
             {editing && (
               <OfferEditor
                 providerId={providerId}

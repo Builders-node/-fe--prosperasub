@@ -640,7 +640,7 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-1">
       {/* Every plan this business sells — only when nobody outside has already
           chosen one. Opened from a plan card, the card WAS the choice. */}
       <div className={cn("flex flex-wrap items-center gap-2", planId && "hidden")}>
@@ -661,7 +661,7 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
       </div>
 
       <section className="space-y-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
-        <p className="text-[20px] font-semibold leading-[26px] text-foreground">The plan</p>
+        <p className="text-title font-semibold text-foreground">The plan</p>
         <div>
           <Label className="text-xs">Name</Label>
           <Input className="mt-1" value={name} onChange={(e) => setName(e.target.value)} />
@@ -683,7 +683,7 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
       </section>
 
       <section className="space-y-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
-        <p className="text-[20px] font-semibold leading-[26px] text-foreground">How it's sold</p>
+        <p className="text-title font-semibold text-foreground">How it's sold</p>
         {/* The one question every plan must answer, asked as a visible choice —
             not as one option buried at the bottom of a select. Everything
             rarer (pricing modes, period limits, counted units, delivery
@@ -731,7 +731,7 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
       </section>
 
       <section className="space-y-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
-        <p className="text-[20px] font-semibold leading-[26px] text-foreground">What the customer chooses</p>
+        <p className="text-title font-semibold text-foreground">What the customer chooses</p>
         {draftGroups.map((group, gi) => (
           <div key={group.key} className="rounded-radius-md bg-inset p-3">
             <div className="flex items-center gap-2">
@@ -809,7 +809,7 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
       </section>
 
       <section className="space-y-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
-        <p className="text-[20px] font-semibold leading-[26px] text-foreground">Prices</p>
+        <p className="text-title font-semibold text-foreground">Prices</p>
         {combos.length === 0 ? (
           <p className="text-sm text-muted-foreground">Give every choice at least one value to price it.</p>
         ) : (
@@ -847,7 +847,7 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
       </section>
 
       <section className="space-y-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
-        <p className="text-[20px] font-semibold leading-[26px] text-foreground">What they get</p>
+        <p className="text-title font-semibold text-foreground">What they get</p>
         <Field label="Included" hint="One per line — shown on the plan page.">
           <Textarea rows={4} value={includes.features}
             onChange={(e) => setIncludes((v) => ({ ...v, features: e.target.value }))}
@@ -865,7 +865,7 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
           asked when its court hours reset. */}
       {calendarCount > 0 && (
         <section className="space-y-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
-          <p className="text-[20px] font-semibold leading-[26px] text-foreground">Booking access</p>
+          <p className="text-title font-semibold text-foreground">Booking access</p>
           <PlanResourcePicker
             providerId={providerId}
             value={access.resourceIds}
@@ -903,7 +903,7 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
           onClick={() => setAdvancedOpen((v) => !v)}
           className="flex w-full items-center justify-between p-4 text-left"
         >
-          <span className="text-[20px] font-semibold leading-[26px] text-foreground">More settings</span>
+          <span className="text-title font-semibold text-foreground">More settings</span>
           <ChevronDown className={cn("h-5 w-5 text-muted-foreground transition-transform", advancedOpen && "rotate-180")} />
         </button>
         {advancedOpen && (

@@ -227,7 +227,7 @@ export function CalendarsTab({ providerId }: { providerId: string }) {
               {editing?.name || "Calendar"}
             </SheetTitle>
           </SheetHeader>
-          <div className="min-h-0 flex-1 overflow-y-auto bg-background px-4 pb-8 pt-1">
+          <div className="mt-1 min-h-0 flex-1 overflow-y-auto bg-background pb-8">
             {editing && (
               <CalendarForm
                 row={editing}
@@ -334,7 +334,7 @@ function CalendarForm({ row, types, onSaved, onDelete }: {
   return (
     <div className="space-y-1">
       <section className="space-y-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
-        <p className="text-[20px] font-semibold leading-[26px] text-foreground">What it is</p>
+        <p className="text-title font-semibold text-foreground">What it is</p>
         <div>
           <Label className="text-[14px] font-normal text-muted-foreground">Name</Label>
           <Input className="mt-1" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
@@ -365,7 +365,7 @@ function CalendarForm({ row, types, onSaved, onDelete }: {
       </section>
 
       <section className="space-y-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
-        <p className="text-[20px] font-semibold leading-[26px] text-foreground">When it is open</p>
+        <p className="text-title font-semibold text-foreground">When it is open</p>
         <div className="grid grid-cols-3 gap-3">
           <div>
             <Label className="text-[14px] font-normal text-muted-foreground">Opens</Label>
@@ -397,7 +397,7 @@ function CalendarForm({ row, types, onSaved, onDelete }: {
       </section>
 
       <section className="space-y-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
-        <p className="text-[20px] font-semibold leading-[26px] text-foreground">Taking bookings</p>
+        <p className="text-title font-semibold text-foreground">Taking bookings</p>
         <label className="flex items-center gap-3">
           <input
             type="checkbox" className="h-5 w-5 rounded"
