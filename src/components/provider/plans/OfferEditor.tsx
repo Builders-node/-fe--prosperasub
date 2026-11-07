@@ -127,7 +127,7 @@ const timeToMinutes = (time: string): string => {
   return String((h || 0) * 60 + (m || 0));
 };
 
-export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }: {
+export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, onDirtyChange }: {
   providerId: string;
   sourceKey: string;
   /**
@@ -146,6 +146,8 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
    * from Edit with nothing but an icon to tell them apart.
    */
   onDelete?: () => void;
+  /** So the sheet can ask before closing on unsaved changes. */
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
   const qc = useQueryClient();
   const KEY = ["offer-editor", providerId] as const;
@@ -218,6 +220,12 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
   }, [rows.length, planId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const offer = offers.find((o) => o.id === offerId) ?? null;
+  /**
+   * `planId="new"`: nothing exists yet. The row is written on the first save,
+   * not when "New plan" is pressed — that used to leave a priceless "New plan"
+   * draft behind every time the sheet was opened and closed.
+   */
+  const isNew = planId === "new";
   const variants = rows.filter((r) => r.parent_plan_id === offerId);
 
   // ── Draft ─────────────────────────────────────────────────────────────────
@@ -278,6 +286,10 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
    * effect), so nothing customized ever hides.
    */
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  /** Options (size, days per week…) are folded until a plan has or wants them. */
+  const [optionsOpen, setOptionsOpen] = useState(false);
+  /** Bumped after every seed, so the baseline for "unsaved changes" is taken from seeded state. */
+  const [seedTick, setSeedTick] = useState(0);
   /**
    * Whether this business has anything bookable — same query (and cache row)
    * the resource picker runs. The hours-allowance fields used to render for
@@ -368,7 +380,28 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
       offer.lead_time_minutes != null || offer.window_minutes != null ||
       tagList.length > 0,
     );
+    setOptionsOpen(drafted.length > 0);
+    setSeedTick((t) => t + 1);
   }, [offerId, data]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // A new plan starts from the service's usual shape, not from an empty row.
+  useEffect(() => {
+    if (!isNew || !data) return;
+    setName(""); setDescription(""); setDraftGroups([]); setPrices({ "": "" }); setGallery([]);
+    setIncludes({ features: "", excludes: "", tags: "" });
+    setAccess({ resourceIds: [], hours: "", hoursPeriod: "" });
+    setOtherEntitlements([]);
+    setSold((v) => ({ ...v, period: offers[0]?.period ?? "monthly", fulfilment: DEFAULT_FULFILMENT[sourceKey] ?? "none" }));
+    setOptionsOpen(false);
+    setSeedTick((t) => t + 1);
+  }, [isNew, !!data]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Unsaved changes = anything typed since the last seed.
+  const snapshot = JSON.stringify({ name, description, draftGroups, prices, sold, includes, gallery, access });
+  const [baseline, setBaseline] = useState<string | null>(null);
+  useEffect(() => { if (seedTick) setBaseline(snapshot); }, [seedTick]); // eslint-disable-line react-hooks/exhaustive-deps
+  const dirty = baseline !== null && snapshot !== baseline;
+  useEffect(() => { onDirtyChange?.(dirty); }, [dirty, onDirtyChange]);
 
   /**
    * Every combination the axes allow, in the order the customer will see them.
@@ -403,15 +436,30 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
 
   // ── Save ──────────────────────────────────────────────────────────────────
   const save = useMutation({
-    mutationFn: async () => {
-      if (!offer) throw new Error("Nothing to save yet.");
+    mutationFn: async (publish: boolean) => {
       if (!name.trim()) throw new Error("The plan needs a name.");
-      if (!priced.length) throw new Error(draftGroups.length
+      // A draft may be unpriced; putting it on sale may not.
+      if (publish && !priced.length) throw new Error(draftGroups.length
         ? "Give at least one combination a price."
         : "Give the plan a price.");
 
+      // A new plan is written here, on its first save.
+      let o: PlanRow | null = offer;
+      if (isNew) {
+        const id = await createPlanRow({
+          providerId, sourceKey, name: name.trim(),
+          amount: draftGroups.length ? 0 : cents(prices[""] ?? ""),
+          sortOrder: offers.length, period: sold.period, draft: true,
+        });
+        if (!id) throw new Error("Couldn't create the plan.");
+        const { data: row, error } = await supabaseDb.from("provider_plans").select("*").eq("id", id).single();
+        if (error) throw error;
+        o = row as PlanRow;
+      }
+      if (!o) throw new Error("Nothing to save yet.");
+
       // 1. The plan's own fields, written wherever that plan actually lives.
-      await writePlanFields(offer, name.trim(), description.trim() || null, sourceKey);
+      await writePlanFields(o, name.trim(), description.trim() || null, sourceKey);
 
       // 1b. The switches. These live only on `provider_plans` — no legacy
       //     table has a column for "how is this sold" — except the two
@@ -453,29 +501,29 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
         features: fromLines(includes.features),
         gallery_urls: gallery,
         updated_at: new Date().toISOString(),
-      }).eq("id", offer.id);
+      }).eq("id", o.id);
       if (switchErr) throw switchErr;
 
-      await writeAttributes(offer, sourceKey, fromLines(includes.features), fromLines(includes.excludes), fromLines(includes.tags.replace(/,/g, "\n")));
+      await writeAttributes(o, sourceKey, fromLines(includes.features), fromLines(includes.excludes), fromLines(includes.tags.replace(/,/g, "\n")));
 
       // A derived price is two numbers the customer never sees separately.
       // The beach club has held them on its own row since before any of this,
       // and its checkout still reads them there.
-      if (sourceKey === "beach" && offer.source_plan_id && (sold.providerPrice || sold.markup)) {
+      if (sourceKey === "beach" && o.source_plan_id && (sold.providerPrice || sold.markup)) {
         const { error } = await supabaseDb.from("beach_club_plans").update({
           provider_price_per_person_cents: cents(sold.providerPrice),
           extra_per_person_cents: cents(sold.markup),
           updated_at: new Date().toISOString(),
-        }).eq("id", offer.source_plan_id);
+        }).eq("id", o.source_plan_id);
         if (error) throw error;
       }
       // A plan is created as a draft so a nameless $0 row never reaches the
       // storefront. Pricing it is what puts it on sale.
-      if (offer.status !== "active") await writeStatus(offer, "active", sourceKey);
+      if (publish && o.status !== "active") await writeStatus(o, "active", sourceKey);
 
       // 2. Axes, rewritten wholesale. The set is small and a diff would have to
       //    reason about a renamed key that priced rows still point at.
-      const existing = (data?.groups as any[]).filter((g) => g.plan_id === offer.id);
+      const existing = (data?.groups as any[]).filter((g) => g.plan_id === o.id);
       const keep = new Set(draftGroups.map((g) => g.key));
       const removable = existing.filter((g) => !keep.has(g.key)).map((g) => g.id);
       if (removable.length) {
@@ -491,7 +539,7 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
           if (error) throw error;
         } else {
           const { data: created, error } = await supabaseDb.from("plan_option_groups")
-            .insert({ plan_id: offer.id, key: group.key, label: group.label, sort_order: index })
+            .insert({ plan_id: o.id, key: group.key, label: group.label, sort_order: index })
             .select("id").single();
           if (error) throw error;
           groupId = created.id;
@@ -510,7 +558,8 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
       for (const [index, combo] of combos.entries()) {
         const fingerprint = comboKey(draftGroups, combo);
         const amount = cents(prices[fingerprint] ?? "");
-        const variant = variantByCombo.get(fingerprint);
+        // A plan with no choices prices itself — for a new one too.
+        const variant = !draftGroups.length && fingerprint === "" ? o : variantByCombo.get(fingerprint);
 
         if (variant) {
           if (amount > 0) {
@@ -520,12 +569,12 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
             // Except when the row IS the plan: a plan with no choices prices
             // itself, and making it its own parent would hide it from every
             // list that asks for top-level plans.
-            if (variant.id !== offer.id) {
+            if (variant.id !== o.id) {
               const { error } = await supabaseDb.from("provider_plans")
-                .update({ option_keys: combo, parent_plan_id: offer.id }).eq("id", variant.id);
+                .update({ option_keys: combo, parent_plan_id: o.id }).eq("id", variant.id);
               if (error) throw error;
             }
-          } else if (variant.id !== offer.id) {
+          } else if (variant.id !== o.id) {
             // Cleared, not deleted: somebody may be subscribed to it. Off sale
             // is a status, and the row keeps answering for their subscription.
             await writeStatus(variant, "inactive", sourceKey);
@@ -535,11 +584,11 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
 
         if (amount <= 0) continue;
         const created = await createVariant({
-          offer, providerId, sourceKey, combo, groups: draftGroups, amount, sortOrder: index,
+          offer: o, providerId, sourceKey, combo, groups: draftGroups, amount, sortOrder: index,
         });
         if (created) {
           const { error } = await supabaseDb.from("provider_plans")
-            .update({ parent_plan_id: offer.id, option_keys: combo }).eq("id", created);
+            .update({ parent_plan_id: o.id, option_keys: combo }).eq("id", created);
           if (error) throw error;
         }
       }
@@ -551,8 +600,9 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
         if (!live.has(fingerprint) && v.status === "active") await writeStatus(v, "inactive", sourceKey);
       }
     },
-    onSuccess: () => {
-      toast.success("Saved");
+    onSuccess: (_d, publish) => {
+      toast.success(publish ? "On sale" : "Saved");
+      setBaseline(snapshot);
       qc.invalidateQueries({ queryKey: KEY });
       qc.invalidateQueries({ queryKey: ["plan-offers"] });
       qc.invalidateQueries({ queryKey: ["food-meal-plans"] });
@@ -615,7 +665,7 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
       />
     );
   }
-  if (!offer && planId) {
+  if (!offer && planId && !isNew) {
     return (
       <YdEmptyState
         icon={PackageX}
@@ -624,7 +674,7 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
       />
     );
   }
-  if (!offer) {
+  if (!offer && !isNew) {
     return (
       <YdEmptyState
         icon={Package}
@@ -639,6 +689,15 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
     );
   }
 
+  const PERIODS = [["weekly", "Weekly"], ["monthly", "Monthly"], ["quarterly", "3 months"], ["yearly", "Yearly"]] as const;
+  const PER: Record<string, string> = { weekly: "week", monthly: "month", quarterly: "3 months", yearly: "year" };
+  const oneTime = sold.period === "one_time";
+  const live = !isNew && offer?.status === "active";
+  const moreSummary = [
+    sold.pricingMode !== "flat" ? (sold.pricingMode === "per_person" ? "Per person" : "Per unit") : "Flat price",
+    { none: "nothing to schedule", visits: "visits", deliveries: "deliveries", resource_hours: "booked hours" }[sold.fulfilment] ?? sold.fulfilment,
+  ].join(" · ");
+
   return (
     <div className="space-y-1">
       {/* Every plan this business sells — only when nobody outside has already
@@ -647,124 +706,130 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
         {offers.map((o) => (
           <button key={o.id} type="button" onClick={() => setOfferId(o.id)}
             className={cn(
-              "rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors",
-              o.id === offerId ? "bg-foreground text-background" : "bg-muted/50 text-muted-foreground hover:text-foreground",
+              "h-10 rounded-full px-4 text-body font-semibold transition-colors",
+              o.id === offerId ? "bg-foreground text-background" : "bg-muted text-muted-foreground hover:text-foreground",
             )}>
             {o.name}
             {o.status !== "active" && <span className="ml-1.5 text-[12px] opacity-70">off</span>}
           </button>
         ))}
-        <Button variant="outline" size="sm" className="gap-1.5"
+        <Button variant="secondary" size="sm" className="gap-1.5"
           disabled={addPlan.isPending} onClick={() => addPlan.mutate()}>
           <Plus className="h-4 w-4" /> {addPlan.isPending ? "Adding…" : "New plan"}
         </Button>
       </div>
 
-      <section className="space-y-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
-        <p className="text-title font-semibold text-foreground">The plan</p>
-        <div>
-          <Label className="text-xs">Name</Label>
-          <Input className="mt-1" value={name} onChange={(e) => setName(e.target.value)} />
-        </div>
-        <div>
-          <Label className="text-xs">Description</Label>
-          <Textarea className="mt-1" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
-        </div>
-        <GalleryField
-          label=""
-          value={gallery}
-          onChange={setGallery}
-          pathPrefix="plans/gallery"
-          max={8}
-        />
-        <p className="text-[14px] leading-[18px] text-muted-foreground">
-          The first photo is the picture on this plan's card.
-        </p>
-      </section>
-
-      <section className="space-y-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
-        <p className="text-title font-semibold text-foreground">How it's sold</p>
-        {/* The one question every plan must answer, asked as a visible choice —
-            not as one option buried at the bottom of a select. Everything
-            rarer (pricing modes, period limits, counted units, delivery
-            windows) lives under More settings at the end. */}
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="inline-flex gap-1 rounded-full bg-muted/50 p-1">
-            <button
-              type="button"
-              onClick={() => setSold((v) => ({ ...v, period: v.period === "one_time" ? "monthly" : v.period }))}
-              className={cn(
-                "rounded-full px-4 py-1.5 text-sm font-semibold transition-colors",
-                sold.period !== "one_time" ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              Subscription
+      {/* 1. What a customer reads on the card: the name, how it is sold, the price. */}
+      <section className="space-y-4 rounded-radius-lg bg-card p-4">
+        <Input label="Name" value={name} onChange={(e) => setName(e.target.value)}
+          placeholder="e.g. Monthly membership" />
+        <div className="flex rounded-radius-md bg-inset p-0.5">
+          {([["sub", "Subscription"], ["once", "One-time"]] as const).map(([k, label]) => (
+            <button key={k} type="button"
+              onClick={() => setSold((v) => ({ ...v, period: k === "once" ? "one_time" : (v.period === "one_time" ? "monthly" : v.period) }))}
+              className={cn("flex-1 rounded-radius-md px-3 py-2 text-body font-semibold transition-colors",
+                (k === "once") === oneTime ? "bg-segment text-foreground" : "text-muted-foreground hover:text-foreground")}>
+              {label}
             </button>
-            <button
-              type="button"
-              onClick={() => setSold((v) => ({ ...v, period: "one_time" }))}
-              className={cn(
-                "rounded-full px-4 py-1.5 text-sm font-semibold transition-colors",
-                sold.period === "one_time" ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              One-time
-            </button>
+          ))}
+        </div>
+        {!oneTime && (
+          <div className="flex flex-wrap gap-1.5">
+            {PERIODS.map(([k, label]) => (
+              <button key={k} type="button" onClick={() => setSold((v) => ({ ...v, period: k }))} aria-pressed={sold.period === k}
+                className={cn("h-10 rounded-full px-4 text-body font-semibold transition-colors",
+                  sold.period === k ? "bg-foreground text-background" : "bg-muted text-muted-foreground hover:text-foreground")}>
+                {label}
+              </button>
+            ))}
           </div>
-          {sold.period !== "one_time" && (
-            <select
-              value={sold.period}
-              onChange={(e) => setSold((v) => ({ ...v, period: e.target.value }))}
-              className={cn(fieldClass, "w-auto")}
-            >
-              {["weekly", "monthly", "quarterly", "yearly"].map((p) => (
-                <option key={p} value={p}>{p[0].toUpperCase() + p.slice(1)}</option>
-              ))}
-            </select>
-          )}
-        </div>
-        <p className="text-[14px] leading-[18px] text-muted-foreground">
-          {sold.period === "one_time"
-            ? "Bought once — a product, a session, a day pass. No renewal."
-            : "Renews every period until the customer stops it."}
-        </p>
+        )}
+        {draftGroups.length === 0 ? (
+          <Input label="Price" inputMode="decimal" value={prices[""] ?? ""}
+            onChange={(e) => setPrices((p) => ({ ...p, [""]: e.target.value }))}
+            placeholder="0.00" className="tabular-nums"
+            leftIcon={<span className="text-body text-muted-foreground">$</span>}
+            rightIcon={!oneTime ? <span className="text-meta text-muted-foreground">/ {PER[sold.period] ?? "period"}</span> : undefined}
+            helperText={oneTime ? "Bought once — a product, a session, a day pass." : "Renews every period until the customer stops it."} />
+        ) : (
+          <p className="text-body text-muted-foreground">
+            Priced per option below — customers see “from {fromCents ? formatUSD(fromCents) : "—"}”.
+          </p>
+        )}
       </section>
 
-      <section className="space-y-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
-        <p className="text-title font-semibold text-foreground">What the customer chooses</p>
+      {/* 2. Photos — the cover is the picture on the card. */}
+      <section className="rounded-radius-lg bg-card p-4">
+        <GalleryField label="Photos" value={gallery} onChange={setGallery} pathPrefix="plans/gallery" max={8} />
+        <p className="mt-2 text-meta text-muted-foreground">The first photo is the cover on this plan's card.</p>
+      </section>
+
+      {/* 3. What they get. */}
+      <section className="space-y-4 rounded-radius-lg bg-card p-4">
+        <p className="text-title font-semibold text-foreground">What they get</p>
+        <Textarea label="Description" rows={3} value={description} onChange={(e) => setDescription(e.target.value)}
+          placeholder="One or two sentences a customer reads first." />
+        <Field label="Included" hint="One per line — shown on the plan page.">
+          <Textarea rows={4} value={includes.features}
+            onChange={(e) => setIncludes((v) => ({ ...v, features: e.target.value }))}
+            placeholder={placeholdersFor(sourceKey).features} />
+        </Field>
+        <Field label="Not included" hint="One per line.">
+          <Textarea rows={3} value={includes.excludes}
+            onChange={(e) => setIncludes((v) => ({ ...v, excludes: e.target.value }))}
+            placeholder={placeholdersFor(sourceKey).excludes} />
+        </Field>
+      </section>
+
+      {/* 4. Options — folded until a plan has or wants them. */}
+      {!optionsOpen && draftGroups.length === 0 ? (
+        <section className="rounded-radius-lg bg-card p-4">
+          <button type="button" onClick={() => setOptionsOpen(true)} className="flex w-full items-center gap-3 text-left">
+            <span className="min-w-0 flex-1">
+              <span className="block text-title font-semibold text-foreground">Options</span>
+              <span className="mt-0.5 block text-meta text-muted-foreground">
+                Let the customer choose — size, days per week — with a price for each.
+              </span>
+            </span>
+            <Plus className="h-5 w-5 shrink-0 text-muted-foreground" />
+          </button>
+        </section>
+      ) : (
+        <section className="space-y-3 rounded-radius-lg bg-card p-4">
+          <p className="text-title font-semibold text-foreground">Options</p>
         {draftGroups.map((group, gi) => (
           <div key={group.key} className="rounded-radius-md bg-inset p-3">
             <div className="flex items-center gap-2">
               <Input
                 value={group.label}
                 onChange={(e) => setDraftGroups((gs) => gs.map((g, i) => i === gi ? { ...g, label: e.target.value } : g))}
-                className="h-9 max-w-xs font-semibold"
+                inputSize="sm" className="max-w-xs font-semibold"
               />
               {/* Order is what the customer sees: choices top to bottom, values
                   left to right, and the price list below follows both. Saved as
                   sort_order; prices are keyed by value, so moving loses none. */}
               {draftGroups.length > 1 && (
                 <>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" aria-label={`Move ${group.label} up`}
+                  <Button variant="ghost" size="iconSm" className="shrink-0" aria-label={`Move ${group.label} up`}
                     disabled={gi === 0}
                     onClick={() => setDraftGroups((gs) => moveItem(gs, gi, -1))}>
                     <ChevronUp className="h-4 w-4" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" aria-label={`Move ${group.label} down`}
+                  <Button variant="ghost" size="iconSm" className="shrink-0" aria-label={`Move ${group.label} down`}
                     disabled={gi === draftGroups.length - 1}
                     onClick={() => setDraftGroups((gs) => moveItem(gs, gi, 1))}>
                     <ChevronDown className="h-4 w-4" />
                   </Button>
                 </>
               )}
-              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0"
+              <Button variant="ghost" size="iconSm" className="shrink-0"
                 onClick={() => setDraftGroups((gs) => gs.filter((_, i) => i !== gi))}>
                 <X className="h-4 w-4" />
               </Button>
             </div>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               {group.options.map((option, oi) => (
-                <span key={option.key} className="flex items-center gap-1 rounded-full bg-muted px-2 py-1 text-sm">
+                <span key={option.key} className="flex items-center gap-1 rounded-full bg-muted px-2.5 py-1.5 text-body">
                   {group.options.length > 1 && (
                     <button type="button" aria-label={`Move ${option.label} left`} disabled={oi === 0}
                       className="disabled:opacity-30"
@@ -796,75 +861,49 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
         ))}
         <div className="flex items-center gap-2">
           <Input value={newGroupLabel} onChange={(e) => setNewGroupLabel(e.target.value)}
-            placeholder="Add a choice — size, days per week…" className="h-9 max-w-xs" />
-          <Button variant="outline" size="sm" className="gap-1.5"
+            placeholder="Name it — size, days per week…" inputSize="sm" className="max-w-xs" />
+          <Button variant="secondary" size="sm" className="gap-1.5"
             disabled={!newGroupLabel.trim()}
             onClick={() => {
               setDraftGroups((gs) => [...gs, { key: slug(newGroupLabel), label: newGroupLabel.trim(), options: [] }]);
               setNewGroupLabel("");
             }}>
-            <Plus className="h-4 w-4" /> Add
+            <Plus /> Add choice
           </Button>
         </div>
-      </section>
-
-      <section className="space-y-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
-        <p className="text-title font-semibold text-foreground">Prices</p>
-        {combos.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Give every choice at least one value to price it.</p>
-        ) : (
-          <ul className="divide-y divide-border/60">
-            {combos.map((combo) => {
-              const fingerprint = comboKey(draftGroups, combo);
-              const label = draftGroups.length
-                ? draftGroups
-                    .map((g) => g.options.find((o) => o.key === combo[g.key])?.label ?? combo[g.key])
-                    .join(" · ")
-                : "Price";
-              return (
-                <li key={fingerprint} className="flex flex-wrap items-center justify-between gap-3 py-2.5">
-                  <span className="text-sm font-semibold text-foreground">{label}</span>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-sm text-muted-foreground">$</span>
-                    <Input
-                      inputMode="decimal"
-                      value={prices[fingerprint] ?? ""}
+          {draftGroups.length > 0 && (
+            <div className="space-y-1 pt-1">
+              <p className="text-meta font-semibold text-muted-foreground">Prices</p>
+              {combos.length === 0 ? (
+                <p className="text-body text-muted-foreground">Give every choice at least one value to price it.</p>
+              ) : combos.map((combo) => {
+                const fingerprint = comboKey(draftGroups, combo);
+                const label = draftGroups
+                  .map((g) => g.options.find((o) => o.key === combo[g.key])?.label ?? combo[g.key])
+                  .join(" · ");
+                return (
+                  <div key={fingerprint} className="flex items-center justify-between gap-3 rounded-radius-md bg-inset py-1.5 pl-3 pr-1.5">
+                    <span className="min-w-0 text-body font-semibold text-foreground">{label}</span>
+                    <Input inputSize="sm" inputMode="decimal" value={prices[fingerprint] ?? ""}
                       onChange={(e) => setPrices((p) => ({ ...p, [fingerprint]: e.target.value }))}
-                      placeholder="—"
-                      className="h-9 w-28 text-right tabular-nums"
-                    />
+                      placeholder="—" className="w-32 bg-card text-right tabular-nums"
+                      leftIcon={<span className="text-meta text-muted-foreground">$</span>} />
                   </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-        <p className="text-xs text-muted-foreground">
-          {draftGroups.length
-            ? <>Customers see one card, priced “from {fromCents ? formatUSD(fromCents) : "—"}” — the cheapest combination. Leave a price empty to take that combination off sale; anyone already subscribed keeps their plan.</>
-            : <>Customers see one card at {fromCents ? formatUSD(fromCents) : "—"}. Add a choice above and this becomes a price per combination.</>}
-        </p>
-      </section>
-
-      <section className="space-y-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
-        <p className="text-title font-semibold text-foreground">What they get</p>
-        <Field label="Included" hint="One per line — shown on the plan page.">
-          <Textarea rows={4} value={includes.features}
-            onChange={(e) => setIncludes((v) => ({ ...v, features: e.target.value }))}
-            placeholder={placeholdersFor(sourceKey).features} />
-        </Field>
-        <Field label="Not included" hint="One per line.">
-          <Textarea rows={3} value={includes.excludes}
-            onChange={(e) => setIncludes((v) => ({ ...v, excludes: e.target.value }))}
-            placeholder={placeholdersFor(sourceKey).excludes} />
-        </Field>
-      </section>
+                );
+              })}
+              <p className="pt-1 text-meta text-muted-foreground">
+                Leave a price empty to take that combination off sale; anyone already subscribed keeps their plan.
+              </p>
+            </div>
+          )}
+        </section>
+      )}
 
       {/* Only a business with something bookable is asked booking questions —
           the hours allowance used to render for everyone, so a restaurant was
           asked when its court hours reset. */}
       {calendarCount > 0 && (
-        <section className="space-y-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
+        <section className="space-y-3 rounded-radius-lg bg-card p-4">
           <p className="text-title font-semibold text-foreground">Booking access</p>
           <PlanResourcePicker
             providerId={providerId}
@@ -897,13 +936,16 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
       {/* The platform's switches, behind one fold. Everything here has a
           working default; a plan already using a non-default opens the fold
           itself (see the seed effect). */}
-      <section className="rounded-radius-lg bg-card tracking-[-0.02em]">
+      <section className="rounded-radius-lg bg-card">
         <button
           type="button"
           onClick={() => setAdvancedOpen((v) => !v)}
           className="flex w-full items-center justify-between p-4 text-left"
         >
-          <span className="text-title font-semibold text-foreground">More settings</span>
+          <span className="min-w-0">
+            <span className="block text-title font-semibold text-foreground">More settings</span>
+            {!advancedOpen && <span className="mt-0.5 block text-meta text-muted-foreground">{moreSummary}</span>}
+          </span>
           <ChevronDown className={cn("h-5 w-5 text-muted-foreground transition-transform", advancedOpen && "rotate-180")} />
         </button>
         {advancedOpen && (
@@ -1043,24 +1085,45 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
         )}
       </section>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Button disabled={save.isPending} onClick={() => save.mutate()}>
-          {save.isPending ? "Saving…" : "Save plan"}
-        </Button>
-        {/* Off sale, not deleted: somebody may be subscribed to it, and a plan
-            that vanishes takes their subscription's name with it. */}
-        <Button variant="ghost" className="text-muted-foreground"
-          disabled={archive.isPending}
-          onClick={() => archive.mutate(offer.status === "active" ? "inactive" : "active")}>
-          {offer.status === "active" ? "Take off sale" : "Put back on sale"}
-        </Button>
-        {onDelete && (
-          <Button variant="ghost" className="ml-auto text-destructive hover:text-destructive"
-            onClick={onDelete}>
-            <Trash2 className="mr-1.5 h-4 w-4" /> Delete plan
+      {/* Off sale and delete sit apart from saving — they are not the point of this screen. */}
+      {!isNew && offer && (
+        <section className="flex flex-wrap gap-2 rounded-radius-lg bg-card p-4">
+          {/* Off sale, not deleted: somebody may be subscribed to it. */}
+          {live && (
+            <Button variant="secondary" size="sm" disabled={archive.isPending} onClick={() => archive.mutate("inactive")}>
+              Take off sale
+            </Button>
+          )}
+          {onDelete && (
+            <Button variant="ghost" size="sm" className="gap-1.5 text-destructive hover:text-destructive" onClick={onDelete}>
+              <Trash2 /> Delete plan
+            </Button>
+          )}
+        </section>
+      )}
+
+      {/* Pinned under the blocks like every dialog's buttons. A live plan shows
+          the bar only once something changed; a draft always offers both. */}
+      {(!live || dirty) && (
+      <div className="sticky bottom-0 z-10 flex gap-2 bg-background px-4 pb-4 pt-2">
+        {live ? (
+          <Button className="flex-1" disabled={save.isPending} loading={save.isPending} loadingText="Saving…"
+            onClick={() => save.mutate(false)}>
+            Save changes
           </Button>
+        ) : (
+          <>
+            <Button variant="secondary" className="flex-1" disabled={save.isPending} onClick={() => save.mutate(false)}>
+              Save draft
+            </Button>
+            <Button className="flex-1" disabled={save.isPending} loading={save.isPending} loadingText="Saving…"
+              onClick={() => save.mutate(true)}>
+              Put on sale
+            </Button>
+          </>
         )}
       </div>
+      )}
     </div>
   );
 }

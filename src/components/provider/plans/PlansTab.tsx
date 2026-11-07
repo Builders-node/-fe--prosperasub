@@ -16,7 +16,7 @@ import { formatUSD } from "@/lib/pricing";
 import { WorkspaceSection } from "@/components/provider/WorkspaceUI";
 import { QueryError } from "@/components/patterns/QueryError";
 import { YdEmptyState } from "@/components/yd/YdPrimitives";
-import { OfferEditor, createDraftPlan } from "@/components/provider/plans/OfferEditor";
+import { OfferEditor } from "@/components/provider/plans/OfferEditor";
 
 /**
  * What this business sells: a list, and one editor behind it.
@@ -71,15 +71,12 @@ export function PlansTab({ providerId, sourceKey }: {
     },
   });
 
-  const add = useMutation({
-    mutationFn: () => createDraftPlan({ providerId, sourceKey, sortOrder: offers.length }),
-    onSuccess: async (id) => {
-      await qc.invalidateQueries({ queryKey: KEY });
-      await qc.invalidateQueries({ queryKey: ["offer-editor", providerId] });
-      setEditing(id);
-    },
-    onError: (e: Error) => toast.error(e.message || "Couldn't add the plan"),
-  });
+  // "New plan" opens an empty editor; the row is written on its first save.
+  const startNew = () => setEditing("new");
+  const [dirty, setDirty] = useState(false);
+  const [confirmClose, setConfirmClose] = useState(false);
+  const requestClose = () => { if (dirty) setConfirmClose(true); else setEditing(null); };
+  const editingRow = editing && editing !== "new" ? offers.find((o) => o.id === editing) : undefined;
 
   const del = useMutation({
     mutationFn: async (offer: OfferRow) => {
@@ -108,8 +105,8 @@ export function PlansTab({ providerId, sourceKey }: {
         title="Plans"
         subtitle="What customers can buy. Open one to set its choices and prices."
         action={
-          <Button className="shrink-0 gap-2" disabled={add.isPending} onClick={() => add.mutate()}>
-            <Plus className="h-4 w-4" /> {add.isPending ? "Adding…" : "New plan"}
+          <Button className="shrink-0 gap-2" onClick={startNew}>
+            <Plus className="h-4 w-4" /> New plan
           </Button>
         }
       />
@@ -131,8 +128,8 @@ export function PlansTab({ providerId, sourceKey }: {
           title="Nothing on sale yet"
           subtitle="A plan is one product: a name, whatever the customer gets to choose, and a price for each way of choosing it."
           action={
-            <Button className="gap-2" disabled={add.isPending} onClick={() => add.mutate()}>
-              <Plus className="h-4 w-4" /> {add.isPending ? "Adding…" : "Add a plan"}
+            <Button className="gap-2" onClick={startNew}>
+              <Plus className="h-4 w-4" /> Add a plan
             </Button>
           }
         />
@@ -188,7 +185,7 @@ export function PlansTab({ providerId, sourceKey }: {
 
       {/* Everything about one plan, in a sheet over the list — from the side
           on a desktop, up from the bottom on a phone. */}
-      <Sheet open={!!editing} onOpenChange={(o) => { if (!o) setEditing(null); }}>
+      <Sheet open={!!editing} onOpenChange={(o) => { if (!o) requestClose(); }}>
         <SheetContent
           blocks={false}
           side={isMobile ? "bottom" : "right"}
@@ -197,8 +194,9 @@ export function PlansTab({ providerId, sourceKey }: {
             : "w-full max-w-xl p-0 sm:max-w-xl"}
         >
           <SheetHeader>
-            <SheetTitle>
-              {offers.find((o) => o.id === editing)?.name || "Plan"}
+            <SheetTitle className="flex items-center gap-2">
+              <span className="truncate">{editing === "new" ? "New plan" : editingRow?.name || "Plan"}</span>
+              <StatusPill status={editing === "new" || (editingRow && editingRow.status !== "active") ? "draft" : "active"} />
             </SheetTitle>
           </SheetHeader>
           <div className="mt-1 min-h-0 flex-1 overflow-y-auto bg-background pb-8">
@@ -207,7 +205,8 @@ export function PlansTab({ providerId, sourceKey }: {
                 providerId={providerId}
                 sourceKey={sourceKey}
                 planId={editing}
-                onSaved={() => { qc.invalidateQueries({ queryKey: KEY }); setEditing(null); }}
+                onDirtyChange={setDirty}
+                onSaved={() => { qc.invalidateQueries({ queryKey: KEY }); setDirty(false); setEditing(null); }}
                 onDelete={() => {
                   const row = offers.find((o) => o.id === editing);
                   if (row) setDeleteTarget(row);
@@ -217,6 +216,23 @@ export function PlansTab({ providerId, sourceKey }: {
           </div>
         </SheetContent>
       </Sheet>
+
+      <AlertDialog open={confirmClose} onOpenChange={setConfirmClose}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Discard changes?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {editing === "new" ? "This plan hasn't been saved — nothing will be created." : "Your changes to this plan are not saved."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep editing</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={() => { setConfirmClose(false); setDirty(false); setEditing(null); }}>
+              Discard
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
         <AlertDialogContent>
