@@ -64,6 +64,19 @@ const buttonVariants = cva(
   },
 );
 
+/**
+ * A row of controls has ONE height. Inside a toolbar whose search is h-10, a
+ * Button with no explicit size took the default h-12 and towered over the
+ * input. A toolbar wraps its controls in <ControlSize size="sm"> and every
+ * unsized Button follows; an explicit `size` still wins.
+ */
+type ControlSizeValue = "sm" | "default";
+const ControlSizeContext = React.createContext<ControlSizeValue | undefined>(undefined);
+/** No `size` resets to the defaults — overlays do this, so a dialog opened from a toolbar keeps full-size buttons. */
+export function ControlSize({ size, children }: { size?: ControlSizeValue; children: React.ReactNode }) {
+  return <ControlSizeContext.Provider value={size}>{children}</ControlSizeContext.Provider>;
+}
+
 export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
@@ -75,7 +88,8 @@ export interface ButtonProps
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ children, className, disabled, loading = false, loadingText, variant, size, asChild = false, ...props }, ref) => {
     const Comp = asChild ? Slot : "button";
-    const resolvedSize = size ?? (variant === "link" ? "link" : undefined);
+    const contextSize = React.useContext(ControlSizeContext);
+    const resolvedSize = size ?? (variant === "link" ? "link" : contextSize);
     const content = loading ? (
       <>
         <Loader2 className="animate-spin" aria-hidden="true" />

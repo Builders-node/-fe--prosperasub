@@ -1,4 +1,5 @@
 import * as SheetPrimitive from "@radix-ui/react-dialog";
+import { ControlSize } from "@/components/ui/button";
 import { cva, type VariantProps } from "class-variance-authority";
 import { X } from "lucide-react";
 import * as React from "react";
@@ -70,7 +71,7 @@ interface SheetContentProps
 
 const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Content>, SheetContentProps>(
   ({ side = "right", className, children, blocks, onOpenAutoFocus, ...props }, ref) => (
-    <SheetPortal>
+    <ControlSize><SheetPortal>
       <SheetOverlay />
       <SheetPrimitive.Content
         ref={ref}
@@ -84,7 +85,7 @@ const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Con
           <span className="sr-only">Close</span>
         </SheetPrimitive.Close>
       </SheetPrimitive.Content>
-    </SheetPortal>
+    </SheetPortal></ControlSize>
   ),
 );
 SheetContent.displayName = SheetPrimitive.Content.displayName;

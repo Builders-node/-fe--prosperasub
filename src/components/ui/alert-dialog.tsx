@@ -1,4 +1,5 @@
 import * as React from "react";
+import { ControlSize } from "@/components/ui/button";
 import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog";
 
 import { cn } from "@/lib/utils";
@@ -30,7 +31,7 @@ const AlertDialogContent = React.forwardRef<
   React.ElementRef<typeof AlertDialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Content>
 >(({ className, onOpenAutoFocus, ...props }, ref) => (
-  <AlertDialogPortal>
+  <ControlSize><AlertDialogPortal>
     <AlertDialogOverlay />
     <AlertDialogPrimitive.Content
       ref={ref}
@@ -53,7 +54,7 @@ const AlertDialogContent = React.forwardRef<
       )}
       {...props}
     />
-  </AlertDialogPortal>
+  </AlertDialogPortal></ControlSize>
 ));
 AlertDialogContent.displayName = AlertDialogPrimitive.Content.displayName;
 

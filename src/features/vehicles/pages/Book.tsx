@@ -264,7 +264,9 @@ export default function Book() {
   );
 
   return (
-    <AppContainer className={cn("py-6", step === "form" && "pb-[calc(var(--checkout-footer-h,120px)+16px)]")}>
+    // Phone: blocks run edge to edge, as on the vehicle page — the cards ARE
+    // the frame. The container's gutter returns from md up.
+    <AppContainer className={cn("max-md:px-0 pt-1 md:py-6", step === "form" && "pb-[calc(var(--checkout-footer-h,120px)+16px)]")}>
       <div className="grid gap-1 lg:grid-cols-[1fr_360px] lg:gap-4">
         <div className="space-y-1">
           {step === "form" ? (

@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { Search, X, Inbox, AlertTriangle } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { ControlSize } from "@/components/ui/button";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -57,6 +58,7 @@ export function AdminListShell({
     <div className={cn("space-y-space-4", className)}>
       {/* Toolbar */}
       {(showSearch || filters || actions) && (
+        <ControlSize size="sm">
         <div className="flex flex-wrap items-center gap-space-2">
           {showSearch && (
             <div className="relative min-w-[200px] flex-1 sm:max-w-xs">
@@ -88,6 +90,7 @@ export function AdminListShell({
           )}
           {actions && <div className="ml-auto flex items-center gap-space-2">{actions}</div>}
         </div>
+        </ControlSize>
       )}
 
       {/* Body */}

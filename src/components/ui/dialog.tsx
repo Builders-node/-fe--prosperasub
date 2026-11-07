@@ -1,4 +1,5 @@
 import * as React from "react";
+import { ControlSize } from "@/components/ui/button";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 
@@ -56,7 +57,7 @@ const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   DialogContentProps
 >(({ className, children, bodyClassName, blocks = true, blockClassName, onOpenAutoFocus, ...props }, ref) => (
-  <DialogPortal>
+  <ControlSize><DialogPortal>
     <DialogOverlay />
     <DialogPrimitive.Content
       ref={ref}
@@ -107,7 +108,7 @@ const DialogContent = React.forwardRef<
         <span className="sr-only">Close</span>
       </DialogPrimitive.Close>
     </DialogPrimitive.Content>
-  </DialogPortal>
+  </DialogPortal></ControlSize>
 ));
 DialogContent.displayName = DialogPrimitive.Content.displayName;
 

@@ -430,14 +430,14 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
           {/* Date controls */}
           <div className="mb-space-4 flex flex-wrap items-center justify-between gap-3 rounded-radius-md bg-card p-space-4">
             <div className="flex items-center gap-2">
-              <Button variant="secondary" size="iconSm" onClick={() => shiftDay(-1)} aria-label="Previous day">
+              <Button variant="secondary" size="icon" onClick={() => shiftDay(-1)} aria-label="Previous day">
                 <ChevronLeft className="h-4 w-4" />
               </Button>
               <div className="relative flex items-center gap-2">
                 <CalendarDays className="h-4 w-4 text-muted-foreground" />
         <Input inputSize="sm" type="date" value={date} onChange={(e) => setDate(e.target.value || todayHN())} className="w-full sm:w-[170px]" />
               </div>
-              <Button variant="secondary" size="iconSm" onClick={() => shiftDay(1)} aria-label="Next day">
+              <Button variant="secondary" size="icon" onClick={() => shiftDay(1)} aria-label="Next day">
                 <ChevronRight className="h-4 w-4" />
               </Button>
               <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => setDate(todayHN())}>
@@ -689,12 +689,13 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
                   <div className="mt-1 flex gap-2">
                     <Input
                       readOnly
+                      inputSize="sm"
                       value={feedUrlFor(editing.ical_feed_token)}
                       onFocus={(e) => e.currentTarget.select()}
                       className="font-mono text-xs"
                     />
                     <Button
-                      type="button" variant="outline" size="iconSm"
+                      type="button" variant="outline" size="icon"
                       title="Copy feed URL"
                       onClick={() => {
                         navigator.clipboard.writeText(feedUrlFor(editing.ical_feed_token));

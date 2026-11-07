@@ -185,6 +185,7 @@ export function GalleryField({
       {showUrl && !atCap && (
         <div className="mt-2 flex gap-2">
           <Input
+            inputSize="sm"
             value={urlInput}
             onChange={(e) => setUrlInput(e.target.value)}
             placeholder="https://…"
