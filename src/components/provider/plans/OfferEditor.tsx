@@ -1,7 +1,7 @@
 import { fieldClass } from "@/components/ui/input";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Package, PackageX, Plus, Trash2, X } from "lucide-react";
+import { ChevronDown, Package, PackageX, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,7 @@ import { GalleryField } from "@/components/patterns/GalleryField";
 import { QueryError } from "@/components/patterns/QueryError";
 import { YdEmptyState } from "@/components/yd/YdPrimitives";
 import { PlanResourcePicker } from "@/components/provider/plans/PlanResourcePicker";
+import { OptionsEditor, comboKey, type DraftGroup } from "@/components/provider/plans/OptionsEditor";
 import { readEntitlements, serializeEntitlements, type Entitlement } from "@/lib/plans/entitlements";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
@@ -75,15 +76,6 @@ interface PlanRow {
   gallery_urls: string[] | null;
 }
 
-interface DraftOption { key: string; label: string }
-interface DraftGroup { id?: string; key: string; label: string; options: DraftOption[] }
-
-/** "Meals per day" → "meals_per_day" — stable, readable, and what a row stores. */
-const slug = (value: string) =>
-  value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 40);
-
-const comboKey = (groups: DraftGroup[], combo: Record<string, string>) =>
-  groups.map((g) => `${g.key}=${combo[g.key] ?? ""}`).join("|");
 
 const dollars = (cents: number) => (cents > 0 ? (cents / 100).toFixed(2) : "");
 
@@ -234,7 +226,6 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
   const [draftGroups, setDraftGroups] = useState<DraftGroup[]>([]);
   /** combination fingerprint → dollars typed in the grid. */
   const [prices, setPrices] = useState<Record<string, string>>({});
-  const [newGroupLabel, setNewGroupLabel] = useState("");
   /** The switches — what this plan IS, rather than what it is called. */
   const [sold, setSold] = useState({
     period: "monthly", unit: "", quantity: "",
@@ -286,8 +277,6 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
    * effect), so nothing customized ever hides.
    */
   const [advancedOpen, setAdvancedOpen] = useState(false);
-  /** Options (size, days per week…) are folded until a plan has or wants them. */
-  const [optionsOpen, setOptionsOpen] = useState(false);
   /** Bumped after every seed, so the baseline for "unsaved changes" is taken from seeded state. */
   const [seedTick, setSeedTick] = useState(0);
   /**
@@ -380,7 +369,6 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
       offer.lead_time_minutes != null || offer.window_minutes != null ||
       tagList.length > 0,
     );
-    setOptionsOpen(drafted.length > 0);
     setSeedTick((t) => t + 1);
   }, [offerId, data]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -392,7 +380,6 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
     setAccess({ resourceIds: [], hours: "", hoursPeriod: "" });
     setOtherEntitlements([]);
     setSold((v) => ({ ...v, period: offers[0]?.period ?? "monthly", fulfilment: DEFAULT_FULFILMENT[sourceKey] ?? "none" }));
-    setOptionsOpen(false);
     setSeedTick((t) => t + 1);
   }, [isNew, !!data]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -413,10 +400,13 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
   const combos = useMemo(() => {
     if (!draftGroups.length) return [{}];
     if (draftGroups.some((g) => !g.options.length)) return [];
-    return draftGroups.reduce<Array<Record<string, string>>>(
+    const all = draftGroups.reduce<Array<Record<string, string>>>(
       (acc, g) => acc.flatMap((base) => g.options.map((o) => ({ ...base, [g.key]: o.key }))),
       [{}],
     );
+    // One row per combination, even if old data holds two values with one key.
+    const seen = new Set<string>();
+    return all.filter((c) => { const k = comboKey(draftGroups, c); if (seen.has(k)) return false; seen.add(k); return true; });
   }, [draftGroups]);
 
   const variantByCombo = useMemo(() => {
@@ -781,123 +771,16 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
         </Field>
       </section>
 
-      {/* 4. Options — folded until a plan has or wants them. */}
-      {!optionsOpen && draftGroups.length === 0 ? (
-        <section className="rounded-radius-lg bg-card p-4">
-          <button type="button" onClick={() => setOptionsOpen(true)} className="flex w-full items-center gap-3 text-left">
-            <span className="min-w-0 flex-1">
-              <span className="block text-title font-semibold text-foreground">Options</span>
-              <span className="mt-0.5 block text-meta text-muted-foreground">
-                Let the customer choose — size, days per week — with a price for each.
-              </span>
-            </span>
-            <Plus className="h-5 w-5 shrink-0 text-muted-foreground" />
-          </button>
-        </section>
-      ) : (
-        <section className="space-y-3 rounded-radius-lg bg-card p-4">
-          <p className="text-title font-semibold text-foreground">Options</p>
-        {draftGroups.map((group, gi) => (
-          <div key={group.key} className="rounded-radius-md bg-inset p-3">
-            <div className="flex items-center gap-2">
-              <Input
-                value={group.label}
-                onChange={(e) => setDraftGroups((gs) => gs.map((g, i) => i === gi ? { ...g, label: e.target.value } : g))}
-                inputSize="sm" className="max-w-xs font-semibold"
-              />
-              {/* Order is what the customer sees: choices top to bottom, values
-                  left to right, and the price list below follows both. Saved as
-                  sort_order; prices are keyed by value, so moving loses none. */}
-              {draftGroups.length > 1 && (
-                <>
-                  <Button variant="ghost" size="iconSm" className="shrink-0" aria-label={`Move ${group.label} up`}
-                    disabled={gi === 0}
-                    onClick={() => setDraftGroups((gs) => moveItem(gs, gi, -1))}>
-                    <ChevronUp className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="iconSm" className="shrink-0" aria-label={`Move ${group.label} down`}
-                    disabled={gi === draftGroups.length - 1}
-                    onClick={() => setDraftGroups((gs) => moveItem(gs, gi, 1))}>
-                    <ChevronDown className="h-4 w-4" />
-                  </Button>
-                </>
-              )}
-              <Button variant="ghost" size="iconSm" className="shrink-0"
-                onClick={() => setDraftGroups((gs) => gs.filter((_, i) => i !== gi))}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              {group.options.map((option, oi) => (
-                <span key={option.key} className="flex items-center gap-1 rounded-full bg-muted px-2.5 py-1.5 text-body">
-                  {group.options.length > 1 && (
-                    <button type="button" aria-label={`Move ${option.label} left`} disabled={oi === 0}
-                      className="disabled:opacity-30"
-                      onClick={() => setDraftGroups((gs) => gs.map((g, i) =>
-                        i === gi ? { ...g, options: moveItem(g.options, oi, -1) } : g))}>
-                      <ChevronLeft className="h-3.5 w-3.5 text-muted-foreground" />
-                    </button>
-                  )}
-                  {option.label}
-                  {group.options.length > 1 && (
-                    <button type="button" aria-label={`Move ${option.label} right`} disabled={oi === group.options.length - 1}
-                      className="disabled:opacity-30"
-                      onClick={() => setDraftGroups((gs) => gs.map((g, i) =>
-                        i === gi ? { ...g, options: moveItem(g.options, oi, 1) } : g))}>
-                      <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-                    </button>
-                  )}
-                  <button type="button" aria-label={`Remove ${option.label}`}
-                    onClick={() => setDraftGroups((gs) => gs.map((g, i) =>
-                      i === gi ? { ...g, options: g.options.filter((_, j) => j !== oi) } : g))}>
-                    <X className="h-3.5 w-3.5 text-muted-foreground" />
-                  </button>
-                </span>
-              ))}
-              <AddValue onAdd={(label) => setDraftGroups((gs) => gs.map((g, i) =>
-                i === gi ? { ...g, options: [...g.options, { key: slug(label), label }] } : g))} />
-            </div>
-          </div>
-        ))}
-        <div className="flex items-center gap-2">
-          <Input value={newGroupLabel} onChange={(e) => setNewGroupLabel(e.target.value)}
-            placeholder="Name it — size, days per week…" inputSize="sm" className="max-w-xs" />
-          <Button variant="secondary" size="sm" className="gap-1.5"
-            disabled={!newGroupLabel.trim()}
-            onClick={() => {
-              setDraftGroups((gs) => [...gs, { key: slug(newGroupLabel), label: newGroupLabel.trim(), options: [] }]);
-              setNewGroupLabel("");
-            }}>
-            <Plus /> Add choice
-          </Button>
-        </div>
-          {draftGroups.length > 0 && (
-            <div className="space-y-1 pt-1">
-              <p className="text-meta font-semibold text-muted-foreground">Prices</p>
-              {combos.length === 0 ? (
-                <p className="text-body text-muted-foreground">Give every choice at least one value to price it.</p>
-              ) : combos.map((combo) => {
-                const fingerprint = comboKey(draftGroups, combo);
-                const label = draftGroups
-                  .map((g) => g.options.find((o) => o.key === combo[g.key])?.label ?? combo[g.key])
-                  .join(" · ");
-                return (
-                  <div key={fingerprint} className="flex items-center justify-between gap-3 rounded-radius-md bg-inset py-1.5 pl-3 pr-1.5">
-                    <span className="min-w-0 text-body font-semibold text-foreground">{label}</span>
-                    <Input inputSize="sm" inputMode="decimal" value={prices[fingerprint] ?? ""}
-                      onChange={(e) => setPrices((p) => ({ ...p, [fingerprint]: e.target.value }))}
-                      placeholder="—" className="w-32 bg-card text-right tabular-nums"
-                      leftIcon={<span className="text-meta text-muted-foreground">$</span>} />
-                  </div>
-                );
-              })}
-              <p className="pt-1 text-meta text-muted-foreground">
-                Leave a price empty to take that combination off sale; anyone already subscribed keeps their plan.
-              </p>
-            </div>
-          )}
-        </section>
-      )}
+      {/* 4. Options & prices — see OptionsEditor. */}
+      <OptionsEditor
+        groups={draftGroups}
+        setGroups={setDraftGroups}
+        prices={prices}
+        setPrices={setPrices}
+        combos={combos}
+        perLabel={oneTime ? null : (PER[sold.period] ?? null)}
+        key={`${offerId ?? "new"}:${seedTick}`}
+      />
 
       {/* Only a business with something bookable is asked booking questions —
           the hours allowance used to render for everyone, so a restaurant was
@@ -1211,30 +1094,6 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
       <div className="mt-1">{children}</div>
       {hint && <p className="mt-1 text-[14px] leading-[18px] text-muted-foreground">{hint}</p>}
     </div>
-  );
-}
-
-function AddValue({ onAdd }: { onAdd: (label: string) => void }) {
-  const [value, setValue] = useState("");
-  return (
-    <span className="flex items-center gap-1">
-      <Input
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key !== "Enter" || !value.trim()) return;
-          e.preventDefault();
-          onAdd(value.trim());
-          setValue("");
-        }}
-        placeholder="Add a value"
-        className="h-8 w-36 rounded-full text-sm"
-      />
-      <Button variant="ghost" size="icon" className="h-8 w-8" disabled={!value.trim()}
-        onClick={() => { onAdd(value.trim()); setValue(""); }}>
-        <Plus className="h-4 w-4" />
-      </Button>
-    </span>
   );
 }
 
