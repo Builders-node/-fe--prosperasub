@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pencil, Plus } from "lucide-react";
+import { Package, Pencil, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -13,7 +13,9 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { useIsMobile } from "@/hooks/use-mobile";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { formatUSD } from "@/lib/pricing";
-import { WorkspaceCard, WorkspaceEmpty, WorkspaceSection } from "@/components/provider/WorkspaceUI";
+import { WorkspaceSection } from "@/components/provider/WorkspaceUI";
+import { QueryError } from "@/components/patterns/QueryError";
+import { YdEmptyState } from "@/components/yd/YdPrimitives";
 import { OfferEditor, createDraftPlan } from "@/components/provider/plans/OfferEditor";
 
 /**
@@ -52,7 +54,7 @@ export function PlansTab({ providerId, sourceKey }: {
   const [editing, setEditing] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<OfferRow | null>(null);
 
-  const { data: offers = [], isLoading } = useQuery({
+  const { data: offers = [], isLoading, isError, error: loadError, refetch, isFetching } = useQuery({
     queryKey: KEY,
     enabled: !!providerId,
     queryFn: async () => {
@@ -116,13 +118,24 @@ export function PlansTab({ providerId, sourceKey }: {
         <div className="space-y-1">
           {[0, 1].map((i) => <div key={i} className="h-[120px] animate-pulse rounded-radius-lg bg-card" />)}
         </div>
+      ) : isError ? (
+        <QueryError
+          title="Couldn't load your plans"
+          error={loadError}
+          onRetry={() => refetch()}
+          retrying={isFetching}
+        />
       ) : offers.length === 0 ? (
-        <WorkspaceCard>
-          <WorkspaceEmpty>
-            Nothing on sale yet. A plan is one product: a name, whatever the customer gets to
-            choose, and a price for each way of choosing it.
-          </WorkspaceEmpty>
-        </WorkspaceCard>
+        <YdEmptyState
+          icon={Package}
+          title="Nothing on sale yet"
+          subtitle="A plan is one product: a name, whatever the customer gets to choose, and a price for each way of choosing it."
+          action={
+            <Button className="gap-2 rounded-full" disabled={add.isPending} onClick={() => add.mutate()}>
+              <Plus className="h-4 w-4" /> {add.isPending ? "Adding…" : "Add a plan"}
+            </Button>
+          }
+        />
       ) : (
         <div className="space-y-1">
           {offers.map((o) => (

@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, UserPlus, Mail } from "lucide-react";
-import { WorkspaceEmpty, WorkspaceSection } from "@/components/provider/WorkspaceUI";
+import { Plus, Trash2, UserPlus, Mail, UserRound, Users } from "lucide-react";
+import { WorkspaceSection } from "@/components/provider/WorkspaceUI";
+import { QueryError } from "@/components/patterns/QueryError";
+import { YdEmptyState } from "@/components/yd/YdPrimitives";
 import { Spinner } from "@/components/ui/spinner";
 import { accountApi, supabaseDb } from "@/integrations/supabase/client";
 import { fetchUsersByIds, isUserUuid } from "@/lib/admin/customerNames";
@@ -95,23 +97,32 @@ export function UniversalStaffTab({
   const MANAGERS_QK = ["staff-managers", managerTable, providerId] as const;
   const PROFILES_QK = ["staff-manager-profiles", managerTable, providerId] as const;
 
-  const { data: owner } = useQuery({
+  const {
+    data: owner, isError: ownerError, error: ownerErr,
+    refetch: refetchOwner, isFetching: ownerFetching,
+  } = useQuery({
     queryKey: OWNER_QK,
     enabled: !!ownerUserId,
     queryFn: async () => {
       // Same reason as the batch below: `users.id` is a uuid column, and an
       // owner recorded under a Google-sub id 400s rather than simply missing.
       if (!isUserUuid(ownerUserId)) return null;
-      const { data } = await supabaseDb
+      const { data, error } = await supabaseDb
         .from("users")
         .select("id, email, name, display_name")
         .eq("id", ownerUserId)
         .maybeSingle();
+      // A failed read is not "no owner" — surface it rather than tell the
+      // business it belongs to nobody.
+      if (error) throw error;
       return data;
     },
   });
 
-  const { data: managers = [], isLoading } = useQuery({
+  const {
+    data: managers = [], isLoading, isError: managersError, error: managersErr,
+    refetch: refetchManagers, isFetching: managersFetching,
+  } = useQuery({
     queryKey: MANAGERS_QK,
     queryFn: async () => {
       const { data, error } = await supabaseDb
@@ -251,10 +262,26 @@ export function UniversalStaffTab({
             </div>
             <Badge className="rounded-full bg-primary/15 text-primary">Owner</Badge>
           </div>
+        ) : ownerError ? (
+          <QueryError
+            compact
+            title="Couldn't load the owner"
+            error={ownerErr}
+            onRetry={() => refetchOwner()}
+            retrying={ownerFetching}
+          />
         ) : (
-          <WorkspaceEmpty>
-            No owner assigned. Set one to grant {entityLabel}-level access.
-          </WorkspaceEmpty>
+          <YdEmptyState
+            className="bg-inset py-8"
+            icon={UserRound}
+            title="No owner assigned"
+            subtitle={`Set one to grant ${entityLabel}-level access.`}
+            action={canManage ? (
+              <Button size="sm" variant="outline" className="rounded-full" onClick={openOwnerDialog}>
+                Set owner
+              </Button>
+            ) : undefined}
+          />
         )}
       </WorkspaceSection>
 
@@ -274,10 +301,26 @@ export function UniversalStaffTab({
           <div className="space-y-2">
             {[1, 2].map((i) => <div key={i} className="h-12 animate-pulse rounded-radius-md bg-inset" />)}
           </div>
+        ) : managersError ? (
+          <QueryError
+            compact
+            title="Couldn't load the managers"
+            error={managersErr}
+            onRetry={() => refetchManagers()}
+            retrying={managersFetching}
+          />
         ) : managers.length === 0 ? (
-          <WorkspaceEmpty>
-            No managers yet. Add team members who can manage this {entityLabel}.
-          </WorkspaceEmpty>
+          <YdEmptyState
+            className="bg-inset py-8"
+            icon={Users}
+            title="No managers yet"
+            subtitle={`Add team members who can manage this ${entityLabel}.`}
+            action={canManage ? (
+              <Button size="sm" variant="outline" className="gap-2 rounded-full" onClick={() => setManagerDialog(true)}>
+                <UserPlus className="h-3.5 w-3.5" /> Add a manager
+              </Button>
+            ) : undefined}
+          />
         ) : (
           <div className="space-y-2">
             {managers.map((m) => {

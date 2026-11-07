@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Plus, Trash2, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Package, PackageX, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,8 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { GalleryField } from "@/components/patterns/GalleryField";
+import { QueryError } from "@/components/patterns/QueryError";
+import { YdEmptyState } from "@/components/yd/YdPrimitives";
 import { PlanResourcePicker } from "@/components/provider/plans/PlanResourcePicker";
 import { readEntitlements, serializeEntitlements, type Entitlement } from "@/lib/plans/entitlements";
 import { formatUSD } from "@/lib/pricing";
@@ -147,7 +149,10 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
   const qc = useQueryClient();
   const KEY = ["offer-editor", providerId] as const;
 
-  const { data, isLoading } = useQuery({
+  const {
+    data, isLoading, isError: loadFailed, error: loadError,
+    refetch: refetchOffer, isFetching: offerFetching,
+  } = useQuery({
     queryKey: KEY,
     queryFn: async () => {
       const { data: plans, error } = await supabaseDb
@@ -595,24 +600,41 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
   });
 
   if (isLoading) return <div className="flex justify-center py-12"><Spinner /></div>;
+  // Before the "no longer here" branch: a failed read has no offer either, and
+  // telling the owner their plan was deleted when it was not is worse than
+  // telling them nothing. Only when there is nothing to show: a background
+  // refetch that fails keeps `data`, and must not throw away an open edit.
+  if (loadFailed && !data) {
+    return (
+      <QueryError
+        title="Couldn't load this plan"
+        error={loadError}
+        onRetry={() => refetchOffer()}
+        retrying={offerFetching}
+      />
+    );
+  }
   if (!offer && planId) {
     return (
-      <div className="rounded-radius-lg bg-card p-6 text-[16px] leading-[22px] text-muted-foreground">
-        This plan is no longer here. It may have been deleted in another window.
-      </div>
+      <YdEmptyState
+        icon={PackageX}
+        title="This plan is no longer here"
+        subtitle="It may have been deleted in another window."
+      />
     );
   }
   if (!offer) {
     return (
-      <div className="space-y-3 rounded-radius-lg bg-card p-6 tracking-[-0.02em]">
-        <p className="text-[16px] leading-[22px] text-muted-foreground">
-          This business sells nothing yet. A plan is one product: a name, whatever the customer
-          gets to choose, and a price for each way of choosing it.
-        </p>
-        <Button className="gap-1.5 rounded-full" disabled={addPlan.isPending} onClick={() => addPlan.mutate()}>
-          <Plus className="h-4 w-4" /> {addPlan.isPending ? "Adding…" : "Add the first plan"}
-        </Button>
-      </div>
+      <YdEmptyState
+        icon={Package}
+        title="This business sells nothing yet"
+        subtitle="A plan is one product: a name, whatever the customer gets to choose, and a price for each way of choosing it."
+        action={
+          <Button className="gap-1.5 rounded-full" disabled={addPlan.isPending} onClick={() => addPlan.mutate()}>
+            <Plus className="h-4 w-4" /> {addPlan.isPending ? "Adding…" : "Add the first plan"}
+          </Button>
+        }
+      />
     );
   }
 

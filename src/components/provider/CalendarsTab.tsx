@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ExternalLink, Pencil, Plus, Trash2 } from "lucide-react";
+import { CalendarDays, ExternalLink, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +15,9 @@ import {
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { supabaseDb } from "@/integrations/supabase/client";
-import { WorkspaceCard, WorkspaceEmpty, WorkspaceSection } from "@/components/provider/WorkspaceUI";
+import { WorkspaceSection } from "@/components/provider/WorkspaceUI";
+import { QueryError } from "@/components/patterns/QueryError";
+import { YdEmptyState } from "@/components/yd/YdPrimitives";
 
 /**
  * The calendars a business takes bookings on.
@@ -65,7 +67,7 @@ export function CalendarsTab({ providerId }: { providerId: string }) {
   const [editing, setEditing] = useState<ResourceRow | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ResourceRow | null>(null);
 
-  const { data: rows = [], isLoading } = useQuery({
+  const { data: rows = [], isLoading, isError, error: loadError, refetch, isFetching } = useQuery({
     queryKey: KEY,
     enabled: !!providerId,
     queryFn: async () => {
@@ -79,7 +81,10 @@ export function CalendarsTab({ providerId }: { providerId: string }) {
     },
   });
 
-  const { data: types = [] } = useQuery({
+  const {
+    data: types = [], isError: typesError, error: typesErr,
+    refetch: refetchTypes, isFetching: typesFetching,
+  } = useQuery({
     queryKey: ["resource-types"],
     staleTime: 5 * 60_000,
     queryFn: async () => {
@@ -148,17 +153,42 @@ export function CalendarsTab({ providerId }: { providerId: string }) {
         }
       />
 
+      {/* Without the kinds the editor has nothing to offer in "Kind" and a
+          new calendar falls back to a guess — say so, keep the list. */}
+      {typesError && !isError && (
+        <div className="mb-1">
+          <QueryError
+            compact
+            title="Couldn't load the calendar kinds"
+            error={typesErr}
+            onRetry={() => refetchTypes()}
+            retrying={typesFetching}
+          />
+        </div>
+      )}
+
       {isLoading ? (
         <div className="space-y-1">
           {[0, 1].map((i) => <div key={i} className="h-20 animate-pulse rounded-radius-lg bg-card" />)}
         </div>
+      ) : isError ? (
+        <QueryError
+          title="Couldn't load your calendars"
+          error={loadError}
+          onRetry={() => refetch()}
+          retrying={isFetching}
+        />
       ) : rows.length === 0 ? (
-        <WorkspaceCard>
-          <WorkspaceEmpty>
-            No calendars yet. Add one for each thing a customer can book a time on — they all
-            work the same way, whatever the business.
-          </WorkspaceEmpty>
-        </WorkspaceCard>
+        <YdEmptyState
+          icon={CalendarDays}
+          title="No calendars yet"
+          subtitle="Add one for each thing a customer can book a time on — they all work the same way, whatever the business."
+          action={
+            <Button className="gap-2 rounded-full" disabled={add.isPending} onClick={() => add.mutate()}>
+              <Plus className="h-4 w-4" /> {add.isPending ? "Adding…" : "Add a calendar"}
+            </Button>
+          }
+        />
       ) : (
         <div className="space-y-1">
           {rows.map((r) => (

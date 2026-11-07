@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Search } from "lucide-react";
+import { Search, Users } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,9 @@ import {
   type SubscriberRow, type SubscriberSource,
 } from "@/services/subscribers";
 import { DeliveryDialog } from "@/components/account/DeliveryDialog";
-import { WorkspaceCard, WorkspaceEmpty, WorkspaceSection } from "@/components/provider/WorkspaceUI";
+import { WorkspaceSection } from "@/components/provider/WorkspaceUI";
+import { QueryError } from "@/components/patterns/QueryError";
+import { YdEmptyState } from "@/components/yd/YdPrimitives";
 import { CustomerPhone } from "@/components/patterns/CustomerPhone";
 import { SaleOriginBadge } from "@/components/patterns/SaleOrigin";
 import { todayHN, addDaysISO, addMonthsISO } from "@/lib/timezone";
@@ -55,7 +57,7 @@ export function SubscribersList({ providerId, legacyId, sourceKey }: {
   const KEY = ["provider-subscribers", providerId, legacyId ?? "", sourceKey] as const;
   const shape = subscriberSourceFor(sourceKey);
 
-  const { data: rows = [], isLoading } = useQuery({
+  const { data: rows = [], isLoading, isError, error: loadError, refetch, isFetching } = useQuery({
     queryKey: KEY,
     enabled: !!providerId,
     queryFn: () => shape.fetch({ providerId, legacyId: legacyId ?? providerId, sourceKey }),
@@ -150,6 +152,17 @@ export function SubscribersList({ providerId, legacyId, sourceKey }: {
   };
 
   if (isLoading) return <PageLoader />;
+  // "0 in total" over an empty list would read as a business nobody buys from.
+  if (isError) {
+    return (
+      <QueryError
+        title="Couldn't load your subscribers"
+        error={loadError}
+        onRetry={() => refetch()}
+        retrying={isFetching}
+      />
+    );
+  }
 
   return (
     <div className="space-y-1">
@@ -170,11 +183,24 @@ export function SubscribersList({ providerId, legacyId, sourceKey }: {
       />
 
       {filtered.length === 0 ? (
-        <WorkspaceCard>
-          <WorkspaceEmpty>
-            {rows.length === 0 ? "Nobody has subscribed yet." : "Nobody matches that."}
-          </WorkspaceEmpty>
-        </WorkspaceCard>
+        rows.length === 0 ? (
+          <YdEmptyState
+            icon={Users}
+            title="Nobody has subscribed yet"
+            subtitle="Customers appear here as soon as they buy one of your plans."
+          />
+        ) : (
+          <YdEmptyState
+            icon={Search}
+            title="Nobody matches that"
+            subtitle="Try a different name, email or plan."
+            action={
+              <Button variant="secondary" className="rounded-full" onClick={() => setQ("")}>
+                Clear search
+              </Button>
+            }
+          />
+        )
       ) : (
         groups.flatMap((g) => [
           <p key={g.key} className="px-1 pt-3 text-[14px] font-semibold uppercase tracking-wide text-muted-foreground">

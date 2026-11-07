@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { CalendarDays, LayoutGrid, List, Plus, Users, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { QueryError } from "@/components/patterns/QueryError";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { UnifiedBookingCalendar } from "@/components/provider/UnifiedBookingCalendar";
 import { NewCalendarBookingDialog } from "@/components/provider/NewCalendarBookingDialog";
@@ -59,7 +60,10 @@ export function BookingsTab({
   const [weekShape, setWeekShape] = useState<"grid" | "list" | null>(null);
 
   const calendarsId = universalProviderId ?? providerId;
-  const { data: calendarCount = 0 } = useQuery({
+  const {
+    data: calendarCount = 0, isError: countError, error: countErr,
+    refetch: refetchCount, isFetching: countFetching,
+  } = useQuery({
     queryKey: ["provider-calendar-count", calendarsId],
     enabled: !!calendarsId,
     staleTime: 5 * 60 * 1000,
@@ -173,6 +177,18 @@ export function BookingsTab({
           )}
         </div>
       </div>
+
+      {/* Without the count the week falls back to a list — still usable, so
+          say why the grid is missing rather than replace the view. */}
+      {active === "week" && countError && (
+        <QueryError
+          compact
+          title="Couldn't load your calendars"
+          error={countErr}
+          onRetry={() => refetchCount()}
+          retrying={countFetching}
+        />
+      )}
 
       {active === "today" && today ? today
         : active === "customer" && byCustomer ? byCustomer

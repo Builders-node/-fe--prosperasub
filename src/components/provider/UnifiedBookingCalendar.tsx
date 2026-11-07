@@ -12,7 +12,9 @@ import { Spinner } from "@/components/ui/spinner";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { TabEmptyState, SectionOverline } from "@/components/subscriptions/MySubsPrimitives";
+import { SectionOverline } from "@/components/subscriptions/MySubsPrimitives";
+import { QueryError } from "@/components/patterns/QueryError";
+import { YdEmptyState } from "@/components/yd/YdPrimitives";
 import { cn } from "@/lib/utils";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { cancelCleaningBookings } from "@/lib/cleaning/cancelBooking";
@@ -81,7 +83,10 @@ export function UnifiedBookingCalendar({
 
   // The calendars are what the grid is drawn from: their opening hours decide
   // where the day starts and ends, so an 8–19 club does not render midnight.
-  const { data: calendars = [] } = useQuery({
+  const {
+    data: calendars = [], isError: calendarsError, error: calendarsErr,
+    refetch: refetchCalendars, isFetching: calendarsFetching,
+  } = useQuery({
     queryKey: ["grid-calendars", calendarsProviderId ?? providerId],
     enabled: groupBy === "calendar" && !!(calendarsProviderId ?? providerId),
     staleTime: 5 * 60 * 1000,
@@ -107,7 +112,10 @@ export function UnifiedBookingCalendar({
   const from = iso(days[0]);
   const to = iso(days[6]);
 
-  const { data: bookings = [], isLoading } = useUnifiedBookings({
+  const {
+    data: bookings = [], isLoading, isError: bookingsError, error: bookingsErr,
+    refetch: refetchBookings, isFetching: bookingsFetching,
+  } = useUnifiedBookings({
     providerId, sourceKey, from, to,
   });
 
@@ -345,8 +353,29 @@ export function UnifiedBookingCalendar({
         </div>
       )}
 
+      {groupBy === "calendar" && calendarsError && !isLoading && !bookingsError && (
+        // The grid still draws without its calendars — on default hours, with
+        // no per-court chips — so this is a banner, not a replacement.
+        <QueryError
+          compact
+          title="Couldn't load your calendars"
+          error={calendarsErr}
+          onRetry={() => refetchCalendars()}
+          retrying={calendarsFetching}
+        />
+      )}
+
       {isLoading ? (
         <div className="flex justify-center py-10"><Spinner size="sm" /></div>
+      ) : bookingsError ? (
+        // An empty grid or "No bookings this week" here would tell the owner
+        // the week is free when we simply could not read it.
+        <QueryError
+          title="Couldn't load this week's bookings"
+          error={bookingsErr}
+          onRetry={() => refetchBookings()}
+          retrying={bookingsFetching}
+        />
       ) : groupBy === "calendar" ? (
         // A quiet week is a grid with nothing in it — that IS the answer to
         // "what is free". Replacing it with a message hides the one thing the
@@ -362,7 +391,7 @@ export function UnifiedBookingCalendar({
           sublabelOf={calendarId ? undefined : (row) => row.resourceName ?? null}
         />
       ) : filtered.length === 0 ? (
-        <TabEmptyState
+        <YdEmptyState
           icon={CalendarDays}
           title="No bookings this week"
           subtitle={statusFilter ? "Try changing the filter or navigating to another week." : "This week is quiet — check upcoming or past weeks."}
