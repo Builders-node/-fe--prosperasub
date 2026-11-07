@@ -156,7 +156,7 @@ export function BookingSettingsEditor({
   const durationSummary = `${s.sessionDurationMin} min sessions` +
     (s.bufferBeforeMin || s.bufferAfterMin ? ` · ${s.bufferBeforeMin}/${s.bufferAfterMin} min buffers` : "") +
     (showCapacity ? ` · ${s.capacity} at a time` : "");
-  const rulesSummary = `${s.minNoticeHours ? `${s.minNoticeHours}h notice` : "Same-day"} · up to ${s.maxAdvanceDays} days ahead`;
+  const rulesSummary = s.minNoticeHours ? `${s.minNoticeHours}h notice` : "Same-day booking";
   const whoSummary = [
     s.policy.requiresMembership ? "Subscribers only" : "Anyone",
     s.policy.maxActiveBookings ? `${s.policy.maxActiveBookings} upcoming max` : null,
@@ -356,10 +356,9 @@ export function BookingSettingsEditor({
         </div>
       </Section>
 
-      <Section title="How far ahead" subtitle="The earliest and latest a customer can book." summary={rulesSummary} collapsible defaultOpen={false}>
-        <div className="grid grid-cols-2 gap-3 sm:max-w-md">
+      <Section title="Notice" subtitle="How soon before the start a customer can still book. 0 means same-day." summary={rulesSummary} collapsible defaultOpen={false}>
+        <div className="sm:max-w-[220px]">
           <NumberField label="Minimum notice" suffix="hrs" value={s.minNoticeHours} onChange={(n) => patch({ minNoticeHours: n })} />
-          <NumberField label="Book up to" suffix="days" value={s.maxAdvanceDays} min={1} onChange={(n) => patch({ maxAdvanceDays: Math.max(1, n) })} />
         </div>
       </Section>
 

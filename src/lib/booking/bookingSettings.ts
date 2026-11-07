@@ -1,3 +1,6 @@
+
+/** How far ahead the calendar reaches. Fixed — providers no longer cap it. */
+export const BOOKING_HORIZON_DAYS = 365;
 /**
  * Unified booking configuration shared by every provider type (car rentals,
  * restaurants, sports facilities, wellness, cleaning, …). One config per
@@ -137,7 +140,7 @@ export const DEFAULT_BOOKING_SETTINGS: BookingSettings = {
   // provider that never touches the field keeps exactly today's behaviour.
   capacity: 2,
   minNoticeHours: 12,
-  maxAdvanceDays: 30,
+  maxAdvanceDays: BOOKING_HORIZON_DAYS,
   blockedDates: [],
   blockedRanges: [],
   policy: DEFAULT_POLICY,
@@ -194,7 +197,9 @@ export function normalizeBookingSettings(raw: unknown): BookingSettings {
     // value at all, and both must read as the default.
     capacity: Number(s.capacity) > 0 ? Math.floor(Number(s.capacity)) : d.capacity,
     minNoticeHours: Math.max(0, Number(s.minNoticeHours) || 0),
-    maxAdvanceDays: Number(s.maxAdvanceDays) > 0 ? Number(s.maxAdvanceDays) : d.maxAdvanceDays,
+    // Not a provider setting any more (2026-11): "book up to N days" only ever
+    // turned customers away. The calendar still needs an end, so it is fixed.
+    maxAdvanceDays: BOOKING_HORIZON_DAYS,
     blockedDates: Array.isArray(s.blockedDates) ? s.blockedDates.filter((x): x is string => typeof x === "string") : [],
     // A range needs an id and two times; the date is optional and its absence
     // is meaningful. "" was what the old editor wrote when no preview date was

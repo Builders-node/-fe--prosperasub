@@ -98,9 +98,6 @@ function summarize(raw: unknown): string {
     else if (s.minNoticeHours < 24) parts.push(`${s.minNoticeHours}h notice`);
     else parts.push(`${Math.round(s.minNoticeHours / 24)}d notice`);
   }
-  if (typeof s.maxAdvanceDays === "number" && s.maxAdvanceDays > 0) {
-    parts.push(`${s.maxAdvanceDays} days ahead`);
-  }
   if (Array.isArray(s.blockedRanges) && s.blockedRanges.length > 0) {
     parts.push(`${s.blockedRanges.length} blocked range${s.blockedRanges.length === 1 ? "" : "s"}`);
   }
