@@ -71,7 +71,7 @@ const DialogContent = React.forwardRef<
         // is sticky; nothing made the button stay.
         // No side padding: the blocks ARE the sheet's width, like the cards on a
         // workspace page; only the title row and the buttons keep 16px.
-        "fixed z-50 flex flex-col bg-background pt-3 duration-200 overflow-hidden",
+        "fixed z-50 flex flex-col bg-background duration-200 overflow-hidden",
         // mobile: bottom sheet
         "inset-x-0 bottom-0 rounded-t-radius-lg max-h-[92vh]",
         "data-[state=open]:animate-in data-[state=closed]:animate-out",
@@ -87,7 +87,7 @@ const DialogContent = React.forwardRef<
       {...props}
     >
       {/* Mobile drag handle (visual cue that this is a bottom sheet) */}
-      <div className="absolute left-1/2 top-2 h-1 w-10 -translate-x-1/2 rounded-full bg-muted-foreground/20 sm:hidden" />
+      <div className="absolute left-1/2 top-2 z-20 h-1 w-10 -translate-x-1/2 rounded-full bg-muted-foreground/20 sm:hidden" />
       {/*
         The scrolling half. Children keep the grid they have always been laid
         out in, so nothing about how a dialog composes its header, fields and
@@ -100,7 +100,7 @@ const DialogContent = React.forwardRef<
       <div className={cn("grid min-h-0 grid-cols-[minmax(0,1fr)] gap-1 overflow-y-auto", bodyClassName)}>
         {blocks ? groupIntoBlocks(children, dialogChrome()) : children}
       </div>
-      <DialogPrimitive.Close className="absolute right-4 top-[21px] z-20 flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:pointer-events-none">
+      <DialogPrimitive.Close className="absolute right-4 top-[17px] z-20 flex h-8 w-8 sm:top-[9px] items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:pointer-events-none">
         <X className="h-4 w-4" />
         <span className="sr-only">Close</span>
       </DialogPrimitive.Close>
@@ -120,8 +120,9 @@ const DialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivEleme
       // The title row is a block too — the same card as the content — and it
       // stays pinned while the blocks scroll under it. The grey strip above it
       // (before:) hides whatever scrolls past its rounded corners.
-      "sticky top-0 z-10 flex flex-col gap-1 rounded-radius-lg bg-card px-4 py-3 pr-14 text-left",
-      "before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-4 before:bg-background",
+      // Flush with the top edge — no strip of sheet above it. On a phone the
+      // drag handle sits inside it, hence the deeper top padding there.
+      "sticky top-0 z-10 flex flex-col gap-1 rounded-radius-lg bg-card px-4 pb-3 pr-14 pt-5 text-left sm:pt-3",
       className,
     )}
     {...props}

@@ -75,11 +75,11 @@ const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Con
       <SheetPrimitive.Content
         ref={ref}
         onOpenAutoFocus={preventTouchAutoFocus(onOpenAutoFocus)}
-        className={cn(sheetVariants({ side }), (blocks ?? (side === "right" || side === "bottom")) && "px-0 pt-3 [&>*+*]:mt-1", className)}
+        className={cn(sheetVariants({ side }), (blocks ?? (side === "right" || side === "bottom")) && "p-0 pb-4 [&>*+*]:mt-1", className)}
         {...props}
       >
         {(blocks ?? (side === "right" || side === "bottom")) ? groupIntoBlocks(children, sheetChrome()) : children}
-        <SheetPrimitive.Close className="absolute right-4 top-[21px] z-20 flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:pointer-events-none">
+        <SheetPrimitive.Close className="absolute right-4 top-[17px] z-20 flex h-8 w-8 sm:top-[9px] items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:pointer-events-none">
           <X className="h-4 w-4" />
           <span className="sr-only">Close</span>
         </SheetPrimitive.Close>
@@ -101,8 +101,9 @@ const SheetHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElemen
       // The title row is a block too — the same card as the content — and it
       // stays pinned while the blocks scroll under it. The grey strip above it
       // (before:) hides whatever scrolls past its rounded corners.
-      "sticky top-0 z-10 flex flex-col gap-1 rounded-radius-lg bg-card px-4 py-3 pr-14 text-left",
-      "before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-4 before:bg-background",
+      // Flush with the top edge — no strip of sheet above it. On a phone the
+      // drag handle sits inside it, hence the deeper top padding there.
+      "sticky top-0 z-10 flex flex-col gap-1 rounded-radius-lg bg-card px-4 pb-3 pr-14 pt-5 text-left sm:pt-3",
       className,
     )}
     {...props}

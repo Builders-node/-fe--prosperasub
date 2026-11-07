@@ -47,7 +47,7 @@ export function ScheduleAccordion({ provider }: { provider: UniversalProviderRow
           side={isMobile ? "bottom" : "right"}
           className={isMobile ? "h-[92vh] p-0" : "w-full max-w-xl p-0 sm:max-w-xl"}
         >
-          <SheetHeader className="mx-0 mt-3">
+          <SheetHeader>
             <SheetTitle>Booking rules</SheetTitle>
           </SheetHeader>
           <div className="min-h-0 flex-1 overflow-y-auto bg-background px-4 pb-8 pt-1">

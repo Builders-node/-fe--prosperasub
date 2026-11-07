@@ -196,7 +196,7 @@ export function PlansTab({ providerId, sourceKey }: {
             ? "h-[92vh] p-0"
             : "w-full max-w-xl p-0 sm:max-w-xl"}
         >
-          <SheetHeader className="mx-0 mt-3">
+          <SheetHeader>
             <SheetTitle>
               {offers.find((o) => o.id === editing)?.name || "Plan"}
             </SheetTitle>
