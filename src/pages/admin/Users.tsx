@@ -315,7 +315,7 @@ const AdminUsers = () => {
       >
       <div className="overflow-hidden rounded-radius-md bg-card">
               {/* Header row (desktop) */}
-              <div className={cn("hidden items-center gap-4 border-b border-border/40 px-space-5 py-space-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground md:grid", ROW_GRID)}>
+              <div className={cn("hidden items-center gap-4 border-b border-border/40 px-space-5 py-space-3 text-meta font-semibold text-muted-foreground md:grid", ROW_GRID)}>
                 <div>Person</div>
                 <div>Services</div>
                 <div>Roles</div>
@@ -357,7 +357,7 @@ const AdminUsers = () => {
                       {svcArr.map((k) => {
                         const meta = CUSTOMER_SERVICE_META[k]; const Icon = meta.icon;
                         return (
-                          <span key={k} className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
+                          <span key={k} className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-meta font-semibold text-muted-foreground">
                             <Icon className="h-3 w-3" />{meta.label}
                           </span>
                         );
@@ -367,12 +367,12 @@ const AdminUsers = () => {
 
                   const roleChips = (
                     <div className="flex flex-wrap gap-1">
-                      {isAdmin && <Badge variant="default" className="text-[10px]">Admin</Badge>}
+                      {isAdmin && <Badge variant="default" className="text-meta">Admin</Badge>}
                       {rbac.map((slug: string) => (
-                        <Badge key={slug} variant="outline" className="text-[10px] capitalize">{slug}</Badge>
+                        <Badge key={slug} variant="outline" className="text-meta capitalize">{slug}</Badge>
                       ))}
                       {roles.filter((r: string) => r !== "super_admin").map((r: string) => (
-                        <Badge key={r} variant="outline" className="text-[10px]">{formatRole(r)}</Badge>
+                        <Badge key={r} variant="outline" className="text-meta">{formatRole(r)}</Badge>
                       ))}
                       {!isAdmin && rbac.length === 0 && roles.filter((r: string) => r !== "super_admin").length === 0 && (
                         <span className="text-xs text-muted-foreground">—</span>
@@ -381,10 +381,10 @@ const AdminUsers = () => {
                   );
 
                   const statusChip = p.isBlocked
-                    ? <Badge variant="destructive" className="text-[10px]">Blocked</Badge>
-                    : svcArr.length ? <Badge variant="default" className="text-[10px]">Active</Badge>
-                    : p.lapsed ? <Badge variant="secondary" className="text-[10px]">Lapsed</Badge>
-                    : <Badge variant="outline" className="text-[10px]">Idle</Badge>;
+                    ? <Badge variant="destructive" className="text-meta">Blocked</Badge>
+                    : svcArr.length ? <Badge variant="default" className="text-meta">Active</Badge>
+                    : p.lapsed ? <Badge variant="secondary" className="text-meta">Lapsed</Badge>
+                    : <Badge variant="outline" className="text-meta">Idle</Badge>;
 
                   const contact = (
                     <ContactActions name={p.name} phone={p.phone} whatsapp={p.whatsapp} email={p.email} />
@@ -804,7 +804,7 @@ function EditUserForm({ user, auditLogs, onSave, onSoftDelete, saving, deleting 
                 <div key={s.key} className="flex items-center justify-between gap-3 rounded-radius-md bg-muted p-3">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-[10px] shrink-0">{CUSTOMER_SERVICE_META[s.service].label}</Badge>
+                      <Badge variant="outline" className="text-meta shrink-0">{CUSTOMER_SERVICE_META[s.service].label}</Badge>
                       <p className="truncate text-sm font-semibold">{s.name}</p>
                     </div>
                     <p className="mt-0.5 text-xs text-muted-foreground">
