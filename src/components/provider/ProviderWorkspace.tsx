@@ -361,7 +361,18 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
         <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/35 to-transparent" />
         <button
           type="button"
-          onClick={() => window.open(resolvedPublicHref, "_blank")}
+          // A business that is not live yet opens in draft preview, so an admin
+          // sees the page as it will look (every plan, the draft banner) rather
+          // than the half-empty version a customer would get today. The flag
+          // only works for an admin (useDraftPreview); anyone else sees what
+          // customers see.
+          onClick={() => {
+            const draft = provider.status !== "active" && provider.status !== "approved";
+            const href = draft
+              ? `${resolvedPublicHref}${resolvedPublicHref.includes("?") ? "&" : "?"}preview=1`
+              : resolvedPublicHref;
+            window.open(href, "_blank");
+          }}
           className="absolute right-4 top-4 flex items-center gap-1.5 rounded-full bg-black/35 px-3.5 py-2 text-[14px] font-semibold text-white backdrop-blur transition-colors hover:bg-black/50"
         >
           <ExternalLink className="h-4 w-4" /> View public
