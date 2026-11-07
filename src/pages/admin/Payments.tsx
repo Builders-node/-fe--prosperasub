@@ -1,40 +1,25 @@
 import { cn } from "@/lib/utils";
 import { fieldClass } from "@/components/ui/input";
 import { useState, useEffect } from "react";
-import { Bitcoin, Coins, Copy, CreditCard, ExternalLink, Loader2, Mail, MessageCircle, RefreshCw, Zap } from "lucide-react";
-import { QRCodeSVG } from "qrcode.react";
+import { Bitcoin, Coins, CreditCard, Zap } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
+import { TabPills } from "@/components/admin/TabPills";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { usePagination, TablePagination } from "@/components/ui/table-pagination";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { fetchAllRows } from "@/lib/supabasePaging";
-import { adminApi, supabase, supabaseDb } from "@/integrations/supabase/client";
+import { supabaseDb } from "@/integrations/supabase/client";
 import { FinanceBreakdown } from "@/components/admin/FinanceBreakdown";
 import { NetProfitPanel } from "@/components/admin/NetProfitPanel";
 import { ProviderPayoutsPanel } from "@/components/admin/ProviderPayoutsPanel";
-import { PayPalPanel } from "@/components/payment/PayPalPanel";
 import { formatUSD } from "@/lib/pricing";
+import { fetchPlatformRollup } from "@/lib/analytics/platformRollup";
 import { useTabParam } from "@/hooks/useTabParam";
 import { QueryError } from "@/components/patterns/QueryError";
-
-// Dashed placeholder shown before a test payment is generated.
-function TestPaymentPlaceholder({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="rounded-radius-lg border border-dashed border-[hsl(var(--app-divider))] p-space-8 text-center text-muted-foreground">
-      {children}
-    </div>
-  );
-}
 
 const PAYMENT_METHOD_META = [
   { method: "lightning", label: "Lightning", description: "Instant Bitcoin Lightning payments (Blink).", icon: Zap },
@@ -46,115 +31,26 @@ const PAYMENT_METHOD_META = [
 /** Off until switched on — mirrors usePaymentMethods, so the toggle shows what the till does. */
 const OFF_UNLESS_ENABLED = new Set<string>(["crypto_gateway"]);
 
-type TestInvoice = {
-  payment_hash: string;
-  payment_request: string;
-  amount_sats?: number;
-  status: string;
-  paid?: boolean;
-};
-
-type AdminPaymentNotification = {
-  id: string;
-  serviceName: string;
-  clientName?: string | null;
-  clientEmail?: string | null;
-  amountCents?: number | null;
-  amountSats?: number | null;
-  currency: string;
-  planName?: string | null;
-  duration?: string | null;
-  provider: string;
-  providerPaymentId: string;
-  emailStatus: string;
-  telegramStatus: string;
-  paidAt: string;
-  emailError?: string | null;
-  telegramError?: string | null;
-  adminUrl?: string | null;
-};
-
-const formatNotificationAmount = (notification: AdminPaymentNotification) => {
-  if (typeof notification.amountCents === "number") return formatUSD(notification.amountCents);
-  if (typeof notification.amountSats === "number") return `${notification.amountSats.toLocaleString()} sats`;
-  return "—";
-};
-
-const formatNotificationDate = (value: string) =>
-  new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Tegucigalpa",
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
-
-// The pill vocabulary's own tones (see StatusPill) — this map had grown its
-// own shades of green and red, so "sent" here and "paid" one tab over were
-// two different greens for the same good news.
-const notificationStatusClass = (status: string) => {
-  if (status === "sent") return "bg-positive/15 text-positive";
-  if (status === "failed") return "bg-destructive/15 text-destructive";
-  if (status === "skipped") return "bg-muted text-muted-foreground";
-  return "bg-primary/15 text-primary";
-};
-
-// On-chain test payment shape returned by `create-onchain-charge`.
-type TestOnchainCharge = {
-  address: string;
-  amount_sats: number;
-  amount_cents: number;
-  paid?: boolean;
-  status?: string;
-  bip21?: string;   // some builds return a ready `bitcoin:...` URI
-};
+const FINANCE_TABS = ["payments", "profit", "payouts"] as const;
 
 const AdminPayments = () => {
   const queryClient = useQueryClient();
-  const [testInvoice, setTestInvoice] = useState<TestInvoice | null>(null);
-  const [testOnchain, setTestOnchain] = useState<TestOnchainCharge | null>(null);
-  const [testPayPalPaid, setTestPayPalPaid] = useState<string | null>(null);
 
-  // All-time finance totals across EVERY service (cleaning, food, beach, car).
-  const { data: paymentStats = { pending: 0, paid: 0, revenueCents: 0 } } = useQuery({
-    queryKey: ["admin-finance-totals-all"],
-    queryFn: async () => {
-      // Paged — these reduce to the all-time revenue figure, and a plain select
-      // stops at PostgREST's 1000-row cap without erroring.
-      const [cleaning, beach, food] = await Promise.all([
-        fetchAllRows<any>(() => supabaseDb.from("cleaning_subscriptions")
-          .select("payment_status, subscription_status, total_price_cents, monthly_price_cents")
-          .is("deleted_at", null).order("id")),
-        fetchAllRows<any>(() => supabaseDb.from("provider_subscriptions")
-          .select("payment_status, status, total_cents:price_cents")
-          .eq("source_service_key", "beach").order("id")),
-        fetchAllRows<any>(() => supabaseDb.from("food_subscriptions")
-          .select("status, payment_status, weekly_price_cents, commitment_weeks, periods_paid").order("id")),
-      ]);
-      let paid = 0, pending = 0, revenueCents = 0;
-      cleaning.forEach((r: any) => {
-        if (r.payment_status === "paid") { paid++; revenueCents += r.total_price_cents || r.monthly_price_cents || 0; }
-        else if (!["cancelled", "expired"].includes(r.subscription_status)) pending++;
-      });
-      beach.forEach((r: any) => {
-        if (r.payment_status === "paid") { paid++; revenueCents += r.total_cents || 0; }
-        else if (r.status !== "cancelled") pending++;
-      });
-      // Food revenue counts ONLY paid subs — same discipline as the other three
-      // tables. `status` (active/paused/expired) is a lifecycle marker, not a
-      // payment marker; Infinita/crypto payments are not auto-reconciled and
-      // must not appear in the revenue tile until they actually settle.
-      food.forEach((r: any) => {
-        const s = String(r.status ?? "").toLowerCase();
-        const isPaid = r.payment_status === "paid";
-        if (isPaid && ["active", "paused", "expired"].includes(s)) {
-          paid++;
-          revenueCents += (r.weekly_price_cents || 0) * (r.commitment_weeks || 1) * (r.periods_paid || 1);
-        } else if (!isPaid && s !== "cancelled") {
-          pending++;
-        }
-      });
-      return { paid, pending, revenueCents };
-    },
+  // The headline figures are the platform rollup — the same function, and the
+  // same cache entry, the Analytics page reads, and the same arithmetic the
+  // Dashboard's Revenue tile sums. This page used to reduce three legacy tables
+  // of its own and label the result "all services" while missing cars and
+  // every universal-only plan.
+  const {
+    data: rollup,
+    isError: rollupError,
+    error: rollupErrorObj,
+    refetch: refetchRollup,
+  } = useQuery({
+    queryKey: ["admin-platform-rollup"],
+    queryFn: fetchPlatformRollup,
   });
+  const paidSales = rollup ? rollup.rows.filter((r) => r.paid && r.status !== "cancelled").length : 0;
 
   const {
     data: methodSettings = [],
@@ -223,581 +119,127 @@ const AdminPayments = () => {
     return Number(row?.surcharge_percent ?? 0);
   };
 
-
-  const { data: adminNotifications = [] } = useQuery({
-    queryKey: ["admin-payment-notifications"],
-    queryFn: async () => {
-      const { data, error } = await supabase.admin.listPaymentNotifications();
-      if (error) throw error;
-      return (data || []) as AdminPaymentNotification[];
-    },
-  });
-
-  const notifPager = usePagination(adminNotifications, 15);
-
-  const testInvoiceMutation = useMutation({
-    mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke("create-invoice", {
-        body: {
-          amount_cents: 100,
-          context: "admin_test_payment",
-          service_name: "Admin test payment",
-          plan_name: "Blink health check",
-          duration: "One time",
-          admin_url: `${window.location.origin}/admin/payments`,
-          description: "EverySub admin test payment - $1.00",
-          external_id: `admin-test-${Date.now()}`,
-        },
-      });
-
-      if (error) throw error;
-      return data as TestInvoice;
-    },
-    onSuccess: (invoice) => {
-      setTestInvoice(invoice);
-      toast.success("Test Lightning invoice generated");
-    },
-    onError: (error: Error) => toast.error(error.message || "Failed to generate test invoice"),
-  });
-
-  const testPaymentStatusMutation = useMutation({
-    mutationFn: async () => {
-      if (!testInvoice?.payment_hash) throw new Error("Generate a test invoice first.");
-
-      const { data, error } = await supabase.functions.invoke("verify-payment", {
-        body: {
-          payment_hash: testInvoice.payment_hash,
-          service_name: "Admin test payment",
-          client_name: "EverySub admin",
-          plan_name: "Blink health check",
-          duration: "One time",
-          booking_id: "admin-test-payment",
-          admin_url: `${window.location.origin}/admin/payments`,
-          selected_date_time: new Date().toISOString(),
-        },
-      });
-
-      if (error) throw error;
-      return data as Partial<TestInvoice>;
-    },
-    onSuccess: (status) => {
-      setTestInvoice((current) =>
-        current
-          ? {
-              ...current,
-              ...status,
-              status: status.status || (status.paid ? "paid" : current.status),
-              paid: status.paid ?? current.paid,
-            }
-          : current,
-      );
-
-      if (status.paid) {
-        toast.success("Test payment confirmed. Admin notifications updated.");
-        queryClient.invalidateQueries({ queryKey: ["admin-payment-notifications"] });
-        // Was ["admin-payment-stats"] — a key no query has ever used, so the
-        // money tiles above never refreshed after a confirmed payment.
-        queryClient.invalidateQueries({ queryKey: ["admin-finance-totals-all"] });
-      } else {
-        toast.info("Test payment is still pending");
-      }
-    },
-    onError: (error: Error) => toast.error(error.message || "Failed to check test payment"),
-  });
-
-  // ─── On-chain test payment ────────────────────────────────────────────────
-  // Same $1 as Lightning; `create-onchain-charge` returns address + amount_sats
-  // and we poll `verify-onchain-payment` with those.
-  const testOnchainMutation = useMutation({
-    mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke("create-onchain-charge", {
-        body: {
-          amount_cents: 100,
-          context: "admin_test_payment",
-          service_name: "Admin on-chain test",
-          plan_name: "Blink on-chain health check",
-          description: "EverySub admin on-chain test - $1.00",
-          external_id: `admin-onchain-test-${Date.now()}`,
-        },
-      });
-      if (error) throw error;
-      return data as TestOnchainCharge;
-    },
-    onSuccess: (data) => {
-      setTestOnchain(data);
-      toast.success("Test on-chain address generated");
-    },
-    onError: (e: Error) => toast.error(e.message || "Failed to generate on-chain address"),
-  });
-
-  const testOnchainStatusMutation = useMutation({
-    mutationFn: async () => {
-      if (!testOnchain?.address) throw new Error("Generate an on-chain address first.");
-      const { data, error } = await supabase.functions.invoke("verify-onchain-payment", {
-        body: { address: testOnchain.address, amount_sats: testOnchain.amount_sats },
-      });
-      if (error) throw error;
-      return data as Partial<TestOnchainCharge>;
-    },
-    onSuccess: (status) => {
-      setTestOnchain((cur) => cur ? { ...cur, ...status, paid: status.paid ?? cur.paid } : cur);
-      if (status.paid) toast.success("On-chain payment confirmed");
-      else toast.info("On-chain payment still pending — wait for confirmations");
-    },
-    onError: (e: Error) => toast.error(e.message || "Failed to check on-chain payment"),
-  });
-
-  const resendNotificationMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const { data, error } = await supabase.admin.resendPaymentNotification(id);
-      if (error) throw error;
-      if ((data as { error?: string })?.error) throw new Error((data as { error: string }).error);
-      return data;
-    },
-    onSuccess: () => {
-      toast.success("Admin notification resent");
-      queryClient.invalidateQueries({ queryKey: ["admin-payment-notifications"] });
-    },
-    onError: (error: Error) => toast.error(error.message || "Failed to resend notification"),
-  });
-
-  const copyValue = async (value: string, label: string) => {
-    await navigator.clipboard.writeText(value);
-    toast.success(`${label} copied`);
-  };
-
-  // Reading Net Profit and refreshing should not drop you back on Payments.
-  const [financeTab, setFinanceTab] = useTabParam(["payments", "profit", "payouts"] as const);
+  // Reading Commission and refreshing should not drop you back on Payments.
+  // The value stays `profit` so links to the old Net Profit tab still land.
+  const [financeTab, setFinanceTab] = useTabParam(FINANCE_TABS);
 
   return (
-    <SuperAdminLayout title="Finance" subtitle="Payments, revenue and net profit across all services">
-      <Tabs value={financeTab} onValueChange={setFinanceTab} variant="pills" className="w-full">
-        <TabsList className="mb-space-4">
-          <TabsTrigger value="payments">Payments</TabsTrigger>
-          <TabsTrigger value="profit">Net Profit</TabsTrigger>
-          <TabsTrigger value="payouts">Payouts</TabsTrigger>
-        </TabsList>
+    <SuperAdminLayout title="Finance" subtitle="Payments, commission and payouts across every service">
+      <TabPills
+        className="mb-space-4"
+        value={financeTab}
+        onChange={setFinanceTab}
+        tabs={[
+          { value: "payments", label: "Payments" },
+          { value: "profit", label: "Commission" },
+          { value: "payouts", label: "Payouts" },
+        ]}
+      />
 
-        <TabsContent value="payments">
-      {/* Three headline tiles — same flat pattern as the Dashboard so a
-          navigation switch between /admin/dashboard and /admin/payments doesn't
-          feel like two different apps. Revenue keeps its primary accent only
-          on the number itself; the tile background stays neutral. */}
-      <section className="grid grid-cols-2 gap-3 md:grid-cols-3">
-        <FinanceTile label="Paid subscriptions" value={String(paymentStats?.paid ?? 0)} hint="All-time · all services" />
-        <FinanceTile label="Awaiting payment"    value={String(paymentStats?.pending ?? 0)} hint="All-time · all services"
-          warning={(paymentStats?.pending ?? 0) > 0} className="col-span-1" />
-        <FinanceTile label="Revenue"             value={formatUSD(paymentStats?.revenueCents ?? 0)}
-          hint="All-time — breakdown below is per period" accent className="col-span-2 md:col-span-1" />
-      </section>
-
-      {/* Cross-category finance breakdown */}
-      <section className="mt-space-4 md:mt-space-5">
-        <FinanceBreakdown />
-      </section>
-
-      {/* Payment methods on/off */}
-      <section className="mt-space-4 md:mt-space-5">
-        <section className="rounded-radius-md bg-card">
-          <div className="flex flex-col gap-space-2 p-space-6">
-            <h3 className="text-panel-title flex items-center gap-space-2">
-              <CreditCard className="h-5 w-5" />
-              Payment methods
-            </h3>
-            <p className="type-body text-muted-foreground">
-              Turn a method on or off. When off, it's hidden from all checkouts (cleaning, food, beach).
-            </p>
-          </div>
-          <div className="divide-y divide-border/60 p-0">
-            {/* Each toggle reads its state out of this list, so a failed fetch
-                would draw every method in its default position — a settings
-                screen stating a configuration that is not the one in
-                production, on the screen where you would go to change it. */}
-            {methodSettingsError && (
-              <div className="p-space-4">
-                <QueryError
-                  compact
-                  title="Couldn't load payment method settings"
-                  error={methodSettingsErrorObj}
-                  onRetry={() => void refetchMethodSettings()}
-                />
-              </div>
-            )}
-            {!methodSettingsError && PAYMENT_METHOD_META.map(({ method, label, description, icon: Icon }) => {
-              const enabled = isMethodEnabled(method);
-              const surcharge = methodSurcharge(method);
-              return (
-                <div key={method} className="flex flex-col gap-3 px-space-5 py-space-4 sm:flex-row sm:items-center sm:gap-space-4">
-                  <div className="flex min-w-0 flex-1 items-center gap-space-4">
-                    <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-radius-md ${enabled ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}`}>
-                      <Icon className="h-5 w-5" />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-semibold text-foreground">{label}</p>
-                      <p className="text-sm text-muted-foreground">{description}</p>
-                    </div>
-                  </div>
-                  <div className="flex shrink-0 items-center justify-end gap-3 pl-[56px] sm:pl-0">
-                    <div className="flex items-center gap-1.5" title="Extra fee added on top of the price for this method">
-                      <label className="text-xs text-muted-foreground">Fee</label>
-                      <SurchargeInput
-                        method={method}
-                        initial={surcharge}
-                        disabled={setSurchargeMutation.isPending}
-                        onCommit={(percent) => {
-                          if (percent !== surcharge) setSurchargeMutation.mutate({ method, percent });
-                        }}
-                      />
-                    </div>
-                    <Badge variant="secondary" className={enabled ? "bg-positive/15 text-positive dark:text-positive" : ""}>
-                      {enabled ? "On" : "Off"}
-                    </Badge>
-                    <Switch
-                      checked={enabled}
-                      disabled={toggleMethodMutation.isPending}
-                      onCheckedChange={(v) => handleToggleMethod(method, v)}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      </section>
-
-      {/* ─── Test payments — one tab per active method ───────────────────────
-          Each tab generates a $1 test invoice via its own edge function so
-          admins can sanity-check every payment provider without touching a
-          real subscription flow. */}
-      <section className="mt-space-4 md:mt-space-5">
-        <section className="rounded-radius-md bg-card">
-          <div className="flex flex-col gap-space-2 p-space-6">
-            <h3 className="text-panel-title flex items-center gap-space-2">
-              <CreditCard className="h-5 w-5 text-primary" />
-              Test Payments
-            </h3>
-            <p className="type-body text-muted-foreground">
-              Generate a $1.00 test payment against each provider — Lightning, on-chain BTC, LIVES or PayPal — to confirm the wallet + notifications pipeline is healthy.
-            </p>
-          </div>
-          <div className="p-space-6 pt-0">
-            <Tabs defaultValue="lightning" variant="pills">
-              <TabsList className="mb-space-4 flex flex-wrap gap-2">
-                <TabsTrigger value="lightning"><Zap className="mr-1 h-3.5 w-3.5" /> Lightning</TabsTrigger>
-                <TabsTrigger value="onchain"><Bitcoin className="mr-1 h-3.5 w-3.5" /> On-chain</TabsTrigger>
-                <TabsTrigger value="paypal"><CreditCard className="mr-1 h-3.5 w-3.5" /> PayPal</TabsTrigger>
-              </TabsList>
-
-              {/* ── Lightning ──────────────────────────────────────────── */}
-              <TabsContent value="lightning" className="space-y-space-5">
-                <Button
-                  className="w-full"
-                  onClick={() => testInvoiceMutation.mutate()}
-                  loading={testInvoiceMutation.isPending}
-                  loadingText="Generating..."
-                >
-                  Generate $1 Lightning QR
-                </Button>
-
-                {testInvoice ? (
-                  <div className="space-y-space-4">
-                    <div className="rounded-radius-lg bg-white p-space-5">
-                      <QRCodeSVG value={testInvoice.payment_request} size={240} level="M" className="mx-auto max-w-full" />
-                    </div>
-
-                    <div className="rounded-radius-lg bg-[hsl(var(--app-control))] p-space-4">
-                      <p className="text-label text-muted-foreground">Amount</p>
-                      <p className="text-section-title text-primary">
-                        {testInvoice.amount_sats ? `${testInvoice.amount_sats.toLocaleString()} sats` : "$1.00"}
-                      </p>
-                      <p className="text-sm text-muted-foreground">Status: {testInvoice.status}</p>
-                    </div>
-
-                    <div className="space-y-space-2">
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        className="w-full"
-                        onClick={() => testPaymentStatusMutation.mutate()}
-                        loading={testPaymentStatusMutation.isPending}
-                        loadingText="Checking..."
-                        disabled={testInvoice.paid || testInvoice.status === "paid"}
-                      >
-                        <RefreshCw className="h-4 w-4" />
-                        Check payment and notify Telegram
-                      </Button>
-                      <p className="text-xs text-muted-foreground">
-                        Pay the QR first, then check status. Telegram sends only after Blink confirms payment.
-                      </p>
-                    </div>
-
-                    <div className="space-y-space-2">
-                      <Label>Lightning invoice</Label>
-                      <div className="flex gap-space-2">
-                        <code className="max-h-24 flex-1 overflow-y-auto break-all rounded-radius-lg bg-[hsl(var(--app-control))] p-space-3 text-xs">
-                          {testInvoice.payment_request}
-                        </code>
-                        <Button type="button" variant="secondary" size="icon" onClick={() => copyValue(testInvoice.payment_request, "Invoice")} aria-label="Copy test invoice">
-                          <Copy className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-
-                    <div className="space-y-space-2">
-                      <Label>Payment hash</Label>
-                      <div className="flex gap-space-2">
-                        <code className="flex-1 break-all rounded-radius-lg bg-[hsl(var(--app-control))] p-space-3 text-xs">{testInvoice.payment_hash}</code>
-                        <Button type="button" variant="secondary" size="icon" onClick={() => copyValue(testInvoice.payment_hash, "Payment hash")} aria-label="Copy payment hash">
-                          <Copy className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <TestPaymentPlaceholder>Generate a Lightning invoice to preview the QR here.</TestPaymentPlaceholder>
-                )}
-              </TabsContent>
-
-              {/* ── On-chain BTC ───────────────────────────────────────── */}
-              <TabsContent value="onchain" className="space-y-space-5">
-                <Button
-                  className="w-full"
-                  onClick={() => testOnchainMutation.mutate()}
-                  loading={testOnchainMutation.isPending}
-                  loadingText="Generating..."
-                >
-                  Generate $1 On-chain address
-                </Button>
-
-                {testOnchain ? (
-                  <div className="space-y-space-4">
-                    <div className="rounded-radius-lg bg-white p-space-5">
-                      <QRCodeSVG
-                        value={testOnchain.bip21 || `bitcoin:${testOnchain.address}?amount=${(testOnchain.amount_sats / 1e8).toFixed(8)}`}
-                        size={240}
-                        level="M"
-                        className="mx-auto max-w-full"
-                      />
-                    </div>
-
-                    <div className="rounded-radius-lg bg-[hsl(var(--app-control))] p-space-4">
-                      <p className="text-label text-muted-foreground">Amount</p>
-                      <p className="text-section-title text-primary">
-                        {testOnchain.amount_sats.toLocaleString()} sats
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {formatUSD(testOnchain.amount_cents)} · Status: {testOnchain.paid ? "paid" : (testOnchain.status || "pending")}
-                      </p>
-                    </div>
-
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      className="w-full"
-                      onClick={() => testOnchainStatusMutation.mutate()}
-                      loading={testOnchainStatusMutation.isPending}
-                      loadingText="Checking..."
-                      disabled={testOnchain.paid}
-                    >
-                      <RefreshCw className="h-4 w-4" />
-                      Check on-chain confirmation
-                    </Button>
-                    <p className="text-xs text-muted-foreground">
-                      Send BTC to the address, then check. Requires at least 1 confirmation.
-                    </p>
-
-                    <div className="space-y-space-2">
-                      <Label>Bitcoin address</Label>
-                      <div className="flex gap-space-2">
-                        <code className="flex-1 break-all rounded-radius-lg bg-[hsl(var(--app-control))] p-space-3 text-xs">{testOnchain.address}</code>
-                        <Button type="button" variant="secondary" size="icon" onClick={() => copyValue(testOnchain.address, "Address")} aria-label="Copy address">
-                          <Copy className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <TestPaymentPlaceholder>Generate an on-chain address to preview the QR here.</TestPaymentPlaceholder>
-                )}
-              </TabsContent>
-
-              {/* ── PayPal ─────────────────────────────────────────────── */}
-              <TabsContent value="paypal" className="space-y-space-5">
-                <div className="rounded-radius-lg bg-[hsl(var(--app-control))] p-space-4">
-                  <p className="text-label text-muted-foreground">Amount</p>
-                  <p className="text-section-title text-primary">$1.00</p>
-                  <p className="text-sm text-muted-foreground">
-                    Uses the same PayPal panel as real checkouts. In {import.meta.env.PROD ? "production" : "sandbox"} mode.
-                  </p>
-                </div>
-
-                {testPayPalPaid ? (
-                  <div className="rounded-radius-lg border border-positive/40 bg-positive/10 p-space-4 text-sm">
-                    <p className="font-semibold text-positive dark:text-positive">Test payment captured ✓</p>
-                    <p className="mt-1 break-all text-xs text-muted-foreground">Capture id: {testPayPalPaid}</p>
-                    <Button
-                      className="mt-space-3"
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => setTestPayPalPaid(null)}
-                    >
-                      Run another test
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="rounded-radius-lg border border-[hsl(var(--app-divider))] p-space-4">
-                    <PayPalPanel
-                      totalCents={100}
-                      onPaid={(captureId) => {
-                        setTestPayPalPaid(captureId);
-                        toast.success("PayPal test payment captured");
-                      }}
-                      orderMeta={{
-                        description: "EverySub admin PayPal test - $1.00",
-                        service_name: "Admin PayPal test",
-                        context: "admin_test_payment",
-                      }}
-                    />
-                  </div>
-                )}
-              </TabsContent>
-            </Tabs>
-          </div>
-        </section>
-      </section>
-
-      <section className="rounded-radius-md bg-card mt-space-5">
-        <div className="flex flex-col gap-space-2 p-space-6">
-          <h3 className="text-panel-title flex items-center gap-space-2">
-            <Mail className="h-5 w-5 text-primary" />
-            Admin Notification Log
-          </h3>
-          <p className="type-body text-muted-foreground">Email and Telegram delivery history for confirmed payments.</p>
-        </div>
-        <div className="p-space-6 pt-0">
-          {adminNotifications.length > 0 ? (
-            <>
-              {/* Mobile card view */}
-              <div className="space-y-space-3 md:hidden">
-                {notifPager.paged.map((notification) => (
-                  <div key={notification.id} className="rounded-radius-lg border border-border bg-card p-space-4 space-y-space-2">
-                    <div className="flex items-start justify-between gap-space-3">
-                      <div className="min-w-0">
-                        <p className="font-bold truncate">{notification.serviceName}</p>
-                        <p className="text-sm text-muted-foreground truncate">{notification.clientName || notification.clientEmail || "Client not provided"}</p>
-                      </div>
-                      <span className="shrink-0 font-bold text-primary">{formatNotificationAmount(notification)}</span>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-space-2">
-                      <Badge className={notificationStatusClass(notification.emailStatus)}>{notification.emailStatus}</Badge>
-                      <Badge className={notificationStatusClass(notification.telegramStatus)}>
-                        <MessageCircle className="mr-space-1 h-3 w-3" />
-                        {notification.telegramStatus}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">{formatNotificationDate(notification.paidAt)}</span>
-                    </div>
-                    <div className="flex gap-space-2 pt-space-1">
-                      {notification.adminUrl ? (
-                        <Button asChild variant="ghost" size="sm" className="flex-1">
-                          <a href={notification.adminUrl}>Open record</a>
-                        </Button>
-                      ) : null}
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        className="flex-1"
-                        onClick={() => resendNotificationMutation.mutate(notification.id)}
-                        disabled={resendNotificationMutation.isPending}
-                      >
-                        <RefreshCw className="h-4 w-4" />
-                        Resend
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              {/* Desktop table */}
-              <div className="hidden overflow-x-auto md:block">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Payment</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Telegram</TableHead>
-                      <TableHead>Paid at</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {notifPager.paged.map((notification) => (
-                      <TableRow key={notification.id}>
-                        <TableCell>
-                          <div className="font-bold">{notification.serviceName}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {notification.clientName || notification.clientEmail || "Client not provided"}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {notification.planName || "No plan"}{notification.duration ? ` · ${notification.duration}` : ""}
-                          </div>
-                        </TableCell>
-                        <TableCell className="font-bold">{formatNotificationAmount(notification)}</TableCell>
-                        <TableCell>
-                          <Badge className={notificationStatusClass(notification.emailStatus)}>{notification.emailStatus}</Badge>
-                          {notification.emailError ? <p className="mt-space-1 max-w-48 text-xs text-destructive">{notification.emailError}</p> : null}
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={notificationStatusClass(notification.telegramStatus)}>
-                            <MessageCircle className="mr-space-1 h-3 w-3" />
-                            {notification.telegramStatus}
-                          </Badge>
-                          {notification.telegramError ? <p className="mt-space-1 max-w-48 text-xs text-destructive">{notification.telegramError}</p> : null}
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{formatNotificationDate(notification.paidAt)}</TableCell>
-                        <TableCell>
-                          <div className="flex justify-end gap-space-2">
-                            {notification.adminUrl ? (
-                              <Button asChild variant="ghost" size="sm">
-                                <a href={notification.adminUrl}>Open record</a>
-                              </Button>
-                            ) : null}
-                            <Button
-                              type="button"
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => resendNotificationMutation.mutate(notification.id)}
-                              disabled={resendNotificationMutation.isPending}
-                            >
-                              <RefreshCw className="h-4 w-4" />
-                              Resend
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-              <TablePagination {...notifPager} onPage={notifPager.setPage} />
-            </>
+      {financeTab === "payments" && (
+        <>
+          {/* Three headline tiles — same flat pattern as the Dashboard so a
+              navigation switch between /admin/dashboard and /admin/payments
+              doesn't feel like two different apps. */}
+          {rollupError ? (
+            <QueryError
+              compact
+              title="Couldn't load the revenue totals"
+              error={rollupErrorObj}
+              onRetry={() => void refetchRollup()}
+            />
           ) : (
-            <div className="rounded-radius-lg bg-[hsl(var(--app-control))] p-space-8 text-center text-muted-foreground">
-              Confirmed payment notifications will appear here after the first successful payment.
-            </div>
+            <section className="grid grid-cols-2 gap-3 md:grid-cols-3">
+              <FinanceTile label="Paid sales" value={rollup ? String(paidSales) : "—"} hint="All-time · every service" />
+              <FinanceTile label="Awaiting payment" value={rollup ? String(rollup.totals.awaitingPayment) : "—"} hint="All-time · every service"
+                warning={(rollup?.totals.awaitingPayment ?? 0) > 0} className="col-span-1" />
+              <FinanceTile label="Revenue" value={rollup ? formatUSD(rollup.totals.revenueCents) : "—"}
+                hint="All-time, same as the Dashboard — the breakdown below is per period" accent className="col-span-2 md:col-span-1" />
+            </section>
           )}
-        </div>
-      </section>
-        </TabsContent>
 
-        <TabsContent value="profit">
-          <NetProfitPanel />
-        </TabsContent>
+          {/* Cross-service finance breakdown */}
+          <section className="mt-space-4 md:mt-space-5">
+            <FinanceBreakdown />
+          </section>
 
-        <TabsContent value="payouts">
-          <ProviderPayoutsPanel />
-        </TabsContent>
-      </Tabs>
+          {/* Payment methods on/off */}
+          <section className="mt-space-4 md:mt-space-5">
+            <section className="rounded-radius-md bg-card">
+              <div className="flex flex-col gap-space-2 p-space-6">
+                <h3 className="text-panel-title flex items-center gap-space-2">
+                  <CreditCard className="h-5 w-5" />
+                  Payment methods
+                </h3>
+                <p className="type-body text-muted-foreground">
+                  Turn a method on or off. When off, it's hidden from every checkout on the platform.
+                </p>
+              </div>
+              <div className="divide-y divide-border/60 p-0">
+                {/* Each toggle reads its state out of this list, so a failed fetch
+                    would draw every method in its default position — a settings
+                    screen stating a configuration that is not the one in
+                    production, on the screen where you would go to change it. */}
+                {methodSettingsError && (
+                  <div className="p-space-4">
+                    <QueryError
+                      compact
+                      title="Couldn't load payment method settings"
+                      error={methodSettingsErrorObj}
+                      onRetry={() => void refetchMethodSettings()}
+                    />
+                  </div>
+                )}
+                {!methodSettingsError && PAYMENT_METHOD_META.map(({ method, label, description, icon: Icon }) => {
+                  const enabled = isMethodEnabled(method);
+                  const surcharge = methodSurcharge(method);
+                  return (
+                    <div key={method} className="flex flex-col gap-3 px-space-5 py-space-4 sm:flex-row sm:items-center sm:gap-space-4">
+                      <div className="flex min-w-0 flex-1 items-center gap-space-4">
+                        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-radius-md ${enabled ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}`}>
+                          <Icon className="h-5 w-5" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold text-foreground">{label}</p>
+                          <p className="text-sm text-muted-foreground">{description}</p>
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 items-center justify-end gap-3 pl-[56px] sm:pl-0">
+                        <div className="flex items-center gap-1.5" title="Extra fee added on top of the price for this method">
+                          <label className="text-xs text-muted-foreground">Fee</label>
+                          <SurchargeInput
+                            method={method}
+                            initial={surcharge}
+                            disabled={setSurchargeMutation.isPending}
+                            onCommit={(percent) => {
+                              if (percent !== surcharge) setSurchargeMutation.mutate({ method, percent });
+                            }}
+                          />
+                        </div>
+                        <Badge variant="secondary" className={enabled ? "bg-positive/15 text-positive dark:text-positive" : ""}>
+                          {enabled ? "On" : "Off"}
+                        </Badge>
+                        <Switch
+                          checked={enabled}
+                          disabled={toggleMethodMutation.isPending}
+                          onCheckedChange={(v) => handleToggleMethod(method, v)}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          </section>
+
+          {/* Test payments and the notification log moved to Diagnostics
+              (/admin/diagnostics) — they check the plumbing, not the money. */}
+        </>
+      )}
+
+      {financeTab === "profit" && <NetProfitPanel />}
+
+      {financeTab === "payouts" && <ProviderPayoutsPanel />}
 
       <AlertDialog open={!!confirmDisable} onOpenChange={(o) => !o && setConfirmDisable(null)}>
         <AlertDialogContent>

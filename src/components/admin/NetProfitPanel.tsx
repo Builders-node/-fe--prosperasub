@@ -117,10 +117,16 @@ export function NetProfitPanel() {
     return { ...p, revenue, pct, ours: split.platformCents, theirs: split.providerCents, ownClients: split.ownClientsCents };
   });
 
-  const earning = rows.filter((r) => r.revenue > 0);
+  // A business that is switched off and earned nothing in the period has
+  // nothing to say on this page — it only pushed the ones that did further
+  // down. An inactive business that DID earn stays: that money happened.
+  const isListed = (p: { status: string | null }, revenue: number) => p.status === "active" || revenue > 0;
+  const listed = rows.filter((r) => isListed(r, r.revenue));
+  const hiddenCount = rows.length - listed.length;
   const totalRevenue = rows.reduce((s, r) => s + r.revenue, 0);
   const netProfit = rows.reduce((s, r) => s + r.ours, 0);
-  // Everything we don't keep goes to the businesses. revenue − payouts = profit.
+  // Everything we don't keep is the businesses' share — earned by them, not
+  // necessarily paid out yet (that is the Payouts tab's question).
   const toProviders = totalRevenue - netProfit;
 
   // ── Editing the rates ───────────────────────────────────────────────────────
@@ -245,7 +251,7 @@ export function NetProfitPanel() {
         <section className="rounded-radius-md bg-card">
           <div className="p-space-5">
             <div className="flex items-center gap-space-2 text-sm font-medium text-muted-foreground">
-              <TrendingDown className="h-4 w-4" /> Paid to providers
+              <TrendingDown className="h-4 w-4" /> Providers' share
             </div>
             <p className="mt-space-2 text-3xl font-black tabular-nums text-foreground">{formatUSD(toProviders)}</p>
           </div>
@@ -268,6 +274,7 @@ export function NetProfitPanel() {
           </h3>
           <p className="type-body text-muted-foreground">
             {format(start, "MMM d, yyyy")} — {format(end, "MMM d, yyyy")} · revenue recognized straight-line across each subscription's service days
+            {hiddenCount > 0 && ` · ${hiddenCount} inactive ${hiddenCount === 1 ? "business" : "businesses"} with no revenue hidden`}
           </p>
         </div>
         <div className="p-space-6 pt-0">
@@ -283,7 +290,7 @@ export function NetProfitPanel() {
                 </TableRow>
               </TableHeader>
               <TableBody className={cn(isLoading && "opacity-50")}>
-                {(earning.length ? earning : rows).map((row) => (
+                {listed.map((row) => (
                   <TableRow key={row.id} className="border-b border-border/40">
                     <TableCell className="py-2.5 pr-4 font-semibold text-foreground">{row.name}</TableCell>
                     <TableCell className="px-3 py-2.5 text-right font-mono tabular-nums text-foreground">{formatUSD(row.revenue)}</TableCell>
@@ -329,7 +336,7 @@ export function NetProfitPanel() {
         </div>
         <div className="p-space-6 pt-0 space-y-space-4">
           <div className="grid grid-cols-1 gap-space-3 sm:grid-cols-2 lg:grid-cols-3">
-            {providers.map((p) => (
+            {providers.filter((p) => isListed(p, revenues[p.id]?.revenue ?? 0)).map((p) => (
               <div key={p.id} className="space-y-2 rounded-radius-lg border border-[hsl(var(--app-divider))] p-space-4">
                 <div className="flex items-center gap-2">
                   <span className="truncate font-semibold text-foreground">{p.name}</span>

@@ -7,7 +7,6 @@ import FoodAnalytics from "./FoodAnalytics";
 import BeachClubAnalytics from "@/legacy/beach/pages/BeachClubAnalytics";
 import { PlatformAnalytics } from "@/components/admin/analytics/PlatformAnalytics";
 import { RollupServiceAnalytics } from "@/components/admin/analytics/RollupServiceAnalytics";
-import { DomainEventBusPanel } from "@/components/admin/DomainEventBusPanel";
 import { ROLLUP_SERVICES, type RollupServiceKey } from "@/lib/analytics/platformRollup";
 
 /**
@@ -75,7 +74,8 @@ const Analytics = () => {
       {Bespoke && <Bespoke embedded />}
       {service !== "all" && !Bespoke && <RollupServiceAnalytics serviceKey={service} />}
 
-      <DomainEventBusPanel />
+      {/* The domain event bus panel lives on /admin/diagnostics now — it is
+          plumbing, and it used to take more of this page than the revenue. */}
     </SuperAdminLayout>
   );
 };
