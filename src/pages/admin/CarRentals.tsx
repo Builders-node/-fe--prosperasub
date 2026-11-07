@@ -206,7 +206,7 @@ export default function CarRentals({ embedded = false, providerId }: {
             <Stat
               label={totals.owedCount ? `Awaiting payment · ${totals.owedCount}` : "Awaiting payment"}
               value={formatUSD(totals.owedCents)}
-              tone={totals.owedCents > 0 ? "text-amber-500" : undefined}
+              tone={totals.owedCents > 0 ? "text-attention" : undefined}
             />
           </div>
 
@@ -255,7 +255,7 @@ export default function CarRentals({ embedded = false, providerId }: {
                       <p className="truncate text-[15px] font-semibold text-foreground">{b.customer}</p>
                       <StatusPill status={b.status} />
                       {b.payment_status !== "paid" && b.status !== "cancelled" && (
-                        <Badge className="bg-amber-500/15 text-amber-500">unpaid</Badge>
+                        <Badge className="bg-attention/15 text-attention">unpaid</Badge>
                       )}
                     </div>
                     <p className="truncate text-xs text-muted-foreground">
@@ -320,7 +320,7 @@ export default function CarRentals({ embedded = false, providerId }: {
                   </p>
                   {/* A car with no business behind it earns nobody anything —
                       say so here rather than letting it look ordinary. */}
-                  <p className={cn("truncate text-[11px] font-semibold", v.provider?.name ? "text-muted-foreground" : "text-amber-500")}>
+                  <p className={cn("truncate text-[11px] font-semibold", v.provider?.name ? "text-muted-foreground" : "text-attention")}>
                     {v.provider?.name ?? "No business assigned"}
                   </p>
                 </div>
@@ -375,7 +375,7 @@ export default function CarRentals({ embedded = false, providerId }: {
                   <p className="truncate text-[15px] font-semibold text-foreground">{c.name}</p>
                   {/* A business nobody owns cannot be paid, and nobody can open
                       its workspace — worth saying here rather than at payout time. */}
-                  <p className={cn("truncate text-xs", c.admin_user_id ? "text-muted-foreground" : "text-amber-500")}>
+                  <p className={cn("truncate text-xs", c.admin_user_id ? "text-muted-foreground" : "text-attention")}>
                     {c.admin_user_id ? c.status : `${c.status} · no owner`}
                   </p>
                 </div>
@@ -412,7 +412,7 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: str
   return (
     <div className="rounded-radius-md bg-card p-space-3">
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className={cn("mt-1 text-[20px] font-semibold tabular-nums tracking-[-0.4px] text-foreground", tone)}>{value}</p>
+      <p className={cn("mt-1 text-heading font-semibold tabular-nums text-foreground", tone)}>{value}</p>
     </div>
   );
 }

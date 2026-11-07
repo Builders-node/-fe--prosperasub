@@ -613,7 +613,7 @@ const PlanDetail = () => {
                 <Link
                   key={crumb.label}
                   to={crumb.href}
-                  className="flex shrink-0 items-start gap-0.5 rounded-radius-md bg-inset py-1 pl-2 pr-1 text-[12px] font-medium leading-4 tracking-[-0.24px] text-muted-foreground transition-colors hover:text-foreground"
+                  className="flex shrink-0 items-start gap-0.5 rounded-radius-md bg-inset py-1 pl-2 pr-1 text-meta font-medium leading-4 text-muted-foreground transition-colors hover:text-foreground"
                 >
                   <span className="max-w-[45vw] truncate">{crumb.label}</span>
                   <KeyboardArrowRightIcon className="h-4 w-4 shrink-0" />
@@ -625,12 +625,12 @@ const PlanDetail = () => {
           <div className="space-y-2">
             <h1 className="text-[24px] font-semibold leading-tight tracking-[-0.48px] text-foreground">{title}</h1>
             {description && (
-              <p className="text-[16px] leading-[22px] tracking-[-0.32px] text-muted-foreground">
+              <p className="text-title leading-[22px] text-muted-foreground">
                 <LinkifiedText text={description} />
               </p>
             )}
             {plan.meta && (
-              <p className="text-[12px] leading-4 tracking-[-0.24px] text-muted-foreground">{plan.meta}</p>
+              <p className="text-meta leading-4 text-muted-foreground">{plan.meta}</p>
             )}
           </div>
 
@@ -650,7 +650,7 @@ const PlanDetail = () => {
           )}
 
           {offer && !chosen && (
-            <p className="text-[12px] tracking-[-0.24px] text-destructive">
+            <p className="text-meta text-destructive">
               That combination isn't offered — pick another.
             </p>
           )}
@@ -658,7 +658,7 @@ const PlanDetail = () => {
 
         {(plan.features.length > 0 || entitlementLines.length > 0) && (
           <section className="space-y-3 rounded-radius-lg bg-card p-4 shadow-figma">
-            <h2 className="text-[20px] font-semibold tracking-[-0.4px] text-foreground">What's included</h2>
+            <h2 className="text-heading font-semibold text-foreground">What's included</h2>
             <ul className="space-y-2">
               {/* What the plan GRANTS comes first and in the plan's own words —
                   "4 cleanings a month", "4 hours a month" — because a package
@@ -667,13 +667,13 @@ const PlanDetail = () => {
               {entitlementLines.map((line) => (
                 <li key={line} className="flex items-start gap-2">
                   <CheckIcon className="h-[22px] w-[22px] shrink-0 text-primary" />
-                  <span className="flex-1 text-[16px] font-semibold leading-[22px] tracking-[-0.32px] text-foreground">{line}</span>
+                  <span className="flex-1 text-title font-semibold leading-[22px] text-foreground">{line}</span>
                 </li>
               ))}
               {plan.features.map((f, i) => (
                 <li key={i} className="flex items-start gap-2">
                   <CheckIcon className="h-[22px] w-[22px] shrink-0 text-primary" />
-                  <span className="flex-1 text-[16px] leading-[22px] tracking-[-0.32px] text-muted-foreground">{f}</span>
+                  <span className="flex-1 text-title leading-[22px] text-muted-foreground">{f}</span>
                 </li>
               ))}
             </ul>
@@ -708,7 +708,7 @@ const PlanDetail = () => {
             type="button"
             onClick={subscribe}
             disabled={notOnSale || (!!offer && !chosen) || (mealsPerDay > 0 && meals.length !== Math.min(mealsPerDay, 3))}
-            className="w-full rounded-radius-md bg-primary px-4 py-3 text-[16px] font-semibold leading-6 tracking-[-0.32px] text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
+            className="w-full rounded-radius-md bg-primary px-4 py-3 text-title font-semibold leading-6 text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
           >
             {/* Three actions, three labels. This button used to word itself
                 four ways — "Add to cart · $90.00 / week", "From $79.00 / month",

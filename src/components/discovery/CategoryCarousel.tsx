@@ -83,19 +83,19 @@ function Slide({ item }: { item: CategoryHighlight }) {
 
       <div className="relative flex flex-col gap-0.5">
         {item.archetype && (
-          <p className={cn("text-[12px] tracking-[-0.24px]", showPhoto ? "text-white/80" : "text-primary-foreground/70")}>
+          <p className={cn("text-meta", showPhoto ? "text-white/80" : "text-primary-foreground/70")}>
             {item.archetype.label}
           </p>
         )}
         <p className={cn(
-          "text-[16px] font-semibold tracking-[-0.32px]",
+          "text-title font-semibold",
           showPhoto ? "text-white" : "text-primary-foreground",
         )}>
           {item.label}
         </p>
         {item.fromCents !== null && (
           <p className={cn(
-            "text-[12px] tracking-[-0.24px]",
+            "text-meta",
             showPhoto ? "text-white/80" : "text-primary-foreground/70",
           )}>
             from {formatUSD(item.fromCents)}{item.unit ? ` ${item.unit}` : ""}

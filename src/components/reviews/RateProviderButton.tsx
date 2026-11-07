@@ -247,7 +247,7 @@ export function RateProviderButton({
                 className={cn(
                   "h-5 w-5 transition-colors",
                   i <= displayRating
-                    ? "fill-amber-400 text-amber-400"
+                    ? "fill-primary text-primary"
                     : "fill-transparent text-muted-foreground/50",
                 )}
               />
@@ -260,7 +260,7 @@ export function RateProviderButton({
         <DialogContent className="sm:max-w-md" onClick={(e) => e.stopPropagation()}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-lg font-black">
-              <Star className="h-5 w-5 text-amber-400" />
+              <Star className="h-5 w-5 text-attention" />
               {myReview ? "Update your review" : "Rate this provider"}
             </DialogTitle>
             <DialogDescription>

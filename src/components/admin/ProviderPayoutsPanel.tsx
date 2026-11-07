@@ -566,7 +566,7 @@ function PayoutRequestQueue({ providers }: { providers: Array<{ id: string; name
               {/* In flight at Blink. Not payable again — the server refuses a
                   second send — so there is nothing to press. */}
               {r.status === "sending" && (
-                <span className="text-xs font-semibold text-amber-500">Settling…</span>
+                <span className="text-xs font-semibold text-attention">Settling…</span>
               )}
               {/* A failure put the money back in the provider's balance, so the
                   way forward is a fresh request with a destination that works,

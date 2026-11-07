@@ -227,7 +227,7 @@ function WithdrawPanel({
             {problem ? (
               <p className="text-xs font-semibold text-destructive">{problem}</p>
             ) : isPayable(rail, destination) ? (
-              <p className="text-xs font-semibold text-emerald-500">
+              <p className="text-xs font-semibold text-positive">
                 Looks like a {RAIL_LABEL[rail]} address.
               </p>
             ) : null}
@@ -255,8 +255,8 @@ function PayoutStatus({ status }: { status?: string }) {
   if (!status || status === "paid") return null;
   const tone =
     status === "failed" ? "bg-destructive/15 text-destructive" :
-    status === "sending" ? "bg-amber-500/15 text-amber-500" :
-    status === "requested" ? "bg-amber-500/15 text-amber-500" :
+    status === "sending" ? "bg-attention/15 text-attention" :
+    status === "requested" ? "bg-attention/15 text-attention" :
     status === "approved"  ? "bg-sky-500/15 text-sky-500" :
                              "bg-destructive/15 text-destructive";
   return (

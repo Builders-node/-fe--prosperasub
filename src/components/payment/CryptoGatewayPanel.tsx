@@ -126,7 +126,7 @@ export function CryptoGatewayPanel({ totalCents, meta, onPaid, onInvoiceReady, i
       </div>
 
       {network && (
-        <p className="rounded-radius-sm bg-amber-500/10 px-3 py-2 text-sm text-amber-600 dark:text-amber-400">
+        <p className="rounded-radius-sm bg-attention/10 px-3 py-2 text-sm text-attention dark:text-attention">
           Send on the <strong>{network}</strong> network only. Other networks cannot be recovered.
         </p>
       )}
@@ -156,13 +156,13 @@ export function CryptoGatewayPanel({ totalCents, meta, onPaid, onInvoiceReady, i
       <div
         className={cn(
           "flex flex-col items-center justify-center gap-2 rounded-radius-md p-4 sm:flex-row",
-          isPaid ? "bg-green-500/10" : expired ? "bg-muted" : partial ? "bg-amber-500/10" : "bg-[#26a17b]/10",
+          isPaid ? "bg-positive/10" : expired ? "bg-muted" : partial ? "bg-attention/10" : "bg-[#26a17b]/10",
         )}
       >
         {isPaid ? (
           <>
-            <CheckCircle2 className="h-5 w-5 text-green-500" />
-            <span className="text-sm font-medium text-green-500">Payment confirmed! {successLabel}</span>
+            <CheckCircle2 className="h-5 w-5 text-positive" />
+            <span className="text-sm font-medium text-positive">Payment confirmed! {successLabel}</span>
           </>
         ) : expired ? (
           <>
@@ -172,7 +172,7 @@ export function CryptoGatewayPanel({ totalCents, meta, onPaid, onInvoiceReady, i
           </>
         ) : partial ? (
           <>
-            <AlertCircle className="h-5 w-5 shrink-0 text-amber-500" />
+            <AlertCircle className="h-5 w-5 shrink-0 text-attention" />
             <span className="text-sm font-medium">Less than the full amount arrived. Send the rest to the same address, or contact support.</span>
           </>
         ) : (

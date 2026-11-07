@@ -522,7 +522,7 @@ function BookingRow({
           <DropdownMenuContent align="end" className="w-52">
             {canApprovePayment && (
               <DropdownMenuItem onSelect={() => onApprovePayment?.()}>
-                <CheckCircle2 className="h-4 w-4 text-emerald-500" /> Mark as paid
+                <CheckCircle2 className="h-4 w-4 text-positive" /> Mark as paid
               </DropdownMenuItem>
             )}
             {canReschedule && (

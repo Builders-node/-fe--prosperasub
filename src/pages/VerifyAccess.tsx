@@ -157,8 +157,8 @@ function HeaderCard({ name, avatar, count }: { name: string; avatar: string | nu
     <div className="flex flex-col items-center gap-4 rounded-b-radius-lg bg-card p-4 pt-8 shadow-figma">
       <Avatar name={name} src={avatar} />
       <div className="w-full text-center">
-        <p className="text-[20px] font-semibold leading-none tracking-[-0.4px] text-foreground">{name}</p>
-        <p className="mt-1 text-[12px] tracking-[-0.24px] text-muted-foreground">
+        <p className="text-heading font-semibold leading-none text-foreground">{name}</p>
+        <p className="mt-1 text-meta text-muted-foreground">
           {count} {count === 1 ? "Subscription" : "Subscriptions"}
         </p>
       </div>
@@ -180,7 +180,7 @@ function BookedCard({ bookings }: { bookings: UpcomingBooking[] }) {
 
   return (
     <div className="flex flex-col gap-3 rounded-radius-lg bg-card p-4 shadow-figma">
-      <p className="text-[20px] font-semibold tracking-[-0.4px] text-foreground">Booked</p>
+      <p className="text-heading font-semibold text-foreground">Booked</p>
       <div className="flex flex-col gap-2">
         {bookings.map((b) => (
           <div key={b.id} className="flex items-center gap-3">
@@ -188,10 +188,10 @@ function BookedCard({ bookings }: { bookings: UpcomingBooking[] }) {
               <MapPin className="h-6 w-6 text-primary" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[16px] font-semibold tracking-[-0.32px] text-foreground">
+              <p className="truncate text-title font-semibold text-foreground">
                 {b.resource_name ?? "Court"}
               </p>
-              <p className="text-[12px] tracking-[-0.24px] text-muted-foreground">
+              <p className="text-meta text-muted-foreground">
                 {formatDateHN(b.start_at, { month: "short", day: "numeric" })}{" "}
                 {formatTimestampHN(b.start_at, timeOnly)} - {formatTimestampHN(b.end_at, timeOnly)}
               </p>
@@ -228,7 +228,7 @@ function AccessCard({
 
   return (
     <div className="flex flex-col gap-3 rounded-radius-lg bg-card p-4 shadow-figma">
-      <p className="text-[20px] font-semibold tracking-[-0.4px] text-foreground">Active Access</p>
+      <p className="text-heading font-semibold text-foreground">Active Access</p>
 
       {rows.length === 0 ? (
         <p className="rounded-radius-md bg-muted px-4 py-6 text-center text-sm text-muted-foreground">{emptyLabel}</p>
@@ -240,8 +240,8 @@ function AccessCard({
               <div key={s.id} className="flex h-20 items-center gap-4 rounded-radius-md bg-muted py-2 pl-2 pr-4">
                 <Thumbnail image={s.image_url ?? null} service={s.service} />
                 <div className="flex min-w-0 flex-1 flex-col gap-1">
-                  <p className="truncate text-[16px] font-semibold tracking-[-0.32px] text-foreground">{s.name}</p>
-                  <div className="flex flex-col gap-1 text-[12px] tracking-[-0.24px] text-muted-foreground">
+                  <p className="truncate text-title font-semibold text-foreground">{s.name}</p>
+                  <div className="flex flex-col gap-1 text-meta text-muted-foreground">
                     <p className="truncate">{s.provider_name ? `${s.provider_name} · ${category}` : category}</p>
                     {s.expires_at && <p className="truncate">Until {formatDateHN(s.expires_at)}</p>}
                   </div>
@@ -330,7 +330,7 @@ function StatusBanner({
   // Granted and refused are read at a glance across a counter, so they keep
   // their full green and red. A code that cannot be read is neither — it is a
   // neutral card, not the brand's amber with white text on it (about 2:1).
-  const tone = invalid ? "bg-card text-foreground" : allowed ? "bg-emerald-500 text-white" : "bg-red-500 text-white";
+  const tone = invalid ? "bg-card text-foreground" : allowed ? "bg-positive text-white" : "bg-negative text-white";
   return (
     <div className={cn("flex flex-col items-center gap-3 rounded-radius-lg px-6 py-8 text-center", tone)}>
       <Icon className={cn("h-16 w-16", invalid && "text-muted-foreground")} strokeWidth={2.2} />

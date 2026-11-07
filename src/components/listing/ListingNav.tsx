@@ -69,7 +69,7 @@ export function ProviderRail({
     const p = providers[0];
     return (
       <section className="space-y-3">
-        <h2 className="text-[20px] font-semibold tracking-[-0.4px] text-foreground">{label}</h2>
+        <h2 className="text-heading font-semibold text-foreground">{label}</h2>
         <button
           type="button"
           onClick={() => onOpen(p.id)}
@@ -77,9 +77,9 @@ export function ProviderRail({
         >
           <ProviderAvatar p={p} className="h-10 w-10" />
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-[16px] font-semibold tracking-[-0.32px] text-foreground">{p.name}</span>
+            <span className="block truncate text-title font-semibold text-foreground">{p.name}</span>
             {p.meta && (
-              <span className="block truncate text-[12px] tracking-[-0.24px] text-muted-foreground">{p.meta}</span>
+              <span className="block truncate text-meta text-muted-foreground">{p.meta}</span>
             )}
           </span>
           <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
@@ -90,7 +90,7 @@ export function ProviderRail({
 
   return (
     <section className="space-y-3">
-      <h2 className="text-[20px] font-semibold tracking-[-0.4px] text-foreground">{label}</h2>
+      <h2 className="text-heading font-semibold text-foreground">{label}</h2>
 
       {/*
         Half-width tiles, two of them on a 375px screen with the third cut off
@@ -162,7 +162,7 @@ export function CategoryChips({
             // The count is gone: it was a number nobody acts on, and it made
             // every chip two words wide on the axis that is already scarce.
             className={cn(
-              "shrink-0 whitespace-nowrap rounded-radius-md px-4 py-2 text-[16px] font-semibold tracking-[-0.32px] transition-colors",
+              "shrink-0 whitespace-nowrap rounded-radius-md px-4 py-2 text-title font-semibold transition-colors",
               selected
                 ? "bg-primary text-primary-foreground"
                 : "bg-card text-foreground hover:bg-muted",

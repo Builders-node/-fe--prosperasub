@@ -1053,7 +1053,7 @@ const MySubscriptions = () => {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search Subs"
-          className="min-w-0 flex-1 bg-transparent text-[16px] tracking-[-0.32px] text-foreground placeholder:text-muted-foreground focus:outline-none"
+          className="min-w-0 flex-1 bg-transparent text-title text-foreground placeholder:text-muted-foreground focus:outline-none"
         />
         {query && (
           <button type="button" aria-label="Clear search" onClick={() => setQuery("")}

@@ -43,6 +43,9 @@ export default {
         /** A row, chip or rail sitting inside a card. See DESIGN.md → Layers. */
         inset: "hsl(var(--inset))",
         segment: "hsl(var(--segment-active))",
+        positive: "hsl(var(--positive))",
+        attention: "hsl(var(--attention))",
+        negative: "hsl(var(--negative))",
         accent: {
           DEFAULT: "hsl(var(--accent))",
           foreground: "hsl(var(--accent-foreground))",
@@ -108,6 +111,15 @@ export default {
         "4xl": ["var(--fs-4xl)", { lineHeight: "2.25rem" }],
         "5xl": ["var(--fs-5xl)", { lineHeight: "1" }],
         "6xl": ["var(--fs-6xl)", { lineHeight: "1" }],
+        /*
+         * The Figma scale, as roles. Size and tracking only — weight and line
+         * height stay on the element — so swapping `text-[16px]
+         * tracking-[-0.32px]` for `text-title` renders identically. Use these
+         * instead of pixel sizes (DESIGN.md §3).
+         */
+        "heading": ["20px", { letterSpacing: "-0.4px" }],
+        "title":   ["16px", { letterSpacing: "-0.32px" }],
+        "meta":    ["12px", { letterSpacing: "-0.24px" }],
         /* Legacy alias */
         "font-size-2xs": ["var(--fs-2xs)", { lineHeight: "0.875rem" }],
         caption: [

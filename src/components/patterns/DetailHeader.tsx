@@ -65,7 +65,7 @@ export function DetailHeader({
             <KeyboardArrowLeftIcon className="h-6 w-6" />
           </button>
           {centreLabel && (
-            <span className="pointer-events-none absolute left-1/2 w-[60%] -translate-x-1/2 truncate text-center text-[16px] font-semibold tracking-[-0.32px]">
+            <span className="pointer-events-none absolute left-1/2 w-[60%] -translate-x-1/2 truncate text-center text-title font-semibold">
               {centreLabel}
             </span>
           )}
@@ -92,7 +92,7 @@ export function DetailHeader({
           >
             <KeyboardArrowLeftIcon className="h-6 w-6" />
           </button>
-          <p className="min-w-0 flex-1 truncate text-[16px] font-semibold tracking-[-0.32px] text-foreground">
+          <p className="min-w-0 flex-1 truncate text-title font-semibold text-foreground">
             {title}
           </p>
           {rightAction}

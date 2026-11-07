@@ -94,7 +94,7 @@ export function CustomerPhone({ phone, whatsapp = true, className }: Props) {
           onClick={(e) => e.stopPropagation()}
           aria-label={`WhatsApp ${value}`}
           title="WhatsApp"
-          className="text-muted-foreground hover:text-emerald-500"
+          className="text-muted-foreground hover:text-positive"
         >
           <MessageCircle className="h-3 w-3" />
         </a>

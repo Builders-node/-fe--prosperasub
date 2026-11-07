@@ -98,8 +98,8 @@ export function AdminListShell({
       ) : isError ? (
         <div className="flex flex-col items-center justify-center rounded-radius-md bg-card py-14 text-center">
           <AlertTriangle className="mb-3 h-10 w-10 text-destructive/60" />
-          <p className="text-[16px] font-semibold tracking-[-0.32px] text-foreground">Couldn't load this list</p>
-          <p className="mt-1 max-w-md px-6 text-[12px] tracking-[-0.24px] text-muted-foreground">
+          <p className="text-title font-semibold text-foreground">Couldn't load this list</p>
+          <p className="mt-1 max-w-md px-6 text-meta text-muted-foreground">
             {error instanceof Error ? error.message : "The server returned an error."}
           </p>
           {onRetry && (
@@ -111,14 +111,14 @@ export function AdminListShell({
       ) : isEmpty ? (
         <div className="flex flex-col items-center justify-center rounded-radius-md bg-card py-14 text-center">
           <Inbox className="mb-3 h-10 w-10 text-muted-foreground/30" />
-          <p className="text-[16px] font-semibold tracking-[-0.32px] text-foreground">{emptyTitle}</p>
-          <p className="mt-1 text-[12px] tracking-[-0.24px] text-muted-foreground">{emptySubtitle}</p>
+          <p className="text-title font-semibold text-foreground">{emptyTitle}</p>
+          <p className="mt-1 text-meta text-muted-foreground">{emptySubtitle}</p>
         </div>
       ) : isNoResults ? (
         <div className="flex flex-col items-center justify-center rounded-radius-md bg-card py-14 text-center">
           <Search className="mb-3 h-10 w-10 text-muted-foreground/30" />
-          <p className="text-[16px] font-semibold tracking-[-0.32px] text-foreground">No matches</p>
-          <p className="mt-1 text-[12px] tracking-[-0.24px] text-muted-foreground">Nothing matches the current search or filters.</p>
+          <p className="text-title font-semibold text-foreground">No matches</p>
+          <p className="mt-1 text-meta text-muted-foreground">Nothing matches the current search or filters.</p>
           {onClearFilters && (
             <Button variant="outline" size="sm" className="mt-3" onClick={onClearFilters}>
               Clear filters

@@ -33,7 +33,7 @@ function Stars({ value, className }: { value: number; className?: string }) {
       {[1, 2, 3, 4, 5].map((n) => (
         <Star
           key={n}
-          className={cn("h-3.5 w-3.5", n <= value ? "fill-amber-400 text-amber-400" : "text-muted-foreground/30")}
+          className={cn("h-3.5 w-3.5", n <= value ? "fill-primary text-primary" : "text-muted-foreground/30")}
         />
       ))}
     </span>
@@ -107,10 +107,10 @@ export function ProviderReviewsPanel({ providerId }: { providerId: string }) {
           {distribution.map(({ star, count }) => (
             <div key={star} className="flex items-center gap-2">
               <span className="w-3 text-right text-[11px] font-semibold tabular-nums text-muted-foreground">{star}</span>
-              <Star className="h-3 w-3 shrink-0 fill-amber-400/70 text-amber-400/70" />
+              <Star className="h-3 w-3 shrink-0 fill-primary/70 text-primary/70" />
               <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-muted">
                 <div
-                  className="h-full rounded-full bg-amber-400"
+                  className="h-full rounded-full bg-attention"
                   style={{ width: rated.length ? `${(count / rated.length) * 100}%` : "0%" }}
                 />
               </div>

@@ -83,13 +83,13 @@ function PasswordInput({ id, label, value, onChange, placeholder, error, autoFoc
   const [show, setShow] = useState(false);
   return (
     <div className="space-y-1">
-      <label htmlFor={id} className="block text-[12px] font-semibold tracking-[-0.24px] text-muted-foreground">{label}</label>
+      <label htmlFor={id} className="block text-meta font-semibold text-muted-foreground">{label}</label>
       <div className="relative">
         <input
           id={id} type={show ? "text" : "password"} value={value}
           onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
           autoFocus={autoFocus}
-          className="w-full rounded-radius-md bg-card px-4 py-3 pr-11 text-[16px] tracking-[-0.32px] text-foreground shadow-figma outline-none placeholder:text-muted-foreground"
+          className="w-full rounded-radius-md bg-card px-4 py-3 pr-11 text-title text-foreground shadow-figma outline-none placeholder:text-muted-foreground"
         />
         <button type="button" tabIndex={-1} onClick={() => setShow((s) => !s)}
           className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
@@ -98,7 +98,7 @@ function PasswordInput({ id, label, value, onChange, placeholder, error, autoFoc
           {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
         </button>
       </div>
-      {error && <p className="text-[12px] tracking-[-0.24px] text-destructive">{error}</p>}
+      {error && <p className="text-meta text-destructive">{error}</p>}
     </div>
   );
 }
@@ -111,7 +111,7 @@ function PillSelector<T extends string | number>({ options, value, onChange }: {
       {options.map((opt) => (
         <button key={String(opt.value)} type="button" onClick={() => onChange(opt.value)}
           className={cn(
-            "flex-1 rounded-radius-md px-3 py-2 text-[12px] font-semibold tracking-[-0.24px] transition-colors",
+            "flex-1 rounded-radius-md px-3 py-2 text-meta font-semibold transition-colors",
             value === opt.value
               ? "bg-primary text-primary-foreground"
               : "bg-card text-muted-foreground shadow-figma hover:text-foreground",
@@ -172,11 +172,11 @@ function Row({
       </span>
       <span className="min-w-0 flex-1">
         <span className={cn(
-          "block truncate text-[16px] font-semibold tracking-[-0.32px]",
+          "block truncate text-title font-semibold",
           tone === "danger" ? "text-destructive" : "text-foreground",
         )}>{label}</span>
         {value && (
-          <span className="block truncate text-[12px] tracking-[-0.24px] text-muted-foreground">{value}</span>
+          <span className="block truncate text-meta text-muted-foreground">{value}</span>
         )}
       </span>
       <KeyboardArrowRightIcon className="h-6 w-6 shrink-0 text-muted-foreground" />
@@ -187,7 +187,7 @@ function Row({
 /** 20px semibold — the one heading size the design gives a section. */
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <h2 className="mt-space-6 px-1 text-[20px] font-semibold tracking-[-0.4px] text-foreground">{children}</h2>
+    <h2 className="mt-space-6 px-1 text-heading font-semibold text-foreground">{children}</h2>
   );
 }
 
@@ -353,7 +353,7 @@ const Profile = () => {
   const canChangePassword = provider !== "lightning" && !isGoogle;
   const contacts = [
     savedPhone && { key: "phone", label: "Phone", value: savedPhone, icon: <span className="text-[15px]">📱</span> },
-    savedWhatsApp && { key: "wa", label: "WhatsApp", value: savedWhatsApp, icon: <WhatsAppIcon className="h-4 w-4 text-green-500" /> },
+    savedWhatsApp && { key: "wa", label: "WhatsApp", value: savedWhatsApp, icon: <WhatsAppIcon className="h-4 w-4 text-positive" /> },
     savedTelegram && { key: "tg", label: "Telegram", value: savedTelegram.startsWith("@") ? savedTelegram : `@${savedTelegram}`, icon: <TelegramIcon className="h-4 w-4 text-[#2AABEE]" /> },
   ].filter(Boolean) as Array<{ key: string; label: string; value: string; icon: JSX.Element }>;
 
@@ -373,10 +373,10 @@ const Profile = () => {
                 {avatarLabel}
               </span>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-[20px] font-semibold tracking-[-0.4px] text-foreground">{displayName}</p>
-                <p className="mt-0.5 truncate text-[12px] tracking-[-0.24px] text-muted-foreground">{email}</p>
+                <p className="truncate text-heading font-semibold text-foreground">{displayName}</p>
+                <p className="mt-0.5 truncate text-meta text-muted-foreground">{email}</p>
                 {isGoogle && (
-                  <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-inset px-2 py-1 text-[12px] tracking-[-0.24px] text-muted-foreground">
+                  <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-inset px-2 py-1 text-meta text-muted-foreground">
                     <GoogleIcon /> Google account
                   </span>
                 )}
@@ -391,8 +391,8 @@ const Profile = () => {
                       {c.icon}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[16px] font-semibold tracking-[-0.32px] text-foreground">{c.value}</span>
-                      <span className="block text-[12px] tracking-[-0.24px] text-muted-foreground">{c.label}</span>
+                      <span className="block truncate text-title font-semibold text-foreground">{c.value}</span>
+                      <span className="block text-meta text-muted-foreground">{c.label}</span>
                     </span>
                   </div>
                 ))}
@@ -475,7 +475,7 @@ const Profile = () => {
             <Input ref={firstEditRef as any} id="e-name" label="Username" value={draftName} onChange={(e) => setDraftName(e.target.value)} placeholder="Your name" />
             <Input id="e-email" label="Email" type="email" value={email} readOnly className="cursor-default opacity-50" />
             <Input id="e-phone" label="Phone (optional)" type="tel" value={draftPhone} onChange={(e) => setDraftPhone(e.target.value)} placeholder="+1 234 567 8900" />
-            <Input id="e-wa" label="WhatsApp (optional)" type="tel" value={draftWhatsApp} onChange={(e) => setDraftWhatsApp(e.target.value)} placeholder="+1 234 567 8900" leftIcon={<WhatsAppIcon className="h-4 w-4 text-green-500" />} />
+            <Input id="e-wa" label="WhatsApp (optional)" type="tel" value={draftWhatsApp} onChange={(e) => setDraftWhatsApp(e.target.value)} placeholder="+1 234 567 8900" leftIcon={<WhatsAppIcon className="h-4 w-4 text-positive" />} />
             <Input id="e-tg" label="Telegram (optional)" value={draftTelegram} onChange={(e) => setDraftTelegram(e.target.value)} placeholder="@username" leftIcon={<TelegramIcon className="h-4 w-4 text-[#2AABEE]" />} />
             <div className="flex gap-2 pt-space-2">
               <Button variant="secondary" className="flex-1" onClick={back} disabled={saveMutation.isPending}>Cancel</Button>
@@ -492,8 +492,8 @@ const Profile = () => {
           <section className="space-y-3">
             <div className="flex items-center justify-between gap-3 rounded-radius-md bg-card p-4 shadow-figma">
               <div>
-                <p className="text-[16px] font-semibold tracking-[-0.32px] text-foreground">Enable reminders</p>
-                <p className="text-[12px] tracking-[-0.24px] text-muted-foreground">Get notified before each cleaning</p>
+                <p className="text-title font-semibold text-foreground">Enable reminders</p>
+                <p className="text-meta text-muted-foreground">Get notified before each cleaning</p>
               </div>
               <Switch checked={draftPrefs.reminder_enabled} onCheckedChange={(v) => setDraftPrefs((p) => ({ ...p, reminder_enabled: v }))} />
             </div>
@@ -501,7 +501,7 @@ const Profile = () => {
             {draftPrefs.reminder_enabled && (
               <>
                 <div>
-                  <p className="mb-2 px-1 text-[12px] tracking-[-0.24px] text-muted-foreground">Remind me</p>
+                  <p className="mb-2 px-1 text-meta text-muted-foreground">Remind me</p>
                   <PillSelector
                     options={[{ value: 30, label: "30 min" }, { value: 60, label: "1 hour" }, { value: 120, label: "2 hours" }, { value: 1440, label: "1 day" }]}
                     value={draftPrefs.reminder_minutes_before}
@@ -509,7 +509,7 @@ const Profile = () => {
                   />
                 </div>
                 <div>
-                  <p className="mb-2 px-1 text-[12px] tracking-[-0.24px] text-muted-foreground">Notify via</p>
+                  <p className="mb-2 px-1 text-meta text-muted-foreground">Notify via</p>
                   <PillSelector
                     options={[{ value: "all", label: "All" }, { value: "email", label: "Email" }, { value: "in_app", label: "In-app" }]}
                     value={draftPrefs.reminder_method}
@@ -520,15 +520,15 @@ const Profile = () => {
             )}
 
             <div>
-              <p className="mb-2 px-1 text-[12px] tracking-[-0.24px] text-muted-foreground">Access instructions</p>
+              <p className="mb-2 px-1 text-meta text-muted-foreground">Access instructions</p>
               <textarea
                 value={draftPrefs.access_instructions ?? ""}
                 onChange={(e) => setDraftPrefs((p) => ({ ...p, access_instructions: e.target.value || null }))}
                 placeholder="e.g. Door will be open · Key under mat"
                 rows={3}
-                className="w-full resize-none rounded-radius-md bg-card p-4 text-[16px] tracking-[-0.32px] text-foreground shadow-figma outline-none placeholder:text-muted-foreground"
+                className="w-full resize-none rounded-radius-md bg-card p-4 text-title text-foreground shadow-figma outline-none placeholder:text-muted-foreground"
               />
-              <p className="mt-1 px-1 text-[12px] tracking-[-0.24px] text-muted-foreground">Shown in reminder notifications sent to you.</p>
+              <p className="mt-1 px-1 text-meta text-muted-foreground">Shown in reminder notifications sent to you.</p>
             </div>
 
             <div className="flex gap-2">

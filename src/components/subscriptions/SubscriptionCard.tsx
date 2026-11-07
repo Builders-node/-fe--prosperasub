@@ -103,7 +103,7 @@ export function SubscriptionCard({
 
           <div className="mt-1 flex flex-1 flex-col justify-end gap-1">
             {subtitle && (
-              <p className="line-clamp-2 text-[12px] leading-[16px] tracking-[-0.24px] text-muted-foreground">
+              <p className="line-clamp-2 text-meta leading-[16px] text-muted-foreground">
                 {subtitle}
               </p>
             )}

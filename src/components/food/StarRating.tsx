@@ -19,7 +19,7 @@ export function StarRating({ value, onChange, size = 16, className }: Props) {
         const StarEl = (
           <Star
             style={{ width: size, height: size }}
-            className={cn(filled ? "fill-amber-400 text-amber-400" : "fill-transparent text-muted-foreground/40")}
+            className={cn(filled ? "fill-primary text-primary" : "fill-transparent text-muted-foreground/40")}
           />
         );
         return interactive ? (

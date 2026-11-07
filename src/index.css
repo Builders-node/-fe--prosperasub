@@ -199,6 +199,12 @@
        track, one step ABOVE the track in the dark (a card would sink below
        it). One token so every segmented control agrees. */
     --segment-active: 0 0% 100%;
+    /* Status — what a thing's STATE is, never decoration. One green, one
+       amber, one red, each a shade per theme so text on card keeps contrast.
+       Use through StatusPill / text-positive etc., never a palette class. */
+    --positive:  161 94% 30%;
+    --attention: 32 95% 44%;
+    --negative:  var(--destructive);
     --muted-foreground: 0 0% 49%;   /* #7d7d7d */
     --accent: var(--brand-accent);
     --accent-foreground: var(--brand-on-accent);
@@ -327,6 +333,9 @@
     --muted: 0 0% 18%;
     --inset: 0 0% 18%;
     --segment-active: 0 0% 27%;
+    --positive:  158 64% 52%;
+    --attention: 43 96% 56%;
+    --negative:  var(--destructive);
     --muted-foreground: 0 0% 68%;
     --accent: var(--brand-accent);
     --accent-foreground: var(--brand-on-accent);

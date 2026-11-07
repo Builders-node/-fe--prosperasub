@@ -56,12 +56,12 @@ function categoryIcon(category: UserNotification["category"]) {
 
 function categoryColor(category: UserNotification["category"]) {
   switch (category) {
-    case "payment":      return "bg-green-500/10 text-green-500";
+    case "payment":      return "bg-positive/10 text-positive";
     case "subscription": return "bg-primary/10 text-primary";
     case "booking":      return "bg-blue-500/10 text-blue-500";
     case "reminder":     return "bg-orange-500/10 text-orange-500";
     case "plan":         return "bg-primary/10 text-primary";
-    case "announcement": return "bg-amber-500/10 text-amber-500";
+    case "announcement": return "bg-attention/10 text-attention";
     default:             return "bg-muted text-muted-foreground";
   }
 }

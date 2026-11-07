@@ -86,7 +86,7 @@ export function InvoiceQrPanel({
         </div>
       </div>
 
-      <div className={`flex flex-col items-center justify-center gap-2 rounded-radius-md p-4 sm:flex-row ${isPaid ? "bg-green-500/10" : isExpired ? "bg-muted" : "bg-bitcoin/10"}`}>
+      <div className={`flex flex-col items-center justify-center gap-2 rounded-radius-md p-4 sm:flex-row ${isPaid ? "bg-positive/10" : isExpired ? "bg-muted" : "bg-bitcoin/10"}`}>
         {isExpired && !isPaid ? (
           <>
             <Clock className="h-5 w-5 shrink-0 text-muted-foreground" />
@@ -101,8 +101,8 @@ export function InvoiceQrPanel({
           </>
         ) : isPaid ? (
           <>
-            <CheckCircle2 className="h-5 w-5 text-green-500" />
-            <span className="text-sm font-medium text-green-500">
+            <CheckCircle2 className="h-5 w-5 text-positive" />
+            <span className="text-sm font-medium text-positive">
               {mode === "lightning" ? "Payment confirmed!" : "Payment detected!"} {successLabel}
             </span>
           </>

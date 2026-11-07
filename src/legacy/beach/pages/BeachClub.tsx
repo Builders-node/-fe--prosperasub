@@ -319,7 +319,7 @@ const BeachClub = () => {
 
         {/* ─── Plans ──────────────────────────────────────────────── */}
         <section id="entertainment-plans" className="mt-space-6 scroll-mt-4">
-          <h2 className="mb-4 text-[20px] font-semibold tracking-[-0.4px] text-foreground">Plans</h2>
+          <h2 className="mb-4 text-heading font-semibold text-foreground">Plans</h2>
 
           {plansQ.isLoading ? (
             <div className="grid gap-3 md:gap-4 md:grid-cols-2">

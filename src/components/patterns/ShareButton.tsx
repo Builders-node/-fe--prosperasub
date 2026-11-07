@@ -116,7 +116,7 @@ export function ShareButton({
         className,
       )}
     >
-      {copied ? <Check className="h-6 w-6 text-emerald-500" /> : <Share2 className="h-6 w-6" />}
+      {copied ? <Check className="h-6 w-6 text-positive" /> : <Share2 className="h-6 w-6" />}
     </button>
   );
 }

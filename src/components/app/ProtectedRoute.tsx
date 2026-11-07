@@ -149,8 +149,8 @@ function UnauthenticatedGate({ redirectTo }: { redirectTo: string }) {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background px-6 text-center">
       <div>
-        <p className="text-[20px] font-semibold tracking-[-0.4px] text-foreground">Sign in to continue</p>
-        <p className="mt-1 text-[12px] tracking-[-0.24px] text-muted-foreground">
+        <p className="text-heading font-semibold text-foreground">Sign in to continue</p>
+        <p className="mt-1 text-meta text-muted-foreground">
           This page is yours — it needs an account to know which one.
         </p>
       </div>

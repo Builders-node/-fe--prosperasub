@@ -1078,7 +1078,7 @@ function CustomerCredit({ userId }: { userId: string }) {
               {data.entries.slice(0, 5).map((e, i) => (
                 <li key={i} className="flex justify-between gap-2 py-1.5">
                   <span className="truncate text-muted-foreground">{e.note || "—"}</span>
-                  <span className={e.amountCents < 0 ? "tabular-nums text-destructive" : "tabular-nums text-emerald-500"}>
+                  <span className={e.amountCents < 0 ? "tabular-nums text-destructive" : "tabular-nums text-positive"}>
                     {e.amountCents < 0 ? "" : "+"}{formatUSD(e.amountCents)}
                   </span>
                 </li>

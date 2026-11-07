@@ -126,7 +126,7 @@ export function ReferralPanel() {
         <span className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-radius-md bg-inset">
           <Gift className="h-6 w-6 text-primary" />
         </span>
-        <h2 className="text-[20px] font-semibold tracking-[-0.4px] text-foreground">
+        <h2 className="text-heading font-semibold text-foreground">
           {paysOut
             ? t("referral.headline", { amount: usd(data.rewardCents) })
             : t("referral.headlinePlain")}
@@ -206,7 +206,7 @@ export function ReferralPanel() {
                 </span>
                 <span className={
                   person.status === "qualified"
-                    ? "shrink-0 text-[13px] font-semibold text-emerald-500"
+                    ? "shrink-0 text-[13px] font-semibold text-positive"
                     : "shrink-0 text-[13px] text-muted-foreground"
                 }>
                   {person.status !== "qualified"

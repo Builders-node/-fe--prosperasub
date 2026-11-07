@@ -776,7 +776,7 @@ export default function Cart() {
       {showStickyCheckout && (
         <CheckoutStickyFooter>
           {enabledMethods.length === 0 && (
-            <p className="mb-2 rounded-xl bg-amber-500/10 px-3 py-2 text-center text-xs text-amber-400">
+            <p className="mb-2 rounded-xl bg-attention/10 px-3 py-2 text-center text-xs text-attention">
               Payments are temporarily unavailable. Try again in a few minutes.
             </p>
           )}

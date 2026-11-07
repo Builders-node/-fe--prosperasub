@@ -342,7 +342,7 @@ const FoodListing = () => {
         {/* ─── Meal Plans ──────────────────────────────────────────── */}
         {(plansLoading || allPlans.length > 0) && (
           <>
-            <h2 className="mb-3 mt-space-8 text-[20px] font-semibold tracking-[-0.4px] text-foreground">
+            <h2 className="mb-3 mt-space-8 text-heading font-semibold text-foreground">
               Plans
               {/* No count until the offers land. It is computed from a list that
                   still has one row per combination, so it would say six and

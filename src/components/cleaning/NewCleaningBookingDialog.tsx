@@ -779,7 +779,7 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
                   <Label>End time</Label>
                   <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
                 </div>
-                <p className="col-span-2 text-xs text-amber-500">
+                <p className="col-span-2 text-xs text-attention">
                   This provider has no slot grid yet, so the visit will create its own time. Seed the
                   slots to keep bookings on one schedule.
                 </p>
@@ -959,7 +959,7 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
                   Days the provider doesn't run {startTime} are skipped
                   {cadence === "daily" || weekdays.length ? "" : " — a visit that lands on one moves to the next working day"}.
                   {droppedVisits > 0 && (
-                    <span className="text-amber-500"> {droppedVisits} visit{droppedVisits === 1 ? "" : "s"} had no working day left and won't be booked.</span>
+                    <span className="text-attention"> {droppedVisits} visit{droppedVisits === 1 ? "" : "s"} had no working day left and won't be booked.</span>
                   )}
                 </p>
               ) : null}

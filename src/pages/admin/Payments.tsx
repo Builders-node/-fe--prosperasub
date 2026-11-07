@@ -90,7 +90,7 @@ const formatNotificationDate = (value: string) =>
 // own shades of green and red, so "sent" here and "paid" one tab over were
 // two different greens for the same good news.
 const notificationStatusClass = (status: string) => {
-  if (status === "sent") return "bg-emerald-500/15 text-emerald-500";
+  if (status === "sent") return "bg-positive/15 text-positive";
   if (status === "failed") return "bg-destructive/15 text-destructive";
   if (status === "skipped") return "bg-muted text-muted-foreground";
   return "bg-primary/15 text-primary";
@@ -448,7 +448,7 @@ const AdminPayments = () => {
                         }}
                       />
                     </div>
-                    <Badge variant="secondary" className={enabled ? "bg-green-500/15 text-green-600 dark:text-green-400" : ""}>
+                    <Badge variant="secondary" className={enabled ? "bg-positive/15 text-positive dark:text-positive" : ""}>
                       {enabled ? "On" : "Off"}
                     </Badge>
                     <Switch
@@ -631,8 +631,8 @@ const AdminPayments = () => {
                 </div>
 
                 {testPayPalPaid ? (
-                  <div className="rounded-radius-lg border border-green-500/40 bg-green-500/10 p-space-4 text-sm">
-                    <p className="font-semibold text-green-600 dark:text-green-400">Test payment captured ✓</p>
+                  <div className="rounded-radius-lg border border-positive/40 bg-positive/10 p-space-4 text-sm">
+                    <p className="font-semibold text-positive dark:text-positive">Test payment captured ✓</p>
                     <p className="mt-1 break-all text-xs text-muted-foreground">Capture id: {testPayPalPaid}</p>
                     <Button
                       className="mt-space-3"
@@ -842,7 +842,7 @@ function FinanceTile({
 }) {
   return (
     <div
-      className={`flex flex-col gap-2 rounded-radius-md bg-card p-4 ${warning ? "bg-amber-500/10" : ""} ${className ?? ""}`}
+      className={`flex flex-col gap-2 rounded-radius-md bg-card p-4 ${warning ? "bg-attention/10" : ""} ${className ?? ""}`}
     >
       <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
         {label}
@@ -850,7 +850,7 @@ function FinanceTile({
       <p
         className={
           "text-2xl font-black tabular-nums tracking-tight md:text-3xl " +
-          (accent ? "text-primary" : warning ? "text-amber-500" : "text-foreground")
+          (accent ? "text-primary" : warning ? "text-attention" : "text-foreground")
         }
       >
         {value}

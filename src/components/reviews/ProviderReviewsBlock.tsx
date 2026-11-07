@@ -189,7 +189,7 @@ export function ProviderReviewsBlock({ providerId, service, ownerUserId, placeho
   return (
     <section className="flex flex-col gap-3">
       <div className="flex items-center gap-3">
-        <h2 className="min-w-0 flex-1 text-[20px] font-semibold tracking-[-0.4px] text-foreground">Reviews</h2>
+        <h2 className="min-w-0 flex-1 text-heading font-semibold text-foreground">Reviews</h2>
         {reviews.length > 0 && (
           <span className="flex shrink-0 items-center gap-1">
             <StarIcon className="h-[18px] w-[18px] text-primary" />
@@ -205,7 +205,7 @@ export function ProviderReviewsBlock({ providerId, service, ownerUserId, placeho
       {!canPost && !isLoading && (
         <div className="flex items-start gap-2 rounded-radius-md bg-inset px-4 py-3">
           <InfoIcon className="h-[22px] w-[22px] shrink-0 text-primary" />
-          <p className="flex-1 text-[16px] leading-[22px] tracking-[-0.32px] text-muted-foreground">
+          <p className="flex-1 text-title leading-[22px] text-muted-foreground">
             Only clients can leave a review
           </p>
         </div>
@@ -213,7 +213,7 @@ export function ProviderReviewsBlock({ providerId, service, ownerUserId, placeho
 
       {canPost && (
         <div className="rounded-radius-md bg-inset px-4 py-3">
-          <p className="text-[16px] font-semibold leading-[22px] tracking-[-0.32px] text-foreground">
+          <p className="text-title font-semibold leading-[22px] text-foreground">
             {myReview ? "Your review" : "Leave a review"}
           </p>
           <div className="mt-2">
@@ -256,8 +256,8 @@ export function ProviderReviewsBlock({ providerId, service, ownerUserId, placeho
         <div className="flex flex-col items-center gap-4 rounded-radius-md p-4 text-center">
           <CommentIcon className="h-8 w-8 text-primary" />
           <div className="space-y-1">
-            <p className="text-[16px] font-semibold leading-[22px] tracking-[-0.32px] text-foreground">No reviews</p>
-            <p className="text-[16px] leading-[22px] tracking-[-0.32px] text-muted-foreground">
+            <p className="text-title font-semibold leading-[22px] text-foreground">No reviews</p>
+            <p className="text-title leading-[22px] text-muted-foreground">
               Be the first to share your experience
             </p>
           </div>
@@ -268,7 +268,7 @@ export function ProviderReviewsBlock({ providerId, service, ownerUserId, placeho
             {shown.map((r) => (
               <div key={r.id} className="rounded-radius-md bg-inset px-4 py-3">
                 <div className="flex items-start gap-1">
-                  <p className="min-w-0 flex-1 truncate text-[16px] font-semibold leading-[22px] tracking-[-0.32px] text-foreground">
+                  <p className="min-w-0 flex-1 truncate text-title font-semibold leading-[22px] text-foreground">
                     {r.customer_name ?? "Customer"}
                   </p>
                   <span className="flex shrink-0 items-center gap-1">
@@ -289,7 +289,7 @@ export function ProviderReviewsBlock({ providerId, service, ownerUserId, placeho
                   )}
                 </div>
                 {r.comment && (
-                  <p className="mt-1 text-[16px] leading-[22px] tracking-[-0.32px] text-muted-foreground">
+                  <p className="mt-1 text-title leading-[22px] text-muted-foreground">
                     {r.comment}
                   </p>
                 )}
@@ -303,7 +303,7 @@ export function ProviderReviewsBlock({ providerId, service, ownerUserId, placeho
             <button
               type="button"
               onClick={() => setExpanded((v) => !v)}
-              className="w-full rounded-radius-md px-4 py-2 text-center text-[16px] leading-[22px] tracking-[-0.32px] text-muted-foreground transition-colors hover:text-foreground"
+              className="w-full rounded-radius-md px-4 py-2 text-center text-title leading-[22px] text-muted-foreground transition-colors hover:text-foreground"
             >
               {expanded ? "Show fewer reviews" : `Show all reviews (${reviews.length})`}
             </button>

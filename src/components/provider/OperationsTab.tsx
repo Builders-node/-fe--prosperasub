@@ -51,10 +51,10 @@ interface Occurrence {
 
 const STATUS_META: Record<string, { label: string; tint: string }> = {
   scheduled: { label: "Scheduled", tint: "bg-muted text-muted-foreground" },
-  done:      { label: "Done",      tint: "bg-emerald-500/15 text-emerald-500" },
+  done:      { label: "Done",      tint: "bg-positive/15 text-positive" },
   failed:    { label: "Failed",    tint: "bg-destructive/15 text-destructive" },
   cancelled: { label: "Cancelled", tint: "bg-muted text-muted-foreground" },
-  rescheduled: { label: "Moved",   tint: "bg-amber-500/15 text-amber-500" },
+  rescheduled: { label: "Moved",   tint: "bg-attention/15 text-attention" },
 };
 
 
@@ -244,7 +244,7 @@ export function OperationsTab({ providerId }: { providerId: string }) {
               <li key={r.id} className="rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="flex flex-wrap items-center gap-2 text-[16px] font-semibold tracking-[-0.32px] text-foreground">
+                    <p className="flex flex-wrap items-center gap-2 text-title font-semibold text-foreground">
                       <span className="tabular-nums">{timeOf(r.starts_at)}</span>
                       {/* Whose it is. The one question the person doing the
                           work asks, and the only one this screen could not
@@ -261,12 +261,12 @@ export function OperationsTab({ providerId }: { providerId: string }) {
                       </span>
                     </p>
                     {r.customer_email && (
-                      <p className="mt-0.5 text-[12px] tracking-[-0.24px] text-muted-foreground">
+                      <p className="mt-0.5 text-meta text-muted-foreground">
                         {r.customer_email}
                       </p>
                     )}
                     {(r.notes || r.status_reason || r.access_instructions) && (
-                      <p className="mt-1 text-[12px] tracking-[-0.24px] text-muted-foreground">
+                      <p className="mt-1 text-meta text-muted-foreground">
                         {[r.status_reason, r.notes, r.access_instructions].filter(Boolean).join(" · ")}
                       </p>
                     )}

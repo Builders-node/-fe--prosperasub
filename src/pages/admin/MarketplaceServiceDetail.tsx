@@ -134,7 +134,7 @@ export default function MarketplaceServiceDetail() {
     return (
       <SuperAdminLayout title="Service not found">
         <div className="rounded-radius-md bg-card p-8 text-center">
-          <AlertTriangle className="mx-auto h-8 w-8 text-amber-400" />
+          <AlertTriangle className="mx-auto h-8 w-8 text-attention" />
           <p className="mt-3 font-bold text-foreground">No service named "{key}"</p>
           <p className="mt-1 text-sm text-muted-foreground">
             It may have been renamed or deleted.
@@ -241,7 +241,7 @@ export default function MarketplaceServiceDetail() {
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction
                 onClick={() => remove.mutate()}
-                className="bg-red-600 text-white hover:bg-red-600/90"
+                className="bg-negative text-white hover:bg-negative/90"
               >
                 Delete
               </AlertDialogAction>

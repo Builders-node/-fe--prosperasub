@@ -78,9 +78,9 @@ export function AnalyticsView({
     <div className="space-y-space-6">
       {/* 1 — the same four figures on every screen. */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard icon={TrendingUp} label="Total Revenue" value={formatUSD(figures.revenueCents)} accent="text-green-400" />
+        <KpiCard icon={TrendingUp} label="Total Revenue" value={formatUSD(figures.revenueCents)} accent="text-positive" />
         <KpiCard icon={TrendingUp} label={`Revenue — ${monthLabel}`} value={formatUSD(figures.monthRevenueCents)} accent="text-blue-400" />
-        <KpiCard icon={Layers} label="Active Subscriptions" value={String(figures.active)} accent="text-yellow-400" />
+        <KpiCard icon={Layers} label="Active Subscriptions" value={String(figures.active)} accent="text-attention" />
         <KpiCard icon={Users} label="Customers" value={String(figures.customers)} accent="text-purple-400" />
       </div>
 
@@ -91,14 +91,14 @@ export function AnalyticsView({
         </Card>
         <Card title="Subscription Status" icon={Layers}>
           <div className="space-y-3">
-            <StatusBar label="Active" count={figures.active} total={figures.subs} color="bg-green-500" textColor="text-green-400" />
+            <StatusBar label="Active" count={figures.active} total={figures.subs} color="bg-positive" textColor="text-positive" />
             <StatusBar label="Expired" count={figures.expired} total={figures.subs} color="bg-blue-500" textColor="text-blue-400" />
-            <StatusBar label="Paused" count={figures.paused} total={figures.subs} color="bg-yellow-500" textColor="text-yellow-400" />
+            <StatusBar label="Paused" count={figures.paused} total={figures.subs} color="bg-attention" textColor="text-attention" />
             <StatusBar label="Cancelled" count={figures.cancelled} total={figures.subs} color="bg-muted-foreground" textColor="text-muted-foreground" />
           </div>
           <div className="flex items-center justify-between border-t border-border pt-3 text-[16px] leading-[22px]">
             <span className="text-muted-foreground">Awaiting payment</span>
-            <span className={`font-semibold tabular-nums ${figures.awaitingPayment > 0 ? "text-amber-500" : "text-foreground"}`}>
+            <span className={`font-semibold tabular-nums ${figures.awaitingPayment > 0 ? "text-attention" : "text-foreground"}`}>
               {figures.awaitingPayment}
             </span>
           </div>

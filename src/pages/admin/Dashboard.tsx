@@ -278,14 +278,14 @@ const AdminDashboard = () => {
                     <Icon className="h-4 w-4 text-muted-foreground" />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[16px] font-semibold tracking-[-0.32px] text-foreground">
+                    <p className="truncate text-title font-semibold text-foreground">
                       {row.userLabel} · {row.serviceLabel}
                     </p>
-                    <p className="mt-0.5 text-[12px] tracking-[-0.24px] text-muted-foreground">
+                    <p className="mt-0.5 text-meta text-muted-foreground">
                       {format(new Date(row.createdAt), "MMM d, yyyy · h:mm a")}
                     </p>
                   </div>
-                  <span className="shrink-0 text-[16px] font-semibold tabular-nums tracking-[-0.32px] text-primary">
+                  <span className="shrink-0 text-title font-semibold tabular-nums text-primary">
                     {formatUSD(row.amountCents)}
                   </span>
                   <Button
@@ -323,23 +323,23 @@ const AdminDashboard = () => {
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] bg-muted">
                     <Icon className="h-4 w-4 text-muted-foreground" />
                   </span>
-                  <span className="truncate text-[16px] font-semibold tracking-[-0.32px] text-foreground">
+                  <span className="truncate text-title font-semibold text-foreground">
                     {meta.label}
                   </span>
                   <ArrowUpRight className="ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
                 </div>
                 <div className="flex items-end justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="truncate text-[20px] font-semibold tabular-nums tracking-[-0.4px] text-foreground">
+                    <p className="truncate text-heading font-semibold tabular-nums text-foreground">
                       {formatUSD(st?.revenueCents ?? 0)}
                     </p>
-                    <p className="text-[12px] tracking-[-0.24px] text-muted-foreground">Revenue</p>
+                    <p className="text-meta text-muted-foreground">Revenue</p>
                   </div>
                   <div className="min-w-0 text-right">
-                    <p className="text-[20px] font-semibold tabular-nums tracking-[-0.4px] text-foreground">
+                    <p className="text-heading font-semibold tabular-nums text-foreground">
                       {st?.active ?? 0}
                     </p>
-                    <p className="text-[12px] tracking-[-0.24px] text-muted-foreground">Active</p>
+                    <p className="text-meta text-muted-foreground">Active</p>
                   </div>
                 </div>
               </Link>
@@ -362,8 +362,8 @@ const AdminDashboard = () => {
           />
         ) : recentActivity.length === 0 ? (
           <div className="rounded-radius-md bg-card p-8 text-center">
-            <p className="text-[16px] font-semibold tracking-[-0.32px] text-foreground">Nothing yet today</p>
-            <p className="mt-1 text-[12px] tracking-[-0.24px] text-muted-foreground">
+            <p className="text-title font-semibold text-foreground">Nothing yet today</p>
+            <p className="mt-1 text-meta text-muted-foreground">
               Sales across every service appear here as they happen.
             </p>
           </div>
@@ -382,14 +382,14 @@ const AdminDashboard = () => {
                     <Icon className="h-4 w-4 text-muted-foreground" />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[16px] font-semibold tracking-[-0.32px] text-foreground">{a.label}</p>
-                    <p className="mt-0.5 text-[12px] tracking-[-0.24px] text-muted-foreground">
+                    <p className="truncate text-title font-semibold text-foreground">{a.label}</p>
+                    <p className="mt-0.5 text-meta text-muted-foreground">
                       {format(new Date(a.date), "MMM d, yyyy · h:mm a")}
                     </p>
                   </div>
                   <span
                     className={cn(
-                      "shrink-0 text-[16px] font-semibold tabular-nums tracking-[-0.32px]",
+                      "shrink-0 text-title font-semibold tabular-nums",
                       a.tone === "pending" ? "text-primary" : "text-foreground",
                     )}
                   >
@@ -425,7 +425,7 @@ function MetricTile({
       )}
     >
       <div className="flex items-center gap-2">
-        <span className="truncate text-[12px] tracking-[-0.24px] text-muted-foreground">{label}</span>
+        <span className="truncate text-meta text-muted-foreground">{label}</span>
         <ArrowUpRight className="ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
       </div>
       <p

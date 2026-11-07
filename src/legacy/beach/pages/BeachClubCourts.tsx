@@ -577,7 +577,7 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-bold text-foreground">{c.name}</span>
                     <Badge variant="secondary" className="text-[10px] capitalize">{c.type}</Badge>
-                    <Badge className={c.is_active ? "bg-green-500/15 text-green-400" : "bg-muted text-muted-foreground"}>
+                    <Badge className={c.is_active ? "bg-positive/15 text-positive" : "bg-muted text-muted-foreground"}>
                       {c.is_active ? "Active" : "Hidden"}
                     </Badge>
                   </div>

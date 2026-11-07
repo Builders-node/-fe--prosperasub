@@ -6,7 +6,13 @@ import { extendTailwindMerge } from "tailwind-merge";
 // values, so it fails to dedupe e.g. `p-space-4` against a default `pt-0`,
 // leaving both classes and silently collapsing top padding to 0. Register the
 // custom scales so class overrides merge correctly.
-const SPACE = ["space-1", "space-2", "space-3", "space-4", "space-5", "space-6", "space-8"];
+// Every spacing token tailwind.config defines — the list stopped at space-8,
+// so an override on space-10…24 (Button xl, UserLayout's bottom pad) was kept
+// alongside the original and the winner was decided by CSS order.
+const SPACE = [
+  "space-1", "space-2", "space-3", "space-4", "space-5", "space-6", "space-8",
+  "space-10", "space-12", "space-16", "space-20", "space-24",
+];
 const RADIUS = ["radius-xs", "radius-sm", "radius-md", "radius-lg", "radius-xl", "radius-full"];
 
 /**
@@ -18,6 +24,7 @@ const RADIUS = ["radius-xs", "radius-sm", "radius-md", "radius-lg", "radius-xl",
  * override, the same reason the spacing and radius scales are listed above.
  */
 const FONT_SIZE = [
+  "heading", "title", "meta", "2xs",
   "caption", "label", "control", "body", "body-lg",
   "card-title", "panel-title", "section-title", "page-title",
 ];

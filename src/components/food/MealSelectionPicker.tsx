@@ -88,7 +88,7 @@ export function MealSelectionPicker({
         <p
           className={cn(
             "text-xs font-bold tabular-nums",
-            isValid ? "text-emerald-500" : "text-muted-foreground",
+            isValid ? "text-positive" : "text-muted-foreground",
           )}
         >
           {value.length} / {cap}

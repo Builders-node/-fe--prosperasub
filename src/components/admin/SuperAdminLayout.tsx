@@ -281,7 +281,7 @@ const SuperAdminLayout = ({ children, title, subtitle }: SuperAdminLayoutProps) 
                 {title}
               </h1>
               {subtitle && (
-                <p className="mt-1 text-[12px] tracking-[-0.24px] text-muted-foreground md:text-[14px]">
+                <p className="mt-1 text-meta text-muted-foreground md:text-[14px]">
                   {subtitle}
                 </p>
               )}

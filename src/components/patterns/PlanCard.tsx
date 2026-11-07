@@ -65,8 +65,8 @@ export interface PlanCardProps {
 export function RatingLine({ rating, className }: { rating?: PlanCardRating | null; className?: string }) {
   if (!rating || rating.count < 1) return null;
   return (
-    <span className={cn("inline-flex items-center gap-1 text-[12px] font-semibold tracking-[-0.24px] text-foreground", className)}>
-      <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+    <span className={cn("inline-flex items-center gap-1 text-meta font-semibold text-foreground", className)}>
+      <Star className="h-3.5 w-3.5 fill-primary text-primary" />
       {rating.average.toFixed(1)}
       <span className="font-normal text-muted-foreground">({rating.count})</span>
     </span>
@@ -147,7 +147,7 @@ export function PlanCard({
         {/* The "Most Popular" pill used to sit here and took two thirds of the
             width, leaving "Toyota Rai…". The tinted background says the same
             thing and costs no room. */}
-        <h3 className="truncate text-[16px] font-semibold tracking-[-0.32px] text-foreground" title={featured ? `${title} — ${featuredLabel}` : title}>
+        <h3 className="truncate text-title font-semibold text-foreground" title={featured ? `${title} — ${featuredLabel}` : title}>
           {title}
         </h3>
 
@@ -159,7 +159,7 @@ export function PlanCard({
           // blockified, which turns `-webkit-box` into `flow-root` and makes
           // line-clamp a no-op. Clamping only works one level in.
           <div className="min-h-0 flex-1 overflow-hidden">
-            <p className="line-clamp-2 text-[12px] leading-[1.35] tracking-[-0.24px] text-muted-foreground">
+            <p className="line-clamp-2 text-meta leading-[1.35] text-muted-foreground">
               {meta}
             </p>
           </div>
@@ -178,13 +178,13 @@ export function PlanCard({
             {hasPrice ? (
               <>
                 {price.from && (
-                  <span className="pb-px text-[12px] tracking-[-0.24px] text-muted-foreground">From</span>
+                  <span className="pb-px text-meta text-muted-foreground">From</span>
                 )}
-                <span className="text-[16px] font-semibold tabular-nums tracking-[-0.32px] text-foreground">
+                <span className="text-title font-semibold tabular-nums text-foreground">
                   {formatUSD(price.cents!)}
                 </span>
                 {price.unit && (
-                  <span className="pb-px text-[12px] tracking-[-0.24px] text-muted-foreground">{price.unit}</span>
+                  <span className="pb-px text-meta text-muted-foreground">{price.unit}</span>
                 )}
               </>
             ) : (

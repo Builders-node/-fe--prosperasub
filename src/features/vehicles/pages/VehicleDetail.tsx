@@ -153,7 +153,7 @@ export default function VehicleDetail() {
               <Link
                 key={crumb.label}
                 to={crumb.href}
-                className="flex shrink-0 items-start gap-0.5 rounded-radius-md bg-inset py-1 pl-2 pr-1 text-[12px] font-medium leading-4 tracking-[-0.24px] text-muted-foreground transition-colors hover:text-foreground"
+                className="flex shrink-0 items-start gap-0.5 rounded-radius-md bg-inset py-1 pl-2 pr-1 text-meta font-medium leading-4 text-muted-foreground transition-colors hover:text-foreground"
               >
                 <span className="max-w-[45vw] truncate">{crumb.label}</span>
                 <ChevronRight className="h-4 w-4 shrink-0" />
@@ -167,10 +167,10 @@ export default function VehicleDetail() {
                 named "Brand Model Year", and repeating that directly under the
                 h1 was the page's first line of noise. */}
             {specLine && (
-              <p className="text-[12px] leading-4 tracking-[-0.24px] text-muted-foreground">{specLine}</p>
+              <p className="text-meta leading-4 text-muted-foreground">{specLine}</p>
             )}
             {v.description && (
-              <p className="text-[16px] leading-[22px] tracking-[-0.32px] text-muted-foreground">{v.description}</p>
+              <p className="text-title leading-[22px] text-muted-foreground">{v.description}</p>
             )}
           </div>
 
@@ -180,7 +180,7 @@ export default function VehicleDetail() {
               return (
                 <span
                   key={i}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-inset px-3 py-1.5 text-[12px] tracking-[-0.24px] text-muted-foreground"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-inset px-3 py-1.5 text-meta text-muted-foreground"
                 >
                   <Icon className="h-3.5 w-3.5" /> {sp.label}
                 </span>
@@ -191,14 +191,14 @@ export default function VehicleDetail() {
         </section>
 
         <section className="space-y-3 rounded-radius-lg bg-card p-4 shadow-figma">
-          <h2 className="text-[20px] font-semibold tracking-[-0.4px] text-foreground">Choose your dates</h2>
+          <h2 className="text-heading font-semibold text-foreground">Choose your dates</h2>
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <span className="text-[24px] font-semibold tabular-nums tracking-[-0.48px] text-foreground">
               {formatUSD(v.daily_price_cents)}
-              <span className="text-[12px] font-normal tracking-[-0.24px] text-muted-foreground"> / day</span>
+              <span className="text-meta font-normal text-muted-foreground"> / day</span>
             </span>
             {(v.weekly_price_cents > 0 || v.monthly_price_cents > 0) && (
-              <span className="text-[12px] tracking-[-0.24px] text-muted-foreground">
+              <span className="text-meta text-muted-foreground">
                 {[
                   v.weekly_price_cents > 0 ? `${formatUSD(v.weekly_price_cents)} ${unitSuffix({ period: "weekly" })}` : null,
                   v.monthly_price_cents > 0 ? `${formatUSD(v.monthly_price_cents)} ${unitSuffix({ period: "monthly" })}` : null,
@@ -228,17 +228,17 @@ export default function VehicleDetail() {
 
           {pricing && (
             <div className="space-y-1.5 rounded-radius-md bg-inset p-3">
-              <div className="flex justify-between text-[12px] tracking-[-0.24px] text-muted-foreground">
+              <div className="flex justify-between text-meta text-muted-foreground">
                 <span>{formatUSD(pricing.effectiveDailyRate)} × {pricing.rentalDays} days</span>
                 <span className="tabular-nums">{formatUSD(pricing.subtotalCents)}</span>
               </div>
               {pricing.discountCents > 0 && (
-                <div className="flex justify-between text-[12px] tracking-[-0.24px] text-muted-foreground">
+                <div className="flex justify-between text-meta text-muted-foreground">
                   <span>Longer-rental discount</span>
                   <span className="tabular-nums text-primary">−{formatUSD(pricing.discountCents)}</span>
                 </div>
               )}
-              <div className="flex justify-between text-[16px] font-semibold tracking-[-0.32px] text-foreground">
+              <div className="flex justify-between text-title font-semibold text-foreground">
                 <span>Total</span>
                 <span className="tabular-nums">{formatUSD(pricing.totalCents)}</span>
               </div>

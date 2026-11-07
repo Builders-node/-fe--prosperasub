@@ -71,7 +71,7 @@ const SearchPage = () => {
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search on EverySub"
               aria-label="Search on EverySub"
-              className="min-w-0 flex-1 bg-transparent text-[16px] tracking-[-0.32px] text-foreground outline-none placeholder:text-muted-foreground"
+              className="min-w-0 flex-1 bg-transparent text-title text-foreground outline-none placeholder:text-muted-foreground"
             />
             {query && (
               <button
@@ -97,13 +97,13 @@ const SearchPage = () => {
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search on EverySub"
             aria-label="Search on EverySub"
-            className="min-w-0 flex-1 bg-transparent py-1 text-[16px] tracking-[-0.32px] text-foreground outline-none placeholder:text-muted-foreground"
+            className="min-w-0 flex-1 bg-transparent py-1 text-title text-foreground outline-none placeholder:text-muted-foreground"
           />
         </div>
 
         {!query.trim() ? (
           <section className="space-y-3">
-            <h2 className="text-[20px] font-semibold tracking-[-0.4px] text-foreground">
+            <h2 className="text-heading font-semibold text-foreground">
               Browse categories
             </h2>
             <div className="overflow-hidden rounded-radius-md bg-card">
@@ -117,11 +117,11 @@ const SearchPage = () => {
                   )}
                 >
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[16px] font-semibold tracking-[-0.32px] text-foreground">
+                    <span className="block truncate text-title font-semibold text-foreground">
                       {h.label}
                     </span>
                     {h.archetype && (
-                      <span className="block truncate text-[12px] tracking-[-0.24px] text-muted-foreground">
+                      <span className="block truncate text-meta text-muted-foreground">
                         {h.archetype.label}
                       </span>
                     )}
@@ -177,11 +177,11 @@ function ResultRow({ hit, divided }: { hit: SearchHit; divided: boolean }) {
       )}
     >
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[16px] font-semibold tracking-[-0.32px] text-foreground">
+        <span className="block truncate text-title font-semibold text-foreground">
           {hit.title}
         </span>
         {hit.subtitle && (
-          <span className="block truncate text-[12px] tracking-[-0.24px] text-muted-foreground">
+          <span className="block truncate text-meta text-muted-foreground">
             {hit.subtitle}
           </span>
         )}

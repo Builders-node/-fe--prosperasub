@@ -428,7 +428,7 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
                         no address, which the booking calendar and the calendar
                         provisioning both need. */}
                     {profile.missing.length > 0 && (
-                      <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-amber-500">
+                      <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-attention">
                         Profile {profile.percent}%
                       </span>
                     )}
@@ -679,7 +679,7 @@ function EditProviderForm({
           </SelectContent>
         </Select>
         {archetypeKey !== (provider.archetype_key ?? "__none") && archetypeKey !== "__none" && (
-          <p className="mt-1 text-xs text-amber-400">
+          <p className="mt-1 text-xs text-attention">
             Changing service will merge archetype defaults into capabilities.
           </p>
         )}
@@ -903,7 +903,7 @@ function CreateProviderForm({
           </p>
         )}
         {bespokeListing && (
-          <p className="mt-1 text-xs text-amber-400">
+          <p className="mt-1 text-xs text-attention">
             Customers see this service through the built-in {bespokeListing} page, which lists
             its own businesses only. A provider created here is manageable but will not appear
             on that page.

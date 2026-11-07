@@ -81,7 +81,7 @@ export function HomeHeader({ title, showBackButton = false, onBack, variant = "t
             className="flex min-w-0 flex-1 items-center gap-2 rounded-radius-md bg-background px-3 py-2 text-left transition-colors hover:bg-muted"
           >
             <SearchIcon className="h-6 w-6 shrink-0 text-muted-foreground" />
-            <span className="truncate text-[16px] tracking-[-0.32px] text-muted-foreground">
+            <span className="truncate text-title text-muted-foreground">
               {t("nav.search")}
             </span>
           </button>
@@ -132,7 +132,7 @@ export function HomeHeader({ title, showBackButton = false, onBack, variant = "t
         {/* Centred on the header, not on what is left of it — a long title has
             to stay centred whether or not there is a back button. */}
         <div className="pointer-events-none absolute inset-0 flex select-none items-center justify-center px-14">
-          <span className="truncate text-[16px] font-semibold tracking-[-0.32px] text-foreground">
+          <span className="truncate text-title font-semibold text-foreground">
             {title ?? "EverySub"}
           </span>
         </div>

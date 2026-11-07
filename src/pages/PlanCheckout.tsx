@@ -813,7 +813,7 @@ const UniversalPlanCheckout = () => {
           </div>
           {promoError && <p className="mt-1 text-[13px] text-destructive">{promoError}</p>}
           {promo && (
-            <p className="mt-1 text-[13px] text-emerald-500">
+            <p className="mt-1 text-[13px] text-positive">
               {promo.code} applied — {formatUSD(discountCents)} off
             </p>
           )}
@@ -868,9 +868,9 @@ const UniversalPlanCheckout = () => {
           <section className="overflow-hidden rounded-radius-md bg-card p-4">
             <h2 className="mb-4 text-xl font-semibold tracking-[-0.02em] text-foreground">Pay with PayPal</h2>
             {isPaid ? (
-              <div className="flex items-center justify-center gap-2 rounded-radius-md bg-green-500/10 p-4">
-                <CheckCircle2 className="h-5 w-5 text-green-500" />
-                <span className="text-sm font-medium text-green-500">Payment received! Activating…</span>
+              <div className="flex items-center justify-center gap-2 rounded-radius-md bg-positive/10 p-4">
+                <CheckCircle2 className="h-5 w-5 text-positive" />
+                <span className="text-sm font-medium text-positive">Payment received! Activating…</span>
               </div>
             ) : (
               <div className="space-y-4">
@@ -1003,7 +1003,7 @@ const UniversalPlanCheckout = () => {
           />
           )}
           {enabledMethods.length === 0 && (
-            <p className="mb-2 rounded-xl bg-amber-500/10 px-3 py-2 text-center text-xs text-amber-400">
+            <p className="mb-2 rounded-xl bg-attention/10 px-3 py-2 text-center text-xs text-attention">
               Payments are temporarily unavailable. Try again in a few minutes.
             </p>
           )}
@@ -1050,7 +1050,7 @@ function Stepper({ value, min, max, unit, onChange }: {
       <button type="button" aria-label="More"
         className="flex h-11 w-11 items-center justify-center rounded-radius-md bg-inset text-lg font-semibold text-foreground disabled:opacity-40"
         disabled={value >= max} onClick={() => onChange(Math.min(max, value + 1))}>+</button>
-      <span className="text-[12px] tracking-[-0.24px] text-muted-foreground">{unit}</span>
+      <span className="text-meta text-muted-foreground">{unit}</span>
     </div>
   );
 }

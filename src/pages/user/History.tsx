@@ -312,7 +312,7 @@ function HistoryRow({ entry }: { entry: HistoryEntry }) {
         {entry.amountCents != null ? (
           <p className={cn(
             "text-sm font-semibold tabular-nums",
-            isRefunded ? "text-emerald-500" : isPending ? "text-muted-foreground" : "text-foreground",
+            isRefunded ? "text-positive" : isPending ? "text-muted-foreground" : "text-foreground",
           )}>
             {isRefunded ? "+" : "−"}{formatUSD(entry.amountCents)}
           </p>
@@ -323,7 +323,7 @@ function HistoryRow({ entry }: { entry: HistoryEntry }) {
           <PaymentMethodBadge method={entry.paymentMethod} />
         )}
         {isPending && (
-          <span className="text-[10px] font-bold uppercase tracking-wider text-amber-500">Pending</span>
+          <span className="text-[10px] font-bold uppercase tracking-wider text-attention">Pending</span>
         )}
       </div>
     </div>

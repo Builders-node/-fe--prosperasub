@@ -151,7 +151,7 @@ export default function MarketplaceHub() {
                   </dl>
 
                   {pending > 0 && (
-                    <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-400">
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-attention">
                       <Inbox className="h-3.5 w-3.5" />
                       {pending} application{pending !== 1 ? "s" : ""} waiting
                     </div>
@@ -176,11 +176,11 @@ export default function MarketplaceHub() {
             {hasOrphans && (
               <Link
                 to="/admin/marketplace/service/unassigned"
-                className="group flex flex-col gap-4 rounded-radius-md border border-dashed border-amber-500/40 bg-card p-5 transition-colors hover:bg-muted/40"
+                className="group flex flex-col gap-4 rounded-radius-md border border-dashed border-attention/40 bg-card p-5 transition-colors hover:bg-muted/40"
               >
                 <div className="flex items-start gap-3">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-radius-md bg-amber-500/15">
-                    <AlertTriangle className="h-5 w-5 text-amber-400" />
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-radius-md bg-attention/15">
+                    <AlertTriangle className="h-5 w-5 text-attention" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-base font-black text-foreground">Unassigned</p>

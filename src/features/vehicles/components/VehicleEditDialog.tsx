@@ -168,7 +168,7 @@ export function VehicleEditDialog({ vehicle, onClose, onSaved, lockedProviderId 
                 <button
                   type="button"
                   onClick={() => void refetchProviders()}
-                  className="mt-1 text-[11px] font-semibold text-red-400 underline"
+                  className="mt-1 text-[11px] font-semibold text-negative underline"
                 >
                   Couldn't load the businesses — retry
                 </button>

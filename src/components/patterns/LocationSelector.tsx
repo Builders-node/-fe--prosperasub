@@ -61,7 +61,7 @@ export function LocationSelector({ variant = "chip", className }: Props) {
     >
       <LocationOnIcon className={cn("h-6 w-6 shrink-0", residence ? "text-primary" : "text-muted-foreground")} />
       <span className={cn(
-        "min-w-0 flex-1 truncate text-[16px] tracking-[-0.32px]",
+        "min-w-0 flex-1 truncate text-title",
         residence ? "text-foreground" : "text-muted-foreground",
       )}>
         {residence || t("nav.chooseLocation")}

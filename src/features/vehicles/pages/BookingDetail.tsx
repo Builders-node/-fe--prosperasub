@@ -157,8 +157,8 @@ export default function BookingDetail() {
             </div>
             <div className="p-5">
               <StatusLine status={booking.status} paid={isPaid} />
-              <h1 className="mt-2 text-[20px] font-semibold tracking-[-0.4px] text-foreground">{v?.name ?? "Car rental"}</h1>
-              <p className="mt-1 text-[12px] tracking-[-0.24px] text-muted-foreground">
+              <h1 className="mt-2 text-heading font-semibold text-foreground">{v?.name ?? "Car rental"}</h1>
+              <p className="mt-1 text-meta text-muted-foreground">
                 {dayText(booking.start_date)} → {dayText(booking.end_date)} · {booking.rental_days} day{booking.rental_days > 1 ? "s" : ""}
               </p>
               {booking.delivery_address && (
@@ -173,12 +173,12 @@ export default function BookingDetail() {
           {/* Finish paying, when there is still something to pay */}
           {!isPaid && !isCancelled && (
             <div className="space-y-3 rounded-radius-md bg-card p-5 shadow-figma">
-              <h2 className="text-[16px] font-semibold tracking-[-0.32px] text-foreground">
+              <h2 className="text-title font-semibold text-foreground">
                 {paying ? "Complete your payment" : "This booking isn't paid yet"}
               </h2>
               {!paying ? (
                 <>
-                  <p className="text-[12px] tracking-[-0.24px] text-muted-foreground">
+                  <p className="text-meta text-muted-foreground">
                     We're holding the car for these dates. Pay now to confirm it.
                   </p>
                   <PaymentMethodTiles value={method} onChange={setMethod} available={methods} />
@@ -206,10 +206,10 @@ export default function BookingDetail() {
 
           {isPaid && !isCancelled && (
             <div className="flex items-start gap-3 rounded-radius-md bg-card p-5 shadow-figma">
-              <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" />
+              <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-positive" />
               <div>
-                <p className="text-[16px] font-semibold tracking-[-0.32px] text-foreground">Paid and confirmed</p>
-                <p className="mt-1 text-[12px] tracking-[-0.24px] text-muted-foreground">
+                <p className="text-title font-semibold text-foreground">Paid and confirmed</p>
+                <p className="mt-1 text-meta text-muted-foreground">
                   We'll have the car ready for {dayText(booking.start_date)}. To change or cancel it, message us on WhatsApp.
                 </p>
               </div>
@@ -220,7 +220,7 @@ export default function BookingDetail() {
               involves a refund, which is a conversation, not a button. */}
           {!isPaid && !isCancelled && (
             <div className="rounded-radius-md bg-card p-5 shadow-figma">
-              <Button variant="ghost" className="text-red-500" disabled={cancelling} onClick={cancelBooking}>
+              <Button variant="ghost" className="text-negative" disabled={cancelling} onClick={cancelBooking}>
                 {cancelling && <Spinner size="sm" className="mr-2" />}
                 Cancel this booking
               </Button>
@@ -231,7 +231,7 @@ export default function BookingDetail() {
         {/* What it costs */}
         <div className="space-y-4 lg:sticky lg:top-20 lg:self-start">
           <div className="rounded-radius-md bg-card p-4 shadow-figma">
-            <h2 className="mb-3 text-[16px] font-semibold tracking-[-0.32px] text-foreground">Price</h2>
+            <h2 className="mb-3 text-title font-semibold text-foreground">Price</h2>
             <div className="space-y-1.5 text-[13px]">
               <Line label={`Car · ${booking.rental_days}d`} value={formatUSD(booking.subtotal_cents ?? 0)} />
               {Number(booking.discount_cents) > 0 && (
@@ -269,10 +269,10 @@ function Line({ label, value, accent }: { label: string; value: string; accent?:
 
 function StatusLine({ status, paid }: { status: string; paid: boolean }) {
   if (status === "cancelled") {
-    return <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-red-500"><XCircle className="h-4 w-4" /> Cancelled</span>;
+    return <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-negative"><XCircle className="h-4 w-4" /> Cancelled</span>;
   }
   if (paid) {
-    return <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-emerald-500"><CheckCircle2 className="h-4 w-4" /> Confirmed</span>;
+    return <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-positive"><CheckCircle2 className="h-4 w-4" /> Confirmed</span>;
   }
-  return <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-amber-500"><Clock className="h-4 w-4" /> Awaiting payment</span>;
+  return <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-attention"><Clock className="h-4 w-4" /> Awaiting payment</span>;
 }

@@ -256,9 +256,9 @@ export default function FoodSubscriptionDetail() {
 
         {/* Expiring-soon banner (still has access) */}
         {access && status === "expiring_soon" && (
-          <div className="flex flex-col gap-3 rounded-radius-lg border border-amber-500/30 bg-amber-500/10 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 rounded-radius-lg border border-attention/30 bg-attention/10 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-start gap-3">
-              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-attention" />
               <div>
                 <p className="font-bold text-foreground">{reason}</p>
                 <p className="text-sm text-muted-foreground">

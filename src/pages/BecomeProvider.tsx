@@ -14,9 +14,9 @@ import { SERVICES as SERVICE_REGISTRY, type ServiceKey } from "@/lib/services/re
 import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
 
 const STATUS_META: Record<string, { label: string; className: string; Icon: typeof Clock }> = {
-  pending:  { label: "Under review", className: "bg-amber-500/15 text-amber-400",   Icon: Clock },
-  approved: { label: "Approved",     className: "bg-green-500/15 text-green-400",   Icon: CheckCircle2 },
-  rejected: { label: "Not approved", className: "bg-red-500/15 text-red-400",       Icon: XCircle },
+  pending:  { label: "Under review", className: "bg-attention/15 text-attention",   Icon: Clock },
+  approved: { label: "Approved",     className: "bg-positive/15 text-positive",   Icon: CheckCircle2 },
+  rejected: { label: "Not approved", className: "bg-negative/15 text-negative",       Icon: XCircle },
 };
 
 export default function BecomeProvider() {
@@ -131,7 +131,7 @@ export default function BecomeProvider() {
                         <p className="truncate font-semibold">{a.business_name}</p>
                         <p className="text-xs text-muted-foreground">{label}</p>
                         {a.status === "rejected" && a.review_notes && (
-                          <p className="mt-1 text-xs text-red-400">Reason: {a.review_notes}</p>
+                          <p className="mt-1 text-xs text-negative">Reason: {a.review_notes}</p>
                         )}
                       </div>
                       <Badge className={`shrink-0 gap-1 rounded-full ${meta.className}`}>
@@ -146,9 +146,9 @@ export default function BecomeProvider() {
             {/* Persistent post-submit confirmation. Sits above the form so
                 the user sees the outcome even after scrolling down. */}
             {justSubmitted && (
-              <section className="rounded-radius-md bg-green-500/10 p-4">
+              <section className="rounded-radius-md bg-positive/10 p-4">
                 <div className="flex items-start gap-3">
-                  <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-500" />
+                  <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-positive" />
                   <div className="min-w-0 flex-1">
                     <p className="font-bold text-foreground">Application submitted</p>
                     <p className="mt-0.5 text-sm text-muted-foreground">

@@ -97,7 +97,7 @@ export function PlatformAnalytics() {
                     <TableCell className="px-3 py-3 text-right tabular-nums text-foreground">{s.active}</TableCell>
                     <TableCell className="px-3 py-3 text-right tabular-nums text-muted-foreground">{s.subs}</TableCell>
                     <TableCell className="px-3 py-3 text-right tabular-nums text-muted-foreground">{s.customers}</TableCell>
-                    <TableCell className={`px-3 py-3 text-right tabular-nums ${s.awaitingPayment > 0 ? "text-amber-500" : "text-muted-foreground"}`}>
+                    <TableCell className={`px-3 py-3 text-right tabular-nums ${s.awaitingPayment > 0 ? "text-attention" : "text-muted-foreground"}`}>
                       {s.awaitingPayment}
                     </TableCell>
                     <TableCell className="px-3 py-3">

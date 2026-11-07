@@ -26,22 +26,22 @@ import { cn } from "@/lib/utils";
 type Tone = "positive" | "attention" | "negative" | "neutral";
 
 const TONE_PILL: Record<Tone, string> = {
-  positive:  "bg-emerald-500/15 text-emerald-500",
-  attention: "bg-amber-500/15 text-amber-500",
+  positive:  "bg-positive/15 text-positive",
+  attention: "bg-attention/15 text-attention",
   negative:  "bg-destructive/15 text-destructive",
   neutral:   "bg-muted text-muted-foreground",
 };
 
 const TONE_DOT: Record<Tone, string> = {
-  positive:  "bg-emerald-500",
-  attention: "bg-amber-500",
+  positive:  "bg-positive",
+  attention: "bg-attention",
   negative:  "bg-destructive",
   neutral:   "bg-muted-foreground/40",
 };
 
 const TONE_TEXT: Record<Tone, string> = {
-  positive:  "text-emerald-600",
-  attention: "text-amber-600",
+  positive:  "text-positive",
+  attention: "text-attention",
   negative:  "text-destructive",
   neutral:   "text-muted-foreground",
 };

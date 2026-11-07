@@ -222,7 +222,7 @@ const MarketplaceReviews = ({ embedded = false, providerId: scopedProvider }: Ma
               <TableRow key={r.id} className={cn(r.hidden_at && "opacity-55")}>
                 <TableCell className="px-4 py-3">
                   <span className="inline-flex items-center gap-1 tabular-nums">
-                    <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                    <Star className="h-3.5 w-3.5 fill-primary text-primary" />
                     {r.rating ?? "—"}
                   </span>
                 </TableCell>
@@ -334,7 +334,7 @@ const MarketplaceReviews = ({ embedded = false, providerId: scopedProvider }: Ma
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deleteTarget && remove.mutate(deleteTarget)}
-              className="bg-red-600 text-white hover:bg-red-600/90"
+              className="bg-negative text-white hover:bg-negative/90"
             >
               Delete
             </AlertDialogAction>

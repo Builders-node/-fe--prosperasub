@@ -76,7 +76,7 @@ export function PlanOptionPicker({
                   !available && "cursor-not-allowed opacity-40",
                 )}
               >
-                <span className="w-full truncate text-center text-[16px] font-semibold leading-[22px] tracking-[-0.32px] text-foreground">
+                <span className="w-full truncate text-center text-title font-semibold leading-[22px] text-foreground">
                   {option.label}
                 </span>
                 {/* The caption slot the design gives to "per month" carries the
@@ -84,7 +84,7 @@ export function PlanOptionPicker({
                     cost of one more bedroom is visible before tapping. */}
                 {variant && (
                   <span className={cn(
-                    "w-full truncate text-center text-[12px] leading-4 tabular-nums tracking-[-0.24px]",
+                    "w-full truncate text-center text-meta leading-4 tabular-nums",
                     selected ? "text-foreground" : "text-muted-foreground",
                   )}>
                     {formatUSD(variant.priceCents)}

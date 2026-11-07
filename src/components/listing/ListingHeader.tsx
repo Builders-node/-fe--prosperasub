@@ -59,7 +59,7 @@ export function ListingHeader({
         onChange={(e) => onQueryChange(e.target.value)}
         placeholder={placeholder}
         aria-label={placeholder}
-        className="min-w-0 flex-1 bg-transparent text-[16px] tracking-[-0.32px] text-foreground outline-none placeholder:text-muted-foreground"
+        className="min-w-0 flex-1 bg-transparent text-title text-foreground outline-none placeholder:text-muted-foreground"
       />
       {query && (
         <button
@@ -122,7 +122,7 @@ export function ListingHeader({
                 type="button"
                 onClick={() => { onSortChange!(key); setFiltersOpen(false); }}
                 className={cn(
-                  "flex items-center justify-between rounded-radius-md px-4 py-3.5 text-left text-[16px] tracking-[-0.32px] transition-colors hover:bg-muted",
+                  "flex items-center justify-between rounded-radius-md px-4 py-3.5 text-left text-title transition-colors hover:bg-muted",
                   key === sort ? "font-semibold text-foreground" : "text-muted-foreground",
                 )}
               >

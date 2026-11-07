@@ -325,7 +325,7 @@ export default function Book() {
             <>
               {/* Details */}
               <div className="space-y-3 rounded-radius-md bg-card p-5 shadow-figma">
-                <h2 className="text-[16px] font-semibold tracking-[-0.32px] text-foreground">Your details</h2>
+                <h2 className="text-title font-semibold text-foreground">Your details</h2>
                 <div><Label>Full name *</Label><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" /></div>
                 <div><Label>WhatsApp</Label><Input type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} placeholder="+504 …" /></div>
                 <div><Label>Notes (optional)</Label><Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} /></div>
@@ -334,8 +334,8 @@ export default function Book() {
               {/* Insurance + Delivery — summary rows opening a sheet (DESIGN.md §9) */}
               <div className="overflow-hidden rounded-radius-md bg-card shadow-figma divide-y divide-border/60">
                 <SummaryRow
-                  icon={<ShieldCheck className="h-5 w-5 text-emerald-500" />}
-                  tint="bg-emerald-500/15"
+                  icon={<ShieldCheck className="h-5 w-5 text-positive" />}
+                  tint="bg-positive/15"
                   title="Insurance"
                   value={insurance ? `${insurance.name}${insuranceCents > 0 ? ` · ${formatUSD(insuranceCents)}` : " · included"}` : "Choose coverage"}
                   onClick={() => setInsOpen(true)}
@@ -352,7 +352,7 @@ export default function Book() {
               {/* Extras */}
               {extras.length > 0 && (
                 <div className="space-y-1 rounded-radius-md bg-card p-5 shadow-figma">
-                  <h2 className="mb-1 text-[16px] font-semibold tracking-[-0.32px] text-foreground">Extras</h2>
+                  <h2 className="mb-1 text-title font-semibold text-foreground">Extras</h2>
                   {extras.map((e) => {
                     const active = extraIds.has(e.id);
                     return (
@@ -382,7 +382,7 @@ export default function Book() {
                   most important button on the page was the only one a customer
                   had to go looking for. */}
               <div className="space-y-3 rounded-radius-md bg-card p-5 shadow-figma">
-                <h2 className="text-[16px] font-semibold tracking-[-0.32px] text-foreground">Payment</h2>
+                <h2 className="text-title font-semibold text-foreground">Payment</h2>
                 <PaymentMethodTiles value={method} onChange={setMethod} available={methods} />
               </div>
             </>
@@ -390,7 +390,7 @@ export default function Book() {
             <div className="rounded-radius-md bg-card p-5 shadow-figma">
               {method === "paypal" ? (
                 <>
-                  <h2 className="mb-3 text-[16px] font-semibold tracking-[-0.32px] text-foreground">Pay with PayPal</h2>
+                  <h2 className="mb-3 text-title font-semibold text-foreground">Pay with PayPal</h2>
                   <PayPalPanel
                     totalCents={serverCharged ?? effectiveTotal}
                     onPaid={(cap: string) => activate(cap, "paypal")}
@@ -437,9 +437,9 @@ export default function Book() {
                 {v.image_url && <img src={v.image_url} alt="" className="h-full w-full object-cover" />}
               </div>
               <div className="min-w-0">
-                <p className="truncate text-[16px] font-semibold tracking-[-0.32px] text-foreground">{v.name}</p>
-                <p className="text-[12px] tracking-[-0.24px] text-muted-foreground">{format(new Date(fromISO + "T00:00:00"), "MMM d")} → {format(new Date(toISOParam + "T00:00:00"), "MMM d")}</p>
-                <p className="text-[12px] tracking-[-0.24px] text-muted-foreground">{pricing.rentalDays} day{pricing.rentalDays > 1 ? "s" : ""}</p>
+                <p className="truncate text-title font-semibold text-foreground">{v.name}</p>
+                <p className="text-meta text-muted-foreground">{format(new Date(fromISO + "T00:00:00"), "MMM d")} → {format(new Date(toISOParam + "T00:00:00"), "MMM d")}</p>
+                <p className="text-meta text-muted-foreground">{pricing.rentalDays} day{pricing.rentalDays > 1 ? "s" : ""}</p>
               </div>
             </div>
             <div className="space-y-1.5 border-t border-border/60 pt-3 text-[13px]">
@@ -485,15 +485,15 @@ export default function Book() {
                   className={cn("w-full rounded-radius-md border-2 p-4 text-left transition-colors",
                     active ? "border-primary bg-primary/5" : "border-transparent bg-inset hover:bg-muted")}>
                   <div className="flex items-baseline justify-between gap-3">
-                    <p className="text-[16px] font-semibold tracking-[-0.32px] text-foreground">{t.name}</p>
-                    <span className={cn("shrink-0 text-[13px] font-semibold tabular-nums", t.price_per_day_cents === 0 ? "text-emerald-500" : "text-foreground")}>
+                    <p className="text-title font-semibold text-foreground">{t.name}</p>
+                    <span className={cn("shrink-0 text-[13px] font-semibold tabular-nums", t.price_per_day_cents === 0 ? "text-positive" : "text-foreground")}>
                       {t.price_per_day_cents === 0 ? "Included" : `${formatUSD(t.price_per_day_cents)}/day · ${formatUSD(cost)}`}
                     </span>
                   </div>
                   <ul className="mt-2 space-y-1">
                     {t.items.map((it, i) => (
-                      <li key={i} className="flex items-start gap-2 text-[12px] tracking-[-0.24px] text-muted-foreground">
-                        <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" /> {it}
+                      <li key={i} className="flex items-start gap-2 text-meta text-muted-foreground">
+                        <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-positive" /> {it}
                       </li>
                     ))}
                   </ul>
@@ -536,8 +536,8 @@ function SummaryRow({ icon, tint, title, value, onClick }: { icon: React.ReactNo
     <button type="button" onClick={onClick} className="flex w-full items-center gap-3 p-4 text-left transition-colors hover:bg-inset">
       <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px]", tint)}>{icon}</span>
       <div className="min-w-0 flex-1">
-        <p className="text-[16px] font-semibold tracking-[-0.32px] text-foreground">{title}</p>
-        <p className="truncate text-[12px] tracking-[-0.24px] text-muted-foreground">{value}</p>
+        <p className="text-title font-semibold text-foreground">{title}</p>
+        <p className="truncate text-meta text-muted-foreground">{value}</p>
       </div>
       <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
     </button>
@@ -552,7 +552,7 @@ function ZoneOption({ active, title, sub, areas, onClick }: { active: boolean; t
         <p className="text-[15px] font-semibold tracking-[-0.32px] text-foreground">{title}</p>
         <span className="shrink-0 text-[13px] font-semibold tabular-nums text-foreground">{sub}</span>
       </div>
-      {areas && <p className="mt-0.5 text-[12px] tracking-[-0.24px] text-muted-foreground">{areas}</p>}
+      {areas && <p className="mt-0.5 text-meta text-muted-foreground">{areas}</p>}
     </button>
   );
 }

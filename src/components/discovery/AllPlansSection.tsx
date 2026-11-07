@@ -71,7 +71,7 @@ export function AllPlansSection() {
 
   return (
     <section className="space-y-3">
-      <h2 className="text-[20px] font-semibold tracking-[-0.4px] text-foreground">
+      <h2 className="text-heading font-semibold text-foreground">
         {t("discovery.allPlans")}
       </h2>
       <div className="grid grid-cols-2 gap-2 md:grid-cols-4">

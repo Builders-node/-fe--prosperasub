@@ -162,9 +162,9 @@ export function YdEmptyState({
       <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-radius-md bg-muted/50">
         <Icon className="h-8 w-8 text-muted-foreground/40" />
       </div>
-      <p className="text-[16px] font-semibold tracking-[-0.32px] text-foreground">{title}</p>
+      <p className="text-title font-semibold text-foreground">{title}</p>
       {subtitle && (
-        <p className="mt-1 max-w-xs px-6 text-[12px] tracking-[-0.24px] text-muted-foreground">
+        <p className="mt-1 max-w-xs px-6 text-meta text-muted-foreground">
           {subtitle}
         </p>
       )}
@@ -197,7 +197,7 @@ export function YdSectionHeading({
 }) {
   return (
     <div className={cn("mb-3 flex items-baseline justify-between gap-3", className)}>
-      <h2 className="min-w-0 text-[20px] font-semibold tracking-[-0.4px] text-foreground">
+      <h2 className="min-w-0 text-heading font-semibold text-foreground">
         <span className="truncate">{title}</span>
         {count != null && (
           <span className="ml-2 text-base font-normal text-muted-foreground">({count})</span>

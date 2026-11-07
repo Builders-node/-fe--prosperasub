@@ -132,7 +132,7 @@ export function TipPayment({
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <p className="flex items-center gap-1.5 text-sm font-semibold text-foreground"><Heart className="h-4 w-4 text-rose-400" /> {heading}</p>
-        {tippedCents > 0 && <span className="rounded-full bg-green-500/15 px-2 py-0.5 text-xs font-bold text-green-400">Tipped {formatUSD(tippedCents)}</span>}
+        {tippedCents > 0 && <span className="rounded-full bg-positive/15 px-2 py-0.5 text-xs font-bold text-positive">Tipped {formatUSD(tippedCents)}</span>}
       </div>
 
       {!payOpen && !done && (
@@ -195,7 +195,7 @@ export function TipPayment({
         </div>
       )}
       {payOpen && <Button variant="ghost" className="w-full" onClick={cancel}>Cancel</Button>}
-      {done && <div className="flex items-center justify-center gap-2 rounded-radius-md bg-green-500/10 py-2.5 text-sm font-semibold text-green-400"><CheckCircle2 className="h-5 w-5" /> Tip sent — thank you!</div>}
+      {done && <div className="flex items-center justify-center gap-2 rounded-radius-md bg-positive/10 py-2.5 text-sm font-semibold text-positive"><CheckCircle2 className="h-5 w-5" /> Tip sent — thank you!</div>}
     </div>
   );
 }

@@ -100,7 +100,7 @@ export default function Support() {
     return (
       <UserLayout title="Support" showBackButton allowGuest>
         <div className="flex flex-col items-center justify-center py-16 text-center">
-          <CheckCircle2 className="mb-4 h-14 w-14 text-emerald-500" />
+          <CheckCircle2 className="mb-4 h-14 w-14 text-positive" />
           <h2 className="text-xl font-semibold text-foreground">Message sent</h2>
           <p className="mt-2 max-w-sm text-sm text-muted-foreground">
             We&apos;ll reply to <span className="font-semibold text-foreground">{email}</span>. Most
@@ -139,8 +139,8 @@ export default function Support() {
             rel="noopener noreferrer"
             className="flex items-center gap-3 rounded-radius-md bg-card p-4 transition-colors hover:bg-muted/40"
           >
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15">
-              <MessageCircle className="h-5 w-5 text-emerald-500" />
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-positive/15">
+              <MessageCircle className="h-5 w-5 text-positive" />
             </span>
             <div className="min-w-0">
               <p className="font-semibold text-foreground">WhatsApp</p>

@@ -46,7 +46,7 @@ export function RateAndTip({ providerId, subscriptionId, customerName }: Props) 
   return (
     <section className="space-y-3">
       <div className="flex items-center gap-2 px-1">
-        <Star className="h-4 w-4 text-amber-400" fill="currentColor" />
+        <Star className="h-4 w-4 text-attention" fill="currentColor" />
         <SectionOverline label="Rate & tip" />
       </div>
 

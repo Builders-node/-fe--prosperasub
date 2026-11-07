@@ -14,8 +14,8 @@ interface OverlineProps {
 }
 export function SectionOverline({ label, count, tone = "default", className }: OverlineProps) {
   const toneClass =
-    tone === "warning" ? "text-amber-500" :
-    tone === "success" ? "text-emerald-500" :
+    tone === "warning" ? "text-attention" :
+    tone === "success" ? "text-positive" :
     "text-muted-foreground";
   return (
     <p className={cn("text-[10px] font-semibold uppercase tracking-[0.14em]", toneClass, className)}>

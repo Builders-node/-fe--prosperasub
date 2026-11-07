@@ -324,7 +324,7 @@ const CleaningPackages = () => {
            * two different places.
            */
           <section className="space-y-3">
-            <h2 className="text-[20px] font-semibold tracking-[-0.4px] text-foreground">Plans</h2>
+            <h2 className="text-heading font-semibold text-foreground">Plans</h2>
 
             {search.results.length === 0 ? (
               <YdEmptyState icon={SearchX} title="No plans match" subtitle="Try a different word, or clear the search." />

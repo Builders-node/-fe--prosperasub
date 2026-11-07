@@ -56,11 +56,11 @@ interface UserRow { id: string; name: string | null; display_name: string | null
  */
 function subscriptionStage(s: SaleRow): { label: string; className: string } {
   if (s.payment_status === "refunded") return { label: "Refunded",         className: "bg-purple-500/15 text-purple-400" };
-  if (s.status === "cancelled")        return { label: "Cancelled",        className: "bg-red-500/15 text-red-400" };
-  if (s.status === "expired")          return { label: "Expired",          className: "bg-red-500/15 text-red-400" };
-  if (s.status === "paused")           return { label: "Paused",           className: "bg-yellow-500/15 text-yellow-400" };
-  if (s.payment_status !== "paid")     return { label: "Awaiting payment", className: "bg-amber-500/15 text-amber-400" };
-  return { label: "Active", className: "bg-green-500/15 text-green-400" };
+  if (s.status === "cancelled")        return { label: "Cancelled",        className: "bg-negative/15 text-negative" };
+  if (s.status === "expired")          return { label: "Expired",          className: "bg-negative/15 text-negative" };
+  if (s.status === "paused")           return { label: "Paused",           className: "bg-attention/15 text-attention" };
+  if (s.payment_status !== "paid")     return { label: "Awaiting payment", className: "bg-attention/15 text-attention" };
+  return { label: "Active", className: "bg-positive/15 text-positive" };
 }
 
 /**
@@ -608,7 +608,7 @@ const MarketplaceSubscriptions = () => {
                             {/* A booked hour is cancelled, never deleted: the
                                 slot has to go back to the calendar. */}
                             {!backing(s).apiManaged && (
-                              <DropdownMenuItem onSelect={() => setDeleteRow(s)} className="text-red-400 focus:text-red-400">
+                              <DropdownMenuItem onSelect={() => setDeleteRow(s)} className="text-negative focus:text-negative">
                                 <Trash2 className="mr-2 h-3.5 w-3.5" /> Delete
                               </DropdownMenuItem>
                             )}
@@ -727,7 +727,7 @@ const MarketplaceSubscriptions = () => {
             <AlertDialogAction
               onClick={() => bulk && bulkMutation.mutate(bulk)}
               disabled={bulkMutation.isPending}
-              className={bulk === "cancel" ? "bg-red-600 text-white hover:bg-red-600/90" : undefined}
+              className={bulk === "cancel" ? "bg-negative text-white hover:bg-negative/90" : undefined}
             >
               {bulkMutation.isPending ? "Applying…" : bulk === "paid" ? "Mark paid" : "Cancel them"}
             </AlertDialogAction>
@@ -750,7 +750,7 @@ const MarketplaceSubscriptions = () => {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deleteRow && deleteMutation.mutate(deleteRow)}
-              className="bg-red-600 text-white hover:bg-red-600/90"
+              className="bg-negative text-white hover:bg-negative/90"
             >
               Delete
             </AlertDialogAction>

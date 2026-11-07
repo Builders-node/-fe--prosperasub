@@ -469,7 +469,7 @@ export default function ServiceCategories({ embedded = false, archetypeKey }: Se
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deleteTarget && remove.mutate(deleteTarget)}
-              className="bg-red-600 text-white hover:bg-red-600/90"
+              className="bg-negative text-white hover:bg-negative/90"
             >
               Delete
             </AlertDialogAction>

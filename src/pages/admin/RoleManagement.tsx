@@ -336,7 +336,7 @@ function RoleSheet({
             <Save className="h-4 w-4" />Save Role
           </Button>
           {(form.permissions?.length ?? 0) === 0 && (
-            <p className="text-xs text-amber-500">Select at least one permission — otherwise anyone assigned this role will have no access.</p>
+            <p className="text-xs text-attention">Select at least one permission — otherwise anyone assigned this role will have no access.</p>
           )}
         </div>
       </SheetContent>

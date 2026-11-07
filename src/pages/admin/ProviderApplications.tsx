@@ -354,7 +354,7 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
               return (
                 <div key={a.id} className={cn(
                   "flex flex-col gap-4 rounded-radius-md bg-card p-4 transition-colors",
-                  isPending && "ring-1 ring-amber-500/25",
+                  isPending && "ring-1 ring-attention/25",
                 )}>
                   {/* ── Header ── */}
                   <div className="flex items-start gap-3">
@@ -407,7 +407,7 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
                   )}
 
                   {isRejected && a.review_notes && (
-                    <p className="rounded-radius-md bg-red-500/10 p-3 text-xs text-red-300">
+                    <p className="rounded-radius-md bg-negative/10 p-3 text-xs text-negative">
                       <span className="font-semibold">Rejection reason:</span> {a.review_notes}
                     </p>
                   )}
@@ -423,7 +423,7 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
                     <div className="flex gap-2 pt-1">
                       <Button
                         size="sm"
-                        className="flex-1 gap-1.5 rounded-full bg-green-600 text-white hover:bg-green-600/90"
+                        className="flex-1 gap-1.5 rounded-full bg-positive text-white hover:bg-positive/90"
                         onClick={() => approve.mutate(a)}
                         disabled={approve.isPending}
                         loading={approve.isPending}
@@ -434,7 +434,7 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
                       <Button
                         size="sm"
                         variant="outline"
-                        className="flex-1 gap-1.5 rounded-full text-red-400 hover:text-red-400"
+                        className="flex-1 gap-1.5 rounded-full text-negative hover:text-negative"
                         onClick={() => { setRejectTarget(a); setRejectNotes(""); }}
                         disabled={reject.isPending}
                       >
@@ -468,7 +468,7 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => reject.mutate({ app: rejectTarget, notes: rejectNotes })}
-              className="bg-red-600 text-white hover:bg-red-600/90"
+              className="bg-negative text-white hover:bg-negative/90"
             >
               Reject
             </AlertDialogAction>

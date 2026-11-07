@@ -91,7 +91,7 @@ export function CheckoutSuccessPanel({
           <span className={cn("flex h-20 w-20 items-center justify-center rounded-full", iconTint)}>
             <Icon className={cn("h-9 w-9", iconColor)} />
           </span>
-          <span className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500 ring-4 ring-background">
+          <span className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full bg-positive ring-4 ring-background">
             <Check className="h-4 w-4 text-white" strokeWidth={3.5} />
           </span>
         </div>

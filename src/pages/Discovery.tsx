@@ -121,9 +121,9 @@ const Discovery = () => {
           <Icon className="h-6 w-6 text-foreground" />
         </span>
         <span className="flex min-w-0 flex-1 flex-col gap-0.5 text-left">
-          <span className="truncate text-[16px] font-semibold tracking-[-0.32px] text-foreground">{title}</span>
+          <span className="truncate text-title font-semibold text-foreground">{title}</span>
           {caption && (
-            <span className="truncate text-[12px] tracking-[-0.24px] text-muted-foreground">{caption}</span>
+            <span className="truncate text-meta text-muted-foreground">{caption}</span>
           )}
         </span>
       </>
@@ -185,7 +185,7 @@ const Discovery = () => {
             between — it has vehicle TYPES, and a fleet behind them.
           */
           <section className="space-y-3">
-            <h2 className="text-[20px] font-semibold tracking-[-0.4px] text-foreground">
+            <h2 className="text-heading font-semibold text-foreground">
               {storefront.title}
             </h2>
             {vehicleTypes.length > 0 && (
@@ -199,7 +199,7 @@ const Discovery = () => {
                       className="flex h-[120px] flex-col justify-between rounded-radius-md bg-card p-4 shadow-figma transition-colors active:scale-[0.98] hover:bg-muted/40"
                     >
                       <Icon className="h-6 w-6 text-foreground" />
-                      <p className="line-clamp-2 text-[16px] font-semibold tracking-[-0.32px] text-foreground">
+                      <p className="line-clamp-2 text-title font-semibold text-foreground">
                         {t.label}
                       </p>
                     </Link>
@@ -227,7 +227,7 @@ const Discovery = () => {
         ) : (
           /* ─── Services ─────────────────────────────────────────────── */
           <section className="space-y-3">
-            <h2 className="text-[20px] font-semibold tracking-[-0.4px] text-foreground">
+            <h2 className="text-heading font-semibold text-foreground">
               {t("discovery.services")}
             </h2>
             {archetypesLoading ? (
@@ -285,20 +285,20 @@ function ArchetypeTile({
       onMouseEnter={() => prefetchRoute(href)}
       className="flex h-[120px] flex-col justify-between rounded-radius-md bg-card p-4 shadow-figma transition-colors active:scale-[0.98] hover:bg-muted/40"
     >
-      <p className="line-clamp-2 text-[16px] font-semibold tracking-[-0.32px] text-foreground">
+      <p className="line-clamp-2 text-title font-semibold text-foreground">
         {archetype.label}
       </p>
 
       {categories.length > 0 ? (
         <ul className="flex flex-col gap-1">
           {categories.slice(0, MAX_TILE_CATEGORIES).map((c) => (
-            <li key={c.label} className="truncate text-[12px] tracking-[-0.24px] text-muted-foreground">
+            <li key={c.label} className="truncate text-meta text-muted-foreground">
               {c.label}
             </li>
           ))}
         </ul>
       ) : archetype.description ? (
-        <p className="line-clamp-2 text-[12px] tracking-[-0.24px] text-muted-foreground">
+        <p className="line-clamp-2 text-meta text-muted-foreground">
           {archetype.description}
         </p>
       ) : null}
@@ -309,7 +309,7 @@ function ArchetypeTile({
 function SectionHeader({ title, scrollable = true }: { title: string; scrollable?: boolean }) {
   return (
     <div className="mb-3 flex items-center justify-between">
-      <h2 className="min-w-0 truncate text-[20px] font-semibold tracking-[-0.4px] text-foreground">{title}</h2>
+      <h2 className="min-w-0 truncate text-heading font-semibold text-foreground">{title}</h2>
       {scrollable && <ChevronRight className="h-5 w-5 text-muted-foreground/40 md:hidden" aria-hidden />}
     </div>
   );
