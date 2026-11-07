@@ -222,8 +222,8 @@ export function CalendarsTab({ providerId }: { providerId: string }) {
           side={isMobile ? "bottom" : "right"}
           className={isMobile ? "h-[92vh] p-0" : "w-full max-w-xl p-0 sm:max-w-xl"}
         >
-          <SheetHeader className="px-4 py-4">
-            <SheetTitle className="text-[20px] font-semibold leading-[26px]">
+          <SheetHeader className="mx-0 mt-3">
+            <SheetTitle>
               {editing?.name || "Calendar"}
             </SheetTitle>
           </SheetHeader>

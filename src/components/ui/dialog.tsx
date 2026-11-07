@@ -71,7 +71,7 @@ const DialogContent = React.forwardRef<
         // is sticky; nothing made the button stay.
         // No side padding: the blocks ARE the sheet's width, like the cards on a
         // workspace page; only the title row and the buttons keep 16px.
-        "fixed z-50 flex flex-col bg-background pt-4 duration-200 overflow-hidden",
+        "fixed z-50 flex flex-col bg-background pt-3 duration-200 overflow-hidden",
         // mobile: bottom sheet
         "inset-x-0 bottom-0 rounded-t-radius-lg max-h-[92vh]",
         "data-[state=open]:animate-in data-[state=closed]:animate-out",
@@ -100,7 +100,7 @@ const DialogContent = React.forwardRef<
       <div className={cn("grid min-h-0 grid-cols-[minmax(0,1fr)] gap-1 overflow-y-auto", bodyClassName)}>
         {blocks ? groupIntoBlocks(children, dialogChrome()) : children}
       </div>
-      <DialogPrimitive.Close className="absolute right-4 top-[17px] z-20 flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:pointer-events-none">
+      <DialogPrimitive.Close className="absolute right-4 top-[21px] z-20 flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:pointer-events-none">
         <X className="h-4 w-4" />
         <span className="sr-only">Close</span>
       </DialogPrimitive.Close>
@@ -117,8 +117,11 @@ DialogContent.displayName = DialogPrimitive.Content.displayName;
 const DialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      "sticky top-0 z-10 flex flex-col gap-1 bg-background px-4 pb-2 pr-14 pt-1 text-left",
-      "before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-6 before:bg-background",
+      // The title row is a block too — the same card as the content — and it
+      // stays pinned while the blocks scroll under it. The grey strip above it
+      // (before:) hides whatever scrolls past its rounded corners.
+      "sticky top-0 z-10 flex flex-col gap-1 rounded-radius-lg bg-card px-4 py-3 pr-14 text-left",
+      "before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-4 before:bg-background",
       className,
     )}
     {...props}
