@@ -9,7 +9,6 @@ import {
   CreditCard,
   Megaphone,
   Sparkles,
-  X,
 } from "lucide-react";
 import { PageLoader } from "@/components/ui/spinner";
 import { formatDistanceToNow } from "date-fns";
@@ -54,17 +53,8 @@ function categoryIcon(category: UserNotification["category"]) {
   }
 }
 
-function categoryColor(category: UserNotification["category"]) {
-  switch (category) {
-    case "payment":      return "bg-positive/10 text-positive";
-    case "subscription": return "bg-primary/10 text-primary";
-    case "booking":      return "bg-primary/10 text-primary";
-    case "reminder":     return "bg-attention/10 text-attention";
-    case "plan":         return "bg-primary/10 text-primary";
-    case "announcement": return "bg-attention/10 text-attention";
-    default:             return "bg-muted text-muted-foreground";
-  }
-}
+/** Emoji at the start of a title ("🧹 Cleaning Reminder") — the icon tile already says what it is. */
+const stripLeadingEmoji = (t: string) => t.replace(/^[\p{Extended_Pictographic}\uFE0F\u200D\s]+/u, "");
 
 // ─── Notification row ─────────────────────────────────────────────────────────
 
@@ -79,7 +69,6 @@ function NotificationRow({
 }) {
   const navigate = useNavigate();
   const Icon = categoryIcon(notification.category);
-  const iconClass = categoryColor(notification.category);
   const timeAgo = formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true });
 
   const handleOpen = () => {
@@ -93,63 +82,33 @@ function NotificationRow({
     }
   };
 
+  // The account page's row: a 40px neutral tile, 16 semibold title, 12
+  // captions. Colour is not the category's job — the tinted plates were five
+  // accents on one screen. Unread is a dot; the archive action is always
+  // there, because a phone has no hover to reveal it.
   return (
-    <div
-      className={cn(
-        "group relative flex items-start gap-3 px-4 py-3 transition-colors",
-        !notification.isRead && "bg-primary/[0.02]",
-      )}
-    >
-      {/* Category icon — smaller than the old card variant to compact the row */}
-      <div
-        className={cn(
-          "flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px]",
-          iconClass,
-        )}
-      >
-        <Icon className="h-4 w-4" />
-      </div>
+    <div className="flex items-start gap-3 rounded-radius-md p-2.5 transition-colors hover:bg-inset">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] bg-inset text-muted-foreground">
+        <Icon className="h-5 w-5" />
+      </span>
 
-      {/* Content */}
       <div
-        className={cn("min-w-0 flex-1 cursor-pointer pr-2", notification.actionUrl && "hover:opacity-80")}
+        className={cn("min-w-0 flex-1", notification.actionUrl && "cursor-pointer")}
         onClick={handleOpen}
         role={notification.actionUrl ? "button" : undefined}
       >
-        <div className="flex items-baseline gap-2">
-          <p className={cn("text-sm leading-snug text-foreground", !notification.isRead && "font-bold")}>
-            {notification.title}
-          </p>
-          {/* Unread dot inline with the title so we don't reserve a column for it */}
-          {!notification.isRead && (
-            <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
-          )}
+        <div className="flex items-center gap-2">
+          <p className="min-w-0 text-title font-semibold text-foreground">{stripLeadingEmoji(notification.title)}</p>
+          {!notification.isRead && <span className="h-2 w-2 shrink-0 rounded-full bg-primary" aria-label="Unread" />}
         </div>
-        <p className="mt-0.5 text-meta leading-snug text-muted-foreground">{notification.body}</p>
-        <p className="mt-1 text-meta text-muted-foreground/60">{timeAgo}</p>
+        <p className="mt-0.5 text-meta text-muted-foreground">{notification.body}</p>
+        <p className="mt-1 text-meta text-muted-foreground/70">{timeAgo}</p>
       </div>
 
-      {/* Actions — visible on hover */}
-      <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-        {!notification.isRead && (
-          <button
-            type="button"
-            title="Mark as read"
-            onClick={() => onRead(notification.id)}
-            className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          >
-            <CheckCheck className="h-3.5 w-3.5" />
-          </button>
-        )}
-        <button
-          type="button"
-          title="Archive"
-          onClick={() => onArchive(notification.id)}
-          className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-        >
-          <Archive className="h-3.5 w-3.5" />
-        </button>
-      </div>
+      <Button variant="ghost" size="iconSm" aria-label="Archive" title="Archive"
+        onClick={() => onArchive(notification.id)} className="text-muted-foreground">
+        <Archive />
+      </Button>
     </div>
   );
 }
@@ -158,11 +117,11 @@ function NotificationRow({
 
 function Skeleton() {
   return (
-    <div className="divide-y divide-border/60 overflow-hidden rounded-radius-md bg-card">
+    <div className="space-y-1 rounded-radius-lg bg-card p-1.5">
       {Array.from({ length: 5 }).map((_, i) => (
-        <div key={i} className="animate-pulse px-4 py-3">
+        <div key={i} className="animate-pulse p-2.5">
           <div className="flex items-start gap-3">
-            <div className="h-8 w-8 shrink-0 rounded-[8px] bg-muted" />
+            <div className="h-10 w-10 shrink-0 rounded-[8px] bg-muted" />
             <div className="flex-1 space-y-2">
               <div className="h-3 w-48 rounded bg-muted" />
               <div className="h-2.5 w-72 rounded bg-muted" />
@@ -245,35 +204,45 @@ const Notifications = () => {
   // ─────────────────────────────────────────────────────────────────────────────
 
   return (
-    <UserLayout title="Notifications">
-      <div className="app-container pt-5">
-
-        {/* Header action row — page title lives in the mobile header, so we
-            only need the mark-all-read action here. */}
+    <UserLayout
+      title="Notifications"
+      showBackButton
+      backTo="/discovery"
+      // A screen opened from the bell: Back is the way out, so no tab bar, and
+      // the bell's slot does this page's one action instead of pointing here.
+      showBottomNav={false}
+      headerAction={unreadCount > 0 ? (
+        <button
+          type="button"
+          aria-label="Mark all read"
+          title="Mark all read"
+          onClick={handleMarkAllRead}
+          disabled={markAllRead.isPending}
+          className="flex h-10 w-10 items-center justify-center rounded-full text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+        >
+          <CheckCheck className="h-6 w-6" />
+        </button>
+      ) : <span className="h-10 w-10" aria-hidden />}
+    >
+      <div className="app-container space-y-3 pb-space-8 pt-4">
+        {/* Desktop has no title bar, so the action shows here instead. */}
         {unreadCount > 0 && (
-          <div className="mb-4 flex justify-end">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={handleMarkAllRead}
-              loading={markAllRead.isPending}
-              className="shrink-0"
-            >
-              <CheckCheck className="h-4 w-4" />
-              Mark all read
+          <div className="hidden justify-end md:flex">
+            <Button variant="secondary" size="sm" onClick={handleMarkAllRead} loading={markAllRead.isPending}>
+              <CheckCheck /> Mark all read
             </Button>
           </div>
         )}
 
-        {/* Tabs */}
-        <div className="mb-5 flex gap-2 overflow-x-auto pb-1">
+        {/* One line that scrolls sideways — it used to cut "Bookings" off at the edge. */}
+        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {TABS.map((tab) => (
             <button
               key={tab.key}
               type="button"
               onClick={() => setActiveTab(tab.key)}
               className={cn(
-                "shrink-0 rounded-full px-4 py-1.5 text-sm font-semibold transition-colors",
+                "flex h-10 shrink-0 items-center gap-1.5 rounded-full px-4 text-body font-semibold transition-colors",
                 activeTab === tab.key
                   ? "bg-foreground text-background"
                   : "bg-card text-muted-foreground hover:text-foreground",
@@ -281,9 +250,7 @@ const Notifications = () => {
             >
               {tab.label}
               {tab.key === "unread" && unreadCount > 0 && (
-                <span className="ml-1.5 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold text-primary-foreground">
-                  {unreadCount}
-                </span>
+                <span className="tabular-nums opacity-60">{unreadCount}</span>
               )}
             </button>
           ))}
@@ -308,7 +275,7 @@ const Notifications = () => {
               : "Activity on your account will appear here."}
           />
         ) : (
-          <div className="divide-y divide-border/60 overflow-hidden rounded-radius-md bg-card">
+          <div className="space-y-1 rounded-radius-lg bg-card p-1.5">
             {notifications.map((n) => (
               <NotificationRow
                 key={n.id}
