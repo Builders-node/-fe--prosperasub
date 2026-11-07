@@ -268,6 +268,7 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
           <ProviderQrCard
             name={provider.name}
             clientCode={provider.client_code ?? null}
+            providerId={provider.id}
             publicHref={provider.archetype_key ? resolvedPublicHref : "/vehicles"}
             isPublic={provider.status === "active"}
           />

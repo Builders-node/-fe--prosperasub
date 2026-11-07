@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowUpRight, Banknote, Bitcoin, Info, TrendingUp, Wallet, Zap } from "lucide-react";
+import { ArrowUpRight, Banknote, Bitcoin, Download, Info, TrendingUp, Wallet, Zap } from "lucide-react";
 import { supabaseDb, accountApi } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/lib/supabasePaging";
 import { formatUSD } from "@/lib/pricing";
@@ -372,9 +372,58 @@ export function ProviderEarningsTab({ providerId, legacyId, sourceKey }: {
   // sends this field, so absence means "we don't know", not "allowed".
   const canWithdraw = available?.canWithdraw === true;
 
+  /**
+   * The period as a CSV for the accountant: the same totals this tab shows,
+   * then every sale made in the period and every payout sent in it. Sales are
+   * listed at full price when they were made; the totals are earned over the
+   * days each plan covers — the file says so in its first lines.
+   */
+  const [exporting, setExporting] = useState(false);
+  const downloadStatement = async () => {
+    setExporting(true);
+    try {
+      const { data: sales, error } = await supabaseDb.from("subscriptions_unified")
+        .select("created_at,plan_name,customer_name,price_cents,payment_status,payment_method,status")
+        .eq("provider_id", providerId).eq("paid", true)
+        .gte("created_at", start.toISOString()).lte("created_at", end.toISOString())
+        .order("created_at");
+      if (error) throw error;
+      const usdNum = (c: number) => (c / 100).toFixed(2);
+      const day = (iso: string | null) => (iso ? String(iso).slice(0, 10) : "");
+      const rows: (string | number)[][] = [
+        ["EverySub statement", `${day(start.toISOString())} to ${day(end.toISOString())}`],
+        ["Earned (spread over the days each plan covers)", usdNum(revenue)],
+        [`Platform fee (${pct}%; 0% on your own clients)`, usdNum(split.platformCents)],
+        ["Yours", usdNum(split.providerCents)],
+        ["Paid out in this period", usdNum(paidInRange)],
+        [],
+        ["Sales made in this period (full price)"],
+        ["Date", "Plan", "Customer", "Amount (USD)", "Payment", "Status"],
+        ...((sales ?? []) as any[]).map((r) => [day(r.created_at), r.plan_name ?? "", r.customer_name ?? "", usdNum(Number(r.price_cents) || 0), r.payment_method ?? "", r.status ?? ""]),
+        [],
+        ["Payouts in this period"],
+        ["Date", "Amount (USD)", "Reference"],
+        ...payouts
+          .filter((p) => { const t = new Date(p.paid_at).getTime(); return t >= start.getTime() && t <= end.getTime(); })
+          .map((p) => [day(p.paid_at), usdNum(Number(p.amount_cents) || 0), String((p as { reference?: string | null }).reference ?? "")]),
+      ];
+      const csv = rows.map((r) => r.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(",")).join("\r\n");
+      const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `everysub-statement_${day(start.toISOString())}_${day(end.toISOString())}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch (e) {
+      toast.error((e as Error).message || "Could not build the statement");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-1">
-      <div className="flex flex-wrap gap-2 rounded-radius-lg bg-card p-4">
+      <div className="flex flex-wrap items-center gap-2 rounded-radius-lg bg-card p-4">
         {RANGES.map((r) => (
           <button
             key={r.key}
@@ -388,6 +437,9 @@ export function ProviderEarningsTab({ providerId, legacyId, sourceKey }: {
             {r.label}
           </button>
         ))}
+        <Button size="sm" variant="secondary" className="ml-auto gap-2" loading={exporting} onClick={() => void downloadStatement()}>
+          <Download className="h-4 w-4" /> Statement
+        </Button>
       </div>
 
       <div className="grid grid-cols-2 gap-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em] lg:grid-cols-4">

@@ -24,6 +24,8 @@ interface ProviderReviewRow {
   subscription_id: string | null;
   created_at: string;
   updated_at: string;
+  /** The business's public answer (Edge routes/provider-customers.ts). */
+  reply?: string | null;
 }
 
 interface Props {
@@ -292,6 +294,13 @@ export function ProviderReviewsBlock({ providerId, service, ownerUserId, placeho
                   <p className="mt-1 text-title leading-[22px] text-muted-foreground">
                     {r.comment}
                   </p>
+                )}
+                {/* The business's answer, under the review it answers. */}
+                {r.reply && (
+                  <div className="mt-2 rounded-radius-md bg-inset p-3">
+                    <p className="text-meta font-semibold text-foreground">Reply from the business</p>
+                    <p className="mt-0.5 text-body text-muted-foreground">{r.reply}</p>
+                  </div>
                 )}
               </div>
             ))}

@@ -1,7 +1,10 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { ChevronDown, MessageSquare, Star } from "lucide-react";
-import { supabaseDb } from "@/integrations/supabase/client";
+import { accountApi, supabaseDb } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { formatDateHN } from "@/lib/timezone";
 
@@ -20,6 +23,7 @@ import { formatDateHN } from "@/lib/timezone";
 
 interface ReviewRow {
   id: string;
+  reply?: string | null;
   rating: number | null;
   comment: string | null;
   customer_name: string | null;
@@ -45,6 +49,56 @@ function fmtDate(iso: string) {
   return Number.isNaN(d.getTime()) ? "" : formatDateHN(d);
 }
 
+/** The business answers in public, under the review. Saved through the API. */
+function ReplyBox({ providerId, review }: { providerId: string; review: ReviewRow }) {
+  const qc = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState(review.reply ?? "");
+  const save = useMutation({
+    mutationFn: async (reply: string) => {
+      const { error } = await accountApi(`/account/providers/${providerId}/reviews/${review.id}/reply`, {
+        method: "POST", body: JSON.stringify({ reply }),
+      });
+      if (error) throw error;
+    },
+    onSuccess: (_d, reply) => {
+      toast.success(reply ? "Reply published" : "Reply removed");
+      setEditing(false);
+      void qc.invalidateQueries({ queryKey: ["provider-reviews-owner", providerId] });
+      void qc.invalidateQueries({ queryKey: ["provider-reviews", providerId] });
+    },
+    onError: (e: Error) => toast.error(e.message || "Could not save the reply"),
+  });
+
+  if (!editing) {
+    return review.reply ? (
+      <div className="mt-1 rounded-radius-md bg-inset p-3">
+        <p className="text-meta font-semibold text-foreground">Your reply</p>
+        <p className="mt-0.5 text-body text-muted-foreground">{review.reply}</p>
+        <button type="button" className="mt-1 text-meta font-semibold text-primary" onClick={() => { setText(review.reply ?? ""); setEditing(true); }}>
+          Edit
+        </button>
+      </div>
+    ) : (
+      <button type="button" className="text-meta font-semibold text-primary" onClick={() => setEditing(true)}>
+        Reply
+      </button>
+    );
+  }
+  return (
+    <div className="mt-1 space-y-2">
+      <Textarea value={text} onChange={(e) => setText(e.target.value)} rows={3} maxLength={1000}
+        placeholder="Thank you for… / Sorry about… — everyone sees this under the review." />
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" loading={save.isPending} disabled={!text.trim() && !review.reply} onClick={() => save.mutate(text.trim())}>
+          {text.trim() ? "Publish reply" : "Remove reply"}
+        </Button>
+        <Button size="sm" variant="secondary" onClick={() => setEditing(false)}>Cancel</Button>
+      </div>
+    </div>
+  );
+}
+
 export function ProviderReviewsPanel({ providerId }: { providerId: string }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -55,7 +109,7 @@ export function ProviderReviewsPanel({ providerId }: { providerId: string }) {
     queryFn: async () => {
       const { data, error } = await supabaseDb
         .from("provider_reviews")
-        .select("id, rating, comment, customer_name, service, created_at")
+        .select("*")
         .eq("provider_id", providerId)
         .is("hidden_at", null)
         .order("created_at", { ascending: false });
@@ -135,6 +189,7 @@ export function ProviderReviewsPanel({ providerId }: { providerId: string }) {
             ) : (
               <p className="text-sm italic text-muted-foreground/70">Rated without a comment</p>
             )}
+            <ReplyBox providerId={providerId} review={r} />
           </li>
         ))}
       </ul>

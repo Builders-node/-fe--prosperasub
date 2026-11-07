@@ -1,6 +1,8 @@
 import { useRef } from "react";
 import { QRCodeSVG } from "qrcode.react";
-import { Copy, Download, Printer } from "lucide-react";
+import { Copy, Download, MessageCircle, Printer } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { accountApi } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 
@@ -27,8 +29,10 @@ const escapeHtml = (text: string) =>
 const fileSlug = (name: string) =>
   name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "provider";
 
-export function ProviderQrCard({ name, publicHref, isPublic, clientCode }: {
+export function ProviderQrCard({ name, publicHref, isPublic, clientCode, providerId }: {
   name: string;
+  /** Universal id — for the count of clients who came through the code. */
+  providerId?: string;
   /** providers.client_code — rides on the link so a scan attributes the client. */
   clientCode?: string | null;
   /** Path of the provider's public page, from `providerHref`. */
@@ -39,6 +43,20 @@ export function ProviderQrCard({ name, publicHref, isPublic, clientCode }: {
   const url = `${PUBLIC_ORIGIN}${publicHref}` +
     (clientCode ? `${publicHref.includes("?") ? "&" : "?"}ref=${encodeURIComponent(clientCode)}` : "");
   const holder = useRef<HTMLDivElement>(null);
+
+  // Clients who signed up through this code (provider_clients, read via the API).
+  const { data: clients } = useQuery({
+    queryKey: ["provider-clients", providerId],
+    enabled: !!providerId && !!clientCode,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await accountApi(`/account/providers/${providerId}/clients`);
+      if (error) return null;
+      return data as { count: number; clients: Array<{ name: string; since: string }> };
+    },
+  });
+
+  const shareText = `${name} is on EverySub — see our plans and subscribe here: ${url}`;
   const svgMarkup = () => {
     const svg = holder.current?.querySelector("svg");
     return svg ? new XMLSerializer().serializeToString(svg) : null;
@@ -109,22 +127,39 @@ export function ProviderQrCard({ name, publicHref, isPublic, clientCode }: {
           <QRCodeSVG value={url} size={140} level="M" />
         </div>
         <div className="min-w-0">
-          <h2 className="text-[20px] font-semibold leading-[26px] text-foreground">Your QR code</h2>
-          <p className="mt-1 text-[16px] leading-[22px] text-muted-foreground">
+          <h2 className="text-heading font-semibold text-foreground">Your QR code</h2>
+          <p className="mt-1 text-body text-muted-foreground">
             {isPublic
               ? "Print it for a counter or a flyer. Customers scan it and see all your plans."
               : "Customers will see your plans here once your page is live. Until then the code opens nothing."}
           </p>
           {clientCode && (
-            <p className="mt-2 text-[14px] leading-[20px] text-muted-foreground">
-              Your client code: <span className="font-semibold text-foreground">{clientCode}</span>.
-              Clients who sign up with this QR or code pay no platform commission on your services.
-            </p>
+            <div className="mt-3 rounded-radius-md bg-inset p-3">
+              <p className="text-body font-semibold text-foreground">
+                0% commission on clients you bring
+              </p>
+              <p className="mt-0.5 text-meta text-muted-foreground">
+                Anyone who opens this QR or link (code <span className="font-semibold text-foreground">{clientCode}</span>) and
+                signs up becomes your client — EverySub keeps nothing on what they buy from you.
+              </p>
+              {clients && (
+                <p className="mt-2 text-meta text-foreground">
+                  {clients.count === 0
+                    ? "No clients through your code yet — share it with the customers you already have."
+                    : `${clients.count} client${clients.count === 1 ? "" : "s"} came through your code${clients.clients[0] ? ` · latest: ${clients.clients[0].name}` : ""}.`}
+                </p>
+              )}
+            </div>
           )}
           <div className="mt-3 flex flex-wrap gap-2">
             <Button size="sm" onClick={print}><Printer className="h-4 w-4" />Print</Button>
             <Button size="sm" variant="secondary" onClick={download}><Download className="h-4 w-4" />Download PNG</Button>
             <Button size="sm" variant="secondary" onClick={copy}><Copy className="h-4 w-4" />Copy link</Button>
+            <Button size="sm" variant="secondary" asChild>
+              <a href={`https://wa.me/?text=${encodeURIComponent(shareText)}`} target="_blank" rel="noreferrer">
+                <MessageCircle className="h-4 w-4" />WhatsApp
+              </a>
+            </Button>
           </div>
         </div>
       </div>

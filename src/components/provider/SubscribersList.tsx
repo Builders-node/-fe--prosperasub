@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { PageLoader } from "@/components/ui/spinner";
 import { StatusPill } from "@/components/patterns/StatusPill";
-import { supabaseDb } from "@/integrations/supabase/client";
+import { accountApi, supabaseDb } from "@/integrations/supabase/client";
+import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
 import { approvePayment, isPendingPayment } from "@/lib/subscriptionApprove";
 import { formatUSD } from "@/lib/pricing";
@@ -22,7 +23,7 @@ import { YdEmptyState } from "@/components/yd/YdPrimitives";
 import { CustomerPhone } from "@/components/patterns/CustomerPhone";
 import { SaleOriginBadge } from "@/components/patterns/SaleOrigin";
 import { todayHN, addDaysISO, addMonthsISO } from "@/lib/timezone";
-import { CalendarClock, MapPin, MoreHorizontal, PauseCircle, PlayCircle, RefreshCcw, XCircle } from "lucide-react";
+import { CalendarClock, MapPin, Megaphone, MoreHorizontal, PauseCircle, PlayCircle, RefreshCcw, XCircle } from "lucide-react";
 import { ResponsiveDialog } from "@/components/patterns/ResponsiveDialog";
 import { Label } from "@/components/ui/label";
 import {
@@ -54,6 +55,8 @@ export function SubscribersList({ providerId, legacyId, sourceKey }: {
   const [q, setQ] = useState("");
   const [deliveryFor, setDeliveryFor] = useState<SubscriberRow | null>(null);
   const [datesFor, setDatesFor] = useState<SubscriberRow | null>(null);
+  const [cancelFor, setCancelFor] = useState<SubscriberRow | null>(null);
+  const [messaging, setMessaging] = useState(false);
   const KEY = ["provider-subscribers", providerId, legacyId ?? "", sourceKey] as const;
   const shape = subscriberSourceFor(sourceKey);
 
@@ -134,6 +137,23 @@ export function SubscribersList({ providerId, legacyId, sourceKey }: {
    * these tables; only the column it sits in differs, which is why this is one
    * function and not three screens.
    */
+  /**
+   * Cancelling is not a column write any more: the API tells the customer
+   * (with the reason) and, if asked, sends EverySub a refund request. The
+   * service's own clean-up (cleaning frees its booked slots) still runs here.
+   */
+  const cancelViaApi = async (row: SubscriberRow, reason: string, refund: boolean) => {
+    const { error } = await accountApi(
+      `/account/providers/${providerId}/subscriptions/${shape.table}/${row.id}/cancel`,
+      { method: "POST", body: JSON.stringify({ reason, refund }) },
+    );
+    if (error) { toast.error((error as Error).message || "Could not cancel"); return false; }
+    await shape.onCancelled?.(row.id);
+    toast.success(refund ? "Cancelled — the customer was told, and EverySub got the refund request" : "Cancelled — the customer was told");
+    qc.invalidateQueries({ queryKey: KEY });
+    return true;
+  };
+
   const setStatus = async (row: SubscriberRow, next: "active" | "paused" | "cancelled") => {
     const patch: Record<string, unknown> = {
       [shape.statusColumn]: next,
@@ -170,14 +190,22 @@ export function SubscribersList({ providerId, legacyId, sourceKey }: {
         title="Subscribers"
         subtitle={`${rows.length} in total · ${rows.filter((r) => r.status === "active").length} active`}
         action={
-          <div className="relative w-[200px] shrink-0">
+          <div className="flex shrink-0 items-center gap-2">
+          {rows.some((r) => r.status === "active") && (
+            <Button size="sm" variant="secondary" className="gap-2" onClick={() => setMessaging(true)}>
+              <Megaphone /> <span className="hidden sm:inline">Message all</span>
+            </Button>
+          )}
+          <div className="relative w-[160px] shrink-0 sm:w-[200px]">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Search"
-              className="h-9 pl-9"
+              className="pl-9"
+              inputSize="sm"
             />
+          </div>
           </div>
         }
       />
@@ -274,7 +302,7 @@ export function SubscribersList({ providerId, legacyId, sourceKey }: {
                   </DropdownMenuItem>
                 )}
                 {r.status !== "cancelled" && (
-                  <DropdownMenuItem className="text-destructive" onClick={() => setStatus(r, "cancelled")}>
+                  <DropdownMenuItem className="text-destructive" onClick={() => setCancelFor(r)}>
                     <XCircle className="mr-2 h-4 w-4" /> Cancel
                   </DropdownMenuItem>
                 )}
@@ -305,7 +333,109 @@ export function SubscribersList({ providerId, legacyId, sourceKey }: {
         onClose={() => setDeliveryFor(null)}
         onSaved={() => { void qc.invalidateQueries({ queryKey: KEY }); setDeliveryFor(null); }}
       />
+      <CancelDialog row={cancelFor} onClose={() => setCancelFor(null)} onConfirm={cancelViaApi} />
+      <BroadcastDialog
+        open={messaging}
+        providerId={providerId}
+        activeCount={rows.filter((r) => r.status === "active").length}
+        onClose={() => setMessaging(false)}
+      />
     </div>
+  );
+}
+
+/** Why, and whether EverySub should refund — the customer is told either way. */
+function CancelDialog({ row, onClose, onConfirm }: {
+  row: SubscriberRow | null;
+  onClose: () => void;
+  onConfirm: (row: SubscriberRow, reason: string, refund: boolean) => Promise<boolean>;
+}) {
+  const [reason, setReason] = useState("");
+  const [refund, setRefund] = useState(false);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { if (row) { setReason(""); setRefund(false); } }, [row]);
+  const paid = String(row?.paymentStatus ?? "").toLowerCase() === "paid";
+  return (
+    <ResponsiveDialog
+      open={!!row}
+      onOpenChange={(o) => !o && onClose()}
+      title="Cancel this subscription?"
+      description={row ? `${row.customerName || row.customerEmail || "The customer"} · ${row.plan}` : undefined}
+      footer={
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <Button variant="secondary" onClick={onClose}>Keep it</Button>
+          <Button variant="destructive" loading={busy} onClick={async () => {
+            if (!row) return;
+            setBusy(true);
+            const ok = await onConfirm(row, reason.trim(), paid && refund);
+            setBusy(false);
+            if (ok) onClose();
+          }}>Cancel subscription</Button>
+        </div>
+      }
+    >
+      <div className="space-y-1.5">
+        <Label htmlFor="cancel-reason">Reason (the customer sees it)</Label>
+        <Textarea id="cancel-reason" value={reason} onChange={(e) => setReason(e.target.value)} rows={3}
+          placeholder="We are closed for renovation until March…" />
+      </div>
+      {paid && (
+        <label className="flex items-start gap-3 rounded-radius-md bg-inset p-3">
+          <input type="checkbox" className="mt-1" checked={refund} onChange={(e) => setRefund(e.target.checked)} />
+          <span className="min-w-0">
+            <span className="block text-body font-semibold text-foreground">Ask EverySub to refund the customer</span>
+            <span className="block text-meta text-muted-foreground">
+              Refunds move money, so EverySub makes them. The refunded amount comes off your earnings.
+            </span>
+          </span>
+        </label>
+      )}
+      <p className="text-meta text-muted-foreground">The customer gets an email and a notification.</p>
+    </ResponsiveDialog>
+  );
+}
+
+/** One message to every active subscriber — email and in-app, once a day. */
+function BroadcastDialog({ open, providerId, activeCount, onClose }: {
+  open: boolean; providerId: string; activeCount: number; onClose: () => void;
+}) {
+  const [subject, setSubject] = useState("");
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
+  const send = async () => {
+    setBusy(true);
+    const { data, error } = await accountApi(`/account/providers/${providerId}/broadcast`, {
+      method: "POST", body: JSON.stringify({ subject: subject.trim(), message: message.trim() }),
+    });
+    setBusy(false);
+    if (error) { toast.error((error as Error).message || "Could not send"); return; }
+    const r = data as { recipients?: number } | null;
+    toast.success(`Sent to ${r?.recipients ?? activeCount} subscriber${(r?.recipients ?? activeCount) === 1 ? "" : "s"}`);
+    setSubject(""); setMessage("");
+    onClose();
+  };
+  return (
+    <ResponsiveDialog
+      open={open}
+      onOpenChange={(o) => !o && onClose()}
+      title="Message your subscribers"
+      description={`Goes to ${activeCount} active subscriber${activeCount === 1 ? "" : "s"} by email and in the app. One message a day.`}
+      footer={
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button loading={busy} disabled={subject.trim().length < 3 || message.trim().length < 10} onClick={() => void send()}>
+            Send
+          </Button>
+        </div>
+      }
+    >
+      <Input label="Subject" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Holiday schedule" maxLength={120} />
+      <div className="space-y-1.5">
+        <Label htmlFor="bc-msg">Message</Label>
+        <Textarea id="bc-msg" value={message} onChange={(e) => setMessage(e.target.value)} rows={5} maxLength={2000}
+          placeholder="No deliveries on December 25 — your plan is extended by one day." />
+      </div>
+    </ResponsiveDialog>
   );
 }
 

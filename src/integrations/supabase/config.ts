@@ -74,6 +74,10 @@ const EDGE_ROUTES: RegExp[] = [
   /^\/account\/providers\/[^/]+\/review-request$/,
   /^\/admin\/providers\/[^/]+\/went-live$/,
   /^\/admin\/provider-applications\/[^/]+\/decision$/,
+  // A business and its customers (Edge routes/provider-customers.ts).
+  /^\/account\/providers\/[^/]+\/subscriptions\/[^/]+\/[^/]+\/cancel$/,
+  /^\/account\/providers\/[^/]+\/(broadcast|clients)$/,
+  /^\/account\/providers\/[^/]+\/reviews\/[^/]+\/reply$/,
 ];
 
 /** Full URL for an API path — the Edge Function if that path has moved, else the Nest API. */
