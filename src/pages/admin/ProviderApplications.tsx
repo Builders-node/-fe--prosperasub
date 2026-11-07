@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Store, Check, X, Mail, Phone, MapPin, Clock } from "lucide-react";
+import { ArrowLeft, Store, Check, X, Mail, Phone, MapPin, Clock } from "lucide-react";
+import { Link } from "react-router-dom";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { AdminListShell } from "@/components/admin/AdminListShell";
-import { AdminPageTabs } from "@/components/admin/AdminPageTabs";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -313,10 +313,9 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
     <>
       <div className="space-y-5">
         {!embedded && (
-          <AdminPageTabs tabs={[
-            { label: "Businesses", to: "/admin/marketplace/providers" },
-            { label: "Applications", to: "/admin/marketplace/providers/applications", badge: counts.pending },
-          ]} />
+          <Link to="/admin/marketplace/providers" className="inline-flex items-center gap-1.5 text-body text-muted-foreground hover:text-foreground">
+            <ArrowLeft className="h-4 w-4" /> Businesses
+          </Link>
         )}
 
         <div className="flex flex-wrap items-center gap-2">

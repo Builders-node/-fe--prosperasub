@@ -3,9 +3,10 @@ import { Photo, initialsOf } from "@/components/patterns/Photo";
 import { useNavigate, Link } from "react-router-dom";
 import { useUrlState } from "@/hooks/useUrlState";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Eye, EyeOff, ExternalLink, Building2, Mail, Phone, ShieldCheck, MoreVertical, Plus } from "lucide-react";
+import { ChevronRight, ShieldCheck, Plus } from "lucide-react";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { AdminListShell } from "@/components/admin/AdminListShell";
+import { TabPills } from "@/components/admin/TabPills";
 import { usePagination, TablePagination } from "@/components/ui/table-pagination";
 import { StatusPill } from "@/components/patterns/StatusPill";
 import { Button } from "@/components/ui/button";
@@ -15,13 +16,6 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAuditEvent } from "@/lib/auditLog";
@@ -29,7 +23,6 @@ import { toast } from "sonner";
 import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
 import { CAPABILITIES, type CapabilityKey } from "@/components/provider/capabilities";
 import { profileCompleteness } from "@/lib/providerProfile";
-import { AdminPageTabs } from "@/components/admin/AdminPageTabs";
 import { cn } from "@/lib/utils";
 
 interface ProviderRow {
@@ -166,25 +159,6 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
     }, {}),
   }), [providers]);
 
-  const toggleStatus = useMutation({
-    mutationFn: async (p: ProviderRow) => {
-      const next = p.status === "active" ? "inactive" : "active";
-      const { error } = await supabaseDb.from("providers").update({ status: next }).eq("id", p.id);
-      if (error) throw error;
-      if (userData?.id) await logAuditEvent(userData.id, "edit", AUDIT_ENTITY, p.id, { status: next });
-      return { name: p.name, next };
-    },
-    onSuccess: (r) => {
-      qc.invalidateQueries({ queryKey: QUERY_KEY });
-      toast.success(`${r.name} ${r.next === "active" ? "is live" : "is hidden"}`);
-    },
-    onError: (e: any) => toast.error(e?.message || "Could not update status"),
-  });
-
-  // Hiding asks first. Going live is not done here at all: the row menu opens
-  // the business, where GoLivePanel shows the checklist before the switch.
-  const [confirmDeactivate, setConfirmDeactivate] = useState<ProviderRow | null>(null);
-
   const createProvider = useMutation({
     mutationFn: async (payload: Record<string, unknown>) => {
       // Bump sort_order past the current max so the new row lands at the bottom.
@@ -217,63 +191,71 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
   });
 
 
+  // Counts follow the service already chosen, so a tab never promises rows
+  // the list then doesn't show.
+  const inService = inScope.filter((p) => archetypeKey || service === "all" || p.archetype_key === service);
+  const statusCount = (k: string) =>
+    inService.filter((p) => k === "all" || p.status === k || (k === "active" && p.status === "approved")).length;
+
   const body = (
     <>
-      <div className="space-y-5">
-        {!embedded && (
-          <AdminPageTabs tabs={[
-            { label: "Businesses", to: "/admin/marketplace/providers" },
-            { label: "Applications", to: "/admin/marketplace/providers/applications", badge: pendingApps },
-          ]} />
+      <div className="space-y-4">
+        {/* Applications are a step BEFORE a business, so they wait above the
+            list as one line — not as a tab that swapped the whole page for a
+            different layout. */}
+        {!embedded && pendingApps > 0 && (
+          <Link
+            to="/admin/marketplace/providers/applications"
+            className="flex items-center gap-3 rounded-radius-lg bg-card p-4 transition-colors hover:bg-muted/40"
+          >
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-radius-md bg-primary/15 text-title font-semibold tabular-nums text-primary">
+              {pendingApps}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-title font-semibold text-foreground">
+                {pendingApps === 1 ? "1 application is waiting" : `${pendingApps} applications are waiting`}
+              </span>
+              <span className="block text-meta text-muted-foreground">Approve one and it lands here as a draft.</span>
+            </span>
+            <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
+          </Link>
         )}
 
-        {/* Service filter: one line that scrolls sideways rather than wrapping
-            — with nine services the last chip used to drop to a row of its own
-            beside the status menu and the create button. Same chip as every
-            other filter row: neutral, the selected one inverted. Primary yellow
-            is kept for the one action on the page. */}
-        {!archetypeKey && (
-          <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {[
-              { key: "all", label: "All", count: counts.total },
-              ...archetypes.map((a) => ({ key: a.key, label: a.label, count: counts.perArchetype[a.key] ?? 0 })),
-            ].map((f) => (
-              <button
-                key={f.key}
-                type="button"
-                onClick={() => setServiceFilter(f.key)}
-                className={cn(
-                  "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-1.5 text-body font-semibold transition-colors",
-                  service === f.key
-                    ? "bg-foreground text-background"
-                    : "bg-inset text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {f.label}
-                <span className="tabular-nums opacity-60">{f.count}</span>
-              </button>
-            ))}
-          </div>
-        )}
+        {/* Status is the question this page answers (what is live, what is
+            still being set up), so it is the one row of tabs. The service is a
+            narrower cut and sits beside the search as a menu. */}
+        <div className="-mx-1 overflow-x-auto px-1 [scrollbar-width:none]">
+          <TabPills
+            className="flex-nowrap whitespace-nowrap"
+            value={status as "all" | "active" | "draft" | "inactive"}
+            onChange={setStatus}
+            tabs={[
+              { value: "all", label: `All ${statusCount("all")}` },
+              { value: "active", label: `Live ${statusCount("active")}` },
+              { value: "draft", label: `Draft ${statusCount("draft")}` },
+              { value: "inactive", label: `Hidden ${statusCount("inactive")}` },
+            ]}
+          />
+        </div>
 
         <AdminListShell
           search={search} onSearch={setSearch} searchPlaceholder="Search businesses…"
-          filters={
-            <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger inputSize="sm" className="w-36 rounded-full"><SelectValue /></SelectTrigger>
+          filters={!archetypeKey ? (
+            <Select value={service} onValueChange={setServiceFilter}>
+              <SelectTrigger inputSize="sm" className="w-44"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All statuses</SelectItem>
-                <SelectItem value="draft">Draft · {providers.filter((p) => p.status === "draft").length}</SelectItem>
-                <SelectItem value="active">Live · {counts.active}</SelectItem>
-                <SelectItem value="inactive">Hidden · {providers.filter((p) => p.status === "inactive").length}</SelectItem>
+                <SelectItem value="all">All services · {counts.total}</SelectItem>
+                {archetypes.filter((a) => (counts.perArchetype[a.key] ?? 0) > 0).map((a) => (
+                  <SelectItem key={a.key} value={a.key}>{a.label} · {counts.perArchetype[a.key]}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
-          }
-          actions={<>
+          ) : undefined}
+          actions={
             <Button size="sm" onClick={() => setCreating(true)}>
               <Plus className="mr-1 h-4 w-4" /> New business
             </Button>
-          </>}
+          }
           isLoading={isLoading} isError={isError} error={error} onRetry={refetch}
           isEmpty={inScope.length === 0}
           isNoResults={inScope.length > 0 && visible.length === 0} count={visible.length}
@@ -281,181 +263,46 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
           emptySubtitle="Businesses appear here after they apply and are approved."
           onClearFilters={() => { setSearch(""); setServiceFilter("all"); setStatus("all"); }}
         >
-          {/* Empty state gets a direct CTA to Applications */}
-          {inScope.length === 0 && (
-            <div className="flex justify-center pt-2">
-              <Button asChild variant="outline">
-                <Link to="/admin/marketplace/providers/applications">Review applications</Link>
-              </Button>
-            </div>
-          )}
-
-          <div className="overflow-hidden rounded-radius-md bg-card">
-            {/* Header row */}
-            <div className="hidden grid-cols-[minmax(0,3fr)_140px_minmax(0,2fr)_100px_80px] items-center gap-4 border-b border-border/40 px-space-5 py-space-3 text-meta font-semibold text-muted-foreground md:grid">
-              <div>Business</div>
-              <div>Service</div>
-              <div>Contact</div>
-              <div>Status</div>
-              <div className="text-right">Actions</div>
-            </div>
-
-            <div className="divide-y divide-border/40">
-              {pager.paged.map((p) => {
-                const arche = archetypes.find((a) => a.key === p.archetype_key);
-                const AIcon = arche?.Icon ?? Building2;
-                // Only what the app still branches on. The column keeps older
-                // values (subscription_plans, catalog_items…) that nothing has
-                // read for months, and printing them raw advertised switches
-                // that do not exist.
-                const caps = (p.capabilities ?? []).filter((c): c is CapabilityKey => c in CAPABILITIES);
-
-                const providerCell = (
-                  <div className="flex min-w-0 items-center gap-3">
-                    <span className="h-10 w-10 shrink-0 overflow-hidden rounded-full">
-                      <Photo src={p.avatar_url} label={initialsOf(p.name)} />
-                    </span>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <p className="truncate text-sm font-semibold text-foreground">{p.name}</p>
-                        {p.is_platform_owned && (
-                          <ShieldCheck className="h-3.5 w-3.5 text-primary shrink-0" aria-label="Platform-owned" />
-                        )}
-                      </div>
-                      {p.description && (
-                        <p className="truncate text-xs text-muted-foreground">{p.description}</p>
+          {/* One row shape at every width: who, where it is filed, how finished
+              it is, its status. Everything else is one tap away on the
+              business itself — the old phone card stacked contacts and a menu
+              into a 300px-tall block per business. */}
+          <div className="space-y-0.5 rounded-radius-lg bg-card p-1.5">
+            {pager.paged.map((p) => {
+              const arche = archetypes.find((a) => a.key === p.archetype_key);
+              const cat = categories.find((c) => c.key === p.category_key);
+              const profile = profileCompleteness(p as any);
+              return (
+                <Link
+                  key={p.id}
+                  to={`/admin/marketplace/providers/${p.id}`}
+                  className="flex min-h-[64px] items-center gap-3 rounded-radius-md px-2.5 py-2 transition-colors hover:bg-inset"
+                >
+                  <span className="h-10 w-10 shrink-0 overflow-hidden rounded-full">
+                    <Photo src={p.avatar_url} label={initialsOf(p.name)} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-1.5">
+                      <span className="truncate text-title font-semibold text-foreground">{p.name}</span>
+                      {p.is_platform_owned && (
+                        <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-primary" aria-label="Platform-owned" />
                       )}
-                      {caps.length > 0 && (
-                        <div className="mt-1 flex flex-wrap gap-1">
-                          {caps.map((c) => (
-                            <span key={c} className="inline-flex rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
-                              {CAPABILITIES[c].label}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-
-                // Service + the category under it — the two upper layers of
-                // Service → Category → Provider, so the admin can see where a
-                // provider actually sits without opening the edit sheet.
-                const cat = categories.find((c) => c.key === p.category_key);
-                const serviceCell = arche ? (
-                  <div className="min-w-0">
-                    <span className="inline-flex items-center gap-1.5">
-                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-radius-xs bg-inset">
-                        <AIcon className="h-3 w-3 text-foreground" />
-                      </span>
-                      <span className="text-sm text-foreground">{arche.label}</span>
                     </span>
-                    <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                      {cat ? cat.label : <em className="italic opacity-70">no category</em>}
-                    </p>
-                  </div>
-                ) : <span className="text-xs text-muted-foreground">—</span>;
-
-                const profile = profileCompleteness(p as any);
-                const contactCell = (
-                  <div className="min-w-0 space-y-0.5 text-xs">
-                    {p.contact_email ? (
-                      <div className="flex items-center gap-1.5 text-muted-foreground">
-                        <Mail className="h-3 w-3 shrink-0" />
-                        <span className="truncate text-foreground">{p.contact_email}</span>
-                      </div>
-                    ) : null}
-                    {p.contact_phone ? (
-                      <div className="flex items-center gap-1.5 text-muted-foreground">
-                        <Phone className="h-3 w-3 shrink-0" />
-                        <span className="truncate text-foreground">{p.contact_phone}</span>
-                      </div>
-                    ) : null}
-                    {!p.contact_email && !p.contact_phone && (
-                      <span className="text-muted-foreground">No contact info</span>
-                    )}
-                    {/* How finished the public profile is. Every business here
-                        went live without contacts; two also have no hours and
-                        no address, which the booking calendar and the calendar
-                        provisioning both need. */}
-                    {profile.missing.length > 0 && (
-                      <span className="mt-1 inline-flex items-center gap-1 text-meta font-semibold text-attention">
-                        Profile {profile.percent}%
-                      </span>
-                    )}
-                  </div>
-                );
-
-                const statusCell = <StatusPill status={p.status} />;
-
-                const actionsCell = (
-                  <div className="flex justify-end">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button
-                          type="button"
-                          className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                          aria-label="Provider actions"
-                        >
-                          <MoreVertical className="h-4 w-4" />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onSelect={() => navigate(`/admin/marketplace/providers/${p.id}`)}>
-                          <ExternalLink className="mr-2 h-3.5 w-3.5" /> Open workspace
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onSelect={() => (p.status === "active" ? setConfirmDeactivate(p) : navigate(`/admin/marketplace/providers/${p.id}`))}
-                        >
-                          {p.status === "active"
-                            ? (<><EyeOff className="mr-2 h-3.5 w-3.5" /> Hide</>)
-                            : (<><Eye    className="mr-2 h-3.5 w-3.5" /> Review &amp; go live</>)}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                );
-
-                return (
-                  <div
-                    key={p.id}
-                    className={cn(
-                      "group px-space-5 py-space-3 transition-colors hover:bg-muted/30 cursor-pointer",
-                      p.status !== "active" && "opacity-70",
-                    )}
-                    onClick={() => navigate(`/admin/marketplace/providers/${p.id}`)}
-                  >
-                    {/* Desktop grid */}
-                    <div className="hidden grid-cols-[minmax(0,3fr)_140px_minmax(0,2fr)_100px_80px] items-center gap-4 md:grid">
-                      {providerCell}
-                      {serviceCell}
-                      {contactCell}
-                      <div>{statusCell}</div>
-                      {/* Stop propagation so opening the ⋮ menu doesn't also open the workspace. */}
-                      <div onClick={(e) => e.stopPropagation()}>{actionsCell}</div>
-                    </div>
-
-                    {/* Mobile card layout */}
-                    <div className="space-y-2 md:hidden">
-                      <div className="flex items-start justify-between gap-3">
-                        {providerCell}
-                        {statusCell}
-                      </div>
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        {serviceCell}
-                      </div>
-                      {contactCell}
-                      <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
-                        {actionsCell}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                    <span className="block truncate text-meta text-muted-foreground">
+                      {[arche?.label ?? "No service", cat && cat.label !== arche?.label ? cat.label : null].filter(Boolean).join(" · ")}
+                      {profile.missing.length > 0 && <span className="text-attention"> · Profile {profile.percent}%</span>}
+                    </span>
+                  </span>
+                  <StatusPill
+                    status={p.status}
+                    label={p.status === "active" || p.status === "approved" ? "Live" : p.status === "inactive" ? "Hidden" : "Draft"}
+                    className="shrink-0"
+                  />
+                  <ChevronRight className="hidden h-4 w-4 shrink-0 text-muted-foreground sm:block" />
+                </Link>
+              );
+            })}
           </div>
-          {/* Every row used to render, however many there were. */}
           <TablePagination {...pager} onPage={pager.setPage} />
         </AdminListShell>
       </div>
@@ -477,30 +324,6 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
         </SheetContent>
       </Sheet>
 
-      <AlertDialog open={!!confirmDeactivate} onOpenChange={(o) => !o && setConfirmDeactivate(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Hide {confirmDeactivate?.name}?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will hide the business from Discovery, listings, and every checkout
-              on the platform immediately. Existing subscriptions keep running but
-              new sign-ups are blocked. You can put it live again anytime.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              onClick={() => {
-                if (confirmDeactivate) toggleStatus.mutate(confirmDeactivate);
-                setConfirmDeactivate(null);
-              }}
-            >
-              Hide
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </>
   );
 
