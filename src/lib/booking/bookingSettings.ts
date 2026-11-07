@@ -85,6 +85,17 @@ export interface BookingSettings {
    * page showing or hiding a button is a courtesy, not a rule.
    */
   policy: BookingPolicy;
+  /**
+   * Bookable hours = the business's working hours (providers.working_hours).
+   *
+   * There used to be two "Working hours" with nothing tying them together —
+   * the profile's, shown to customers, and these, which the booking engine
+   * uses — so the beach club advertised 08–20 and took bookings 06–19. When
+   * this is on, `weekly` is written from the working hours on every save of
+   * either form, so the engine still reads `weekly` and nothing server-side
+   * changes.
+   */
+  followWorkingHours?: boolean;
 }
 
 export interface BookingPolicy {
@@ -195,7 +206,28 @@ export function normalizeBookingSettings(raw: unknown): BookingSettings {
           .map((r) => ({ ...r, date: typeof r.date === "string" && r.date !== "" ? r.date : null }))
       : [],
     policy: normalizePolicy(s.policy),
+    followWorkingHours: s.followWorkingHours === true,
   };
+}
+
+const DAY_CODE_ORDER = ["MO", "TU", "WE", "TH", "FR", "SA", "SU"] as const;
+
+/** The week the booking engine needs, from the profile's working hours. */
+export function weeklyFromWorkingHours(
+  hours: Array<{ days: string[]; open: string; close: string }>,
+): DayHours[] {
+  return DAY_CODE_ORDER.map((code, i) => {
+    const hit = hours.find((h) => h.days.includes(code) && h.open && h.close);
+    return hit
+      ? { enabled: true, from: hit.open, to: hit.close }
+      : { enabled: false, from: DEFAULT_BOOKING_SETTINGS.weekly[i].from, to: DEFAULT_BOOKING_SETTINGS.weekly[i].to };
+  });
+}
+
+/** Same open days and windows (closed days compare equal whatever their times). */
+export function sameWeekly(a: DayHours[], b: DayHours[]): boolean {
+  return a.length === b.length && a.every((d, i) =>
+    d.enabled === b[i].enabled && (!d.enabled || (d.from === b[i].from && d.to === b[i].to)));
 }
 
 /** Absent or malformed reads as "no restriction", never as "locked out". */

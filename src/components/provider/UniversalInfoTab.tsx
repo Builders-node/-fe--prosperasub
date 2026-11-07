@@ -11,6 +11,10 @@ import { ProviderEditDialog, type ProviderEditFields } from "@/components/provid
 import { WorkspaceRow } from "@/components/provider/WorkspaceUI";
 import { WorkingHoursEditor } from "@/components/provider/WorkingHoursEditor";
 import { formatWorkingHours, parseWorkingHours, type HoursSchedule } from "@/lib/workingHours";
+import { weeklyFromWorkingHours } from "@/lib/booking/bookingSettings";
+
+const followsWorkingHours = (raw: unknown) =>
+  !!raw && typeof raw === "object" && (raw as { followWorkingHours?: unknown }).followWorkingHours === true;
 
 export interface UniversalProviderRow {
   id: string;
@@ -139,6 +143,11 @@ export function ProviderProfileEditor({ provider, open, onOpenChange }: {
         ...(isAdmin ? { status: form.status || "draft", sort_order: form.sort_order ?? 0 } : {}),
         gallery_urls: form.gallery_urls ?? [],
         ...(delivers ? { delivery_info: delivery.trim() || null } : {}),
+        // Bookings that follow the working hours move with them — the engine
+        // reads booking_settings.weekly, so it is rewritten here too.
+        ...(followsWorkingHours(provider.booking_settings)
+          ? { booking_settings: { ...(provider.booking_settings as object), weekly: weeklyFromWorkingHours(hours.filter((h) => h.days.length && h.open && h.close)) } }
+          : {}),
         updated_at: new Date().toISOString(),
       };
       if (!payload.name) throw new Error("Name is required");

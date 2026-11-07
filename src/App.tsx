@@ -86,7 +86,6 @@ const AdminUsers = lazy(() => import("./pages/admin/Users"));
 const CarRentals = lazy(() => import("./pages/admin/CarRentals"));
 const CleaningPlans = lazy(() => import("./pages/admin/CleaningPlans"));
 const ServiceCategories = lazy(() => import("./pages/admin/ServiceCategories"));
-const Diagnostics = lazy(() => import("./pages/admin/Diagnostics"));
 const MarketplaceProviders = lazy(() => import("./pages/admin/MarketplaceProviders"));
 const MarketplaceProviderDetail = lazy(() => import("./pages/admin/MarketplaceProviderDetail"));
 const LegacyProviderRedirect = lazy(() => import("./pages/admin/LegacyProviderRedirect"));
@@ -448,10 +447,6 @@ const App = () => {
               } />
               <Route path="/admin/audit-logs" element={
                 <ProtectedRoute allowedRoles={['super_admin']} requiredPermissions={["admin_settings.read"]}><AuditLogs /></ProtectedRoute>
-              } />
-              {/* Test payments, notification log, event bus — off the operator's money screens. */}
-              <Route path="/admin/diagnostics" element={
-                <ProtectedRoute allowedRoles={['super_admin']} requiredPermissions={["admin_settings.read"]}><Diagnostics /></ProtectedRoute>
               } />
               {/* /admin/settings retired — platform_fee_percent moved into Finance
                   (NetProfitPanel); min/max subscription weeks were unused. Redirect
