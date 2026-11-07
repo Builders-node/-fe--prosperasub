@@ -1,14 +1,13 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Check, LifeBuoy, Mail, MessageCircle, ExternalLink } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Check, LifeBuoy, Mail, MessageCircle, ExternalLink, UserRound } from "lucide-react";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { AdminListShell } from "@/components/admin/AdminListShell";
+import { TabPills } from "@/components/admin/TabPills";
 import { StatusPill } from "@/components/patterns/StatusPill";
 import { Button } from "@/components/ui/button";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
 import { adminApi } from "@/integrations/supabase/client";
 import { formatTimestampHN } from "@/lib/timezone";
 import { cn } from "@/lib/utils";
@@ -40,7 +39,7 @@ interface SupportMessage {
 
 export default function AdminSupport() {
   const qc = useQueryClient();
-  const [status, setStatus] = useState("new");
+  const [status, setStatus] = useState<"new" | "handled" | "all">("new");
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState<string | null>(null);
 
@@ -82,15 +81,18 @@ export default function AdminSupport() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  // The queue length sits at the top of the page, not inside a dropdown — it
+  // is the one number this screen exists to drive to zero.
   const filters = (
-    <Select value={status} onValueChange={setStatus}>
-      <SelectTrigger inputSize="sm" className="w-40 rounded-full"><SelectValue /></SelectTrigger>
-      <SelectContent>
-        <SelectItem value="new">New{newCount > 0 ? ` (${newCount})` : ""}</SelectItem>
-        <SelectItem value="handled">Handled</SelectItem>
-        <SelectItem value="all">All</SelectItem>
-      </SelectContent>
-    </Select>
+    <TabPills<"new" | "handled" | "all">
+      tabs={[
+        { value: "new", label: "New", badge: newCount },
+        { value: "handled", label: "Handled" },
+        { value: "all", label: "All" },
+      ] as const}
+      value={status}
+      onChange={setStatus}
+    />
   );
 
   return (
@@ -98,6 +100,13 @@ export default function AdminSupport() {
       title="Support"
       subtitle="Messages from customers — reply by email or WhatsApp, then mark as handled"
     >
+      {!isLoading && !isError && (
+        <p className="mb-3 text-sm text-muted-foreground" aria-live="polite">
+          {newCount === 0
+            ? "Nothing waiting — every message has been handled."
+            : <><span className="font-semibold tabular-nums text-foreground">{newCount} new</span> {newCount === 1 ? "message is" : "messages are"} waiting for a reply.</>}
+        </p>
+      )}
       <AdminListShell
         search={search} onSearch={setSearch} searchPlaceholder="Search by name, email or text…"
         filters={filters}
@@ -159,6 +168,13 @@ export default function AdminSupport() {
                           >
                             <MessageCircle className="mr-1.5 h-3.5 w-3.5" /> WhatsApp
                           </a>
+                        </Button>
+                      )}
+                      {m.user_id && (
+                        <Button asChild size="sm" variant="secondary">
+                          <Link to={`/admin/users?userId=${encodeURIComponent(m.user_id)}`}>
+                            <UserRound className="mr-1.5 h-3.5 w-3.5" /> Open customer
+                          </Link>
                         </Button>
                       )}
                       {m.page_url && (

@@ -177,7 +177,35 @@ const AuditLogs = () => {
       <section className="rounded-radius-md bg-card">
         <div className="p-0">
           {(
-            <div className="overflow-x-auto">
+            <div>
+              {/* Phones: one card per event. Five columns at 375px meant a
+                  sideways scroll to find out who did what. */}
+              <ul className="divide-y divide-border/60 md:hidden">
+                {filtered.map((log: any) => {
+                  const hasDetails = log.details && Object.keys(log.details).length > 0;
+                  return (
+                    <li key={log.id} className="space-y-1.5 px-4 py-3">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <Badge variant={actionColor(log.action)} className="text-xs">{log.action}</Badge>
+                        <Badge variant="secondary" className="text-xs">{log.entity_type}</Badge>
+                        {log.entity_id && (
+                          <span className="font-mono text-xs text-muted-foreground">{log.entity_id.slice(0, 8)}</span>
+                        )}
+                      </div>
+                      <p className="text-sm font-medium text-foreground">{getAdminName(log)}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {log.created_at ? format(new Date(log.created_at), "MMM d, yyyy · h:mm a") : "—"}
+                      </p>
+                      {hasDetails && (
+                        <p className="line-clamp-3 break-all font-mono text-xs text-muted-foreground">
+                          {JSON.stringify(log.details)}
+                        </p>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+              <div className="hidden overflow-x-auto md:block">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -228,6 +256,7 @@ const AuditLogs = () => {
                   ))}
                 </TableBody>
               </Table>
+              </div>
               {/* Server-side paging: we don't know the total without an extra
                   count query, so this is prev/next rather than numbered pages. */}
               <div className="flex items-center justify-between gap-3 border-t border-border/60 px-4 py-3">

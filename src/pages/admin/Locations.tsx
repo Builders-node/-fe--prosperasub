@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { MapPin, Plus, Pencil, Trash2, Eye, EyeOff } from "lucide-react";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { AdminListShell } from "@/components/admin/AdminListShell";
+import { MobileActionSheet } from "@/components/admin/MobileActionSheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -152,17 +153,32 @@ const Locations = () => {
                     Sort #{r.sort_order} · {counts[r.name] ?? 0} active subscription{(counts[r.name] ?? 0) !== 1 ? "s" : ""}
                   </p>
                 </div>
-                <div className="flex shrink-0 gap-1">
-                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0" title={r.is_active ? "Hide" : "Enable"} onClick={() => toggleActive(r)}>
-                    {r.is_active ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                {/* Three unlabelled 32px icons whose only explanation was a
+                    hover title (and two had none). A desktop gets the words;
+                    a phone gets one 44px target that opens a labelled sheet. */}
+                <div className="hidden shrink-0 gap-1 md:flex">
+                  <Button size="sm" variant="ghost" disabled={toggleMutation.isPending} onClick={() => toggleActive(r)}
+                    aria-label={`${r.is_active ? "Hide" : "Enable"} ${r.name}`}>
+                    {r.is_active ? <EyeOff /> : <Eye />}
+                    {r.is_active ? "Hide" : "Enable"}
                   </Button>
-                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={() => openEdit(r)}>
-                    <Pencil className="h-4 w-4" />
+                  <Button size="sm" variant="ghost" onClick={() => openEdit(r)} aria-label={`Edit ${r.name}`}>
+                    <Pencil /> Edit
                   </Button>
-                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive hover:text-destructive" onClick={() => setDeleteTarget(r)}>
-                    <Trash2 className="h-4 w-4" />
+                  <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => setDeleteTarget(r)}
+                    aria-label={`Delete ${r.name}`}>
+                    <Trash2 /> Delete
                   </Button>
                 </div>
+                <MobileActionSheet
+                  title={r.name}
+                  className="h-11 w-11 shrink-0 md:hidden"
+                  actions={[
+                    { label: r.is_active ? "Hide" : "Enable", icon: r.is_active ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />, onClick: () => toggleActive(r), disabled: toggleMutation.isPending },
+                    { label: "Edit", icon: <Pencil className="h-4 w-4" />, onClick: () => openEdit(r) },
+                    { label: "Delete…", icon: <Trash2 className="h-4 w-4" />, danger: true, onClick: () => setDeleteTarget(r) },
+                  ]}
+                />
               </div>
             ))}
           </div>

@@ -1,13 +1,19 @@
 import { useEffect, useState, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Ban, Search, Trash2, UserCheck, Sparkles, UtensilsCrossed, Waves, Car } from "lucide-react";
+import { Ban, Pencil, Trash2, UserCheck } from "lucide-react";
 import { toast } from "sonner";
 
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { AdminListShell } from "@/components/admin/AdminListShell";
+import { MobileActionSheet } from "@/components/admin/MobileActionSheet";
 import { TabPills } from "@/components/admin/TabPills";
-import { fetchAllRows } from "@/lib/supabasePaging";
+import { ContactActions } from "@/components/admin/customers/ContactActions";
+import {
+  CUSTOMER_SERVICE_META, CUSTOMER_SERVICE_ORDER, type CustomerService,
+  useCustomerActivity, useCustomerContacts, useCustomerSales,
+} from "@/components/admin/customers/customerActivity";
 import { adminApi, supabaseDb } from "@/integrations/supabase/client";
 import { adminApiMessage, isNotDeployed } from "@/lib/admin/apiError";
 import {
@@ -24,6 +30,7 @@ import { usePagination, TablePagination } from "@/components/ui/table-pagination
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { formatUSD } from "@/lib/pricing";
 import { StatusPill, statusLabel } from "@/components/patterns/StatusPill";
+import { pickPhone } from "@/components/patterns/CustomerPhone";
 import { formatDateHN } from "@/lib/timezone";
 import { cn } from "@/lib/utils";
 import { useResidences } from "@/hooks/useResidences";
@@ -34,20 +41,10 @@ import { addressFromProfile, addressPayload, EMPTY_ADDRESS } from "@/lib/address
 type Filter = "all" | "user" | "admin" | "blocked";
 const formatRole = (role: string) => role.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 const userRoles = (user: any) => Array.isArray(user?.roles) ? user.roles : [];
-const userSubscriptions = (user: any) => Array.isArray(user?.subscriptions) ? user.subscriptions : [];
 const userLinkedClients = (user: any) => Array.isArray(user?.linkedClients) ? user.linkedClients : [];
 
-const norm = (v?: string | null) => (v ?? "").trim().toLowerCase();
-
-const SERVICE_META: Record<string, { label: string; icon: React.ComponentType<any>; tint: string }> = {
-  // One neutral chip; the icon is the differentiator. A colour per service is
-  // the per-archetype tinting the rest of the admin already removed.
-  cleaning: { label: "Cleaning", icon: Sparkles,         tint: "bg-muted text-muted-foreground" },
-  food:     { label: "Food",     icon: UtensilsCrossed,  tint: "bg-muted text-muted-foreground" },
-  beach:    { label: "Beach",    icon: Waves,            tint: "bg-muted text-muted-foreground" },
-};
-const SERVICE_ORDER = ["cleaning", "food", "beach"] as const;
-type ServiceKey = (typeof SERVICE_ORDER)[number];
+/** The URL parameter that opens one customer's sheet — Subscriptions and Support link here. */
+const USER_PARAM = "userId";
 
 function initials(name?: string | null, email?: string | null) {
   const src = (name || email || "?").trim();
@@ -61,21 +58,44 @@ interface Person {
   name: string;
   email: string | null;
   phone: string | null;
+  whatsapp: string | null;
+  addressText: string;
+  addressLine: string | null;
   createdAt: string | null;
   isBlocked: boolean;
-  services: Set<ServiceKey>;
+  /** Services with a live, paid purchase — every source, cars and one-off plans included. */
+  services: Set<CustomerService>;
+  /** Bought something once, nothing live now. */
+  lapsed: boolean;
   raw: any;
 }
 
 const AdminUsers = () => {
   const queryClient = useQueryClient();
+  const [params, setParams] = useSearchParams();
 
   const [tab, setTab] = useTabParam(["users", "clients"] as const);
   const [filter, setFilter] = useState<Filter>("all");
   const [blockTarget, setBlockTarget] = useState<{ id: string; name: string } | null>(null);
-  const [serviceFilter, setServiceFilter] = useState<"all" | ServiceKey>("all");
+  const [serviceFilter, setServiceFilter] = useState<"all" | CustomerService>("all");
   const [search, setSearch] = useState("");
-  const [editUser, setEditUser] = useState<any>(null);
+
+  // ── The open sheet lives in the URL ──────────────────────────────────────
+  // `?userId=` is what Subscriptions and Support link to. It used to be
+  // ignored, so those links landed on an unfiltered list of everyone.
+  const openUserId = params.get(USER_PARAM);
+  const openUser = (id: string) => {
+    const q = new URLSearchParams(params);
+    q.set(USER_PARAM, id);
+    // Replace, like closing does: a push here plus a replace on close left a
+    // duplicate list entry for Back to walk through.
+    setParams(q, { replace: true });
+  };
+  const closeUser = () => {
+    const q = new URLSearchParams(params);
+    q.delete(USER_PARAM);
+    setParams(q, { replace: true });
+  };
 
   // ── Queries ──────────────────────────────────────────────────────────────
 
@@ -104,29 +124,26 @@ const AdminUsers = () => {
     userRoles(u).includes("super_admin") ||
     ((u.rbacRoles ?? []) as string[]).some((s) => (adminSlugs as string[]).includes(s));
 
-  // ── Cross-service subscription aggregation (id-space is mixed: some by user_id, some by email) ──
-  const { data: foodSubs = [] } = useQuery({
-    queryKey: ["admin-people-food-subs"],
-    queryFn: async () => {
-      // Paged: this whole table collapses to a per-user subscription count, so
-      // a silent 1000-row clip would just make some users look inactive.
-      return await fetchAllRows<any>(() => supabaseDb
-        .from("food_subscriptions")
-        .select("id, user_id, status, customer_name").order("id"));
-    },
-    staleTime: 15_000,
-  });
+  // Every source through the read model (cleaning · food · beach · universal
+  // plans · car rentals), plus phones and addresses for contact + search.
+  const { data: activity } = useCustomerActivity();
+  const { data: contacts } = useCustomerContacts();
 
-  const { data: beachSubs = [] } = useQuery({
-    queryKey: ["admin-people-beach-subs"],
-    queryFn: async () => {
-      return await fetchAllRows<any>(() => supabaseDb
-        .from("provider_subscriptions")
-        .select("id, user_id, status, customer_email:metadata->>customer_email")
-        .eq("source_service_key", "beach").order("id"));
-    },
-    staleTime: 15_000,
-  });
+  const editUser = useMemo(
+    () => (openUserId ? (users as any[]).find((u: any) => String(u.id) === openUserId) ?? null : null),
+    [users, openUserId],
+  );
+
+  // A link to someone who is not in the list (soft-deleted, mistyped id) must
+  // say so rather than silently showing everybody.
+  useEffect(() => {
+    if (!openUserId || usersLoading || isError) return;
+    if (!(users as any[]).some((u: any) => String(u.id) === openUserId)) {
+      toast.error("That customer isn't in the list — they may have been deleted.");
+      closeUser();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openUserId, usersLoading, isError, users]);
 
   const { data: userAuditLogs = [] } = useQuery({
     queryKey: ["admin-user-audit", editUser?.id],
@@ -151,7 +168,7 @@ const AdminUsers = () => {
       });
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("User updated"); invalidate(); setEditUser(null); },
+    onSuccess: () => { toast.success("User updated"); invalidate(); closeUser(); },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -172,59 +189,34 @@ const AdminUsers = () => {
       const { error } = await adminApi(`/admin/users/${userId}`, { method: "DELETE" });
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("User soft-deleted"); invalidate(); setEditUser(null); },
+    onSuccess: () => { toast.success("User soft-deleted"); invalidate(); closeUser(); },
     onError: (e: Error) => toast.error(e.message),
   });
 
-  // ── Assemble the People list from auth users + cross-service subs ──────
+  // ── Assemble the People list ─────────────────────────────────────────────
 
   const people: Person[] = useMemo(() => {
-    // Build service-usage maps keyed by user_id (auth users) and email fallback.
-    const serviceByUserId = new Map<string, Set<ServiceKey>>();
-    const serviceByEmail = new Map<string, Set<ServiceKey>>();
-    const addByUser = (uid: string | null | undefined, key: ServiceKey) => {
-      if (!uid) return;
-      const cur = serviceByUserId.get(uid) ?? new Set<ServiceKey>();
-      cur.add(key);
-      serviceByUserId.set(uid, cur);
-    };
-    const addByEmail = (email: string | null | undefined, key: ServiceKey) => {
-      const e = norm(email);
-      if (!e) return;
-      const cur = serviceByEmail.get(e) ?? new Set<ServiceKey>();
-      cur.add(key);
-      serviceByEmail.set(e, cur);
-    };
-
-    (users as any[]).forEach((u: any) => {
-      const subs = userSubscriptions(u);
-      if (subs.some((s: any) => s.is_active)) addByUser(u.id, "cleaning");
-    });
-    (foodSubs as any[]).forEach((s: any) => {
-      if (norm(s.status) === "active") addByUser(s.user_id, "food");
-    });
-    (beachSubs as any[]).forEach((s: any) => {
-      if (norm(s.status) === "active") { addByUser(s.user_id, "beach"); addByEmail(s.customer_email, "beach"); }
-    });
-
     return (users as any[]).map((u: any) => {
-      const email = norm(u.email);
-      const services = new Set<ServiceKey>([
-        ...(serviceByUserId.get(u.id) ?? []),
-        ...(email ? (serviceByEmail.get(email) ?? []) : []),
-      ]);
+      const id = String(u.id);
+      const act = activity?.get(id);
+      const contact = contacts?.get(id);
+      const services = new Set<CustomerService>(act?.active ?? []);
       return {
-        id: u.id,
+        id,
         name: u.display_name || u.name || u.email || "User",
         email: u.email ?? null,
-        phone: (u.phone as string) ?? null,
+        phone: pickPhone(u.phone, contact?.phone),
+        whatsapp: pickPhone(contact?.whatsapp, u.phone),
+        addressText: contact?.addressText ?? "",
+        addressLine: contact?.addressLine ?? null,
         createdAt: u.created_at ?? null,
         isBlocked: !!u.isBlocked,
         services,
+        lapsed: services.size === 0 && (act?.ever.size ?? 0) > 0,
         raw: u,
       };
     }).sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
-  }, [users, foodSubs, beachSubs]);
+  }, [users, activity, contacts]);
 
   const stats = useMemo(() => ({
     total: people.length,
@@ -241,11 +233,13 @@ const AdminUsers = () => {
     if (serviceFilter !== "all") result = result.filter((p) => p.services.has(serviceFilter));
 
     if (search.trim()) {
-      const q = search.toLowerCase();
+      const q = search.trim().toLowerCase();
       result = result.filter((p) =>
         p.name.toLowerCase().includes(q) ||
         (p.email ?? "").toLowerCase().includes(q) ||
-        (p.phone ?? "").toLowerCase().includes(q)
+        (p.phone ?? "").toLowerCase().includes(q) ||
+        (p.whatsapp ?? "").toLowerCase().includes(q) ||
+        p.addressText.includes(q)
       );
     }
     return result;
@@ -261,6 +255,8 @@ const AdminUsers = () => {
     { label: "Admins",  value: "admin",   count: stats.admins },
     { label: "Blocked", value: "blocked", count: stats.blocked },
   ];
+
+  const ROW_GRID = "grid-cols-[minmax(0,3fr)_minmax(0,2fr)_minmax(0,1.5fr)_104px_96px_auto]";
 
   return (
     <SuperAdminLayout title="People" subtitle="Individual accounts, and the businesses and households you bill.">
@@ -280,7 +276,7 @@ const AdminUsers = () => {
       <AdminListShell
         search={search}
         onSearch={setSearch}
-        searchPlaceholder="Search name, email, phone…"
+        searchPlaceholder="Search name, email, phone, apartment…"
         count={filteredPeople.length}
         isLoading={isLoading}
         isError={isError}
@@ -295,6 +291,7 @@ const AdminUsers = () => {
           <>
             {FILTERS.map((f) => (
               <button key={f.value} type="button" onClick={() => setFilter(f.value)}
+                aria-pressed={filter === f.value}
                 className={cn("group flex h-10 items-center gap-1.5 rounded-full px-4 text-body font-semibold transition-colors",
                   filter === f.value ? "bg-foreground text-background" : "bg-muted text-muted-foreground hover:text-foreground"
                 )}>
@@ -310,7 +307,7 @@ const AdminUsers = () => {
               <SelectTrigger className="w-40 rounded-full" inputSize="sm"><SelectValue placeholder="All services" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All services</SelectItem>
-                {SERVICE_ORDER.map((k) => <SelectItem key={k} value={k}>{SERVICE_META[k].label}</SelectItem>)}
+                {CUSTOMER_SERVICE_ORDER.map((k) => <SelectItem key={k} value={k}>{CUSTOMER_SERVICE_META[k].label}</SelectItem>)}
               </SelectContent>
             </Select>
           </>
@@ -318,7 +315,7 @@ const AdminUsers = () => {
       >
       <div className="overflow-hidden rounded-radius-md bg-card">
               {/* Header row (desktop) */}
-              <div className="hidden grid-cols-[minmax(0,3fr)_minmax(0,2fr)_minmax(0,1.5fr)_112px_100px_88px] items-center gap-4 border-b border-border/40 px-space-5 py-space-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground md:grid">
+              <div className={cn("hidden items-center gap-4 border-b border-border/40 px-space-5 py-space-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground md:grid", ROW_GRID)}>
                 <div>Person</div>
                 <div>Services</div>
                 <div>Roles</div>
@@ -332,26 +329,35 @@ const AdminUsers = () => {
                   const roles = userRoles(p.raw);
                   const rbac = ((p.raw as any).rbacRoles ?? []) as string[];
                   const isAdmin = isAdminUser(p.raw);
-                  const svcArr = SERVICE_ORDER.filter((k) => p.services.has(k));
+                  const svcArr = CUSTOMER_SERVICE_ORDER.filter((k) => p.services.has(k));
 
+                  // The name opens the sheet — a real button, so the row's
+                  // main action is reachable by keyboard and by thumb.
                   const person = (
-                    <div className="flex min-w-0 items-center gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-bold text-primary">
+                    <button
+                      type="button"
+                      onClick={() => openUser(p.id)}
+                      className="flex min-w-0 items-center gap-3 rounded-radius-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-bold text-foreground">
                         {initials(p.name, p.email)}
                       </div>
                       <div className="min-w-0">
                         <p className="truncate text-sm font-semibold text-foreground">{p.name}</p>
-                        <p className="truncate text-xs text-muted-foreground">{p.email || p.phone || "—"}</p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {p.email || p.phone || "—"}
+                          {p.addressLine && <> · {p.addressLine}</>}
+                        </p>
                       </div>
-                    </div>
+                    </button>
                   );
 
                   const svcChips = svcArr.length ? (
                     <div className="flex flex-wrap gap-1">
                       {svcArr.map((k) => {
-                        const meta = SERVICE_META[k]; const Icon = meta.icon;
+                        const meta = CUSTOMER_SERVICE_META[k]; const Icon = meta.icon;
                         return (
-                          <span key={k} className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold", meta.tint)}>
+                          <span key={k} className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
                             <Icon className="h-3 w-3" />{meta.label}
                           </span>
                         );
@@ -377,35 +383,33 @@ const AdminUsers = () => {
                   const statusChip = p.isBlocked
                     ? <Badge variant="destructive" className="text-[10px]">Blocked</Badge>
                     : svcArr.length ? <Badge variant="default" className="text-[10px]">Active</Badge>
+                    : p.lapsed ? <Badge variant="secondary" className="text-[10px]">Lapsed</Badge>
                     : <Badge variant="outline" className="text-[10px]">Idle</Badge>;
 
-                  const actions = (
-                    <div className="flex justify-end gap-1">
-                      <Button variant="ghost" size="sm" onClick={() => setEditUser(p.raw)}>Edit</Button>
-                      {p.isBlocked ? (
-                        <Button
-                          variant="ghost" size="sm"
-                          aria-label={`Unblock ${p.name}`} title="Unblock"
-                          onClick={() => blockMutation.mutate({ userId: p.id, block: false })}
-                        >
-                          <UserCheck className="h-3.5 w-3.5" />
-                        </Button>
-                      ) : (
-                        <Button
-                          variant="ghost" size="sm"
-                          aria-label={`Block ${p.name}`} title="Block"
-                          onClick={() => setBlockTarget({ id: p.id, name: p.name })}
-                        >
-                          <Ban className="h-3.5 w-3.5" />
-                        </Button>
-                      )}
-                    </div>
+                  const contact = (
+                    <ContactActions name={p.name} phone={p.phone} whatsapp={p.whatsapp} email={p.email} />
+                  );
+
+                  // Every row action has a visible label in the sheet — block
+                  // used to be an unlabelled icon whose meaning lived in a
+                  // hover title a phone never shows.
+                  const menu = (
+                    <MobileActionSheet
+                      title={p.name}
+                      className="h-10 w-10"
+                      actions={[
+                        { label: "Open profile", icon: <Pencil className="h-4 w-4" />, onClick: () => openUser(p.id) },
+                        p.isBlocked
+                          ? { label: "Unblock", icon: <UserCheck className="h-4 w-4" />, onClick: () => blockMutation.mutate({ userId: p.id, block: false }) }
+                          : { label: "Block…", icon: <Ban className="h-4 w-4" />, danger: true, onClick: () => setBlockTarget({ id: p.id, name: p.name }) },
+                      ]}
+                    />
                   );
 
                   return (
                     <div key={p.id} className={cn("group px-space-5 py-space-3 transition-colors hover:bg-muted/30", p.isBlocked && "opacity-60")}>
                       {/* Desktop grid */}
-                      <div className="hidden grid-cols-[minmax(0,3fr)_minmax(0,2fr)_minmax(0,1.5fr)_112px_100px_88px] items-center gap-4 md:grid">
+                      <div className={cn("hidden items-center gap-4 md:grid", ROW_GRID)}>
                         {person}
                         {svcChips}
                         {roleChips}
@@ -413,7 +417,10 @@ const AdminUsers = () => {
                           {p.createdAt ? format(new Date(p.createdAt), "MMM d, yyyy") : "—"}
                         </div>
                         <div>{statusChip}</div>
-                        {actions}
+                        <div className="flex items-center justify-end gap-1">
+                          {contact}
+                          {menu}
+                        </div>
                       </div>
                       {/* Mobile card */}
                       <div className="space-y-3 md:hidden">
@@ -421,17 +428,22 @@ const AdminUsers = () => {
                           {person}
                           {statusChip}
                         </div>
-                        <div className="flex flex-wrap gap-1.5">
-                          {svcChips}
-                        </div>
+                        {svcArr.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5">
+                            {svcChips}
+                          </div>
+                        )}
                         {(isAdmin || rbac.length > 0 || roles.length > 0) && (
                           <div>{roleChips}</div>
                         )}
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between gap-2">
                           <span className="text-xs text-muted-foreground">
                             {p.createdAt ? format(new Date(p.createdAt), "MMM d, yyyy") : "—"}
                           </span>
-                          {actions}
+                          <div className="flex items-center gap-1">
+                            {contact}
+                            {menu}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -442,15 +454,29 @@ const AdminUsers = () => {
       </div>
       </AdminListShell>
 
-      {/* Edit User Sheet */}
-      <Sheet open={!!editUser} onOpenChange={(o) => !o && setEditUser(null)}>
+      {/* Edit User Sheet — open state is `?userId=`, so a link from
+          Subscriptions or Support lands here and Back closes it. */}
+      <Sheet open={!!editUser} onOpenChange={(o) => !o && closeUser()}>
         <SheetContent side="right" className="w-full max-w-md overflow-y-auto">
           <SheetHeader>
-            <SheetTitle>Edit User</SheetTitle>
+            <SheetTitle>{editUser ? (editUser.display_name || editUser.name || editUser.email || "User") : "User"}</SheetTitle>
             <SheetDescription>{editUser?.email}</SheetDescription>
           </SheetHeader>
+          {editUser && (() => {
+            const p = people.find((x) => x.id === String(editUser.id));
+            return (
+              <ContactActions
+                className="mt-3 -ml-2"
+                name={p?.name ?? "this customer"}
+                phone={p?.phone}
+                whatsapp={p?.whatsapp}
+                email={editUser.email}
+              />
+            );
+          })()}
           {editUser && (
             <EditUserForm
+              key={editUser.id}
               user={editUser}
               auditLogs={userAuditLogs}
               onSave={(d) => updateUserMutation.mutate({ id: editUser.id, ...d })}
@@ -493,6 +519,7 @@ const AdminUsers = () => {
     </SuperAdminLayout>
   );
 };
+
 
 function EditUserForm({ user, auditLogs, onSave, onSoftDelete, saving, deleting }: {
   user: any;
@@ -580,73 +607,10 @@ function EditUserForm({ user, auditLogs, onSave, onSoftDelete, saving, deleting 
     },
   });
 
-  // Full subscription history across ALL services (the backend payload only
-  // includes cleaning subs — fetch food and beach club too).
-  const { data: allSubscriptions = [], isLoading: subsLoading } = useQuery({
-    queryKey: ["admin-user-all-subscriptions", user.id],
-    enabled: !!user.id,
-    queryFn: async () => {
-      const uid = user.id;
-      const [cleaning, food, beach] = await Promise.all([
-        supabaseDb
-          .from("cleaning_subscriptions")
-          .select("id, package_id, subscription_status, payment_status, is_active, total_price_cents, created_at, service_end_date")
-          .eq("user_id", uid)
-          .is("deleted_at", null),
-        supabaseDb
-          .from("food_subscriptions")
-          .select("id, status, meal_plan_id, provider_id, started_at, commitment_weeks, weekly_price_cents, created_at")
-          .eq("user_id", uid),
-        supabaseDb
-          .from("provider_subscriptions")
-          .select("id, status, payment_status, start_date, end_date, created_at, plan_name:metadata->>plan_name, total_cents:price_cents")
-          .eq("source_service_key", "beach")
-          .eq("user_id", uid),
-      ]);
-
-      // Resolve names that need a second lookup.
-      const pkgIds = [...new Set((cleaning.data ?? []).map((r: any) => r.package_id).filter(Boolean))];
-      const planIds = [...new Set((food.data ?? []).map((r: any) => r.meal_plan_id).filter(Boolean))];
-      const provIds = [...new Set((food.data ?? []).map((r: any) => r.provider_id).filter(Boolean))];
-      const [pkgs, plans, provs] = await Promise.all([
-        pkgIds.length ? supabaseDb.from("cleaning_packages").select("id, name").in("id", pkgIds) : Promise.resolve({ data: [] as any[] }),
-        planIds.length ? supabaseDb.from("food_meal_plans").select("id, name").in("id", planIds) : Promise.resolve({ data: [] as any[] }),
-        provIds.length ? supabaseDb.from("food_providers").select("id, name").in("id", provIds) : Promise.resolve({ data: [] as any[] }),
-      ]);
-      const pkgMap = new Map((pkgs.data ?? []).map((p: any) => [p.id, p.name]));
-      const planMap = new Map((plans.data ?? []).map((p: any) => [p.id, p.name]));
-      const provMap = new Map((provs.data ?? []).map((p: any) => [p.id, p.name]));
-
-      const norm: Array<{
-        id: string; service: string; name: string; status: string;
-        active: boolean; amountCents: number | null; created_at: string | null;
-      }> = [];
-
-      (cleaning.data ?? []).forEach((r: any) => norm.push({
-        id: `cleaning-${r.id}`, service: "Cleaning",
-        name: pkgMap.get(r.package_id) || "Cleaning plan",
-        status: `${r.subscription_status ?? "—"} · ${r.payment_status ?? "—"}`,
-        active: r.is_active === true && String(r.subscription_status).toLowerCase() === "active" && r.payment_status === "paid",
-        amountCents: r.total_price_cents ?? null, created_at: r.created_at ?? null,
-      }));
-      (food.data ?? []).forEach((r: any) => norm.push({
-        id: `food-${r.id}`, service: "Food",
-        name: planMap.get(r.meal_plan_id) || provMap.get(r.provider_id) || "Food plan",
-        status: r.status ?? "—",
-        active: String(r.status).toLowerCase() === "active",
-        amountCents: r.weekly_price_cents ?? null, created_at: r.created_at ?? null,
-      }));
-      (beach.data ?? []).forEach((r: any) => norm.push({
-        id: `beach-${r.id}`, service: "Beach Club",
-        name: r.plan_name || "Beach Club membership",
-        status: `${r.status ?? "—"} · ${r.payment_status ?? "—"}`,
-        active: String(r.status).toLowerCase() === "active" && r.payment_status === "paid",
-        amountCents: r.total_cents ?? null, created_at: r.created_at ?? null,
-      }));
-
-      return norm.sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""));
-    },
-  });
+  // Full purchase history across EVERY source — cleaning, food, beach,
+  // universal / one-time plans and car rentals — from the read model. It used
+  // to query three tables and so a renter's sheet said "No subscriptions".
+  const { data: allSubscriptions = [], isLoading: subsLoading } = useCustomerSales(user.id);
 
   // Full period history (every period the member ever had, incl. past/renewed).
   const { data: periodHistory = [] } = useQuery({
@@ -692,7 +656,7 @@ function EditUserForm({ user, auditLogs, onSave, onSoftDelete, saving, deleting 
     );
   };
 
-  const activeSubsCount = (allSubscriptions as any[]).filter((s) => s.active).length;
+  const activeSubsCount = allSubscriptions.filter((s) => s.active).length;
 
   return (
     <Tabs defaultValue="overview" className="mt-5">
@@ -809,7 +773,7 @@ function EditUserForm({ user, auditLogs, onSave, onSoftDelete, saving, deleting 
           {userLinkedClients(user).length > 0 ? (
             <div className="mt-2 space-y-2">
               {userLinkedClients(user).map((c: any) => (
-                <div key={c.id} className="flex items-center justify-between rounded-lg bg-muted p-3">
+                <div key={c.id} className="flex items-center justify-between rounded-radius-md bg-muted p-3">
                   <div>
                     <p className="text-sm font-semibold">{c.company_name}</p>
                     <p className="text-xs text-muted-foreground">{c.email}</p>
@@ -823,7 +787,7 @@ function EditUserForm({ user, auditLogs, onSave, onSoftDelete, saving, deleting 
           )}
         </div>
 
-        <Button className="w-full" size="xl" onClick={() => onSave({ name, display_name: displayName })} loading={saving}>
+        <Button className="w-full" size="lg" onClick={() => onSave({ name, display_name: displayName })} loading={saving}>
           Save Changes
         </Button>
       </TabsContent>
@@ -831,22 +795,23 @@ function EditUserForm({ user, auditLogs, onSave, onSoftDelete, saving, deleting 
       {/* ── PLANS & HISTORY ──────────────────────────────────────── */}
       <TabsContent value="plans" className="mt-4 space-y-5">
         <div>
-          <Label>All Subscriptions</Label>
+          <Label>Everything they've bought</Label>
           {subsLoading ? (
-            <p className="mt-2 text-sm text-muted-foreground">Loading subscriptions…</p>
-          ) : (allSubscriptions as any[]).length > 0 ? (
+            <p className="mt-2 text-sm text-muted-foreground">Loading purchases…</p>
+          ) : allSubscriptions.length > 0 ? (
             <div className="mt-2 space-y-2">
-              {(allSubscriptions as any[]).map((s) => (
-                <div key={s.id} className="flex items-center justify-between gap-3 rounded-lg bg-muted p-3">
+              {allSubscriptions.map((s) => (
+                <div key={s.key} className="flex items-center justify-between gap-3 rounded-radius-md bg-muted p-3">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-[10px] shrink-0">{s.service}</Badge>
+                      <Badge variant="outline" className="text-[10px] shrink-0">{CUSTOMER_SERVICE_META[s.service].label}</Badge>
                       <p className="truncate text-sm font-semibold">{s.name}</p>
                     </div>
                     <p className="mt-0.5 text-xs text-muted-foreground">
                       {statusLabel(s.status)}
+                      {s.paymentStatus && <> · {statusLabel(s.paymentStatus)}</>}
                       {s.amountCents != null && <> · {formatUSD(s.amountCents)}</>}
-                      {s.created_at && <> · {format(new Date(s.created_at), "MMM d, yyyy")}</>}
+                      {s.createdAt && <> · {format(new Date(s.createdAt), "MMM d, yyyy")}</>}
                     </p>
                   </div>
                   <Badge variant={s.active ? "default" : "secondary"} className="text-xs shrink-0">
@@ -856,7 +821,7 @@ function EditUserForm({ user, auditLogs, onSave, onSoftDelete, saving, deleting 
               ))}
             </div>
           ) : (
-            <p className="mt-2 text-sm text-muted-foreground">No subscriptions</p>
+            <p className="mt-2 text-sm text-muted-foreground">Nothing bought yet</p>
           )}
         </div>
 
@@ -865,7 +830,7 @@ function EditUserForm({ user, auditLogs, onSave, onSoftDelete, saving, deleting 
           {(periodHistory as any[]).length > 0 ? (
             <div className="mt-2 max-h-64 overflow-y-auto space-y-1">
               {(periodHistory as any[]).map((p) => (
-                <div key={p.id} className="rounded-lg bg-muted px-3 py-2 text-xs">
+                <div key={p.id} className="rounded-radius-md bg-muted px-3 py-2 text-xs">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex min-w-0 items-center gap-2">
                       <Badge variant="outline" className="shrink-0 text-[10px] capitalize">{p.service}</Badge>
@@ -940,7 +905,8 @@ function EditUserForm({ user, auditLogs, onSave, onSoftDelete, saving, deleting 
                   key={role.id}
                   type="button"
                   onClick={() => toggleRole(role.id)}
-                  className={`rounded-lg border px-3 py-2 text-left transition ${selected ? "border-primary bg-primary/10" : "border-border bg-muted/40 hover:bg-muted"}`}
+                  aria-pressed={selected}
+                  className={cn("rounded-radius-md px-3 py-2 text-left transition-colors", selected ? "bg-card ring-2 ring-foreground" : "bg-muted hover:bg-muted/70")}
                 >
                   <span className="flex items-center justify-between gap-2">
                     <span className="text-sm font-semibold">{role.name}</span>
@@ -963,7 +929,7 @@ function EditUserForm({ user, auditLogs, onSave, onSoftDelete, saving, deleting 
           <Label className="text-destructive">Danger Zone</Label>
           <div className="mt-2">
             {!confirmDelete ? (
-              <Button variant="destructive" className="w-full" size="xl" onClick={() => setConfirmDelete(true)}>
+              <Button variant="destructive" className="w-full" size="lg" onClick={() => setConfirmDelete(true)}>
                 <Trash2 className="h-4 w-4" />
                 Soft-Delete User
               </Button>
