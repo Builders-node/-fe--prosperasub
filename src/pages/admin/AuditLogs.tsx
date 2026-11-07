@@ -128,7 +128,7 @@ const AuditLogs = () => {
         onClearFilters={() => { setSearch(""); setEntityFilter("all"); setActionFilter("all"); setFrom(""); setTo(""); setPage(0); }}
         filters={<>
         <Select value={entityFilter} onValueChange={(v) => { setEntityFilter(v); setPage(0); }}>
-          <SelectTrigger className="w-40">
+          <SelectTrigger inputSize="sm" className="w-40">
             <SelectValue placeholder="Entity" />
           </SelectTrigger>
           <SelectContent>
@@ -141,7 +141,7 @@ const AuditLogs = () => {
           </SelectContent>
         </Select>
         <Select value={actionFilter} onValueChange={(v) => { setActionFilter(v); setPage(0); }}>
-          <SelectTrigger className="w-40">
+          <SelectTrigger inputSize="sm" className="w-40">
             <SelectValue placeholder="Action" />
           </SelectTrigger>
           <SelectContent>

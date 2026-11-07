@@ -116,7 +116,7 @@ const MarketplacePlans = ({ embedded = false, archetypeKey }: MarketplacePlansPr
     <>
       {!archetypeKey && (
         <Select value={service} onValueChange={(v) => { setServiceFilter(v); setProviderId("all"); }}>
-          <SelectTrigger className="w-40 rounded-full"><SelectValue placeholder="All services" /></SelectTrigger>
+          <SelectTrigger inputSize="sm" className="w-40 rounded-full"><SelectValue placeholder="All services" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All services</SelectItem>
             {archetypes.map((a) => <SelectItem key={a.key} value={a.key}>{a.label}</SelectItem>)}
@@ -124,14 +124,14 @@ const MarketplacePlans = ({ embedded = false, archetypeKey }: MarketplacePlansPr
         </Select>
       )}
       <Select value={providerId} onValueChange={setProviderId}>
-        <SelectTrigger className="w-44 rounded-full"><SelectValue placeholder="All providers" /></SelectTrigger>
+        <SelectTrigger inputSize="sm" className="w-44 rounded-full"><SelectValue placeholder="All providers" /></SelectTrigger>
         <SelectContent>
           <SelectItem value="all">All providers</SelectItem>
           {providersInService.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
         </SelectContent>
       </Select>
       <Select value={status} onValueChange={setStatus}>
-        <SelectTrigger className="w-32 rounded-full"><SelectValue placeholder="Status" /></SelectTrigger>
+        <SelectTrigger inputSize="sm" className="w-32 rounded-full"><SelectValue placeholder="Status" /></SelectTrigger>
         <SelectContent>
           <SelectItem value="all">All statuses</SelectItem>
           <SelectItem value="active">Active</SelectItem>

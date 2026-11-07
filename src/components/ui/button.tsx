@@ -20,8 +20,10 @@ import { cn } from "@/lib/utils";
  * aliases so the 70-odd call sites still compile, and so they cannot drift
  * apart again.
  *
- * Heights: sm 36 (inside rows and tables) · default 44 · lg 48 (the page's
- * main CTA). Icons: icon 40 (the header's size) · iconSm 32 (dense rows).
+ * Heights match the fields exactly, so a button beside an input never steps:
+ * sm 40 (rows, toolbars, filters — same as Input/Select sm) · default 48
+ * (forms, CTAs — same as Input/Select default). lg is kept as an alias of 48
+ * with the larger label. Icons: icon 40 · iconSm 32 (dense rows).
  * Every button is a pill; a full-width CTA bar may square itself to 16 with
  * `rounded-radius-md`. Nothing else — 28/32/40/56 text buttons and the
  * per-call `h-*` / `rounded-*` overrides were the drift this replaced.
@@ -45,8 +47,8 @@ const buttonVariants = cva(
         link: "h-auto rounded-none bg-transparent p-0 text-primary underline-offset-4 hover:underline active:scale-100",
       },
       size: {
-        sm: "h-9 gap-1.5 px-4 text-body [&_svg]:size-4",
-        default: "h-11 gap-2 px-5 text-body [&_svg]:size-4",
+        sm: "h-10 gap-1.5 px-4 text-body [&_svg]:size-4",
+        default: "h-12 gap-2 px-5 text-body [&_svg]:size-4",
         lg: "h-12 gap-2 px-6 text-title [&_svg]:size-5",
         /** Retired: renders as lg. */
         xl: "h-12 gap-2 px-6 text-title [&_svg]:size-5",

@@ -295,8 +295,8 @@ const AdminUsers = () => {
           <>
             {FILTERS.map((f) => (
               <button key={f.value} type="button" onClick={() => setFilter(f.value)}
-                className={cn("group flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors",
-                  filter === f.value ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                className={cn("group flex h-10 items-center gap-1.5 rounded-full px-4 text-body font-semibold transition-colors",
+                  filter === f.value ? "bg-foreground text-background" : "bg-muted text-muted-foreground hover:text-foreground"
                 )}>
                 {f.label}
                 {typeof f.count === "number" && (

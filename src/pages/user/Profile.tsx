@@ -224,6 +224,8 @@ const Profile = () => {
   const referrals = useReferrals();
   const section = (params.get("section") as Section) || "view";
   const isForm = section === "edit" || section === "password" || section === "reminders";
+  /** Sub-screens: no tab bar and no bell — Back is the way out. */
+  const isSubScreen = isForm || section === "locations";
   const openSection = (next: Section) => {
     const p = new URLSearchParams(params);
     if (next === "view") p.delete("section");
@@ -392,8 +394,8 @@ const Profile = () => {
       backTo={backTo}
       // A form is a decision page: it ends at its own Save, so the tab bar and
       // the bell (a way OUT of an unsaved form) are not offered on it.
-      showBottomNav={!isForm}
-      headerAction={isForm ? <span className="h-10 w-10" aria-hidden /> : undefined}
+      showBottomNav={!isSubScreen}
+      headerAction={isSubScreen ? <span className="h-10 w-10" aria-hidden /> : undefined}
     >
       <div className={cn(
         "app-container space-y-4 pt-space-4 md:pt-space-8",

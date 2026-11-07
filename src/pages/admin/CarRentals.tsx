@@ -216,7 +216,7 @@ export default function CarRentals({ embedded = false, providerId }: {
             searchPlaceholder="Search customer, car, phone…"
             filters={
               <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger className="w-full sm:w-[160px]"><SelectValue /></SelectTrigger>
+                <SelectTrigger inputSize="sm" className="w-full sm:w-[160px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All statuses</SelectItem>
                   {STAGES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}

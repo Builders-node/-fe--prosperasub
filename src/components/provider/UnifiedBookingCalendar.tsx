@@ -254,7 +254,7 @@ export function UnifiedBookingCalendar({
       {/* Nav bar */}
       <div className="flex items-center justify-between gap-2 rounded-radius-lg bg-card p-2">
         <Button
-          variant="ghost" size="iconSm"
+          variant="ghost" size="icon"
           onClick={() => setWeekStart((d) => addDays(d, -7))}
           aria-label="Previous week"
         >
@@ -272,7 +272,7 @@ export function UnifiedBookingCalendar({
             Today
           </Button>
           <Button
-            variant="ghost" size="iconSm"
+            variant="ghost" size="icon"
             onClick={() => setWeekStart((d) => addDays(d, 7))}
             aria-label="Next week"
           >

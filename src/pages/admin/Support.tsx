@@ -84,7 +84,7 @@ export default function AdminSupport() {
 
   const filters = (
     <Select value={status} onValueChange={setStatus}>
-      <SelectTrigger className="w-40 rounded-full"><SelectValue /></SelectTrigger>
+      <SelectTrigger inputSize="sm" className="w-40 rounded-full"><SelectValue /></SelectTrigger>
       <SelectContent>
         <SelectItem value="new">New{newCount > 0 ? ` (${newCount})` : ""}</SelectItem>
         <SelectItem value="handled">Handled</SelectItem>

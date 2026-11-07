@@ -103,7 +103,7 @@ export function SavedLocations({ userId }: { userId: string }) {
   // ── Add / edit form ─────────────────────────────────────────────────────────
   if (editing) {
     return (
-      <div className="space-y-3">
+      <div className="space-y-3 rounded-radius-lg bg-card p-4">
         <Input
           id="loc-label"
           label="Label"
@@ -127,9 +127,9 @@ export function SavedLocations({ userId }: { userId: string }) {
         )}
         <AddressFields value={addr} onChange={setAddr} />
         <div className="flex gap-2 pt-1">
-          <Button variant="secondary" className="flex-1" onClick={() => setEditing(null)} disabled={saveMutation.isPending}>Cancel</Button>
+          <Button variant="ghost" className="flex-1" onClick={() => setEditing(null)} disabled={saveMutation.isPending}>Cancel</Button>
           <Button className="flex-1" onClick={() => saveMutation.mutate()} loading={saveMutation.isPending} disabled={saveMutation.isPending}>
-            {saveMutation.isPending ? <><Spinner size="sm" /> Saving…</> : "Save Location"}
+            {saveMutation.isPending ? <><Spinner size="sm" /> Saving…</> : "Save"}
           </Button>
         </div>
       </div>
@@ -142,49 +142,46 @@ export function SavedLocations({ userId }: { userId: string }) {
       {isLoading ? (
         <div className="py-6 text-center"><Spinner size="sm" /></div>
       ) : locations.length === 0 ? (
-        <div className="rounded-radius-md border border-border bg-card px-4 py-6 text-center">
-          <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-            <MapPin className="h-5 w-5 text-primary" />
+        <div className="rounded-radius-lg bg-card px-4 py-6 text-center">
+          <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-[8px] bg-inset">
+            <MapPin className="h-5 w-5 text-muted-foreground" />
           </div>
-          <p className="text-[13px] font-semibold text-foreground">No saved locations</p>
-          <p className="mt-0.5 text-[12px] text-muted-foreground">Add one to reuse at checkout.</p>
+          <p className="text-title font-semibold text-foreground">No saved locations</p>
+          <p className="mt-0.5 text-meta text-muted-foreground">Add one to reuse at checkout.</p>
         </div>
       ) : (
-        <div className="space-y-2">
+        // One card, a row per place — the account page's row shape (40px tile,
+        // 16 semibold title, 12 caption), actions as icon buttons on the row.
+        <div className="space-y-1 rounded-radius-lg bg-card p-1.5">
           {locations.map((loc) => (
-            <div key={loc.id} className="rounded-radius-md border border-border bg-card p-3">
-              <div className="flex items-start gap-3">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                  <MapPin className="h-4 w-4 text-primary" />
+            <div key={loc.id} className="flex items-center gap-3 rounded-radius-md p-2.5">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] bg-inset text-muted-foreground">
+                <MapPin className="h-5 w-5" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <p className="truncate text-title font-semibold text-foreground">{loc.label || "Location"}</p>
+                  {loc.is_default && (
+                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-meta font-semibold text-primary">
+                      <Star className="h-3 w-3 fill-primary" /> Default
+                    </span>
+                  )}
                 </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="truncate text-[13px] font-bold text-foreground">{loc.label || "Location"}</p>
-                    {loc.is_default && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-primary">
-                        <Star className="h-2.5 w-2.5 fill-primary" /> Default
-                      </span>
-                    )}
-                  </div>
-                  <p className="mt-0.5 text-[12px] leading-snug text-muted-foreground">{loc.line}</p>
-                </div>
-              </div>
-              <div className="mt-2 flex items-center justify-end gap-1">
+                <p className="mt-0.5 line-clamp-2 text-meta text-muted-foreground">{loc.line}</p>
                 {!loc.is_default && (
                   <button type="button" onClick={() => setDefaultMutation.mutate(loc)} disabled={setDefaultMutation.isPending}
-                    className="flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
-                    <Check className="h-3 w-3" /> Set default
+                    className="mt-1 inline-flex items-center gap-1 text-meta font-semibold text-foreground underline-offset-4 hover:underline">
+                    <Check className="h-3 w-3" /> Make default
                   </button>
                 )}
-                <button type="button" onClick={() => openEdit(loc)} aria-label="Edit location"
-                  className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
-                  <Pencil className="h-3.5 w-3.5" />
-                </button>
-                <button type="button" onClick={() => deleteMutation.mutate(loc)} disabled={deleteMutation.isPending} aria-label="Delete location"
-                  className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive">
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
               </div>
+              <Button variant="ghost" size="iconSm" onClick={() => openEdit(loc)} aria-label="Edit location">
+                <Pencil />
+              </Button>
+              <Button variant="ghost" size="iconSm" onClick={() => deleteMutation.mutate(loc)} disabled={deleteMutation.isPending}
+                aria-label="Delete location" className="hover:text-destructive">
+                <Trash2 />
+              </Button>
             </div>
           ))}
         </div>

@@ -180,7 +180,7 @@ const MarketplaceReviews = ({ embedded = false, providerId: scopedProvider }: Ma
           <>
             {!scopedProvider && (
               <Select value={providerFilter} onValueChange={setProviderFilter}>
-                <SelectTrigger className="w-[180px]"><SelectValue placeholder="Business" /></SelectTrigger>
+                <SelectTrigger inputSize="sm" className="w-[180px]"><SelectValue placeholder="Business" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All businesses</SelectItem>
                   {providers.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
@@ -188,7 +188,7 @@ const MarketplaceReviews = ({ embedded = false, providerId: scopedProvider }: Ma
               </Select>
             )}
             <Select value={rating} onValueChange={setRating}>
-              <SelectTrigger className="w-[130px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger inputSize="sm" className="w-[130px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Any rating</SelectItem>
                 {[5, 4, 3, 2, 1].map((n) => (
@@ -197,7 +197,7 @@ const MarketplaceReviews = ({ embedded = false, providerId: scopedProvider }: Ma
               </SelectContent>
             </Select>
             <Select value={visibility} onValueChange={(v) => setVisibility(v as typeof visibility)}>
-              <SelectTrigger className="w-[150px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger inputSize="sm" className="w-[150px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All</SelectItem>
                 <SelectItem value="visible">On the storefront</SelectItem>
