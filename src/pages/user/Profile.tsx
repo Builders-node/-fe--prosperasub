@@ -198,7 +198,7 @@ function SaveBar({ label, busyLabel, busy, disabled, onClick }: {
   return (
     <DecisionBar className="pb-6 md:mt-space-4 md:bg-transparent md:pb-0">
       <div className="px-4 py-2 md:px-0 md:py-0">
-        <Button className="h-12 w-full text-title font-semibold" onClick={onClick} loading={busy} disabled={disabled || busy}>
+        <Button size="lg" className="w-full text-title font-semibold" onClick={onClick} loading={busy} disabled={disabled || busy}>
           {busy ? <><Spinner size="sm" /> {busyLabel}</> : label}
         </Button>
       </div>

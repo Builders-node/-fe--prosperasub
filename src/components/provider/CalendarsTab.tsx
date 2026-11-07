@@ -147,7 +147,7 @@ export function CalendarsTab({ providerId }: { providerId: string }) {
         title="Calendars"
         subtitle="What can be booked here — a court, a room, a table, a chair. Which plan opens which one is set on the plan."
         action={
-          <Button className="shrink-0 gap-2 rounded-full" disabled={add.isPending} onClick={() => add.mutate()}>
+          <Button className="shrink-0 gap-2" disabled={add.isPending} onClick={() => add.mutate()}>
             <Plus className="h-4 w-4" /> {add.isPending ? "Adding…" : "New"}
           </Button>
         }
@@ -184,7 +184,7 @@ export function CalendarsTab({ providerId }: { providerId: string }) {
           title="No calendars yet"
           subtitle="Add one for each thing a customer can book a time on — they all work the same way, whatever the business."
           action={
-            <Button className="gap-2 rounded-full" disabled={add.isPending} onClick={() => add.mutate()}>
+            <Button className="gap-2" disabled={add.isPending} onClick={() => add.mutate()}>
               <Plus className="h-4 w-4" /> {add.isPending ? "Adding…" : "Add a calendar"}
             </Button>
           }
@@ -204,7 +204,7 @@ export function CalendarsTab({ providerId }: { providerId: string }) {
                 </p>
               </div>
               <Button
-                size="sm" variant="outline" className="h-8 shrink-0 gap-1.5 rounded-full px-3"
+                size="sm" variant="outline" className="shrink-0 gap-1.5 px-3"
                 onClick={() => setEditing(r)}
               >
                 <Pencil className="h-3.5 w-3.5" /> Edit
@@ -418,10 +418,10 @@ function CalendarForm({ row, types, onSaved, onDelete }: {
       </section>
 
       <div className="flex flex-wrap items-center gap-2 pt-2">
-        <Button className="rounded-full" disabled={save.isPending} onClick={() => save.mutate()}>
+        <Button disabled={save.isPending} onClick={() => save.mutate()}>
           {save.isPending ? "Saving…" : "Save calendar"}
         </Button>
-        <Button variant="ghost" className="ml-auto rounded-full text-destructive hover:text-destructive"
+        <Button variant="ghost" className="ml-auto text-destructive hover:text-destructive"
           onClick={onDelete}>
           <Trash2 className="mr-1.5 h-4 w-4" /> Delete
         </Button>

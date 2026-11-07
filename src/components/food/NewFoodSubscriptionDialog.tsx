@@ -219,7 +219,7 @@ export function NewFoodSubscriptionDialog({ providerId, trigger }: Props) {
   };
 
   const defaultTrigger = (
-    <Button onClick={() => setOpen(true)} className="gap-2 rounded-full">
+    <Button onClick={() => setOpen(true)} className="gap-2">
       <Plus className="h-4 w-4" /> New subscription
     </Button>
   );

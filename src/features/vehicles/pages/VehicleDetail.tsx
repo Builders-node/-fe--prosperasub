@@ -251,7 +251,7 @@ export default function VehicleDetail() {
           a desktop. It also carries the figure, so the price is still on screen
           at the moment of deciding. */}
       <DecisionBar className="p-4 shadow-figma md:mx-auto md:mt-4 md:max-w-[1280px] md:rounded-radius-lg md:px-6">
-        <Button className="h-12 w-full text-[16px] font-semibold" disabled={!pricing} onClick={goBook}>
+        <Button size="lg" className="w-full font-semibold" disabled={!pricing} onClick={goBook}>
           {pricing
             ? `Book · ${formatUSD(pricing.totalCents)}`
             : "Pick your dates"}

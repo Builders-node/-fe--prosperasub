@@ -108,7 +108,7 @@ export function PlansTab({ providerId, sourceKey }: {
         title="Plans"
         subtitle="What customers can buy. Open one to set its choices and prices."
         action={
-          <Button className="shrink-0 gap-2 rounded-full" disabled={add.isPending} onClick={() => add.mutate()}>
+          <Button className="shrink-0 gap-2" disabled={add.isPending} onClick={() => add.mutate()}>
             <Plus className="h-4 w-4" /> {add.isPending ? "Adding…" : "New plan"}
           </Button>
         }
@@ -131,7 +131,7 @@ export function PlansTab({ providerId, sourceKey }: {
           title="Nothing on sale yet"
           subtitle="A plan is one product: a name, whatever the customer gets to choose, and a price for each way of choosing it."
           action={
-            <Button className="gap-2 rounded-full" disabled={add.isPending} onClick={() => add.mutate()}>
+            <Button className="gap-2" disabled={add.isPending} onClick={() => add.mutate()}>
               <Plus className="h-4 w-4" /> {add.isPending ? "Adding…" : "Add a plan"}
             </Button>
           }
@@ -154,7 +154,7 @@ export function PlansTab({ providerId, sourceKey }: {
                     {o.name}
                   </h3>
                   <Button
-                    size="sm" variant="outline" className="h-8 shrink-0 gap-1.5 rounded-full px-3"
+                    size="sm" variant="outline" className="shrink-0 gap-1.5 px-3"
                     onClick={() => setEditing(o.id)}
                   >
                     <Pencil className="h-3.5 w-3.5" /> Edit

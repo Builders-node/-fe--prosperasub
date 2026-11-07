@@ -296,12 +296,12 @@ const AdminUsers = () => {
             {FILTERS.map((f) => (
               <button key={f.value} type="button" onClick={() => setFilter(f.value)}
                 className={cn("group flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors",
-                  filter === f.value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  filter === f.value ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground hover:bg-muted"
                 )}>
                 {f.label}
                 {typeof f.count === "number" && (
                   <span className={cn("rounded-full px-1.5 text-xs tabular-nums",
-                    filter === f.value ? "bg-primary-foreground/20 text-primary-foreground" : "bg-muted-foreground/15 text-muted-foreground"
+                    filter === f.value ? "bg-background/20 text-background" : "bg-muted-foreground/15 text-muted-foreground"
                   )}>{f.count}</span>
                 )}
               </button>
@@ -381,10 +381,10 @@ const AdminUsers = () => {
 
                   const actions = (
                     <div className="flex justify-end gap-1">
-                      <Button variant="tertiary" size="sm" onClick={() => setEditUser(p.raw)}>Edit</Button>
+                      <Button variant="ghost" size="sm" onClick={() => setEditUser(p.raw)}>Edit</Button>
                       {p.isBlocked ? (
                         <Button
-                          variant="tertiary" size="sm"
+                          variant="ghost" size="sm"
                           aria-label={`Unblock ${p.name}`} title="Unblock"
                           onClick={() => blockMutation.mutate({ userId: p.id, block: false })}
                         >
@@ -392,7 +392,7 @@ const AdminUsers = () => {
                         </Button>
                       ) : (
                         <Button
-                          variant="tertiary" size="sm"
+                          variant="ghost" size="sm"
                           aria-label={`Block ${p.name}`} title="Block"
                           onClick={() => setBlockTarget({ id: p.id, name: p.name })}
                         >

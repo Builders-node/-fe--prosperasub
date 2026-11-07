@@ -170,7 +170,7 @@ export default function FoodSubscriptionDetail() {
         <div className="flex flex-col items-center justify-center px-4 py-20 text-center">
           <ChefHat className="mb-3 h-12 w-12 text-muted-foreground/40" />
           <p className="font-semibold text-foreground">Subscription not found</p>
-          <Button className="mt-4 rounded-full" onClick={() => navigate("/my-subscriptions?tab=food")}>
+          <Button className="mt-4" onClick={() => navigate("/my-subscriptions?tab=food")}>
             Back to my bookings
           </Button>
         </div>
@@ -300,7 +300,7 @@ export default function FoodSubscriptionDetail() {
                   <RenewButton block />
                 </div>
               )}
-              <Button variant="ghost" className="rounded-full" onClick={() => navigate("/services/food")}>
+              <Button variant="ghost" onClick={() => navigate("/services/food")}>
                 Browse meal plans
               </Button>
             </div>

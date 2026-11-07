@@ -148,7 +148,7 @@ export function ProviderItemsPanel({ providerId }: { providerId: string }) {
               </div>
               <Button
                 variant="ghost" size="icon"
-                className="h-9 w-9 text-muted-foreground hover:text-destructive"
+                className="text-muted-foreground hover:text-destructive"
                 aria-label={`Remove ${d.label || "item"}`}
                 onClick={() => setDrafts((rows) => rows.filter((_, idx) => idx !== i))}
               >
@@ -168,13 +168,13 @@ export function ProviderItemsPanel({ providerId }: { providerId: string }) {
 
       <div className="flex flex-wrap items-center gap-2">
         <Button
-          variant="secondary" size="sm" className="gap-1.5 rounded-full"
+          variant="secondary" size="sm" className="gap-1.5"
           onClick={() => setDrafts((d) => [...d, { key: "", label: "", time: "", isNew: true }])}
         >
           <Plus className="h-3.5 w-3.5" /> Add
         </Button>
         <Button
-          size="sm" className="rounded-full"
+          size="sm"
           disabled={save.isPending}
           onClick={() => save.mutate()}
         >

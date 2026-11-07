@@ -141,7 +141,7 @@ export function BookingsTab({
             <NewFoodSubscriptionDialog
               providerId={providerId}
               trigger={
-                <Button variant="secondary" className="gap-2 rounded-full">
+                <Button variant="secondary" className="gap-2">
                   <Plus className="h-4 w-4" /> New subscription
                 </Button>
               }
@@ -151,7 +151,7 @@ export function BookingsTab({
             <NewBeachMembershipDialog
               providerUniversalId={calendarsId}
               trigger={
-                <Button variant="secondary" className="gap-2 rounded-full">
+                <Button variant="secondary" className="gap-2">
                   <Plus className="h-4 w-4" /> New membership
                 </Button>
               }

@@ -245,7 +245,7 @@ export function UniversalStaffTab({
         subtitle={`Who this ${entityLabel} belongs to.`}
         action={
           canManage ? (
-            <Button size="sm" variant="outline" className="shrink-0 gap-2 rounded-full" onClick={openOwnerDialog}>
+            <Button size="sm" variant="outline" className="shrink-0 gap-2" onClick={openOwnerDialog}>
               {owner ? "Change" : "Set Owner"}
             </Button>
           ) : undefined
@@ -277,7 +277,7 @@ export function UniversalStaffTab({
             title="No owner assigned"
             subtitle={`Set one to grant ${entityLabel}-level access.`}
             action={canManage ? (
-              <Button size="sm" variant="outline" className="rounded-full" onClick={openOwnerDialog}>
+              <Button size="sm" variant="outline" onClick={openOwnerDialog}>
                 Set owner
               </Button>
             ) : undefined}
@@ -291,7 +291,7 @@ export function UniversalStaffTab({
         subtitle={`They can run the ${entityLabel} but not its money.`}
         action={
           canManage ? (
-            <Button size="sm" variant="outline" className="shrink-0 gap-2 rounded-full" onClick={() => setManagerDialog(true)}>
+            <Button size="sm" variant="outline" className="shrink-0 gap-2" onClick={() => setManagerDialog(true)}>
               <UserPlus className="h-3.5 w-3.5" /> Add
             </Button>
           ) : undefined
@@ -316,7 +316,7 @@ export function UniversalStaffTab({
             title="No managers yet"
             subtitle={`Add team members who can manage this ${entityLabel}.`}
             action={canManage ? (
-              <Button size="sm" variant="outline" className="gap-2 rounded-full" onClick={() => setManagerDialog(true)}>
+              <Button size="sm" variant="outline" className="gap-2" onClick={() => setManagerDialog(true)}>
                 <UserPlus className="h-3.5 w-3.5" /> Add a manager
               </Button>
             ) : undefined}

@@ -175,7 +175,7 @@ export default function MarketplaceServiceDetail() {
               <Button
                 variant="outline"
                 size="sm"
-                className="ml-auto rounded-full"
+                className="ml-auto"
                 onClick={() => setEditing(archetype as unknown as Archetype)}
               >
                 <Pencil className="mr-1.5 h-3.5 w-3.5" /> Edit service
@@ -185,7 +185,7 @@ export default function MarketplaceServiceDetail() {
                   service they act on. */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="iconSm" className="rounded-full" aria-label="Service actions">
+                  <Button variant="outline" size="iconSm" aria-label="Service actions">
                     <MoreHorizontal className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>

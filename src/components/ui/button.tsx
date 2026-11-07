@@ -5,42 +5,54 @@ import { Loader2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
+/**
+ * Four looks, three heights, one shape (DESIGN.md §6, Buttons).
+ *
+ *   primary      amber — the one thing this screen is for. One per screen.
+ *   secondary    a filled grey pill (`muted`). NO border: the old
+ *                secondary/outline drew a ring around a fill darker than the
+ *                card it sat on, which read in dark mode as a hole with a rim.
+ *   ghost        text only, the fill appears on hover.
+ *   destructive  red, for the irreversible.
+ *   link         inline text.
+ *
+ * `outline` = secondary, `tertiary` = ghost, `default` = primary: kept as
+ * aliases so the 70-odd call sites still compile, and so they cannot drift
+ * apart again.
+ *
+ * Heights: sm 36 (inside rows and tables) · default 44 · lg 48 (the page's
+ * main CTA). Icons: icon 40 (the header's size) · iconSm 32 (dense rows).
+ * Every button is a pill; a full-width CTA bar may square itself to 16 with
+ * `rounded-radius-md`. Nothing else — 28/32/40/56 text buttons and the
+ * per-call `h-*` / `rounded-*` overrides were the drift this replaced.
+ */
+const PRIMARY = "bg-primary !text-black hover:bg-[hsl(var(--brand-accent-hover))] active:bg-[hsl(var(--brand-accent-active))] [&_*]:!text-black";
+const SECONDARY = "bg-muted text-foreground hover:bg-muted/70 active:bg-muted/60";
+const GHOST = "bg-transparent text-foreground hover:bg-muted active:bg-muted/70";
+
 const buttonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center whitespace-nowrap text-control ring-offset-background transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 data-[loading=true]:cursor-wait [&_svg]:pointer-events-none [&_svg]:shrink-0 active:scale-[0.98]",
+  "inline-flex shrink-0 items-center justify-center whitespace-nowrap rounded-full font-semibold ring-offset-background transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 data-[loading=true]:cursor-wait [&_svg]:pointer-events-none [&_svg]:shrink-0 active:scale-[0.98]",
   {
     variants: {
       variant: {
-        primary: "bg-primary !text-black hover:bg-[hsl(var(--brand-accent-hover))] active:bg-[hsl(var(--brand-accent-active))] [&_*]:!text-black",
-        secondary: "border border-[hsl(var(--app-divider))] bg-[hsl(var(--app-control))] text-foreground hover:bg-[hsl(var(--app-control-muted))] active:bg-[hsl(var(--app-control-muted))]/80",
-        tertiary: "bg-transparent text-foreground hover:bg-[hsl(var(--app-control-muted))] active:bg-[hsl(var(--app-control-muted))]/80",
+        primary: PRIMARY,
+        default: PRIMARY,
+        secondary: SECONDARY,
+        outline: SECONDARY,
+        ghost: GHOST,
+        tertiary: GHOST,
         destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90 active:bg-destructive/80",
-        chip: "bg-transparent text-muted-foreground hover:text-foreground data-[state=active]:bg-background data-[state=active]:text-foreground",
-        nav: "bg-[hsl(var(--app-control-muted))] text-foreground hover:bg-[hsl(var(--app-control-muted))]/80",
-        rail: "bg-transparent text-muted-foreground hover:bg-[hsl(var(--app-control-muted))] hover:text-foreground data-[state=active]:bg-[hsl(var(--app-rail-active))] data-[state=active]:text-[hsl(var(--app-rail-active-foreground))] data-[state=active]:hover:bg-[hsl(var(--app-rail-active))]/90",
         link: "h-auto rounded-none bg-transparent p-0 text-primary underline-offset-4 hover:underline active:scale-100",
-        default: "bg-primary !text-black hover:bg-[hsl(var(--brand-accent-hover))] active:bg-[hsl(var(--brand-accent-active))] [&_*]:!text-black",
-        outline: "border border-[hsl(var(--app-divider))] bg-[hsl(var(--app-control))] text-foreground hover:bg-[hsl(var(--app-control-muted))] active:bg-[hsl(var(--app-control-muted))]/80",
-        ghost: "bg-transparent text-foreground hover:bg-[hsl(var(--app-control-muted))] active:bg-[hsl(var(--app-control-muted))]/80",
-        success: "bg-primary !text-black hover:bg-[hsl(var(--brand-accent-hover))] active:bg-[hsl(var(--brand-accent-active))] [&_*]:!text-black",
-        /* Dark pill — used for primary CTAs in the mobile-first booking/confirmation style */
-        dark: "bg-foreground text-background hover:bg-foreground/90 active:bg-foreground/80",
       },
       size: {
-        default: "h-11 gap-space-2 rounded-radius-md px-space-5 py-space-3",
-        sm: "h-9 gap-space-2 rounded-radius-sm px-space-4",
-        lg: "h-12 gap-space-2 rounded-radius-md px-space-8",
-        xl: "h-14 gap-space-3 rounded-radius-lg px-space-10 text-body",
-        /* Pill — fully rounded, used in booking flows (matches medical-app CTA style) */
-        pill: "h-12 gap-space-2 rounded-full px-space-8",
-        pillSm: "h-9 gap-space-2 rounded-full px-space-5 text-xs",
-        iconXs: "h-7 w-7 rounded-radius-sm p-0 [&_svg]:size-3.5",
-        iconSm: "h-8 w-8 rounded-radius-sm p-0 [&_svg]:size-4",
-        icon: "h-11 w-11 rounded-radius-full p-0 [&_svg]:size-5",
-        iconLg: "h-[52px] w-[52px] rounded-radius-full p-0 [&_svg]:size-6",
-        chip: "h-12 gap-space-2 rounded-radius-full px-space-5 py-space-3",
-        nav: "h-[52px] gap-space-2 rounded-radius-lg px-space-6",
-        panel: "min-h-20 h-auto gap-space-2 rounded-radius-md px-space-5 py-space-5",
-        link: "h-auto gap-space-1 rounded-none p-0",
+        sm: "h-9 gap-1.5 px-4 text-body [&_svg]:size-4",
+        default: "h-11 gap-2 px-5 text-body [&_svg]:size-4",
+        lg: "h-12 gap-2 px-6 text-title [&_svg]:size-5",
+        /** Retired: renders as lg. */
+        xl: "h-12 gap-2 px-6 text-title [&_svg]:size-5",
+        icon: "h-10 w-10 p-0 [&_svg]:size-5",
+        iconSm: "h-8 w-8 p-0 [&_svg]:size-4",
+        link: "h-auto gap-1 rounded-none p-0",
       },
     },
     defaultVariants: {

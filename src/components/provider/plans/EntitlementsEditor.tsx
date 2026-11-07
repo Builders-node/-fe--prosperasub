@@ -30,7 +30,7 @@ export function EntitlementsEditor({ value, onChange, planPeriod }: {
       <div className="flex items-center justify-between">
         <Label>Also includes</Label>
         <Button
-          type="button" size="sm" variant="secondary" className="h-7 gap-1 text-xs"
+          type="button" size="sm" variant="secondary" className="gap-1"
           onClick={() => onChange([...value, { unit: "", quantity: null, period: null, resourceIds: [] }])}
         >
           <Plus className="h-3.5 w-3.5" /> Add
@@ -77,7 +77,7 @@ export function EntitlementsEditor({ value, onChange, planPeriod }: {
                 </select>
               </div>
               <Button
-                type="button" size="icon" variant="ghost" className="h-10 w-10 shrink-0"
+                type="button" size="icon" variant="ghost" className="shrink-0"
                 aria-label="Remove line"
                 onClick={() => onChange(value.filter((_, idx) => idx !== i))}
               >

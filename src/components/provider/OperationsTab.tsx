@@ -194,10 +194,10 @@ export function OperationsTab({ providerId }: { providerId: string }) {
             className="w-[170px]"
           />
           {day !== todayHN() && (
-            <Button variant="ghost" size="sm" className="rounded-full text-muted-foreground"
+            <Button variant="ghost" size="sm" className="text-muted-foreground"
               onClick={() => setDay(todayHN())}>Today</Button>
           )}
-          <Button variant="outline" size="sm" className="gap-1.5 rounded-full"
+          <Button variant="outline" size="sm" className="gap-1.5"
             disabled={generate.isPending} onClick={() => generate.mutate()}>
             <CalendarClock className="h-4 w-4" />
             {generate.isPending ? "Scheduling…" : "Schedule ahead"}
@@ -228,7 +228,7 @@ export function OperationsTab({ providerId }: { providerId: string }) {
           <p className="text-xs text-muted-foreground">
             {(error as Error)?.message || "The day's work could not be read."}
           </p>
-          <Button variant="outline" size="sm" className="rounded-full" onClick={() => refetch()}>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>
             Try again
           </Button>
         </div>
@@ -279,20 +279,20 @@ export function OperationsTab({ providerId }: { providerId: string }) {
                     {/* A cancelled booking is not something anybody finishes:
                         the only move left is putting it back. */}
                     {r.status !== "done" && r.status !== "cancelled" && (
-                      <Button size="sm" className="gap-1.5 rounded-full"
+                      <Button size="sm" className="gap-1.5"
                         disabled={setStatus.isPending}
                         onClick={() => setStatus.mutate({ id: r.id, status: "done" })}>
                         <CheckCircle2 className="h-4 w-4" /> Done
                       </Button>
                     )}
                     {r.status !== "failed" && r.status !== "cancelled" && (
-                      <Button size="sm" variant="outline" className="gap-1.5 rounded-full"
+                      <Button size="sm" variant="outline" className="gap-1.5"
                         onClick={() => { setFailing(r); setReason(""); }}>
                         <XCircle className="h-4 w-4" /> Failed
                       </Button>
                     )}
                     {r.status !== "scheduled" && (
-                      <Button size="sm" variant="ghost" className="rounded-full text-muted-foreground"
+                      <Button size="sm" variant="ghost" className="text-muted-foreground"
                         onClick={() => setStatus.mutate({ id: r.id, status: "scheduled" })}>
                         <RotateCcw className="h-4 w-4" />
                       </Button>
@@ -300,13 +300,13 @@ export function OperationsTab({ providerId }: { providerId: string }) {
                     {/* A visit holds a booked slot; moving it has to release
                         that slot, which is the booking screen's job. */}
                     {!r.slot_id && (
-                      <Button size="sm" variant="ghost" className="rounded-full text-muted-foreground"
+                      <Button size="sm" variant="ghost" className="text-muted-foreground"
                         onClick={() => { setMoving(r); setMoveTo(r.starts_at.slice(0, 10)); }}>
                         Move
                       </Button>
                     )}
                     <Button size="sm" variant="ghost"
-                      className="h-8 w-8 rounded-full p-0 text-muted-foreground hover:text-destructive"
+                      className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
                       aria-label="Remove"
                       onClick={() => setRemoving(r)}>
                       <Trash2 className="h-4 w-4" />

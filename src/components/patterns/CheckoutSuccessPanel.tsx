@@ -119,7 +119,7 @@ export function CheckoutSuccessPanel({
         <Button
           onClick={onCta}
           size="lg"
-          className="h-14 w-full rounded-radius-md text-base font-bold"
+          className="w-full rounded-radius-md text-base font-bold"
         >
           {ctaLabel}
         </Button>

@@ -736,7 +736,7 @@ function EditProviderForm({
           <Button
             type="button"
             variant="outline"
-            className="shrink-0 rounded-full"
+            className="shrink-0"
             disabled={provisioning}
             onClick={onProvisionCalendar}
           >

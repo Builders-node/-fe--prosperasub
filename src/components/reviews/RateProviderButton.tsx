@@ -288,7 +288,7 @@ export function RateProviderButton({
             {myReview && (
               <Button
                 variant="ghost"
-                className="rounded-full text-destructive hover:text-destructive"
+                className="text-destructive hover:text-destructive"
                 onClick={() => deleteMutation.mutate()}
                 disabled={deleteMutation.isPending}
               >
@@ -296,11 +296,11 @@ export function RateProviderButton({
               </Button>
             )}
             <div className="flex-1" />
-            <Button variant="outline" className="rounded-full" onClick={() => setOpen(false)}>
+            <Button variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
             <Button
-              className="rounded-full"
+             
               onClick={() => saveMutation.mutate()}
               disabled={saveMutation.isPending || rating < 1}
             >

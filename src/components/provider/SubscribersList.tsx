@@ -195,7 +195,7 @@ export function SubscribersList({ providerId, legacyId, sourceKey }: {
             title="Nobody matches that"
             subtitle="Try a different name, email or plan."
             action={
-              <Button variant="secondary" className="rounded-full" onClick={() => setQ("")}>
+              <Button variant="secondary" onClick={() => setQ("")}>
                 Clear search
               </Button>
             }
@@ -216,7 +216,7 @@ export function SubscribersList({ providerId, legacyId, sourceKey }: {
                 <StatusPill status={r.status} />
                 <SaleOriginBadge paymentReference={r.paymentReference ?? null} />
                 {isPendingPayment({ payment_status: r.paymentStatus }) && (
-                  <Button size="sm" variant="outline" className="h-7 rounded-full px-3 text-[12px]"
+                  <Button size="sm" variant="outline" className="px-3"
                     onClick={() => approve(r)}>
                     Mark paid
                   </Button>

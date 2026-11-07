@@ -696,7 +696,7 @@ const AdminPayments = () => {
                     </div>
                     <div className="flex gap-space-2 pt-space-1">
                       {notification.adminUrl ? (
-                        <Button asChild variant="tertiary" size="sm" className="flex-1">
+                        <Button asChild variant="ghost" size="sm" className="flex-1">
                           <a href={notification.adminUrl}>Open record</a>
                         </Button>
                       ) : null}
@@ -756,7 +756,7 @@ const AdminPayments = () => {
                         <TableCell>
                           <div className="flex justify-end gap-space-2">
                             {notification.adminUrl ? (
-                              <Button asChild variant="tertiary" size="sm">
+                              <Button asChild variant="ghost" size="sm">
                                 <a href={notification.adminUrl}>Open record</a>
                               </Button>
                             ) : null}

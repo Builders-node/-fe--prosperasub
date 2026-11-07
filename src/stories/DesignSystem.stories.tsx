@@ -49,7 +49,7 @@ export const Buttons: Story = {
       <div className="flex flex-wrap gap-space-3">
         <Button>Primary</Button>
         <Button variant="secondary">Secondary</Button>
-        <Button variant="tertiary">Tertiary</Button>
+        <Button variant="ghost">Tertiary</Button>
         <Button variant="destructive">Destructive</Button>
         <Button variant="link">Link Button</Button>
         <Button loading loadingText="Saving">Save</Button>
@@ -64,7 +64,7 @@ export const Buttons: Story = {
         <Button variant="secondary" size="icon" aria-label="Search">
           <Search />
         </Button>
-        <Button variant="tertiary" size="icon" aria-label="Sparkles">
+        <Button variant="ghost" size="icon" aria-label="Sparkles">
           <Sparkles />
         </Button>
       </div>
@@ -232,7 +232,7 @@ export const Overlays: Story = {
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button size="icon" variant="tertiary" aria-label="Info">
+              <Button size="icon" variant="ghost" aria-label="Info">
                 <AlertCircle />
               </Button>
             </TooltipTrigger>

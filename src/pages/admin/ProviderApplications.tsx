@@ -420,7 +420,7 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
                     <div className="flex gap-2 pt-1">
                       <Button
                         size="sm"
-                        className="flex-1 gap-1.5 rounded-full bg-positive text-white hover:bg-positive/90"
+                        className="flex-1 gap-1.5 bg-positive text-white hover:bg-positive/90"
                         onClick={() => approve.mutate(a)}
                         disabled={approve.isPending}
                         loading={approve.isPending}
@@ -431,7 +431,7 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
                       <Button
                         size="sm"
                         variant="outline"
-                        className="flex-1 gap-1.5 rounded-full text-negative hover:text-negative"
+                        className="flex-1 gap-1.5 text-negative hover:text-negative"
                         onClick={() => { setRejectTarget(a); setRejectNotes(""); }}
                         disabled={reject.isPending}
                       >

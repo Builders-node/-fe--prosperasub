@@ -106,7 +106,7 @@ export default function Support() {
             We&apos;ll reply to <span className="font-semibold text-foreground">{email}</span>. Most
             messages get an answer the same day.
           </p>
-          <Button className="mt-6 rounded-full" onClick={() => navigate("/discovery")}>
+          <Button className="mt-6" onClick={() => navigate("/discovery")}>
             Back to services
           </Button>
         </div>
@@ -199,7 +199,7 @@ export default function Support() {
             </p>
           </div>
 
-          <Button className="h-12 w-full rounded-radius-md" disabled={!valid || sending} onClick={submit}>
+          <Button size="lg" className="w-full rounded-radius-md" disabled={!valid || sending} onClick={submit}>
             {sending ? <Spinner size="sm" className="mr-2" /> : <Send className="mr-2 h-4 w-4" />}
             {sending ? "Sending…" : "Send message"}
           </Button>

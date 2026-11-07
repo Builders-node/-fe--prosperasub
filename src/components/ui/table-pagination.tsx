@@ -51,11 +51,11 @@ export function TablePagination({
       <span className="tabular-nums">{from}–{to} of {total}</span>
       {totalPages > 1 && (
         <div className="flex items-center gap-2">
-          <Button variant="tertiary" size="iconSm" className="rounded-full" disabled={page === 0} onClick={() => onPage(Math.max(0, page - 1))} aria-label="Previous page">
+          <Button variant="ghost" size="iconSm" disabled={page === 0} onClick={() => onPage(Math.max(0, page - 1))} aria-label="Previous page">
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <span className="tabular-nums">Page {page + 1} / {totalPages}</span>
-          <Button variant="tertiary" size="iconSm" className="rounded-full" disabled={page >= totalPages - 1} onClick={() => onPage(Math.min(totalPages - 1, page + 1))} aria-label="Next page">
+          <Button variant="ghost" size="iconSm" disabled={page >= totalPages - 1} onClick={() => onPage(Math.min(totalPages - 1, page + 1))} aria-label="Next page">
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>

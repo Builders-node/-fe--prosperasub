@@ -58,7 +58,7 @@ export function PlanResourcePicker({ providerId, value, onChange }: {
           onClick={() => onChange([])}
           className={cn(
             "rounded-full px-3 py-1.5 text-[13px] font-semibold transition-colors",
-            all ? "bg-primary text-primary-foreground" : "bg-inset text-muted-foreground hover:text-foreground",
+            all ? "bg-foreground text-background" : "bg-inset text-muted-foreground hover:text-foreground",
           )}
         >
           Everything
@@ -71,7 +71,7 @@ export function PlanResourcePicker({ providerId, value, onChange }: {
             className={cn(
               "rounded-full px-3 py-1.5 text-[13px] font-semibold transition-colors",
               selected.has(r.id)
-                ? "bg-primary text-primary-foreground"
+                ? "bg-foreground text-background"
                 : "bg-inset text-muted-foreground hover:text-foreground",
             )}
           >

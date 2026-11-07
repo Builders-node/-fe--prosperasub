@@ -201,10 +201,10 @@ export default function BeachClubPlans({ embedded = false }: { embedded?: boolea
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-1">
-                    <Button size="iconSm" variant="ghost" className="rounded-full" title="Edit" onClick={() => openEdit(p)}>
+                    <Button size="iconSm" variant="ghost" title="Edit" onClick={() => openEdit(p)}>
                       <Pencil />
                     </Button>
-                    <Button size="iconSm" variant="ghost" className="rounded-full text-destructive hover:bg-destructive/10 hover:text-destructive" title="Delete" onClick={() => setDeleteTarget(p)}>
+                    <Button size="iconSm" variant="ghost" className="text-destructive hover:bg-destructive/10 hover:text-destructive" title="Delete" onClick={() => setDeleteTarget(p)}>
                       <Trash2 />
                     </Button>
                   </div>

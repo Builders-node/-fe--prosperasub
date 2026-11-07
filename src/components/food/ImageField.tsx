@@ -68,9 +68,9 @@ export function ImageField({
           <img src={value} alt="" className="h-full w-full object-cover" />
           <Button
             type="button"
-            size="sm"
+            size="iconSm"
             variant="ghost"
-            className="absolute right-1.5 top-1.5 h-7 w-7 p-0 bg-background/80 hover:bg-background"
+            className="absolute right-1.5 top-1.5 bg-background/80 hover:bg-background"
             onClick={() => onChange("")}
           >
             <X className="h-3.5 w-3.5" />

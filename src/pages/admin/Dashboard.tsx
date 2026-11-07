@@ -291,7 +291,7 @@ const AdminDashboard = () => {
                   <Button
                     size="sm"
                     variant="secondary"
-                    className="ml-2 h-9 shrink-0 gap-1.5 rounded-full text-[13px] font-semibold"
+                    className="ml-2 shrink-0 gap-1.5 font-semibold"
                     disabled={approve.isPending}
                     onClick={() => approve.mutate(row)}
                   >

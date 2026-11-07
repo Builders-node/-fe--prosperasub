@@ -94,7 +94,7 @@ export function InvoiceQrPanel({
               This {mode === "lightning" ? "invoice" : "address"} expired. Nothing was charged.
             </span>
             {onRetry && (
-              <Button variant="secondary" size="sm" className="rounded-full" onClick={onRetry}>
+              <Button variant="secondary" size="sm" onClick={onRetry}>
                 Get a new one
               </Button>
             )}

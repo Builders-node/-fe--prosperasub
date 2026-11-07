@@ -159,7 +159,7 @@ export default function RoleManagement() {
                   <div className="flex gap-space-2">
                     <Button variant="secondary" size="sm" onClick={() => setEditingRole(role)}>Edit</Button>
                     {!role.isSystem && (
-                      <Button variant="tertiary" size="sm" onClick={() => setArchiveTarget(role)}>
+                      <Button variant="ghost" size="sm" onClick={() => setArchiveTarget(role)}>
                         <Archive className="h-4 w-4" />
                       </Button>
                     )}

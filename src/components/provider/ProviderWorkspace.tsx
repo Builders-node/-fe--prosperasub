@@ -423,7 +423,7 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
             <Button
               variant="outline"
               onClick={() => setEditing(true)}
-              className={editInTitleBar ? "hidden shrink-0 gap-2 rounded-full md:inline-flex" : "shrink-0 gap-2 rounded-full"}
+              className={editInTitleBar ? "hidden shrink-0 gap-2 md:inline-flex" : "shrink-0 gap-2"}
             >
               <Edit className="h-4 w-4" /> Edit
             </Button>

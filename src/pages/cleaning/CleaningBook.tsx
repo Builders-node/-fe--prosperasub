@@ -603,15 +603,15 @@ const CleaningBook = () => {
         {!isLoading && schedulableSubscriptions.length > 0 && (
           <CheckoutStickyFooter>
             <div className="flex items-center gap-3">
-              <Button
+              <Button size="lg"
                 variant="outline"
-                className="h-12 flex-1 rounded-full md:flex-none md:px-8"
+                className="flex-1 md:flex-none md:px-8"
                 onClick={() => navigate("/my-subscriptions")}
               >
                 Cancel
               </Button>
-              <Button
-                className="h-12 flex-[2] gap-2 rounded-full md:ml-auto md:flex-none md:px-10"
+              <Button size="lg"
+                className="flex-[2] gap-2 md:ml-auto md:flex-none md:px-10"
                 disabled={!canConfirm}
                 loading={scheduleMutation.isPending}
                 loadingText="Scheduling..."

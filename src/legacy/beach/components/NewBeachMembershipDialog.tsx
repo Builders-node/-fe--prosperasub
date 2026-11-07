@@ -158,7 +158,7 @@ export function NewBeachMembershipDialog({ providerUniversalId, trigger }: Props
   };
 
   const defaultTrigger = (
-    <Button variant="secondary" onClick={() => setOpen(true)} className="gap-2 rounded-full">
+    <Button variant="secondary" onClick={() => setOpen(true)} className="gap-2">
       <Plus className="h-4 w-4" /> New membership
     </Button>
   );

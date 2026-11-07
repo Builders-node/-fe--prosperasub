@@ -74,7 +74,7 @@ export default function MyBusiness() {
               Want to offer your service on EverySub? Apply to become a provider — once approved,
               your business appears here to manage.
             </p>
-            <Button className="mt-4 rounded-full" onClick={() => navigate("/become-a-provider")}>
+            <Button className="mt-4" onClick={() => navigate("/become-a-provider")}>
               Become a provider
             </Button>
           </div>

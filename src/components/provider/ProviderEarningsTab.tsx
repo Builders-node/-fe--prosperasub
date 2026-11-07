@@ -163,7 +163,7 @@ function WithdrawPanel({
         </p>
       </div>
       {canWithdraw && (
-        <Button className="rounded-full gap-1.5" disabled={availableCents <= 0} onClick={() => setOpen(true)}>
+        <Button className="gap-1.5" disabled={availableCents <= 0} onClick={() => setOpen(true)}>
           <ArrowUpRight className="h-4 w-4" /> Withdraw
         </Button>
       )}
@@ -200,7 +200,7 @@ function WithdrawPanel({
                   className={cn(
                     "flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-2 transition-colors",
                     rail === option
-                      ? "bg-primary text-primary-foreground"
+                      ? "bg-foreground text-background"
                       : "text-muted-foreground hover:text-foreground",
                   )}
                 >

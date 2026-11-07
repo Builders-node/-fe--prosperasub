@@ -631,7 +631,7 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
   };
 
   const defaultTrigger = (
-    <Button onClick={() => setOpen(true)} className="gap-2 rounded-full">
+    <Button onClick={() => setOpen(true)} className="gap-2">
       <Plus className="h-4 w-4" /> New booking
     </Button>
   );
@@ -674,7 +674,7 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
                     className={cn(
                       "flex-1 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
                       mode === m.key
-                        ? "bg-primary text-primary-foreground"
+                        ? "bg-foreground text-background"
                         : "bg-card text-muted-foreground hover:text-foreground",
                     )}
                   >
@@ -855,7 +855,7 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
                     className={cn(
                       "rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
                       cadence === c
-                        ? "bg-primary text-primary-foreground"
+                        ? "bg-foreground text-background"
                         : "bg-card text-muted-foreground hover:text-foreground",
                     )}
                   >
@@ -884,7 +884,7 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
                             prev.includes(d.dow) ? prev.filter((x) => x !== d.dow) : [...prev, d.dow])}
                           className={cn(
                             "rounded-full px-2.5 py-1 text-xs font-semibold transition-colors",
-                            on ? "bg-primary text-primary-foreground"
+                            on ? "bg-foreground text-background"
                                : "bg-card text-muted-foreground hover:text-foreground",
                             off && !on && "pointer-events-none opacity-40 line-through",
                           )}

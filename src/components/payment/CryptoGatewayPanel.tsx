@@ -72,7 +72,7 @@ export function CryptoGatewayPanel({ totalCents, meta, onPaid, onInvoiceReady, i
                 aria-pressed={active}
                 className={cn(
                   "rounded-radius-md px-3 py-2.5 text-left transition-colors",
-                  active ? "bg-primary text-primary-foreground" : "bg-inset text-foreground hover:bg-muted",
+                  active ? "bg-foreground text-background" : "bg-inset text-foreground hover:bg-muted",
                 )}
               >
                 <span className="block text-[15px] font-semibold leading-tight">{name}</span>
@@ -117,7 +117,7 @@ export function CryptoGatewayPanel({ totalCents, meta, onPaid, onInvoiceReady, i
         <div className="flex items-center justify-center gap-2">
           <p className="break-all text-2xl font-semibold text-foreground">{p.pay_amount} {name}</p>
           {p.pay_amount && (
-            <Button variant="tertiary" size="iconSm" onClick={() => copy(p.pay_amount!)} aria-label="Copy amount">
+            <Button variant="ghost" size="iconSm" onClick={() => copy(p.pay_amount!)} aria-label="Copy amount">
               <Copy className="h-3.5 w-3.5" />
             </Button>
           )}
@@ -168,7 +168,7 @@ export function CryptoGatewayPanel({ totalCents, meta, onPaid, onInvoiceReady, i
           <>
             <Clock className="h-5 w-5 shrink-0 text-muted-foreground" />
             <span className="text-sm font-medium text-muted-foreground">This payment expired. Nothing was charged.</span>
-            <Button variant="secondary" size="sm" className="rounded-full" onClick={pay.reset}>Start again</Button>
+            <Button variant="secondary" size="sm" onClick={pay.reset}>Start again</Button>
           </>
         ) : partial ? (
           <>

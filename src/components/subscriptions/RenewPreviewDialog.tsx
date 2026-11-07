@@ -91,11 +91,11 @@ export function RenewPreviewDialog({
         </div>
 
         <DialogFooter className="mt-4 gap-2 sm:gap-2">
-          <Button variant="outline" className="rounded-full" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
           <Button
-            className="rounded-full gap-1.5"
+            className="gap-1.5"
             onClick={() => { onOpenChange(false); onConfirm(); }}
           >
             <RefreshCw className="h-4 w-4" />

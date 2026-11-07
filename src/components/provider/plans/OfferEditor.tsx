@@ -630,7 +630,7 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
         title="This business sells nothing yet"
         subtitle="A plan is one product: a name, whatever the customer gets to choose, and a price for each way of choosing it."
         action={
-          <Button className="gap-1.5 rounded-full" disabled={addPlan.isPending} onClick={() => addPlan.mutate()}>
+          <Button className="gap-1.5" disabled={addPlan.isPending} onClick={() => addPlan.mutate()}>
             <Plus className="h-4 w-4" /> {addPlan.isPending ? "Adding…" : "Add the first plan"}
           </Button>
         }
@@ -653,7 +653,7 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
             {o.status !== "active" && <span className="ml-1.5 text-[12px] opacity-70">off</span>}
           </button>
         ))}
-        <Button variant="outline" size="sm" className="gap-1.5 rounded-full"
+        <Button variant="outline" size="sm" className="gap-1.5"
           disabled={addPlan.isPending} onClick={() => addPlan.mutate()}>
           <Plus className="h-4 w-4" /> {addPlan.isPending ? "Adding…" : "New plan"}
         </Button>
@@ -796,7 +796,7 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
         <div className="flex items-center gap-2">
           <Input value={newGroupLabel} onChange={(e) => setNewGroupLabel(e.target.value)}
             placeholder="Add a choice — size, days per week…" className="h-9 max-w-xs" />
-          <Button variant="outline" size="sm" className="gap-1.5 rounded-full"
+          <Button variant="outline" size="sm" className="gap-1.5"
             disabled={!newGroupLabel.trim()}
             onClick={() => {
               setDraftGroups((gs) => [...gs, { key: slug(newGroupLabel), label: newGroupLabel.trim(), options: [] }]);
@@ -1043,18 +1043,18 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
       </section>
 
       <div className="flex flex-wrap items-center gap-2">
-        <Button className="rounded-full" disabled={save.isPending} onClick={() => save.mutate()}>
+        <Button disabled={save.isPending} onClick={() => save.mutate()}>
           {save.isPending ? "Saving…" : "Save plan"}
         </Button>
         {/* Off sale, not deleted: somebody may be subscribed to it, and a plan
             that vanishes takes their subscription's name with it. */}
-        <Button variant="ghost" className="rounded-full text-muted-foreground"
+        <Button variant="ghost" className="text-muted-foreground"
           disabled={archive.isPending}
           onClick={() => archive.mutate(offer.status === "active" ? "inactive" : "active")}>
           {offer.status === "active" ? "Take off sale" : "Put back on sale"}
         </Button>
         {onDelete && (
-          <Button variant="ghost" className="ml-auto rounded-full text-destructive hover:text-destructive"
+          <Button variant="ghost" className="ml-auto text-destructive hover:text-destructive"
             onClick={onDelete}>
             <Trash2 className="mr-1.5 h-4 w-4" /> Delete plan
           </Button>

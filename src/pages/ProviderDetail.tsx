@@ -451,7 +451,7 @@ const ProviderDetail = () => {
           <p className="mt-1 text-sm text-muted-foreground">
             "{serviceSegment}" isn't a service on the platform.
           </p>
-          <Button asChild variant="outline" className="mt-4 rounded-full">
+          <Button asChild variant="outline" className="mt-4">
             <Link to="/discovery">Browse services</Link>
           </Button>
         </main>

@@ -370,7 +370,7 @@ function AuthForm({
       {/* Google */}
       <Button
         type="button"
-        variant="tertiary"
+        variant="ghost"
         onClick={handleGoogle}
         disabled={isLoading}
         className="w-full gap-3 bg-inset font-semibold text-foreground hover:bg-inset hover:opacity-80"

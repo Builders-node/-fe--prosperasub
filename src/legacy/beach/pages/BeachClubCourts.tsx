@@ -399,10 +399,10 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
           </button>
         ))}
         <div className="ml-auto flex gap-2">
-          <Button variant="outline" className="gap-1.5 rounded-full" onClick={() => setManageOpen(true)}>
+          <Button variant="outline" className="gap-1.5" onClick={() => setManageOpen(true)}>
             <Settings className="h-4 w-4" /> Manage courts
           </Button>
-          <Button className="gap-1.5 rounded-full" onClick={openNew}>
+          <Button className="gap-1.5" onClick={openNew}>
             <Plus className="h-4 w-4" /> New court
           </Button>
         </div>
@@ -415,7 +415,7 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
           <p className="mt-1 max-w-sm text-sm text-muted-foreground">
             Create your first court to start taking hourly bookings.
           </p>
-          <Button className="mt-4 rounded-full" onClick={openNew}>
+          <Button className="mt-4" onClick={openNew}>
             <Plus className="mr-1.5 h-4 w-4" /> New court
           </Button>
         </div>
@@ -430,24 +430,24 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
           {/* Date controls */}
           <div className="mb-space-4 flex flex-wrap items-center justify-between gap-3 rounded-radius-md bg-card p-space-4">
             <div className="flex items-center gap-2">
-              <Button variant="secondary" size="iconSm" className="rounded-full" onClick={() => shiftDay(-1)} aria-label="Previous day">
+              <Button variant="secondary" size="iconSm" onClick={() => shiftDay(-1)} aria-label="Previous day">
                 <ChevronLeft className="h-4 w-4" />
               </Button>
               <div className="relative flex items-center gap-2">
                 <CalendarDays className="h-4 w-4 text-muted-foreground" />
         <Input inputSize="sm" type="date" value={date} onChange={(e) => setDate(e.target.value || todayHN())} className="w-full sm:w-[170px]" />
               </div>
-              <Button variant="secondary" size="iconSm" className="rounded-full" onClick={() => shiftDay(1)} aria-label="Next day">
+              <Button variant="secondary" size="iconSm" onClick={() => shiftDay(1)} aria-label="Next day">
                 <ChevronRight className="h-4 w-4" />
               </Button>
-              <Button variant="ghost" size="sm" className="rounded-full text-muted-foreground" onClick={() => setDate(todayHN())}>
+              <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => setDate(todayHN())}>
                 Today
               </Button>
               {activeCourt?.google_calendar_id && (
                 <Button
                   variant="outline"
                   size="sm"
-                  className="gap-1.5 rounded-full"
+                  className="gap-1.5"
                   onClick={() => pullFromGoogle.mutate(activeCourt.id)}
                   disabled={pullFromGoogle.isPending}
                   title="Pull external bookings from this court's Google Calendar"
@@ -513,11 +513,11 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
                         <X className="h-4 w-4" />
                       </button>
                     ) : past ? (
-                      <Button size="sm" variant="ghost" disabled className="shrink-0 gap-1 rounded-full opacity-70">
+                      <Button size="sm" variant="ghost" disabled className="shrink-0 gap-1 opacity-70">
                         Past
                       </Button>
                     ) : (
-                      <Button size="sm" className="shrink-0 gap-1 rounded-full" onClick={() => { setBookSlot(h); setMemberName(""); setNotes(""); }}>
+                      <Button size="sm" className="shrink-0 gap-1" onClick={() => { setBookSlot(h); setMemberName(""); setNotes(""); }}>
                         <Plus className="h-3.5 w-3.5" /> Book
                       </Button>
                     )}
@@ -875,7 +875,7 @@ function CourtCalendar({ courtId, calendarId }: { courtId: string; calendarId: s
         </>
       ) : (
         <div className="mt-1 flex flex-wrap items-center gap-2">
-          <Button size="sm" variant="outline" className="rounded-full"
+          <Button size="sm" variant="outline"
             onClick={() => create.mutate()} disabled={create.isPending}>
             {create.isPending ? "Creating…" : "Create calendar"}
           </Button>

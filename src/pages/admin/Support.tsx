@@ -171,7 +171,7 @@ export default function AdminSupport() {
                       <Button
                         size="sm"
                         variant={handled ? "ghost" : "primary"}
-                        className="ml-auto rounded-full"
+                        className="ml-auto"
                         disabled={setHandled.isPending}
                         onClick={() => setHandled.mutate({ id: m.id, handled: !handled })}
                       >

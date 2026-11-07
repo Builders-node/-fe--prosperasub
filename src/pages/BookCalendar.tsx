@@ -330,7 +330,7 @@ export default function BookCalendar() {
                       </span>
                       <Button
                         size="sm" variant="ghost"
-                        className="h-8 gap-1.5 rounded-full px-3 text-destructive hover:text-destructive"
+                        className="gap-1.5 px-3 text-destructive hover:text-destructive"
                         disabled={cancel.isPending}
                         onClick={() => cancel.mutate(b.id)}
                       >

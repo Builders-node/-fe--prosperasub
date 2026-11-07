@@ -246,7 +246,7 @@ export default function ServiceCategories({ embedded = false, archetypeKey }: Se
               className={cn(
                 "inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
                 archetypeFilter === f.key
-                  ? "bg-primary text-primary-foreground"
+                  ? "bg-foreground text-background"
                   : "bg-muted/50 text-muted-foreground hover:text-foreground",
               )}
             >

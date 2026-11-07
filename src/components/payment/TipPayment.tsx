@@ -155,7 +155,7 @@ export function TipPayment({
           {tipCents > 0 && (
             <>
               <PaymentMethodSelector value={paymentMethod} onChange={setPaymentMethod} available={enabledMethods} />
-              <Button className="h-11 w-full rounded-radius-md font-bold" onClick={start}
+              <Button className="w-full rounded-radius-md font-bold" onClick={start}
                 disabled={generating || ((paymentMethod === "lightning" || paymentMethod === "onchain") && (priceLoading || !btcPrice))}>
                 {generating ? <><Spinner size="sm" className="mr-2" /> Starting…</>
                   : paymentMethod === "paypal" ? <>Tip {formatUSD(tipCents)} with PayPal</>

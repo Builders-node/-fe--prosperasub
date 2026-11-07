@@ -224,7 +224,7 @@ function ProvisionCalendar({ providerId }: { providerId: string }) {
   return (
     <span className="flex flex-wrap items-center gap-2">
       <em className="text-muted-foreground/70">Not set up</em>
-      <Button size="sm" variant="outline" className="h-7 rounded-full px-3 text-xs"
+      <Button size="sm" variant="outline" className="px-3"
         onClick={() => run.mutate()} disabled={run.isPending}>
         {run.isPending ? "Creating…" : "Create it"}
       </Button>
@@ -275,7 +275,7 @@ function CalendarDetails({
         {/* Always offered: the platform owner is shared on every calendar, so
             there is someone to grant access to even when the provider has not
             given an address. */}
-        <Button size="sm" variant="outline" className="h-7 rounded-full px-3 text-xs"
+        <Button size="sm" variant="outline" className="px-3"
           onClick={() => share.mutate()} disabled={share.isPending}>
           {share.isPending ? "Sharing…" : contactEmail ? `Share with ${contactEmail}` : "Grant access"}
         </Button>

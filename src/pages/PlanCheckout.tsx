@@ -705,7 +705,7 @@ const UniversalPlanCheckout = () => {
                               : full ? cur : [...cur, opt.key])}
                           disabled={!on && full}
                           className={`rounded-radius-md px-3.5 py-2 text-[14px] font-semibold transition-colors disabled:opacity-40 ${
-                            on ? "bg-primary text-primary-foreground" : "bg-inset text-muted-foreground"
+                            on ? "bg-foreground text-background" : "bg-inset text-muted-foreground"
                           }`}
                         >
                           {opt.label}
@@ -965,7 +965,7 @@ const UniversalPlanCheckout = () => {
                   <span className="mx-1.5 opacity-40">·</span>
                   1 BTC = ${btcPrice.toLocaleString()}
                 </span>
-                <Button variant="tertiary" size="iconSm" onClick={refreshPrice} aria-label="Refresh Bitcoin price">
+                <Button variant="ghost" size="iconSm" onClick={refreshPrice} aria-label="Refresh Bitcoin price">
                   <RefreshCw className="h-3 w-3" />
                 </Button>
               </div>
@@ -1009,7 +1009,7 @@ const UniversalPlanCheckout = () => {
           )}
           <Button
             size="lg"
-            className="h-12 w-full rounded-radius-md bg-primary text-[16px] font-semibold tracking-[-0.02em] text-primary-foreground hover:bg-[hsl(var(--brand-accent-hover))]"
+            className="w-full rounded-radius-md bg-primary font-semibold tracking-[-0.02em] text-primary-foreground hover:bg-[hsl(var(--brand-accent-hover))]"
             onClick={startPayment}
             loading={isGenerating}
             disabled={

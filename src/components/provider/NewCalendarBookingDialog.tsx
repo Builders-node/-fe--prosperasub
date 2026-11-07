@@ -133,7 +133,7 @@ export function NewCalendarBookingDialog({
       {trigger ? (
         <span onClick={() => setOpen(true)}>{trigger}</span>
       ) : (
-        <Button onClick={() => setOpen(true)} className="gap-2 rounded-full">
+        <Button onClick={() => setOpen(true)} className="gap-2">
           <CalendarDays className="h-4 w-4" /> New booking
         </Button>
       )}
@@ -195,7 +195,7 @@ export function NewCalendarBookingDialog({
                         className={cn(
                           "rounded-full px-3 py-1.5 text-sm font-semibold transition-colors",
                           from === s.from
-                            ? "bg-primary text-primary-foreground"
+                            ? "bg-foreground text-background"
                             : "bg-inset text-muted-foreground hover:text-foreground",
                         )}
                       >
@@ -243,7 +243,7 @@ export function NewCalendarBookingDialog({
           <DialogFooter>
             <Button variant="ghost" onClick={reset}>Cancel</Button>
             <Button
-              className="rounded-full"
+             
               disabled={!canBook || book.isPending}
               onClick={() => book.mutate()}
             >

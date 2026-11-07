@@ -76,10 +76,13 @@ const DESIGN_RULES = {
   palette:   { re: /\b(?:bg|text|border|ring|fill|stroke|from|via|to)-(?:red|green|emerald|amber|orange|yellow|blue|sky|violet|purple|rose|cyan|lime|teal|pink|indigo|fuchsia)-\d{2,3}\b/g, base: 23, fix: "use text-positive / text-attention / text-negative, or a token" },
   shadow:    { re: /\bshadow-(?!figma\b|none\b)[a-z0-9]/g, base: 1, fix: "the only shadow is shadow-figma" },
   gradient:  { re: /\bbg-gradient-/g, base: 7, fix: "no gradients (DESIGN.md)" },
-  pxText:    { re: /\btext-\[\d+px\]/g, base: 383, fix: "use text-heading / text-title / text-meta" },
+  pxText:    { re: /\btext-\[\d+px\]/g, base: 377, fix: "use text-heading / text-title / text-meta" },
   tracking:  { re: /\btracking-\[/g, base: 101, fix: "the type roles carry their tracking" },
   rawRadius: { re: /\brounded-(?:sm|md|lg|xl|2xl|3xl)\b/g, base: 47, fix: "use rounded-radius-*" },
   container: { re: /max-w-\[1280px\]/g, base: 5, fix: "use AppContainer / .app-container" },
+  // A Button's height and shape come from its size (sm 36 · default 44 · lg 48,
+  // all pills). A per-call h-* or rounded-full is how seven heights happened.
+  buttonShape: { re: /<Button\b[^>]*?className="[^"]*\b(?:rounded-full|h-(?:7|9|10|11|12|14))\b/g, base: 0, fix: "use Button size=\"sm|default|lg\"" },
 };
 const designFiles = [];
 (function walk(d) {

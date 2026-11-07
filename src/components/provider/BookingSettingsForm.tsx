@@ -258,7 +258,7 @@ export function BookingSettingsEditor({
           <div>
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-muted-foreground">Blocked time ranges</span>
-              <Button type="button" size="sm" variant="tertiary" className="gap-1" onClick={addBlockedRange}>
+              <Button type="button" size="sm" variant="ghost" className="gap-1" onClick={addBlockedRange}>
                 <Plus className="h-4 w-4" /> Add range
               </Button>
             </div>

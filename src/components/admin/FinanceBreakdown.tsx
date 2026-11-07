@@ -360,9 +360,9 @@ export function FinanceBreakdown() {
           </p>
         </div>
         <div className="flex flex-col items-stretch gap-space-2 sm:flex-row sm:items-center">
-          <Button
+          <Button size="sm"
             variant="outline"
-            className="h-9 gap-2 rounded-full px-4"
+            className="gap-2 px-4"
             onClick={exportCsv}
             disabled={isLoading || grandTotal === 0}
             title="Summary CSV: revenue by service × payment method"
@@ -370,9 +370,9 @@ export function FinanceBreakdown() {
             <Download className="h-4 w-4" />
             Summary CSV
           </Button>
-          <Button
+          <Button size="sm"
             variant="outline"
-            className="h-9 gap-2 rounded-full px-4"
+            className="gap-2 px-4"
             onClick={exportDetailedCsv}
             disabled={isLoading || detailedLoading || grandTotal === 0}
             title="Detailed CSV: every paid transaction — customer, plan, amount, method, dates, reference"
@@ -398,10 +398,10 @@ export function FinanceBreakdown() {
           {range === "custom" && (
             <Popover>
               <PopoverTrigger asChild>
-                <Button
+                <Button size="sm"
                   variant="secondary"
                   className={cn(
-                    "h-9 justify-start gap-2 rounded-full px-4 font-normal",
+                    "justify-start gap-2 px-4 font-normal",
                     !customStart && !customEnd && "text-muted-foreground",
                   )}
                 >
@@ -437,7 +437,7 @@ export function FinanceBreakdown() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="rounded-full text-muted-foreground"
+                      className="text-muted-foreground"
                       onClick={() => { setCustomStart(""); setCustomEnd(""); }}
                     >
                       Clear

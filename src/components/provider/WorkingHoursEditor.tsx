@@ -104,7 +104,7 @@ export function WorkingHoursEditor({ value, onChange }: Props) {
         type="button"
         variant="outline"
         size="sm"
-        className="gap-2 rounded-full"
+        className="gap-2"
         onClick={addRow}
       >
         <Plus className="h-3.5 w-3.5" />

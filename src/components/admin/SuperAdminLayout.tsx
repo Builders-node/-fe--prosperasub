@@ -210,9 +210,8 @@ const SuperAdminLayout = ({ children, title, subtitle }: SuperAdminLayoutProps) 
                 <SheetTrigger asChild>
                   <Button
                     type="button"
-                    variant="tertiary"
+                    variant="ghost"
                     size="icon"
-                    className="h-11 w-11"
                     aria-label="Open admin menu"
                   >
                     <Menu className="h-5 w-5" aria-hidden />

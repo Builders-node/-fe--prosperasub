@@ -229,7 +229,7 @@ export function ProviderReviewsBlock({ providerId, service, ownerUserId, placeho
           />
           <div className="mt-3 flex items-center gap-2">
             <Button
-              className="rounded-radius-md"
+             
               onClick={() => submitMutation.mutate()}
               disabled={submitMutation.isPending || rating < 1}
             >
@@ -239,7 +239,7 @@ export function ProviderReviewsBlock({ providerId, service, ownerUserId, placeho
             {myReview && (
               <Button
                 variant="ghost"
-                className="rounded-radius-md text-destructive hover:text-destructive"
+                className="text-destructive hover:text-destructive"
                 onClick={() => deleteMutation.mutate(myReview.id)}
                 disabled={deleteMutation.isPending}
               >

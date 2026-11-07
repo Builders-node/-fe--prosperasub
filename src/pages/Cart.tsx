@@ -775,12 +775,12 @@ export default function Cart() {
             </p>
           )}
           {showBasketOnly ? (
-            <Button size="lg" className="h-12 w-full rounded-radius-md text-[16px] font-semibold tracking-[-0.02em]"
+            <Button size="lg" className="w-full rounded-radius-md font-semibold tracking-[-0.02em]"
               onClick={() => isAuthenticated ? navigate("/cart/checkout") : openAuthModal("login", "/cart/checkout")}>
               {isAuthenticated ? payLabel(totalCents) : "Log in to checkout"}
             </Button>
           ) : (
-          <Button size="lg" className="h-12 w-full rounded-radius-md text-[16px] font-semibold tracking-[-0.02em]"
+          <Button size="lg" className="w-full rounded-radius-md font-semibold tracking-[-0.02em]"
             onClick={startCheckout}
             disabled={
               !formValid ||
