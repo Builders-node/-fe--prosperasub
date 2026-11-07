@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import {
-  Dialog, DialogBlock, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -37,12 +37,15 @@ export function ResponsiveDialog({
   const isMobile = useIsMobile();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={cn("sm:max-w-[480px]", className, isMobile && sheetClassName)}>
+      <DialogContent className={cn("sm:max-w-[480px]", className, isMobile && sheetClassName)} blockClassName={bodyClassName}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
-        <DialogBlock className={bodyClassName}>{children}</DialogBlock>
+        {/* Loose content becomes a block; a caller that has several says so
+            with <DialogBlock> — one forced wrapper put a whole purchase on
+            one card. */}
+        {children}
         {footer && <DialogFooter className="block">{footer}</DialogFooter>}
       </DialogContent>
     </Dialog>

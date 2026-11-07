@@ -176,7 +176,7 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
     },
     onSuccess: (r) => {
       qc.invalidateQueries({ queryKey: QUERY_KEY });
-      toast.success(`${r.name} ${r.next === "active" ? "activated" : "deactivated"}`);
+      toast.success(`${r.name} ${r.next === "active" ? "is live" : "is hidden"}`);
     },
     onError: (e: any) => toast.error(e?.message || "Could not update status"),
   });
@@ -237,9 +237,12 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
       // Bump sort_order past the current max so the new row lands at the bottom.
       // DB trigger `providers_sync_category_from_archetype` fills `category_key`.
       const maxSort = providers.reduce((m, r) => Math.max(m, r.sort_order ?? 0), 0);
+      // A new business starts as a DRAFT: no photos, no plans, nobody to sell
+      // it yet. It used to be inserted live, so a half-made page was public the
+      // moment the form closed. "Go live" in its workspace flips it.
       const row = {
         ...payload,
-        status: "active",
+        status: "draft",
         is_platform_owned: true,
         sort_order: maxSort + 10,
       };
@@ -250,10 +253,12 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
       }
       return data;
     },
-    onSuccess: () => {
-      toast.success("Provider created");
+    onSuccess: (data) => {
+      toast.success("Draft created — fill it in, then Go live");
       setCreating(false);
       qc.invalidateQueries({ queryKey: QUERY_KEY });
+      // Straight into the business, where the setup checklist is.
+      if (data?.id) navigate(`/admin/marketplace/providers/${data.id}`);
     },
     onError: (e: any) => toast.error(e?.message || "Could not create provider"),
   });
@@ -310,8 +315,9 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
               <SelectTrigger inputSize="sm" className="w-36 rounded-full"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All statuses</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="inactive">Inactive</SelectItem>
+                <SelectItem value="draft">Draft · {providers.filter((p) => p.status === "draft").length}</SelectItem>
+                <SelectItem value="active">Live · {counts.active}</SelectItem>
+                <SelectItem value="inactive">Hidden · {providers.filter((p) => p.status === "inactive").length}</SelectItem>
               </SelectContent>
             </Select>
           }
@@ -462,8 +468,8 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
                           onSelect={() => (p.status === "active" ? setConfirmDeactivate(p) : toggleStatus.mutate(p))}
                         >
                           {p.status === "active"
-                            ? (<><EyeOff className="mr-2 h-3.5 w-3.5" /> Deactivate</>)
-                            : (<><Eye    className="mr-2 h-3.5 w-3.5" /> Activate</>)}
+                            ? (<><EyeOff className="mr-2 h-3.5 w-3.5" /> Hide</>)
+                            : (<><Eye    className="mr-2 h-3.5 w-3.5" /> Go live</>)}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -555,11 +561,11 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
       <AlertDialog open={!!confirmDeactivate} onOpenChange={(o) => !o && setConfirmDeactivate(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Deactivate {confirmDeactivate?.name}?</AlertDialogTitle>
+            <AlertDialogTitle>Hide {confirmDeactivate?.name}?</AlertDialogTitle>
             <AlertDialogDescription>
               This will hide the business from Discovery, listings, and every checkout
               on the platform immediately. Existing subscriptions keep running but
-              new sign-ups are blocked. You can activate it again anytime.
+              new sign-ups are blocked. You can put it live again anytime.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -571,7 +577,7 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
                 setConfirmDeactivate(null);
               }}
             >
-              Deactivate
+              Hide
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

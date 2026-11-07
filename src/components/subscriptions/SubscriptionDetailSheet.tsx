@@ -3,6 +3,7 @@ import { ArrowRight, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DeliveryDialog } from "@/components/account/DeliveryDialog";
 import { subscriberSourceFor } from "@/services/subscribers";
+import { DialogBlock } from "@/components/ui/dialog";
 import { ResponsiveDialog } from "@/components/patterns/ResponsiveDialog";
 import { StatusPill } from "@/components/patterns/StatusPill";
 import { PaymentMethodBadge, PaymentReference } from "@/components/admin/PaymentMethodBadge";
@@ -86,39 +87,60 @@ export function SubscriptionDetailSheet({
 }) {
   const [editingDelivery, setEditingDelivery] = useState(false);
 
+  // One block per thing the sheet answers — what you bought, the facts of it,
+  // the visits, your rating, a tip, where it goes — and the actions pinned
+  // under them. It used to be one card holding all of it.
+  const footer = detail && (detail.action || detail.cancel) ? (
+    <div className="space-y-1">
+      {detail.action && (
+        <Button className="w-full gap-1.5" onClick={detail.action.onClick}>
+          {detail.action.label} <ArrowRight />
+        </Button>
+      )}
+      {/* The quiet one: nobody opens the purchase to cancel it. */}
+      {detail.cancel && (
+        <Button
+          variant="ghost"
+          className={"w-full " + (detail.cancel.destructive ? "text-destructive hover:text-destructive" : "text-muted-foreground")}
+          onClick={detail.cancel.onClick}
+        >
+          {detail.cancel.label}
+        </Button>
+      )}
+    </div>
+  ) : undefined;
+
   return (
-    <ResponsiveDialog open={!!detail} onOpenChange={(o) => !o && onClose()} title="Your purchase">
+    <>
+    <ResponsiveDialog open={!!detail} onOpenChange={(o) => !o && onClose()} title="Your purchase" footer={footer}>
       {detail && (
-        <div className="pb-2">
-          <div className="mb-4 flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-heading font-semibold leading-[24px] text-foreground">
-                {detail.title}
-              </p>
-              {detail.provider && (
-                <p className="mt-0.5 text-meta text-muted-foreground">{detail.provider}</p>
-              )}
+        <>
+          <DialogBlock>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-heading font-semibold text-foreground">{detail.title}</p>
+                {detail.provider && <p className="mt-0.5 text-meta text-muted-foreground">{detail.provider}</p>}
+              </div>
+              <StatusPill status={detail.status} />
             </div>
-            <StatusPill status={detail.status} />
-          </div>
+            {detail.amountCents != null && (
+              <div className="rounded-radius-md bg-inset p-4">
+                <p className="text-meta text-muted-foreground">Paid</p>
+                <p className="mt-0.5 text-2xl font-semibold leading-[29px] tabular-nums text-foreground">
+                  {formatUSD(detail.amountCents)}
+                </p>
+              </div>
+            )}
+          </DialogBlock>
 
-          {/* First, because at the door this is what the sheet is opened for. */}
+          {/* First after the summary, because at the door this is what the sheet is opened for. */}
           {detail.accessId && GRANTS_ACCESS.includes(detail.status.toLowerCase()) && (
-            <div className="mb-2 rounded-radius-md bg-inset p-4">
+            <DialogBlock title="Access">
               <AccessQrCode subscriptionId={detail.accessId} />
-            </div>
+            </DialogBlock>
           )}
 
-          {detail.amountCents != null && (
-            <div className="mb-2 rounded-radius-md bg-inset p-4">
-              <p className="text-meta text-muted-foreground">Paid</p>
-              <p className="mt-0.5 text-2xl font-semibold leading-[29px] tabular-nums text-foreground">
-                {formatUSD(detail.amountCents)}
-              </p>
-            </div>
-          )}
-
-          <div className="divide-y divide-border/60">
+          <DialogBlock title="Details" className="space-y-0">
             <Row label="Period" value={formatRangeHN(detail.periodStart, detail.periodEnd) ?? undefined} />
             {detail.facts?.map((f, i) => <Row key={i} label={f.label} value={f.value} />)}
             <Row label="Paid with"
@@ -128,15 +150,11 @@ export function SubscriptionDetailSheet({
                 ? <PaymentReference method={detail.paymentMethod} reference={detail.paymentReference} />
                 : undefined} />
             <Row label="Purchased" value={detail.purchasedAt ? formatDateHN(detail.purchasedAt) : undefined} />
-          </div>
+          </DialogBlock>
 
-          {/* The visits this subscription booked — the schedule lives in the
-              purchase now, not on the list. */}
+          {/* The visits this subscription booked. */}
           {detail.sessions?.filter((g) => g.items.length).map((group) => (
-            <div key={group.label} className="mt-4">
-              <p className="mb-2 text-meta font-semibold uppercase tracking-wider text-muted-foreground">
-                {group.label} · <span className="tabular-nums">{group.items.length}</span>
-              </p>
+            <DialogBlock key={group.label} title={<>{group.label} · <span className="tabular-nums">{group.items.length}</span></>}>
               <div className="space-y-2">
                 {group.items.map((it) => (
                   <div key={it.id} className="flex items-center justify-between gap-3 rounded-radius-md bg-inset px-3 py-2.5">
@@ -148,11 +166,23 @@ export function SubscriptionDetailSheet({
                   </div>
                 ))}
               </div>
-            </div>
+            </DialogBlock>
           ))}
 
+          {detail.delivery && (
+            <DialogBlock title="Delivered to">
+              <div className="flex items-start gap-3">
+                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                <p className="min-w-0 flex-1 break-words text-title font-semibold text-foreground">
+                  {detail.delivery.current || "Not set"}
+                </p>
+                <Button size="sm" variant="secondary" onClick={() => setEditingDelivery(true)}>Change</Button>
+              </div>
+            </DialogBlock>
+          )}
+
           {detail.review && (
-            <div className="mt-4 rounded-radius-md bg-inset p-4">
+            <DialogBlock title="Your rating">
               <RateProviderButton
                 service={detail.review.service}
                 itemId={detail.review.itemId ?? undefined}
@@ -160,11 +190,11 @@ export function SubscriptionDetailSheet({
                 providerId={detail.review.providerId ?? undefined}
                 customerName={detail.review.customerName}
               />
-            </div>
+            </DialogBlock>
           )}
 
           {detail.tip && (
-            <div className="mt-4">
+            <DialogBlock>
               <TipPanel
                 service={detail.tip.service}
                 subscriptionRef={detail.tip.subscriptionRef}
@@ -172,60 +202,11 @@ export function SubscriptionDetailSheet({
                 providerName={detail.tip.providerName ?? detail.provider}
                 customerName={detail.tip.customerName}
               />
-            </div>
+            </DialogBlock>
           )}
-
-          {/* Where it goes. A row rather than a field, because most of the time
-              it is just a fact — the button is for the day it is not. */}
-          {detail.delivery && (
-            <div className="mt-4 rounded-radius-md bg-inset p-4">
-              <div className="flex items-start gap-3">
-                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                <div className="min-w-0 flex-1">
-                  <p className="text-meta uppercase tracking-wider text-muted-foreground">
-                    Delivered to
-                  </p>
-                  <p className="break-words text-title font-semibold text-foreground">
-                    {detail.delivery.current || "Not set"}
-                  </p>
-                </div>
-                <Button size="sm" variant="secondary" onClick={() => setEditingDelivery(true)}>
-                  Change
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {detail.action && (
-            <button
-              type="button"
-              onClick={detail.action.onClick}
-              className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-full bg-foreground px-5 py-3 text-title font-semibold text-background transition-colors hover:bg-foreground/90"
-            >
-              {detail.action.label}
-              <ArrowRight className="h-4 w-4" />
-            </button>
-          )}
-
-          {/* The quiet one: nobody opens the purchase to cancel it, so it sits
-              last, as text — a Cancel that stretches full-width reads as the
-              point of the screen. */}
-          {detail.cancel && (
-            <button
-              type="button"
-              onClick={detail.cancel.onClick}
-              className={
-                "mt-3 w-full py-2 text-center text-title font-semibold transition-colors " +
-                (detail.cancel.destructive
-                  ? "text-destructive hover:text-destructive/80"
-                  : "text-muted-foreground hover:text-foreground")
-              }
-            >
-              {detail.cancel.label}
-            </button>
-          )}
-        </div>
+        </>
       )}
+    </ResponsiveDialog>
 
       {/* The same dialog the business uses on its own subscriber list — one
           change, one form, whichever side of it you are on. */}
@@ -240,6 +221,6 @@ export function SubscriptionDetailSheet({
           onSaved={() => { setEditingDelivery(false); onDeliverySaved?.(); }}
         />
       )}
-    </ResponsiveDialog>
+    </>
   );
 }

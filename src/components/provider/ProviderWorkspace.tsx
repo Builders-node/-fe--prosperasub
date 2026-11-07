@@ -17,6 +17,7 @@ import { providerHref } from "@/lib/services/serviceUrls";
 import { INFO_TAB_META } from "@/components/provider/capabilities";
 import { ProviderDetailsRows, ProviderProfileEditor, type UniversalProviderRow } from "@/components/provider/UniversalInfoTab";
 import { ProfileCompletenessCard } from "@/components/provider/ProfileCompletenessCard";
+import { GoLivePanel } from "@/components/provider/GoLivePanel";
 import { ProviderQrCard } from "@/components/provider/ProviderQrCard";
 import { PlansTab } from "@/components/provider/plans/PlansTab";
 import { OperationsTab } from "@/components/provider/OperationsTab";
@@ -440,6 +441,15 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
             </div>
           )}
         </section>
+
+        {/* Draft → live, for the platform: the checklist and the switch on the
+            business itself, not in a list's row menu. */}
+        {isAdmin && (
+          <GoLivePanel
+            provider={provider}
+            previewHref={`${resolvedPublicHref}${resolvedPublicHref.includes("?") ? "&" : "?"}preview=1`}
+          />
+        )}
 
         {/* How it is doing. The four figures that used to be a strip of
             icon-plated cards under the tabs, in the design's tiles and above

@@ -171,11 +171,12 @@ export function ProviderEditDialog({
                   <Label>Status</Label>
                   <select
                     className={fieldClass}
-                    value={values.status ?? "active"}
+                    value={values.status ?? "draft"}
                     onChange={(e) => patch({ status: e.target.value })}
                   >
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
+                    <option value="draft">Draft — being set up</option>
+                    <option value="active">Live</option>
+                    <option value="inactive">Hidden</option>
                   </select>
                 </div>
                 <div>

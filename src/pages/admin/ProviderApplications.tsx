@@ -167,7 +167,9 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
         description: app.description ?? null,
         contact_email: app.contact_email ?? null,
         contact_phone: app.contact_phone ?? null,
-        status: "active",
+        // Approved is not live: the business starts as a draft and goes live
+        // from its workspace once it has photos and a plan.
+        status: "draft",
         capabilities: mergedCaps.length ? mergedCaps : archetypeDefaultCaps,
         archetype_key: app.archetype_key ?? null,
       }).select("id").single();
@@ -183,7 +185,7 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
           name: app.business_name,
           description: app.description ?? null,
           admin_user_id: adminUserId,
-          status: "active",
+          status: "draft",
         }).select("id").single();
         if (error) throw error;
         legacyProviderId = data.id as string;
@@ -237,13 +239,20 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
           console.warn("[approve] calendar provisioning failed", err);
         }
       }
-      return { table, alreadyApproved: false, calendar, ownerAssigned, hasApplicant: !!adminUserId } as const;
+      return { table, alreadyApproved: false, calendar, ownerAssigned, hasApplicant: !!adminUserId, providerId: createdProviderId } as const;
     },
     onSuccess: (r) => {
       if (r.alreadyApproved) {
         toast.info("Already approved — refreshed list");
       } else {
-        toast.success(r.table ? "Approved — provider created. They can manage it from My Business." : "Approved (no auto-provider for this service — set up manually).");
+        // Every approval creates the business (universal row, plus its legacy
+        // twin for food/cleaning) — the old message said otherwise for every
+        // service without a legacy table.
+        toast.success("Approved — a draft business was created. Fill it in, then Go live.", {
+          action: r.providerId
+            ? { label: "Open", onClick: () => { window.location.href = `/admin/marketplace/providers/${r.providerId}`; } }
+            : undefined,
+        });
         // An applicant who has never signed in has no users row to own the
         // business. Saying so beats a workspace nobody can open.
         if (!r.ownerAssigned) {

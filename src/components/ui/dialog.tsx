@@ -48,12 +48,14 @@ interface DialogContentProps
    * that draw their whole surface themselves.
    */
   blocks?: boolean;
+  /** Class for the automatic content blocks (a list passes tighter padding). */
+  blockClassName?: string;
 }
 
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   DialogContentProps
->(({ className, children, bodyClassName, blocks = true, onOpenAutoFocus, ...props }, ref) => (
+>(({ className, children, bodyClassName, blocks = true, blockClassName, onOpenAutoFocus, ...props }, ref) => (
   <DialogPortal>
     <DialogOverlay />
     <DialogPrimitive.Content
@@ -98,7 +100,7 @@ const DialogContent = React.forwardRef<
         strip) pushed every field 20px past the sheet's right edge on a phone.
       */}
       <div className={cn("grid min-h-0 grid-cols-[minmax(0,1fr)] gap-1 overflow-y-auto", bodyClassName)}>
-        {blocks ? groupIntoBlocks(children, dialogChrome()) : children}
+        {blocks ? groupIntoBlocks(children, dialogChrome(), blockClassName) : children}
       </div>
       <DialogPrimitive.Close className="absolute right-4 top-[17px] z-20 flex h-8 w-8 sm:top-[9px] items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:pointer-events-none">
         <X className="h-4 w-4" />
@@ -171,7 +173,8 @@ const DialogDescription = React.forwardRef<
 DialogDescription.displayName = DialogPrimitive.Description.displayName;
 
 /** What groupIntoBlocks leaves on the grey instead of putting on a card. */
-const dialogChrome = () => new Set<unknown>([DialogHeader, DialogFooter, DialogTitle, DialogDescription, DialogClose]);
+// A nested dialog renders through a portal — it is not content to put on a card.
+const dialogChrome = () => new Set<unknown>([DialogHeader, DialogFooter, DialogTitle, DialogDescription, DialogClose, Dialog]);
 
 export {
   DialogBlock,

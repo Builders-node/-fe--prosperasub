@@ -538,7 +538,7 @@ const MarketplaceSubscriptions = () => {
                       <TableCell className="px-4 py-3 text-muted-foreground">
                         {prov ? (
                           <Link
-                            to={`/admin/marketplace/providers?id=${encodeURIComponent(prov.id)}`}
+                            to={`/admin/marketplace/providers/${encodeURIComponent(prov.id)}`}
                             className="hover:text-primary hover:underline"
                           >
                             {prov.name}

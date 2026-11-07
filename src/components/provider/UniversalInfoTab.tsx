@@ -101,7 +101,7 @@ export function ProviderProfileEditor({ provider, open, onOpenChange }: {
   onOpenChange: (open: boolean) => void;
 }) {
   const qc = useQueryClient();
-  const { userData } = useAuth();
+  const { userData, isAdmin } = useAuth();
   const [form, setForm] = useState<ProviderEditFields>(() => hydrate(provider));
   /**
    * Hours are edited as a schedule, not as free text — a provider typing
@@ -133,8 +133,10 @@ export function ProviderProfileEditor({ provider, open, onOpenChange }: {
         working_hours: hours.filter((h) => h.days.length && h.open && h.close),
         contact_phone: form.contact_phone?.trim() || null,
         contact_email: form.contact_email?.trim() || null,
-        status: form.status || "active",
-        sort_order: form.sort_order ?? 0,
+        // Status and sort order are the platform's to set. An owner's editor
+        // used to show and save them, so a draft business could put itself
+        // live from its own workspace.
+        ...(isAdmin ? { status: form.status || "draft", sort_order: form.sort_order ?? 0 } : {}),
         gallery_urls: form.gallery_urls ?? [],
         ...(delivers ? { delivery_info: delivery.trim() || null } : {}),
         updated_at: new Date().toISOString(),
@@ -155,6 +157,7 @@ export function ProviderProfileEditor({ provider, open, onOpenChange }: {
 
   return (
     <ProviderEditDialog
+      showAdminFields={isAdmin}
       open={open}
       onOpenChange={onOpenChange}
       title="Edit business"

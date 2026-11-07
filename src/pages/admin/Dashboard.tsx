@@ -14,6 +14,13 @@ import { fetchUsersByIds, fetchClientNames, customerNameFrom } from "@/lib/admin
 import { formatUSD } from "@/lib/pricing";
 import { QueryError } from "@/components/patterns/QueryError";
 import { YdSectionHeading } from "@/components/yd/YdPrimitives";
+import { PaymentMethodBadge, PaymentReference } from "@/components/admin/PaymentMethodBadge";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useState } from "react";
+import { adminRoutes } from "@/config/adminRoutes";
 
 /**
  * Admin Overview.
@@ -38,7 +45,7 @@ const SERVICE_META: Record<ServiceKey, { label: string; icon: typeof SparklesIco
   // offers. The queue and the feed read `subscriptions_unified`, whose fourth
   // arm files these under 'plan'.
   plan:     { label: "Other services", icon: Package,      href: "/admin/marketplace/subscriptions" },
-  cars:     { label: "Cars",       icon: Car,              href: "/admin/car-rentals" },
+  cars:     { label: "Cars",       icon: Car,              href: adminRoutes.superAdminTransport },
 };
 
 interface PendingRow {
@@ -49,6 +56,8 @@ interface PendingRow {
   userLabel: string;
   amountCents: number;
   createdAt: string;
+  method: string | null;
+  reference: string | null;
 }
 
 /** A row of `subscriptions_unified`, as this page reads it. */
@@ -61,6 +70,8 @@ interface UnifiedSubRow {
   payment_status?: string | null;
   status?: string | null;
   created_at: string;
+  payment_method?: string | null;
+  payment_reference?: string | null;
 }
 
 /**
@@ -157,7 +168,7 @@ const AdminDashboard = () => {
       // person who approves payments could not see it existed.
       const { data, error } = await supabaseDb
         .from("subscriptions_unified")
-        .select("id, service, user_id, price_cents, payment_status, status, created_at")
+        .select("id, service, user_id, price_cents, payment_status, status, created_at, payment_method, payment_reference")
         .neq("payment_status", "paid").neq("payment_status", "refunded")
         .not("status", "in", "(cancelled,expired)")
         .order("created_at", { ascending: false })
@@ -175,6 +186,8 @@ const AdminDashboard = () => {
           userLabel: nameOf(r),
           amountCents: Number(r.price_cents) || 0,
           createdAt: r.created_at,
+          method: r.payment_method ?? null,
+          reference: r.payment_reference ?? null,
         };
       });
     },
@@ -193,6 +206,46 @@ const AdminDashboard = () => {
     },
     onError: (e: Error) => toast.error(e.message || "Could not approve payment"),
   });
+
+  // Which payment to approve — always through a confirm that shows HOW it was
+  // paid. One tap used to turn any pending row into revenue, including a
+  // Lightning or PayPal checkout that was abandoned before paying.
+  const [approving, setApproving] = useState<PendingRow | null>(null);
+  const autoChecked = (m: string | null) => m === "lightning" || m === "onchain" || m === "paypal" || m === "crypto_gateway";
+
+  /**
+   * Everything else that is waiting on a person, as counts that open the
+   * place to act. Each is hidden at zero, so a quiet day shows nothing here.
+   */
+  const { data: needs } = useQuery({
+    queryKey: ["super-admin-needs-you"],
+    staleTime: 30_000,
+    queryFn: async () => {
+      const today = new Date();
+      const inTwo = new Date(today.getTime() + 2 * 86400_000);
+      const iso = (d: Date) => d.toISOString().slice(0, 10);
+      const count = async (q: PromiseLike<{ count: number | null; error: unknown }>) => {
+        const { count: c, error } = await q;
+        return error ? 0 : c ?? 0;
+      };
+      const [applications, payouts, support, expiring, drafts] = await Promise.all([
+        count(supabaseDb.from("provider_applications").select("id", { count: "exact", head: true }).eq("status", "pending")),
+        count(supabaseDb.from("provider_payouts").select("id", { count: "exact", head: true }).in("status", ["requested", "approved"])),
+        count(supabaseDb.from("support_messages").select("id", { count: "exact", head: true }).eq("status", "new")),
+        count(supabaseDb.from("subscriptions_unified").select("id", { count: "exact", head: true })
+          .eq("status", "active").gte("ends_on", iso(today)).lte("ends_on", iso(inTwo))),
+        count(supabaseDb.from("providers").select("id", { count: "exact", head: true }).eq("status", "draft")),
+      ]);
+      return { applications, payouts, support, expiring, drafts };
+    },
+  });
+  const needItems = [
+    { key: "applications", label: "Applications to review", value: needs?.applications ?? 0, href: adminRoutes.superAdminProviderApplications },
+    { key: "payouts", label: "Payouts to send", value: needs?.payouts ?? 0, href: `${adminRoutes.superAdminPayments}?tab=payouts` },
+    { key: "support", label: "New support messages", value: needs?.support ?? 0, href: adminRoutes.superAdminSupport },
+    { key: "expiring", label: "Ending in 2 days", value: needs?.expiring ?? 0, href: "/admin/marketplace/subscriptions?status=active" },
+    { key: "drafts", label: "Businesses in draft", value: needs?.drafts ?? 0, href: `${adminRoutes.superAdminMarketplaceProviders}` },
+  ].filter((n) => n.value > 0);
 
   // Subscription-level activity — one row per distinct customer sale, not one
   // row per generated booking. The old feed emitted five identical rows for a
@@ -235,7 +288,7 @@ const AdminDashboard = () => {
   });
 
   return (
-    <SuperAdminLayout title="Overview" subtitle="What happened across the platform today">
+    <SuperAdminLayout title="Today" subtitle="What needs you, then how the platform is doing">
       {/*
         Written in the platform's own vocabulary rather than an admin dialect —
         see DESIGN.md §3 and §4. Three type sizes carry the page (20 / 16 / 12,
@@ -246,6 +299,25 @@ const AdminDashboard = () => {
         tiny uppercase eyebrow standing in for a section title, and rows welded
         into one slab by hairline dividers. Both are gone.
       */}
+
+      {/* What is waiting on a person — first, because it is why you opened this. */}
+      {needItems.length > 0 && (
+        <section className="mb-8">
+          <YdSectionHeading title="Needs you" />
+          <div className="space-y-1 rounded-radius-lg bg-card p-1.5">
+            {needItems.map((n) => (
+              <Link key={n.key} to={n.href}
+                className="flex items-center justify-between gap-3 rounded-radius-md p-3 transition-colors hover:bg-inset">
+                <span className="text-title font-semibold text-foreground">{n.label}</span>
+                <span className="flex items-center gap-2">
+                  <span className="rounded-full bg-primary/15 px-2.5 py-0.5 text-body font-semibold tabular-nums text-primary">{n.value}</span>
+                  <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
+                </span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Headline metrics. Colour lives on the NUMBER, never on the card: a
           tinted panel is a second background, and this design has one. */}
@@ -265,7 +337,12 @@ const AdminDashboard = () => {
           list, find the row, open a menu. Hidden entirely on a quiet day. */}
       {pendingQueue.length > 0 && (
         <section className="mt-8">
-          <YdSectionHeading title="Awaiting payment" count={pendingQueue.length} />
+          <YdSectionHeading
+            title={(stats?.pending ?? 0) > pendingQueue.length
+              ? `Awaiting payment · latest ${pendingQueue.length} of ${stats?.pending}`
+              : "Awaiting payment"}
+            count={(stats?.pending ?? 0) > pendingQueue.length ? undefined : pendingQueue.length}
+          />
           <div className="space-y-2">
             {pendingQueue.map((row) => {
               const Icon = row.ServiceIcon;
@@ -293,7 +370,7 @@ const AdminDashboard = () => {
                     variant="secondary"
                     className="ml-2 shrink-0 gap-1.5 font-semibold"
                     disabled={approve.isPending}
-                    onClick={() => approve.mutate(row)}
+                    onClick={() => setApproving(row)}
                   >
                     <CheckCircle2 className="h-3.5 w-3.5" />
                     Approve
@@ -304,6 +381,37 @@ const AdminDashboard = () => {
           </div>
         </section>
       )}
+
+      <AlertDialog open={!!approving} onOpenChange={(o) => !o && setApproving(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Mark {approving ? formatUSD(approving.amountCents) : ""} as paid?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>{approving?.userLabel} · {approving?.serviceLabel}</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <PaymentMethodBadge method={approving?.method} />
+                  {approving?.reference
+                    ? <PaymentReference method={approving.method} reference={approving.reference} />
+                    : <span className="text-meta">No payment reference</span>}
+                </div>
+                {approving && autoChecked(approving.method) && (
+                  <p className="text-attention">
+                    This method is checked automatically. Approve only if you received the money another way —
+                    an abandoned checkout looks exactly like this row.
+                  </p>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { if (approving) approve.mutate(approving); setApproving(null); }}>
+              Mark paid
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Per-service breakdown. */}
       <section className="mt-8">
@@ -362,7 +470,7 @@ const AdminDashboard = () => {
           />
         ) : recentActivity.length === 0 ? (
           <div className="rounded-radius-md bg-card p-8 text-center">
-            <p className="text-title font-semibold text-foreground">Nothing yet today</p>
+            <p className="text-title font-semibold text-foreground">No activity yet</p>
             <p className="mt-1 text-meta text-muted-foreground">
               Sales across every service appear here as they happen.
             </p>
