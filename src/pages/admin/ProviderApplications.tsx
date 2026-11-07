@@ -314,7 +314,7 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
       <div className="space-y-5">
         {!embedded && (
           <AdminPageTabs tabs={[
-            { label: "Providers", to: "/admin/marketplace/providers" },
+            { label: "Businesses", to: "/admin/marketplace/providers" },
             { label: "Applications", to: "/admin/marketplace/providers/applications", badge: counts.pending },
           ]} />
         )}

@@ -291,7 +291,7 @@ export function FinanceBreakdown() {
             {format(start, "MMM d, yyyy")} — {format(end, "MMM d, yyyy")}
           </span>
           <div className="text-right">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Recognized in period</p>
+            <p className="text-meta text-muted-foreground">Recognized in period</p>
             <p className="text-2xl font-black tabular-nums text-primary">{formatUSD(grandTotal)}</p>
           </div>
         </div>

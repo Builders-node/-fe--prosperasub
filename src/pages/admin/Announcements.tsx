@@ -254,7 +254,7 @@ const Announcements = () => {
         </section>
 
         <aside className="space-y-3 rounded-radius-md bg-card p-5">
-          <h2 className="text-caption font-bold uppercase tracking-[0.16em] text-muted-foreground">
+          <h2 className="text-title font-semibold text-foreground">
             Already sent
           </h2>
           {history.length === 0 ? (

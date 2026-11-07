@@ -302,7 +302,7 @@ function FinanceTile({
     <div
       className={`flex flex-col gap-2 rounded-radius-md bg-card p-4 ${warning ? "bg-attention/10" : ""} ${className ?? ""}`}
     >
-      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+      <span className="text-meta text-muted-foreground">
         {label}
       </span>
       <p

@@ -48,7 +48,7 @@ export function DomainEventBusPanel() {
       <div className="mt-4 grid gap-4 md:grid-cols-2">
         <div>
           <div className="mb-2 flex items-baseline justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Events by type</span>
+            <span className="text-meta font-semibold text-muted-foreground">Events by type</span>
             <span className="text-sm tabular-nums text-muted-foreground">{summary?.grandTotal ?? 0} total</span>
           </div>
           <div>
@@ -70,7 +70,7 @@ export function DomainEventBusPanel() {
 
         <div>
           <div className="mb-2 flex items-baseline justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Revenue by method (projection)</span>
+            <span className="text-meta font-semibold text-muted-foreground">Revenue by method (projection)</span>
             <span className="text-sm font-bold tabular-nums text-primary">{formatUSD(revenue?.totalCents ?? 0)}</span>
           </div>
           <div>

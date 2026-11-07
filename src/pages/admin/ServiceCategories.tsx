@@ -276,7 +276,7 @@ export default function ServiceCategories({ embedded = false, archetypeKey }: Se
                 {!archetypeKey && (
                   <div className="flex items-center gap-2">
                     <Layers className="h-3.5 w-3.5 text-muted-foreground" />
-                    <h3 className="text-caption font-bold uppercase tracking-[0.16em] text-muted-foreground">
+                    <h3 className="text-title font-semibold text-foreground">
                       {group.label}
                     </h3>
                     <span className="text-caption text-muted-foreground/60">· {group.categories.length}</span>
@@ -300,7 +300,7 @@ export default function ServiceCategories({ embedded = false, archetypeKey }: Se
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-bold text-foreground">{c.label}</p>
-                          <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                          <p className="mt-0.5 text-meta text-muted-foreground">
                             {c.is_active ? "Active" : "Hidden"}
                             {" · "}
                             <span className="tabular-nums">{count}</span> {count === 1 ? "provider" : "providers"}

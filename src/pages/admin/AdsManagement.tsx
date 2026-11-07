@@ -283,7 +283,7 @@ const AdsManagement = () => {
             </div>
 
             <div className="space-y-2 rounded-radius-md bg-inset p-3">
-              <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Colors</Label>
+              <Label className="text-meta text-muted-foreground">Colors</Label>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <ColorField label="Gradient left" value={form.gradient_from} onChange={(v) => set("gradient_from", v)} />
                 <ColorField label="Gradient mid" value={form.gradient_via} onChange={(v) => set("gradient_via", v)} />

@@ -226,7 +226,7 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
       <div className="space-y-5">
         {!embedded && (
           <AdminPageTabs tabs={[
-            { label: "Providers", to: "/admin/marketplace/providers" },
+            { label: "Businesses", to: "/admin/marketplace/providers" },
             { label: "Applications", to: "/admin/marketplace/providers/applications", badge: pendingApps },
           ]} />
         )}
@@ -261,7 +261,7 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
         )}
 
         <AdminListShell
-          search={search} onSearch={setSearch} searchPlaceholder="Search providers…"
+          search={search} onSearch={setSearch} searchPlaceholder="Search businesses…"
           filters={
             <Select value={status} onValueChange={setStatus}>
               <SelectTrigger inputSize="sm" className="w-36 rounded-full"><SelectValue /></SelectTrigger>
@@ -297,7 +297,7 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
           <div className="overflow-hidden rounded-radius-md bg-card">
             {/* Header row */}
             <div className="hidden grid-cols-[minmax(0,3fr)_140px_minmax(0,2fr)_100px_80px] items-center gap-4 border-b border-border/40 px-space-5 py-space-3 text-meta font-semibold text-muted-foreground md:grid">
-              <div>Provider</div>
+              <div>Business</div>
               <div>Service</div>
               <div>Contact</div>
               <div>Status</div>

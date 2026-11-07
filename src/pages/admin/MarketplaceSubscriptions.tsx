@@ -582,7 +582,7 @@ const MarketplaceSubscriptions = () => {
                       </TableCell>
                       <TableCell className="px-4 py-3">
                         <span className={cn(
-                          "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider",
+                          "inline-flex items-center rounded-full px-2 py-0.5 text-meta",
                           s.kind === "booking" ? "bg-muted text-muted-foreground" : "bg-primary/15 text-primary",
                         )}>{s.kind === "booking" ? "Booking" : "Sub"}</span>
                       </TableCell>
@@ -983,7 +983,7 @@ function SortHeader({
 function FilterBlock({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="min-w-[160px]">
-      <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-muted-foreground">{label}</label>
+      <label className="mb-1 block text-meta text-muted-foreground">{label}</label>
       {children}
     </div>
   );

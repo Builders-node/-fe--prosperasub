@@ -31,7 +31,7 @@ type Tab = (typeof TABS)[number];
 
 const TAB_LABELS: Record<Tab, string> = {
   categories: "Categories",
-  providers: "Providers",
+  providers: "Businesses",
   plans: "Plans",
   applications: "Applications",
 };
@@ -168,7 +168,7 @@ export default function MarketplaceServiceDetail() {
           {archetype && (
             <>
               {!archetype.is_active && (
-                <span className="rounded-full bg-muted px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                <span className="rounded-full bg-muted px-2.5 py-1 text-meta text-muted-foreground">
                   Hidden from Discovery
                 </span>
               )}

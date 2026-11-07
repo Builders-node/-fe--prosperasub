@@ -102,7 +102,7 @@ function BonusSettings() {
 
   return (
     <section className="mb-5 rounded-radius-md bg-card p-5">
-      <h2 className="text-caption font-bold uppercase tracking-[0.16em] text-muted-foreground">
+      <h2 className="text-title font-semibold text-foreground">
         Bonus
       </h2>
       <p className="mt-1 text-[13px] text-muted-foreground">
