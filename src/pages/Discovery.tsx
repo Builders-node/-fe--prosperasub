@@ -18,6 +18,7 @@ import { CarFront as CarFrontIcon } from "lucide-react";
 import { publicListingHref } from "@/lib/services/providerBridge";
 import { CategoryCarousel } from "@/components/discovery/CategoryCarousel";
 import { AllPlansSection } from "@/components/discovery/AllPlansSection";
+import { AllVehiclesSection } from "@/components/discovery/AllVehiclesSection";
 import { AboutEverySub } from "@/components/layout/SiteFooter";
 import { useTabParam } from "@/hooks/useTabParam";
 import { BusinessCenterIcon } from "@/components/icons/FigmaIcons";
@@ -265,9 +266,10 @@ const Discovery = () => {
           </section>
         )}
 
-        {/* Every plan on the platform, one card each — Experiences only; the
-            Vehicles tab has its own fleet. */}
+        {/* Every plan on the platform, one card each. */}
         {!storefront && <AllPlansSection />}
+        {/* The Vehicles tab's equivalent: every car, under the types. */}
+        {storefront && <AllVehiclesSection />}
 
       </main>
 
