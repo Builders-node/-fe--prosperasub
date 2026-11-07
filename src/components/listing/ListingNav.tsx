@@ -1,4 +1,5 @@
 import { ChevronRight, type LucideIcon } from "lucide-react";
+import { Photo, initialsOf } from "@/components/patterns/Photo";
 import { cn } from "@/lib/utils";
 
 /**
@@ -36,14 +37,9 @@ export interface RailProvider {
 
 /** The face of a business, or its initial where none was uploaded. */
 function ProviderAvatar({ p, className }: { p: RailProvider; className?: string }) {
-  return p.avatarUrl ? (
-    <img src={p.avatarUrl} alt="" loading="lazy" className={cn("shrink-0 rounded-full object-cover", className)} />
-  ) : (
-    <span
-      aria-hidden
-      className={cn("flex shrink-0 items-center justify-center rounded-full bg-inset text-[14px] font-semibold text-muted-foreground", className)}
-    >
-      {(p.name ?? "?").trim().charAt(0).toUpperCase()}
+  return (
+    <span aria-hidden className={cn("shrink-0 overflow-hidden rounded-full", className)}>
+      <Photo src={p.avatarUrl} label={initialsOf(p.name)} />
     </span>
   );
 }

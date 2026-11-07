@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Photo } from "@/components/patterns/Photo";
 import { cn } from "@/lib/utils";
 
 interface Action {
@@ -77,18 +78,7 @@ export function SubscriptionCard({
       <div className="flex gap-4">
         {/* The 104px tile — photo, or the service glyph when there is none. */}
         <div className="relative size-[104px] shrink-0 overflow-hidden rounded-[8px] bg-inset">
-          {image ? (
-            <img
-              src={image}
-              alt=""
-              className="absolute inset-0 size-full object-cover"
-              loading="lazy"
-            />
-          ) : (
-            <span className="flex size-full items-center justify-center">
-              <Icon className="size-8 text-muted-foreground" />
-            </span>
-          )}
+          <Photo src={image} icon={Icon} className="absolute inset-0" />
         </div>
 
         {/* Body: title at the top, price pinned to the bottom, description

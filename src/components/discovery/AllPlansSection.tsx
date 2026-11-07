@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { Photo } from "@/components/patterns/Photo";
 import { useQuery } from "@tanstack/react-query";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { formatUSD } from "@/lib/pricing";
@@ -101,7 +102,7 @@ function PlanTile({ plan }: { plan: PlanRow }) {
       {/* The frame owns the size: the photo is pinned inside it and cropped,
           so a tall picture can never stretch its card past the others. */}
       <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden bg-muted">
-        {image && <img src={image} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />}
+        <Photo src={image} className="absolute inset-0" />
       </div>
       <div className="flex flex-1 flex-col gap-1 p-3 tracking-[-0.02em]">
         <p className="line-clamp-2 text-[15px] font-semibold leading-[20px] text-foreground">{plan.name}</p>

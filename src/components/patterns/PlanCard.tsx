@@ -1,4 +1,5 @@
 import type { LucideIcon } from "lucide-react";
+import { Photo } from "@/components/patterns/Photo";
 import { Star } from "lucide-react";
 import type { ReactNode } from "react";
 import { formatUSD } from "@/lib/pricing";
@@ -127,19 +128,11 @@ export function PlanCard({
         className,
       )}
     >
-      {/* Square, the height of the card. Without a picture the square would be
-          an empty grey hole, so the row simply closes up around the text. */}
-      {cover && (
-        <div className="aspect-square h-full shrink-0 overflow-hidden rounded-[8px] bg-muted">
-          <img
-            src={cover}
-            alt=""
-            loading="lazy"
-            decoding="async"
-            className="h-full w-full object-cover"
-          />
-        </div>
-      )}
+      {/* Square, the height of the card — the photo, or the standard
+          placeholder, so every card in a list keeps the same shape. */}
+      <div className="aspect-square h-full shrink-0 overflow-hidden rounded-[8px]">
+        <Photo src={cover} />
+      </div>
 
       {/* `overflow-hidden` is what keeps the row 120px tall: without it a long
           description pushes the price out through the bottom of the card. */}

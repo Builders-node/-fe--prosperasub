@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Photo } from "@/components/patterns/Photo";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { differenceInCalendarDays, format } from "date-fns";
 import { toast } from "sonner";
@@ -434,7 +435,7 @@ export default function Book() {
           <div className="rounded-radius-md bg-card p-4 shadow-figma">
             <div className="mb-3 flex gap-3">
               <div className="h-16 w-24 shrink-0 overflow-hidden rounded-[8px] bg-inset">
-                {v.image_url && <img src={v.image_url} alt="" className="h-full w-full object-cover" />}
+                <Photo src={v.image_url} icon={Car} />
               </div>
               <div className="min-w-0">
                 <p className="truncate text-title font-semibold text-foreground">{v.name}</p>

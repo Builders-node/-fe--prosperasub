@@ -1,5 +1,6 @@
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { CalendarClock, CarFront, Edit, ExternalLink, LandPlot, Package, Users, Wallet } from "lucide-react";
+import { Photo, initialsOf } from "@/components/patterns/Photo";
+import { CalendarClock, CarFront, Edit, ExternalLink, LandPlot, Package, Store, Users, Wallet } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { StatusPill } from "@/components/patterns/StatusPill";
 import { Button } from "@/components/ui/button";
@@ -375,9 +376,7 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
       {/* The banner IS the header — 280 tall, its own bottom corners rounded,
           with the one control the design leaves off the cards floating on it. */}
       <div className="relative h-[280px] w-full overflow-hidden rounded-b-radius-lg bg-muted">
-        {provider.banner_url
-          ? <img src={provider.banner_url} alt="" className="h-full w-full object-cover" />
-          : <div className="h-full w-full bg-gradient-to-br from-primary/25 via-primary/10 to-transparent" />}
+        <Photo src={provider.banner_url} icon={Store} loading="eager" />
         <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/35 to-transparent" />
         <button
           type="button"
@@ -408,13 +407,9 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
             was no way to tell from the workspace that one had been uploaded. */}
         <section className="rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
           <div className="flex items-start gap-3">
-            {provider.avatar_url && (
-              <img
-                src={provider.avatar_url}
-                alt=""
-                className="h-14 w-14 shrink-0 rounded-full bg-muted object-cover"
-              />
-            )}
+            <span className="h-14 w-14 shrink-0 overflow-hidden rounded-full">
+              <Photo src={provider.avatar_url} label={initialsOf(provider.name)} />
+            </span>
             <div className="min-w-0 flex-1">
               <h1 className="text-[24px] font-semibold leading-[29px] text-foreground">{provider.name}</h1>
               {provider.description && (

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Photo, initialsOf } from "@/components/patterns/Photo";
 import { useNavigate, Link } from "react-router-dom";
 import { useUrlState } from "@/hooks/useUrlState";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -215,11 +216,6 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
     onError: (e: any) => toast.error(e?.message || "Could not create provider"),
   });
 
-  const initials = (name: string) => {
-    const parts = name.trim().split(/\s+/).filter(Boolean);
-    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-    return name.slice(0, 2).toUpperCase();
-  };
 
   const body = (
     <>
@@ -316,13 +312,9 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
 
                 const providerCell = (
                   <div className="flex min-w-0 items-center gap-3">
-                    {p.avatar_url ? (
-                      <img src={p.avatar_url} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" />
-                    ) : (
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-bold text-primary">
-                        {initials(p.name)}
-                      </div>
-                    )}
+                    <span className="h-10 w-10 shrink-0 overflow-hidden rounded-full">
+                      <Photo src={p.avatar_url} label={initialsOf(p.name)} />
+                    </span>
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
                         <p className="truncate text-sm font-semibold text-foreground">{p.name}</p>

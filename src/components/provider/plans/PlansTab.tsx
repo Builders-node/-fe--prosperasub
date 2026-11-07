@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Photo } from "@/components/patterns/Photo";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Package, Pencil, Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -141,9 +142,7 @@ export function PlansTab({ providerId, sourceKey }: {
                do on the end of it. */
             <article key={o.id} className="flex items-stretch gap-2 rounded-radius-lg bg-card p-2 tracking-[-0.02em]">
               <div className="h-[104px] w-[104px] shrink-0 overflow-hidden rounded-[8px] bg-inset">
-                {o.gallery_urls?.[0] && (
-                  <img src={o.gallery_urls[0]} alt="" className="h-full w-full object-cover" />
-                )}
+                <Photo src={o.gallery_urls?.[0]} />
               </div>
               <div className="flex min-w-0 flex-1 flex-col py-2 pr-2">
                 <div className="flex items-start justify-between gap-2">

@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { Photo } from "@/components/patterns/Photo";
 import { cn } from "@/lib/utils";
 
 /**
@@ -61,13 +62,9 @@ export function PhotoCarousel({
         )}
       >
         {shots.map((src, i) => (
-          <img
-            key={i}
-            src={src}
-            alt={i === 0 ? alt : ""}
-            loading={i === 0 ? "eager" : "lazy"}
-            className="h-full w-full shrink-0 snap-center object-cover"
-          />
+          <div key={i} className="h-full w-full shrink-0 snap-center">
+            <Photo src={src} alt={i === 0 ? alt : ""} loading={i === 0 ? "eager" : "lazy"} />
+          </div>
         ))}
       </div>
 

@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import { Photo } from "@/components/patterns/Photo";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -151,9 +152,7 @@ export default function BookingDetail() {
           {/* What was booked */}
           <div className="overflow-hidden rounded-radius-md bg-card shadow-figma">
             <div className="aspect-[16/7] w-full bg-inset">
-              {v?.image_url
-                ? <img src={v.image_url} alt="" className="h-full w-full object-cover" />
-                : <div className="flex h-full w-full items-center justify-center"><Car className="h-12 w-12 text-muted-foreground/40" /></div>}
+              <Photo src={v?.image_url} icon={Car} />
             </div>
             <div className="p-5">
               <StatusLine status={booking.status} paid={isPaid} />

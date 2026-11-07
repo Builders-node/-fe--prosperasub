@@ -1,4 +1,5 @@
 import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
+import { Photo } from "@/components/patterns/Photo";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { formatWorkingHours } from "@/lib/workingHours";
@@ -9,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import {
   SparklesIcon, Waves, Car,
   MapPin, Phone, Mail, Clock, Star, ChevronRight, ChevronLeft,
+  Store,
 } from "lucide-react";
 import { ShareButton } from "@/components/patterns/ShareButton";
 import { supabase, supabaseDb } from "@/integrations/supabase/client";
@@ -494,7 +496,9 @@ const ProviderDetail = () => {
   }
 
   const p = providerQ.data;
-  const hasBanner = !!p.banner_url;
+  // Every business gets the 280px band — its banner, or the standard
+  // placeholder — so all business pages open the same way.
+  const hasBanner = true;
   // Opaque once the photo has scrolled past — or from the start when there is
   // no photo. Translucent glass over a white car was neither header nor photo.
   const solid = pinned || !hasBanner;
@@ -570,7 +574,7 @@ const ProviderDetail = () => {
           ordinary bar — 280px of grey with a faint glyph is not a hero. */}
       {hasBanner && (
         <div data-detail-photo className="relative h-[280px] w-full overflow-hidden rounded-b-radius-lg bg-inset">
-          <img src={p.banner_url!} alt="" className="absolute inset-0 h-full w-full object-cover" />
+          <Photo src={p.banner_url} icon={Store} loading="eager" className="absolute inset-0" />
           {/* The scrim is what makes white chrome legible on a photograph nobody
               vetted — a bright sky would otherwise swallow the back button. */}
           <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-black/50 to-transparent" />
@@ -779,8 +783,9 @@ const ProviderDetail = () => {
             <section className="rounded-radius-lg bg-card p-4">
               <div className="grid grid-cols-2 gap-2">
                 {gallery.map((src) => (
-                  <img key={src} src={src} alt="" loading="lazy"
-                    className="aspect-square w-full rounded-radius-md object-cover" />
+                  <div key={src} className="aspect-square w-full overflow-hidden rounded-radius-md">
+                    <Photo src={src} />
+                  </div>
                 ))}
               </div>
             </section>
@@ -850,14 +855,9 @@ function PlanRow({ plan, image, onOpen }: {
       onClick={onOpen}
       className="flex w-full gap-4 rounded-radius-md bg-card py-2 pl-2 pr-4 text-left tracking-[-0.02em]"
     >
-      {image ? (
-        <img src={image} alt="" loading="lazy"
-          className="h-[104px] w-[104px] shrink-0 rounded-[8px] object-cover" />
-      ) : (
-        <span className="flex h-[104px] w-[104px] shrink-0 items-center justify-center rounded-[8px] bg-inset">
-          <SparklesIcon className="h-8 w-8 text-muted-foreground/30" />
-        </span>
-      )}
+      <span className="h-[104px] w-[104px] shrink-0 overflow-hidden rounded-[8px]">
+        <Photo src={image} />
+      </span>
       <span className="flex min-w-0 flex-1 flex-col gap-1 py-2">
         <span className="truncate text-[16px] font-semibold text-foreground">{plan.name}</span>
         <span className="flex flex-1 flex-col justify-end gap-1">

@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { Photo } from "@/components/patterns/Photo";
 import { ChevronRight, Store } from "lucide-react";
 import { StatusPill } from "@/components/patterns/StatusPill";
 import { UserLayout } from "@/components/layout/UserLayout";
@@ -27,9 +28,7 @@ function BusinessRow({ row, icon: Icon, onClick }: {
       className="flex w-full items-center gap-3 rounded-radius-lg bg-card p-4 text-left tracking-[-0.02em] transition-colors hover:bg-muted/30"
     >
       <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-radius-md bg-inset">
-        {row.avatarUrl
-          ? <img src={row.avatarUrl} alt="" className="h-full w-full object-cover" />
-          : <Icon className="h-6 w-6 text-muted-foreground" />}
+        <Photo src={row.avatarUrl} icon={Icon} />
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">

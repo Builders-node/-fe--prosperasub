@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Photo, initialsOf } from "@/components/patterns/Photo";
 import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
@@ -245,9 +246,7 @@ export default function CarRentals({ embedded = false, providerId }: {
               {filtered.map((b) => (
                 <div key={b.id} className="flex flex-col gap-space-3 rounded-radius-md bg-card p-space-3 md:flex-row md:items-center">
                   <div className="h-14 w-20 shrink-0 overflow-hidden rounded-[8px] bg-muted">
-                    {b.rental_vehicles?.image_url
-                      ? <img src={b.rental_vehicles.image_url} alt="" className="h-full w-full object-cover" />
-                      : <div className="flex h-full w-full items-center justify-center"><Car className="h-6 w-6 text-muted-foreground/40" /></div>}
+                    <Photo src={b.rental_vehicles?.image_url} icon={Car} />
                   </div>
 
                   <div className="min-w-0 flex-1">
@@ -304,9 +303,7 @@ export default function CarRentals({ embedded = false, providerId }: {
             {(vehiclesQ.data ?? []).map((v) => (
               <div key={v.id} className="flex items-center gap-space-3 rounded-radius-md bg-card p-space-3">
                 <div className="h-14 w-20 shrink-0 overflow-hidden rounded-[8px] bg-muted">
-                  {v.image_url
-                    ? <img src={v.image_url} alt="" className="h-full w-full object-cover" />
-                    : <div className="flex h-full w-full items-center justify-center"><Car className="h-6 w-6 text-muted-foreground/40" /></div>}
+                  <Photo src={v.image_url} icon={Car} />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-1.5">
@@ -367,9 +364,7 @@ export default function CarRentals({ embedded = false, providerId }: {
                 className="flex items-center gap-space-3 rounded-radius-md bg-card p-space-3 transition-colors hover:bg-muted/40"
               >
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-radius-md bg-muted">
-                  {c.avatar_url
-                    ? <img src={c.avatar_url} alt="" className="h-full w-full object-cover" />
-                    : <Car className="h-5 w-5 text-muted-foreground/40" />}
+                  <Photo src={c.avatar_url} label={initialsOf(c.name)} />
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[15px] font-semibold text-foreground">{c.name}</p>

@@ -1,4 +1,5 @@
 import { describeEntitlement, readEntitlements } from "@/lib/plans/entitlements";
+import { Photo } from "@/components/patterns/Photo";
 import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useGoBack } from "@/hooks/useGoBack";
@@ -575,7 +576,7 @@ const PlanDetail = () => {
         title={title}
         centreLabel={serviceLabel}
         onBack={goBack}
-        overPhoto={!!cover}
+        overPhoto
         rightAction={<ShareButton title={title} text={shareText} className="hover:bg-black/10 md:text-foreground" />}
       />
 
@@ -589,9 +590,10 @@ const PlanDetail = () => {
         this is that band, so the two pages stop disagreeing about whether a
         business has a photo.
       */}
-      {cover && (
+      {/* Always the band: the photo, or the standard placeholder. */}
+      {(
         <div className="relative h-[280px] w-full overflow-hidden rounded-b-radius-lg bg-muted shadow-figma">
-          <img src={cover} alt="" className="absolute inset-0 h-full w-full object-cover" />
+          <Photo src={cover} loading="eager" className="absolute inset-0" />
           {/* Without the scrim the back arrow disappears into a bright sky.
               Only the phone puts chrome on top of it, so only the phone needs
               the darkening. */}

@@ -1,4 +1,5 @@
 import { ChevronRight } from "lucide-react";
+import { Photo } from "@/components/patterns/Photo";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 
@@ -30,16 +31,11 @@ export function CheckoutLineItem({
 }) {
   return (
     <div className="flex gap-4 rounded-radius-md bg-card py-2 pl-2 pr-4 tracking-[-0.02em]">
-      {/* No placeholder when there is no photograph: an empty grey square reads
-          as a picture that failed to load, and most plans have no picture. */}
-      {image && (
-        <img
-          src={image}
-          alt=""
-          className="h-[104px] w-[104px] shrink-0 rounded-[8px] object-cover"
-          loading="lazy"
-        />
-      )}
+      {/* The photo, or the standard placeholder — the same tile as the card
+          the customer came from. */}
+      <div className="h-[104px] w-[104px] shrink-0 overflow-hidden rounded-[8px]">
+        <Photo src={image} />
+      </div>
       <div className="flex min-w-0 flex-1 flex-col py-2">
         <p className="truncate text-[16px] font-semibold leading-tight text-foreground">{title}</p>
         {description && (

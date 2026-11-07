@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { Photo } from "@/components/patterns/Photo";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { Car, ChevronRight } from "lucide-react";
@@ -52,7 +53,7 @@ export default function MyBookings() {
               to={carPath(`booking/${b.id}`)}
               className="flex items-center gap-4 rounded-radius-md bg-card p-3 shadow-figma transition-colors hover:bg-muted/30">
               <div className="h-16 w-24 shrink-0 overflow-hidden rounded-radius-sm bg-muted">
-                {b.rental_vehicles?.image_url && <img src={b.rental_vehicles.image_url} alt="" className="h-full w-full object-cover" />}
+                <Photo src={b.rental_vehicles?.image_url} icon={Car} />
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[15px] font-bold text-foreground">{b.rental_vehicles?.name ?? "Vehicle"}</p>
