@@ -1,3 +1,4 @@
+import { permissionsForPath } from "@/config/adminNav";
 import { ReactNode, useEffect, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth, AppRole } from "@/contexts/AuthContext";
@@ -68,9 +69,17 @@ const ProtectedRoute = ({ children, allowedRoles, requiredRoles, requiredPermiss
   // only `users.read` could open Finance, Roles and Ads, and the sole feedback
   // was a 403 from whatever the page happened to fetch. Gate on the permission
   // the sidebar already uses for the same path.
-  if (requiredPermissions && requiredPermissions.length > 0) {
+  // A route that names no permission of its own takes the sidebar's for the
+  // same URL. Only six admin routes passed one, so a limited role saw a page
+  // hidden from its sidebar simply by typing the address.
+  const needed = requiredPermissions?.length
+    ? requiredPermissions
+    : effectiveRoles?.includes("super_admin") && location.pathname.startsWith("/admin")
+      ? permissionsForPath(location.pathname)
+      : undefined;
+  if (needed && needed.length > 0) {
     return (
-      <PermissionGate permissions={requiredPermissions}>{children}</PermissionGate>
+      <PermissionGate permissions={needed}>{children}</PermissionGate>
     );
   }
 

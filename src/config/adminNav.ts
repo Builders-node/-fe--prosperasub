@@ -157,3 +157,23 @@ export const NAV_SECTIONS: NavSection[] = [
   PEOPLE_SECTION,
   SETTINGS_SECTION,
 ];
+
+/**
+ * The permissions an admin URL needs, read from the same items the sidebar
+ * draws — so hiding a link and guarding its page cannot disagree. The item
+ * whose path (or alsoActiveOn) is the LONGEST prefix of the URL wins. A URL no
+ * item covers needs no extra permission (being an admin is enough).
+ */
+export function permissionsForPath(pathname: string): string[] | undefined {
+  let best: { len: number; perms?: string[] } | null = null;
+  for (const section of NAV_SECTIONS) {
+    for (const item of section.items) {
+      for (const p of [item.path, ...(item.alsoActiveOn ?? [])]) {
+        if ((pathname === p || pathname.startsWith(p + "/")) && (!best || p.length > best.len)) {
+          best = { len: p.length, perms: item.permissions };
+        }
+      }
+    }
+  }
+  return best?.perms;
+}
