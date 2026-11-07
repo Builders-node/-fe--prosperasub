@@ -1,7 +1,7 @@
 import { fieldClass } from "@/components/ui/input";
 import { useEffect, useRef, useState, type ComponentType, type SVGProps } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Bell, BellOff, Eye, EyeOff, Gift, KeyRound, LogOut, MapPin, Pencil, Shield } from "lucide-react";
+import { Bell, BellOff, Eye, EyeOff, FileText, Gift, KeyRound, Lock, LogOut, MapPin, Pencil, Shield } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -498,6 +498,12 @@ const Profile = () => {
                 </section>
               </>
             )}
+
+            {/* The phone has no footer, so the legal pages live here too. */}
+            <section className="rounded-radius-md bg-card p-1.5 shadow-figma">
+              <Row icon={FileText} label="Terms of Service" onClick={() => navigate("/terms")} />
+              <Row icon={Lock} label="Privacy Policy" onClick={() => navigate("/privacy")} />
+            </section>
 
             <section className="rounded-radius-md bg-card p-1.5 shadow-figma">
               <Row icon={LogOut} tone="danger" label={t("profile.logOut")} onClick={() => void logout().then(() => navigate("/"))} />

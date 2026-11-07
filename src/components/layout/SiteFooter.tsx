@@ -72,6 +72,8 @@ export function SiteFooter() {
           { label: "Support", to: "/support" },
           { label: "My account", to: "/account" },
           { label: "Order history", to: "/history" },
+          { label: "Terms of Service", to: "/terms" },
+          { label: "Privacy Policy", to: "/privacy" },
         ]} />
       </div>
 

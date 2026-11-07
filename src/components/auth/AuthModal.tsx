@@ -382,9 +382,9 @@ function AuthForm({
       {/* Terms */}
       <p className="mt-5 text-center text-meta leading-relaxed text-muted-foreground">
         By continuing, you agree to our{" "}
-        <a href="#" className="underline underline-offset-2 hover:opacity-70">Terms of Service</a>{" "}
+        <a href="/terms" target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:opacity-70">Terms of Service</a>{" "}
         and{" "}
-        <a href="#" className="underline underline-offset-2 hover:opacity-70">Privacy Policy</a>.
+        <a href="/privacy" target="_blank" rel="noreferrer" className="underline underline-offset-2 hover:opacity-70">Privacy Policy</a>.
       </p>
     </div>
   );

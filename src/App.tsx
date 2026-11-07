@@ -40,6 +40,8 @@ const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 // Public access verification (staff scan a user's QR)
 const VerifyAccess = lazy(() => import("./pages/VerifyAccess"));
 const ClaimBusiness = lazy(() => import("./pages/ClaimBusiness"));
+const Terms = lazy(() => import("./pages/legal/Terms"));
+const Privacy = lazy(() => import("./pages/legal/Privacy"));
 
 // User
 const MySubscriptions = lazy(() => import("./pages/user/MySubscriptions"));
@@ -223,6 +225,8 @@ const App = () => {
               {/* Public access verification (staff scan a user's QR) */}
               <Route path="/verify" element={<VerifyAccess />} />
               <Route path="/claim-business" element={<ClaimBusiness />} />
+              <Route path="/terms" element={<Terms />} />
+              <Route path="/privacy" element={<Privacy />} />
 
               {/* Discovery */}
               <Route path="/discovery" element={<Discovery />} />
