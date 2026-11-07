@@ -1,4 +1,6 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useAuthModal } from "@/contexts/AuthModalContext";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import type { DateRange } from "react-day-picker";
 import { differenceInCalendarDays, format } from "date-fns";
@@ -27,6 +29,9 @@ export default function VehicleDetail() {
   const { data: v, isLoading } = useVehicle(id);
   const goBack = useGoBack(carPath());
   const [range, setRange] = useState<DateRange | undefined>();
+  const datesRef = useRef<HTMLDivElement>(null);
+  const { isAuthenticated } = useAuth();
+  const { openAuthModal } = useAuthModal();
 
   const rentalDays = useMemo(() => {
     if (!range?.from || !range?.to) return 0;
@@ -74,8 +79,16 @@ export default function VehicleDetail() {
   };
 
   const goBook = () => {
-    if (!range?.from || !range?.to) return;
-    navigate(carPath(`book/${v.id}?from=${toISO(range.from)}&to=${toISO(range.to)}`));
+    // No dates yet: take them to the calendar instead of a dead button.
+    if (!range?.from || !range?.to) {
+      datesRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    const href = carPath(`book/${v.id}?from=${toISO(range.from)}&to=${toISO(range.to)}`);
+    // Signed out: sign in right here and continue to the booking, rather
+    // than landing on a bare "please sign in" page.
+    if (!isAuthenticated) { openAuthModal("login", href); return; }
+    navigate(href);
   };
 
   const specs = [
@@ -224,7 +237,9 @@ export default function VehicleDetail() {
             ))}
           </div>
 
-          <DateRangePicker vehicleId={v.id} value={range} onChange={setRange} />
+          <div ref={datesRef}>
+            <DateRangePicker vehicleId={v.id} value={range} onChange={setRange} />
+          </div>
 
           {pricing && (
             <div className="space-y-1.5 rounded-radius-md bg-inset p-3">
@@ -251,7 +266,7 @@ export default function VehicleDetail() {
           a desktop. It also carries the figure, so the price is still on screen
           at the moment of deciding. */}
       <DecisionBar className="p-4 shadow-figma md:mx-auto md:mt-4 md:max-w-[1280px] md:rounded-radius-lg md:px-6">
-        <Button size="lg" className="w-full font-semibold" disabled={!pricing} onClick={goBook}>
+        <Button size="lg" variant={pricing ? "primary" : "secondary"} className="w-full font-semibold" onClick={goBook}>
           {pricing
             ? `Book · ${formatUSD(pricing.totalCents)}`
             : "Pick your dates"}

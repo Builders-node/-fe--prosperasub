@@ -9,6 +9,7 @@ import { useGoBack } from "@/hooks/useGoBack";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { AppContainer } from "@/components/layout/AppContainer";
 import { PageLoader } from "@/components/ui/spinner";
+import { Button } from "@/components/ui/button";
 import Fleet from "./Fleet";
 import VehicleDetail from "./VehicleDetail";
 import ProviderDetail from "@/pages/ProviderDetail";
@@ -96,22 +97,32 @@ function CarPage({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-function RequireAuth({ children }: { children: ReactNode }) {
+function RequireAuth({ children, title }: { children: ReactNode; title: string }) {
   const { isAuthenticated, isLoading } = useAuth();
   const { openAuthModal } = useAuthModal();
+  const location = useLocation();
+  const here = location.pathname + location.search;
+  // Open the sign-in sheet straight away; it returns here afterwards. The
+  // page under it keeps the section's header and says why, instead of a
+  // bare line of text on black.
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) openAuthModal("login", here);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading, isAuthenticated]);
   if (isLoading) return <PageLoader />;
   if (!isAuthenticated) {
     return (
-      <AppContainer className="py-24 text-center">
-        <p className="font-semibold text-foreground">Please sign in to continue.</p>
-        <button
-          type="button"
-          onClick={() => openAuthModal("login")}
-          className="mt-4 rounded-full bg-foreground px-5 py-2 text-sm font-bold text-background"
-        >
-          Log in
-        </button>
-      </AppContainer>
+      <CarPage title={title}>
+        <AppContainer className="py-6">
+          <section className="mx-auto max-w-[480px] space-y-4 rounded-radius-lg bg-card p-6 text-center">
+            <p className="text-title font-semibold text-foreground">Sign in to continue</p>
+            <p className="text-body text-muted-foreground">
+              Your bookings are kept with your account, so we need to know it's you.
+            </p>
+            <Button size="lg" className="w-full" onClick={() => openAuthModal("login", here)}>Log in or sign up</Button>
+          </section>
+        </AppContainer>
+      </CarPage>
     );
   }
   return <>{children}</>;
@@ -141,9 +152,9 @@ export default function VehiclesApp() {
             breadcrumbs, Plans/Reviews/Gallery, contacts. A second design here
             was the mistake this route corrects. */}
         <Route path="providers/:providerId" element={<ProviderDetail />} />
-        <Route path="book/:id" element={<RequireAuth><CarPage title="Book"><Book /></CarPage></RequireAuth>} />
-        <Route path="my-bookings" element={<RequireAuth><CarPage title="My bookings"><MyBookings /></CarPage></RequireAuth>} />
-        <Route path="booking/:id" element={<RequireAuth><CarPage title="Booking"><BookingDetail /></CarPage></RequireAuth>} />
+        <Route path="book/:id" element={<RequireAuth title="Book"><CarPage title="Book"><Book /></CarPage></RequireAuth>} />
+        <Route path="my-bookings" element={<RequireAuth title="My bookings"><CarPage title="My bookings"><MyBookings /></CarPage></RequireAuth>} />
+        <Route path="booking/:id" element={<RequireAuth title="Booking"><CarPage title="Booking"><BookingDetail /></CarPage></RequireAuth>} />
         {/*
           The fleet had a second admin of its own here, because on a separate
           origin /admin was out of reach. It is one app now, so cars are run
