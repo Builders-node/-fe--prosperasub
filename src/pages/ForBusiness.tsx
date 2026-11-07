@@ -83,7 +83,7 @@ function ArrowCta({ to, href, children, tone = "light", className }: {
 /** Frosted glass over the rendered backgrounds. */
 function Glass({ className, children }: { className?: string; children: ReactNode }) {
   return (
-    <div className={cn("rounded-[28px] bg-white/15 text-white ring-1 ring-white/35 backdrop-blur-xl", className)}>
+    <div className={cn("rounded-radius-xl bg-white/15 text-white ring-1 ring-white/35 backdrop-blur-xl", className)}>
       {children}
     </div>
   );
@@ -91,7 +91,7 @@ function Glass({ className, children }: { className?: string; children: ReactNod
 
 function GlassRow({ icon: Icon, title, meta, value }: { icon: typeof Store; title: string; meta?: string; value?: string }) {
   return (
-    <div className="flex items-center gap-3 rounded-2xl bg-white/10 px-3 py-2.5 ring-1 ring-white/20">
+    <div className="flex items-center gap-3 rounded-radius-md bg-white/10 px-3 py-2.5 ring-1 ring-white/20">
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-neutral-900">
         <Icon className="h-4 w-4" />
       </span>
@@ -177,7 +177,7 @@ const FEATURES: Array<{ key: string; title: string; lead: string; points: string
         <p className="mt-1 font-semibold tabular-nums" style={{ fontSize: "2.5rem", letterSpacing: "-0.03em" }}>$480.00</p>
         <div className="mt-4 grid grid-cols-3 gap-2">
           {([[Zap, "Lightning"], [Bitcoin, "Bitcoin"], [CreditCard, "PayPal"]] as const).map(([Icon, l], i) => (
-            <span key={l} className={cn("flex flex-col items-center gap-1 rounded-2xl py-3 text-meta", i === 0 ? "bg-white text-neutral-900" : "bg-white/10 ring-1 ring-white/20")}>
+            <span key={l} className={cn("flex flex-col items-center gap-1 rounded-radius-md py-3 text-meta", i === 0 ? "bg-white text-neutral-900" : "bg-white/10 ring-1 ring-white/20")}>
               <Icon className="h-5 w-5" />{l}
             </span>
           ))}
@@ -213,11 +213,11 @@ const FEATURES: Array<{ key: string; title: string; lead: string; points: string
       <Glass className="w-full max-w-[340px] p-5">
         <p className="text-meta text-white/80">Available</p>
         <p className="mt-1 font-semibold tabular-nums" style={{ fontSize: "2.5rem", letterSpacing: "-0.03em" }}>$1,284.50</p>
-        <div className="mt-4 rounded-2xl bg-white px-4 py-3 text-neutral-900">
+        <div className="mt-4 rounded-radius-md bg-white px-4 py-3 text-neutral-900">
           <p className="text-meta text-neutral-500">To</p>
           <p className="truncate text-body font-semibold">you@blink.sv</p>
         </div>
-        <div className="mt-3 flex items-center justify-between rounded-2xl bg-white/10 px-4 py-3 ring-1 ring-white/20">
+        <div className="mt-3 flex items-center justify-between rounded-radius-md bg-white/10 px-4 py-3 ring-1 ring-white/20">
           <span className="flex items-center gap-2 text-body font-semibold"><Check className="h-4 w-4" /> Sent</span>
           <span className="text-meta text-white/80">3 seconds</span>
         </div>
@@ -249,7 +249,7 @@ const TOOLS: Array<{ title: string; text: string; pos: string; mock: ReactNode }
     mock: (
       <Glass className="w-[86%] p-3">
         <div className="flex items-start gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-neutral-900"><Bell className="h-5 w-5" /></span>
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-radius-md bg-white text-neutral-900"><Bell className="h-5 w-5" /></span>
           <span className="min-w-0"><span className="block text-body font-semibold">New order · $120</span><span className="block text-meta text-white/80">Lunch & dinner, 4 weeks</span></span>
         </div>
       </Glass>
@@ -283,7 +283,7 @@ const TOOLS: Array<{ title: string; text: string; pos: string; mock: ReactNode }
         </div>
         <div className="mt-3 grid grid-cols-3 gap-2 text-center">
           {[["1.2k", "views"], ["84", "taps"], ["9", "orders"]].map(([v, l]) => (
-            <span key={l} className="rounded-xl bg-white/10 py-2"><span className="block text-title font-semibold">{v}</span><span className="block text-meta text-white/80">{l}</span></span>
+            <span key={l} className="rounded-radius-sm bg-white/10 py-2"><span className="block text-title font-semibold">{v}</span><span className="block text-meta text-white/80">{l}</span></span>
           ))}
         </div>
       </Glass>
@@ -295,7 +295,7 @@ const TOOLS: Array<{ title: string; text: string; pos: string; mock: ReactNode }
       <Glass className="w-[86%] p-4">
         <p className="flex gap-0.5">{[0, 1, 2, 3, 4].map((i) => <Star key={i} className="h-4 w-4 fill-white" />)}</p>
         <p className="mt-1 text-body font-semibold">"Best ceviche on the island."</p>
-        <p className="mt-2 rounded-xl bg-white/10 px-3 py-2 text-meta">Owner: Thank you, see you Friday!</p>
+        <p className="mt-2 rounded-radius-sm bg-white/10 px-3 py-2 text-meta">Owner: Thank you, see you Friday!</p>
       </Glass>
     ),
   },
@@ -350,7 +350,7 @@ export default function ForBusiness() {
         </section>
 
         <section className="px-2 md:px-4">
-          <div className="relative mx-auto max-w-[1400px] overflow-hidden rounded-[32px] bg-[#3A1F05]">
+          <div className="relative mx-auto max-w-[1400px] overflow-hidden rounded-radius-xl bg-[#3A1F05]">
             <img src={`${IMG}/hero.jpg`} alt="" className="absolute inset-0 h-full w-full object-cover" loading="eager" />
             <div className="absolute inset-0 bg-black/15" />
             <div className="relative grid gap-8 p-6 md:grid-cols-[1fr_auto_1fr] md:items-stretch md:p-12">
@@ -360,7 +360,7 @@ export default function ForBusiness() {
               </div>
               <div className="flex justify-center"><BalanceMock /></div>
               <div className="flex items-end text-white">
-                <p className="rounded-2xl bg-black/30 p-4 text-body backdrop-blur-md md:text-lg">
+                <p className="rounded-radius-md bg-black/30 p-4 text-body backdrop-blur-md md:text-lg">
                   Food, cleaning, memberships, courts, tours and rentals already sell on EverySub. Bring yours — we set it up with you.
                 </p>
               </div>
@@ -392,8 +392,8 @@ export default function ForBusiness() {
               { icon: QrCode, big: "0%", title: "on your own customers", text: "Bring them with your QR code or link and the sale is all yours." },
               { icon: Zap, big: "$0", title: "to join", text: "No setup fee and no monthly fee. Promotion is optional." },
             ].map(({ icon: Icon, big, title, text }) => (
-              <div key={title} className="rounded-[28px] bg-card p-6 md:p-8">
-                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/15 text-[hsl(var(--brand-accent-active))] dark:text-primary"><Icon className="h-6 w-6" /></span>
+              <div key={title} className="rounded-radius-xl bg-card p-6 md:p-8">
+                <span className="flex h-12 w-12 items-center justify-center rounded-radius-md bg-primary/15 text-[hsl(var(--brand-accent-active))] dark:text-primary"><Icon className="h-6 w-6" /></span>
                 <p className="mt-8 font-semibold tabular-nums" style={{ fontSize: "clamp(2.5rem, 5vw, 3.75rem)", letterSpacing: "-0.04em", lineHeight: 1 }}>{big}</p>
                 <p className="mt-2 text-title font-semibold">{title}</p>
                 <p className="mt-1 text-body text-muted-foreground">{text}</p>
@@ -405,21 +405,21 @@ export default function ForBusiness() {
 
         {/* ─── People ────────────────────────────────────────────── */}
         <section className="px-2 md:px-4">
-          <div className="relative mx-auto grid max-w-[1400px] gap-8 overflow-hidden rounded-[32px] bg-card p-6 md:grid-cols-2 md:p-14">
+          <div className="relative mx-auto grid max-w-[1400px] gap-8 overflow-hidden rounded-radius-xl bg-card p-6 md:grid-cols-2 md:p-14">
             <div className="relative z-10">
               <TwoTone accent="people who pick up" plain="software that runs itself," accentFirst={false} />
             </div>
             <img src={`${IMG}/spiral.jpg`} alt="" className="pointer-events-none absolute -bottom-10 -left-10 hidden w-[52%] max-w-[560px] mix-blend-multiply md:block dark:hidden" loading="lazy" />
             {/* The spiral is drawn on white; on the dark theme the same corner gets the amber glass instead. */}
-            <img src={`${IMG}/panel.jpg`} alt="" className="pointer-events-none absolute bottom-6 left-6 hidden h-[44%] w-[44%] rounded-[24px] object-cover dark:md:block" loading="lazy" />
+            <img src={`${IMG}/panel.jpg`} alt="" className="pointer-events-none absolute bottom-6 left-6 hidden h-[44%] w-[44%] rounded-radius-lg object-cover dark:md:block" loading="lazy" />
             <div className="relative z-10 space-y-3 md:row-span-2">
               {[
                 { icon: Sparkles, title: "we set you up", text: "Your page, plans and schedule — we build them with you, so you go live looking right." },
                 { icon: Headphones, title: "someone answers", text: `A real person on WhatsApp (${LEGAL_CONTACT.whatsapp}), for you and for your customers.` },
                 { icon: Wallet, title: "your money, your call", text: "Everything you earn is shown as it lands. Withdraw when you choose — nobody approves it." },
               ].map(({ icon: Icon, title, text }) => (
-                <div key={title} className="flex gap-5 rounded-[24px] bg-background/70 p-5 md:p-6">
-                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/15 text-[hsl(var(--brand-accent-active))] dark:text-primary"><Icon className="h-6 w-6" /></span>
+                <div key={title} className="flex gap-5 rounded-radius-lg bg-background/70 p-5 md:p-6">
+                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-radius-md bg-primary/15 text-[hsl(var(--brand-accent-active))] dark:text-primary"><Icon className="h-6 w-6" /></span>
                   <span>
                     <span className="block font-semibold" style={{ fontSize: "1.375rem", letterSpacing: "-0.02em" }}>{title}</span>
                     <span className="mt-1 block text-body text-muted-foreground">{text}</span>
@@ -469,7 +469,7 @@ export default function ForBusiness() {
 
         {/* ─── Final CTA ─────────────────────────────────────────── */}
         <section className="px-2 pb-16 md:px-4">
-          <div className="relative mx-auto max-w-[1400px] overflow-hidden rounded-[32px] bg-[#2E1803]">
+          <div className="relative mx-auto max-w-[1400px] overflow-hidden rounded-radius-xl bg-[#2E1803]">
             <img src={`${IMG}/cta.jpg`} alt="" className="absolute inset-0 h-full w-full object-cover object-left" loading="lazy" />
             <div className="absolute inset-0 bg-black/20 md:bg-transparent" />
             <div className="relative grid min-h-[420px] md:grid-cols-2">
@@ -531,7 +531,7 @@ function FeatureSwitcher() {
     <section id="features" className="app-container scroll-mt-20 py-10 md:py-16">
       <TwoTone accent="for a local business" plain="everything you need," accentFirst={false} />
       <div className="mt-10 grid gap-8 md:grid-cols-2 md:gap-14">
-        <div className="relative aspect-square overflow-hidden rounded-[32px] bg-[#4A2606]">
+        <div className="relative aspect-square overflow-hidden rounded-radius-xl bg-[#4A2606]">
           <img src={`${IMG}/panel.jpg`} alt="" className="absolute inset-0 h-full w-full object-cover" loading="lazy" />
           <div key={f.key} className="relative flex h-full items-center justify-center p-6 animate-in fade-in zoom-in-95 duration-500">
             {f.mock()}
@@ -597,8 +597,8 @@ function ToolsCarousel() {
         className="mt-10 flex snap-x snap-mandatory gap-3 overflow-x-auto px-[max(16px,calc((100vw_-_1280px)/2_+_24px))] scroll-px-[max(16px,calc((100vw_-_1280px)/2_+_24px))] pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {TOOLS.map((t) => (
-          <article key={t.title} className="w-[82vw] max-w-[400px] shrink-0 snap-start rounded-[28px] bg-card p-2 md:w-[400px]">
-            <div className="relative aspect-[4/3.6] overflow-hidden rounded-[22px] bg-[#4A2606]">
+          <article key={t.title} className="w-[82vw] max-w-[400px] shrink-0 snap-start rounded-radius-xl bg-card p-2 md:w-[400px]">
+            <div className="relative aspect-[4/3.6] overflow-hidden rounded-radius-lg bg-[#4A2606]">
               <img src={`${IMG}/panel.jpg`} alt="" className="absolute inset-0 h-full w-full scale-150 object-cover" style={{ objectPosition: t.pos }} loading="lazy" />
               <div className="relative flex h-full items-center justify-center">{t.mock}</div>
             </div>
