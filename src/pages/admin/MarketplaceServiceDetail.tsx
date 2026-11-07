@@ -25,7 +25,8 @@ import MarketplaceProviders from "./MarketplaceProviders";
 import MarketplacePlans from "./MarketplacePlans";
 import ProviderApplications from "./ProviderApplications";
 
-const TABS = ["categories", "providers", "plans", "applications"] as const;
+// Providers first: it is the tab the operator works in; categories are set once.
+const TABS = ["providers", "plans", "applications", "categories"] as const;
 type Tab = (typeof TABS)[number];
 
 const TAB_LABELS: Record<Tab, string> = {

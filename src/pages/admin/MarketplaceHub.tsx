@@ -100,8 +100,8 @@ export default function MarketplaceHub() {
 
   return (
     <SuperAdminLayout
-      title="Marketplace"
-      subtitle="Pick a service to manage its categories, providers and plans"
+      title="Businesses"
+      subtitle="Pick a service to manage its businesses, plans and categories"
     >
       <div className="space-y-6">
         {loading ? (

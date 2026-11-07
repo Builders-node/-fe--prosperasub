@@ -702,7 +702,7 @@ function EditProviderForm({
         </Select>
         {archetypeKey !== "__none" && scopedCategories.length === 0 && (
           <p className="mt-1 text-xs text-muted-foreground">
-            No categories under this service yet — add one in Settings → Services.
+            No categories under this service yet — add one in Businesses → the service → Categories.
           </p>
         )}
       </div>
@@ -928,7 +928,7 @@ function CreateProviderForm({
         </Select>
         {archetypeKey !== "__none" && scopedCategories.length === 0 && (
           <p className="mt-1 text-xs text-muted-foreground">
-            No categories under this service — add one in Settings → Services.
+            No categories under this service — add one in Businesses → the service → Categories.
           </p>
         )}
       </div>

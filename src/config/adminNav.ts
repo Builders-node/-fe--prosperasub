@@ -11,7 +11,7 @@
 import {
   BarChart3, CalendarDays, DollarSign,
   BellRing, FileText, Layers, LayoutDashboard, MapPin, Megaphone, TicketPercent,
-  LifeBuoy, ShieldCheck, Users, Building2, CarFront, } from "lucide-react";
+  LifeBuoy, ShieldCheck, Users, Building2, CarFront, Star, } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { adminRoutes } from "./adminRoutes";
 
@@ -40,121 +40,103 @@ export interface NavSection {
 }
 
 // ─── OVERVIEW ───────────────────────────────────────────────────────────
-export const OVERVIEW_SECTION: NavSection = {
-  title: "Overview",
+/**
+ * Grouped by the job, not by the table.
+ *
+ * The old groups were the data model — Overview / Marketplace / Vehicles /
+ * People / Settings — so marketing lived in three places (Promo codes under
+ * Marketplace, Announcements under People, Ads under Settings), Reviews had
+ * no entry at all, and a whole section held one item. Now: what needs you,
+ * the businesses you run, what they sold, who bought it, the money, growing
+ * it, and the settings you rarely touch.
+ */
+export const TODAY_SECTION: NavSection = {
+  title: "Today",
   items: [
-    // Dashboard is the landing page for every admin — no permission gate, or a
-    // limited role would log in to a redirect loop.
-    { label: "Dashboard", path: adminRoutes.superAdminDashboard, icon: LayoutDashboard },
-    { label: "Analytics", path: adminRoutes.superAdminAnalytics, icon: BarChart3,
-      permissions: ["subscriptions.read", "payments.read"] },
-    { label: "Finance",   path: adminRoutes.superAdminPayments,  icon: DollarSign,
-      permissions: ["payments.read"] },
+    { label: "Today", path: adminRoutes.superAdminDashboard, icon: LayoutDashboard },
   ],
 };
 
-// ─── MARKETPLACE — the model itself ─────────────────────────────────────
-// Services / Categories / Providers / Plans / Applications are all reached
-// through the Marketplace hub — as per-service tabs, or via the hub's footer
-// links for the cross-service views. None of them gets a sidebar entry: an
-// entry that lands on a page already one click away is pure duplication.
-//
-// That includes the flat Providers list. It used to be kept as the only way to
-// see providers orphaned by a deleted service (`archetype_key` is ON DELETE SET
-// NULL) — the hub's "Unassigned" card covers that case now, so the nav entry
-// was doing nothing the hub didn't.
-//
-// Subscriptions stays: it's the transaction ledger, not part of the
-// Service → Category → Provider → Plan tree, and appears nowhere in the hub.
-export const MARKETPLACE_SECTION: NavSection = {
-  title: "Marketplace",
+export const BUSINESSES_SECTION: NavSection = {
+  title: "Businesses",
   items: [
-    { label: "Marketplace",   path: adminRoutes.superAdminMarketplace,              icon: Layers,
-      // Every flat list is still routable (old bookmarks, links from other
-      // pages) — keep the hub lit while the admin is on one of them.
+    { label: "Businesses", path: adminRoutes.superAdminMarketplace, icon: Layers,
       alsoActiveOn: [
         "/admin/marketplace/service",
         adminRoutes.superAdminServices,
         adminRoutes.superAdminMarketplacePlans,
         adminRoutes.superAdminMarketplaceProviders,
         adminRoutes.superAdminProviderApplications,
-        adminRoutes.superAdminMarketplaceReviews,
       ],
       permissions: ["admin_settings.read"] },
-    { label: "Subscriptions", path: adminRoutes.superAdminMarketplaceSubscriptions, icon: CalendarDays,
-      permissions: ["subscriptions.read"] },
-    // Promo codes discount marketplace sales, so they sit beside the ledger
-    // they change rather than among the overview pages. Same permission.
-    { label: "Promo codes", path: adminRoutes.superAdminPromoCodes, icon: TicketPercent,
-      permissions: ["payments.read"] },
-  ],
-};
-
-// ─── VEHICLES ───────────────────────────────────────────────────────────
-/**
- * Its own layer, Booking.com-style: the sidebar mirrors the storefront's
- * family split (Experiences | Vehicles). Marketplace is the experiences tree;
- * the vehicles unit lives here and has no archetype at all. Renting a vehicle
- * is one physical object for a stretch of days with a deposit — not a plan and
- * a period — and it is managed on its own terms.
- */
-export const VEHICLES_SECTION: NavSection = {
-  title: "Vehicles",
-  items: [
     { label: "Vehicles", path: adminRoutes.superAdminTransport, icon: CarFront,
       alsoActiveOn: [adminRoutes.superAdminCarRentals, "/admin/marketplace/service/vehicles"],
       permissions: ["subscriptions.read"] },
   ],
 };
 
-// ─── PEOPLE ─────────────────────────────────────────────────────────────
-export const PEOPLE_SECTION: NavSection = {
-  title: "People",
+export const SALES_SECTION: NavSection = {
+  title: "Sales",
   items: [
-    // Clients (the businesses and households we bill) are the second tab of
-    // Users — one door for the whole People section, as the header of this
-    // file has promised all along.
-    { label: "Users", path: adminRoutes.superAdminUsers, icon: Users,
+    { label: "Subscriptions", path: adminRoutes.superAdminMarketplaceSubscriptions, icon: CalendarDays,
+      permissions: ["subscriptions.read"] },
+    { label: "Promo codes", path: adminRoutes.superAdminPromoCodes, icon: TicketPercent,
+      permissions: ["payments.read"] },
+  ],
+};
+
+export const CUSTOMERS_SECTION: NavSection = {
+  title: "Customers",
+  items: [
+    { label: "Customers", path: adminRoutes.superAdminUsers, icon: Users,
       alsoActiveOn: [adminRoutes.superAdminClients],
-      permissions: ["users.read"] },
-    { label: "Announcements", path: adminRoutes.superAdminAnnouncements, icon: BellRing,
       permissions: ["users.read"] },
     { label: "Support", path: adminRoutes.superAdminSupport, icon: LifeBuoy,
       permissions: ["users.read"] },
   ],
 };
 
-// ─── SETTINGS ───────────────────────────────────────────────────────────
-// No "Platform config" entry: /admin/settings is a redirect to /admin/payments
-// (PlatformSettings.tsx was deleted when platform config moved into Finance).
-// A nav item that silently lands on another page — and highlights *that* page
-// in the sidebar — is worse than no item at all.
+export const MONEY_SECTION: NavSection = {
+  title: "Money",
+  items: [
+    { label: "Finance",   path: adminRoutes.superAdminPayments,  icon: DollarSign,
+      permissions: ["payments.read"] },
+    { label: "Analytics", path: adminRoutes.superAdminAnalytics, icon: BarChart3,
+      permissions: ["subscriptions.read", "payments.read"] },
+  ],
+};
+
+export const GROWTH_SECTION: NavSection = {
+  title: "Growth",
+  items: [
+    { label: "Announcements", path: adminRoutes.superAdminAnnouncements, icon: BellRing,
+      permissions: ["users.read"] },
+    { label: "Ads", path: adminRoutes.superAdminAds, icon: Megaphone,
+      permissions: ["admin_settings.read"] },
+    { label: "Reviews", path: adminRoutes.superAdminMarketplaceReviews, icon: Star,
+      permissions: ["admin_settings.read"] },
+  ],
+};
+
 export const SETTINGS_SECTION: NavSection = {
   title: "Settings",
   items: [
     { label: "Locations",  path: adminRoutes.superAdminLocations, icon: MapPin,
       permissions: ["admin_settings.read"] },
-    { label: "Ads",        path: adminRoutes.superAdminAds,       icon: Megaphone,
-      permissions: ["admin_settings.read"] },
-    { label: "Roles",      path: adminRoutes.superAdminRoles,     icon: ShieldCheck,
+    { label: "Team & roles", path: adminRoutes.superAdminRoles, icon: ShieldCheck,
       permissions: ["role_management.read"] },
-    { label: "Audit Logs", path: adminRoutes.superAdminAuditLogs, icon: FileText,
+    { label: "Audit log", path: adminRoutes.superAdminAuditLogs, icon: FileText,
       permissions: ["admin_settings.read"] },
   ],
 };
 
-/**
- * Ordered list rendered top-to-bottom in the sidebar.
- *
- * No OPERATIONS section: /admin/cleaning is a redirect to the providers list —
- * cleaning ops live inside the cleaning provider's workspace (Operations tab),
- * reached by opening that provider from Marketplace → Cleaning → Providers.
- */
 export const NAV_SECTIONS: NavSection[] = [
-  OVERVIEW_SECTION,
-  MARKETPLACE_SECTION,
-  VEHICLES_SECTION,
-  PEOPLE_SECTION,
+  TODAY_SECTION,
+  BUSINESSES_SECTION,
+  SALES_SECTION,
+  CUSTOMERS_SECTION,
+  MONEY_SECTION,
+  GROWTH_SECTION,
   SETTINGS_SECTION,
 ];
 
