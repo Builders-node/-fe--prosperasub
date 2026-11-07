@@ -28,7 +28,7 @@ import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
 import { logAuditEvent } from "@/lib/auditLog";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { CATEGORY_ACCENTS, CATEGORY_ICONS, CATEGORY_ICON_KEYS, resolveCategoryIcon } from "@/lib/services/categoryIcons";
+import { CATEGORY_ICONS, CATEGORY_ICON_KEYS, resolveCategoryIcon } from "@/lib/services/categoryIcons";
 
 const TABLE = "service_categories";
 const QUERY_KEY = ["admin-service-categories"] as const;
@@ -295,7 +295,7 @@ export default function ServiceCategories({ embedded = false, archetypeKey }: Se
                           !c.is_active && "opacity-60",
                         )}
                       >
-                        <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-radius-md", c.accent, "bg-opacity-15")}>
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-radius-md bg-inset">
                           <Icon className="h-5 w-5 text-foreground" />
                         </div>
                         <div className="min-w-0 flex-1">
@@ -428,18 +428,6 @@ export default function ServiceCategories({ embedded = false, archetypeKey }: Se
                     </button>
                   );
                 })}
-              </div>
-            </div>
-
-            <div>
-              <Label>Accent</Label>
-              <div className="mt-1.5 grid grid-cols-4 gap-1.5 sm:grid-cols-6">
-                {CATEGORY_ACCENTS.map((a) => (
-                  <button key={a.value} type="button" onClick={() => setForm({ ...form, accent: a.value })}
-                    className={cn("h-9 rounded-lg", a.value, form.accent === a.value && "ring-2 ring-offset-2 ring-offset-background ring-foreground")}
-                    aria-label={a.label}
-                  />
-                ))}
               </div>
             </div>
           </div>

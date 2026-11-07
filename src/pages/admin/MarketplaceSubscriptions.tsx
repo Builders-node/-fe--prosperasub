@@ -548,8 +548,8 @@ const MarketplaceSubscriptions = () => {
                       </TableCell>
                       <TableCell className="px-4 py-3">
                         <span className="inline-flex items-center gap-1.5">
-                          <span className={cn("flex h-5 w-5 shrink-0 items-center justify-center rounded-md", arche?.accent ?? "bg-muted")}>
-                            <AIcon className="h-3 w-3 text-white" />
+                          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-radius-xs bg-inset">
+                            <AIcon className="h-3 w-3 text-foreground" />
                           </span>
                           <span className="text-muted-foreground">{arche?.label ?? "—"}</span>
                         </span>

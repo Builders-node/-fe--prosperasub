@@ -1,6 +1,6 @@
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { WorkspaceTabsCard } from "@/components/provider/WorkspaceTabsCard";
-import type { PortalTab } from "@/components/provider/ProviderPortalShell";
+import type { PortalTab } from "@/components/provider/portalTab";
 import { useTabParam } from "@/hooks/useTabParam";
 
 /**

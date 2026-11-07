@@ -37,18 +37,6 @@ export function resolveCategoryIcon(key: string | null | undefined): LucideIcon 
   return (key && CATEGORY_ICONS[key]) || Store;
 }
 
-/**
- * Accent color options for category badges. Matches the Tailwind palette
- * already used across the app; the value is a raw `bg-*` class kept as text
- * so it can round-trip through the DB.
- */
-export const CATEGORY_ACCENTS = [
-  { value: "bg-blue-500",    label: "Blue"    },
-  { value: "bg-emerald-500", label: "Emerald" },
-  { value: "bg-orange-500",  label: "Orange"  },
-  { value: "bg-rose-500",    label: "Rose"    },
-  { value: "bg-cyan-500",    label: "Cyan"    },
-  { value: "bg-amber-500",   label: "Amber"   },
-  { value: "bg-purple-500",  label: "Purple"  },
-  { value: "bg-lime-500",    label: "Lime"    },
-];
+// No accent palette: a service is told apart by its icon on bg-inset, not by a
+// colour of its own (DESIGN.md — one accent). The DB's `accent` column is left
+// in place for old rows and no longer read for display.

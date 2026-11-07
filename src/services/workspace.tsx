@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { CarFront } from "lucide-react";
-import type { PortalTab } from "@/components/provider/ProviderPortalShell";
+import type { PortalTab } from "@/components/provider/portalTab";
 import { ProviderItemsPanel } from "@/components/provider/ProviderItemsPanel";
 import { ServiceLocationsSection } from "@/components/food/admin/ServiceLocationsSection";
 import { RentalTermsTab } from "@/features/vehicles";

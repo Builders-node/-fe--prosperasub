@@ -177,8 +177,8 @@ const MarketplacePlans = ({ embedded = false, archetypeKey }: MarketplacePlansPr
 
               const planCell = (
                 <div className="flex min-w-0 items-center gap-3">
-                  <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-radius-md", arche?.accent ?? "bg-muted")}>
-                    <AIcon className="h-4 w-4 text-white" />
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-radius-md bg-inset">
+                    <AIcon className="h-4 w-4 text-foreground" />
                   </div>
                   <div className="min-w-0">
                     <p className="flex items-center gap-2 truncate text-sm font-semibold text-foreground">

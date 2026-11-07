@@ -15,7 +15,7 @@ import { supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAuditEvent } from "@/lib/auditLog";
 import { CAPABILITIES, type CapabilityKey } from "@/components/provider/capabilities";
-import { CATEGORY_ACCENTS, CATEGORY_ICONS, CATEGORY_ICON_KEYS } from "@/lib/services/categoryIcons";
+import { CATEGORY_ICONS, CATEGORY_ICON_KEYS } from "@/lib/services/categoryIcons";
 import { cn } from "@/lib/utils";
 
 /**
@@ -192,17 +192,6 @@ export function ServiceArchetypeDialog({
                   </button>
                 );
               })}
-            </div>
-          </div>
-          <div>
-            <Label>Accent</Label>
-            <div className="mt-1.5 grid grid-cols-4 gap-1.5 sm:grid-cols-6">
-              {CATEGORY_ACCENTS.map((a) => (
-                <button key={a.value} type="button" onClick={() => setForm({ ...form, accent: a.value })}
-                  className={cn("h-9 rounded-lg", a.value, form.accent === a.value && "ring-2 ring-offset-2 ring-offset-background ring-foreground")}
-                  aria-label={a.label}
-                />
-              ))}
             </div>
           </div>
         </div>

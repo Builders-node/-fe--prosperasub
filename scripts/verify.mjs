@@ -60,4 +60,46 @@ if (hookErrors.length) {
   process.exit(1);
 }
 
+// ─── Design system ratchet ─────────────────────────────────────────────────
+// DESIGN.md: one accent, status through --positive/--attention/--negative,
+// type through the roles (text-heading / text-title / text-meta), radius
+// through rounded-radius-*, width through AppContainer, no gradients, no
+// shadow but shadow-figma. Each count may only go DOWN — lower the baseline
+// when you migrate a page; a change that adds a violation fails here.
+// The UI kit and a few genuine exceptions (status pill, payment brand marks,
+// drawn banners, dietary tags) are allowed.
+console.log("▶ verify: design system…");
+const { readFileSync, readdirSync, statSync } = await import("node:fs");
+const { join } = await import("node:path");
+const DESIGN_ALLOW = ["/components/ui/", "StatusPill.tsx", "PaymentMethodTiles.tsx", "categoryBannerArt.tsx", "foodDietaryTags.ts", "PaymentMethodBadge.tsx", "/main.tsx"];
+const DESIGN_RULES = {
+  palette:   { re: /\b(?:bg|text|border|ring|fill|stroke|from|via|to)-(?:red|green|emerald|amber|orange|yellow|blue|sky|violet|purple|rose|cyan|lime|teal|pink|indigo|fuchsia)-\d{2,3}\b/g, base: 33, fix: "use text-positive / text-attention / text-negative, or a token" },
+  shadow:    { re: /\bshadow-(?!figma\b|none\b)[a-z0-9]/g, base: 1, fix: "the only shadow is shadow-figma" },
+  gradient:  { re: /\bbg-gradient-/g, base: 7, fix: "no gradients (DESIGN.md)" },
+  pxText:    { re: /\btext-\[\d+px\]/g, base: 443, fix: "use text-heading / text-title / text-meta" },
+  tracking:  { re: /\btracking-\[/g, base: 109, fix: "the type roles carry their tracking" },
+  rawRadius: { re: /\brounded-(?:sm|md|lg|xl|2xl|3xl)\b/g, base: 58, fix: "use rounded-radius-*" },
+  container: { re: /max-w-\[1280px\]/g, base: 5, fix: "use AppContainer / .app-container" },
+};
+const designFiles = [];
+(function walk(d) {
+  for (const f of readdirSync(d)) {
+    const p = join(d, f);
+    if (statSync(p).isDirectory()) walk(p);
+    else if (/\.tsx?$/.test(p) && !DESIGN_ALLOW.some((a) => p.includes(a))) designFiles.push(p);
+  }
+})("src");
+const designCounts = Object.fromEntries(Object.keys(DESIGN_RULES).map((k) => [k, 0]));
+for (const p of designFiles) {
+  const src = readFileSync(p, "utf8");
+  for (const [k, r] of Object.entries(DESIGN_RULES)) designCounts[k] += (src.match(r.re) || []).length;
+}
+const designOver = Object.entries(DESIGN_RULES).filter(([k, r]) => designCounts[k] > r.base);
+console.log("  " + Object.entries(designCounts).map(([k, n]) => `${k} ${n}/${DESIGN_RULES[k].base}`).join(" · "));
+if (designOver.length) {
+  for (const [k, r] of designOver) console.error(`✖ ${k}: ${designCounts[k]} (baseline ${r.base}) — ${r.fix}`);
+  console.error("\nA change added a design-system violation. Fix it, then rebuild.");
+  process.exit(1);
+}
+
 console.log("✔ verify passed\n");

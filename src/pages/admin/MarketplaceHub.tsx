@@ -125,8 +125,8 @@ export default function MarketplaceHub() {
                   )}
                 >
                   <div className="flex items-start gap-3">
-                    <div className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-radius-md", a.accent)}>
-                      <a.Icon className="h-5 w-5 text-white" />
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-radius-md bg-inset">
+                      <a.Icon className="h-5 w-5 text-foreground" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">

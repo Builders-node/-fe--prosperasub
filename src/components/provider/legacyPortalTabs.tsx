@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import type { PortalTab } from "@/components/provider/ProviderPortalShell";
+import type { PortalTab } from "@/components/provider/portalTab";
 import { PortalTabsView } from "@/components/provider/PortalTabsView";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";

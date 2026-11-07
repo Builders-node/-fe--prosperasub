@@ -394,8 +394,8 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
                 const serviceCell = arche ? (
                   <div className="min-w-0">
                     <span className="inline-flex items-center gap-1.5">
-                      <span className={cn("flex h-5 w-5 shrink-0 items-center justify-center rounded-md", arche.accent)}>
-                        <AIcon className="h-3 w-3 text-white" />
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-radius-xs bg-inset">
+                        <AIcon className="h-3 w-3 text-foreground" />
                       </span>
                       <span className="text-sm text-foreground">{arche.label}</span>
                     </span>

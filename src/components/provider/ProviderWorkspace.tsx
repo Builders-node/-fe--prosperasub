@@ -31,7 +31,7 @@ import { VEHICLES_UNIT } from "@/lib/services/vehiclesUnit";
 import { SubscribersList } from "@/components/provider/SubscribersList";
 import { ProviderReviewsPanel } from "@/components/provider/ProviderReviewsPanel";
 import { ProviderEarningsTab } from "@/components/provider/ProviderEarningsTab";
-import type { PortalTab } from "@/components/provider/ProviderPortalShell";
+import type { PortalTab } from "@/components/provider/portalTab";
 import { LEGACY_PORTAL_SOURCE_KEYS, legacyIdOf } from "@/lib/services/providerBridge";
 
 /**
@@ -408,7 +408,7 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <StatusPill status={provider.status} />
               {archetype && (
-                <Badge className={`rounded-full text-xs ${archetype.accent} text-white`}>{archetype.label}</Badge>
+                <Badge className="rounded-full bg-inset text-xs text-foreground hover:bg-inset">{archetype.label}</Badge>
               )}
             </div>
           )}
