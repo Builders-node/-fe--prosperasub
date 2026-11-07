@@ -13,6 +13,7 @@ import { logAuditEvent } from "@/lib/auditLog";
 import { profileCompleteness } from "@/lib/providerProfile";
 import type { UniversalProviderRow } from "@/components/provider/UniversalInfoTab";
 import { OwnerInviteButton } from "@/components/provider/OwnerInviteButton";
+import { ProviderSetupButton } from "@/components/provider/ProviderSetupButton";
 
 /**
  * The admin's way from "draft" to "live", on the business itself.
@@ -56,6 +57,7 @@ export function GoLivePanel({ provider, previewHref }: { provider: UniversalProv
       toast.success(next === "active" ? `${provider.name} is live` : `${provider.name} is hidden`);
       qc.invalidateQueries({ queryKey: ["universal-provider", provider.id] });
       qc.invalidateQueries({ queryKey: ["admin-marketplace-providers"] });
+      qc.invalidateQueries({ queryKey: ["marketplace-providers"] });
     },
     onError: (e: Error) => toast.error(e.message || "Could not change the status"),
   });
@@ -106,7 +108,8 @@ export function GoLivePanel({ provider, previewHref }: { provider: UniversalProv
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <OwnerInviteButton provider={provider} />
+          <ProviderSetupButton provider={provider} />
+          {!provider.admin_user_id && <OwnerInviteButton provider={provider} />}
           <Button size="sm" variant="secondary" disabled={setStatus.isPending}
             onClick={() => setConfirm("inactive")}>
             Hide
@@ -140,6 +143,7 @@ export function GoLivePanel({ provider, previewHref }: { provider: UniversalProv
         ))}
       </ul>
       <div className="flex flex-wrap gap-2">
+        <ProviderSetupButton provider={provider} />
         <Button variant="secondary" className="gap-2" onClick={() => window.open(previewHref, "_blank")}>
           <Eye /> Preview
         </Button>

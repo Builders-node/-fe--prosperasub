@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useUrlState } from "@/hooks/useUrlState";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Eye, EyeOff, ExternalLink, Building2, Mail, Phone, ShieldCheck, MoreVertical, Pencil, Plus } from "lucide-react";
+import { Eye, EyeOff, ExternalLink, Building2, Mail, Phone, ShieldCheck, MoreVertical, Plus } from "lucide-react";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { AdminListShell } from "@/components/admin/AdminListShell";
 import { usePagination, TablePagination } from "@/components/ui/table-pagination";
@@ -21,13 +21,12 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { accountApi, adminApi, supabaseDb } from "@/integrations/supabase/client";
+import { supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAuditEvent } from "@/lib/auditLog";
 import { toast } from "sonner";
 import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
 import { CAPABILITIES, type CapabilityKey } from "@/components/provider/capabilities";
-import { UserPicker } from "@/components/patterns/UserPicker";
 import { profileCompleteness } from "@/lib/providerProfile";
 import { AdminPageTabs } from "@/components/admin/AdminPageTabs";
 import { cn } from "@/lib/utils";
@@ -86,7 +85,6 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
   const service = archetypeKey ?? serviceFilter;
   const [status, setStatus] = useUrlState<string>("status", "all");
   const [search, setSearch] = useUrlState<string>("q", "");
-  const [editRow, setEditRow] = useState<ProviderRow | null>(null);
   const [creating, setCreating] = useState<boolean>(false);
 
   const { data: providers = [], isLoading, isError, error, refetch } = useQuery({
@@ -185,53 +183,6 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
   // Hiding asks first. Going live is not done here at all: the row menu opens
   // the business, where GoLivePanel shows the checklist before the switch.
   const [confirmDeactivate, setConfirmDeactivate] = useState<ProviderRow | null>(null);
-
-  const saveEdit = useMutation({
-    mutationFn: async ({ p, patch }: { p: ProviderRow; patch: Record<string, unknown> }) => {
-      // The owner is not a column this form may write: `providers.admin_user_id`
-      // is what the payout endpoint calls ownership, so it goes through the API
-      // (which checks who is asking) and the table rejects it from here.
-      const { ownerUserId, ...columns } = patch as { ownerUserId?: string | null };
-      const ownerChanged = "ownerUserId" in patch && (ownerUserId ?? null) !== (p.admin_user_id ?? null);
-
-      if (Object.keys(columns).length) {
-        const { error } = await supabaseDb.from("providers").update(columns).eq("id", p.id);
-        if (error) throw error;
-      }
-      if (ownerChanged) {
-        const { error } = await accountApi(`/account/providers/${p.id}/owner`, {
-          method: "PUT",
-          body: JSON.stringify({ userId: ownerUserId ?? null }),
-        });
-        if (error) throw error;
-      }
-      if (userData?.id) await logAuditEvent(userData.id, "edit", AUDIT_ENTITY, p.id, patch);
-    },
-    onSuccess: () => { toast.success("Saved"); setEditRow(null); qc.invalidateQueries({ queryKey: QUERY_KEY }); },
-    onError: (e: any) => toast.error(e?.message || "Could not save"),
-  });
-
-  /**
-   * The platform makes the calendar; nobody pastes one in.
-   *
-   * The field here was a free-text box, which is the one way a business ends
-   * up pointing at a calendar the service account cannot write to — and the
-   * endpoint that does it properly (idempotent, shares it with the provider's
-   * contact address) already existed and was only called at approval.
-   */
-  const provisionCalendar = useMutation({
-    mutationFn: async (p: ProviderRow) => {
-      const { data, error } = await adminApi(`/admin/providers/${p.id}/calendar/provision`, { method: "POST" });
-      if (error) throw error;
-      return data as { calendarId?: string | null; skipped?: string } | null;
-    },
-    onSuccess: (r) => {
-      qc.invalidateQueries({ queryKey: QUERY_KEY });
-      if (r?.calendarId) toast.success("Calendar provisioned");
-      else toast.warning(r?.skipped || "No calendar was created — check the Google credentials.");
-    },
-    onError: (e: any) => toast.error(e?.message || "Could not provision a calendar"),
-  });
 
   const createProvider = useMutation({
     mutationFn: async (payload: Record<string, unknown>) => {
@@ -461,9 +412,6 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
                         <DropdownMenuItem onSelect={() => navigate(`/admin/marketplace/providers/${p.id}`)}>
                           <ExternalLink className="mr-2 h-3.5 w-3.5" /> Open workspace
                         </DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => setEditRow(p)}>
-                          <Pencil className="mr-2 h-3.5 w-3.5" /> Edit provider
-                        </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           onSelect={() => (p.status === "active" ? setConfirmDeactivate(p) : navigate(`/admin/marketplace/providers/${p.id}`))}
@@ -520,28 +468,6 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
         </AdminListShell>
       </div>
 
-      {/* Edit sheet — dedicated surface for the moves people used to do inline. */}
-      <Sheet open={!!editRow} onOpenChange={(o) => !o && setEditRow(null)}>
-        <SheetContent side="right" className="w-full max-w-md overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>Edit provider</SheetTitle>
-            <SheetDescription>{editRow?.name}</SheetDescription>
-          </SheetHeader>
-          {editRow && (
-            <EditProviderForm
-              key={editRow.id}
-              provider={editRow}
-              archetypes={archetypes}
-              categories={categories}
-              saving={saveEdit.isPending}
-              onSave={(patch) => saveEdit.mutate({ p: editRow, patch })}
-              onProvisionCalendar={() => provisionCalendar.mutate(editRow)}
-              provisioning={provisionCalendar.isPending}
-            />
-          )}
-        </SheetContent>
-      </Sheet>
-
       {/* Create sheet — parallels Edit, but no existing row to pre-fill. */}
       <Sheet open={creating} onOpenChange={setCreating}>
         <SheetContent side="right" className="w-full max-w-md overflow-y-auto">
@@ -593,209 +519,6 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
     </SuperAdminLayout>
   );
 };
-
-function EditProviderForm({
-  provider, archetypes, categories, saving, onSave, onProvisionCalendar, provisioning,
-}: {
-  provider: ProviderRow;
-  archetypes: ReturnType<typeof useServiceArchetypes>["archetypes"];
-  categories: Array<{ key: string; label: string; archetype_key: string }>;
-  saving: boolean;
-  onSave: (patch: Record<string, unknown>) => void;
-  onProvisionCalendar: () => void;
-  provisioning: boolean;
-}) {
-  const [name, setName] = useState(provider.name);
-  const [archetypeKey, setArchetypeKey] = useState(provider.archetype_key ?? "__none");
-  const [categoryKey, setCategoryKey] = useState(provider.category_key ?? "__none");
-  const [caps, setCaps] = useState<Set<string>>(new Set(provider.capabilities ?? []));
-  const [contactEmail, setContactEmail] = useState(provider.contact_email ?? "");
-  const [contactPhone, setContactPhone] = useState(provider.contact_phone ?? "");
-  const calendarId = provider.google_calendar_id ?? "";
-  /**
-   * Who owns this business.
-   *
-   * There was no field for it anywhere in the admin — a provider only ever got
-   * an owner by approving an application, so the two created here (Car Wash,
-   * Massage) had nobody who could open their workspace, and no way to fix it
-   * short of SQL.
-   */
-  const [ownerUserId, setOwnerUserId] = useState<string | null>(provider.admin_user_id ?? null);
-
-  // Only offer categories that belong to the selected archetype.
-  const scopedCategories = archetypeKey === "__none"
-    ? []
-    : categories.filter((c) => c.archetype_key === archetypeKey);
-
-  // If admin switches archetype and the current category no longer fits,
-  // auto-pick the first available so we don't submit a mismatched pair.
-  const currentIsValid = scopedCategories.some((c) => c.key === categoryKey);
-  if (archetypeKey !== "__none" && !currentIsValid && scopedCategories.length > 0 && categoryKey !== scopedCategories[0].key) {
-    // Defer to next tick to avoid setState-in-render warnings.
-    queueMicrotask(() => setCategoryKey(scopedCategories[0].key));
-  }
-
-  const toggleCap = (c: CapabilityKey) => {
-    setCaps((prev) => {
-      const next = new Set(prev);
-      if (next.has(c)) next.delete(c); else next.add(c);
-      return next;
-    });
-  };
-
-  const submit = () => {
-    const nextArchetype = archetypeKey === "__none" ? null : archetypeKey;
-    const patch: Record<string, unknown> = {
-      name: name.trim() || provider.name,
-      contact_email: contactEmail.trim() || null,
-      contact_phone: contactPhone.trim() || null,
-      capabilities: Array.from(caps),
-    };
-    if (nextArchetype !== (provider.archetype_key ?? null)) {
-      patch.archetype_key = nextArchetype;
-      // Merge archetype defaults into the current cap set on switch — matches
-      // the previous inline behaviour.
-      if (nextArchetype) {
-        const a = archetypes.find((x) => x.key === nextArchetype);
-        (a?.default_capabilities ?? []).forEach((c) => (patch.capabilities as string[]).push(c));
-        patch.capabilities = Array.from(new Set(patch.capabilities as string[]));
-      }
-    }
-    patch.ownerUserId = ownerUserId;
-    // Always write category_key when it changed (it no longer auto-derives
-    // from archetype_key — since one archetype can have many categories).
-    const nextCategory = categoryKey === "__none" ? null : categoryKey;
-    if (nextCategory !== (provider.category_key ?? null)) {
-      patch.category_key = nextCategory;
-    }
-    onSave(patch);
-  };
-
-  return (
-    <div className="mt-6 space-y-4">
-      <div>
-        <Label>Name</Label>
-        <Input value={name} onChange={(e) => setName(e.target.value)} />
-      </div>
-      <div>
-        <Label>Service (archetype)</Label>
-        <Select value={archetypeKey} onValueChange={setArchetypeKey}>
-          <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__none">— none —</SelectItem>
-            {archetypes.map((a) => <SelectItem key={a.key} value={a.key}>{a.label}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        {archetypeKey !== (provider.archetype_key ?? "__none") && archetypeKey !== "__none" && (
-          <p className="mt-1 text-xs text-attention">
-            Changing service will merge archetype defaults into capabilities.
-          </p>
-        )}
-      </div>
-      <div>
-        <Label>Category</Label>
-        <Select value={categoryKey} onValueChange={setCategoryKey} disabled={archetypeKey === "__none" || scopedCategories.length === 0}>
-          <SelectTrigger><SelectValue placeholder={archetypeKey === "__none" ? "Pick a service first" : "—"} /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__none">— none —</SelectItem>
-            {scopedCategories.map((c) => <SelectItem key={c.key} value={c.key}>{c.label}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        {archetypeKey !== "__none" && scopedCategories.length === 0 && (
-          <p className="mt-1 text-xs text-muted-foreground">
-            No categories under this service yet — add one in Businesses → the service → Categories.
-          </p>
-        )}
-      </div>
-      <div>
-        <Label>Owner</Label>
-        <div className="mt-1.5">
-          <UserPicker
-            value={ownerUserId ?? ""}
-            onSelect={(u) => setOwnerUserId(u?.id ?? null)}
-            placeholder="Nobody — platform-run"
-            allowClear
-            clearLabel="Nobody — platform-run"
-          />
-        </div>
-        <p className="mt-1.5 text-xs text-muted-foreground">
-          The owner sees this business under My Business, with its Money and Team tabs.
-          Leave empty for a business the platform runs itself.
-        </p>
-      </div>
-      <div className="grid gap-3 md:grid-cols-2">
-        <div>
-          <Label>Contact email</Label>
-          <Input type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} />
-        </div>
-        <div>
-          <Label>Contact phone</Label>
-          <Input value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} />
-        </div>
-      </div>
-      {/* Bookings for this provider sync to this calendar. Cleaning used to push
-          every business into one shared calendar, so a car wash and an apartment
-          clean sat side by side and each business saw the other's schedule. */}
-      <div>
-        <Label>Google Calendar</Label>
-        <div className="mt-1.5 flex items-center gap-2">
-          <Input value={calendarId} readOnly placeholder="Not provisioned yet" className="font-mono text-xs" />
-          <Button
-            type="button"
-            variant="outline"
-            className="shrink-0"
-            disabled={provisioning}
-            onClick={onProvisionCalendar}
-          >
-            {provisioning ? "Working…" : calendarId.trim() ? "Repair" : "Provision"}
-          </Button>
-        </div>
-        <p className="mt-1.5 text-xs text-muted-foreground">
-          {calendarId.trim()
-            ? "This provider's bookings sync here."
-            : "Empty — bookings go to the shared cleaning calendar."}{" "}
-          The platform creates the calendar and shares it with the contact address; the
-          button is idempotent, so it is also the repair.
-        </p>
-      </div>
-      {/* One capability is left, and it works the same for every service — the
-          food provider is exactly who needs it. These were disabled for
-          legacy-backed businesses because the list also held two switches that
-          nothing read; those are gone (components/provider/capabilities.tsx). */}
-      <div>
-        <Label>Capabilities</Label>
-        <div className="mt-1.5 flex flex-wrap gap-1.5">
-          {(Object.keys(CAPABILITIES) as CapabilityKey[]).map((cap) => {
-            const on = caps.has(cap);
-            const meta = CAPABILITIES[cap];
-            const I = meta.icon;
-            return (
-              <button
-                key={cap}
-                type="button"
-                onClick={() => toggleCap(cap)}
-                className={cn(
-                  "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition hover:text-foreground",
-                  on ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground",
-                )}
-                title={meta.description}
-              >
-                <I className="h-3 w-3" /> {meta.label}
-              </button>
-            );
-          })}
-        </div>
-        <p className="mt-1.5 text-xs text-muted-foreground">
-          Delivery adds the delivery details block to this business's public profile.
-        </p>
-      </div>
-
-      <SheetFooter className="mt-4">
-        <Button onClick={submit} disabled={saving} loading={saving} loadingText="Saving…">Save changes</Button>
-      </SheetFooter>
-    </div>
-  );
-}
 
 // ─── Create form ────────────────────────────────────────────────────────────
 function CreateProviderForm({
