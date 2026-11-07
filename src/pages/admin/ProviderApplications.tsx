@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { ArrowLeft, Store, Check, X, Mail, Phone, MapPin, Clock } from "lucide-react";
+import { ArrowLeft, CarFront, Store, Check, X, Mail, Phone, MapPin, Clock } from "lucide-react";
 import { Link } from "react-router-dom";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { AdminListShell } from "@/components/admin/AdminListShell";
@@ -19,6 +19,8 @@ import { toast } from "sonner";
 import { SERVICES as SERVICE_REGISTRY, type ServiceKey } from "@/lib/services/registry";
 import { cn } from "@/lib/utils";
 import { StatusPill } from "@/components/patterns/StatusPill";
+import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
+import { patchApplication } from "@/lib/admin/providerApplications";
 
 type Filter = "pending" | "approved" | "rejected" | "all";
 
@@ -62,14 +64,14 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
   const [search, setSearch] = useState("");
   const [rejectTarget, setRejectTarget] = useState<any | null>(null);
   const [rejectNotes, setRejectNotes] = useState("");
+  const { archetypes } = useServiceArchetypes(true);
 
   const { data: apps = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: ["admin-provider-applications"],
     queryFn: async () => {
-      const { data, error } = await supabaseDb
-        .from("provider_applications").select("*").order("created_at", { ascending: false });
+      const { data, error } = await adminApi("/admin/provider-applications");
       if (error) throw error;
-      return (data ?? []) as any[];
+      return (Array.isArray(data) ? data : []) as any[];
     },
   });
 
@@ -89,9 +91,8 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
       // insert or status update failed) an admin retry could otherwise create
       // a *second* legacy provider row. Re-read the application in this
       // transaction and refuse to insert anything if it's already approved.
-      const { data: fresh } = await supabaseDb
-        .from("provider_applications").select("status, created_provider_id")
-        .eq("id", app.id).maybeSingle();
+      const { data: freshRows } = await adminApi(`/admin/provider-applications?id=${encodeURIComponent(app.id)}`);
+      const fresh = (Array.isArray(freshRows) ? freshRows[0] : null) as { status?: string; created_provider_id?: string | null } | null;
       if (fresh?.status === "approved" || fresh?.created_provider_id) {
         return { table: null, alreadyApproved: true } as const;
       }
@@ -151,6 +152,38 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
         return null;
       };
 
+      /**
+       * A rental company is the vehicles unit, not a marketplace service: no
+       * archetype, no category (Atlantis is the model). Its fleet, types and
+       * terms are set up under Transport.
+       */
+      if (app.unit === "vehicles") {
+        const { data: vRow, error: vErr } = await supabaseDb.from("providers").insert({
+          name: app.business_name,
+          description: app.description ?? null,
+          contact_email: app.contact_email ?? null,
+          contact_phone: app.contact_phone ?? null,
+          status: "draft",
+          unit: "vehicles",
+          capabilities: [],
+        }).select("id").single();
+        if (vErr) throw vErr;
+        const vId = vRow.id as string;
+        await patchApplication(app.id, { createdProviderId: vId });
+        let vOwner = false;
+        if (adminUserId) {
+          const { error: oErr } = await accountApi(`/account/providers/${vId}/owner`, { method: "PUT", body: JSON.stringify({ userId: adminUserId }) });
+          vOwner = !oErr;
+        }
+        await patchApplication(app.id, { status: "approved", createdProviderId: vId });
+        await logAuditEvent(userData!.id, "approve", "provider_application", app.id, { unit: "vehicles", createdProviderId: vId });
+        return { table: null, alreadyApproved: false, calendar: null, ownerAssigned: vOwner, hasApplicant: !!adminUserId, providerId: vId, appId: String(app.id) } as const;
+      }
+
+      if (!app.archetype_key && app.service === "other") {
+        throw new Error("This business picked “Something else”. Assign it a service on the card first (create one in Marketplace if it doesn't exist), then approve.");
+      }
+
       const categoryKey = await resolveCategoryKey();
       if (!categoryKey) {
         throw new Error(
@@ -185,9 +218,7 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
       if (mErr) throw mErr;
       createdProviderId = uRow?.id as string;
 
-      await supabaseDb.from("provider_applications")
-        .update({ created_provider_id: createdProviderId, updated_at: new Date().toISOString() })
-        .eq("id", app.id);
+      await patchApplication(app.id, { createdProviderId });
 
       if (table) {
         const { data, error } = await supabaseDb.from(table).insert({
@@ -224,14 +255,7 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
         else ownerAssigned = true;
       }
 
-      const { error: uErr } = await supabaseDb.from("provider_applications").update({
-        status: "approved",
-        created_provider_id: createdProviderId,
-        reviewed_by: userData?.id ?? null,
-        reviewed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      }).eq("id", app.id);
-      if (uErr) throw uErr;
+      await patchApplication(app.id, { status: "approved", createdProviderId });
       await logAuditEvent(userData!.id, "approve", "provider_application", app.id, { service: app.service, createdProviderId });
 
       // The provider does not bring a calendar — the platform makes one and
@@ -278,14 +302,7 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
 
   const reject = useMutation({
     mutationFn: async ({ app, notes }: { app: any; notes: string }) => {
-      const { error } = await supabaseDb.from("provider_applications").update({
-        status: "rejected",
-        review_notes: notes || null,
-        reviewed_by: userData?.id ?? null,
-        reviewed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      }).eq("id", app.id);
-      if (error) throw error;
+      await patchApplication(app.id, { status: "rejected", reviewNotes: notes || null });
       await logAuditEvent(userData!.id, "reject", "provider_application", app.id, {});
     },
     onSuccess: (_d, vars) => {
@@ -365,9 +382,11 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
           <div className="grid gap-3 md:grid-cols-2">
             {visible.map((a) => {
               const svc = SERVICE_REGISTRY[a.service as ServiceKey];
-              const Icon = svc?.icon ?? Store;
-              const serviceLabel = svc?.label ?? a.service;
-              const hasProviderTable = !!svc?.providers?.table;
+              const arche = archetypes.find((x) => x.key === a.archetype_key);
+              const Icon = a.unit === "vehicles" ? CarFront : arche?.Icon ?? svc?.icon ?? Store;
+              const serviceLabel = a.unit === "vehicles" ? "Rental company"
+                : a.service === "other" && !a.archetype_key ? "Something else — needs a service"
+                : arche?.label ?? svc?.label ?? a.service;
               const isPending = a.status === "pending";
               const isApproved = a.status === "approved";
               const isRejected = a.status === "rejected";
@@ -429,10 +448,8 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
                     </p>
                   )}
 
-                  {isApproved && !hasProviderTable && (
-                    <p className="text-[11px] text-muted-foreground">
-                      Auto-provider skipped for this service — set up manually in Providers.
-                    </p>
+                  {isPending && !a.archetype_key && a.unit !== "vehicles" && (
+                    <AssignService app={a} onDone={() => void qc.invalidateQueries({ queryKey: ["admin-provider-applications"] })} />
                   )}
 
                   {/* ── Actions ── */}
@@ -500,5 +517,25 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
     <SuperAdminLayout title="Provider applications" subtitle="Pending sign-ups from businesses that want to join a service">
       {body}
     </SuperAdminLayout>
+  );
+}
+
+/** "Something else" waits here until an admin names the service it belongs to. */
+function AssignService({ app, onDone }: { app: any; onDone: () => void }) {
+  const { archetypes } = useServiceArchetypes(true);
+  const [key, setKey] = useState("");
+  const save = useMutation({
+    mutationFn: () => patchApplication(app.id, { archetypeKey: key }),
+    onSuccess: () => { toast.success("Service assigned — you can approve it now"); onDone(); },
+    onError: (e: any) => toast.error(e?.message || "Could not assign"),
+  });
+  return (
+    <div className="flex items-center gap-2 rounded-radius-md bg-attention/10 p-2">
+      <select value={key} onChange={(e) => setKey(e.target.value)} className="h-10 min-w-0 flex-1 rounded-full bg-card px-3 text-body">
+        <option value="">Assign a service…</option>
+        {archetypes.map((x) => <option key={x.key} value={x.key}>{x.label}</option>)}
+      </select>
+      <Button size="sm" disabled={!key} loading={save.isPending} onClick={() => save.mutate()}>Assign</Button>
+    </div>
   );
 }

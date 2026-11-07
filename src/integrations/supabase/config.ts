@@ -89,6 +89,10 @@ const EDGE_ROUTES: RegExp[] = [
   /^\/promotions\/(active|events)$/,
   /^\/account\/providers\/[^/]+\/promotions(\/(boost|featured))?$/,
   /^\/admin\/promotions(\/settings|\/[^/]+\/end)?$/,
+  // Applications to sell (Edge routes/provider-applications.ts).
+  /^\/provider-applications\/options$/,
+  /^\/account\/provider-applications$/,
+  /^\/admin\/provider-applications(\/[^/]+)?$/,
 ];
 
 /** Full URL for an API path — the Edge Function if that path has moved, else the Nest API. */

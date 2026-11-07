@@ -24,6 +24,7 @@ import ServiceCategories from "./ServiceCategories";
 import MarketplaceProviders from "./MarketplaceProviders";
 import MarketplacePlans from "./MarketplacePlans";
 import ProviderApplications from "./ProviderApplications";
+import { fetchApplications } from "@/lib/admin/providerApplications";
 
 // Providers first: it is the tab the operator works in; categories are set once.
 const TABS = ["providers", "plans", "applications", "categories"] as const;
@@ -125,11 +126,9 @@ export default function MarketplaceServiceDetail() {
     queryKey: ["admin-provider-applications-pending-count", key],
     enabled: !isUnassigned,
     queryFn: async () => {
-      const { count, error } = await supabaseDb
-        .from("provider_applications").select("*", { count: "exact", head: true })
-        .eq("status", "pending").eq("archetype_key", key);
-      if (error) return 0;
-      return count ?? 0;
+      try {
+        return (await fetchApplications({ status: "pending" })).filter((a) => a.archetype_key === key).length;
+      } catch { return 0; }
     },
   });
 

@@ -10,6 +10,7 @@ import { supabaseDb } from "@/integrations/supabase/client";
 import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
 import { ServiceArchetypeDialog } from "@/components/admin/ServiceArchetypeDialog";
 import { cn } from "@/lib/utils";
+import { fetchApplications } from "@/lib/admin/providerApplications";
 
 /** Sentinel bucket for rows whose `archetype_key` is null. */
 const UNASSIGNED = "__unassigned";
@@ -52,8 +53,7 @@ export default function MarketplaceHub() {
           .from("providers").select("id, archetype_key, status, unit").eq("unit", "marketplace").order("id")),
         fetchAllRows<{ provider_id: string }>(() => supabaseDb
           .from("provider_plans").select("provider_id, status").order("id")),
-        fetchAllRows<{ archetype_key: string | null }>(() => supabaseDb
-          .from("provider_applications").select("archetype_key").eq("status", "pending").order("id")),
+        fetchApplications({ status: "pending" }),
       ]);
 
       const archetypeOfProvider = new Map(providerRows.map((p) => [p.id, p.archetype_key]));

@@ -24,6 +24,7 @@ import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
 import { CAPABILITIES, type CapabilityKey } from "@/components/provider/capabilities";
 import { profileCompleteness } from "@/lib/providerProfile";
 import { cn } from "@/lib/utils";
+import { fetchApplications } from "@/lib/admin/providerApplications";
 
 interface ProviderRow {
   id: string;
@@ -131,11 +132,7 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
   const { data: pendingApps = 0 } = useQuery({
     queryKey: ["admin-provider-applications-pending-count"],
     queryFn: async () => {
-      const { count, error } = await supabaseDb
-        .from("provider_applications").select("*", { count: "exact", head: true })
-        .eq("status", "pending");
-      if (error) return 0;
-      return count ?? 0;
+      try { return (await fetchApplications({ status: "pending" })).length; } catch { return 0; }
     },
   });
 

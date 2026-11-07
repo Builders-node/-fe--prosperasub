@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useState } from "react";
 import { adminRoutes } from "@/config/adminRoutes";
+import { fetchApplications } from "@/lib/admin/providerApplications";
 
 /**
  * Admin Overview.
@@ -247,7 +248,7 @@ const AdminDashboard = () => {
         return error ? 0 : c ?? 0;
       };
       const [applications, payouts, support, expiring, drafts, ready] = await Promise.all([
-        count(supabaseDb.from("provider_applications").select("id", { count: "exact", head: true }).eq("status", "pending")),
+        fetchApplications({ status: "pending" }).then((r) => r.length).catch(() => 0),
         count(supabaseDb.from("provider_payouts").select("id", { count: "exact", head: true }).in("status", ["requested", "approved"])),
         count(supabaseDb.from("support_messages").select("id", { count: "exact", head: true }).eq("status", "new")),
         count(supabaseDb.from("subscriptions_unified").select("id", { count: "exact", head: true })
