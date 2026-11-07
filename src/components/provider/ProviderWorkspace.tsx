@@ -5,7 +5,7 @@ import { StatusPill } from "@/components/patterns/StatusPill";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { WorkspaceTabsCard } from "@/components/provider/WorkspaceTabsCard";
-import { WorkspaceStat } from "@/components/provider/WorkspaceUI";
+import { WorkspaceSection, WorkspaceStat } from "@/components/provider/WorkspaceUI";
 import { useUserUuid } from "@/hooks/useUserUuid";
 import { useAuth } from "@/contexts/AuthContext";
 import { accountApi } from "@/integrations/supabase/client";
@@ -74,9 +74,6 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
     if (on) q.set(PROFILE_EDIT_PARAM, "profile"); else q.delete(PROFILE_EDIT_PARAM);
     return q;
   }, { replace: true });
-  // The details sit in the header card on Overview only; on Schedule they
-  // would push the day's work a screen down for a phone number nobody wants.
-  const onOverview = (params.get("tab") ?? INFO_TAB_META.tabValue) === INFO_TAB_META.tabValue;
 
   const { data: provider, isLoading } = useQuery({
     queryKey: ["universal-provider", providerId],
@@ -274,6 +271,12 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
           />
         )}
         {custom.infoExtra?.(workspaceCtx)}
+        {/* How to reach the business, last on Overview: reference, not the
+            first thing an owner opens the workspace for. No Edit of its own —
+            the one Edit is in the title bar (phone) or the header card. */}
+        <WorkspaceSection title="Details" subtitle="Shown to customers on your page">
+          <ProviderDetailsRows provider={provider} />
+        </WorkspaceSection>
       </div>
     ),
   };
@@ -425,14 +428,7 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
               <Edit className="h-4 w-4" /> Edit
             </Button>
           </div>
-          {/* Who this is and how to reach it, in one block. It used to be a
-              second "Information" card further down Overview, with its own
-              Edit, repeating the description this card already shows. */}
-          {onOverview && (
-            <div className="mt-4">
-              <ProviderDetailsRows provider={provider} />
-            </div>
-          )}
+
           {/* A business still under review needs telling; an approved one does
               not need a badge saying so on every visit. */}
           {provider.status && !["approved", "active"].includes(provider.status) && (
