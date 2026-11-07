@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useSeo } from "@/hooks/useSeo";
 import { useQuery } from "@tanstack/react-query";
 import { useArchetypeLabel } from "@/hooks/useServiceArchetypes";
 import { useNavigate } from "react-router-dom";
@@ -44,6 +45,11 @@ interface CleaningCategory {
 }
 
 const CleaningPackages = () => {
+  useSeo({
+    title: "Home cleaning in Roatán",
+    description: "Weekly and monthly apartment and house cleaning plans on Roatán. Pick a plan, choose your days, pay online.",
+    path: "/services/cleaning",
+  });
   const navigate = useNavigate();
   // Back returns to where the visitor actually was; this path is only
   // the fallback for a cold landing. See hooks/useGoBack.

@@ -1,4 +1,5 @@
 import { describeEntitlement, readEntitlements } from "@/lib/plans/entitlements";
+import { gaItem, trackEvent } from "@/lib/analytics/ga";
 import { Photo } from "@/components/patterns/Photo";
 import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
@@ -294,6 +295,15 @@ const PlanDetail = () => {
   // A shared plan link used to preview as the site's own front page; a search
   // result for it said nothing about the plan. Both read the plan now.
   const seoPath = plan ? `/services/${archetypeKey || "plans"}/plans/${plan.id}` : null;
+  useEffect(() => {
+    if (!plan) return;
+    trackEvent("view_item", {
+      currency: "USD",
+      value: (plan.priceCents ?? 0) / 100,
+      items: [gaItem({ id: String(plan.id), name: offer?.name ?? plan.title, priceCents: plan.priceCents, category: archetypeKey ?? null })],
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plan?.id]);
   useSeo({
     // The offer's name, not the variant's: a tab reading "Mon-Fri: 1 Time"
     // on a page headed "Meal Plan" named the wrong thing.

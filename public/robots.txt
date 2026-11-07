@@ -1,17 +1,18 @@
-User-agent: Googlebot
-Allow: /
-
-User-agent: Bingbot
-Allow: /
-
-User-agent: Twitterbot
-Allow: /
-
-User-agent: facebookexternalhit
-Allow: /
-
+# Public pages are open; a person's own pages, checkout and the admin are not
+# worth crawling (and carry `noindex` too, see src/components/seo/RouteRobots).
 User-agent: *
 Allow: /
+Disallow: /admin
+Disallow: /account
+Disallow: /my-
+Disallow: /cart
+Disallow: /checkout
+Disallow: /history
+Disallow: /notifications
+Disallow: /claim-business
+Disallow: /verify
+Disallow: /oauth
+Disallow: /*/checkout/
 
 # Every public URL, with a real lastmod — the app is a single page, so a
 # crawler cannot discover a plan or a provider by following markup alone.

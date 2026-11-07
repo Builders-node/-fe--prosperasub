@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { useSeo } from "@/hooks/useSeo";
 import { UserLayout } from "@/components/layout/UserLayout";
 
 /**
@@ -18,14 +19,16 @@ export const LEGAL_CONTACT = {
   whatsappHref: "https://wa.me/50497067865",
 };
 
-export function LegalPage({ title, updated, intro, sections, other }: {
+export function LegalPage({ title, updated, intro, sections, other, path }: {
   title: string;
   updated: string;
   intro: string;
   sections: LegalSection[];
   /** The sibling document, linked at the bottom. */
   other: { label: string; to: string };
+  path: string;
 }) {
+  useSeo({ title, description: intro, path });
   return (
     <UserLayout title={title} showBackButton allowGuest showBottomNav={false}>
       <div className="mx-auto max-w-[760px] space-y-1 py-4">

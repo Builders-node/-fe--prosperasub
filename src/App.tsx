@@ -1,4 +1,6 @@
 import { lazy, Suspense } from "react";
+import { RouteEffects } from "@/components/seo/RouteEffects";
+import { ConsentBanner } from "@/components/seo/ConsentBanner";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider, QueryCache } from "@tanstack/react-query";
@@ -204,6 +206,9 @@ const App = () => {
                 <SiteAdBanner />
                 {/* Remembers a ?ref= code until there is an account to attach it to. */}
                 <ReferralCapture />
+                {/* noindex on private routes + GA4 page views (after consent). */}
+                <RouteEffects />
+                <ConsentBanner />
                 <Suspense fallback={<PageFallback />}>
                 <Routes>
               {/* Home → Discovery */}

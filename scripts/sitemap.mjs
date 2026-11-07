@@ -56,26 +56,45 @@ const main = async () => {
   // Services a visitor can browse — the archetype is the listing.
   const archetypes = await rows("service_archetypes?select=key,updated_at&is_active=eq.true");
   for (const a of archetypes) {
-    entries.push(url(`/services/${a.key}`, { lastmod: a.updated_at, changefreq: "daily", priority: 0.9 }));
+    if (a.key === "vehicles" || a.key === "rental") continue; // /vehicles, above
+    entries.push(url(`/services/${a.key === "entertainment" ? "beach-club" : a.key}`, { lastmod: a.updated_at, changefreq: "daily", priority: 0.9 }));
   }
 
-  // Businesses. A provider page is the richest public page the platform has.
-  const providers = await rows("providers?select=id,unit,updated_at&status=eq.active");
+  // The URL segment a service uses (src/lib/services/serviceUrls.ts KEY_TO_SLUG).
+  const slugOf = (key) => (key === "entertainment" ? "beach-club" : key);
+
+  // Businesses. A provider page is the richest public page the platform has —
+  // and only car rentals used to be listed, so Google had no address for any
+  // restaurant, cleaner or club.
+  const providers = await rows("providers?select=id,unit,archetype_key,source_service_key,source_provider_id,updated_at&status=eq.active");
+  const providerById = new Map(providers.map((p) => [p.id, p]));
   for (const p of providers) {
-    const path = p.unit === "vehicles" ? `/vehicles/providers/${p.id}` : null;
+    let path = null;
+    if (p.unit === "vehicles") path = `/vehicles/providers/${p.id}`;
+    else if (p.archetype_key) path = `/services/${slugOf(p.archetype_key)}/providers/${p.id}`;
     if (path) entries.push(url(path, { lastmod: p.updated_at, priority: 0.8 }));
   }
 
-  // Offers, by the id the storefront links them with.
-  const plans = await rows("provider_plans?select=id,source_plan_id,source_service_key,updated_at&status=eq.active&visibility=eq.public&parent_plan_id=is.null");
+  // Offers, by the id the storefront links them with — under their business's
+  // service (the old code used the table's key, so universal plans pointed at
+  // /services/plans/…, a page that does not exist).
+  const plans = await rows("provider_plans?select=id,provider_id,source_plan_id,updated_at&status=eq.active&visibility=eq.public&parent_plan_id=is.null");
   for (const plan of plans) {
-    const service = plan.source_service_key || "plan";
+    const p = providerById.get(plan.provider_id);
+    if (!p || !p.archetype_key || p.unit === "vehicles") continue;
     const id = plan.source_plan_id || plan.id;
-    if (service === "food") continue; // food plans live under a provider-scoped URL
-    entries.push(url(`/services/${service === "plan" ? "plans" : service}/plans/${id}`, {
-      lastmod: plan.updated_at, priority: 0.7,
-    }));
+    // Food's old provider-scoped plan URL only forwards here.
+    const path = `/services/${slugOf(p.archetype_key)}/plans/${id}`;
+    entries.push(url(path, { lastmod: plan.updated_at, priority: 0.7 }));
   }
+
+  // The pages anyone may land on.
+  entries.push(
+    url("/become-a-provider", { changefreq: "monthly", priority: 0.5 }),
+    url("/support", { changefreq: "monthly", priority: 0.3 }),
+    url("/terms", { changefreq: "yearly", priority: 0.2 }),
+    url("/privacy", { changefreq: "yearly", priority: 0.2 }),
+  );
 
   // Every car on the fleet.
   const vehicles = await rows("rental_vehicles?select=id,updated_at&status=eq.public");

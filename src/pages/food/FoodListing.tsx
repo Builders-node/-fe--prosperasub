@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useSeo } from "@/hooks/useSeo";
 import { useQuery } from "@tanstack/react-query";
 import { useArchetypeLabel } from "@/hooks/useServiceArchetypes";
 import { useNavigate } from "react-router-dom";
@@ -33,6 +34,11 @@ type ProviderWithPlans = FoodProvider & {
 };
 
 const FoodListing = () => {
+  useSeo({
+    title: "Meal plans in Roatán",
+    description: "Weekly meal subscriptions from local Roatán kitchens — lunch and dinner delivered, menus that change every week.",
+    path: "/services/food",
+  });
   const navigate = useNavigate();
   // Back returns to where the visitor actually was; this path is only
   // the fallback for a cold landing. See hooks/useGoBack.

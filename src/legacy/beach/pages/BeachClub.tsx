@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useSeo } from "@/hooks/useSeo";
 import { useNavigate } from "react-router-dom";
 import { useGoBack } from "@/hooks/useGoBack";
 import { useQuery } from "@tanstack/react-query";
@@ -45,6 +46,11 @@ interface EntertainmentCategory {
 }
 
 const BeachClub = () => {
+  useSeo({
+    title: "Beach club memberships in Roatán",
+    description: "Monthly beach club memberships and court bookings on Roatán — pick a plan for yourself or your family.",
+    path: "/services/beach-club",
+  });
   const navigate = useNavigate();
   // Back returns to where the visitor actually was; this path is only
   // the fallback for a cold landing. See hooks/useGoBack.

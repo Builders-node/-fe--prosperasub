@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { gaItem, trackEvent } from "@/lib/analytics/ga";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { CheckoutStickyFooter } from "@/components/patterns/CheckoutStickyFooter";
@@ -302,9 +303,22 @@ const UniversalPlanCheckout = () => {
   const endDate = renewWindow?.end
     ?? (plan ? endDateOf(plan, startDate, periods) : new Date(`${startDate}T00:00:00`));
 
+  // GA4: what was about to be bought, and that it was.
+  const gaItems = plan ? [gaItem({ id: String(plan.universalId), name: plan.name, priceCents: totalCents, brand: plan.providerName ?? null })] : [];
+  const checkoutTracked = useRef(false);
+  useEffect(() => {
+    if (!plan || totalCents <= 0 || checkoutTracked.current) return;
+    checkoutTracked.current = true;
+    trackEvent("begin_checkout", { currency: "USD", value: totalCents / 100, items: gaItems });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plan?.universalId, totalCents]);
+  const trackPurchase = (ref: string, method: string) =>
+    trackEvent("purchase", { transaction_id: ref, currency: "USD", value: afterPromoCents / 100, payment_type: method, items: gaItems });
+
   const inv = useInvoicePayment({
     onPaid: (paymentRef, method) => {
       setIsPaid(true);
+      trackPurchase(paymentRef, method);
       if (!mutationCalledRef.current) {
         mutationCalledRef.current = true;
         createSubscription.mutate({ paymentRef, status: "paid", method });
@@ -515,6 +529,7 @@ const UniversalPlanCheckout = () => {
 
   const onExternalPaid = (ref: string, method: "crypto_gateway" | "paypal") => {
     setIsPaid(true);
+    trackPurchase(ref, method);
     if (!mutationCalledRef.current) {
       mutationCalledRef.current = true;
       createSubscription.mutate({ paymentRef: ref, status: "paid", method });

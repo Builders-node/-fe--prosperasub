@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useSeo } from "@/hooks/useSeo";
 import { Link } from "react-router-dom";
 import { Users, ChevronRight, ChefHat, QrCode, Store } from "lucide-react";
 import { useServiceCategories } from "@/hooks/useServiceCategories";
@@ -44,6 +45,22 @@ const FAMILY_LABELS: Record<string, string> = {
 };
 
 const Discovery = () => {
+  useSeo({
+    title: "Subscriptions and services in Roatán",
+    description: "Meal plans, home cleaning, memberships, car rentals and more from local businesses on Roatán — subscribe in a minute, pay with Bitcoin, card or PayPal.",
+    path: "/discovery",
+    jsonLd: {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      name: "EverySub",
+      url: "https://everysub.net",
+      potentialAction: {
+        "@type": "SearchAction",
+        target: "https://everysub.net/search?q={search_term_string}",
+        "query-input": "required name=search_term_string",
+      },
+    },
+  });
   const { userData } = useAuth();
   const { hasAny: managesBusiness } = useMyBusinesses();
   const { archetypes: allArchetypes, isLoading: archetypesLoading } = useServiceArchetypes(true);

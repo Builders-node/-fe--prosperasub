@@ -28,7 +28,7 @@ const SECTIONS: LegalSection[] = [
       "• To take and confirm payments, and to send payouts to providers.",
       "• To send you what you need to know: order confirmations, reminders before a subscription ends, schedule changes and replies to support.",
       "• To keep the platform safe: preventing fraud and abuse, and keeping an audit record of admin actions.",
-      "• To improve EverySub using totals and trends (for example revenue by service). We do not use advertising trackers and we do not sell your data.",
+      "• To improve EverySub using totals and trends (for example revenue by service), and — only if you allow it — Google Analytics (see Cookies below). We do not run ads and we do not sell your data.",
     ],
   },
   {
@@ -38,6 +38,7 @@ const SECTIONS: LegalSection[] = [
       "• Payment processors: Blink (Bitcoin and Lightning) and PayPal, for the payments you make through them.",
       "• Google, if you sign in with Google, and for the booking calendars providers use to schedule visits.",
       "• Our infrastructure: Supabase (database and storage) and Vercel (hosting), and our email delivery provider.",
+      "• Google Analytics, only if you allowed it: which pages were viewed, the device and browser type, the rough location derived from your IP (shortened before storage), and anonymous events such as starting a checkout. Never your name, email, phone or address.",
       "• Authorities, when the law requires it.",
       "Each of these handles data under its own terms and only for the purpose above.",
     ],
@@ -45,7 +46,9 @@ const SECTIONS: LegalSection[] = [
   {
     title: "Cookies and storage on your device",
     body: [
-      "We keep your sign-in session, your cart, your theme (light or dark) and a few interface choices in your browser's storage so the app works between visits. These are not used for advertising, and we use no third-party tracking cookies.",
+      "We keep your sign-in session, your cart, your theme (light or dark) and a few interface choices in your browser's storage so the app works between visits.",
+      "Google Analytics cookies are set only after you press \"Allow\" on the analytics notice. If you press \"Decline\", nothing is loaded and we remember your choice. To change your mind, clear this site's data in your browser and choose again.",
+      "We use no advertising or cross-site tracking cookies.",
     ],
   },
   {
@@ -90,6 +93,7 @@ export default function Privacy() {
       updated="November 7, 2026"
       intro="This policy explains what EverySub collects when you use everysub.net, why, who it is shared with, and what you can ask us to do with it."
       sections={SECTIONS}
+      path="/privacy"
       other={{ label: "Terms of Service", to: "/terms" }}
     />
   );

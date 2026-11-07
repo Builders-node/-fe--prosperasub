@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useSeo } from "@/hooks/useSeo";
 import { useNavigate, useParams } from "react-router-dom";
 import { useGoBack } from "@/hooks/useGoBack";
 import { useQuery } from "@tanstack/react-query";
@@ -62,6 +63,15 @@ const ServicePage = () => {
   const { archetypes, isLoading: archetypesLoading } = useServiceArchetypes(!preview);
 
   const archetype = archetypes.find((a) => a.key === archetypeKey);
+  // Hooks before any early return (Rules of Hooks, see CLAUDE.md).
+  useSeo({
+    title: archetype ? `${archetype.label} in Roatán` : null,
+    description: archetype
+      ? (archetype as { description?: string | null }).description
+        || `${archetype.label} from local businesses on Roatán — compare plans and subscribe on EverySub.`
+      : null,
+    path: archetypeKey ? `/services/${archetypeKey}` : null,
+  });
 
   const providersQ = useQuery({
     queryKey: ["service-providers-public", archetypeKey, preview],

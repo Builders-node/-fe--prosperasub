@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { gaItem, trackEvent } from "@/lib/analytics/ga";
 import { supabase, accountApi } from '@/integrations/supabase/client';
 
 type User = {
@@ -322,6 +323,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // If signup successful, create user role
     // Note: The trigger handle_new_auth_user will create the public.users row
     if (!error && data.user) {
+      trackEvent("sign_up", { method: "email" });
       await supabase.from('user_roles').insert({
         user_id: data.user.id,
         role: 'user',

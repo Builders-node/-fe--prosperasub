@@ -1,4 +1,6 @@
 import { useEffect, useRef } from "react";
+import { gaItem, trackEvent } from "@/lib/analytics/ga";
+import { useSeo } from "@/hooks/useSeo";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, X } from "lucide-react";
 import { BottomNav } from "@/components/layout/BottomNav";
@@ -23,6 +25,7 @@ import { useCategoryHighlights } from "@/hooks/useCategoryHighlights";
  * of.
  */
 const SearchPage = () => {
+  useSeo({ title: "Search", description: "Search plans, services and businesses on EverySub, Roatán.", path: "/search" });
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const query = params.get("q") ?? "";
@@ -30,6 +33,14 @@ const SearchPage = () => {
 
   const { results, isLoading, isError, error, refetch } = useGlobalSearch(query);
   const { highlights } = useCategoryHighlights();
+
+  // GA4 "search" once the visitor stops typing.
+  const qParam = params.get("q") ?? "";
+  useEffect(() => {
+    if (qParam.trim().length < 2) return;
+    const t = window.setTimeout(() => trackEvent("search", { search_term: qParam.trim() }), 1200);
+    return () => window.clearTimeout(t);
+  }, [qParam]);
 
   // Opening the search means wanting to type.
   useEffect(() => { inputRef.current?.focus(); }, []);

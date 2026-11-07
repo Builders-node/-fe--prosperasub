@@ -101,6 +101,7 @@ export default function Terms() {
       updated="November 7, 2026"
       intro="These terms apply when you use EverySub — the website and app at everysub.net — to find, buy and manage services. By creating an account or placing an order you agree to them."
       sections={SECTIONS}
+      path="/terms"
       other={{ label: "Privacy Policy", to: "/privacy" }}
     />
   );

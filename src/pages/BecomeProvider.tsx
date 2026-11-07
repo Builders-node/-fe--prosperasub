@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { gaItem, trackEvent } from "@/lib/analytics/ga";
+import { useSeo } from "@/hooks/useSeo";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Store, CheckCircle2, Clock, XCircle, Building2, Mail, MessageCircle, MapPin, FileText } from "lucide-react";
 import { UserLayout } from "@/components/layout/UserLayout";
@@ -20,6 +22,11 @@ const STATUS_META: Record<string, { label: string; className: string; Icon: type
 };
 
 export default function BecomeProvider() {
+  useSeo({
+    title: "Sell your services on EverySub",
+    description: "List your Roatán business on EverySub: subscriptions, bookings and payments in Bitcoin, card or PayPal, paid out to you directly.",
+    path: "/become-a-provider",
+  });
   const { userData } = useAuth();
   const { openAuthModal } = useAuthModal();
   const qc = useQueryClient();
@@ -79,6 +86,7 @@ export default function BecomeProvider() {
       if (error) throw error;
     },
     onSuccess: () => {
+      trackEvent("generate_lead", { lead_type: "provider_application" });
       toast.success("Application submitted!");
       setBusinessName(""); setContactPhone(""); setResidence(""); setDescription("");
       setJustSubmitted(true);

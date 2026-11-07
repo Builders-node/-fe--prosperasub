@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSeo } from "@/hooks/useSeo";
 import { useNavigate } from "react-router-dom";
 import { CheckCircle2, LifeBuoy, Mail, MessageCircle, Send } from "lucide-react";
 import { toast } from "sonner";
@@ -30,6 +31,7 @@ const SUPPORT_WHATSAPP = "+50488776655";
 const SUPPORT_EMAIL = "support@prosperasub.com";
 
 export default function Support() {
+  useSeo({ title: "Support", description: "Questions about an order, a payment or a business on EverySub? Write to us.", path: "/support" });
   const navigate = useNavigate();
   const { userData, isAuthenticated } = useAuth();
 
