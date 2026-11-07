@@ -46,6 +46,15 @@ export function uniqueKey(label: string, taken: string[], fallback: string): str
 export const comboKey = (groups: DraftGroup[], combo: Record<string, string>) =>
   groups.map((g) => `${g.key}=${combo[g.key] ?? ""}`).join("|");
 
+/** Move one item to another index (the rest keep their order). */
+function moveTo<T>(items: T[], from: number, to: number): T[] {
+  if (to < 0 || to >= items.length || from === to) return items;
+  const next = [...items];
+  const [item] = next.splice(from, 1);
+  next.splice(to, 0, item);
+  return next;
+}
+
 const STARTERS: Array<{ label: string; values: string[] }> = [
   { label: "Size", values: ["Small", "Medium", "Large"] },
   { label: "Days per week", values: ["3 days", "5 days", "7 days"] },
@@ -69,6 +78,8 @@ export function OptionsEditor({ groups, setGroups, prices, setPrices, combos, pe
 }) {
   const [opened, setOpened] = useState(groups.length > 0);
   const [fill, setFill] = useState("");
+  /** The answer being dragged (desktop reorder; the chip menu does it on a phone). */
+  const [drag, setDrag] = useState<{ gi: number; oi: number } | null>(null);
 
   const addGroup = (label: string, values: string[] = []) => {
     setGroups((gs) => {
@@ -182,19 +193,24 @@ export function OptionsEditor({ groups, setGroups, prices, setPrices, combos, pe
             </div>
 
             {/* The answers. */}
-            <p className="mt-3 text-meta text-muted-foreground">Customer picks one:</p>
+            <p className="mt-3 text-meta text-muted-foreground">Customer picks one — tap an answer to rename or move it, or drag it:</p>
             <div className="mt-1.5 flex flex-wrap items-center gap-2">
               {g.options.map((o, oi) => (
-                <span key={o.key} className="inline-flex h-9 items-center gap-1 rounded-full bg-card pl-3.5 pr-1.5 text-body font-semibold text-foreground ring-1 ring-border">
-                  {o.label}
-                  <button
-                    type="button" aria-label={`Remove ${o.label}`}
-                    onClick={() => patchGroup(gi, (x) => ({ ...x, options: x.options.filter((_, j) => j !== oi) }))}
-                    className="flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </span>
+                <AnswerChip
+                  key={o.key}
+                  label={o.label}
+                  first={oi === 0}
+                  last={oi === g.options.length - 1}
+                  taken={g.options.filter((_, j) => j !== oi).map((x) => x.label.toLowerCase())}
+                  onRename={(label) => patchGroup(gi, (x) => ({ ...x, options: x.options.map((y, j) => (j === oi ? { ...y, label } : y)) }))}
+                  onMove={(step) => patchGroup(gi, (x) => ({ ...x, options: moveTo(x.options, oi, oi + step) }))}
+                  onRemove={() => patchGroup(gi, (x) => ({ ...x, options: x.options.filter((_, j) => j !== oi) }))}
+                  onDragStart={() => setDrag({ gi, oi })}
+                  onDrop={() => {
+                    if (drag && drag.gi === gi && drag.oi !== oi) patchGroup(gi, (x) => ({ ...x, options: moveTo(x.options, drag.oi, oi) }));
+                    setDrag(null);
+                  }}
+                />
               ))}
               <AddValue
                 startOpen={g.options.length === 0}
@@ -340,8 +356,78 @@ export function OptionsEditor({ groups, setGroups, prices, setPrices, combos, pe
   );
 }
 
+/**
+ * One answer. Tap it for Rename / Move / Remove (works on a phone); drag it on
+ * a computer. Renaming keeps its key, so the prices typed for it stay put.
+ */
+function AnswerChip({ label, first, last, taken, onRename, onMove, onRemove, onDragStart, onDrop }: {
+  label: string; first: boolean; last: boolean; taken: string[];
+  onRename: (label: string) => void; onMove: (step: -1 | 1) => void; onRemove: () => void;
+  onDragStart: () => void; onDrop: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(label);
+  const [over, setOver] = useState(false);
+  const commit = () => {
+    const v = draft.trim();
+    if (v && v !== label && !taken.includes(v.toLowerCase())) onRename(v);
+    setEditing(false);
+  };
+  if (editing) {
+    return (
+      <Input
+        autoFocus value={draft} onChange={(e) => setDraft(e.target.value)}
+        onFocus={(e) => e.currentTarget.select()}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") { e.preventDefault(); commit(); }
+          if (e.key === "Escape") { setDraft(label); setEditing(false); }
+        }}
+        onBlur={commit}
+        inputSize="sm" className="w-44 bg-card" aria-label={`Rename ${label}`}
+      />
+    );
+  }
+  return (
+    <span
+      draggable
+      onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; onDragStart(); }}
+      onDragOver={(e) => { e.preventDefault(); setOver(true); }}
+      onDragLeave={() => setOver(false)}
+      onDrop={(e) => { e.preventDefault(); setOver(false); onDrop(); }}
+      className={cn(
+        "inline-flex h-9 cursor-grab items-center rounded-full bg-card text-body font-semibold text-foreground ring-1 ring-border active:cursor-grabbing",
+        over && "ring-2 ring-primary",
+      )}
+    >
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button type="button" className="h-full rounded-l-full pl-3.5 pr-1.5 hover:bg-muted/60" aria-label={`${label} — edit`}>
+            {label}
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start">
+          <DropdownMenuItem onSelect={() => { setDraft(label); setEditing(true); }}>Rename</DropdownMenuItem>
+          <DropdownMenuItem disabled={first} onSelect={() => onMove(-1)}>Move earlier</DropdownMenuItem>
+          <DropdownMenuItem disabled={last} onSelect={() => onMove(1)}>Move later</DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem className="text-negative" onSelect={onRemove}>Remove</DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <button
+        type="button" aria-label={`Remove ${label}`} onClick={onRemove}
+        className="mr-1.5 flex h-6 w-6 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+      >
+        <X className="h-3.5 w-3.5" />
+      </button>
+    </span>
+  );
+}
+
 function NewChoice({ onAdd, first }: { onAdd: (label: string) => void; first: boolean }) {
-  const [open, setOpen] = useState(first);
+  // Open by choice — or always while there is no question yet. Remembering
+  // `first` from the first render kept it open once the plan's questions loaded.
+  const [opened, setOpen] = useState(false);
+  const open = first || opened;
   const [label, setLabel] = useState("");
   const submit = () => { if (label.trim()) { onAdd(label.trim()); setLabel(""); setOpen(false); } };
   if (!open) {
