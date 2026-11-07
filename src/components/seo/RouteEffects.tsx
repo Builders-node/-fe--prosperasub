@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
-import { loadGa, readConsent, trackPage } from "@/lib/analytics/ga";
+import { clarityForPath, loadGa, readConsent, trackPage } from "@/lib/analytics/ga";
 
 /**
  * Per-route side effects that every page needs and no page should have to
@@ -33,7 +33,13 @@ export function RouteEffects() {
   }, []);
 
   useEffect(() => {
-    setRobots(PRIVATE.some((re) => re.test(pathname)) || new URLSearchParams(search).get("preview") === "1");
+    const isPrivate = PRIVATE.some((re) => re.test(pathname));
+    setRobots(isPrivate || new URLSearchParams(search).get("preview") === "1");
+    // Clarity: a person's own pages (addresses, orders, a business's
+    // customers) are recorded with ALL text masked, not just form fields.
+    if (isPrivate) document.body.setAttribute("data-clarity-mask", "true");
+    else document.body.removeAttribute("data-clarity-mask");
+    clarityForPath(pathname);
     // After the page's own title effect has run.
     const t = window.setTimeout(() => trackPage(pathname + search), 0);
     return () => window.clearTimeout(t);

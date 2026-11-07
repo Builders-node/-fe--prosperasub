@@ -9,6 +9,8 @@
  * The Privacy Policy describes exactly this (pages/legal/Privacy.tsx).
  */
 export const GTM_ID = (import.meta.env.VITE_GTM_ID as string | undefined)?.trim() || "GTM-55NGLL5G";
+/** Microsoft Clarity (session recordings, heatmaps) — same consent as GTM. */
+export const CLARITY_ID = (import.meta.env.VITE_CLARITY_ID as string | undefined)?.trim() || "z9u1m2ek41";
 /** Kept for the consent banner's "is analytics configured" check. */
 export const GA_ID = GTM_ID;
 
@@ -16,7 +18,10 @@ const CONSENT_KEY = "everysub.analytics-consent";
 export type Consent = "granted" | "denied";
 
 declare global {
-  interface Window { dataLayer?: Record<string, unknown>[] }
+  interface Window {
+    dataLayer?: Record<string, unknown>[];
+    clarity?: ((...args: unknown[]) => void) & { q?: unknown[] };
+  }
 }
 
 export function readConsent(): Consent | null {
@@ -36,10 +41,33 @@ let loaded = false;
 const isAdminPath = (p: string) => p.startsWith("/admin");
 const push = (o: Record<string, unknown>) => { (window.dataLayer = window.dataLayer || []).push(o); };
 
-/** Inject gtm.js once (the container's standard bootstrap, after consent). */
+/** Clarity's standard bootstrap: a queueing stub, then the tag. */
+function loadClarity() {
+  if (!CLARITY_ID || window.clarity) return;
+  const stub = ((...args: unknown[]) => { (stub.q = stub.q || []).push(args); }) as NonNullable<Window["clarity"]>;
+  window.clarity = stub;
+  const s = document.createElement("script");
+  s.async = true;
+  s.src = `https://www.clarity.ms/tag/${encodeURIComponent(CLARITY_ID)}`;
+  document.head.appendChild(s);
+  window.clarity("consent");
+}
+
+/**
+ * Recording follows the route: Clarity is stopped on admin screens (they show
+ * customers' names, addresses and money) and started again outside them.
+ */
+export function clarityForPath(path: string) {
+  if (!window.clarity || readConsent() !== "granted") return;
+  window.clarity(isAdminPath(path) ? "stop" : "start");
+}
+
+/** Inject gtm.js and Clarity once, after consent. */
 export function loadGa() {
-  if (loaded || !GTM_ID || typeof window === "undefined") return;
+  if (loaded || typeof window === "undefined") return;
   loaded = true;
+  if (!isAdminPath(window.location.pathname)) loadClarity();
+  if (!GTM_ID) return;
   push({ "gtm.start": Date.now(), event: "gtm.js" });
   const s = document.createElement("script");
   s.async = true;

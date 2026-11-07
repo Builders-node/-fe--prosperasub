@@ -1,5 +1,5 @@
 # Public pages are open; a person's own pages, checkout and the admin are not
-# worth crawling (and carry `noindex` too, see src/components/seo/RouteRobots).
+# worth crawling (and carry `noindex` too, see src/components/seo/RouteEffects).
 User-agent: *
 Allow: /
 Disallow: /admin
