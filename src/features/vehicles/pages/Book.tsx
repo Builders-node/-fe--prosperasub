@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Photo } from "@/components/patterns/Photo";
-import { useParams, useSearchParams, useNavigate } from "react-router-dom";
+import { useLocation, useParams, useSearchParams, useNavigate } from "react-router-dom";
+import { useAuthModal } from "@/contexts/AuthModalContext";
 import { differenceInCalendarDays, format } from "date-fns";
 import { toast } from "sonner";
 import { Car, ShieldCheck, Check, ChevronRight, MapPin } from "lucide-react";
@@ -34,6 +35,8 @@ export default function Book() {
   const { id } = useParams<{ id: string }>();
   const [params] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { openAuthModal } = useAuthModal();
   const { isAuthenticated, userData } = useAuth();
   const { data: v, isLoading } = useVehicle(id);
   // The terms on offer are the ones belonging to the business that owns
@@ -235,7 +238,7 @@ export default function Book() {
   if (isLoading) return <AppContainer className="flex justify-center py-24"><Spinner /></AppContainer>;
   if (!v || !pricing || problem) return (
     <AppContainer className="py-24 text-center">
-      <p className="text-[16px] font-semibold text-foreground">
+      <p className="text-title font-semibold text-foreground">
         {problem ?? "Something's missing for this booking."}
       </p>
       <Button variant="secondary" className="mt-3" onClick={() => navigate(v ? carPath(`vehicle/${v.id}`) : carPath())}>
@@ -262,39 +265,46 @@ export default function Book() {
 
   return (
     <AppContainer className={cn("py-6", step === "form" && "pb-[calc(var(--checkout-footer-h,120px)+16px)]")}>
-      <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
-        <div className="space-y-4">
+      <div className="grid gap-1 lg:grid-cols-[1fr_360px] lg:gap-4">
+        <div className="space-y-1">
           {step === "form" ? (
             <>
               {/* Details */}
-              <div className="space-y-3 rounded-radius-md bg-card p-5 shadow-figma">
+              <div className="space-y-3 rounded-radius-lg bg-card p-4">
                 <h2 className="text-title font-semibold text-foreground">Your details</h2>
-                <div><Label>Full name *</Label><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" /></div>
-                <div><Label>WhatsApp</Label><Input type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} placeholder="+504 …" /></div>
-                <div><Label>Notes (optional)</Label><Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} /></div>
+                <div className="space-y-1.5"><Label>Full name</Label><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" /></div>
+                <div className="space-y-1.5"><Label>WhatsApp</Label><Input type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} placeholder="+504 …" /></div>
+                <div className="space-y-1.5"><Label>Notes (optional)</Label><Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} /></div>
               </div>
 
               {/* Insurance + Delivery — summary rows opening a sheet (DESIGN.md §9) */}
-              <div className="overflow-hidden rounded-radius-md bg-card shadow-figma divide-y divide-border/60">
+              <div className="overflow-hidden rounded-radius-lg bg-card">
                 <SummaryRow
-                  icon={<ShieldCheck className="h-5 w-5 text-positive" />}
-                  tint="bg-positive/15"
+                  icon={<ShieldCheck className="h-5 w-5 text-muted-foreground" />}
+                  tint="bg-inset"
                   title="Insurance"
                   value={insurance ? `${insurance.name}${insuranceCents > 0 ? ` · ${formatUSD(insuranceCents)}` : " · included"}` : "Choose coverage"}
                   onClick={() => setInsOpen(true)}
                 />
                 <SummaryRow
-                  icon={<MapPin className="h-5 w-5 text-primary" />}
-                  tint="bg-primary/15"
+                  icon={<MapPin className="h-5 w-5 text-muted-foreground" />}
+                  tint="bg-inset"
                   title="Delivery"
                   value={zone ? `${zone.name}${deliveryFee > 0 ? ` · ${formatUSD(deliveryFee)}` : " · free"}` : "Pick up at our office — free"}
                   onClick={() => setZoneOpen(true)}
                 />
+                {/* Where to bring it — asked only when it is being brought. */}
+                {zone && (
+                  <div className="space-y-1.5 px-4 pb-4">
+                    <Label htmlFor="rent-addr">Where should we bring the car?</Label>
+                    <Input id="rent-addr" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Hotel, building, street…" />
+                  </div>
+                )}
               </div>
 
               {/* Extras */}
               {extras.length > 0 && (
-                <div className="space-y-1 rounded-radius-md bg-card p-5 shadow-figma">
+                <div className="space-y-1 rounded-radius-lg bg-card p-4">
                   <h2 className="mb-1 text-title font-semibold text-foreground">Extras</h2>
                   {extras.map((e) => {
                     const active = extraIds.has(e.id);
@@ -305,32 +315,26 @@ export default function Book() {
                           active ? "border-primary bg-primary text-primary-foreground" : "border-muted-foreground/40")}>
                           {active && <Check className="h-3.5 w-3.5" strokeWidth={3} />}
                         </span>
-                        <span className="flex-1 text-[14px] tracking-[-0.02em] text-foreground">{e.name}</span>
-                        <span className="text-[12px] tabular-nums text-muted-foreground">{formatUSD(e.price_cents)}{e.price_type === "per_day" ? "/day" : ""}</span>
+                        <span className="flex-1 text-body text-foreground">{e.name}</span>
+                        <span className="text-meta tabular-nums text-muted-foreground">{formatUSD(e.price_cents)}{e.price_type === "per_day" ? " / day" : ""}</span>
                       </button>
                     );
                   })}
                 </div>
               )}
 
-              {/* Delivery address */}
-              <div className="rounded-radius-md bg-card p-5 shadow-figma">
-                <Label>Delivery address / details (optional)</Label>
-                <Input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Where should we bring the car?" />
-              </div>
-
               {/* Payment method — the Pay button itself lives in the sticky
                   footer below, where every other checkout on the platform
                   keeps it. It used to sit inside this card, mid-scroll: the
                   most important button on the page was the only one a customer
                   had to go looking for. */}
-              <div className="space-y-3 rounded-radius-md bg-card p-5 shadow-figma">
+              <div className="space-y-3 rounded-radius-lg bg-card p-4">
                 <h2 className="text-title font-semibold text-foreground">Payment</h2>
                 <PaymentMethodTiles value={method} onChange={setMethod} available={methods} />
               </div>
             </>
           ) : (
-            <div className="rounded-radius-md bg-card p-5 shadow-figma">
+            <div className="rounded-radius-lg bg-card p-4">
               {method === "paypal" ? (
                 <>
                   <h2 className="mb-3 text-title font-semibold text-foreground">Pay with PayPal</h2>
@@ -375,8 +379,10 @@ export default function Book() {
         </div>
 
         {/* Summary */}
-        <div className="space-y-4 lg:sticky lg:top-20 lg:self-start">
-          <div className="rounded-radius-md bg-card p-4 shadow-figma">
+        {/* What you're booking comes first on a phone — it used to be the
+            last thing on the page, under the payment tiles. */}
+        <div className="order-first space-y-1 lg:order-none lg:sticky lg:top-20 lg:self-start">
+          <div className="rounded-radius-lg bg-card p-4">
             <div className="mb-3 flex gap-3">
               <div className="h-16 w-24 shrink-0 overflow-hidden rounded-[8px] bg-inset">
                 <Photo src={v.image_url} icon={Car} />
@@ -387,14 +393,14 @@ export default function Book() {
                 <p className="text-meta text-muted-foreground">{pricing.rentalDays} day{pricing.rentalDays > 1 ? "s" : ""}</p>
               </div>
             </div>
-            <div className="space-y-1.5 border-t border-border/60 pt-3 text-[13px]">
-              <Line label={`Car · ${pricing.rentalDays}d`} value={formatUSD(pricing.subtotalCents)} />
+            <div className="space-y-1.5 border-t border-border/60 pt-3 text-body">
+              <Line label={`Car · ${pricing.rentalDays} day${pricing.rentalDays > 1 ? "s" : ""}`} value={formatUSD(pricing.subtotalCents)} />
               {pricing.discountCents > 0 && <Line label="Multi-day discount" value={`−${formatUSD(pricing.discountCents)}`} accent />}
               {insuranceCents > 0 && <Line label={insurance?.name ?? "Insurance"} value={formatUSD(insuranceCents)} />}
               {chosenExtras.map((e) => <Line key={e.id} label={e.name} value={formatUSD(extraCost(e, days))} />)}
               {deliveryFee > 0 && <Line label={`Delivery · ${zone?.name}`} value={formatUSD(deliveryFee)} />}
               {effectiveTotal > baseTotal && <Line label="Payment fee" value={formatUSD(effectiveTotal - baseTotal)} />}
-              <div className="flex justify-between border-t border-border/60 pt-2 text-[16px] font-semibold text-foreground">
+              <div className="flex justify-between border-t border-border/60 pt-2 text-title font-semibold text-foreground">
                 <span>Total</span><span className="tabular-nums">{formatUSD(effectiveTotal)}</span>
               </div>
             </div>
@@ -406,9 +412,10 @@ export default function Book() {
           bottom, always reachable — same component as PlanCheckout and Cart. */}
       {step === "form" && (
         <CheckoutStickyFooter>
-          <Button size="lg" className="w-full" onClick={startPay} disabled={reserving || !isAuthenticated}>
+          <Button size="lg" className="w-full" disabled={reserving}
+            onClick={() => (isAuthenticated ? void startPay() : openAuthModal("login", location.pathname + location.search))}>
             {reserving && <Spinner size="sm" className="mr-2" />}
-            {isAuthenticated ? `Pay ${formatUSD(effectiveTotal)}` : "Sign in to book"}
+            {isAuthenticated ? `Pay ${formatUSD(effectiveTotal)}` : `Sign in to book · ${formatUSD(effectiveTotal)}`}
           </Button>
         </CheckoutStickyFooter>
       )}
@@ -431,7 +438,7 @@ export default function Book() {
                     active ? "border-primary bg-primary/5" : "border-transparent bg-inset hover:bg-muted")}>
                   <div className="flex items-baseline justify-between gap-3">
                     <p className="text-title font-semibold text-foreground">{t.name}</p>
-                    <span className={cn("shrink-0 text-[13px] font-semibold tabular-nums", t.price_per_day_cents === 0 ? "text-positive" : "text-foreground")}>
+                    <span className={cn("shrink-0 text-sm font-semibold tabular-nums", t.price_per_day_cents === 0 ? "text-positive" : "text-foreground")}>
                       {t.price_per_day_cents === 0 ? "Included" : `${formatUSD(t.price_per_day_cents)}/day · ${formatUSD(cost)}`}
                     </span>
                   </div>
@@ -494,8 +501,8 @@ function ZoneOption({ active, title, sub, areas, onClick }: { active: boolean; t
     <button type="button" onClick={onClick}
       className={cn("w-full rounded-radius-md border-2 p-3 text-left transition-colors", active ? "border-primary bg-primary/5" : "border-transparent bg-inset hover:bg-muted")}>
       <div className="flex items-baseline justify-between gap-3">
-        <p className="text-[15px] font-semibold tracking-[-0.32px] text-foreground">{title}</p>
-        <span className="shrink-0 text-[13px] font-semibold tabular-nums text-foreground">{sub}</span>
+        <p className="text-title font-semibold text-foreground">{title}</p>
+        <span className="shrink-0 text-body font-semibold tabular-nums text-foreground">{sub}</span>
       </div>
       {areas && <p className="mt-0.5 text-meta text-muted-foreground">{areas}</p>}
     </button>

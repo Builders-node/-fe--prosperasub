@@ -169,7 +169,7 @@ export function VehicleTypesPanel() {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-bold text-foreground">{t.label}</p>
-                  <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  <p className="mt-0.5 text-meta text-muted-foreground">
                     {t.is_active ? "Active" : "Hidden"}
                     {" · "}
                     <span className="tabular-nums">{n}</span> {n === 1 ? "vehicle" : "vehicles"}
@@ -219,7 +219,7 @@ export function VehicleTypesPanel() {
                 onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))}
                 placeholder="Motorbikes"
               />
-              <p className="mt-1 text-[11px] text-muted-foreground">
+              <p className="mt-1 text-2xs text-muted-foreground">
                 {editing === "new"
                   // The key is what every vehicle row stores, so it is fixed
                   // once created — renaming it would orphan the fleet.
@@ -261,7 +261,7 @@ export function VehicleTypesPanel() {
                   value={form.sort_order}
                   onChange={(e) => setForm((f) => ({ ...f, sort_order: Number(e.target.value) || 0 }))}
                 />
-                <p className="mt-1 text-[11px] text-muted-foreground">Lower shows first in the storefront's filter.</p>
+                <p className="mt-1 text-2xs text-muted-foreground">Lower shows first in the storefront's filter.</p>
               </div>
               <div>
                 <Label>On the storefront</Label>

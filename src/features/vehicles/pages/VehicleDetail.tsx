@@ -113,11 +113,12 @@ export default function VehicleDetail() {
     ? specParts.join(" · ")
     : null;
 
+  // Wider first: the section, then the company that rents this car.
   const breadcrumbs = [
+    { label: "Vehicles", href: carPath() },
     ...(v.provider?.name && v.provider.id
       ? [{ label: v.provider.name, href: carProviderPath(v.provider.id) }]
       : []),
-    { label: "Vehicles", href: carPath() },
   ];
 
   return (
@@ -175,7 +176,7 @@ export default function VehicleDetail() {
           </nav>
 
           <div className="space-y-2">
-            <h1 className="text-[24px] font-semibold leading-tight tracking-[-0.48px] text-foreground">{v.name}</h1>
+            <h1 className="text-3xl font-semibold leading-tight tracking-tight text-foreground">{v.name}</h1>
             {/* Only when the title has not already said it — most cars are
                 named "Brand Model Year", and repeating that directly under the
                 h1 was the page's first line of noise. */}
@@ -206,7 +207,7 @@ export default function VehicleDetail() {
         <section className="space-y-3 rounded-radius-lg bg-card p-4 shadow-figma">
           <h2 className="text-heading font-semibold text-foreground">Choose your dates</h2>
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <span className="text-[24px] font-semibold tabular-nums tracking-[-0.48px] text-foreground">
+            <span className="text-3xl font-semibold tabular-nums tracking-tight text-foreground">
               {formatUSD(v.daily_price_cents)}
               <span className="text-meta font-normal text-muted-foreground"> / day</span>
             </span>
@@ -226,7 +227,7 @@ export default function VehicleDetail() {
                 key={d.days}
                 type="button"
                 onClick={() => applyQuick(d.days)}
-                className={`rounded-full px-4 py-1.5 text-[13px] font-semibold transition-colors ${
+                className={`rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${
                   rentalDays === d.days
                     ? "bg-foreground text-background"
                     : "bg-inset text-muted-foreground hover:text-foreground"

@@ -63,5 +63,7 @@ export function vehicleSpecLine(
   const name = (v.name ?? "").toLowerCase();
   const redundant = parts.length > 0 && parts.every((p) => name.includes(p.toLowerCase()));
   if (!redundant) return parts.join(" · ") || undefined;
-  return v.description ?? undefined;
+  // Descriptions were written with the specs tacked on ("… · 5 seats · Auto"),
+  // which the card's chips already say — keep only the sentence.
+  return v.description ? v.description.split(" · ")[0].trim() || undefined : undefined;
 }

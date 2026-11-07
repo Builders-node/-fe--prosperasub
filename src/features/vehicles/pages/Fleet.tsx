@@ -130,7 +130,7 @@ export default function Fleet() {
                 meta: `${p.count} vehicle${p.count === 1 ? "" : "s"}`,
               }))}
               icon={Building2}
-              label="Providers"
+              label="Rental companies"
               // The rail is a DOOR, as on every other listing — it opens the
               // business's own page (fleet shelf, reviews, gallery). Narrowing
               // the grid is the chips' job, not the rail's.
@@ -155,7 +155,9 @@ export default function Fleet() {
             subtitle={search.isActive ? "Try a different word." : "Check back soon."}
           />
         ) : (
-          <div className="space-y-3">
+          // Two columns on a laptop — one full-width row per car left half
+          // the screen empty.
+          <div className="grid gap-2 md:grid-cols-2">
             {shown.map((v) => <VehicleCard key={v.id} v={v} showProvider={manyProviders} />)}
           </div>
         )}

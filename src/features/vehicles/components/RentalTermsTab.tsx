@@ -330,10 +330,10 @@ function Section({ icon: Icon, title, blurb, rows, canManage, onAdd }: {
     <section className="rounded-radius-md bg-card p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="flex items-center gap-2 text-[16px] font-semibold text-foreground">
+          <h3 className="flex items-center gap-2 text-title font-semibold text-foreground">
             <Icon className="h-4 w-4 text-muted-foreground" /> {title}
           </h3>
-          <p className="mt-1 text-[12px] text-muted-foreground">{blurb}</p>
+          <p className="mt-1 text-meta text-muted-foreground">{blurb}</p>
         </div>
         {canManage && (
           <Button size="sm" variant="secondary" className="shrink-0 gap-1.5" onClick={onAdd}>
@@ -351,7 +351,7 @@ function Section({ icon: Icon, title, blurb, rows, canManage, onAdd }: {
           {rows.map((r) => (
             <li key={r.id} className="flex items-center gap-3 py-2.5">
               <div className="min-w-0 flex-1">
-                <p className={`truncate text-[15px] font-semibold ${r.isActive ? "text-foreground" : "text-muted-foreground"}`}>
+                <p className={`truncate text-body font-semibold ${r.isActive ? "text-foreground" : "text-muted-foreground"}`}>
                   {r.title}
                 </p>
                 <p className="text-xs text-muted-foreground">{r.detail}</p>

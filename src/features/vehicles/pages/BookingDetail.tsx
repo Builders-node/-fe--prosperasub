@@ -141,7 +141,7 @@ export default function BookingDetail() {
   if (isLoading) return <AppContainer className="flex justify-center py-24"><Spinner /></AppContainer>;
   if (!booking) return (
     <AppContainer className="py-24 text-center">
-      <p className="text-[16px] font-semibold text-foreground">Booking not found.</p>
+      <p className="text-title font-semibold text-foreground">Booking not found.</p>
       <Button variant="secondary" className="mt-3" onClick={() => navigate(carPath("my-bookings"))}>My bookings</Button>
     </AppContainer>
   );
@@ -165,10 +165,10 @@ export default function BookingDetail() {
                 {dayText(booking.start_date)} → {dayText(booking.end_date)} · {booking.rental_days} day{booking.rental_days > 1 ? "s" : ""}
               </p>
               {booking.delivery_address && (
-                <p className="mt-2 text-[13px] text-muted-foreground">Delivery: {booking.delivery_address}</p>
+                <p className="mt-2 text-sm text-muted-foreground">Delivery: {booking.delivery_address}</p>
               )}
               {booking.delivery_notes && (
-                <p className="mt-1 text-[13px] text-muted-foreground">Notes: {booking.delivery_notes}</p>
+                <p className="mt-1 text-sm text-muted-foreground">Notes: {booking.delivery_notes}</p>
               )}
             </div>
           </div>
@@ -237,7 +237,7 @@ export default function BookingDetail() {
         <div className="space-y-4 lg:sticky lg:top-20 lg:self-start">
           <div className="rounded-radius-md bg-card p-4 shadow-figma">
             <h2 className="mb-3 text-title font-semibold text-foreground">Price</h2>
-            <div className="space-y-1.5 text-[13px]">
+            <div className="space-y-1.5 text-sm">
               <Line label={`Car · ${booking.rental_days}d`} value={formatUSD(booking.subtotal_cents ?? 0)} />
               {Number(booking.discount_cents) > 0 && (
                 <Line label="Multi-day discount" value={`−${formatUSD(booking.discount_cents)}`} accent />
@@ -248,7 +248,7 @@ export default function BookingDetail() {
               {Number(booking.surcharge_cents) > 0 && isPaid && (
                 <Line label="Payment fee" value={formatUSD(booking.surcharge_cents)} />
               )}
-              <div className="flex justify-between border-t border-border/60 pt-2 text-[16px] font-semibold text-foreground">
+              <div className="flex justify-between border-t border-border/60 pt-2 text-title font-semibold text-foreground">
                 <span>{isPaid ? "Paid" : "Total"}</span>
                 <span className="tabular-nums">
                   {formatUSD(isPaid ? baseTotal + (Number(booking.surcharge_cents) || 0) : effectiveTotal)}
@@ -256,7 +256,7 @@ export default function BookingDetail() {
               </div>
             </div>
           </div>
-          <Link to={carPath()} className="block text-center text-[13px] font-semibold text-primary">Browse vehicles</Link>
+          <Link to={carPath()} className="block text-center text-sm font-semibold text-primary">Browse vehicles</Link>
         </div>
       </div>
     </AppContainer>
@@ -274,10 +274,10 @@ function Line({ label, value, accent }: { label: string; value: string; accent?:
 
 function StatusLine({ status, paid }: { status: string; paid: boolean }) {
   if (status === "cancelled") {
-    return <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-negative"><XCircle className="h-4 w-4" /> Cancelled</span>;
+    return <span className="inline-flex items-center gap-1.5 text-meta font-semibold text-negative"><XCircle className="h-4 w-4" /> Cancelled</span>;
   }
   if (paid) {
-    return <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-positive"><CheckCircle2 className="h-4 w-4" /> Confirmed</span>;
+    return <span className="inline-flex items-center gap-1.5 text-meta font-semibold text-positive"><CheckCircle2 className="h-4 w-4" /> Confirmed</span>;
   }
-  return <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-attention"><Clock className="h-4 w-4" /> Awaiting payment</span>;
+  return <span className="inline-flex items-center gap-1.5 text-meta font-semibold text-attention"><Clock className="h-4 w-4" /> Awaiting payment</span>;
 }

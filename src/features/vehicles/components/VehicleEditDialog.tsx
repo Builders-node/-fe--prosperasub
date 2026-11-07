@@ -7,7 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Spinner } from "@/components/ui/spinner";
+import { Switch } from "@/components/ui/switch";
+import { DialogBlock } from "@/components/ui/dialog-blocks";
+import { GalleryField } from "@/components/patterns/GalleryField";
+import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabaseDb } from "@/integrations/supabase/client";
@@ -147,113 +150,122 @@ export function VehicleEditDialog({ vehicle, onClose, onSaved, lockedProviderId 
 
   return (
     <Dialog open={!!vehicle} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg" blocks={false}>
         <DialogHeader><DialogTitle>{editing?.id ? "Edit vehicle" : "Add vehicle"}</DialogTitle></DialogHeader>
         {editing && (
-          <div className="space-y-3">
-            {!lockedProviderId && (
-            <div>
-              <Label>Business *</Label>
-              <Select
-                value={editing.provider_id ?? undefined}
-                onValueChange={(v) => set({ provider_id: v })}
-              >
-                <SelectTrigger><SelectValue placeholder="Who rents this car out?" /></SelectTrigger>
-                <SelectContent>
-                  {providers.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              {/* Business is required, so an empty picker is not a cosmetic
-                  problem — the form cannot be saved and nothing says why. */}
-              {providersError ? (
-                <button
-                  type="button"
-                  onClick={() => void refetchProviders()}
-                  className="mt-1 text-[11px] font-semibold text-negative underline"
-                >
-                  Couldn't load the businesses — retry
-                </button>
-              ) : (
-                <p className="mt-1 text-[11px] text-muted-foreground">
-                  Earnings, commission and payouts for this car are counted against this business.
-                </p>
+          <>
+            {/* Who rents it out, and what kind of thing it is. */}
+            <DialogBlock title="The car">
+              {!lockedProviderId && (
+                <div className="space-y-1.5">
+                  <Label>Business</Label>
+                  <Select value={editing.provider_id ?? undefined} onValueChange={(v) => set({ provider_id: v })}>
+                    <SelectTrigger><SelectValue placeholder="Who rents this car out?" /></SelectTrigger>
+                    <SelectContent>
+                      {providers.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  {providersError ? (
+                    <button type="button" onClick={() => void refetchProviders()} className="text-meta font-semibold text-negative underline">
+                      Couldn't load the businesses — retry
+                    </button>
+                  ) : (
+                    <p className="text-meta text-muted-foreground">Its earnings and payouts are counted for this business.</p>
+                  )}
+                </div>
               )}
-            </div>
-            )}
-            <div><Label>Name *</Label><Input value={editing.name ?? ""} onChange={(e) => set({ name: e.target.value })} placeholder="Toyota Hilux 2024" /></div>
-            {/* Always shown: the type is an attribute of the PRODUCT, and
-                every vehicle states its own — the provider carries none. */}
-            {types.length > 0 && (
-              <div>
-                <Label>Type</Label>
-                <Select
-                  value={editing.category_key ?? undefined}
-                  onValueChange={(v) => set({ category_key: v })}
-                >
-                  <SelectTrigger><SelectValue placeholder="Car, motorbike…" /></SelectTrigger>
-                  <SelectContent>
-                    {types.map((t) => <SelectItem key={t.key} value={t.key}>{t.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <p className="mt-1 text-[11px] text-muted-foreground">
-                  What the storefront's type filter groups this under.
-                </p>
+              <Input label="Name" value={editing.name ?? ""} onChange={(e) => set({ name: e.target.value })} placeholder="Toyota Hilux 2024" />
+              {types.length > 0 && (
+                <div className="space-y-1.5">
+                  <Label>Type</Label>
+                  <Select value={editing.category_key ?? undefined} onValueChange={(v) => set({ category_key: v })}>
+                    <SelectTrigger><SelectValue placeholder="Car, motorbike…" /></SelectTrigger>
+                    <SelectContent>
+                      {types.map((t) => <SelectItem key={t.key} value={t.key}>{t.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              <div className="grid grid-cols-3 gap-2">
+                <Input label="Brand" value={editing.brand ?? ""} onChange={(e) => set({ brand: e.target.value })} />
+                <Input label="Model" value={editing.model ?? ""} onChange={(e) => set({ model: e.target.value })} />
+                <Input label="Year" type="number" value={editing.year ?? 2024} onChange={(e) => set({ year: parseInt(e.target.value || "2024", 10) })} />
               </div>
-            )}
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <div><Label>Brand</Label><Input value={editing.brand ?? ""} onChange={(e) => set({ brand: e.target.value })} /></div>
-              <div><Label>Model</Label><Input value={editing.model ?? ""} onChange={(e) => set({ model: e.target.value })} /></div>
-              <div><Label>Year</Label><Input type="number" value={editing.year ?? 2024} onChange={(e) => set({ year: parseInt(e.target.value || "2024", 10) })} /></div>
-            </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <div><Label>Seats</Label><Input type="number" value={editing.seats ?? 5} onChange={(e) => set({ seats: parseInt(e.target.value || "5", 10) })} /></div>
-              <div><Label>Bags</Label><Input type="number" value={editing.luggage_capacity ?? 2} onChange={(e) => set({ luggage_capacity: parseInt(e.target.value || "2", 10) })} /></div>
-              <div>
-                <Label>Transmission</Label>
-                <Select value={editing.transmission} onValueChange={(v) => set({ transmission: v as RentalVehicle["transmission"] })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent><SelectItem value="automatic">Automatic</SelectItem><SelectItem value="manual">Manual</SelectItem></SelectContent>
-                </Select>
+            </DialogBlock>
+
+            <DialogBlock title="What it has">
+              <div className="grid grid-cols-2 gap-2">
+                <Input label="Seats" type="number" value={editing.seats ?? 5} onChange={(e) => set({ seats: parseInt(e.target.value || "5", 10) })} />
+                <Input label="Bags" type="number" value={editing.luggage_capacity ?? 2} onChange={(e) => set({ luggage_capacity: parseInt(e.target.value || "2", 10) })} />
               </div>
-            </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div>
-                <Label>Fuel</Label>
-                <Select value={editing.fuel_type} onValueChange={(v) => set({ fuel_type: v as RentalVehicle["fuel_type"] })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="gasoline">Gasoline</SelectItem><SelectItem value="diesel">Diesel</SelectItem>
-                    <SelectItem value="electric">Electric</SelectItem><SelectItem value="hybrid">Hybrid</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1.5">
+                  <Label>Gearbox</Label>
+                  <Select value={editing.transmission} onValueChange={(v) => set({ transmission: v as RentalVehicle["transmission"] })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent><SelectItem value="automatic">Automatic</SelectItem><SelectItem value="manual">Manual</SelectItem></SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Fuel</Label>
+                  <Select value={editing.fuel_type} onValueChange={(v) => set({ fuel_type: v as RentalVehicle["fuel_type"] })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="gasoline">Gasoline</SelectItem><SelectItem value="diesel">Diesel</SelectItem>
+                      <SelectItem value="electric">Electric</SelectItem><SelectItem value="hybrid">Hybrid</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div>
-                <Label>Status</Label>
-                <Select value={editing.status} onValueChange={(v) => set({ status: v as RentalVehicle["status"] })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="public">Public</SelectItem><SelectItem value="private">Private (hidden)</SelectItem><SelectItem value="archived">Archived</SelectItem>
-                  </SelectContent>
-                </Select>
+              <label className="flex items-center justify-between gap-3">
+                <span className="text-body text-foreground">Air conditioning</span>
+                <Switch checked={editing.air_conditioning ?? true} onCheckedChange={(on) => set({ air_conditioning: on })} />
+              </label>
+            </DialogBlock>
+
+            {/* A week or a month is a cap, never a surcharge. */}
+            <DialogBlock title="Prices">
+              <div className="grid grid-cols-3 gap-2">
+                <Input label="Per day" type="number" step="0.01" inputMode="decimal" leftIcon={<span className="text-body text-muted-foreground">$</span>}
+                  value={dollars(editing.daily_price_cents)} onChange={(e) => set({ daily_price_cents: cents(e.target.value) })} />
+                <Input label="Per week" type="number" step="0.01" inputMode="decimal" leftIcon={<span className="text-body text-muted-foreground">$</span>}
+                  value={dollars(editing.weekly_price_cents)} onChange={(e) => set({ weekly_price_cents: cents(e.target.value) })} />
+                <Input label="Per month" type="number" step="0.01" inputMode="decimal" leftIcon={<span className="text-body text-muted-foreground">$</span>}
+                  value={dollars(editing.monthly_price_cents)} onChange={(e) => set({ monthly_price_cents: cents(e.target.value) })} />
               </div>
-            </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <div><Label>Daily $</Label><Input type="number" step="0.01" value={dollars(editing.daily_price_cents)} onChange={(e) => set({ daily_price_cents: cents(e.target.value) })} /></div>
-              <div><Label>Weekly $</Label><Input type="number" step="0.01" value={dollars(editing.weekly_price_cents)} onChange={(e) => set({ weekly_price_cents: cents(e.target.value) })} /></div>
-              <div><Label>Monthly $</Label><Input type="number" step="0.01" value={dollars(editing.monthly_price_cents)} onChange={(e) => set({ monthly_price_cents: cents(e.target.value) })} /></div>
-            </div>
-            <p className="-mt-1 text-[11px] text-muted-foreground">Weekly/monthly are caps: leave 0 to charge the daily rate. The total never exceeds the monthly price.</p>
-            <div><Label>Image URL</Label><Input value={editing.image_url ?? ""} onChange={(e) => set({ image_url: e.target.value })} placeholder="https://…" /></div>
-            <div><Label>Gallery URLs (one per line)</Label><Textarea rows={2} value={(editing.gallery_urls ?? []).join("\n")} onChange={(e) => set({ gallery_urls: e.target.value.split("\n").map((s) => s.trim()).filter(Boolean) })} /></div>
-            <div><Label>Description</Label><Textarea rows={3} value={editing.description ?? ""} onChange={(e) => set({ description: e.target.value })} /></div>
-            <label className="flex items-center gap-2 text-sm text-foreground">
-              <input type="checkbox" checked={editing.air_conditioning ?? true} onChange={(e) => set({ air_conditioning: e.target.checked })} /> Air conditioning
-            </label>
-          </div>
+              <p className="text-meta text-muted-foreground">
+                Week and month are caps: leave 0 to charge the daily rate. A week is never charged more than 7 days.
+              </p>
+            </DialogBlock>
+
+            <DialogBlock title="Photos">
+              {/* The first photo is the one on every card. */}
+              <GalleryField
+                label="Photos"
+                pathPrefix="vehicles"
+                value={[editing.image_url, ...(editing.gallery_urls ?? [])].filter(Boolean) as string[]}
+                onChange={(urls: string[]) => set({ image_url: urls[0] ?? null, gallery_urls: urls.slice(1) })}
+              />
+              <Textarea label="Description" rows={3} value={editing.description ?? ""} onChange={(e) => set({ description: e.target.value })}
+                placeholder="What it's good for, what's included…" />
+            </DialogBlock>
+
+            <DialogBlock title="Availability">
+              <div className="flex rounded-full bg-inset p-1">
+                {([["public", "In the storefront"], ["private", "Hidden"], ["archived", "Retired"]] as const).map(([val, lbl]) => (
+                  <button key={val} type="button" onClick={() => set({ status: val as RentalVehicle["status"] })}
+                    className={cn("h-9 flex-1 rounded-full text-body font-semibold transition-colors",
+                      editing.status === val ? "bg-foreground text-background" : "text-muted-foreground")}>
+                    {lbl}
+                  </button>
+                ))}
+              </div>
+            </DialogBlock>
+          </>
         )}
         <DialogFooter>
-          <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button onClick={save} disabled={saving}>{saving && <Spinner size="sm" className="mr-2" />}Save</Button>
+          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button onClick={save} loading={saving}>Save</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

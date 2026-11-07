@@ -159,8 +159,10 @@ export function CategoryChips({
             // every chip two words wide on the axis that is already scarce.
             className={cn(
               "shrink-0 whitespace-nowrap rounded-radius-md px-4 py-2 text-title font-semibold transition-colors",
+              // Selection inverts, as every other selector on the platform does;
+              // the accent is kept for the one action on a screen.
               selected
-                ? "bg-primary text-primary-foreground"
+                ? "bg-foreground text-background"
                 : "bg-card text-foreground hover:bg-muted",
             )}
           >

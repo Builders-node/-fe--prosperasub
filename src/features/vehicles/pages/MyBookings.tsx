@@ -43,7 +43,8 @@ export default function MyBookings() {
         <div className="flex flex-col items-center py-20 text-center">
           <Car className="mb-3 h-12 w-12 text-muted-foreground/40" />
           <p className="font-semibold text-foreground">No bookings yet</p>
-          <Link to={carPath()} className="mt-3 text-sm font-semibold text-primary">Browse vehicles</Link>
+          <p className="mt-1 text-body text-muted-foreground">Rent a car, a bike or a boat — your bookings will show up here.</p>
+          <Button asChild className="mt-4"><Link to={carPath()}>Browse vehicles</Link></Button>
         </div>
       ) : (
         <div className="space-y-3">
@@ -56,7 +57,7 @@ export default function MyBookings() {
                 <Photo src={b.rental_vehicles?.image_url} icon={Car} />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-[15px] font-bold text-foreground">{b.rental_vehicles?.name ?? "Vehicle"}</p>
+                <p className="truncate text-body font-bold text-foreground">{b.rental_vehicles?.name ?? "Vehicle"}</p>
                 <p className="text-xs text-muted-foreground">
                   {format(new Date(b.start_date + "T00:00:00"), "MMM d")} → {format(new Date(b.end_date + "T00:00:00"), "MMM d")} · {b.rental_days} day{b.rental_days > 1 ? "s" : ""}
                 </p>
@@ -64,7 +65,7 @@ export default function MyBookings() {
               </div>
               <div className="flex items-center gap-3 text-right">
                 <div>
-                  <p className="text-[15px] font-semibold tabular-nums text-foreground">{formatUSD(b.total_cents)}</p>
+                  <p className="text-body font-semibold tabular-nums text-foreground">{formatUSD(b.total_cents)}</p>
                   {/* The one row that needs an instruction rather than a label:
                       an unpaid booking is holding a car and can still be paid. */}
                   {b.payment_status !== "paid" && b.status !== "cancelled" && (

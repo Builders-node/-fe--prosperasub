@@ -4,12 +4,14 @@ import { Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { ArrowUpRight, Car, Pencil, Plus } from "lucide-react";
+import { ArrowUpRight, Car, MoreVertical, Pencil, Plus } from "lucide-react";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { AdminListShell } from "@/components/admin/AdminListShell";
 import { TabPills } from "@/components/admin/TabPills";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -20,7 +22,7 @@ import type { RentalVehicle } from "@/features/vehicles";
 import { fetchUsersByIds, customerNameFrom } from "@/lib/admin/customerNames";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
-import { StatusPill } from "@/components/patterns/StatusPill";
+import { StatusPill, statusLabel } from "@/components/patterns/StatusPill";
 import { VehicleTypesPanel, useVehicleTypes } from "@/features/vehicles";
 import { useTabParam } from "@/hooks/useTabParam";
 import { VEHICLES_UNIT } from "@/lib/services/vehiclesUnit";
@@ -221,11 +223,11 @@ export default function CarRentals({ embedded = false, providerId }: {
       {tab === "bookings" ? (
         <>
           {/* Money first: what has been collected, and what is still owed. */}
-          <div className="grid grid-cols-2 gap-space-3 md:grid-cols-3">
+          <div className="grid grid-cols-3 gap-1 md:gap-space-3">
             <Stat label="Bookings" value={String(filtered.length)} />
             <Stat label="Collected" value={formatUSD(totals.paidCents)} />
             <Stat
-              label={totals.owedCount ? `Awaiting payment · ${totals.owedCount}` : "Awaiting payment"}
+              label={totals.owedCount ? `Unpaid · ${totals.owedCount}` : "Unpaid"}
               value={formatUSD(totals.owedCents)}
               tone={totals.owedCents > 0 ? "text-attention" : undefined}
             />
@@ -240,16 +242,14 @@ export default function CarRentals({ embedded = false, providerId }: {
                 <SelectTrigger inputSize="sm" className="w-full sm:w-[160px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All statuses</SelectItem>
-                  {STAGES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  {STAGES.map((s) => <SelectItem key={s} value={s}>{statusLabel(s)}</SelectItem>)}
                 </SelectContent>
               </Select>
             }
             actions={
-              <Link to={carPath()}>
-                <Button variant="secondary" className="gap-2">
-                  <ArrowUpRight className="h-4 w-4" /> Storefront
-                </Button>
-              </Link>
+              <Button variant="secondary" size="sm" className="gap-2" asChild>
+                <Link to={carPath()}><ArrowUpRight className="h-4 w-4" /> Storefront</Link>
+              </Button>
             }
             isLoading={bookingsQ.isLoading}
             isError={bookingsQ.isError}
@@ -262,47 +262,51 @@ export default function CarRentals({ embedded = false, providerId }: {
             emptyTitle="No car bookings yet"
             emptySubtitle="Rentals booked in the car storefront land here."
           >
-            <div className="space-y-space-2">
+            {/* One compact row per booking; the actions live in its menu so
+                nothing wraps under the card on a phone. */}
+            <div className="space-y-0.5 rounded-radius-lg bg-card p-1.5">
               {filtered.map((b) => (
-                <div key={b.id} className="flex flex-col gap-space-3 rounded-radius-md bg-card p-space-3 md:flex-row md:items-center">
-                  <div className="h-14 w-20 shrink-0 overflow-hidden rounded-[8px] bg-muted">
+                <div key={b.id} className="flex items-start gap-3 rounded-radius-md p-2.5">
+                  <div className="h-12 w-12 shrink-0 overflow-hidden rounded-radius-md bg-muted sm:w-16">
                     <Photo src={b.rental_vehicles?.image_url} icon={Car} />
                   </div>
-
                   <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="truncate text-[15px] font-semibold text-foreground">{b.customer}</p>
-                      <StatusPill status={b.status} />
-                      {b.payment_status !== "paid" && b.status !== "cancelled" && (
-                        <StatusPill status="unpaid" />
-                      )}
+                    <div className="flex items-center gap-2">
+                      <p className="min-w-0 truncate text-title font-semibold text-foreground">{b.customer}</p>
+                      <StatusPill status={b.payment_status !== "paid" && b.status !== "cancelled" ? "unpaid" : b.status} className="shrink-0" />
                     </div>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {b.rental_vehicles?.name ?? "Car"} · {day(b.start_date)} → {day(b.end_date)} · {b.rental_days}d
+                    <p className="truncate text-meta text-muted-foreground">
+                      {b.rental_vehicles?.name ?? "Car"} · {day(b.start_date)} → {day(b.end_date)} · {b.rental_days} day{b.rental_days === 1 ? "" : "s"}
                     </p>
-                    <p className="truncate text-xs text-muted-foreground">
+                    <p className="truncate text-meta text-muted-foreground">
                       {[b.email, b.customer_whatsapp, b.delivery_address].filter(Boolean).join(" · ") || "—"}
                     </p>
                   </div>
-
-                  <div className="text-right md:w-28">
-                    <p className="text-[15px] font-semibold tabular-nums text-foreground">{formatUSD(b.total_cents)}</p>
-                    <p className="text-xs text-muted-foreground">{b.payment_method ?? "—"}</p>
+                  <div className="shrink-0 text-right">
+                    <p className="text-title font-semibold tabular-nums text-foreground">{formatUSD(b.total_cents)}</p>
+                    <p className="text-meta text-muted-foreground">{b.payment_method ?? "—"}</p>
                   </div>
-
-                  {/* One control, not five buttons: a booking has a stage, and
-                      the admin moves it. */}
-                  {b.payment_status !== "paid" && b.status !== "cancelled" && (
-                    <Button size="sm" variant="secondary" className="shrink-0" disabled={busy === b.id} onClick={() => void markPaid(b.id)}>
-                      Mark paid
-                    </Button>
-                  )}
-                  <Select value={b.status} onValueChange={(v) => setStage(b.id, v)} disabled={busy === b.id}>
-                    <SelectTrigger className="w-[130px] shrink-0 sm:w-[150px]"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {STAGES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="icon" variant="ghost" className="shrink-0" disabled={busy === b.id} aria-label="Booking actions">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {b.payment_status !== "paid" && b.status !== "cancelled" && (
+                        <>
+                          <DropdownMenuItem onSelect={() => void markPaid(b.id)}>Mark paid…</DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                        </>
+                      )}
+                      {STAGES.filter((st) => st !== b.status).map((st) => (
+                        <DropdownMenuItem key={st} onSelect={() => void setStage(b.id, st)}
+                          className={st === "cancelled" ? "text-negative focus:text-negative" : undefined}>
+                          {st === "cancelled" ? "Cancel booking" : `Move to ${statusLabel(st).toLowerCase()}`}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               ))}
             </div>
@@ -324,42 +328,37 @@ export default function CarRentals({ embedded = false, providerId }: {
             </Button>
           }
         >
-          <div className="space-y-space-2">
+          <div className="space-y-0.5 rounded-radius-lg bg-card p-1.5">
             {(vehiclesQ.data ?? []).map((v) => (
-              <div key={v.id} className="flex items-center gap-space-3 rounded-radius-md bg-card p-space-3">
-                <div className="h-14 w-20 shrink-0 overflow-hidden rounded-[8px] bg-muted">
-                  <Photo src={v.image_url} icon={Car} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <p className="truncate text-[15px] font-semibold text-foreground">{v.name}</p>
-                    {typeLabel(v.category_key) && (
-                      <Badge className="bg-muted text-meta text-muted-foreground">{typeLabel(v.category_key)}</Badge>
-                    )}
-                  </div>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {[v.brand, v.model, v.year].filter(Boolean).join(" · ")} · {v.seats} seats
-                  </p>
-                  {/* A car with no business behind it earns nobody anything —
-                      say so here rather than letting it look ordinary. */}
-                  <p className={cn("truncate text-[11px] font-semibold", v.provider?.name ? "text-muted-foreground" : "text-attention")}>
-                    {v.provider?.name ?? "No business assigned"}
-                  </p>
-                </div>
-                <p className="shrink-0 text-[15px] font-semibold tabular-nums text-foreground">
-                  {formatUSD(v.daily_price_cents)}<span className="text-xs font-normal text-muted-foreground">/day</span>
-                </p>
-                <Button
-                  variant={v.status === "public" ? "ghost" : "secondary"}
-                  size="sm"
-                  className="shrink-0"
-                  onClick={() => toggleVehicle(v)}
-                >
-                  {v.status === "public" ? "Listed" : "Hidden"}
-                </Button>
-                <Button variant="secondary" size="sm" className="shrink-0 gap-1.5" onClick={() => setEditing(v)}>
-                  <Pencil className="h-3.5 w-3.5" /> Edit
-                </Button>
+              <div key={v.id} className={cn("flex items-center gap-3 rounded-radius-md p-2.5 transition-colors hover:bg-inset", v.status !== "public" && "opacity-60")}>
+                <button type="button" onClick={() => setEditing(v)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+                  <span className="h-12 w-12 shrink-0 overflow-hidden rounded-radius-md bg-muted sm:w-16">
+                    <Photo src={v.image_url} icon={Car} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-title font-semibold text-foreground">{v.name}</span>
+                    <span className="block truncate text-meta text-muted-foreground">
+                      {[typeLabel(v.category_key), `${formatUSD(v.daily_price_cents)} / day`, `${v.seats} seats`].filter(Boolean).join(" · ")}
+                    </span>
+                    {/* A car with no business behind it earns nobody anything. */}
+                    <span className={cn("block truncate text-meta", v.provider?.name ? "text-muted-foreground" : "font-semibold text-attention")}>
+                      {v.provider?.name ?? "No business assigned"}{v.status !== "public" ? " · hidden" : ""}
+                    </span>
+                  </span>
+                </button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button size="icon" variant="ghost" className="shrink-0" aria-label={`Actions for ${v.name}`}>
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onSelect={() => setEditing(v)}><Pencil className="mr-2 h-3.5 w-3.5" /> Edit</DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => toggleVehicle(v)}>
+                      {v.status === "public" ? "Hide from the storefront" : "Show in the storefront"}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             ))}
           </div>
@@ -392,7 +391,7 @@ export default function CarRentals({ embedded = false, providerId }: {
                   <Photo src={c.avatar_url} label={initialsOf(c.name)} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[15px] font-semibold text-foreground">{c.name}</p>
+                  <p className="truncate text-body font-semibold text-foreground">{c.name}</p>
                   {/* A business nobody owns cannot be paid, and nobody can open
                       its workspace — worth saying here rather than at payout time. */}
                   <p className={cn("truncate text-xs", c.admin_user_id ? "text-muted-foreground" : "text-attention")}>
@@ -430,9 +429,9 @@ export default function CarRentals({ embedded = false, providerId }: {
 
 function Stat({ label, value, tone }: { label: string; value: string; tone?: string }) {
   return (
-    <div className="rounded-radius-md bg-card p-space-3">
-      <p className="text-xs text-muted-foreground">{label}</p>
-      <p className={cn("mt-1 text-heading font-semibold tabular-nums text-foreground", tone)}>{value}</p>
+    <div className="min-w-0 rounded-radius-lg bg-card p-3">
+      <p className="truncate text-meta text-muted-foreground">{label}</p>
+      <p className={cn("mt-1 truncate text-title font-semibold tabular-nums text-foreground md:text-heading", tone)}>{value}</p>
     </div>
   );
 }

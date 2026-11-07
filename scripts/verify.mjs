@@ -28,6 +28,15 @@ console.log("▶ verify: type-check…");
 const tsc = run("npx tsc -p tsconfig.app.json --noEmit");
 const tscErrors = (tsc.out.match(/error TS/g) || []).length;
 console.log(`  ${tscErrors} type error(s) (baseline ${TSC_BASELINE})`);
+// A syntax error stops tsc before it reports the rest, so the count FALLS —
+// a broken file once passed this gate with "7 (baseline 9)". Parse errors
+// (TS1xxx bar the old TS1320s, TS17xxx JSX) fail on sight, whatever the count.
+const parseErrors = (tsc.out.match(/error TS(1(?!320)\d{3}|17\d{3}):.*/g) || []);
+if (parseErrors.length) {
+  console.error(parseErrors.join("\n"));
+  console.error(`\n✖ Syntax error — tsc stops at these, so the count below baseline is meaningless.`);
+  process.exit(1);
+}
 if (tscErrors > TSC_BASELINE) {
   console.error(tsc.out);
   console.error(`\n✖ Type errors rose to ${tscErrors} (baseline ${TSC_BASELINE}). Fix the new error above, then rebuild.`);
