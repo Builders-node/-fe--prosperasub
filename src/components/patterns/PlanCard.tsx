@@ -1,9 +1,9 @@
 import type { LucideIcon } from "lucide-react";
-import { Photo } from "@/components/patterns/Photo";
 import { Star } from "lucide-react";
 import type { ReactNode } from "react";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
+import { PhotoSlider } from "@/components/patterns/PhotoSlider";
 
 /**
  * The plan card. One of them.
@@ -92,7 +92,6 @@ export function PlanCard({
   const hasPrice = typeof price.cents === "number" && price.cents > 0;
   // An empty string in the gallery is still a gallery entry, and it drew a
   // grey square where a photo should be.
-  const cover = photos.find((url) => typeof url === "string" && url.trim().length > 0);
 
   /**
    * The secondary line. A 120px row has one slot for grey 12px text, and the
@@ -130,9 +129,7 @@ export function PlanCard({
     >
       {/* Square, the height of the card — the photo, or the standard
           placeholder, so every card in a list keeps the same shape. */}
-      <div className="aspect-square h-full shrink-0 overflow-hidden rounded-[8px]">
-        <Photo src={cover} />
-      </div>
+      <PhotoSlider photos={photos} className="aspect-square h-full shrink-0 rounded-[8px]" />
 
       {/* `overflow-hidden` is what keeps the row 120px tall: without it a long
           description pushes the price out through the bottom of the card. */}

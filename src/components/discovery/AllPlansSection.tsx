@@ -1,5 +1,4 @@
 import { Link } from "react-router-dom";
-import { Photo } from "@/components/patterns/Photo";
 import { useQuery } from "@tanstack/react-query";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { formatUSD } from "@/lib/pricing";
@@ -7,6 +6,7 @@ import { periodNoun } from "@/lib/services/planPeriod";
 import { planHref } from "@/lib/services/serviceUrls";
 import { Skeleton } from "@/components/patterns/Skeleton";
 import { useI18n } from "@/i18n";
+import { PhotoSlider } from "@/components/patterns/PhotoSlider";
 
 /**
  * Every plan on the platform, one card each, at the foot of the home page.
@@ -35,11 +35,9 @@ interface PlanRow {
   } | null;
 }
 
-const firstUrl = (list: unknown): string | null => {
-  if (!Array.isArray(list)) return null;
-  const hit = list.find((u): u is string => typeof u === "string" && !!u.trim());
-  return hit ?? null;
-};
+/** Every usable photo URL in a jsonb list. */
+const urls = (list: unknown): string[] =>
+  Array.isArray(list) ? list.filter((u): u is string => typeof u === "string" && !!u.trim()) : [];
 
 function useAllPlans() {
   return useQuery({
@@ -87,7 +85,8 @@ export function AllPlansSection() {
 function PlanTile({ plan }: { plan: PlanRow }) {
   const provider = plan.provider!;
   // The plan's own photograph first; the business's only as a fallback.
-  const image = firstUrl(plan.gallery_urls) ?? firstUrl(provider.gallery_urls) ?? provider.banner_url;
+  const own = urls(plan.gallery_urls);
+  const images = own.length ? own : [...urls(provider.gallery_urls), provider.banner_url].filter((u): u is string => !!u);
   const noun = periodNoun(plan.period);
   const hasPrice = typeof plan.price_cents === "number" && plan.price_cents > 0;
   // Same link the provider's own list uses: the original id where the row
@@ -101,9 +100,7 @@ function PlanTile({ plan }: { plan: PlanRow }) {
     >
       {/* The frame owns the size: the photo is pinned inside it and cropped,
           so a tall picture can never stretch its card past the others. */}
-      <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden bg-muted">
-        <Photo src={image} className="absolute inset-0" />
-      </div>
+      <PhotoSlider photos={images} className="aspect-[4/3] w-full shrink-0 bg-muted" />
       <div className="flex flex-1 flex-col gap-1 p-3 tracking-[-0.02em]">
         <p className="line-clamp-2 text-[15px] font-semibold leading-[20px] text-foreground">{plan.name}</p>
         <p className="line-clamp-1 text-[13px] leading-[18px] text-muted-foreground">{provider.name}</p>

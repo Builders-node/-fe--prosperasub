@@ -39,6 +39,7 @@ import { SearchX } from "lucide-react";
 import { LinkifiedText } from "@/components/patterns/LinkifiedText";
 import { DecisionBar } from "@/components/patterns/DecisionBar";
 import { useSeo, offerJsonLd } from "@/hooks/useSeo";
+import { PhotoCarousel } from "@/components/patterns/PhotoCarousel";
 
 /**
  * The plan, before the till.
@@ -519,7 +520,6 @@ const PlanDetail = () => {
     archetypeKey === "cleaning" ? "cleaning" :
     archetypeKey === "food" ? "food" :
     archetypeKey === "beach-club" || archetypeKey === "entertainment" ? "beach" : null;
-  const cover = gallery[0];
 
 
 
@@ -602,13 +602,16 @@ const PlanDetail = () => {
       */}
       {/* Always the band: the photo, or the standard placeholder. */}
       {(
-        <div className="relative h-[280px] w-full overflow-hidden rounded-b-radius-lg bg-muted shadow-figma">
-          <Photo src={cover} loading="eager" className="absolute inset-0" />
-          {/* Without the scrim the back arrow disappears into a bright sky.
-              Only the phone puts chrome on top of it, so only the phone needs
-              the darkening. */}
-          <div className="absolute inset-0 bg-gradient-to-b from-black/50 to-transparent md:hidden" />
-        </div>
+        // Every photo, swipeable (PhotoCarousel); the placeholder band when there are none.
+        <PhotoCarousel
+          photos={gallery}
+          alt={title}
+          fallback={
+            <div className="relative h-[280px] w-full overflow-hidden rounded-b-radius-lg bg-muted shadow-figma">
+              <Photo src={undefined} loading="eager" className="absolute inset-0" />
+            </div>
+          }
+        />
       )}
 
       {/*
