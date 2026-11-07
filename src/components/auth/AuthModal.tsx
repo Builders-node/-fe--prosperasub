@@ -15,6 +15,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -49,6 +51,12 @@ function GoogleIcon() {
   );
 }
 
+// Flat field: inset surface, no border, 44px tall. 16px text keeps iOS from
+// zooming the page on focus.
+const INPUT_CLASS =
+  "h-11 w-full appearance-none rounded-radius-md border-0 bg-inset px-4 text-title text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-ring/60";
+const LABEL_CLASS = "mb-1.5 block text-meta font-semibold text-foreground";
+
 // ─── Password input ───────────────────────────────────────────────────────────
 
 function PasswordInput({
@@ -68,15 +76,13 @@ function PasswordInput({
         placeholder={placeholder}
         required={required}
         minLength={minLength}
-        className="h-12 w-full rounded-radius-md border-0 px-4 pr-12 text-[15px] outline-none focus:ring-2 focus:ring-ring/60 yd-input"
-        style={{ WebkitAppearance: "none" }}
+        className={cn(INPUT_CLASS, "pr-12")}
       />
       <button
         type="button"
         tabIndex={-1}
         onClick={() => setShow((s) => !s)}
-        className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors yd-text2 hover:text-[hsl(var(--yd-text))]"
-        style={{ color: "hsl(var(--yd-text2))" }}
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
         aria-label={show ? "Hide password" : "Show password"}
       >
         {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -173,32 +179,31 @@ function AuthForm({
     return (
       <div className="w-full">
         <div className="mb-6">
-          <h2 className="text-[22px] font-black tracking-tight" style={{ color: "hsl(var(--yd-text))", letterSpacing: "-0.02em" }}>
+          <h2 className="text-heading font-semibold text-foreground">
             Reset password
           </h2>
-          <p className="mt-1 text-[13px]" style={{ color: "hsl(var(--yd-text2))" }}>
+          <p className="mt-1 text-meta text-muted-foreground">
             Enter your email and we'll send a reset link.
           </p>
         </div>
 
         {resetEmailSent ? (
           <div className="space-y-5">
-            <div className="flex items-center gap-3 rounded-radius-md p-4 text-[14px] font-semibold" style={{ background: "hsl(var(--yd-input))", color: "hsl(var(--yd-text))" }}>
+            <div className="flex items-center gap-3 rounded-radius-md bg-inset p-4 text-title font-semibold text-foreground">
               ✓ Check your email for the password reset link.
             </div>
-            <button
+            <Button
               type="button"
               onClick={() => setView("login")}
-              className="flex h-12 w-full items-center justify-center rounded-radius-md text-[15px] font-bold transition hover:opacity-90 active:scale-[0.98]"
-              style={{ background: "hsl(var(--yd-cta-bg))", color: "hsl(var(--yd-cta-fg))" }}
+              className="w-full font-semibold"
             >
               Back to login
-            </button>
+            </Button>
           </div>
         ) : (
           <form onSubmit={handleForgotPassword} className="space-y-3">
             <div>
-              <label htmlFor="reset-email" className="mb-1.5 block text-[12px] font-semibold" style={{ color: "hsl(var(--yd-text))" }}>
+              <label htmlFor="reset-email" className={LABEL_CLASS}>
                 Email
               </label>
               <input
@@ -208,26 +213,23 @@ function AuthForm({
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 required
-                className="h-12 w-full rounded-radius-md border-0 px-4 text-[15px] outline-none focus:ring-2 focus:ring-ring/60 yd-input"
-                style={{ WebkitAppearance: "none" }}
+                className={INPUT_CLASS}
               />
             </div>
-            <button
+            <Button
               type="submit"
               disabled={isLoading}
-              className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-radius-md text-[15px] font-bold transition hover:opacity-90 active:scale-[0.98] disabled:opacity-60"
-              style={{ background: "hsl(var(--yd-cta-bg))", color: "hsl(var(--yd-cta-fg))" }}
+              className="mt-2 w-full font-semibold"
             >
               {isLoading ? <Spinner size="md" /> : "Send reset link"}
-            </button>
+            </Button>
           </form>
         )}
 
         <button
           type="button"
           onClick={() => setView("login")}
-          className="mt-4 flex w-full items-center justify-center text-[13px] font-medium transition-colors hover:opacity-70"
-          style={{ color: "#F8A31A" }}
+          className="mt-4 flex w-full items-center justify-center text-meta font-semibold text-primary transition-colors hover:opacity-70"
         >
           ← Back to login
         </button>
@@ -238,8 +240,7 @@ function AuthForm({
         <Link
           to="/support"
           onClick={onSuccess}
-          className="mt-3 flex w-full items-center justify-center text-[13px] transition-colors hover:opacity-70"
-          style={{ color: "hsl(var(--yd-text2))" }}
+          className="mt-3 flex w-full items-center justify-center text-meta text-muted-foreground transition-colors hover:text-foreground"
         >
           Still stuck? Contact support
         </Link>
@@ -251,10 +252,10 @@ function AuthForm({
     <div className="w-full">
       {/* Header */}
       <div className="mb-6">
-        <h2 className="text-[22px] font-black tracking-tight" style={{ color: "hsl(var(--yd-text))", letterSpacing: "-0.02em" }}>
+        <h2 className="text-heading font-semibold text-foreground">
           {view === "login" ? "Welcome back" : "Create account"}
         </h2>
-        <p className="mt-1 text-[13px]" style={{ color: "hsl(var(--yd-text2))" }}>
+        <p className="mt-1 text-meta text-muted-foreground">
           {view === "login"
             ? "Sign in to your EverySub account"
             : "Join EverySub — Convenience Subscriptions to Próspera"}
@@ -262,26 +263,26 @@ function AuthForm({
       </div>
 
       {/* View toggle pill */}
-      <div className="mb-6 grid grid-cols-2 gap-1 rounded-radius-md p-1" style={{ background: "hsl(var(--yd-input))" }}>
+      <div className="mb-6 grid grid-cols-2 gap-1 rounded-radius-md bg-inset p-1">
         <button
           type="button"
           onClick={() => setView("login")}
-          className="h-10 rounded-[10px] text-[13px] font-semibold transition-all"
-          style={{
-            background: view === "login" ? "hsl(var(--segment-active))" : "transparent",
-            color: view === "login" ? "hsl(var(--yd-text))" : "hsl(var(--yd-text2))",
-          }}
+          aria-pressed={view === "login"}
+          className={cn(
+            "h-10 rounded-radius-sm text-meta font-semibold transition-colors",
+            view === "login" ? "bg-segment text-foreground" : "text-muted-foreground hover:text-foreground",
+          )}
         >
           Log in
         </button>
         <button
           type="button"
           onClick={() => setView("signup")}
-          className="h-10 rounded-[10px] text-[13px] font-semibold transition-all"
-          style={{
-            background: view === "signup" ? "hsl(var(--segment-active))" : "transparent",
-            color: view === "signup" ? "hsl(var(--yd-text))" : "hsl(var(--yd-text2))",
-          }}
+          aria-pressed={view === "signup"}
+          className={cn(
+            "h-10 rounded-radius-sm text-meta font-semibold transition-colors",
+            view === "signup" ? "bg-segment text-foreground" : "text-muted-foreground hover:text-foreground",
+          )}
         >
           Register
         </button>
@@ -291,7 +292,7 @@ function AuthForm({
       <form onSubmit={view === "login" ? handleLogin : handleSignup} className="space-y-3">
         {view === "signup" && (
           <div>
-            <label htmlFor="auth-name" className="mb-1.5 block text-[12px] font-semibold" style={{ color: "hsl(var(--yd-text))" }}>
+            <label htmlFor="auth-name" className={LABEL_CLASS}>
               Full name
             </label>
             <input
@@ -301,14 +302,13 @@ function AuthForm({
               onChange={(e) => setName(e.target.value)}
               placeholder="Your name"
               required
-              className="h-12 w-full rounded-radius-md border-0 px-4 text-[15px] outline-none focus:ring-2 focus:ring-ring/60 yd-input"
-              style={{ WebkitAppearance: "none" }}
+              className={INPUT_CLASS}
             />
           </div>
         )}
 
         <div>
-          <label htmlFor="auth-email" className="mb-1.5 block text-[12px] font-semibold" style={{ color: "hsl(var(--yd-text))" }}>
+          <label htmlFor="auth-email" className={LABEL_CLASS}>
             Email
           </label>
           <input
@@ -318,22 +318,20 @@ function AuthForm({
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@example.com"
             required
-            className="h-12 w-full rounded-radius-md border-0 px-4 text-[15px] outline-none focus:ring-2 focus:ring-ring/60 yd-input"
-            style={{ WebkitAppearance: "none" }}
+            className={INPUT_CLASS}
           />
         </div>
 
         <div>
           <div className="mb-1.5 flex items-center justify-between">
-            <label htmlFor="auth-password" className="text-[12px] font-semibold" style={{ color: "hsl(var(--yd-text))" }}>
+            <label htmlFor="auth-password" className="text-meta font-semibold text-foreground">
               Password
             </label>
             {view === "login" && (
               <button
                 type="button"
                 onClick={() => { setResetEmailSent(false); setView("forgot_password"); }}
-                className="text-[12px] font-medium transition-colors hover:opacity-70"
-                style={{ color: "#F8A31A" }}
+                className="text-meta font-semibold text-primary transition-colors hover:opacity-70"
               >
                 Forgot password?
               </button>
@@ -343,56 +341,46 @@ function AuthForm({
             id="auth-password"
             value={password}
             onChange={setPassword}
-            placeholder="••••••••"
+            placeholder="Password"
             required
             minLength={6}
           />
           {view === "signup" && (
-            <p className="mt-1 text-[11px]" style={{ color: "hsl(var(--yd-text2))" }}>At least 6 characters</p>
+            <p className="mt-1 text-meta text-muted-foreground">At least 6 characters</p>
           )}
         </div>
 
         {/* Primary CTA */}
-        <button
+        <Button
           type="submit"
           disabled={isLoading}
-          className="mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-radius-md text-[15px] font-bold transition hover:opacity-90 active:scale-[0.98] disabled:opacity-60"
-          style={{ background: "hsl(var(--yd-cta-bg))", color: "hsl(var(--yd-cta-fg))" }}
+          className="mt-2 w-full font-semibold"
         >
           {isLoading ? (
             <Spinner size="md" />
           ) : (
             view === "login" ? "Log in" : "Create account"
           )}
-        </button>
+        </Button>
       </form>
 
-      {/* Divider */}
-      <div className="relative my-5">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t" style={{ borderColor: "hsl(var(--yd-input-border))" }} />
-        </div>
-        <div className="relative flex justify-center">
-          <span className="px-4 text-[12px] font-medium" style={{ background: "hsl(var(--yd-card))", color: "hsl(var(--yd-text2))" }}>
-            or continue with
-          </span>
-        </div>
-      </div>
+      {/* Separator — plain words, no rule splitting the sheet */}
+      <p className="my-4 text-center text-meta text-muted-foreground">or</p>
 
       {/* Google */}
-      <button
+      <Button
         type="button"
+        variant="tertiary"
         onClick={handleGoogle}
         disabled={isLoading}
-        className="flex h-12 w-full items-center justify-center gap-3 rounded-radius-md border text-[14px] font-semibold transition active:scale-[0.98] disabled:opacity-50"
-        style={{ borderColor: "hsl(var(--yd-input-border))", color: "hsl(var(--yd-text))" }}
+        className="w-full gap-3 bg-inset font-semibold text-foreground hover:bg-inset hover:opacity-80"
       >
         <GoogleIcon />
         Continue with Google
-      </button>
+      </Button>
 
       {/* Terms */}
-      <p className="mt-5 text-center text-[11px] leading-relaxed" style={{ color: "hsl(var(--yd-text2))" }}>
+      <p className="mt-5 text-center text-meta leading-relaxed text-muted-foreground">
         By continuing, you agree to our{" "}
         <a href="#" className="underline underline-offset-2 hover:opacity-70">Terms of Service</a>{" "}
         and{" "}
@@ -420,11 +408,7 @@ export function AuthModal({ open, onClose, defaultView = "login", redirectTo = "
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent
-        className="border-0 outline-none focus:outline-none sm:max-w-[420px]"
-        style={{
-          background: "hsl(var(--yd-card))",
-          color: "hsl(var(--yd-text))",
-        }}
+        className="border-0 bg-card text-foreground outline-none focus:outline-none sm:max-w-[420px]"
         // Clicking outside the auth form shouldn't lose whatever the user just
         // typed. Same for Escape. Close via the built-in X in the top-right.
         onPointerDownOutside={(e) => e.preventDefault()}
