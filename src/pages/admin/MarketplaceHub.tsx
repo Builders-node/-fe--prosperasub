@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, ChevronRight, CreditCard, Inbox, Plus, Building2, Star } from "lucide-react";
+import { AlertTriangle, ChevronRight, CreditCard, Inbox, Plus, Building2 } from "lucide-react";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -100,8 +100,8 @@ export default function MarketplaceHub() {
 
   return (
     <SuperAdminLayout
-      title="Businesses"
-      subtitle="Pick a service to manage its businesses, plans and categories"
+      title="Services"
+      subtitle="What the platform sells — each service, its categories and its businesses"
     >
       <div className="space-y-6">
         {loading ? (
@@ -130,10 +130,10 @@ export default function MarketplaceHub() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <p className="truncate text-base font-black text-foreground">{a.label}</p>
+                        <p className="truncate text-title font-semibold text-foreground">{a.label}</p>
                         {!a.is_active && (
-                          <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                            Hidden
+                          <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-meta text-muted-foreground">
+                            Switched off
                           </span>
                         )}
                       </div>
@@ -202,13 +202,10 @@ export default function MarketplaceHub() {
 
         {/* Cross-service lists — the escape hatch out of the tree. */}
         <div className="rounded-radius-md bg-card p-5">
-          <h2 className="text-caption font-bold uppercase tracking-[0.16em] text-muted-foreground">
-            Across all services
-          </h2>
+          <h2 className="text-title font-semibold text-foreground">Across all services</h2>
           <div className="mt-3 flex flex-wrap gap-2">
-            <FlatLink to="/admin/marketplace/providers" icon={Building2} label="All providers" />
+            <FlatLink to="/admin/marketplace/providers" icon={Building2} label="All businesses" />
             <FlatLink to="/admin/marketplace/plans" icon={CreditCard} label="All plans" />
-            <FlatLink to="/admin/marketplace/reviews" icon={Star} label="Reviews" />
             <FlatLink
               to="/admin/marketplace/providers/applications"
               icon={Inbox}
@@ -232,8 +229,8 @@ export default function MarketplaceHub() {
 function HubStat({ label, value }: { label: string; value: number }) {
   return (
     <div className="min-w-0 rounded-radius-md bg-[hsl(var(--app-rail))] px-3 py-2">
-      <dt className="truncate text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</dt>
-      <dd className="text-lg font-black tabular-nums text-foreground">{value}</dd>
+      <dt className="truncate text-meta text-muted-foreground">{label}</dt>
+      <dd className="text-title font-semibold tabular-nums text-foreground">{value}</dd>
     </div>
   );
 }

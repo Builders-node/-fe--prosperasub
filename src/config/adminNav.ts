@@ -1,11 +1,10 @@
 /**
- * Admin Panel navigation. Kept intentionally compact so the sidebar stays
- * scannable. Cross-cutting things collapse into ONE page with tabs, not a
- * separate nav entry:
- *   Marketplace → hub of services; each opens Categories · Providers · Plans ·
- *                 Applications, all scoped to that service. Cross-service
- *                 lists hang off the hub's footer, not the sidebar.
- *   People      → Users (with a Cleaning-clients tab)
+ * Admin Panel navigation — one word per thing, the same word on the page:
+ *   Today · Businesses (the list) · Vehicles · Reviews · Orders · Customers ·
+ *   Support · Finance · Analytics · Banners · Announcements · Promo codes ·
+ *   Services (the service tree: categories + businesses per service) ·
+ *   Locations · Team · Audit log · Diagnostics.
+ * A URL takes the permission of the nav item that covers it (permissionsForPath).
  */
 
 import {
@@ -60,12 +59,11 @@ export const TODAY_SECTION: NavSection = {
 export const BUSINESSES_SECTION: NavSection = {
   title: "Businesses",
   items: [
-    { label: "Businesses", path: adminRoutes.superAdminMarketplace, icon: Layers,
+    // The list itself, not a hub of services: with two dozen businesses the
+    // service cards were one more click on every visit. Services and their
+    // categories are configuration and live under Settings.
+    { label: "Businesses", path: adminRoutes.superAdminMarketplaceProviders, icon: Building2,
       alsoActiveOn: [
-        "/admin/marketplace/service",
-        adminRoutes.superAdminServices,
-        adminRoutes.superAdminMarketplacePlans,
-        adminRoutes.superAdminMarketplaceProviders,
         adminRoutes.superAdminProviderApplications,
         // Per-service admin pages still reachable by URL (courts, cleaning
         // operations) — listed so they take this item's permission.
@@ -77,6 +75,8 @@ export const BUSINESSES_SECTION: NavSection = {
     { label: "Vehicles", path: adminRoutes.superAdminTransport, icon: CarFront,
       alsoActiveOn: [adminRoutes.superAdminCarRentals],
       permissions: ["subscriptions.read"] },
+    { label: "Reviews", path: adminRoutes.superAdminMarketplaceReviews, icon: Star,
+      permissions: ["admin_settings.read"] },
   ],
 };
 
@@ -85,8 +85,6 @@ export const SALES_SECTION: NavSection = {
   items: [
     { label: "Orders", path: adminRoutes.superAdminMarketplaceSubscriptions, icon: CalendarDays,
       permissions: ["subscriptions.read"] },
-    { label: "Promo codes", path: adminRoutes.superAdminPromoCodes, icon: TicketPercent,
-      permissions: ["payments.read"] },
   ],
 };
 
@@ -112,20 +110,27 @@ export const MONEY_SECTION: NavSection = {
 };
 
 export const GROWTH_SECTION: NavSection = {
-  title: "Growth",
+  title: "Marketing",
   items: [
+    { label: "Banners", path: adminRoutes.superAdminAds, icon: Megaphone,
+      permissions: ["admin_settings.read"] },
     { label: "Announcements", path: adminRoutes.superAdminAnnouncements, icon: BellRing,
       permissions: ["users.read"] },
-    { label: "Ads", path: adminRoutes.superAdminAds, icon: Megaphone,
-      permissions: ["admin_settings.read"] },
-    { label: "Reviews", path: adminRoutes.superAdminMarketplaceReviews, icon: Star,
-      permissions: ["admin_settings.read"] },
+    { label: "Promo codes", path: adminRoutes.superAdminPromoCodes, icon: TicketPercent,
+      permissions: ["payments.read"] },
   ],
 };
 
 export const SETTINGS_SECTION: NavSection = {
   title: "Settings",
   items: [
+    { label: "Services", path: adminRoutes.superAdminMarketplace, icon: Layers,
+      alsoActiveOn: [
+        "/admin/marketplace/service",
+        adminRoutes.superAdminServices,
+        adminRoutes.superAdminMarketplacePlans,
+      ],
+      permissions: ["admin_settings.read"] },
     { label: "Locations",  path: adminRoutes.superAdminLocations, icon: MapPin,
       permissions: ["admin_settings.read"] },
     { label: "Team", path: adminRoutes.superAdminRoles, icon: ShieldCheck,

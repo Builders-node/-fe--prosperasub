@@ -322,15 +322,15 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
               </SelectContent>
             </Select>
           }
-          actions={
+          actions={<>
             <Button size="sm" onClick={() => setCreating(true)}>
-              <Plus className="mr-1 h-4 w-4" /> New provider
+              <Plus className="mr-1 h-4 w-4" /> New business
             </Button>
-          }
+          </>}
           isLoading={isLoading} isError={isError} error={error} onRetry={refetch}
           isEmpty={inScope.length === 0}
           isNoResults={inScope.length > 0 && visible.length === 0} count={visible.length}
-          emptyTitle="No providers yet"
+          emptyTitle="No businesses yet"
           emptySubtitle="Businesses appear here after they apply and are approved."
           onClearFilters={() => { setSearch(""); setServiceFilter("all"); setStatus("all"); }}
         >

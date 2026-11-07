@@ -59,7 +59,10 @@ export default function MarketplaceServiceDetail() {
   const archetype = archetypes.find((a) => a.key === key);
 
   const tabs = useMemo<Tab[]>(
-    () => (isUnassigned ? ["providers", "plans"] : [...TABS]),
+    // Plans are edited in each business's workspace and applications sit on
+    // Today and the Businesses list, so a service shows its businesses and its
+    // categories. Orphan plans keep a tab: nothing else would show them.
+    () => (isUnassigned ? ["providers", "plans"] : ["providers", "categories"]),
     [isUnassigned],
   );
 
@@ -141,7 +144,7 @@ export default function MarketplaceServiceDetail() {
             It may have been renamed or deleted.
           </p>
           <Button asChild variant="outline" className="mt-4">
-            <Link to="/admin/marketplace">Back to Marketplace</Link>
+            <Link to="/admin/marketplace">Back to Services</Link>
           </Button>
         </div>
       </SuperAdminLayout>
