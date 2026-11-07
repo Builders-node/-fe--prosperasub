@@ -1,3 +1,4 @@
+import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { formatWorkingHours } from "@/lib/workingHours";
@@ -232,6 +233,18 @@ const ProviderDetail = () => {
    * so an absent segment is not a wrong URL there — the provider row decides.
    */
   const archetypeKey = serviceSegment ? archetypeFromSlug(serviceSegment) : "rental";
+  /**
+   * A service created in the admin (healthcare, pantry…) has no entry in the
+   * static slug map above — that map only knows the four legacy verticals —
+   * so its key in `service_archetypes` is what makes the segment valid. Every
+   * archetype, not only active ones: an admin previews a draft service's
+   * provider before it launches. Without this, every universal provider's
+   * public page answered "No such service".
+   */
+  const { archetypes: allArchetypes, isLoading: archetypesLoading } = useServiceArchetypes(false);
+  const dbArchetype = serviceSegment
+    ? allArchetypes.find((a) => a.key === serviceSegment.trim().toLowerCase())
+    : undefined;
 
   const providerQ = useQuery({
     queryKey: ["provider-detail", providerId],
@@ -408,7 +421,19 @@ const ProviderDetail = () => {
       : null,
   });
 
-  if (serviceSegment && !archetypeKey) {
+  if (serviceSegment && !archetypeKey && !dbArchetype && archetypesLoading) {
+    return (
+      <BrowseLayout className="md:pb-0">
+        <HomeHeader title="Provider" showBackButton onBack={goBack} />
+        <main className="app-container py-space-6 space-y-4">
+          <Skeleton className="h-48" />
+          <Skeleton className="h-24" />
+        </main>
+      </BrowseLayout>
+    );
+  }
+
+  if (serviceSegment && !archetypeKey && !dbArchetype) {
     return (
       <BrowseLayout className="md:pb-0">
         <HomeHeader title="Not found" showBackButton onBack={goBack} />
@@ -502,8 +527,10 @@ const ProviderDetail = () => {
   // "Cleaning", "Food", "Beach Club" — the word the customer arrived through.
   const serviceLabel = isVehicles
     ? VEHICLES_LABEL
-    : serviceSlug(archetypeKey ?? "")
-        .split("-").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+    : !archetypeKey && dbArchetype
+      ? dbArchetype.label
+      : serviceSlug(archetypeKey ?? "")
+          .split("-").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
   const gallery = Array.isArray(p.gallery_urls)
     ? p.gallery_urls.filter((u): u is string => typeof u === "string" && !!u.trim())
     : [];
