@@ -128,7 +128,7 @@ export function OptionsEditor({ groups, setGroups, prices, setPrices, combos, pe
         value={prices[k] ?? ""}
         onChange={(e) => setPrices((p) => ({ ...p, [k]: e.target.value }))}
         placeholder="Not offered"
-        className="bg-card text-right tabular-nums placeholder:text-left placeholder:text-meta"
+        className="w-full min-w-0 bg-card text-right tabular-nums placeholder:text-left placeholder:text-meta"
         leftIcon={<span className="text-meta text-muted-foreground">$</span>}
       />
     );
@@ -146,36 +146,46 @@ export function OptionsEditor({ groups, setGroups, prices, setPrices, combos, pe
 
       {/* ── 1. The choices ── */}
       <div className="space-y-2">
-        <p className="text-meta font-semibold text-muted-foreground">1 · What can the customer choose?</p>
+        <div>
+          <p className="text-meta font-semibold text-muted-foreground">1 · What does the customer choose?</p>
+          <p className="text-meta text-muted-foreground">
+            Each choice is a question the customer answers before paying — e.g. “Days per week” → Mon–Fri or Mon–Sat.
+          </p>
+        </div>
         {groups.map((g, gi) => (
           <div key={g.key} className="rounded-radius-md bg-inset p-3">
-            <div className="flex items-center gap-2">
+            {/* The question — reads as a heading, edits in place. */}
+            <div className="flex items-start gap-2">
               <div className="min-w-0 flex-1">
-                <Input
-                  aria-label="Choice name"
+                <p className="text-meta text-muted-foreground">Question {gi + 1}</p>
+                <input
+                  aria-label="Question"
                   value={g.label}
                   onChange={(e) => patchGroup(gi, (x) => ({ ...x, label: e.target.value }))}
-                  placeholder="Choice name — e.g. Size"
-                  inputSize="sm" className="w-full bg-card font-semibold"
+                  placeholder="Name it — e.g. Size"
+                  className="w-full border-b border-transparent bg-transparent pb-0.5 text-title font-semibold text-foreground outline-none placeholder:text-muted-foreground/60 hover:border-border focus:border-primary"
                 />
               </div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" aria-label={`${g.label || "Choice"} actions`}><MoreHorizontal className="h-4 w-4" /></Button>
+                  <Button variant="ghost" size="icon" aria-label={`${g.label || "Question"} actions`}><MoreHorizontal className="h-4 w-4" /></Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem disabled={gi === 0} onSelect={() => move(gi, -1)}>Show first{gi > 0 ? "" : " (already)"}</DropdownMenuItem>
-                  <DropdownMenuItem disabled={gi === groups.length - 1} onSelect={() => move(gi, 1)}>Show later</DropdownMenuItem>
+                  <DropdownMenuItem disabled={gi === 0} onSelect={() => move(gi, -1)}>Ask earlier</DropdownMenuItem>
+                  <DropdownMenuItem disabled={gi === groups.length - 1} onSelect={() => move(gi, 1)}>Ask later</DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem className="text-negative" onSelect={() => setGroups((gs) => gs.filter((_, i) => i !== gi))}>
-                    Remove this choice
+                    Remove this question
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
-            <div className="mt-3 flex flex-wrap items-center gap-2">
+
+            {/* The answers. */}
+            <p className="mt-3 text-meta text-muted-foreground">Customer picks one:</p>
+            <div className="mt-1.5 flex flex-wrap items-center gap-2">
               {g.options.map((o, oi) => (
-                <span key={o.key} className="inline-flex h-9 items-center gap-1 rounded-full bg-card pl-3.5 pr-1.5 text-body font-semibold text-foreground">
+                <span key={o.key} className="inline-flex h-9 items-center gap-1 rounded-full bg-card pl-3.5 pr-1.5 text-body font-semibold text-foreground ring-1 ring-border">
                   {o.label}
                   <button
                     type="button" aria-label={`Remove ${o.label}`}
@@ -187,7 +197,8 @@ export function OptionsEditor({ groups, setGroups, prices, setPrices, combos, pe
                 </span>
               ))}
               <AddValue
-                placeholder={g.options.length ? "Add another" : "Add a value — e.g. Large"}
+                startOpen={g.options.length === 0}
+                placeholder={g.options.length ? "Another answer" : "First answer — e.g. Large"}
                 onAdd={(label) => patchGroup(gi, (x) => ({
                   ...x,
                   options: x.options.some((o) => o.label.toLowerCase() === label.toLowerCase())
@@ -197,11 +208,33 @@ export function OptionsEditor({ groups, setGroups, prices, setPrices, combos, pe
               />
             </div>
             {g.options.length === 0 && (
-              <p className="mt-2 text-meta text-attention">Add at least one value, then press Enter.</p>
+              <p className="mt-2 text-meta text-attention">Type an answer and press Enter. Add as many as you sell.</p>
             )}
           </div>
         ))}
         <NewChoice onAdd={(label) => addGroup(label)} first={groups.length === 0} />
+
+        {/* What all of this looks like on the plan page. */}
+        {groups.some((g) => g.options.length > 0) && (
+          <div className="rounded-radius-md border border-dashed border-border p-3">
+            <p className="text-meta font-semibold text-muted-foreground">How the customer sees it</p>
+            <div className="mt-2 space-y-3">
+              {groups.filter((g) => g.options.length > 0).map((g) => (
+                <div key={g.key}>
+                  <p className="text-body font-semibold text-foreground">{g.label || "Untitled question"}</p>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {g.options.map((o, i) => (
+                      <span key={o.key} className={cn("rounded-full px-3.5 py-1.5 text-body font-semibold",
+                        i === 0 ? "bg-foreground text-background" : "bg-muted text-muted-foreground")}>
+                        {o.label}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── 2. The prices ── */}
@@ -213,7 +246,7 @@ export function OptionsEditor({ groups, setGroups, prices, setPrices, combos, pe
 
           {unvalued.length > 0 ? (
             <p className="rounded-radius-md bg-inset p-3 text-body text-muted-foreground">
-              Give {unvalued.map((g) => `“${g.label || "the new choice"}”`).join(" and ")} at least one value to set prices.
+              Give {unvalued.map((g) => `“${g.label || "the new question"}”`).join(" and ")} at least one answer to set prices.
             </p>
           ) : groups.length === 2 ? (
             // Two choices: a grid (rows × columns) where there is room; on a
@@ -235,7 +268,7 @@ export function OptionsEditor({ groups, setGroups, prices, setPrices, combos, pe
               ))}
             </div>
             <div className="hidden overflow-x-auto rounded-radius-md bg-inset p-2 md:block">
-              <div className="grid min-w-max gap-1.5" style={{ gridTemplateColumns: `minmax(96px,auto) repeat(${groups[1].options.length}, minmax(120px,1fr))` }}>
+              <div className="grid gap-1.5" style={{ gridTemplateColumns: `minmax(88px,auto) repeat(${groups[1].options.length}, minmax(112px,1fr))` }}>
                 <span />
                 {groups[1].options.map((c) => (
                   <span key={c.key} className="truncate px-1 text-center text-meta font-semibold text-muted-foreground">{c.label}</span>
@@ -244,7 +277,7 @@ export function OptionsEditor({ groups, setGroups, prices, setPrices, combos, pe
                   <Fragment key={r.key}>
                     <span className="flex items-center truncate pr-2 text-body font-semibold text-foreground">{r.label}</span>
                     {groups[1].options.map((c) => (
-                      <span key={c.key}>{priceInput({ [groups[0].key]: r.key, [groups[1].key]: c.key }, `${r.label}, ${c.label}`)}</span>
+                      <span key={c.key} className="min-w-0">{priceInput({ [groups[0].key]: r.key, [groups[1].key]: c.key }, `${r.label}, ${c.label}`)}</span>
                     ))}
                   </Fragment>
                 ))}
@@ -308,16 +341,29 @@ export function OptionsEditor({ groups, setGroups, prices, setPrices, combos, pe
 }
 
 function NewChoice({ onAdd, first }: { onAdd: (label: string) => void; first: boolean }) {
+  const [open, setOpen] = useState(first);
   const [label, setLabel] = useState("");
-  const submit = () => { if (label.trim()) { onAdd(label.trim()); setLabel(""); } };
+  const submit = () => { if (label.trim()) { onAdd(label.trim()); setLabel(""); setOpen(false); } };
+  if (!open) {
+    return (
+      <button type="button" onClick={() => setOpen(true)}
+        className="flex w-full items-center justify-center gap-1.5 rounded-radius-md border border-dashed border-border p-3 text-body font-semibold text-muted-foreground hover:text-foreground">
+        <Plus className="h-4 w-4" /> Add another question
+      </button>
+    );
+  }
   return (
-    <div className={cn("flex items-center gap-2 rounded-radius-md p-3", first ? "bg-inset" : "border border-dashed border-border")}>
+    <div className="flex items-center gap-2 rounded-radius-md border border-dashed border-border p-3">
       <div className="min-w-0 flex-1">
         <Input
+          autoFocus={!first}
           value={label} onChange={(e) => setLabel(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); submit(); } }}
-          placeholder={first ? "Name the choice — e.g. Size, Days per week" : "Another choice — e.g. Delivery time"}
-          inputSize="sm" className="w-full bg-card" aria-label="New choice name"
+          onKeyDown={(e) => {
+            if (e.key === "Enter") { e.preventDefault(); submit(); }
+            if (e.key === "Escape" && !first) { setLabel(""); setOpen(false); }
+          }}
+          placeholder={first ? "What does the customer choose? — e.g. Size" : "Another question — e.g. Delivery time"}
+          inputSize="sm" className="w-full bg-card" aria-label="New question"
         />
       </div>
       <Button size="sm" variant="secondary" disabled={!label.trim()} onClick={submit}><Plus /> Add</Button>
@@ -325,17 +371,31 @@ function NewChoice({ onAdd, first }: { onAdd: (label: string) => void; first: bo
   );
 }
 
-function AddValue({ onAdd, placeholder }: { onAdd: (label: string) => void; placeholder: string }) {
+function AddValue({ onAdd, placeholder, startOpen }: { onAdd: (label: string) => void; placeholder: string; startOpen?: boolean }) {
+  const [open, setOpen] = useState(!!startOpen);
   const [value, setValue] = useState("");
   const submit = () => { if (value.trim()) { onAdd(value.trim()); setValue(""); } };
+  if (!open) {
+    return (
+      <button type="button" onClick={() => setOpen(true)}
+        className="inline-flex h-9 items-center gap-1 rounded-full border border-dashed border-border px-3.5 text-body font-semibold text-muted-foreground hover:text-foreground">
+        <Plus className="h-4 w-4" /> Add answer
+      </button>
+    );
+  }
   return (
     <span className="inline-flex items-center gap-1">
       <Input
+        autoFocus={!startOpen}
         value={value} onChange={(e) => setValue(e.target.value)}
-        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); submit(); } }}
-        placeholder={placeholder} inputSize="sm" className="w-56 max-w-full bg-card" aria-label="New value"
+        onKeyDown={(e) => {
+          if (e.key === "Enter") { e.preventDefault(); submit(); }
+          if (e.key === "Escape") { setValue(""); setOpen(false); }
+        }}
+        onBlur={() => { if (!value.trim() && !startOpen) setOpen(false); }}
+        placeholder={placeholder} inputSize="sm" className="w-56 max-w-full bg-card" aria-label="New answer"
       />
-      <Button variant="ghost" size="icon" disabled={!value.trim()} onClick={submit} aria-label="Add value"><Plus className="h-4 w-4" /></Button>
+      <Button size="sm" variant="secondary" disabled={!value.trim()} onMouseDown={(e) => e.preventDefault()} onClick={submit}>Add</Button>
     </span>
   );
 }
