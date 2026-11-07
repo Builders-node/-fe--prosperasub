@@ -22,6 +22,8 @@ import { formatDateHN } from "@/lib/timezone";
 
 interface InviteInfo {
   state: "open" | "claimed" | "revoked" | "expired";
+  /** 'member' = a team invite: the person joins as a manager, not the owner. */
+  kind?: "owner" | "member";
   business: { id: string; name: string };
   expiresAt: string;
 }
@@ -49,10 +51,10 @@ export default function ClaimBusiness() {
     mutationFn: async () => {
       const { data, error } = await accountApi(`/owner-invites/${encodeURIComponent(token)}/claim`, { method: "POST" });
       if (error) throw error;
-      return data as { providerId: string; name: string; already: boolean };
+      return data as { providerId: string; name: string; already: boolean; kind?: string };
     },
     onSuccess: (r) => {
-      toast.success(r.already ? `You already own ${r.name}` : `${r.name} is yours`);
+      toast.success(r.kind === "member" ? `You're on the ${r.name} team` : r.already ? `You already own ${r.name}` : `${r.name} is yours`);
       void qc.invalidateQueries();
       navigate(`/my-provider/${r.providerId}`, { replace: true });
     },
@@ -84,17 +86,19 @@ export default function ClaimBusiness() {
             <Building2 className="h-5 w-5 text-muted-foreground" />
           </span>
           <div className="min-w-0">
-            <p className="text-meta text-muted-foreground">You're invited to own</p>
+            <p className="text-meta text-muted-foreground">{info.kind === "member" ? "You're invited to the team of" : "You're invited to own"}</p>
             <p className="truncate text-title font-semibold text-foreground">{info.business.name}</p>
           </div>
         </div>
         <p className="text-body text-muted-foreground">
-          As the owner you manage its plans, schedule and team, see its money and withdraw it.
+          {info.kind === "member"
+            ? "As a manager you see its schedule, customers and plans and help run the day. The owner keeps the money."
+            : "As the owner you manage its plans, schedule and team, see its money and withdraw it."}
           The link works once, until {formatDateHN(info.expiresAt)}.
         </p>
         {user ? (
           <Button size="lg" className="w-full" loading={claim.isPending} onClick={() => claim.mutate()}>
-            Accept and open my business
+            {info.kind === "member" ? "Accept and join the team" : "Accept and open my business"}
           </Button>
         ) : (
           <Button size="lg" className="w-full" onClick={() => openAuthModal("login", here)}>
@@ -106,7 +110,7 @@ export default function ClaimBusiness() {
   }
 
   return (
-    <UserLayout title="Take over a business" allowGuest showBottomNav={false}>
+    <UserLayout title={info?.kind === "member" ? "Join a team" : "Take over a business"} allowGuest showBottomNav={false}>
       <div className="mx-auto max-w-[480px] py-4">{body}</div>
     </UserLayout>
   );

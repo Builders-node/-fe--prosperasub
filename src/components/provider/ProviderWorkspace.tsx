@@ -20,6 +20,7 @@ import { ProviderDetailsRows, ProviderProfileEditor, type UniversalProviderRow }
 import { ProfileCompletenessCard } from "@/components/provider/ProfileCompletenessCard";
 import { GoLivePanel } from "@/components/provider/GoLivePanel";
 import { ProviderQrCard } from "@/components/provider/ProviderQrCard";
+import { ProviderPromoCodes } from "@/components/provider/ProviderPromoCodes";
 import { PlansTab } from "@/components/provider/plans/PlansTab";
 import { OperationsTab } from "@/components/provider/OperationsTab";
 import { PortalTabsView } from "@/components/provider/PortalTabsView";
@@ -353,6 +354,8 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
           <ScheduleAccordion provider={provider} />
           {custom.offeringsExtra?.(workspaceCtx)}
           <PlansTab providerId={provider.id} sourceKey={sourceKey} />
+          {/* Owner-only; the API answers 403 to anyone else and it hides. */}
+          {isOwner && <ProviderPromoCodes providerId={provider.id} />}
         </>
       ),
     },

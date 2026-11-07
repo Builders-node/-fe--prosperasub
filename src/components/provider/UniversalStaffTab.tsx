@@ -200,15 +200,24 @@ export function UniversalStaffTab({
       // A membership is what lets someone see this business's day — addresses
       // included — so the server resolves the person and checks the caller
       // owns the business before writing the row.
-      const { data, error } = await accountApi(`/account/providers/${providerId}/members`, {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
+      // By email: someone with an account joins at once; anyone else gets an
+      // invite link by email and joins when they accept (Edge provider-growth).
+      const { data, error } = payload.userEmail
+        ? await accountApi(`/account/providers/${providerId}/team-invites`, {
+            method: "POST",
+            body: JSON.stringify({ email: payload.userEmail, name: payload.userName }),
+          })
+        : await accountApi(`/account/providers/${providerId}/members`, {
+            method: "POST",
+            body: JSON.stringify(payload),
+          });
       if (error) throw error;
       await logAuditEvent(userData!.id, "create", auditEntityManager, String((data as any)?.id ?? providerId), payload);
+      return data as { invited?: boolean; emailed?: boolean } | null;
     },
-    onSuccess: () => {
-      toast.success("Manager added");
+    onSuccess: (r) => {
+      if (r?.invited) toast.success(r.emailed ? "Invite sent — they join when they accept it" : "Invite created, but the email didn't go out");
+      else toast.success("Manager added");
       qc.invalidateQueries({ queryKey: MANAGERS_QK });
       setManagerForm({ user_email: "", user_name: "", user_id: "" });
       setManagerDialog(false);
