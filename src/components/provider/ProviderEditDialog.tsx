@@ -127,7 +127,7 @@ export function ProviderEditDialog({
               <Input
                 value={values.location ?? ""}
                 onChange={(e) => patch({ location: e.target.value })}
-                placeholder="Prospera Village…"
+                placeholder="West End, Roatán…"
               />
             </div>
           </section>

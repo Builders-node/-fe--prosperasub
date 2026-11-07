@@ -258,26 +258,6 @@ const PlanDetail = () => {
 
   const plan = planQ.data ?? null;
 
-  // A shared plan link used to preview as the site's own front page; a search
-  // result for it said nothing about the plan. Both read the plan now.
-  const seoPath = plan ? `/services/${archetypeKey || "plans"}/plans/${plan.id}` : null;
-  useSeo({
-    title: plan?.title ?? null,
-    description: plan?.description
-      ?? (plan ? `${plan.title} on EverySub.` : null),
-    path: seoPath,
-    image: plan?.gallery?.[0] ?? null,
-    type: "product",
-    jsonLd: plan && seoPath
-      ? offerJsonLd({
-          name: plan.title,
-          description: plan.description,
-          image: plan.gallery?.[0] ?? null,
-          priceCents: plan.priceCents,
-          url: seoPath,
-        })
-      : null,
-  });
 
   const providerQ = useQuery({
     queryKey: ["plan-detail-provider", plan?.providerId],
@@ -309,6 +289,29 @@ const PlanDetail = () => {
     if (plan.source === "universal") return offers.find((o) => o.id === plan.id) ?? null;
     return offerBySourcePlanId.get(plan.id) ?? null;
   }, [plan, offers, offerBySourcePlanId]);
+
+  // A shared plan link used to preview as the site's own front page; a search
+  // result for it said nothing about the plan. Both read the plan now.
+  const seoPath = plan ? `/services/${archetypeKey || "plans"}/plans/${plan.id}` : null;
+  useSeo({
+    // The offer's name, not the variant's: a tab reading "Mon-Fri: 1 Time"
+    // on a page headed "Meal Plan" named the wrong thing.
+    title: offer?.name ?? plan?.title ?? null,
+    description: plan?.description
+      ?? (plan ? `${offer?.name ?? plan.title} on EverySub.` : null),
+    path: seoPath,
+    image: plan?.gallery?.[0] ?? null,
+    type: "product",
+    jsonLd: plan && seoPath
+      ? offerJsonLd({
+          name: offer?.name ?? plan.title,
+          description: plan.description,
+          image: plan.gallery?.[0] ?? null,
+          priceCents: plan.priceCents,
+          url: seoPath,
+        })
+      : null,
+  });
 
 
   const { addItem: addToCart } = useCart();

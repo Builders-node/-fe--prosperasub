@@ -30,7 +30,7 @@ import BookingDetail from "./BookingDetail";
  */
 
 /** What the tab says while the marketplace is not the thing on screen. */
-const CARS_TITLE = "EverySub Vehicles — rent a vehicle in Próspera";
+const CARS_TITLE = "EverySub Vehicles — rent a vehicle on Roatán";
 
 function VehiclesLayout({ children }: { children: ReactNode }) {
   /**

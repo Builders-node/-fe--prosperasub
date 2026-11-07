@@ -5,8 +5,7 @@ import {
   ShoppingCart, Trash2, Minus, Plus, MapPin, MessageCircle, User as UserIcon,
   Check, UtensilsCrossed, X, RefreshCw,
 } from "lucide-react";
-import { HomeHeader } from "@/components/layout/HomeHeader";
-import { DesktopHeader } from "@/components/layout/DesktopHeader";
+import { UserLayout } from "@/components/layout/UserLayout";
 import { CheckoutStickyFooter } from "@/components/patterns/CheckoutStickyFooter";
 import { CheckoutSuccessPanel } from "@/components/patterns/CheckoutSuccessPanel";
 import { NotesField } from "@/components/patterns/NotesField";
@@ -79,7 +78,6 @@ function endDateFor(startISO: string, weeks: number): string {
 
 export default function Cart() {
   const navigate = useNavigate();
-  const goBack = useGoBack("/discovery");
   const { items, totalCents, count, setQty, setPeriods, removeItem, clear } = useCart();
   const { isAuthenticated, userData } = useAuth();
   const { openAuthModal } = useAuthModal();
@@ -419,15 +417,11 @@ export default function Cart() {
 
   // ─── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-background pb-28 md:pb-12">
-      {/* Desktop header first, as BrowseLayout and UserLayout both do — this
-          page had them the other way round, which put the mobile bar above the
-          desktop one in the DOM and made the sticky order differ from every
-          other screen. */}
-      <DesktopHeader showBackButton breadcrumb="Cart" />
-      <HomeHeader title={atCheckout ? "Checkout" : "Cart"} showBackButton onBack={goBack} />
-
-      <main className={atCheckout
+    // The Decision frame every checkout uses (UserLayout without the tab bar),
+    // instead of the two headers composed by hand over a guessed pb-28. Guests
+    // may look at their basket; the pay step asks them to sign in.
+    <UserLayout title={atCheckout ? "Checkout" : "Cart"} showBackButton backTo="/discovery" breadcrumb="Cart" allowGuest showBottomNav={false}>
+      <div className={atCheckout
         ? "mx-auto max-w-xl space-y-1 pt-1 pb-[calc(var(--checkout-footer-h,180px)+16px)] md:px-4 md:py-space-6"
         : "app-container space-y-5 py-space-4 md:py-space-6"}>
         {step === "success" ? (
@@ -770,7 +764,7 @@ export default function Cart() {
             )}
           </>
         )}
-      </main>
+      </div>
 
       {/* Sticky checkout bar */}
       {showStickyCheckout && (
@@ -825,6 +819,6 @@ export default function Cart() {
           and vanish the moment you added a plan, on the same URL. A cart is a
           decision surface (PAGE_TYPES §5) — out is the back arrow, or the
           empty state's own "Browse services" button. */}
-    </div>
+    </UserLayout>
   );
 }

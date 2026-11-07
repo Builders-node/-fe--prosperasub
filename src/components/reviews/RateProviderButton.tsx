@@ -264,7 +264,7 @@ export function RateProviderButton({
               {myReview ? "Update your review" : "Rate this provider"}
             </DialogTitle>
             <DialogDescription>
-              Your rating helps others in Próspera choose better.
+              Your rating helps others on Roatán choose better.
             </DialogDescription>
           </DialogHeader>
 

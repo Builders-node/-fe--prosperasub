@@ -1,7 +1,7 @@
 {
-  "name": "EverySub - Convenience Subscriptions to Próspera",
+  "name": "EverySub — Subscriptions in Roatán",
   "short_name": "EverySub",
-  "description": "Your all-in-one platform for subscriptions and services in the Próspera ecosystem.",
+  "description": "Subscriptions for life on Roatán — meals, cleaning, memberships, vehicles and more, paid in Bitcoin, by card or PayPal.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
