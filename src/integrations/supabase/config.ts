@@ -85,6 +85,10 @@ const EDGE_ROUTES: RegExp[] = [
   /^\/rentals\/bookings(\/[^/]+\/(confirm|reference|cancel))?$/,
   /^\/admin\/rentals\/bookings\/[^/]+$/,
   /^\/account\/rental-fleet$/,
+  // Paid placements (Edge routes/promotions.ts).
+  /^\/promotions\/(active|events)$/,
+  /^\/account\/providers\/[^/]+\/promotions(\/(boost|featured))?$/,
+  /^\/admin\/promotions(\/settings|\/[^/]+\/end)?$/,
 ];
 
 /** Full URL for an API path — the Edge Function if that path has moved, else the Nest API. */

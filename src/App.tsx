@@ -107,6 +107,7 @@ const MyProvider = lazy(() => import("./pages/user/MyProvider"));
 const AuditLogs = lazy(() => import("./pages/admin/AuditLogs"));
 const RoleManagement = lazy(() => import("./pages/admin/RoleManagement"));
 const AdsManagement = lazy(() => import("./pages/admin/AdsManagement"));
+const AdminPromotions = lazy(() => import("./pages/admin/Promotions"));
 
 // Where the platform operates. Lived under "Admin Food" and was named for the
 // food table it reads (`food_residences`), but residences gate cleaning plans,
@@ -407,6 +408,9 @@ const App = () => {
               } />
               <Route path="/admin/announcements" element={
                 <ProtectedRoute allowedRoles={['super_admin']}><Announcements /></ProtectedRoute>
+              } />
+              <Route path="/admin/promotions" element={
+                <ProtectedRoute allowedRoles={['super_admin']} requiredPermissions={["payments.read"]}><AdminPromotions /></ProtectedRoute>
               } />
               <Route path="/admin/promo-codes" element={
                 <ProtectedRoute allowedRoles={['super_admin']}><PromoCodes /></ProtectedRoute>

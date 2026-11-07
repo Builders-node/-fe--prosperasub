@@ -17,6 +17,7 @@ export const adminRoutes = {
   superAdminMarketplaceReviews: "/admin/marketplace/reviews",
   superAdminAnnouncements: "/admin/announcements",
   superAdminPromoCodes: "/admin/promo-codes",
+  superAdminPromotions: "/admin/promotions",
   superAdminMarketplaceSubscriptions: "/admin/marketplace/subscriptions",
   superAdminTransport: "/admin/transport",
   /** The old address; still resolves so bookmarks survive. */

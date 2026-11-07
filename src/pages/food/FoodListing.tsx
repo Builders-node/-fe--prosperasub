@@ -23,6 +23,7 @@ import type { FoodProvider, FoodMealPlan } from "@/types/food";
 import { DIETARY_TAGS, dietaryTagMeta, type DietaryTag } from "@/lib/foodDietaryTags";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/patterns/Skeleton";
+import { FeaturedRail } from "@/components/discovery/FeaturedRail";
 
 type PlanWithResidences = FoodMealPlan & { residenceIds: string[] };
 type ProviderWithPlans = FoodProvider & {
@@ -287,6 +288,7 @@ const FoodListing = () => {
       />
 
       <main className="app-container py-space-4 md:py-space-8">
+        <FeaturedRail placement="service" archetypeKey="food" className="mb-space-6" />
 
         {/* ─── Providers → Categories → the list ───────────────────── */}
         {!isLoading && !isError && railProviders.length > 0 && (

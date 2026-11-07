@@ -25,6 +25,7 @@ import { QueryError } from "@/components/patterns/QueryError";
 import { Skeleton } from "@/components/patterns/Skeleton";
 import { YdEmptyState } from "@/components/yd/YdPrimitives";
 import { CleaningPackageCard } from "@/components/patterns/CleaningPackageCard";
+import { FeaturedRail } from "@/components/discovery/FeaturedRail";
 
 interface CleaningProvider {
   id: string;
@@ -285,6 +286,7 @@ const CleaningPackages = () => {
       />
 
       <main className="app-container space-y-8 py-space-4 md:py-space-8">
+        <FeaturedRail placement="service" archetypeKey="cleaning" />
 
         {/* Providers → Categories → the list. See components/listing/
             ListingNav — the same three-step shape on all four services. */}

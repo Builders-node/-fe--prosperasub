@@ -65,6 +65,13 @@ const SECTIONS: LegalSection[] = [
     ],
   },
   {
+    title: "Featured places and ads",
+    body: [
+      "Places marked “Ad” or shown under Featured are paid for by the business. Paying never changes a business's reviews or ratings.",
+      "A business may pay a fixed price for a featured week, taken from what it has earned on EverySub, or a higher commission on orders that came from a featured place. We note which place, if any, an order came from to settle that commission.",
+    ],
+  },
+  {
     title: "Reviews and what you post",
     body: [
       "Reviews must be honest and about your own experience. We may hide reviews that are abusive, off-topic, fake or share someone's personal details.",

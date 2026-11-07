@@ -22,6 +22,7 @@ import { UniversalPlanCard } from "@/components/patterns/UniversalPlanCard";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
+import { FeaturedRail } from "@/components/discovery/FeaturedRail";
 
 interface BeachPlan {
   id: string;
@@ -297,6 +298,7 @@ const BeachClub = () => {
       />
 
       <main className="app-container py-space-4 md:py-space-8">
+        <FeaturedRail placement="service" archetypeKey="entertainment" className="mb-space-6" />
         {/* ─── Providers grouped by category ──────────────────────────
             "Beach Membership" providers on top, "Court Bookings" below, etc.
             Header hidden when only one category is populated so single-

@@ -9,7 +9,7 @@
 
 import {
   BarChart3, CalendarDays, DollarSign,
-  BellRing, FileText, Layers, LayoutDashboard, MapPin, Megaphone, TicketPercent,
+  BellRing, FileText, Layers, LayoutDashboard, MapPin, Megaphone, Sparkles, TicketPercent,
   LifeBuoy, ShieldCheck, Users, Building2, CarFront, Star, Wrench, } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { adminRoutes } from "./adminRoutes";
@@ -117,6 +117,8 @@ export const GROWTH_SECTION: NavSection = {
     { label: "Announcements", path: adminRoutes.superAdminAnnouncements, icon: BellRing,
       permissions: ["users.read"] },
     { label: "Promo codes", path: adminRoutes.superAdminPromoCodes, icon: TicketPercent,
+      permissions: ["payments.read"] },
+    { label: "Promotions", path: adminRoutes.superAdminPromotions, icon: Sparkles,
       permissions: ["payments.read"] },
   ],
 };

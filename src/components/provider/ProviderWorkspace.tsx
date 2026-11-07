@@ -1,6 +1,6 @@
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Photo, initialsOf } from "@/components/patterns/Photo";
-import { CalendarClock, CarFront, Edit, ExternalLink, LandPlot, Package, Store, Users, Wallet } from "lucide-react";
+import { CalendarClock, CarFront, Edit, ExternalLink, LandPlot, Megaphone, Package, Store, Users, Wallet } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { StatusPill } from "@/components/patterns/StatusPill";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,7 @@ import { ProfileCompletenessCard } from "@/components/provider/ProfileCompletene
 import { GoLivePanel } from "@/components/provider/GoLivePanel";
 import { ProviderQrCard } from "@/components/provider/ProviderQrCard";
 import { ProviderPromoCodes } from "@/components/provider/ProviderPromoCodes";
+import { ProviderPromotions } from "@/components/provider/ProviderPromotions";
 import { PlansTab } from "@/components/provider/plans/PlansTab";
 import { OperationsTab } from "@/components/provider/OperationsTab";
 import { PortalTabsView } from "@/components/provider/PortalTabsView";
@@ -308,6 +309,24 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
   };
 
   /**
+   * Promote — what a business can buy to be seen: a boost (pay per order it
+   * brings), a featured week (paid from the balance), and its own promo codes.
+   * The whole team sees the numbers; spending is the owner's.
+   */
+  const promoteTab: PortalTab<unknown> = {
+    value: "promote",
+    label: "Promote",
+    icon: Megaphone,
+    render: () => (
+      <div className="space-y-1">
+        <ProviderPromotions providerId={provider.id} />
+        {/* Owner-only; the API answers 403 to anyone else and it hides. */}
+        {isOwner && <ProviderPromoCodes providerId={provider.id} />}
+      </div>
+    ),
+  };
+
+  /**
    * Team — one tab for every service now that `provider_members` exists.
    * Built here rather than inside each service's bundle because it needs the
    * UNIVERSAL provider id, which the legacy bundles never carry.
@@ -354,8 +373,6 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
           <ScheduleAccordion provider={provider} />
           {custom.offeringsExtra?.(workspaceCtx)}
           <PlansTab providerId={provider.id} sourceKey={sourceKey} />
-          {/* Owner-only; the API answers 403 to anyone else and it hides. */}
-          {isOwner && <ProviderPromoCodes providerId={provider.id} />}
         </>
       ),
     },
@@ -371,6 +388,7 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
       icon: LandPlot,
       render: () => <CalendarsTab providerId={provider.id} />,
     },
+    promoteTab,
     moneyTab,
     teamTab,
   ];

@@ -26,6 +26,7 @@ import { PageLoader } from "@/components/ui/spinner";
 import { SearchX } from "lucide-react";
 import { useDraftPreview } from "@/hooks/useDraftPreview";
 import { DraftPreviewBanner } from "@/components/patterns/DraftPreviewBanner";
+import { FeaturedRail } from "@/components/discovery/FeaturedRail";
 
 /**
  * The listing for a service that has no bespoke page of its own.
@@ -217,6 +218,7 @@ const ServicePage = () => {
 
       <main className="app-container py-space-4 md:py-space-8">
         {preview && <div className="mb-4"><DraftPreviewBanner /></div>}
+        <FeaturedRail placement="service" archetypeKey={archetype.key} className="mb-space-6" />
         {providersQ.isLoading ? (
           <div className="grid gap-3 md:grid-cols-2 md:gap-4">
             {[1, 2].map((i) => <Skeleton key={i} className="h-72" />)}

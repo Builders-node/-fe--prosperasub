@@ -27,6 +27,7 @@ import { useI18n } from "@/i18n";
 import { prefetchRoute } from "@/lib/routeChunks";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/patterns/Skeleton";
+import { FeaturedRail } from "@/components/discovery/FeaturedRail";
 
 // "My Subs" tile isn't a category, but sits alongside category tiles.
 const MY_SUBS_TILE = {
@@ -246,6 +247,8 @@ const Discovery = () => {
           </section>
         ) : (
           /* ─── Services ─────────────────────────────────────────────── */
+          <>
+          <FeaturedRail placement="home" />
           <section className="space-y-3">
             <h2 className="text-heading font-semibold text-foreground">
               {t("discovery.services")}
@@ -264,6 +267,7 @@ const Discovery = () => {
               </div>
             )}
           </section>
+          </>
         )}
 
         {/* Every plan on the platform, one card each. */}
