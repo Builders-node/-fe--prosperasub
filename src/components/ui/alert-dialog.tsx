@@ -40,7 +40,7 @@ const AlertDialogContent = React.forwardRef<
       // centred bordered box with a drop shadow on every screen size.
       style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px), 1rem)" }}
       className={cn(
-        "fixed z-50 grid gap-2 bg-background p-4 duration-200",
+        "fixed z-50 grid gap-1 bg-background pt-4 duration-200",
         "inset-x-0 bottom-0 rounded-t-radius-lg",
         "data-[state=open]:animate-in data-[state=closed]:animate-out",
         "data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
@@ -64,7 +64,7 @@ const AlertDialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDiv
 AlertDialogHeader.displayName = "AlertDialogHeader";
 
 const AlertDialogFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn("flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end [&>*]:w-full sm:[&>*]:w-auto", className)} {...props} />
+  <div className={cn("flex flex-col-reverse gap-2 px-4 pt-2 sm:flex-row sm:justify-end [&>*]:w-full sm:[&>*]:w-auto", className)} {...props} />
 );
 AlertDialogFooter.displayName = "AlertDialogFooter";
 

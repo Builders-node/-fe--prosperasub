@@ -75,11 +75,11 @@ const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Con
       <SheetPrimitive.Content
         ref={ref}
         onOpenAutoFocus={preventTouchAutoFocus(onOpenAutoFocus)}
-        className={cn(sheetVariants({ side }), (blocks ?? (side === "right" || side === "bottom")) && "[&>*+*]:mt-2", className)}
+        className={cn(sheetVariants({ side }), (blocks ?? (side === "right" || side === "bottom")) && "px-0 [&>*+*]:mt-1", className)}
         {...props}
       >
         {(blocks ?? (side === "right" || side === "bottom")) ? groupIntoBlocks(children, sheetChrome()) : children}
-        <SheetPrimitive.Close className="absolute right-4 top-5 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:pointer-events-none">
+        <SheetPrimitive.Close className="absolute right-4 top-[17px] z-20 flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:pointer-events-none">
           <X className="h-4 w-4" />
           <span className="sr-only">Close</span>
         </SheetPrimitive.Close>
@@ -98,7 +98,7 @@ const SheetHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElemen
       // small on purpose — the old h-[100vh] painted the entire viewport, which
       // in a bottom sheet stretched the sheet's visible dark area to fill the
       // screen even when the actual content list was tiny.
-      "sticky top-0 z-10 flex flex-col gap-1 bg-background pb-2 pr-10 pt-1 text-left",
+      "sticky top-0 z-10 flex flex-col gap-1 bg-background px-4 pb-2 pr-14 pt-1 text-left",
       "before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-4 before:bg-background",
       className,
     )}
@@ -108,7 +108,7 @@ const SheetHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElemen
 SheetHeader.displayName = "SheetHeader";
 
 const SheetFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn("sticky bottom-0 z-10 flex flex-col-reverse gap-2 bg-background pt-2 sm:flex-row sm:justify-end [&>*]:w-full sm:[&>*]:w-auto", className)} {...props} />
+  <div className={cn("sticky bottom-0 z-10 flex flex-col-reverse gap-2 bg-background px-4 pt-2 sm:flex-row sm:justify-end [&>*]:w-full sm:[&>*]:w-auto", className)} {...props} />
 );
 SheetFooter.displayName = "SheetFooter";
 
