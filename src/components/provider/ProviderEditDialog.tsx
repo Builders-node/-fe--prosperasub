@@ -3,6 +3,7 @@ import { type ReactNode } from "react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
+import { DialogBlock } from "@/components/ui/dialog-blocks";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -72,9 +73,9 @@ export function ProviderEditDialog({
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-5">
+        <>
           {/* Basic info */}
-          <section className="space-y-3">
+          <DialogBlock>
             <SectionTitle>Basic info</SectionTitle>
             <div>
               <Label>Name *</Label>
@@ -93,10 +94,10 @@ export function ProviderEditDialog({
                 placeholder="What customers see on the public page."
               />
             </div>
-          </section>
+          </DialogBlock>
 
           {/* Images — upload from file (Supabase Storage) or paste URL */}
-          <section className="space-y-3">
+          <DialogBlock>
             <SectionTitle>Images</SectionTitle>
             <ImageField
               label="Avatar"
@@ -118,10 +119,10 @@ export function ProviderEditDialog({
               onChange={(urls) => patch({ gallery_urls: urls })}
               pathPrefix="providers/gallery"
             />
-          </section>
+          </DialogBlock>
 
           {/* Location & hours */}
-          <section className="space-y-3">
+          <DialogBlock>
             <SectionTitle>Location &amp; hours</SectionTitle>
             <div>
               <Label>Location</Label>
@@ -131,10 +132,10 @@ export function ProviderEditDialog({
                 placeholder="West End, Roatán…"
               />
             </div>
-          </section>
+          </DialogBlock>
 
           {/* Contact */}
-          <section className="space-y-3">
+          <DialogBlock>
             <SectionTitle>Contact</SectionTitle>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
@@ -156,14 +157,14 @@ export function ProviderEditDialog({
                 />
               </div>
             </div>
-          </section>
+          </DialogBlock>
 
           {/* Service-specific extras (food service-locations, structured hours…). */}
           {extras}
 
           {/* Admin — hidden for owner-facing views. */}
           {showAdminFields && (
-            <section className="space-y-3">
+            <DialogBlock>
               <SectionTitle>Admin</SectionTitle>
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -186,9 +187,9 @@ export function ProviderEditDialog({
                   />
                 </div>
               </div>
-            </section>
+            </DialogBlock>
           )}
-        </div>
+        </>
 
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
@@ -203,6 +204,7 @@ export function ProviderEditDialog({
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{children}</p>
+    // A block's own name, in the same voice as every other card title.
+    <h3 className="text-title font-semibold text-foreground">{children}</h3>
   );
 }

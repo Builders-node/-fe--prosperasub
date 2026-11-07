@@ -4,6 +4,7 @@ import { X } from "lucide-react";
 import * as React from "react";
 
 import { cn } from "@/lib/utils";
+import { groupIntoBlocks, preventTouchAutoFocus } from "@/components/ui/dialog-blocks";
 
 const Sheet = SheetPrimitive.Root;
 
@@ -59,15 +60,26 @@ const sheetVariants = cva(
 
 interface SheetContentProps
   extends React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content>,
-    VariantProps<typeof sheetVariants> {}
+    VariantProps<typeof sheetVariants> {
+  /**
+   * Put loose content on white cards, like a dialog. On by default for a
+   * bottom or right sheet (a form, a detail); a left sheet is navigation.
+   */
+  blocks?: boolean;
+}
 
 const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Content>, SheetContentProps>(
-  ({ side = "right", className, children, ...props }, ref) => (
+  ({ side = "right", className, children, blocks, onOpenAutoFocus, ...props }, ref) => (
     <SheetPortal>
       <SheetOverlay />
-      <SheetPrimitive.Content ref={ref} className={cn(sheetVariants({ side }), className)} {...props}>
-        {children}
-        <SheetPrimitive.Close className="absolute right-4 top-4 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:pointer-events-none">
+      <SheetPrimitive.Content
+        ref={ref}
+        onOpenAutoFocus={preventTouchAutoFocus(onOpenAutoFocus)}
+        className={cn(sheetVariants({ side }), (blocks ?? (side === "right" || side === "bottom")) && "[&>*+*]:mt-2", className)}
+        {...props}
+      >
+        {(blocks ?? (side === "right" || side === "bottom")) ? groupIntoBlocks(children, sheetChrome()) : children}
+        <SheetPrimitive.Close className="absolute right-4 top-5 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:pointer-events-none">
           <X className="h-4 w-4" />
           <span className="sr-only">Close</span>
         </SheetPrimitive.Close>
@@ -86,7 +98,7 @@ const SheetHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElemen
       // small on purpose — the old h-[100vh] painted the entire viewport, which
       // in a bottom sheet stretched the sheet's visible dark area to fill the
       // screen even when the actual content list was tiny.
-      "sticky top-0 z-10 flex flex-col gap-space-2 bg-background pb-space-3 text-center sm:text-left",
+      "sticky top-0 z-10 flex flex-col gap-1 bg-background pb-2 pr-10 pt-1 text-left",
       "before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-4 before:bg-background",
       className,
     )}
@@ -96,7 +108,7 @@ const SheetHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElemen
 SheetHeader.displayName = "SheetHeader";
 
 const SheetFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn("flex flex-col-reverse gap-space-2 sm:flex-row sm:justify-end", className)} {...props} />
+  <div className={cn("sticky bottom-0 z-10 flex flex-col-reverse gap-2 bg-background pt-2 sm:flex-row sm:justify-end [&>*]:w-full sm:[&>*]:w-auto", className)} {...props} />
 );
 SheetFooter.displayName = "SheetFooter";
 
@@ -104,7 +116,7 @@ const SheetTitle = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Title>,
   React.ComponentPropsWithoutRef<typeof SheetPrimitive.Title>
 >(({ className, ...props }, ref) => (
-  <SheetPrimitive.Title ref={ref} className={cn("text-[20px] font-semibold tracking-[-0.4px] text-foreground", className)} {...props} />
+  <SheetPrimitive.Title ref={ref} className={cn("text-heading font-semibold text-foreground", className)} {...props} />
 ));
 SheetTitle.displayName = SheetPrimitive.Title.displayName;
 
@@ -112,9 +124,11 @@ const SheetDescription = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Description>,
   React.ComponentPropsWithoutRef<typeof SheetPrimitive.Description>
 >(({ className, ...props }, ref) => (
-  <SheetPrimitive.Description ref={ref} className={cn("text-sm text-muted-foreground", className)} {...props} />
+  <SheetPrimitive.Description ref={ref} className={cn("text-body text-muted-foreground", className)} {...props} />
 ));
 SheetDescription.displayName = SheetPrimitive.Description.displayName;
+
+const sheetChrome = () => new Set<unknown>([SheetHeader, SheetFooter, SheetTitle, SheetDescription, SheetClose]);
 
 export {
   Sheet,

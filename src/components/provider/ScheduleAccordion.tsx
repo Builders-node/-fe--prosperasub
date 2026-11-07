@@ -43,6 +43,7 @@ export function ScheduleAccordion({ provider }: { provider: UniversalProviderRow
           plans a screen and a half down the page. */}
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent
+          blocks={false}
           side={isMobile ? "bottom" : "right"}
           className={isMobile ? "h-[92vh] p-0" : "w-full max-w-xl p-0 sm:max-w-xl"}
         >

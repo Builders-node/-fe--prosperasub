@@ -3,6 +3,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { DialogBlock, groupIntoBlocks, preventTouchAutoFocus } from "@/components/ui/dialog-blocks";
 
 const Dialog = DialogPrimitive.Root;
 
@@ -42,17 +43,23 @@ interface DialogContentProps
    * header and footer — needs to cancel the default gap between them.
    */
   bodyClassName?: string;
+  /**
+   * Put loose content on a white card (the default). Off for the few dialogs
+   * that draw their whole surface themselves.
+   */
+  blocks?: boolean;
 }
 
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   DialogContentProps
->(({ className, children, bodyClassName, ...props }, ref) => (
+>(({ className, children, bodyClassName, blocks = true, onOpenAutoFocus, ...props }, ref) => (
   <DialogPortal>
     <DialogOverlay />
     <DialogPrimitive.Content
       ref={ref}
-      style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px), 1.5rem)" }}
+      onOpenAutoFocus={preventTouchAutoFocus(onOpenAutoFocus)}
+      style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px), 1rem)" }}
       className={cn(
         // base
         //
@@ -68,7 +75,7 @@ const DialogContent = React.forwardRef<
         "data-[state=open]:animate-in data-[state=closed]:animate-out",
         "data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
         // desktop: centered modal
-        "sm:inset-x-auto sm:bottom-auto sm:left-[50%] sm:top-[50%] sm:w-full sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-radius-lg sm:p-5 sm:max-h-[85vh]",
+        "sm:inset-x-auto sm:bottom-auto sm:left-[50%] sm:top-[50%] sm:w-full sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-radius-lg sm:max-h-[85vh]",
         "sm:data-[state=closed]:slide-out-to-left-1/2 sm:data-[state=closed]:slide-out-to-top-[48%]",
         "sm:data-[state=open]:slide-in-from-left-1/2 sm:data-[state=open]:slide-in-from-top-[48%]",
         "sm:data-[state=closed]:zoom-out-95 sm:data-[state=open]:zoom-in-95",
@@ -88,10 +95,10 @@ const DialogContent = React.forwardRef<
         track grows to its widest child, so a single wide row (a gallery
         strip) pushed every field 20px past the sheet's right edge on a phone.
       */}
-      <div className={cn("grid min-h-0 grid-cols-[minmax(0,1fr)] gap-4 overflow-y-auto", bodyClassName)}>
-        {children}
+      <div className={cn("grid min-h-0 grid-cols-[minmax(0,1fr)] gap-2 overflow-y-auto", bodyClassName)}>
+        {blocks ? groupIntoBlocks(children, dialogChrome()) : children}
       </div>
-      <DialogPrimitive.Close className="absolute right-4 top-4 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:pointer-events-none">
+      <DialogPrimitive.Close className="absolute right-4 top-5 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:pointer-events-none">
         <X className="h-4 w-4" />
         <span className="sr-only">Close</span>
       </DialogPrimitive.Close>
@@ -100,11 +107,16 @@ const DialogContent = React.forwardRef<
 ));
 DialogContent.displayName = DialogPrimitive.Content.displayName;
 
+/**
+ * The title row, on the sheet's grey — left-aligned at every width, with the
+ * close button on the same line (hence pr-10). It used to centre on a phone
+ * and left-align on a desktop, so one dialog had two layouts.
+ */
 const DialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      "sticky top-0 z-10 flex flex-col gap-space-2 bg-background pb-space-3 text-center sm:text-left",
-      "before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-[100vh] before:bg-background",
+      "sticky top-0 z-10 flex flex-col gap-1 bg-background pb-2 pr-10 pt-1 text-left",
+      "before:pointer-events-none before:absolute before:inset-x-0 before:bottom-full before:h-6 before:bg-background",
       className,
     )}
     {...props}
@@ -112,8 +124,19 @@ const DialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivEleme
 );
 DialogHeader.displayName = "DialogHeader";
 
+/**
+ * The buttons, pinned under the blocks. On a phone the main action is a
+ * full-width button with the secondary one under it; from sm: up they sit
+ * right-aligned in a row. Callers put the main action LAST.
+ */
 const DialogFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn("flex flex-col-reverse gap-space-2 sm:flex-row sm:justify-end", className)} {...props} />
+  <div
+    className={cn(
+      "sticky bottom-0 z-10 flex flex-col-reverse gap-2 bg-background pt-2 sm:flex-row sm:justify-end [&>*]:w-full sm:[&>*]:w-auto",
+      className,
+    )}
+    {...props}
+  />
 );
 DialogFooter.displayName = "DialogFooter";
 
@@ -124,14 +147,8 @@ const DialogTitle = React.forwardRef<
   <DialogPrimitive.Title
     ref={ref}
     className={cn(
-      "text-panel-title",
-      // Keep clear of the close button, which is absolutely positioned at
-      // right-4 top-4, is opaque and sits a layer above the header. No title
-      // in the app is long enough to reach it today; the first one that is
-      // would have run underneath it. Symmetric on mobile because the header
-      // centres its text there, so padding one side alone would push a short
-      // title off-centre.
-      "pl-10 pr-10 sm:pl-0",
+      // Left-aligned on every screen; the header keeps it clear of the close button.
+      "text-heading font-semibold text-foreground",
       className,
     )}
     {...props}
@@ -147,7 +164,11 @@ const DialogDescription = React.forwardRef<
 ));
 DialogDescription.displayName = DialogPrimitive.Description.displayName;
 
+/** What groupIntoBlocks leaves on the grey instead of putting on a card. */
+const dialogChrome = () => new Set<unknown>([DialogHeader, DialogFooter, DialogTitle, DialogDescription, DialogClose]);
+
 export {
+  DialogBlock,
   Dialog,
   DialogPortal,
   DialogOverlay,

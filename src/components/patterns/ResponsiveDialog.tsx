@@ -1,8 +1,7 @@
 import type { ReactNode } from "react";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+  Dialog, DialogBlock, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -16,94 +15,36 @@ interface Props {
   footer?: ReactNode;
   /** Extra class for the content wrapper, both breakpoints. */
   className?: string;
-  /**
-   * Extra class for the MOBILE sheet only. Heights like `h-[92vh]` belong to a
-   * sheet; a centred dialog sizes to its content and would be stretched by
-   * them.
-   */
+  /** Extra class for the phone sheet only (heights like `h-[92vh]`). */
   sheetClassName?: string;
-  /** Body class (padding/scroll). */
+  /** Class for the content block — a list passes tighter padding. */
   bodyClassName?: string;
 }
 
 /**
- * Renders a bottom-sheet on mobile and a centered dialog on desktop.
+ * A bottom sheet on a phone, a centred dialog on a desktop — now simply the
+ * Dialog, which already is both.
  *
- * Use for user-facing modals where mobile users benefit from a native-feeling
- * sheet (drag from bottom, safe-area aware) but desktop users expect a
- * centered floating card. The breakpoint matches Tailwind's `md` (768px).
+ * It used to switch to a separate Sheet on a phone, with its own title size,
+ * hairlines between header, body and footer and no drag handle, so the same
+ * screen looked like two different products depending on the width. One
+ * shell now: title on the grey, the content on a white block, the footer
+ * pinned under it (DESIGN.md §6, Dialogs).
  */
 export function ResponsiveDialog({
   open, onOpenChange, title, description, children, footer, className, bodyClassName, sheetClassName,
 }: Props) {
   const isMobile = useIsMobile();
-
-  if (!isMobile) {
-    return (
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        {/*
-          `contents` dissolves the shared scrolling body: this component
-          already implements the model that body exists to provide — a pinned
-          header, a middle that scrolls, a pinned footer — and wrapping it
-          would nest a second scroller inside the first, which is how a footer
-          ends up scrolling out of a dialog that has one.
-
-          `sm:p-0` because the shell's own `sm:p-5` is a different tailwind-merge
-          key from `p-0` and therefore survived it: the bordered header and
-          footer are meant to run edge to edge and have been inset 20px this
-          whole time.
-        */}
-        <DialogContent
-          className={cn("sm:max-w-lg p-0 sm:p-0", className)}
-          bodyClassName="contents"
-        >
-          <DialogHeader className="border-b border-border/50 px-6 pb-4 pt-6">
-            <DialogTitle className="text-2xl font-bold leading-tight tracking-tight">
-              {title}
-            </DialogTitle>
-            {description && (
-              <DialogDescription className="mt-1 text-sm text-muted-foreground">
-                {description}
-              </DialogDescription>
-            )}
-          </DialogHeader>
-          <div className={cn("max-h-[70vh] overflow-y-auto px-6 py-4", bodyClassName)}>
-            {children}
-          </div>
-          {footer && (
-            <div className="border-t border-border/50 px-6 py-4">{footer}</div>
-          )}
-        </DialogContent>
-      </Dialog>
-    );
-  }
-
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        side="bottom"
-        className={cn("flex max-h-[88vh] flex-col gap-0 rounded-t-3xl p-0", className, sheetClassName)}
-      >
-        <div className="shrink-0 border-b border-border/50 bg-background px-4 pb-3 pt-4">
-          <SheetTitle className="pr-10 text-2xl font-bold leading-tight tracking-tight">
-            {title}
-          </SheetTitle>
-          {description && (
-            <p className="mt-1 pr-10 text-sm text-muted-foreground">{description}</p>
-          )}
-        </div>
-        <div className={cn("flex-1 overflow-y-auto px-4 py-3", bodyClassName)}>
-          {children}
-        </div>
-        {footer && (
-          <div
-            className="shrink-0 border-t border-border/50 bg-background px-4 pt-3"
-            style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px), 0.75rem)" }}
-          >
-            {footer}
-          </div>
-        )}
-      </SheetContent>
-    </Sheet>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className={cn("sm:max-w-[480px]", className, isMobile && sheetClassName)}>
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          {description && <DialogDescription>{description}</DialogDescription>}
+        </DialogHeader>
+        <DialogBlock className={bodyClassName}>{children}</DialogBlock>
+        {footer && <DialogFooter className="block">{footer}</DialogFooter>}
+      </DialogContent>
+    </Dialog>
   );
 }

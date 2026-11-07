@@ -99,8 +99,8 @@ export function NotesField({
       <ResponsiveDialog
         open={open}
         onOpenChange={setOpen}
-        title={<span className="block text-center">{title}</span>}
-        description={description ? <span className="block text-center">{description}</span> : undefined}
+        title={title}
+        description={description}
         footer={
           <Button
             onClick={commit}

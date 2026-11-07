@@ -190,6 +190,7 @@ export function PlansTab({ providerId, sourceKey }: {
           on a desktop, up from the bottom on a phone. */}
       <Sheet open={!!editing} onOpenChange={(o) => { if (!o) setEditing(null); }}>
         <SheetContent
+          blocks={false}
           side={isMobile ? "bottom" : "right"}
           className={isMobile
             ? "h-[92vh] p-0"

@@ -218,6 +218,7 @@ export function CalendarsTab({ providerId }: { providerId: string }) {
 
       <Sheet open={!!editing} onOpenChange={(o) => { if (!o) setEditing(null); }}>
         <SheetContent
+          blocks={false}
           side={isMobile ? "bottom" : "right"}
           className={isMobile ? "h-[92vh] p-0" : "w-full max-w-xl p-0 sm:max-w-xl"}
         >
