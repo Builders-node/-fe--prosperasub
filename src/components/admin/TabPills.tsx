@@ -29,7 +29,10 @@ export function TabPills<T extends string>({
   className?: string;
 }) {
   return (
-    <div className={cn("inline-flex flex-wrap gap-1 rounded-full bg-muted/50 p-1", className)}>
+    // One line that scrolls sideways when the tabs outgrow a phone — wrapping
+    // turned a pill track into a two-row blob with one tab on the second line.
+    <div className="-mx-1 max-w-full overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <div className={cn("inline-flex flex-nowrap gap-1 whitespace-nowrap rounded-full bg-muted/50 p-1", className)}>
       {tabs.map((t) => {
         const active = value === t.value;
         return (
@@ -38,7 +41,7 @@ export function TabPills<T extends string>({
             type="button"
             onClick={() => onChange(t.value)}
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-semibold transition-colors",
+              "inline-flex shrink-0 items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-semibold transition-colors",
               active ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground",
             )}
           >
@@ -54,6 +57,7 @@ export function TabPills<T extends string>({
           </button>
         );
       })}
+    </div>
     </div>
   );
 }

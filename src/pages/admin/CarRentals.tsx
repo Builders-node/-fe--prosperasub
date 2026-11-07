@@ -396,7 +396,7 @@ export default function CarRentals({ embedded = false, providerId }: {
                   {/* A business nobody owns cannot be paid, and nobody can open
                       its workspace — worth saying here rather than at payout time. */}
                   <p className={cn("truncate text-xs", c.admin_user_id ? "text-muted-foreground" : "text-attention")}>
-                    {c.admin_user_id ? c.status : `${c.status} · no owner`}
+                    {(c.status === "active" || c.status === "approved" ? "Live" : c.status === "inactive" ? "Hidden" : "Draft") + (c.admin_user_id ? "" : " · no owner")}
                   </p>
                 </div>
                 <ArrowUpRight className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -422,7 +422,7 @@ export default function CarRentals({ embedded = false, providerId }: {
   if (embedded) return body;
 
   return (
-    <SuperAdminLayout title="Vehicles" subtitle="Types, providers, vehicles and bookings — the vehicles unit">
+    <SuperAdminLayout title="Vehicles" subtitle="Rentals: bookings, the fleet, vehicle types and rental companies">
       {body}
     </SuperAdminLayout>
   );
