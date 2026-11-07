@@ -1,3 +1,5 @@
+import { cn } from "@/lib/utils";
+import { fieldClass } from "@/components/ui/input";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarDays, ExternalLink, Pencil, Plus, Trash2 } from "lucide-react";
@@ -339,7 +341,7 @@ function CalendarForm({ row, types, onSaved, onDelete }: {
         <div>
           <Label className="text-[14px] font-normal text-muted-foreground">Kind</Label>
           <select
-            className="mt-1 h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+            className={cn(fieldClass, "mt-1")}
             value={form.type}
             onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))}
           >

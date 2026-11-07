@@ -1,3 +1,4 @@
+import { fieldClass } from "@/components/ui/input";
 import { EntitlementsEditor } from "@/components/provider/plans/EntitlementsEditor";
 import type { Entitlement } from "@/lib/plans/entitlements";
 import { PlanResourcePicker } from "@/components/provider/plans/PlanResourcePicker";
@@ -200,7 +201,7 @@ export function PlanForm({
           <div>
             <Label>How often</Label>
             <select
-              className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              className={fieldClass}
               value={values.period}
               disabled={periods.length === 1}
               onChange={(e) => onChange({ period: e.target.value as PlanPeriod })}
@@ -282,7 +283,7 @@ export function PlanForm({
         <div>
           <Label>Visibility</Label>
           <select
-            className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            className={fieldClass}
             value={values.visibility}
             onChange={(e) => onChange({ visibility: e.target.value as "public" | "private" })}
           >
@@ -294,7 +295,7 @@ export function PlanForm({
         <div>
           <Label>Status</Label>
           <select
-            className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            className={fieldClass}
             value={values.status}
             onChange={(e) => onChange({ status: e.target.value })}
           >

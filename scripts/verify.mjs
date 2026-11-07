@@ -82,6 +82,8 @@ const DESIGN_RULES = {
   container: { re: /max-w-\[1280px\]/g, base: 5, fix: "use AppContainer / .app-container" },
   // A Button's height and shape come from its size (sm 36 · default 44 · lg 48,
   // all pills). A per-call h-* or rounded-full is how seven heights happened.
+  // Fields are a filled surface (input.tsx FIELD_SURFACE / fieldClass) — never a rimmed box.
+  fieldBorder: { re: /\bborder-input\b/g, base: 0, fix: "use fieldClass from components/ui/input" },
   buttonShape: { re: /<Button\b[^>]*?className="[^"]*\b(?:rounded-full|h-(?:7|9|10|11|12|14))\b/g, base: 0, fix: "use Button size=\"sm|default|lg\"" },
 };
 const designFiles = [];

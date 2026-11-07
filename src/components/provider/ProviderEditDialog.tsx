@@ -1,3 +1,4 @@
+import { fieldClass } from "@/components/ui/input";
 import { type ReactNode } from "react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -168,7 +169,7 @@ export function ProviderEditDialog({
                 <div>
                   <Label>Status</Label>
                   <select
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    className={fieldClass}
                     value={values.status ?? "active"}
                     onChange={(e) => patch({ status: e.target.value })}
                   >

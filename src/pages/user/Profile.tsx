@@ -1,3 +1,4 @@
+import { fieldClass } from "@/components/ui/input";
 import { useEffect, useRef, useState, type ComponentType, type SVGProps } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Bell, BellOff, Eye, EyeOff, Gift, KeyRound, LogOut, MapPin, Pencil, Shield } from "lucide-react";
@@ -558,7 +559,7 @@ const Profile = () => {
                 onChange={(e) => setDraftPrefs((p) => ({ ...p, access_instructions: e.target.value || null }))}
                 placeholder="e.g. Door will be open · Key under mat"
                 rows={3}
-                className="w-full resize-none rounded-radius-md bg-inset p-4 text-title text-foreground outline-none placeholder:text-muted-foreground"
+                className={cn(fieldClass, "h-auto resize-none py-3")}
               />
               <p className="mt-1 px-1 text-meta text-muted-foreground">Shown in reminder notifications sent to you.</p>
             </div>

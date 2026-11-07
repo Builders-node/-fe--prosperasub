@@ -1,3 +1,4 @@
+import { fieldClass } from "@/components/ui/input";
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { effectiveCleaningStatus, effectiveFoodStatus } from "@/lib/subscriptionLifecycle";
@@ -1625,7 +1626,7 @@ const MySubscriptions = () => {
               value={rescheduleDate}
               min={todayHN()}
               onChange={(e) => { setRescheduleDate(e.target.value); setRescheduleSlotId(""); }}
-              className="mt-1 w-full rounded-radius-md bg-inset px-3 py-2.5 text-sm text-foreground"
+              className={cn(fieldClass, "mt-1")}
             />
           </div>
           <div>

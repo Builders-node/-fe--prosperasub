@@ -4,20 +4,18 @@ import { Loader2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
+import { FIELD_SURFACE } from "@/components/ui/input";
+
+// Same surface as every field (see input.tsx); only the box differs.
 const textareaVariants = cva(
-  // Mobile-first sizing — on ≤sm the base row is compact (min-h 80px, tighter
-  // padding) so a checkout screen doesn't blow up into a 600px input box. On
-  // ≥sm we go back to the original spacious feel for desktop editing.
-  // Font-size is left to the global iOS-zoom rule (16px on mobile, tokens on
-  // desktop) so no `text-*` utility fights with it here.
-  "peer flex min-h-[80px] w-full resize-y rounded-radius-md border bg-[hsl(var(--app-control))] px-4 py-3 text-foreground transition-colors placeholder:text-muted-foreground hover:border-foreground/25 focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25 disabled:cursor-not-allowed disabled:opacity-50 read-only:cursor-default read-only:bg-muted/60 sm:min-h-[132px] sm:px-space-5 sm:py-space-4 sm:text-body",
+  `peer flex min-h-[96px] resize-y px-4 py-3 ${FIELD_SURFACE}`,
   {
     variants: {
       state: {
-        default: "border-border",
-        error: "border-destructive focus-visible:border-destructive focus-visible:ring-destructive/25",
-        success: "border-primary focus-visible:border-primary focus-visible:ring-primary/25",
-        loading: "border-border",
+        default: "",
+        error: "ring-2 ring-destructive/70 focus-visible:ring-destructive/70",
+        success: "ring-2 ring-positive/60 focus-visible:ring-positive/60",
+        loading: "",
       },
     },
     defaultVariants: {

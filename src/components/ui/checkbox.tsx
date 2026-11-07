@@ -6,14 +6,14 @@ import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const checkboxVariants = cva(
-  "peer h-5 w-5 shrink-0 rounded-radius-sm border bg-[hsl(var(--app-control))] text-primary transition-colors hover:border-foreground/25 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25 disabled:cursor-not-allowed disabled:opacity-50",
+  "peer h-5 w-5 shrink-0 rounded-[6px] border-2 border-muted-foreground/50 bg-transparent text-primary transition-colors hover:border-foreground/60 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25 disabled:cursor-not-allowed disabled:opacity-50",
   {
     variants: {
       state: {
-        default: "border-border",
+        default: "",
         error: "border-destructive focus-visible:ring-destructive/25",
-        success: "border-primary",
-        loading: "border-border opacity-70",
+        success: "",
+        loading: "opacity-70",
       },
     },
     defaultVariants: {

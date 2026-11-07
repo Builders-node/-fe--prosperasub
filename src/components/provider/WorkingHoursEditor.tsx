@@ -1,3 +1,4 @@
+import { fieldClass } from "@/components/ui/input";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -74,7 +75,7 @@ export function WorkingHoursEditor({ value, onChange }: Props) {
                 type="time"
                 value={schedule.open}
                 onChange={(e) => update(idx, { open: e.target.value })}
-                className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                className={fieldClass}
               />
             </div>
             <span className="mt-5 text-muted-foreground">–</span>
@@ -84,7 +85,7 @@ export function WorkingHoursEditor({ value, onChange }: Props) {
                 type="time"
                 value={schedule.close}
                 onChange={(e) => update(idx, { close: e.target.value })}
-                className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                className={fieldClass}
               />
             </div>
             <Button

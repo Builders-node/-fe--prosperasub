@@ -1,3 +1,4 @@
+import { fieldClass } from "@/components/ui/input";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { MapPin, Plus, Pencil, Trash2, Eye, EyeOff } from "lucide-react";
@@ -183,7 +184,7 @@ const Locations = () => {
                 </div>
                 <div>
                   <Label>Status</Label>
-                  <select className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  <select className={fieldClass}
                     value={form.is_active ? "active" : "hidden"}
                     onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.value === "active" }))}>
                     <option value="active">Active</option>

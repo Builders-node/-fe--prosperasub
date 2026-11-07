@@ -1,3 +1,5 @@
+import { cn } from "@/lib/utils";
+import { fieldClass } from "@/components/ui/input";
 import { useState, useEffect } from "react";
 import { Bitcoin, Coins, Copy, CreditCard, ExternalLink, Loader2, Mail, MessageCircle, RefreshCw, Zap } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
@@ -892,7 +894,7 @@ function SurchargeInput({
         onBlur={commit}
         onKeyDown={(e) => { if (e.key === "Enter") { (e.target as HTMLInputElement).blur(); } }}
         disabled={disabled}
-        className="h-8 w-[80px] rounded-md border border-input bg-background pl-2 pr-6 text-right text-sm tabular-nums outline-none focus:ring-2 focus:ring-primary/30"
+        className={cn(fieldClass, "w-[80px] pl-3 pr-6 text-right tabular-nums")}
       />
       <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
     </div>

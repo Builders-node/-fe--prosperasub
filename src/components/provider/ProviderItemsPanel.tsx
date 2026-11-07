@@ -125,7 +125,7 @@ export function ProviderItemsPanel({ providerId }: { providerId: string }) {
               <div className="min-w-[10rem] flex-1">
                 <span className="text-[14px] text-muted-foreground">Name</span>
                 <Input
-                  className="mt-1 h-9"
+                  inputSize="sm" className="mt-1"
                   value={d.label}
                   placeholder="Brunch"
                   onChange={(e) => patch(i, { label: e.target.value })}
@@ -135,7 +135,7 @@ export function ProviderItemsPanel({ providerId }: { providerId: string }) {
                 <span className="text-[14px] text-muted-foreground">Usually at</span>
                 <Input
                   type="time"
-                  className="mt-1 h-9"
+                  inputSize="sm" className="mt-1"
                   value={d.time}
                   onChange={(e) => patch(i, { time: e.target.value })}
                 />

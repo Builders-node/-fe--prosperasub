@@ -1,3 +1,4 @@
+import { fieldClass } from "@/components/ui/input";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -68,7 +69,7 @@ export function EntitlementsEditor({ value, onChange, planPeriod }: {
               <div className="w-32">
                 <span className="text-[14px] text-muted-foreground">How often</span>
                 <select
-                  className="h-10 w-full rounded-md border border-input bg-background px-2 text-sm"
+                  className={fieldClass}
                   value={e.period ?? ""}
                   onChange={(ev) => patch(i, { period: (ev.target.value || null) as PlanPeriod | null })}
                 >

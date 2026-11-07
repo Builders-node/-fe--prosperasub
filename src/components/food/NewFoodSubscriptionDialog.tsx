@@ -361,7 +361,7 @@ export function NewFoodSubscriptionDialog({ providerId, trigger }: Props) {
                 <div>
                   <Label className="text-xs">Apartment / unit</Label>
                   <Input
-                    className="h-9"
+                    inputSize="sm"
                     value={deliveryAddress}
                     onChange={(e) => setDeliveryAddress(e.target.value)}
                     placeholder="e.g. 407"
@@ -371,7 +371,7 @@ export function NewFoodSubscriptionDialog({ providerId, trigger }: Props) {
               <div>
                 <Label className="text-xs">WhatsApp</Label>
                 <Input
-                  className="h-9"
+                  inputSize="sm"
                   type="tel"
                   value={customerWhatsapp}
                   onChange={(e) => setCustomerWhatsapp(e.target.value)}

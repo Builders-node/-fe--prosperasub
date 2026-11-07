@@ -338,7 +338,7 @@ export default function BeachClubSubscriptions({ embedded = false }: { embedded?
                 <TableCell>
                   <div className="flex flex-col items-start gap-1">
                     <Select value={s.status} onValueChange={(status) => statusMutation.mutate({ id: s.id, status })}>
-           <SelectTrigger inputSize="sm" className="w-[120px] text-xs font-semibold">
+           <SelectTrigger inputSize="sm" className="w-[120px]">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>

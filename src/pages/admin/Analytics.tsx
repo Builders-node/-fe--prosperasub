@@ -1,3 +1,5 @@
+import { cn } from "@/lib/utils";
+import { fieldClass } from "@/components/ui/input";
 import { useSearchParams } from "react-router-dom";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import CleaningAnalytics from "./CleaningAnalytics";
@@ -55,7 +57,7 @@ const Analytics = () => {
           id="analytics-service"
           value={service}
           onChange={(e) => setService(e.target.value as ServiceId)}
-          className="h-10 w-full rounded-radius-md sm:w-auto sm:min-w-[220px] border border-input bg-card px-3 text-[16px] font-semibold tracking-[-0.02em] text-foreground"
+          className={cn(fieldClass, "font-semibold sm:w-auto sm:min-w-[220px]")}
         >
           {SERVICES.map((s) => (
             <option key={s.id} value={s.id}>{s.label}</option>

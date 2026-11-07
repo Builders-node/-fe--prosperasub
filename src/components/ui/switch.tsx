@@ -5,14 +5,14 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const switchVariants = cva(
-  "peer inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-radius-full border bg-[hsl(var(--app-control))] p-space-1 transition-colors hover:border-foreground/25 data-[state=checked]:border-primary data-[state=checked]:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25 disabled:cursor-not-allowed disabled:opacity-50",
+  "peer inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-radius-full border-0 bg-muted p-space-1 transition-colors data-[state=checked]:bg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25 disabled:cursor-not-allowed disabled:opacity-50",
   {
     variants: {
       state: {
-        default: "border-border",
-        error: "border-destructive focus-visible:ring-destructive/25",
-        success: "border-primary",
-        loading: "border-border opacity-70",
+        default: "",
+        error: "ring-2 ring-destructive/70",
+        success: "",
+        loading: "opacity-70",
       },
     },
     defaultVariants: {

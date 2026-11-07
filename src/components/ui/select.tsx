@@ -11,20 +11,23 @@ const SelectGroup = SelectPrimitive.Group;
 
 const SelectValue = SelectPrimitive.Value;
 
+// Same surface as every field (see input.tsx).
 const selectTriggerVariants = cva(
-  "flex w-full items-center justify-between border bg-[hsl(var(--app-control))] text-foreground transition-colors placeholder:text-muted-foreground hover:border-foreground/25 focus:outline-none focus:ring-2 focus:ring-primary/25 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1",
+  // Radix focuses the trigger without :focus-visible, hence focus: here.
+  "flex w-full items-center justify-between gap-2 rounded-radius-md border-0 bg-muted text-left text-body text-foreground transition-shadow hover:bg-muted/80 focus:outline-none focus:ring-2 focus:ring-primary/50 disabled:cursor-not-allowed disabled:opacity-50 data-[placeholder]:text-muted-foreground [&>span]:line-clamp-1",
   {
     variants: {
       inputSize: {
-        sm: "h-10 rounded-radius-sm px-space-4 text-control",
-        md: "h-12 rounded-radius-md px-space-4 text-body",
-        lg: "h-14 rounded-radius-md px-space-5 text-body",
+        sm: "h-10 px-4",
+        md: "h-12 px-4",
+        /** Retired 56: renders as md. */
+        lg: "h-12 px-4",
       },
       state: {
-        default: "border-border",
-        error: "border-destructive focus:border-destructive focus:ring-destructive/25",
-        success: "border-primary focus:border-primary focus:ring-primary/25",
-        loading: "border-border",
+        default: "",
+        error: "ring-2 ring-destructive/70",
+        success: "ring-2 ring-positive/60",
+        loading: "",
       },
     },
     defaultVariants: {
@@ -91,7 +94,7 @@ const SelectContent = React.forwardRef<
     <SelectPrimitive.Content
       ref={ref}
       className={cn(
-        "relative z-50 max-h-96 min-w-[8rem] overflow-hidden rounded-radius-lg border border-border bg-popover p-space-1 text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
+        "relative z-50 max-h-96 min-w-[8rem] overflow-hidden rounded-radius-md bg-popover p-1 text-popover-foreground shadow-figma data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
         position === "popper" &&
           "data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1",
         className,

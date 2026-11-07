@@ -1,3 +1,4 @@
+import { fieldClass } from "@/components/ui/input";
 import { useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -15,8 +16,8 @@ import {
 import type { UniversalProviderRow } from "@/components/provider/UniversalInfoTab";
 import { todayHN } from "@/lib/timezone";
 
-const inputCls =
-  "h-9 rounded-md border border-input bg-background px-2 text-sm outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-40";
+/** The shared field surface, sized to its content inside these rows. */
+const inputCls = cn(fieldClass, "w-auto px-3");
 
 const newId = () =>
   (typeof crypto !== "undefined" && "randomUUID" in crypto) ? crypto.randomUUID() : `r-${Date.now()}-${Math.round(Math.random() * 1e6)}`;

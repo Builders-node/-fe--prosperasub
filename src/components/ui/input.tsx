@@ -4,22 +4,45 @@ import { Eye, EyeOff, Loader2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
+/**
+ * One field look for the whole app (DESIGN.md §6, Fields).
+ *
+ * A filled grey surface — the same `muted` fill as a secondary button — with
+ * NO border. The old field was a fill darker than the card under it plus a
+ * 1px rim the same colour as the card, so in dark mode it all but vanished
+ * and an error's red border could not be seen. Focus and error are rings.
+ *
+ * Heights: 48 for a form (md/lg) · 40 inside a row, toolbar or filter (sm).
+ * Radius 16 everywhere; a toolbar search may be a pill. Text is 15 (the
+ * global iOS rule raises it to 16 on phones so Safari does not zoom).
+ * `color-scheme` follows the theme so native date/time/select glyphs are
+ * visible in dark.
+ */
+export const FIELD_SURFACE =
+  "w-full rounded-radius-md border-0 bg-muted text-body text-foreground transition-shadow placeholder:text-muted-foreground hover:bg-muted/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:cursor-not-allowed disabled:opacity-50 [&:read-only:not(select)]:cursor-default [&:read-only:not(select)]:text-muted-foreground [color-scheme:light] dark:[color-scheme:dark]";
+
+/** For a hand-made <select>/<input>/<textarea> that cannot use the components. 40 tall. */
+export const fieldClass = `${FIELD_SURFACE} h-10 px-4`;
+
+const STATE = {
+  default: "",
+  error: "ring-2 ring-destructive/70 focus-visible:ring-destructive/70",
+  success: "ring-2 ring-positive/60 focus-visible:ring-positive/60",
+  loading: "",
+};
+
 const inputVariants = cva(
-  "peer flex w-full border bg-[hsl(var(--app-control))] text-foreground transition-colors placeholder:text-muted-foreground hover:border-foreground/25 focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25 disabled:cursor-not-allowed disabled:opacity-50 read-only:cursor-default read-only:bg-muted/60",
+  `peer flex ${FIELD_SURFACE}`,
   {
     variants: {
       inputSize: {
-        sm: "h-10 rounded-radius-sm px-space-4 text-control",
-        md: "h-12 rounded-radius-md px-space-4 text-body",
-        lg: "h-14 rounded-radius-md px-space-5 text-body",
-        search: "h-[52px] rounded-radius-lg px-space-5 text-body",
+        sm: "h-10 px-4",
+        md: "h-12 px-4",
+        /** Retired 56: renders as md. */
+        lg: "h-12 px-4",
+        search: "h-12 rounded-full px-5",
       },
-      state: {
-        default: "border-border",
-        error: "border-destructive focus-visible:border-destructive focus-visible:ring-destructive/25",
-        success: "border-primary focus-visible:border-primary focus-visible:ring-primary/25",
-        loading: "border-border",
-      },
+      state: STATE,
       hasLeftIcon: {
         true: "",
         false: "",
@@ -30,14 +53,14 @@ const inputVariants = cva(
       },
     },
     compoundVariants: [
-      { inputSize: "sm", hasLeftIcon: true, className: "pl-space-10" },
-      { inputSize: "md", hasLeftIcon: true, className: "pl-space-12" },
-      { inputSize: "lg", hasLeftIcon: true, className: "pl-space-12" },
-      { inputSize: "search", hasLeftIcon: true, className: "pl-space-12" },
-      { inputSize: "sm", hasRightIcon: true, className: "pr-space-10" },
-      { inputSize: "md", hasRightIcon: true, className: "pr-space-12" },
-      { inputSize: "lg", hasRightIcon: true, className: "pr-space-12" },
-      { inputSize: "search", hasRightIcon: true, className: "pr-space-12" },
+      { inputSize: "sm", hasLeftIcon: true, className: "pl-10" },
+      { inputSize: "md", hasLeftIcon: true, className: "pl-11" },
+      { inputSize: "lg", hasLeftIcon: true, className: "pl-11" },
+      { inputSize: "search", hasLeftIcon: true, className: "pl-12" },
+      { inputSize: "sm", hasRightIcon: true, className: "pr-10" },
+      { inputSize: "md", hasRightIcon: true, className: "pr-11" },
+      { inputSize: "lg", hasRightIcon: true, className: "pr-11" },
+      { inputSize: "search", hasRightIcon: true, className: "pr-12" },
     ],
     defaultVariants: {
       inputSize: "lg",
@@ -126,7 +149,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
     const control = (
       <div className="relative">
         {leftIcon && (
-          <span className="pointer-events-none absolute left-4 top-1/2 z-10 -translate-y-1/2 text-muted-foreground">
+          <span className="pointer-events-none absolute left-3.5 top-1/2 z-10 -translate-y-1/2 text-muted-foreground">
             {leftIcon}
           </span>
         )}
@@ -151,7 +174,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
           {...props}
         />
         {endIcon && (
-          <span className="absolute right-4 top-1/2 z-10 -translate-y-1/2 text-muted-foreground">
+          <span className="absolute right-3.5 top-1/2 z-10 -translate-y-1/2 text-muted-foreground">
             {endIcon}
           </span>
         )}

@@ -1,3 +1,4 @@
+import { fieldClass } from "@/components/ui/input";
 import { useState, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Check, ChevronsUpDown, Search, X } from "lucide-react";
@@ -71,7 +72,7 @@ export function UserPicker({
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-left text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
+        className={cn(fieldClass, "flex items-center justify-between text-left")}
       >
         <span className={cn("truncate", !selected && "text-muted-foreground")}>
           {selected ? labelFor(selected) : placeholder}
@@ -80,8 +81,8 @@ export function UserPicker({
       </button>
 
       {open && (
-        <div className="absolute z-50 mt-1 w-full overflow-hidden rounded-md border border-input bg-popover text-popover-foreground shadow-md">
-          <div className="flex items-center gap-2 border-b border-input px-3 py-2">
+        <div className="absolute z-50 mt-1 w-full overflow-hidden rounded-radius-md bg-popover text-popover-foreground shadow-figma">
+          <div className="flex items-center gap-2 bg-muted px-3 py-2">
             <Search className="h-4 w-4 shrink-0 opacity-50" />
             <input
               autoFocus

@@ -1,3 +1,4 @@
+import { fieldClass } from "@/components/ui/input";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Package, PackageX, Plus, Trash2, X } from "lucide-react";
@@ -714,7 +715,7 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
             <select
               value={sold.period}
               onChange={(e) => setSold((v) => ({ ...v, period: e.target.value }))}
-              className="h-9 rounded-radius-md bg-inset px-3 text-sm text-foreground outline-none"
+              className={cn(fieldClass, "w-auto")}
             >
               {["weekly", "monthly", "quarterly", "yearly"].map((p) => (
                 <option key={p} value={p}>{p[0].toUpperCase() + p.slice(1)}</option>
@@ -873,7 +874,7 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Hours included" hint="Empty means as many as they like.">
               <Input
-                inputMode="numeric" className="h-9" value={access.hours} placeholder="4"
+                inputMode="numeric" inputSize="sm" value={access.hours} placeholder="4"
                 onChange={(e) => setAccess((v) => ({ ...v, hours: e.target.value }))}
               />
             </Field>
@@ -881,7 +882,7 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
               <select
                 value={access.hoursPeriod}
                 onChange={(e) => setAccess((v) => ({ ...v, hoursPeriod: e.target.value }))}
-                className="h-9 w-full rounded-radius-md bg-inset px-3 text-sm text-foreground outline-none"
+                className={fieldClass}
               >
                 <option value="">Same as billing</option>
                 {["weekly", "monthly", "quarterly", "yearly"].map((p) => (
@@ -909,7 +910,7 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
           <div className="grid gap-3 p-4 pt-0 sm:grid-cols-2">
             <Field label="Price is" hint={PRICING_HINT[sold.pricingMode] ?? ""}>
               <select value={sold.pricingMode} onChange={(e) => setSold((v) => ({ ...v, pricingMode: e.target.value }))}
-                className="h-9 w-full rounded-radius-md bg-inset px-3 text-sm text-foreground outline-none">
+                className={fieldClass}>
                 <option value="flat">Flat</option>
                 <option value="per_unit">Per unit</option>
                 <option value="per_person">Per person</option>
@@ -923,7 +924,7 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete }
             */}
             <Field label="Fulfilment" hint={FULFILMENT_HINT[sold.fulfilment] ?? ""}>
               <select value={sold.fulfilment} onChange={(e) => setSold((v) => ({ ...v, fulfilment: e.target.value }))}
-                className="h-9 w-full rounded-radius-md bg-inset px-3 text-sm text-foreground outline-none">
+                className={fieldClass}>
                 <option value="none">Nothing to schedule</option>
                 <option value="visits">Visits</option>
                 <option value="deliveries">Deliveries</option>

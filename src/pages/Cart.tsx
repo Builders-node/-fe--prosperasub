@@ -503,7 +503,7 @@ export default function Cart() {
                     <div className="mt-2">
                       {shape.periodOptions.length > 1 ? (
                         <Select value={String(item.periods)} onValueChange={(v) => setPeriods(item.key, parseInt(v))}>
-                          <SelectTrigger className="h-7 w-auto min-w-[104px] rounded-full border-0 bg-muted/40 px-3 text-xs">
+                          <SelectTrigger inputSize="sm" className="w-auto min-w-[104px] rounded-full">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>

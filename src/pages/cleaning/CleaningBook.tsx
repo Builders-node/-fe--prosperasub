@@ -458,7 +458,7 @@ const CleaningBook = () => {
                   </div>
                   {schedulableSubscriptions.length > 1 && (
                     <Select value={selectedSubId} onValueChange={setSelectedSubId}>
-           <SelectTrigger inputSize="sm" className="w-auto rounded-full border-border text-xs font-semibold">
+           <SelectTrigger inputSize="sm" className="w-auto rounded-full">
                         <SelectValue placeholder="Choose plan" />
                       </SelectTrigger>
                       <SelectContent>
