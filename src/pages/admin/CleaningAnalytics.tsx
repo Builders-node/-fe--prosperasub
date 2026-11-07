@@ -52,7 +52,7 @@ const CleaningAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
     queryFn: fetchCleaningExtras,
   });
 
-  if (isLoading || !rollup) {
+  if (isLoading || !rollup || !rollup.byKey["cleaning"]) {
     return (
       <AnalyticsShell embedded={embedded} title="Cleaning — Analytics">
         <PageLoader />
@@ -60,7 +60,7 @@ const CleaningAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
     );
   }
 
-  const figures = rollup.byKey.cleaning;
+  const figures = rollup.byKey["cleaning"];
   const allRows = rollup.rows.filter((r) => r.service === "cleaning");
   const rows = rowsInPeriod(allRows, period);
 
@@ -69,7 +69,7 @@ const CleaningAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
       <AnalyticsView
         monthLabel={format(nowHN(), "MMMM")}
         months={rollup.months}
-        series={[{ key: "cleaning", label: "Cleaning", values: figures.monthly, barClass: "bg-primary" }]}
+        series={[{ key: "cleaning", label: figures?.label ?? "Cleaning", values: figures.monthly, barClass: "bg-primary" }]}
         figures={figures}
         period={periodFigures(allRows, period)}
         plans={{ rows: rankedByRevenue(groupRevenue(rows, (r) => r.planKey, (k) => names?.plans.get(k))) }}

@@ -1,6 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import type { ComponentType } from "react";
-import { Car, Sparkles, Ticket, UtensilsCrossed, Waves } from "lucide-react";
+import { Car, Ticket } from "lucide-react";
+import { resolveCategoryIcon } from "@/lib/services/categoryIcons";
+import {
+  getServiceIndex, serviceLabelOf, serviceOfSale, SERVICE_INDEX_KEY, VEHICLES_KEY,
+} from "@/lib/analytics/serviceIndex";
 
 import { supabaseDb } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/lib/supabasePaging";
@@ -21,20 +25,18 @@ import { pickPhone } from "@/components/patterns/CustomerPhone";
  * is often the only phone we hold for them.
  */
 
-export type CustomerService = "cleaning" | "food" | "beach" | "plan" | "cars";
+/** A service key (Settings → Services, `vehicles`, `unassigned`) — see lib/analytics/serviceIndex.ts. */
+export type CustomerService = string;
 
-export const CUSTOMER_SERVICE_ORDER: readonly CustomerService[] = ["cleaning", "food", "beach", "plan", "cars"];
-
-export const CUSTOMER_SERVICE_META: Record<CustomerService, { label: string; icon: ComponentType<{ className?: string }> }> = {
-  cleaning: { label: "Cleaning", icon: Sparkles },
-  food:     { label: "Food",     icon: UtensilsCrossed },
-  beach:    { label: "Beach",    icon: Waves },
-  plan:     { label: "Plans",    icon: Ticket },
-  cars:     { label: "Cars",     icon: Car },
-};
-
-const asService = (s: unknown): CustomerService =>
-  (CUSTOMER_SERVICE_ORDER as readonly string[]).includes(String(s)) ? (s as CustomerService) : "plan";
+/** Services in Settings order with a label and icon, for filters and badges. */
+export function useCustomerServices() {
+  const { data: index } = useQuery({ queryKey: SERVICE_INDEX_KEY, queryFn: getServiceIndex, staleTime: 60_000 });
+  const metaOf = (key: string): { label: string; icon: ComponentType<{ className?: string }> } => ({
+    label: serviceLabelOf(key, index),
+    icon: key === VEHICLES_KEY ? Car : index?.byKey.get(key)?.icon ? resolveCategoryIcon(index.byKey.get(key)!.icon!) : Ticket,
+  });
+  return { order: (index?.services ?? []).map((s) => s.key), metaOf };
+}
 
 export interface CustomerActivity {
   /** Services with a live, paid row right now. */
@@ -45,6 +47,7 @@ export interface CustomerActivity {
 
 interface UnifiedRow {
   service: string;
+  provider_id: string | null;
   id: string;
   user_id: string | null;
   status: string | null;
@@ -63,16 +66,16 @@ export function useCustomerActivity() {
       // Paged: this collapses into a per-user status, so a 1000-row clip would
       // quietly make customers look idle. `id` alone is not unique across the
       // union (each source has its own id space) — order by both.
-      const rows = await fetchAllRows<UnifiedRow>(() => supabaseDb
+      const [rows, index] = await Promise.all([fetchAllRows<UnifiedRow>(() => supabaseDb
         .from("subscriptions_unified")
-        .select("service,id,user_id,status,paid")
+        .select("service,id,provider_id,user_id,status,paid")
         .order("service")
-        .order("id"));
+        .order("id")), getServiceIndex()]);
       const map = new Map<string, CustomerActivity>();
       for (const r of rows) {
         if (!r.user_id) continue;
         const cur = map.get(r.user_id) ?? { active: new Set(), ever: new Set() };
-        const svc = asService(r.service);
+        const svc = serviceOfSale(r, index);
         cur.ever.add(svc);
         if (isLive(r)) cur.active.add(svc);
         map.set(r.user_id, cur);
@@ -160,18 +163,18 @@ export function useCustomerSales(userId: string | null | undefined) {
     queryKey: ["admin-customer-sales", userId],
     enabled: !!userId,
     queryFn: async (): Promise<CustomerSale[]> => {
-      const { data, error } = await supabaseDb
+      const [{ data, error }, index] = await Promise.all([supabaseDb
         .from("subscriptions_unified")
-        .select("service,id,kind,status,paid,payment_status,price_cents,plan_name,created_at")
+        .select("service,id,provider_id,kind,status,paid,payment_status,price_cents,plan_name,created_at")
         .eq("user_id", userId!)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false }), getServiceIndex()]);
       if (error) throw error;
       return ((data ?? []) as any[]).map((r) => {
-        const service = asService(r.service);
+        const service = serviceOfSale(r, index);
         return {
           key: `${r.service}-${r.id}`,
           service,
-          name: r.plan_name || (service === "cars" ? "Car rental" : `${CUSTOMER_SERVICE_META[service].label} plan`),
+          name: r.plan_name || (r.service === "cars" ? "Car rental" : `${serviceLabelOf(service, index)} plan`),
           status: r.status ?? "—",
           paymentStatus: r.payment_status ?? null,
           active: isLive(r),

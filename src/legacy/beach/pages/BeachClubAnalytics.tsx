@@ -55,7 +55,7 @@ export default function BeachClubAnalytics({ embedded = false }: { embedded?: bo
     queryFn: fetchBeachExtras,
   });
 
-  if (isLoading || !rollup) {
+  if (isLoading || !rollup || !rollup.byKey["entertainment"]) {
     return (
       <AnalyticsShell embedded={embedded} title="Beach Club — Analytics">
         <PageLoader />
@@ -63,8 +63,8 @@ export default function BeachClubAnalytics({ embedded = false }: { embedded?: bo
     );
   }
 
-  const figures = rollup.byKey.beach;
-  const allRows = rollup.rows.filter((r) => r.service === "beach");
+  const figures = rollup.byKey["entertainment"];
+  const allRows = rollup.rows.filter((r) => r.service === "entertainment");
   const rows = rowsInPeriod(allRows, period);
 
   return (
@@ -72,7 +72,7 @@ export default function BeachClubAnalytics({ embedded = false }: { embedded?: bo
       <AnalyticsView
         monthLabel={format(nowHN(), "MMMM")}
         months={rollup.months}
-        series={[{ key: "beach", label: "Beach Club", values: figures.monthly, barClass: "bg-primary" }]}
+        series={[{ key: "entertainment", label: figures?.label ?? "Lifestyle", values: figures.monthly, barClass: "bg-primary" }]}
         figures={figures}
         period={periodFigures(allRows, period)}
         plans={{ rows: rankedByRevenue(groupRevenue(rows, (r) => r.planKey, (k) => names?.plans.get(k))) }}

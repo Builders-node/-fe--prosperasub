@@ -10,8 +10,8 @@ import { useRollupPeriod } from "@/hooks/useRollupPeriod";
 import { nowHN } from "@/lib/timezone";
 
 /**
- * Analytics for a service that has no bespoke analytics page — car rentals and
- * the universal-only "Other services" bucket. Cleaning, food and the beach
+ * Analytics for a service that has no bespoke analytics page — Vehicles and
+ * every service created in Settings → Services (Healthcare, Water…). Cleaning, food and the beach
  * keep their own pages because they know what a visit, a delivery and a court
  * hour are; everything here is pure rollup arithmetic, so one component covers
  * every service the rollup covers, including the next one.
@@ -30,6 +30,7 @@ export function RollupServiceAnalytics({ serviceKey }: { serviceKey: RollupServi
   if (isLoading || !data) return <PageLoader />;
 
   const svc = data.byKey[serviceKey];
+  if (!svc) return <PageLoader />;
   const allRows = data.rows.filter((r) => r.service === serviceKey);
   const rows = rowsInPeriod(allRows, period);
 

@@ -2,6 +2,9 @@ import { endOfMonth, format, parseISO, startOfMonth } from "date-fns";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/lib/supabasePaging";
 import { nowHN } from "@/lib/timezone";
+import {
+  fetchServiceIndex, serviceOfSale, visibleServices, type SaleSource, type ServiceIndex,
+} from "@/lib/analytics/serviceIndex";
 
 /**
  * The platform's subscriptions, normalized once.
@@ -34,21 +37,13 @@ import { nowHN } from "@/lib/timezone";
  * different answer, and the two must not be mixed in one figure.
  */
 
-export type RollupServiceKey = "cleaning" | "food" | "beach" | "plan" | "cars";
-
-export const ROLLUP_SERVICES: { key: RollupServiceKey; label: string }[] = [
-  { key: "cleaning", label: "Cleaning" },
-  { key: "food", label: "Food" },
-  { key: "beach", label: "Beach Club" },
-  // Everything sold on a universal-only service — every new archetype, every
-  // one-time offer. The view's fourth arm; without this bucket those sales
-  // were fetched and then dropped on the floor, so the TOTALS missed them too.
-  { key: "plan", label: "Other services" },
-  // Rentals: booked rather than subscribed, but a sale is a sale — the view's
-  // fifth arm, price at the BASE (the deposit and the card fee never reach
-  // revenue anywhere on the platform, and not here either).
-  { key: "cars", label: "Cars" },
-];
+/**
+ * A service key — an archetype from Settings → Services, or `vehicles` /
+ * `unassigned` (lib/analytics/serviceIndex.ts). It used to be the read model's
+ * source arm (cleaning · food · beach · plan · cars), which called a business
+ * ("Beach Club") a service and lumped every new service into "Other services".
+ */
+export type RollupServiceKey = string;
 
 /** How many months the revenue series covers, current month last. */
 export const ROLLUP_MONTHS = 6;
@@ -77,6 +72,8 @@ export interface ServiceRollup {
 export type RollupFigures = Omit<ServiceRollup, "key" | "label">;
 
 export interface PlatformRollup {
+  /** Provider → service, and the services' names — for any breakdown below. */
+  index: ServiceIndex;
   /** Short month labels, oldest → newest ("Mar" … "Aug"). */
   months: string[];
   services: ServiceRollup[];
@@ -93,7 +90,10 @@ export interface PlatformRollup {
 
 /** One subscription, whatever table it came from. */
 export interface NormRow {
+  /** The service it counts under (archetype key, `vehicles`, `unassigned`). */
   service: RollupServiceKey;
+  /** The table it came from — what the bespoke pages and payment approval need. */
+  source: SaleSource;
   /** Full committed value of the sale, in cents. */
   valueCents: number;
   paid: boolean;
@@ -160,12 +160,18 @@ export async function fetchPlatformRollup(): Promise<PlatformRollup> {
   //
   // Paged: every row here is reduced into a money figure, and PostgREST
   // truncates a plain select at 1000 rows with a cheerful HTTP 200.
-  const rows: NormRow[] = (await fetchAllRows<any>(() => supabaseDb
-    .from("subscriptions_unified")
-    .select("service, id, provider_id, plan_id, user_id, price_cents, paid, status, created_at, location")
-    .order("id")))
+  const [raw, index] = await Promise.all([
+    fetchAllRows<any>(() => supabaseDb
+      .from("subscriptions_unified")
+      .select("service, id, provider_id, plan_id, user_id, price_cents, paid, status, created_at, location")
+      .order("service")
+      .order("id")),
+    fetchServiceIndex(),
+  ]);
+  const rows: NormRow[] = raw
     .map((r: any): NormRow => ({
-      service: r.service as RollupServiceKey,
+      service: serviceOfSale(r, index),
+      source: r.service as SaleSource,
       valueCents: num(r.price_cents),
       paid: !!r.paid,
       status: String(r.status ?? ""),
@@ -184,7 +190,10 @@ export async function fetchPlatformRollup(): Promise<PlatformRollup> {
     return { label: format(d, "MMM"), start: startOfMonth(d), end: endOfMonth(d) };
   });
 
-  const services = ROLLUP_SERVICES.map(({ key, label }) => {
+  // A service gets a row when it is switched on or has earned something —
+  // so Vehicles and Unassigned appear only once there is money in them.
+  const earned = rows.filter((r) => isRevenue(r) && r.valueCents > 0).map((r) => r.service);
+  const services = visibleServices(index, earned).map(({ key, label }) => {
     const mine = rows.filter((r) => r.service === key);
     const earning = mine.filter(isRevenue);
     const monthly = buckets.map((b) => earning.reduce((sum, r) => {
@@ -211,17 +220,20 @@ export async function fetchPlatformRollup(): Promise<PlatformRollup> {
   const sum = (pick: (s: ServiceRollup) => number) => services.reduce((t, s) => t + pick(s), 0);
 
   return {
+    index,
     months: buckets.map((b) => b.label),
     services,
     rows,
     byKey: Object.fromEntries(services.map((s) => [s.key, s])) as Record<RollupServiceKey, ServiceRollup>,
     totals: {
-      subs: sum((s) => s.subs),
-      active: sum((s) => s.active),
-      paused: sum((s) => s.paused),
-      cancelled: sum((s) => s.cancelled),
-      expired: sum((s) => s.expired),
-      awaitingPayment: sum((s) => s.awaitingPayment),
+      // Counted over every row, not the visible services, so a sale in a
+      // bucket without a row of its own (an unpaid car, say) still counts.
+      subs: rows.length,
+      active: rows.filter((r) => r.paid && r.status === "active").length,
+      paused: rows.filter((r) => r.status === "paused").length,
+      cancelled: rows.filter((r) => r.status === "cancelled").length,
+      expired: rows.filter((r) => r.status === "expired").length,
+      awaitingPayment: rows.filter(isAwaiting).length,
       // Counted across services, so someone who buys cleaning AND food is one
       // customer of the platform, not two.
       customers: new Set(rows.map((r) => r.customerKey).filter(Boolean)).size,

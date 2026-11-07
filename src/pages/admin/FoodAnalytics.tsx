@@ -58,7 +58,7 @@ const FoodAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
     queryFn: fetchFoodExtras,
   });
 
-  if (isLoading || !rollup) {
+  if (isLoading || !rollup || !rollup.byKey["food"]) {
     return (
       <AnalyticsShell embedded={embedded} title="Food — Analytics">
         <PageLoader />
@@ -66,7 +66,7 @@ const FoodAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
     );
   }
 
-  const figures = rollup.byKey.food;
+  const figures = rollup.byKey["food"];
   const allRows = rollup.rows.filter((r) => r.service === "food");
   const rows = rowsInPeriod(allRows, period);
 
@@ -75,7 +75,7 @@ const FoodAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
       <AnalyticsView
         monthLabel={format(nowHN(), "MMMM")}
         months={rollup.months}
-        series={[{ key: "food", label: "Food", values: figures.monthly, barClass: "bg-primary" }]}
+        series={[{ key: "food", label: figures?.label ?? "Food", values: figures.monthly, barClass: "bg-primary" }]}
         figures={figures}
         period={periodFigures(allRows, period)}
         plans={{ rows: rankedByRevenue(groupRevenue(rows, (r) => r.planKey, (k) => names?.plans.get(k))) }}

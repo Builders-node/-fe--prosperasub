@@ -1,10 +1,16 @@
 import { Link } from "react-router-dom";
-import { ArrowUpRight, Car, CheckCircle2, Package, SparklesIcon, UtensilsCrossed, Waves } from "lucide-react";
+import { ArrowUpRight, Car, CheckCircle2, Package } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { changeLabel, fetchPlatformRollup, periodFigures, type NormRow } from "@/lib/analytics/platformRollup";
 import { PeriodPicker } from "@/components/admin/analytics/PeriodPicker";
+import {
+  getServiceIndex, serviceLabelOf, serviceOfSale, VEHICLES_KEY, type ServiceIndex,
+} from "@/lib/analytics/serviceIndex";
+import { resolveCategoryIcon } from "@/lib/services/categoryIcons";
+import type { LucideIcon } from "lucide-react";
+
 import { useRollupPeriod } from "@/hooks/useRollupPeriod";
 import { supabaseDb } from "@/integrations/supabase/client";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
@@ -37,24 +43,24 @@ import { adminRoutes } from "@/config/adminRoutes";
  */
 
 
-type ServiceKey = "cleaning" | "food" | "beach" | "plan" | "cars";
+const serviceIndex = getServiceIndex;
 
-const SERVICE_META: Record<ServiceKey, { label: string; icon: typeof SparklesIcon; href: string }> = {
-  cleaning: { label: "Cleaning",   icon: SparklesIcon,     href: "/admin/analytics?service=cleaning" },
-  food:     { label: "Food",       icon: UtensilsCrossed,  href: "/admin/analytics?service=food" },
-  beach:    { label: "Beach Club", icon: Waves,            href: "/admin/analytics?service=beach" },
-  // Everything sold on a universal-only service — new archetypes, one-time
-  // offers. The queue and the feed read `subscriptions_unified`, whose fourth
-  // arm files these under 'plan'.
-  plan:     { label: "Other services", icon: Package,      href: "/admin/marketplace/subscriptions" },
-  cars:     { label: "Cars",       icon: Car,              href: adminRoutes.superAdminTransport },
-};
+/** The service a sale counts under (Settings → Services), with its icon. */
+function serviceView(r: { service: string; provider_id?: string | null }, index: ServiceIndex) {
+  const key = serviceOfSale(r, index);
+  const icon = index.byKey.get(key)?.icon;
+  return {
+    key,
+    label: serviceLabelOf(key, index),
+    icon: key === VEHICLES_KEY ? Car : icon ? resolveCategoryIcon(icon) : Package,
+  };
+}
 
 interface PendingRow {
   id: string;
   service: ApproveService;
   serviceLabel: string;
-  ServiceIcon: typeof SparklesIcon;
+  ServiceIcon: LucideIcon;
   userLabel: string;
   amountCents: number;
   createdAt: string;
@@ -66,6 +72,7 @@ interface PendingRow {
 interface UnifiedSubRow {
   id: string;
   service: string;
+  provider_id?: string | null;
   user_id: string | null;
   price_cents: number | null;
   paid?: boolean;
@@ -145,16 +152,21 @@ const AdminDashboard = () => {
         fetchPlatformRollup(),
       ]);
 
-      const byService = Object.fromEntries(
-        rollup.services.map((s) => [s.key, { active: s.active, revenueCents: s.revenueCents }]),
-      ) as Record<ServiceKey, { active: number; revenueCents: number }>;
+      // One tile per service the admin knows (Settings → Services, plus
+      // Vehicles) — not per table the sales happen to be stored in.
+      const services = rollup.services.map((s) => ({
+        key: s.key,
+        label: s.label,
+        active: s.active,
+        icon: s.key === VEHICLES_KEY ? Car : resolveCategoryIcon(rollup.index.byKey.get(s.key)?.icon ?? null),
+      }));
 
       return {
         users: usersRes.count || 0,
         revenueCents: rollup.totals.revenueCents,
         activeSubs: rollup.totals.active,
         pending: rollup.totals.awaitingPayment,
-        byService,
+        services,
         rows: rollup.rows as NormRow[],
       };
     },
@@ -173,21 +185,22 @@ const AdminDashboard = () => {
       // person who approves payments could not see it existed.
       const { data, error } = await supabaseDb
         .from("subscriptions_unified")
-        .select("id, service, user_id, price_cents, payment_status, status, created_at, payment_method, payment_reference")
+        .select("id, service, provider_id, user_id, price_cents, payment_status, status, created_at, payment_method, payment_reference")
         .neq("payment_status", "paid").neq("payment_status", "refunded")
         .not("status", "in", "(cancelled,expired)")
         .order("created_at", { ascending: false })
         .limit(8);
       if (error) throw error;
       const rows = (data ?? []) as UnifiedSubRow[];
-      const nameOf = await unifiedNames(rows);
+      const [nameOf, index] = await Promise.all([unifiedNames(rows), serviceIndex()]);
       return rows.map((r) => {
-        const meta = SERVICE_META[(r.service as ServiceKey)] ?? SERVICE_META.plan;
+        const view = serviceView(r, index);
         return {
           id: r.id,
-          service: (r.service in SERVICE_META ? r.service : "plan") as ApproveService,
-          serviceLabel: meta.label,
-          ServiceIcon: meta.icon,
+          // Approval writes to the row's own table, so it keeps the source.
+          service: (["cleaning", "food", "beach", "plan", "cars"].includes(r.service) ? r.service : "plan") as ApproveService,
+          serviceLabel: view.label,
+          ServiceIcon: view.icon,
           userLabel: nameOf(r),
           amountCents: Number(r.price_cents) || 0,
           createdAt: r.created_at,
@@ -269,21 +282,21 @@ const AdminDashboard = () => {
       // only place that sentence is true.
       const { data, error } = await supabaseDb
         .from("subscriptions_unified")
-        .select("id, service, user_id, price_cents, paid, created_at")
+        .select("id, service, provider_id, user_id, price_cents, paid, created_at")
         .order("created_at", { ascending: false })
         .limit(8);
       if (error) throw error;
       const rows = (data ?? []) as UnifiedSubRow[];
-      const nameOf = await unifiedNames(rows);
+      const [nameOf, index] = await Promise.all([unifiedNames(rows), serviceIndex()]);
       return rows
         .filter((r) => r.created_at)
         .map((r) => {
-          const key = (r.service in SERVICE_META ? r.service : "plan") as ServiceKey;
+          const view = serviceView(r, index);
           return {
             id: `${r.service}-${r.id}`,
-            service: key,
+            Icon: view.icon,
             tone: r.paid ? ("paid" as const) : ("pending" as const),
-            label: `${nameOf(r)} — ${SERVICE_META[key].label}`,
+            label: `${nameOf(r)} — ${view.label}`,
             detail: r.paid ? formatUSD(Number(r.price_cents) || 0) : "Awaiting payment",
             date: r.created_at,
             href: "/admin/marketplace/subscriptions",
@@ -294,7 +307,7 @@ const AdminDashboard = () => {
 
   const allRows = stats?.rows ?? [];
   const pf = periodFigures(allRows, period);
-  const pfByService = (key: ServiceKey) => periodFigures(allRows.filter((r) => r.service === key), period);
+  const pfByService = (key: string) => periodFigures(allRows.filter((r) => r.service === key), period);
 
   return (
     <SuperAdminLayout title="Today" subtitle="What needs you, then how the platform is doing">
@@ -432,15 +445,15 @@ const AdminDashboard = () => {
       <section className="mt-8">
         <YdSectionHeading title="By service" />
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {(Object.keys(SERVICE_META) as ServiceKey[]).map((key) => {
-            const meta = SERVICE_META[key];
-            const st = stats?.byService[key];
+          {(stats?.services ?? []).map((st) => {
+            const key = st.key;
+            const meta = { label: st.label };
             const sp = pfByService(key);
-            const Icon = meta.icon;
+            const Icon = st.icon;
             return (
               <Link
                 key={key}
-                to={meta.href}
+                to={`/admin/analytics?service=${key}`}
                 className="group flex min-w-0 flex-col gap-3 rounded-radius-md bg-card p-4 transition-colors hover:bg-muted/40"
               >
                 <div className="flex items-center gap-2">
@@ -494,8 +507,7 @@ const AdminDashboard = () => {
         ) : (
           <div className="space-y-2">
             {recentActivity.map((a: any) => {
-              const meta = SERVICE_META[a.service as ServiceKey];
-              const Icon = meta.icon;
+              const Icon = a.Icon;
               return (
                 <Link
                   key={a.id}

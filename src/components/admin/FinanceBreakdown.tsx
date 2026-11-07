@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import {
-  Sparkles, UtensilsCrossed, Waves, Store, Car, TrendingUp, CalendarRange,
+  Store, Car, TrendingUp, CalendarRange,
   Download, FileSpreadsheet, type LucideIcon,
 } from "lucide-react";
 import { fetchAllRows } from "@/lib/supabasePaging";
@@ -12,7 +12,10 @@ import { formatUSD } from "@/lib/pricing";
 import { recognizedCents } from "@/lib/revenueRecognition";
 import { cn } from "@/lib/utils";
 import { fetchUsersByIds } from "@/lib/admin/customerNames";
-import { ROLLUP_SERVICES, type RollupServiceKey } from "@/lib/analytics/platformRollup";
+import {
+  fetchServiceIndex, serviceLabelOf, serviceOfSale, SERVICE_INDEX_KEY, VEHICLES_KEY, type ServiceIndex,
+} from "@/lib/analytics/serviceIndex";
+import { resolveCategoryIcon } from "@/lib/services/categoryIcons";
 import { useFinanceRange } from "@/components/admin/finance/FinanceRange";
 import {
   Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow,
@@ -34,21 +37,14 @@ const METHODS = [
 ] as const;
 type MethodKey = (typeof METHODS)[number]["key"];
 
-/**
- * The rows are whatever the platform rollup counts — the same list Dashboard
- * and Analytics read — so a new arm of `subscriptions_unified` shows up here
- * without anyone remembering this file. Icons are decoration: an unknown key
- * gets the generic one rather than no row.
- */
-const SERVICE_ICONS: Partial<Record<string, LucideIcon>> = {
-  cleaning: Sparkles,
-  food: UtensilsCrossed,
-  beach: Waves,
-  plan: Store,
-  cars: Car,
+// Services are the ones in Settings → Services (plus Vehicles), resolved per
+// sale from its business — see lib/analytics/serviceIndex.ts.
+const iconFor = (key: string, index?: ServiceIndex | null): LucideIcon => {
+  if (key === VEHICLES_KEY) return Car;
+  const icon = index?.byKey.get(key)?.icon;
+  return icon ? resolveCategoryIcon(icon) : Store;
 };
-const iconFor = (key: string): LucideIcon => SERVICE_ICONS[key] ?? Store;
-const labelFor = (key: string) => ROLLUP_SERVICES.find((s) => s.key === key)?.label ?? key;
+const labelFor = (key: string, index?: ServiceIndex | null) => serviceLabelOf(key, index);
 
 const normMethod = (m: unknown): MethodKey => {
   const s = String(m ?? "").toLowerCase();
@@ -68,15 +64,15 @@ type Matrix = Record<string, MethodRow>;
 const emptyRow = (): MethodRow =>
   Object.fromEntries(METHODS.map((m) => [m.key, 0])) as MethodRow;
 
-const emptyMatrix = (): Matrix =>
-  Object.fromEntries(ROLLUP_SERVICES.map((s) => [s.key, emptyRow()]));
+const emptyMatrix = (): Matrix => ({});
 
 /**
  * A sale, as `subscriptions_unified` hands it out — every service, cars and
  * universal-only plans included, price at the BASE (no surcharge, no deposit).
  */
 interface SaleRow {
-  service: RollupServiceKey;
+  /** The read model's source arm (cleaning · food · beach · plan · cars). */
+  service: string;
   id: string;
   provider_id?: string | null;
   user_id?: string | null;
@@ -133,13 +129,16 @@ export function FinanceBreakdown() {
   const startISO = start.toISOString();
   const endISO = end.toISOString();
 
+  const { data: index } = useQuery({ queryKey: SERVICE_INDEX_KEY, queryFn: fetchServiceIndex, staleTime: 60_000 });
+
   const { data, isLoading } = useQuery({
+    enabled: !!index,
     // Revenue is recognized straight-line across each sale's service period,
     // so we fetch every paid sale (not just those created in-window) and keep
     // only the portion that falls inside [start, end].
     queryKey: ["admin-finance-breakdown", startISO, endISO],
     queryFn: async () => {
-      const sales = await fetchPaidSales("service, id, price_cents, payment_method, created_at, starts_on, ends_on");
+      const sales = await fetchPaidSales("service, id, provider_id, price_cents, payment_method, created_at, starts_on, ends_on");
 
       const matrix = emptyMatrix();
       let count = 0;
@@ -151,9 +150,9 @@ export function FinanceBreakdown() {
           fallbackDays: 30,
         }, start, end);
         if (cents <= 0) return;
-        // A service the rollup does not list yet still happened — it gets a
-        // row of its own rather than vanishing from the total.
-        const row = (matrix[r.service] ??= emptyRow());
+        // Only services that earned in the period get a row — an empty line
+        // per switched-on service was most of this table.
+        const row = (matrix[serviceOfSale(r, index!)] ??= emptyRow());
         row[normMethod(r.payment_method)] += cents;
         count++;
       });
@@ -163,7 +162,9 @@ export function FinanceBreakdown() {
   });
 
   const matrix = data?.matrix ?? emptyMatrix();
-  const serviceKeys = Object.keys(matrix);
+  // Settings order, Vehicles and Unassigned last.
+  const order = (k: string) => index?.services.findIndex((s) => s.key === k) ?? 0;
+  const serviceKeys = Object.keys(matrix).sort((a, b) => order(a) - order(b));
   const cellOf = (service: string, m: MethodKey) => matrix[service]?.[m] ?? 0;
   const methodTotals = (m: MethodKey) => serviceKeys.reduce((s, c) => s + cellOf(c, m), 0);
   const categoryTotal = (c: string) => METHODS.reduce((s, m) => s + cellOf(c, m.key), 0);
@@ -193,7 +194,7 @@ export function FinanceBreakdown() {
       const rows = sales.map((r) => {
         const u = r.user_id ? users.get(String(r.user_id)) : undefined;
         return {
-          service: labelFor(r.service),
+          service: index ? labelFor(serviceOfSale(r, index), index) : r.service,
           business: r.provider_id ? provMap.get(String(r.provider_id)) ?? "" : "",
           user: u?.display_name || u?.name || r.customer_name || "",
           email: u?.email || "",
@@ -238,7 +239,7 @@ export function FinanceBreakdown() {
     downloadCsv([
       ["Service", ...METHODS.map((m) => m.label), "Total"],
       ...serviceKeys.map((key) => [
-        labelFor(key),
+        labelFor(key, index),
         ...METHODS.map((m) => usd(cellOf(key, m.key))),
         usd(categoryTotal(key)),
       ]),
@@ -309,13 +310,13 @@ export function FinanceBreakdown() {
             </TableHeader>
             <TableBody className={cn(isLoading && "opacity-50")}>
               {serviceKeys.map((key) => {
-                const Icon = iconFor(key);
+                const Icon = iconFor(key, index);
                 return (
                   <TableRow key={key} className="border-b border-border/40">
                     <TableCell className="py-2.5 pr-4">
                       <span className="flex items-center gap-2 font-semibold text-foreground">
                         <Icon className="h-4 w-4 text-muted-foreground" />
-                        {labelFor(key)}
+                        {labelFor(key, index)}
                       </span>
                     </TableCell>
                     {METHODS.map((m) => (

@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { ContactActions } from "@/components/admin/customers/ContactActions";
 import {
-  CUSTOMER_SERVICE_META, useCustomerContacts, useCustomerSales, type CustomerSale,
+  useCustomerContacts, useCustomerSales, useCustomerServices, type CustomerSale,
 } from "@/components/admin/customers/customerActivity";
 import { pickPhone } from "@/components/patterns/CustomerPhone";
 import { QueryError } from "@/components/patterns/QueryError";
@@ -69,6 +69,7 @@ export default function AdminCustomer() {
 
   const { data: contacts } = useCustomerContacts();
   const { data: sales = [], isLoading: salesLoading } = useCustomerSales(userId);
+  const { metaOf: serviceMeta } = useCustomerServices();
 
   const { data: auditLogs = [] } = useQuery({
     queryKey: ["admin-user-audit", userId],
@@ -220,7 +221,7 @@ export default function AdminCustomer() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-body font-semibold text-foreground">{s.name}</p>
                     <p className="truncate text-meta text-muted-foreground">
-                      {CUSTOMER_SERVICE_META[s.service].label}
+                      {serviceMeta(s.service).label}
                       {s.paymentStatus && <> · {statusLabel(s.paymentStatus)}</>}
                       {s.createdAt && <> · {format(new Date(s.createdAt), "MMM d, yyyy")}</>}
                     </p>

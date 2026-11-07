@@ -7,35 +7,42 @@ import FoodAnalytics from "./FoodAnalytics";
 import BeachClubAnalytics from "@/legacy/beach/pages/BeachClubAnalytics";
 import { PlatformAnalytics } from "@/components/admin/analytics/PlatformAnalytics";
 import { RollupServiceAnalytics } from "@/components/admin/analytics/RollupServiceAnalytics";
-import { ROLLUP_SERVICES, type RollupServiceKey } from "@/lib/analytics/platformRollup";
+import { fetchPlatformRollup, type RollupServiceKey } from "@/lib/analytics/platformRollup";
+import { useQuery } from "@tanstack/react-query";
 import { PeriodPicker } from "@/components/admin/analytics/PeriodPicker";
 import { useRollupPeriod } from "@/hooks/useRollupPeriod";
 
 /**
- * The picker lists what the rollup counts, not a hand-kept copy of it — the
- * old hardcoded list was missing Cars and Other services, so the platform
- * table linked to `?service=cars` and the page silently fell back to "All".
+ * The picker lists the services the rollup counts — Settings → Services, plus
+ * Vehicles — read from the data, not a hand-kept copy. It used to list the
+ * read model's tables, so "Beach Club" sat where Lifestyle belongs and every
+ * new service was one "Other services" line.
  */
-const SERVICES = [
-  // The platform first, because that is the question an admin opens this page
-  // with; a single service is the follow-up, not the starting point.
-  { id: "all" as const, label: "All services" },
-  ...ROLLUP_SERVICES.map((s) => ({ id: s.key, label: s.label })),
-];
 type ServiceId = "all" | RollupServiceKey;
 
 /** Services with a bespoke page — they know what a visit or a court hour is. */
-const BESPOKE: Partial<Record<ServiceId, React.FC<{ embedded?: boolean }>>> = {
+const BESPOKE: Record<string, React.FC<{ embedded?: boolean }>> = {
   cleaning: CleaningAnalytics,
   food: FoodAnalytics,
-  beach: BeachClubAnalytics,
+  entertainment: BeachClubAnalytics,
 };
+
+/** Links written before services were the grouping. */
+const OLD_KEYS: Record<string, string> = { beach: "entertainment", cars: "vehicles", plan: "all" };
 
 const Analytics = () => {
   const [params, setParams] = useSearchParams();
   const [period, setPeriod] = useRollupPeriod();
-  const raw = params.get("service");
-  const service: ServiceId = SERVICES.some((s) => s.id === raw) ? (raw as ServiceId) : "all";
+  const { data: rollup } = useQuery({ queryKey: ["admin-platform-rollup"], queryFn: fetchPlatformRollup });
+  const SERVICES = [
+    // The platform first: that is the question this page is opened with.
+    { id: "all" as ServiceId, label: "All services" },
+    ...(rollup?.services ?? []).map((s) => ({ id: s.key as ServiceId, label: s.label })),
+  ];
+  const rawParam = params.get("service");
+  const raw = rawParam ? (OLD_KEYS[rawParam] ?? rawParam) : null;
+  // Until the list has loaded, trust the URL rather than flashing "All".
+  const service: ServiceId = raw && (!rollup || SERVICES.some((s) => s.id === raw)) ? raw : "all";
 
   const setService = (id: ServiceId) =>
     setParams((prev) => {

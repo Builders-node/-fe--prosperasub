@@ -6,7 +6,7 @@ import { AnalyticsView, rankedByRevenue } from "@/components/admin/analytics/Ana
 import { ANALYTICS_NAMES_KEY, fetchAnalyticsNames } from "@/lib/analytics/names";
 import { PageLoader } from "@/components/ui/spinner";
 import {
-  fetchPlatformRollup, groupRevenue, periodFigures, rowsInPeriod, type RollupServiceKey,
+  fetchPlatformRollup, groupRevenue, periodFigures, rowsInPeriod,
 } from "@/lib/analytics/platformRollup";
 import { useRollupPeriod } from "@/hooks/useRollupPeriod";
 import { formatUSD } from "@/lib/pricing";
@@ -26,14 +26,10 @@ import {
  */
 
 // One accent across the admin (see FinanceBreakdown) — services are separated
-// by weight of the same primary, not by a colour each.
-const SERIES_TINT: Record<RollupServiceKey, string> = {
-  cleaning: "bg-primary",
-  food: "bg-primary/60",
-  beach: "bg-primary/30",
-  plan: "bg-primary/15",
-  cars: "bg-primary/45",
-};
+// by weight of the same primary, not by a colour each. As many weights as
+// there are services, strongest first.
+const TINTS = ["bg-primary", "bg-primary/70", "bg-primary/45", "bg-primary/30", "bg-primary/20", "bg-primary/12"];
+const tintAt = (i: number) => TINTS[Math.min(i, TINTS.length - 1)];
 
 export function PlatformAnalytics() {
   const [period] = useRollupPeriod();
@@ -55,8 +51,8 @@ export function PlatformAnalytics() {
     <AnalyticsView
       monthLabel={monthLabel}
       months={months}
-      series={services.map((s) => ({
-        key: s.key, label: s.label, values: s.monthly, barClass: SERIES_TINT[s.key],
+      series={services.map((s, i) => ({
+        key: s.key, label: s.label, values: s.monthly, barClass: tintAt(i),
       }))}
       figures={totals}
       period={periodFigures(data.rows, period)}

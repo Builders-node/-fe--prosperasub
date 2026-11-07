@@ -10,7 +10,7 @@ import { AdminListShell } from "@/components/admin/AdminListShell";
 import { MobileActionSheet } from "@/components/admin/MobileActionSheet";
 import { ContactActions } from "@/components/admin/customers/ContactActions";
 import {
-  CUSTOMER_SERVICE_META, CUSTOMER_SERVICE_ORDER, type CustomerService,
+  useCustomerServices, type CustomerService,
   useCustomerActivity, useCustomerContacts, useCustomerSales,
 } from "@/components/admin/customers/customerActivity";
 import { adminApi, supabaseDb } from "@/integrations/supabase/client";
@@ -73,6 +73,7 @@ const AdminUsers = () => {
   const [filter, setFilter] = useState<Filter>("all");
   const [blockTarget, setBlockTarget] = useState<{ id: string; name: string } | null>(null);
   const [serviceFilter, setServiceFilter] = useState<"all" | CustomerService>("all");
+  const { order: SERVICE_ORDER, metaOf: serviceMeta } = useCustomerServices();
   const [search, setSearch] = useState("");
 
   // ── One customer is a page now (/admin/customers/:id) ──────────────────
@@ -238,7 +239,7 @@ const AdminUsers = () => {
               <SelectTrigger className="w-40 rounded-full" inputSize="sm"><SelectValue placeholder="All services" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All services</SelectItem>
-                {CUSTOMER_SERVICE_ORDER.map((k) => <SelectItem key={k} value={k}>{CUSTOMER_SERVICE_META[k].label}</SelectItem>)}
+                {SERVICE_ORDER.filter((k) => people.some((p) => p.services.has(k))).map((k) => <SelectItem key={k} value={k}>{serviceMeta(k).label}</SelectItem>)}
               </SelectContent>
             </Select>
           </>
@@ -260,7 +261,7 @@ const AdminUsers = () => {
                   const roles = userRoles(p.raw);
                   const rbac = ((p.raw as any).rbacRoles ?? []) as string[];
                   const isAdmin = isAdminUser(p.raw);
-                  const svcArr = CUSTOMER_SERVICE_ORDER.filter((k) => p.services.has(k));
+                  const svcArr = [...p.services].sort((a, b) => SERVICE_ORDER.indexOf(a) - SERVICE_ORDER.indexOf(b));
 
                   // The name opens the sheet — a real button, so the row's
                   // main action is reachable by keyboard and by thumb.
@@ -286,7 +287,7 @@ const AdminUsers = () => {
                   const svcChips = svcArr.length ? (
                     <div className="flex flex-wrap gap-1">
                       {svcArr.map((k) => {
-                        const meta = CUSTOMER_SERVICE_META[k]; const Icon = meta.icon;
+                        const meta = serviceMeta(k); const Icon = meta.icon;
                         return (
                           <span key={k} className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-meta font-semibold text-muted-foreground">
                             <Icon className="h-3 w-3" />{meta.label}
@@ -510,6 +511,7 @@ export function EditUserForm({ user, auditLogs, onSave, onSoftDelete, saving, de
   // universal / one-time plans and car rentals — from the read model. It used
   // to query three tables and so a renter's sheet said "No subscriptions".
   const { data: allSubscriptions = [], isLoading: subsLoading } = useCustomerSales(user.id);
+  const { metaOf: serviceMeta } = useCustomerServices();
 
   // Full period history (every period the member ever had, incl. past/renewed).
   const { data: periodHistory = [] } = useQuery({
@@ -704,7 +706,7 @@ export function EditUserForm({ user, auditLogs, onSave, onSoftDelete, saving, de
                 <div key={s.key} className="flex items-center justify-between gap-3 rounded-radius-md bg-muted p-3">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-meta shrink-0">{CUSTOMER_SERVICE_META[s.service].label}</Badge>
+                      <Badge variant="outline" className="text-meta shrink-0">{serviceMeta(s.service).label}</Badge>
                       <p className="truncate text-sm font-semibold">{s.name}</p>
                     </div>
                     <p className="mt-0.5 text-xs text-muted-foreground">
