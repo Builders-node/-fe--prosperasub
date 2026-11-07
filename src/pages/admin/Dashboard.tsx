@@ -248,8 +248,8 @@ const AdminDashboard = () => {
     { key: "applications", label: "Applications to review", value: needs?.applications ?? 0, href: adminRoutes.superAdminProviderApplications },
     { key: "payouts", label: "Payouts to send", value: needs?.payouts ?? 0, href: `${adminRoutes.superAdminPayments}?tab=payouts` },
     { key: "support", label: "New support messages", value: needs?.support ?? 0, href: adminRoutes.superAdminSupport },
-    { key: "expiring", label: "Ending in 2 days", value: needs?.expiring ?? 0, href: "/admin/marketplace/subscriptions?status=active" },
-    { key: "drafts", label: "Businesses in draft", value: needs?.drafts ?? 0, href: `${adminRoutes.superAdminMarketplaceProviders}` },
+    { key: "expiring", label: "Ending in 2 days", value: needs?.expiring ?? 0, href: "/admin/marketplace/subscriptions?ending=2" },
+    { key: "drafts", label: "Businesses in draft", value: needs?.drafts ?? 0, href: `${adminRoutes.superAdminMarketplaceProviders}?status=draft` },
   ].filter((n) => n.value > 0);
 
   // Subscription-level activity — one row per distinct customer sale, not one
@@ -286,7 +286,7 @@ const AdminDashboard = () => {
             label: `${nameOf(r)} — ${SERVICE_META[key].label}`,
             detail: r.paid ? formatUSD(Number(r.price_cents) || 0) : "Awaiting payment",
             date: r.created_at,
-            href: key === "beach" ? "/admin/beach-club/subscriptions" : "/admin/marketplace/subscriptions",
+            href: "/admin/marketplace/subscriptions",
           };
         });
     },

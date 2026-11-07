@@ -203,7 +203,7 @@ const AdminUsers = () => {
   const ROW_GRID = "grid-cols-[minmax(0,3fr)_minmax(0,2fr)_minmax(0,1.5fr)_104px_96px_auto]";
 
   return (
-    <SuperAdminLayout title="People" subtitle="Individual accounts, and the businesses and households you bill.">
+    <SuperAdminLayout title="Customers" subtitle="Everyone with an account — tap a person to see everything about them">
       {/* Users vs Clients: individual accounts vs billed organizations. One
           sidebar entry, two tabs — Clients used to be its own nav item, which
           made two doors for one section. */}

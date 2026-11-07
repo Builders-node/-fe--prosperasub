@@ -122,7 +122,7 @@ export default function RoleManagement() {
   const inactiveRoles = roles.filter((role) => role.status !== "active");
 
   return (
-    <SuperAdminLayout title="Roles" subtitle="Define who can access which admin surfaces">
+    <SuperAdminLayout title="Team" subtitle="Admin roles and what each one may open">
       {/* One scaffold: the primary action, the count and the three states come
           from the shell, as they do on every other admin list. The button used
           to hang on its own above the grid (PAGE_TYPES section 10). */}

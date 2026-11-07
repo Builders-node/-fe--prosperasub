@@ -166,19 +166,9 @@ export function ProviderEditDialog({
           {showAdminFields && (
             <DialogBlock>
               <SectionTitle>Admin</SectionTitle>
+              {/* Status is not edited here: Go live / Hide sit at the top of the
+                  business with the checklist, so nothing goes live unseen. */}
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label>Status</Label>
-                  <select
-                    className={fieldClass}
-                    value={values.status ?? "draft"}
-                    onChange={(e) => patch({ status: e.target.value })}
-                  >
-                    <option value="draft">Draft — being set up</option>
-                    <option value="active">Live</option>
-                    <option value="inactive">Hidden</option>
-                  </select>
-                </div>
                 <div>
                   <Label>Sort order</Label>
                   <Input

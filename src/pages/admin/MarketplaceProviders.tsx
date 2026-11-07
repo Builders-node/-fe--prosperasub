@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { useUrlState } from "@/hooks/useUrlState";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Eye, EyeOff, ExternalLink, Building2, Mail, Phone, ShieldCheck, MoreVertical, Pencil, Plus } from "lucide-react";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
@@ -81,10 +82,10 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
 
   // Derived, not state, when the parent route owns the scope — see the note in
   // MarketplacePlans.
-  const [serviceFilter, setServiceFilter] = useState<string>("all");
+  const [serviceFilter, setServiceFilter] = useUrlState<string>("service", "all");
   const service = archetypeKey ?? serviceFilter;
-  const [status, setStatus] = useState<string>("all");
-  const [search, setSearch] = useState<string>("");
+  const [status, setStatus] = useUrlState<string>("status", "all");
+  const [search, setSearch] = useUrlState<string>("q", "");
   const [editRow, setEditRow] = useState<ProviderRow | null>(null);
   const [creating, setCreating] = useState<boolean>(false);
 
@@ -181,8 +182,8 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
     onError: (e: any) => toast.error(e?.message || "Could not update status"),
   });
 
-  // Deactivation confirm — pulling a live provider offline shouldn't happen on
-  // a single dropdown tap. Activation stays one-click (harmless).
+  // Hiding asks first. Going live is not done here at all: the row menu opens
+  // the business, where GoLivePanel shows the checklist before the switch.
   const [confirmDeactivate, setConfirmDeactivate] = useState<ProviderRow | null>(null);
 
   const saveEdit = useMutation({
@@ -465,11 +466,11 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
-                          onSelect={() => (p.status === "active" ? setConfirmDeactivate(p) : toggleStatus.mutate(p))}
+                          onSelect={() => (p.status === "active" ? setConfirmDeactivate(p) : navigate(`/admin/marketplace/providers/${p.id}`))}
                         >
                           {p.status === "active"
                             ? (<><EyeOff className="mr-2 h-3.5 w-3.5" /> Hide</>)
-                            : (<><Eye    className="mr-2 h-3.5 w-3.5" /> Go live</>)}
+                            : (<><Eye    className="mr-2 h-3.5 w-3.5" /> Review &amp; go live</>)}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -587,7 +588,7 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
 
   if (embedded) return body;
   return (
-    <SuperAdminLayout title="Providers" subtitle="Every business on the platform, across all services">
+    <SuperAdminLayout title="Businesses" subtitle="Every business on the platform — drafts, live and hidden">
       {body}
     </SuperAdminLayout>
   );

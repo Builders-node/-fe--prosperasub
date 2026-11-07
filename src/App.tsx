@@ -86,12 +86,10 @@ const AdminPayments = lazy(() => import("./pages/admin/Payments"));
 const AdminUsers = lazy(() => import("./pages/admin/Users"));
 const AdminCustomer = lazy(() => import("./pages/admin/Customer"));
 const CarRentals = lazy(() => import("./pages/admin/CarRentals"));
-const CleaningPlans = lazy(() => import("./pages/admin/CleaningPlans"));
 const ServiceCategories = lazy(() => import("./pages/admin/ServiceCategories"));
 const Diagnostics = lazy(() => import("./pages/admin/Diagnostics"));
 const MarketplaceProviders = lazy(() => import("./pages/admin/MarketplaceProviders"));
 const MarketplaceProviderDetail = lazy(() => import("./pages/admin/MarketplaceProviderDetail"));
-const LegacyProviderRedirect = lazy(() => import("./pages/admin/LegacyProviderRedirect"));
 const MarketplacePlans = lazy(() => import("./pages/admin/MarketplacePlans"));
 const MarketplaceReviews = lazy(() => import("./pages/admin/MarketplaceReviews"));
 const Announcements = lazy(() => import("./pages/admin/Announcements"));
@@ -113,8 +111,6 @@ const AdsManagement = lazy(() => import("./pages/admin/AdsManagement"));
 // a 404 for as long as the entry existed.
 const Locations = lazy(() => import("./pages/admin/Locations"));
 // Admin Beach Club
-const BeachClubPlans = lazy(() => import("./legacy/beach/pages/BeachClubPlans"));
-const BeachClubSubscriptions = lazy(() => import("./legacy/beach/pages/BeachClubSubscriptions"));
 const BeachClubCourts = lazy(() => import("./legacy/beach/pages/BeachClubCourts"));
 
 // ─── Suspense fallback ────────────────────────────────────────────────────────
@@ -365,9 +361,9 @@ const App = () => {
               <Route path="/admin/dashboard" element={
                 <ProtectedRoute allowedRoles={['super_admin']}><AdminDashboard /></ProtectedRoute>
               } />
-              <Route path="/admin/cleaning/plans" element={
-                <ProtectedRoute allowedRoles={['super_admin']}><CleaningPlans /></ProtectedRoute>
-              } />
+              {/* Cleaning packages are edited in each cleaning business's
+                  Offerings (OfferEditor writes cleaning_packages). */}
+              <Route path="/admin/cleaning/plans" element={<Navigate to="/admin/marketplace/providers?service=cleaning" replace />} />
               <Route path="/admin/cleaning/providers" element={<Navigate to="/admin/marketplace/providers" replace />} />
               {/* The flat Services + Categories CRUDs are retired: creating a
                   service lives on the Marketplace hub, editing/hiding/deleting
@@ -474,12 +470,10 @@ const App = () => {
               <Route path="/admin/food/subscriptions" element={<Navigate to="/admin/marketplace/subscriptions" replace />} />
               {/* Admin Beach Club */}
               <Route path="/admin/beach-club/analytics" element={<Navigate to="/admin/analytics?service=beach" replace />} />
-              <Route path="/admin/beach-club/plans" element={
-                <ProtectedRoute allowedRoles={['super_admin']}><BeachClubPlans /></ProtectedRoute>
-              } />
-              <Route path="/admin/beach-club/subscriptions" element={
-                <ProtectedRoute allowedRoles={['super_admin']}><BeachClubSubscriptions /></ProtectedRoute>
-              } />
+              {/* The club's plans are edited in its workspace (OfferEditor writes
+                  beach_club_plans); its memberships are rows in Orders. */}
+              <Route path="/admin/beach-club/plans" element={<Navigate to="/admin/marketplace/providers/00000000-0000-0000-0000-000000beac41" replace />} />
+              <Route path="/admin/beach-club/subscriptions" element={<Navigate to="/admin/marketplace/subscriptions?q=Beach%20Club" replace />} />
               <Route path="/admin/beach-club/courts" element={
                 <ProtectedRoute allowedRoles={['super_admin']}><BeachClubCourts /></ProtectedRoute>
               } />

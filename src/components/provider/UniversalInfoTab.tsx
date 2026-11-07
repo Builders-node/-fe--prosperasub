@@ -140,7 +140,7 @@ export function ProviderProfileEditor({ provider, open, onOpenChange }: {
         // Status and sort order are the platform's to set. An owner's editor
         // used to show and save them, so a draft business could put itself
         // live from its own workspace.
-        ...(isAdmin ? { status: form.status || "draft", sort_order: form.sort_order ?? 0 } : {}),
+        ...(isAdmin ? { sort_order: form.sort_order ?? 0 } : {}),
         gallery_urls: form.gallery_urls ?? [],
         ...(delivers ? { delivery_info: delivery.trim() || null } : {}),
         // Bookings that follow the working hours move with them — the engine

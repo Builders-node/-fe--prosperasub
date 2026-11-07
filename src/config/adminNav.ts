@@ -67,10 +67,15 @@ export const BUSINESSES_SECTION: NavSection = {
         adminRoutes.superAdminMarketplacePlans,
         adminRoutes.superAdminMarketplaceProviders,
         adminRoutes.superAdminProviderApplications,
+        // Per-service admin pages still reachable by URL (courts, cleaning
+        // operations) — listed so they take this item's permission.
+        "/admin/beach-club",
+        "/admin/cleaning",
+        "/admin/food",
       ],
       permissions: ["admin_settings.read"] },
     { label: "Vehicles", path: adminRoutes.superAdminTransport, icon: CarFront,
-      alsoActiveOn: [adminRoutes.superAdminCarRentals, "/admin/marketplace/service/vehicles"],
+      alsoActiveOn: [adminRoutes.superAdminCarRentals],
       permissions: ["subscriptions.read"] },
   ],
 };
@@ -78,7 +83,7 @@ export const BUSINESSES_SECTION: NavSection = {
 export const SALES_SECTION: NavSection = {
   title: "Sales",
   items: [
-    { label: "Subscriptions", path: adminRoutes.superAdminMarketplaceSubscriptions, icon: CalendarDays,
+    { label: "Orders", path: adminRoutes.superAdminMarketplaceSubscriptions, icon: CalendarDays,
       permissions: ["subscriptions.read"] },
     { label: "Promo codes", path: adminRoutes.superAdminPromoCodes, icon: TicketPercent,
       permissions: ["payments.read"] },
@@ -123,7 +128,7 @@ export const SETTINGS_SECTION: NavSection = {
   items: [
     { label: "Locations",  path: adminRoutes.superAdminLocations, icon: MapPin,
       permissions: ["admin_settings.read"] },
-    { label: "Team & roles", path: adminRoutes.superAdminRoles, icon: ShieldCheck,
+    { label: "Team", path: adminRoutes.superAdminRoles, icon: ShieldCheck,
       permissions: ["role_management.read"] },
     { label: "Audit log", path: adminRoutes.superAdminAuditLogs, icon: FileText,
       permissions: ["admin_settings.read"] },

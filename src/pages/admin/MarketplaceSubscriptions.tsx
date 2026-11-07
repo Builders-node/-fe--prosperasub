@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link } from "react-router-dom";
+import { useUrlState } from "@/hooks/useUrlState";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Building2, ChevronsUpDown, ChevronUp, ChevronDown, Download, MoreVertical, Pencil, Trash2, Undo2 } from "lucide-react";
 import { toast } from "sonner";
@@ -70,19 +71,26 @@ function subscriptionStage(s: SaleRow): string {
  * universal-only plans, car rentals) in one shape, with effective statuses.
  * Edits still write to each service's own table through SALE_SOURCES.
  */
+/** Money changed hands — the row is part of revenue and payouts, so it can't be deleted. */
+const wasPaid = (s: { payment_status?: string | null }) =>
+  ["paid", "refunded", "partially_refunded"].includes(String(s.payment_status ?? "").toLowerCase());
+
 const MarketplaceSubscriptions = () => {
   const qc = useQueryClient();
   const { userData } = useAuth();
   const { archetypes } = useServiceArchetypes(false);
   // Links from Today and the Customer page arrive with a filter in the URL
   // (`?status=pending`, `?q=email`); they used to land on an unfiltered list.
-  const [initial] = useSearchParams();
-  const [service, setService] = useState("all");
-  const [status, setStatus] = useState(initial.get("status") ?? "all");
-  const [payment, setPayment] = useState(initial.get("payment") ?? "all");
-  const [kind, setKind] = useState<"all" | "subscription" | "booking">("all");
-  const [origin, setOrigin] = useState<"all" | "builders_node" | "platform">("all");
-  const [search, setSearch] = useState(initial.get("q") ?? "");
+  // Every filter is in the URL both ways, so a reload keeps the view.
+  const [service, setService] = useUrlState<string>("service", "all");
+  const [status, setStatus] = useUrlState<string>("status", "all");
+  const [payment, setPayment] = useUrlState<string>("payment", "all");
+  const [kind, setKind] = useUrlState<"all" | "subscription" | "booking">("kind", "all");
+  const [origin, setOrigin] = useUrlState<"all" | "builders_node" | "platform">("origin", "all");
+  const [search, setSearch] = useUrlState<string>("q", "");
+  // `?ending=2` — running sales whose period ends within N days (Today links here).
+  const [ending, setEnding] = useUrlState<string>("ending", "");
+  const endingDays = /^\d{1,3}$/.test(ending) ? Number(ending) : null;
   const [sortBy, setSortBy] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -133,6 +141,7 @@ const MarketplaceSubscriptions = () => {
     mutationFn: async (row: SaleRow) => {
       const b = backing(row);
       if (b.apiManaged) throw new Error("Cancel a booked hour rather than deleting it — the slot has to be given back.");
+      if (wasPaid(row)) throw new Error("A paid sale is history — cancel or refund it instead of deleting it.");
       const { error } = await supabaseDb.from(b.table).delete().eq("id", row.id);
       if (error) throw error;
       if (userData?.id) await logAuditEvent(userData.id, "delete", backing(row).table, row.id, {});
@@ -296,12 +305,20 @@ const MarketplaceSubscriptions = () => {
 
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
+    const day = (d: Date) => d.toISOString().slice(0, 10);
+    const endFrom = day(new Date());
+    const endTo = day(new Date(Date.now() + (endingDays ?? 0) * 86_400_000));
     return rows.filter((s) => {
       const prov = providerById.get(s.provider_id);
       if (service !== "all" && prov?.archetype_key !== service) return false;
       if (status   !== "all" && s.status         !== status)     return false;
       if (payment  !== "all" && s.payment_status !== payment)    return false;
       if (kind     !== "all" && s.kind           !== kind)       return false;
+      if (endingDays != null) {
+        if (s.status !== "active" || !s.end_date) return false;
+        const end = s.end_date.slice(0, 10);
+        if (end < endFrom || end > endTo) return false;
+      }
       if (origin === "builders_node" && !isFromBuildersNode(s.payment_reference)) return false;
       if (origin === "platform"      &&  isFromBuildersNode(s.payment_reference)) return false;
       if (q) {
@@ -316,7 +333,7 @@ const MarketplaceSubscriptions = () => {
       }
       return true;
     });
-  }, [rows, service, status, payment, kind, origin, search, providerById, userById]);
+  }, [rows, service, status, payment, kind, origin, search, endingDays, providerById, userById]);
 
   const sorted = useMemo(() => {
     const svcLabel = (key?: string | null) => archetypes.find((a) => a.key === key)?.label ?? "";
@@ -464,13 +481,18 @@ const MarketplaceSubscriptions = () => {
           isEmpty={rows.length === 0}
           isNoResults={rows.length > 0 && visible.length === 0} count={visible.length}
           emptyTitle="No sales yet" emptySubtitle="Subscriptions and bookings will appear here."
-          onClearFilters={() => { setSearch(""); setService("all"); setStatus("all"); setPayment("all"); setKind("all"); setOrigin("all"); }}
-          actions={
+          onClearFilters={() => { setSearch(""); setService("all"); setStatus("all"); setPayment("all"); setKind("all"); setOrigin("all"); setEnding(""); }}
+          actions={<>
+            {endingDays != null && (
+              <Button variant="secondary" size="sm" onClick={() => setEnding("")} aria-label="Remove the ending filter">
+                Ending in {endingDays} day{endingDays === 1 ? "" : "s"} ×
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={exportRows} disabled={sorted.length === 0}>
               <Download className="mr-1.5 h-3.5 w-3.5" />
               Export {sorted.length}
             </Button>
-          }
+          </>}
         >
           <div>
             <Table className="min-w-[900px]">
@@ -611,7 +633,9 @@ const MarketplaceSubscriptions = () => {
                             )}
                             {/* A booked hour is cancelled, never deleted: the
                                 slot has to go back to the calendar. */}
-                            {!backing(s).apiManaged && (
+                            {/* A paid sale is never deleted either: revenue and
+                                payouts were counted from it. Cancel or refund. */}
+                            {!backing(s).apiManaged && !wasPaid(s) && (
                               <DropdownMenuItem onSelect={() => setDeleteRow(s)} className="text-negative focus:text-negative">
                                 <Trash2 className="mr-2 h-3.5 w-3.5" /> Delete
                               </DropdownMenuItem>
