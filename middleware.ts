@@ -15,7 +15,7 @@
  * `?_og=1` forces the bot path, for checking a preview from a browser.
  */
 export const config = {
-  matcher: ["/services/:path*", "/vehicles/:path*", "/discovery"],
+  matcher: ["/services/:path*", "/vehicles/:path*", "/discovery", "/for-business", "/partners"],
 };
 
 const BOT = /facebookexternalhit|Facebot|WhatsApp|Twitterbot|Slackbot|TelegramBot|LinkedInBot|Discordbot|Pinterest|SkypeUriPreview|vkShare|redditbot|Embedly|Iframely|bitlybot|Applebot/i;
@@ -123,6 +123,14 @@ async function cardFor(path: string): Promise<Card | null> {
   }
 
   if (parts[0] === "discovery") return { ...DEFAULT, type: "website" };
+  // The page sent to businesses — its preview is the pitch.
+  if (parts[0] === "for-business" || parts[0] === "partners") {
+    return {
+      title: "Sell subscriptions and bookings in Roatán · EverySub",
+      description: "Your own page, payment up front by Lightning, Bitcoin or PayPal, and your money whenever you want it. No monthly fee; 0% on customers you bring.",
+      image: DEFAULT.image, type: "website",
+    };
+  }
   return null;
 }
 

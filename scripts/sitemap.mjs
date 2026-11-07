@@ -90,6 +90,7 @@ const main = async () => {
 
   // The pages anyone may land on.
   entries.push(
+    url("/for-business", { changefreq: "monthly", priority: 0.8 }),
     url("/become-a-provider", { changefreq: "monthly", priority: 0.5 }),
     url("/support", { changefreq: "monthly", priority: 0.3 }),
     url("/terms", { changefreq: "yearly", priority: 0.2 }),

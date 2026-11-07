@@ -52,6 +52,7 @@ const Notifications = lazy(() => import("./pages/user/Notifications"));
 const History = lazy(() => import("./pages/user/History"));
 const MyBusiness = lazy(() => import("./pages/user/MyBusiness"));
 const BecomeProvider = lazy(() => import("./pages/BecomeProvider"));
+const ForBusiness = lazy(() => import("./pages/ForBusiness"));
 const ProviderApplications = lazy(() => import("./pages/admin/ProviderApplications"));
 const LegacyPortalRedirect = lazy(() => import("./pages/user/LegacyPortalRedirect"));
 
@@ -354,6 +355,10 @@ const App = () => {
               <Route path="/my-restaurant"  element={<ProtectedRoute><LegacyPortalRedirect service="food" /></ProtectedRoute>} />
               <Route path="/my-cleaning"    element={<ProtectedRoute><LegacyPortalRedirect service="cleaning" /></ProtectedRoute>} />
               <Route path="/become-a-provider" element={<BecomeProvider />} />
+              <Route path="/for-business" element={<ForBusiness />} />
+              {/* Short addresses people type or say out loud. */}
+              <Route path="/partners" element={<Navigate to="/for-business" replace />} />
+              <Route path="/business" element={<Navigate to="/for-business" replace />} />
               {/* The short spelling people type and say aloud. */}
               <Route path="/become-provider" element={<Navigate to="/become-a-provider" replace />} />
               {/* Reachable signed out on purpose — someone who can't log in

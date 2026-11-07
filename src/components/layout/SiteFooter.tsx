@@ -64,6 +64,7 @@ export function SiteFooter() {
         ]} />
         <Column title="Services" links={services} />
         <Column title="For businesses" links={[
+          { label: "Sell on EverySub", to: "/for-business" },
           { label: "Become a provider", to: "/become-a-provider" },
           { label: "My business", to: "/my-business" },
           { label: "Talk to us on WhatsApp", to: WHATSAPP_HREF, external: true },
