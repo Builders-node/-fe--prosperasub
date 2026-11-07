@@ -274,51 +274,52 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
           ]} />
         )}
 
-        {/* Chip-row archetype filter: one click to jump between services.
-            Hidden when the route already pins the service. */}
-        <div className="flex flex-wrap items-center gap-2">
-          {(archetypeKey ? [] : [
-            { key: "all", label: "All", count: counts.total },
-            ...archetypes.map((a) => ({ key: a.key, label: a.label, count: counts.perArchetype[a.key] ?? 0 })),
-          ]).map((f) => (
-            <button
-              key={f.key}
-              type="button"
-              onClick={() => setServiceFilter(f.key)}
-              className={cn(
-                "flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors",
-                service === f.key
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted",
-              )}
-            >
-              {f.label}
-              <span className={cn(
-                "rounded-full px-1.5 text-xs tabular-nums",
-                service === f.key
-                  ? "bg-primary-foreground/20 text-primary-foreground"
-                  : "bg-muted-foreground/15 text-muted-foreground",
-              )}>{f.count}</span>
-            </button>
-          ))}
-          {/* Actions on the right: status filter + create CTA */}
-          <div className="ml-auto flex items-center gap-2">
+        {/* Service filter: one line that scrolls sideways rather than wrapping
+            — with nine services the last chip used to drop to a row of its own
+            beside the status menu and the create button. Same chip as every
+            other filter row: neutral, the selected one inverted. Primary yellow
+            is kept for the one action on the page. */}
+        {!archetypeKey && (
+          <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {[
+              { key: "all", label: "All", count: counts.total },
+              ...archetypes.map((a) => ({ key: a.key, label: a.label, count: counts.perArchetype[a.key] ?? 0 })),
+            ].map((f) => (
+              <button
+                key={f.key}
+                type="button"
+                onClick={() => setServiceFilter(f.key)}
+                className={cn(
+                  "flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-1.5 text-body font-semibold transition-colors",
+                  service === f.key
+                    ? "bg-foreground text-background"
+                    : "bg-inset text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {f.label}
+                <span className="tabular-nums opacity-60">{f.count}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        <AdminListShell
+          search={search} onSearch={setSearch} searchPlaceholder="Search providers…"
+          filters={
             <Select value={status} onValueChange={setStatus}>
-       <SelectTrigger inputSize="sm" className="w-36 rounded-full"><SelectValue /></SelectTrigger>
+              <SelectTrigger inputSize="sm" className="w-36 rounded-full"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All statuses</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="inactive">Inactive</SelectItem>
               </SelectContent>
             </Select>
+          }
+          actions={
             <Button size="sm" onClick={() => setCreating(true)}>
               <Plus className="mr-1 h-4 w-4" /> New provider
             </Button>
-          </div>
-        </div>
-
-        <AdminListShell
-          search={search} onSearch={setSearch} searchPlaceholder="Search providers…"
+          }
           isLoading={isLoading} isError={isError} error={error} onRetry={refetch}
           isEmpty={inScope.length === 0}
           isNoResults={inScope.length > 0 && visible.length === 0} count={visible.length}
@@ -337,7 +338,7 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
 
           <div className="overflow-hidden rounded-radius-md bg-card">
             {/* Header row */}
-            <div className="hidden grid-cols-[minmax(0,3fr)_140px_minmax(0,2fr)_100px_80px] items-center gap-4 border-b border-border/40 px-space-5 py-space-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground md:grid">
+            <div className="hidden grid-cols-[minmax(0,3fr)_140px_minmax(0,2fr)_100px_80px] items-center gap-4 border-b border-border/40 px-space-5 py-space-3 text-meta font-semibold text-muted-foreground md:grid">
               <div>Provider</div>
               <div>Service</div>
               <div>Contact</div>
@@ -428,7 +429,7 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
                         no address, which the booking calendar and the calendar
                         provisioning both need. */}
                     {profile.missing.length > 0 && (
-                      <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-attention">
+                      <span className="mt-1 inline-flex items-center gap-1 text-meta font-semibold text-attention">
                         Profile {profile.percent}%
                       </span>
                     )}

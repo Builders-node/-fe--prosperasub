@@ -60,7 +60,9 @@ export function AdminListShell({
         <div className="flex flex-wrap items-center gap-space-2">
           {showSearch && (
             <div className="relative min-w-[200px] flex-1 sm:max-w-xs">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              {/* z-10: Input paints its own filled wrapper, which sat on top of the
+                  icon — every admin search showed an empty indent. */}
+              <Search className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 inputSize="sm"
                 value={search ?? ""}
@@ -72,7 +74,7 @@ export function AdminListShell({
                 <button
                   type="button"
                   onClick={() => onSearch!("")}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  className="absolute right-2.5 top-1/2 z-10 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                   aria-label="Clear search"
                 >
                   <X className="h-4 w-4" />

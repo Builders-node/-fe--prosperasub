@@ -680,13 +680,9 @@
     @apply flex flex-col gap-space-4;
   }
 
-  .admin-page-header h1 {
-    font-size: clamp(1.5rem, 4vw, 2.25rem);
-    font-weight: var(--fw-black);
-    letter-spacing: var(--ls-tighter);
-    line-height: var(--lh-tight);
-    font-feature-settings: var(--font-features-display);
-  }
+  /* (.admin-page-header h1 used to force 900 weight at 36px here. Its
+     specificity beat the utilities on the element, so every admin page title
+     rendered black while SuperAdminLayout's classes asked for 28 semibold.) */
 
   .mobile-card-list {
     @apply space-y-space-3;
