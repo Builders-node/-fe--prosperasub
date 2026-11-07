@@ -1,5 +1,5 @@
-import { useNavigate } from "react-router-dom";
-import { CalendarClock, CarFront, ExternalLink, LandPlot, Package, Users, Wallet } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { CalendarClock, CarFront, Edit, ExternalLink, LandPlot, Package, Users, Wallet } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { StatusPill } from "@/components/patterns/StatusPill";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,7 @@ import { supabaseDb } from "@/integrations/supabase/client";
 import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
 import { providerHref } from "@/lib/services/serviceUrls";
 import { INFO_TAB_META } from "@/components/provider/capabilities";
-import { UniversalInfoTab, type UniversalProviderRow } from "@/components/provider/UniversalInfoTab";
+import { ProviderDetailsRows, ProviderProfileEditor, type UniversalProviderRow } from "@/components/provider/UniversalInfoTab";
 import { ProfileCompletenessCard } from "@/components/provider/ProfileCompletenessCard";
 import { ProviderQrCard } from "@/components/provider/ProviderQrCard";
 import { PlansTab } from "@/components/provider/plans/PlansTab";
@@ -42,8 +42,17 @@ import { LEGACY_PORTAL_SOURCE_KEYS, legacyIdOf } from "@/lib/services/providerBr
  * legacyPortalTabs); otherwise it shows the universal capability tabs. Every
  * provider gets a Schedule tab.
  */
-export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-business" }: {
+/** `?edit=profile` opens the profile editor — the door can live outside this component (the title bar). */
+export const PROFILE_EDIT_PARAM = "edit";
+
+export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-business", editInTitleBar = false }: {
   providerId: string;
+  /**
+   * The page's title bar carries Edit on a phone (UserLayout's headerAction),
+   * so the header card shows its own Edit only from md up. The admin layout
+   * has no such bar, and keeps the card's button at every width.
+   */
+  editInTitleBar?: boolean;
   /**
    * Where "View Public" goes. Defaults to this provider's own public page,
    * derived from the row we already load.
@@ -58,6 +67,16 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
 }) {
   const navigate = useNavigate();
   const { archetypes } = useServiceArchetypes(false);
+  const [params, setParams] = useSearchParams();
+  const editing = params.get(PROFILE_EDIT_PARAM) === "profile";
+  const setEditing = (on: boolean) => setParams((prev) => {
+    const q = new URLSearchParams(prev);
+    if (on) q.set(PROFILE_EDIT_PARAM, "profile"); else q.delete(PROFILE_EDIT_PARAM);
+    return q;
+  }, { replace: true });
+  // The details sit in the header card on Overview only; on Schedule they
+  // would push the day's work a screen down for a phone number nobody wants.
+  const onOverview = (params.get("tab") ?? INFO_TAB_META.tabValue) === INFO_TAB_META.tabValue;
 
   const { data: provider, isLoading } = useQuery({
     queryKey: ["universal-provider", providerId],
@@ -254,10 +273,7 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
             isPublic={provider.status === "active"}
           />
         )}
-        <UniversalInfoTab
-          provider={provider}
-          extra={custom.infoExtra?.(workspaceCtx)}
-        />
+        {custom.infoExtra?.(workspaceCtx)}
       </div>
     ),
   };
@@ -395,13 +411,28 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
                 className="h-14 w-14 shrink-0 rounded-full bg-muted object-cover"
               />
             )}
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <h1 className="text-[24px] font-semibold leading-[29px] text-foreground">{provider.name}</h1>
               {provider.description && (
-                <p className="mt-2 text-[16px] leading-[22px] text-muted-foreground">{provider.description}</p>
+                <p className="mt-2 text-body text-muted-foreground">{provider.description}</p>
               )}
             </div>
+            <Button
+              variant="outline"
+              onClick={() => setEditing(true)}
+              className={editInTitleBar ? "hidden shrink-0 gap-2 rounded-full md:inline-flex" : "shrink-0 gap-2 rounded-full"}
+            >
+              <Edit className="h-4 w-4" /> Edit
+            </Button>
           </div>
+          {/* Who this is and how to reach it, in one block. It used to be a
+              second "Information" card further down Overview, with its own
+              Edit, repeating the description this card already shows. */}
+          {onOverview && (
+            <div className="mt-4">
+              <ProviderDetailsRows provider={provider} />
+            </div>
+          )}
           {/* A business still under review needs telling; an approved one does
               not need a badge saying so on every visit. */}
           {provider.status && !["approved", "active"].includes(provider.status) && (
@@ -450,6 +481,8 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
           ? <LegacyOwnerPortal sourceKey={sourceKey} legacyId={legacyId} tabs={tabs} isOwner={isOwner} isMember={isMember} />
           : <PortalTabsView tabs={tabs} provider={null} isOwner={isOwner} />}
       </div>
+
+      <ProviderProfileEditor provider={provider} open={editing} onOpenChange={setEditing} />
     </>
   );
 }

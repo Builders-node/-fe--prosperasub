@@ -84,9 +84,11 @@ const DialogContent = React.forwardRef<
         out in, so nothing about how a dialog composes its header, fields and
         footer changes — only which box owns the overflow. `min-h-0` is what
         lets a flex child actually shrink and scroll instead of growing past
-        its parent.
+        its parent. The one column is `minmax(0,1fr)`, not `auto`: an auto
+        track grows to its widest child, so a single wide row (a gallery
+        strip) pushed every field 20px past the sheet's right edge on a phone.
       */}
-      <div className={cn("grid min-h-0 gap-4 overflow-y-auto", bodyClassName)}>
+      <div className={cn("grid min-h-0 grid-cols-[minmax(0,1fr)] gap-4 overflow-y-auto", bodyClassName)}>
         {children}
       </div>
       <DialogPrimitive.Close className="absolute right-4 top-4 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:pointer-events-none">

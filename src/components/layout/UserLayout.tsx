@@ -32,6 +32,8 @@ interface UserLayoutProps {
    * rounding and this row carries it instead.
    */
   headerExtra?: ReactNode;
+  /** Replaces the bell on the mobile title bar — the page's own one action. */
+  headerAction?: ReactNode;
 }
 
 export function UserLayout({ 
@@ -43,6 +45,7 @@ export function UserLayout({
   allowGuest = false,
   showBottomNav = true,
   headerExtra,
+  headerAction,
 }: UserLayoutProps) {
   const { isAuthenticated, isLoading, isUserDataReady } = useAuth();
   const isMobile = useIsMobile();
@@ -99,7 +102,7 @@ export function UserLayout({
       {/* Mobile Header */}
       {isMobile && (
         <>
-          <HomeHeader title={title} showBackButton={showBackButton} onBack={handleBack} bare={!!headerExtra} />
+          <HomeHeader title={title} showBackButton={showBackButton} onBack={handleBack} bare={!!headerExtra} rightAction={headerAction} />
           {headerExtra && (
             <div className="sticky top-14 z-30 bg-card rounded-b-radius-lg px-4 pb-4">
               {headerExtra}

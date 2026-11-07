@@ -22,7 +22,7 @@ export function ProfileCompletenessCard({ provider }: { provider: UniversalProvi
         <span className="text-[16px] leading-[22px] text-muted-foreground">{done} of {total} done</span>
       </div>
       <p className="mt-1 text-[16px] leading-[22px] text-muted-foreground">
-        This is what a customer sees before they buy. Edit it below.
+        This is what a customer sees before they buy. Fill it in with Edit.
       </p>
 
       <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">

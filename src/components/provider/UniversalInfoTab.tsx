@@ -1,6 +1,6 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Edit, MapPin, Clock, Info as InfoIcon, Phone, Mail, Truck, CalendarCheck } from "lucide-react";
+import { MapPin, Clock, Phone, Mail, Truck, CalendarCheck } from "lucide-react";
 import { supabaseDb, adminApi } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAuditEvent } from "@/lib/auditLog";
@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ProviderEditDialog, type ProviderEditFields } from "@/components/provider/ProviderEditDialog";
-import { WorkspaceRow, WorkspaceSection } from "@/components/provider/WorkspaceUI";
+import { WorkspaceRow } from "@/components/provider/WorkspaceUI";
 import { WorkingHoursEditor } from "@/components/provider/WorkingHoursEditor";
 import { formatWorkingHours, parseWorkingHours, type HoursSchedule } from "@/lib/workingHours";
 
@@ -44,23 +44,64 @@ export interface UniversalProviderRow {
 }
 
 /**
- * The one Overview tab — every service, no exceptions.
- *
- * There used to be three of these (RestaurantInfoTab, CleaningInfoTab, this
- * one) rendering the same six fields into three different tables. They have
- * been deleted: the profile lives on `providers` now, so one tab writes it.
- * What was genuinely per-service survives as two slots — `extra` for a whole
- * panel (food's service locations) and the delivery field below, which shows
- * itself only where `capabilities` says the business delivers.
+ * The business's own details, as rows — shown inside the workspace header card
+ * on Overview. The description is not repeated here: the header already says
+ * it under the name. (This used to be a separate "Information" card with its
+ * own Edit button, a second block saying who the business is right under the
+ * first.)
  */
-export function UniversalInfoTab({ provider, extra }: {
+export function ProviderDetailsRows({ provider }: { provider: UniversalProviderRow }) {
+  const delivers = (provider.capabilities ?? []).includes("delivery");
+  return (
+    <div className="space-y-4">
+      <Row icon={<MapPin className="h-4 w-4 text-muted-foreground" />} label="Location">
+        {provider.location || <em className="text-muted-foreground/70">Not set</em>}
+      </Row>
+      <Row icon={<Clock className="h-4 w-4 text-muted-foreground" />} label="Working hours">
+        {formatWorkingHours(provider.working_hours) || <em className="text-muted-foreground/70">Not set</em>}
+      </Row>
+      <Row icon={<Phone className="h-4 w-4 text-muted-foreground" />} label="Phone">
+        {provider.contact_phone || <em className="text-muted-foreground/70">Not set</em>}
+      </Row>
+      <Row icon={<Mail className="h-4 w-4 text-muted-foreground" />} label="Email">
+        {provider.contact_email || <em className="text-muted-foreground/70">Not set</em>}
+      </Row>
+      <Row icon={<CalendarCheck className="h-4 w-4 text-muted-foreground" />} label="Booking calendar">
+        {provider.google_calendar_id
+          ? <CalendarDetails
+              providerId={provider.id}
+              calendarId={provider.google_calendar_id}
+              contactEmail={provider.contact_email ?? null}
+            />
+          : <ProvisionCalendar providerId={provider.id} />}
+      </Row>
+      {delivers && (
+        <Row icon={<Truck className="h-4 w-4 text-muted-foreground" />} label="Delivery">
+          {provider.delivery_info
+            ? <span className="whitespace-pre-line">{provider.delivery_info}</span>
+            : <em className="text-muted-foreground/70">Not set</em>}
+        </Row>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The one profile editor — every service, no exceptions.
+ *
+ * There used to be three (RestaurantInfoTab, CleaningInfoTab and the universal
+ * one) writing the same six fields into three tables. The profile lives on
+ * `providers` now, so one editor writes it. It is controlled from outside
+ * because its door moved: the title bar's Edit on a phone, the header card's
+ * on a desktop — neither of which lives inside a tab.
+ */
+export function ProviderProfileEditor({ provider, open, onOpenChange }: {
   provider: UniversalProviderRow;
-  /** Rendered under the info card — service-specific panels go here. */
-  extra?: ReactNode;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }) {
   const qc = useQueryClient();
   const { userData } = useAuth();
-  const [open, setOpen] = useState(false);
   const [form, setForm] = useState<ProviderEditFields>(() => hydrate(provider));
   /**
    * Hours are edited as a schedule, not as free text — a provider typing
@@ -70,12 +111,14 @@ export function UniversalInfoTab({ provider, extra }: {
   const [delivery, setDelivery] = useState(provider.delivery_info ?? "");
   const delivers = (provider.capabilities ?? []).includes("delivery");
 
-  const openEdit = () => {
+  // Every opening starts from what is saved, not from a half-typed earlier try.
+  useEffect(() => {
+    if (!open) return;
     setForm(hydrate(provider));
     setHours(parseWorkingHours(provider.working_hours));
     setDelivery(provider.delivery_info ?? "");
-    setOpen(true);
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const save = useMutation({
     mutationFn: async () => {
@@ -105,87 +148,40 @@ export function UniversalInfoTab({ provider, extra }: {
       toast.success("Saved");
       qc.invalidateQueries({ queryKey: ["universal-provider", provider.id] });
       qc.invalidateQueries({ queryKey: ["admin-legacy-provider-row"] });
-      setOpen(false);
+      onOpenChange(false);
     },
     onError: (e: any) => toast.error(e?.message || "Could not save"),
   });
 
   return (
-    <div className="space-y-1">
-      <WorkspaceSection
-        title="Information"
-        subtitle="Business details shown to customers"
-        action={
-          <Button onClick={openEdit} variant="outline" className="gap-2 rounded-full">
-            <Edit className="h-4 w-4" /> Edit
-          </Button>
-        }
-        bodyClassName="space-y-4"
-      >
-        <Row icon={<InfoIcon className="h-4 w-4 text-muted-foreground" />} label="Description">
-          {provider.description || <em className="text-muted-foreground/70">No description</em>}
-        </Row>
-        <Row icon={<MapPin className="h-4 w-4 text-muted-foreground" />} label="Location">
-          {provider.location || <em className="text-muted-foreground/70">Not set</em>}
-        </Row>
-        <Row icon={<Clock className="h-4 w-4 text-muted-foreground" />} label="Working hours">
-          {formatWorkingHours(provider.working_hours) || <em className="text-muted-foreground/70">Not set</em>}
-        </Row>
-        <Row icon={<Phone className="h-4 w-4 text-muted-foreground" />} label="Phone">
-          {provider.contact_phone || <em className="text-muted-foreground/70">Not set</em>}
-        </Row>
-        <Row icon={<Mail className="h-4 w-4 text-muted-foreground" />} label="Email">
-          {provider.contact_email || <em className="text-muted-foreground/70">Not set</em>}
-        </Row>
-        <Row icon={<CalendarCheck className="h-4 w-4 text-muted-foreground" />} label="Booking calendar">
-          {provider.google_calendar_id
-            ? <CalendarDetails
-                providerId={provider.id}
-                calendarId={provider.google_calendar_id}
-                contactEmail={provider.contact_email ?? null}
-              />
-            : <ProvisionCalendar providerId={provider.id} />}
-        </Row>
-        {delivers && (
-          <Row icon={<Truck className="h-4 w-4 text-muted-foreground" />} label="Delivery">
-            {provider.delivery_info
-              ? <span className="whitespace-pre-line">{provider.delivery_info}</span>
-              : <em className="text-muted-foreground/70">Not set</em>}
-          </Row>
-        )}
-      </WorkspaceSection>
-
-      {extra}
-
-      <ProviderEditDialog
-        open={open}
-        onOpenChange={setOpen}
-        title="Edit provider"
-        values={form}
-        onChange={setForm}
-        onSave={() => save.mutate()}
-        saving={save.isPending}
-        extras={
-          <>
+    <ProviderEditDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Edit business"
+      values={form}
+      onChange={setForm}
+      onSave={() => save.mutate()}
+      saving={save.isPending}
+      extras={
+        <>
+          <div className="space-y-2">
+            <p className="text-body text-muted-foreground">Working hours</p>
+            <WorkingHoursEditor value={hours} onChange={setHours} />
+          </div>
+          {delivers && (
             <div className="space-y-2">
-              <p className="text-[16px] leading-[22px] text-muted-foreground">Working hours</p>
-              <WorkingHoursEditor value={hours} onChange={setHours} />
+              <p className="text-body text-muted-foreground">Delivery</p>
+              <Textarea
+                value={delivery}
+                onChange={(e) => setDelivery(e.target.value)}
+                rows={3}
+                placeholder="Delivery windows, fees, minimum order…"
+              />
             </div>
-            {delivers && (
-              <div className="space-y-2">
-                <p className="text-[16px] leading-[22px] text-muted-foreground">Delivery</p>
-                <Textarea
-                  value={delivery}
-                  onChange={(e) => setDelivery(e.target.value)}
-                  rows={3}
-                  placeholder="Delivery windows, fees, minimum order…"
-                />
-              </div>
-            )}
-          </>
-        }
-      />
-    </div>
+          )}
+        </>
+      }
+    />
   );
 }
 

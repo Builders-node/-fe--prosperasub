@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
+import { WorkspaceCard } from "@/components/provider/WorkspaceUI";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarClock, CheckCircle2, RotateCcw, Trash2, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { ResponsiveDialog } from "@/components/patterns/ResponsiveDialog";
@@ -174,45 +174,48 @@ export function OperationsTab({ providerId }: { providerId: string }) {
   );
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+    <div className="space-y-1">
+      {/* The day's header is a card like the rest of the workspace: on the bare
+          page its text ran to the screen edge and the date field floated. */}
+      <WorkspaceCard className="space-y-4">
         <div>
-          <h2 className="text-[20px] font-semibold leading-[26px] text-foreground">Today's work</h2>
-          <p className="mt-1 text-[16px] leading-[22px] text-muted-foreground">
+          <h2 className="text-heading font-semibold text-foreground">Today's work</h2>
+          <p className="mt-1 text-body text-muted-foreground">
             Every visit, delivery and booking for this day — mark it or move it.
           </p>
         </div>
-        <div className="flex flex-wrap items-end gap-2">
-          <div>
-            <Label className="text-[14px] text-muted-foreground">Day</Label>
-            <div className="mt-1 flex items-center gap-2">
-       <Input inputSize="sm" type="date" value={day} onChange={(e) => setDay(e.target.value)} className="w-[170px]" />
-              {day !== todayHN() && (
-                <Button variant="ghost" size="sm" className="rounded-full text-muted-foreground"
-                  onClick={() => setDay(todayHN())}>Today</Button>
-              )}
-            </div>
-          </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Input
+            inputSize="sm"
+            type="date"
+            aria-label="Day"
+            value={day}
+            onChange={(e) => setDay(e.target.value)}
+            className="w-[170px]"
+          />
+          {day !== todayHN() && (
+            <Button variant="ghost" size="sm" className="rounded-full text-muted-foreground"
+              onClick={() => setDay(todayHN())}>Today</Button>
+          )}
           <Button variant="outline" size="sm" className="gap-1.5 rounded-full"
             disabled={generate.isPending} onClick={() => generate.mutate()}>
             <CalendarClock className="h-4 w-4" />
             {generate.isPending ? "Scheduling…" : "Schedule ahead"}
           </Button>
         </div>
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        {(["all", "scheduled", "done", "failed", ...(counts.cancelled ? ["cancelled"] as const : [])] as const).map((key) => (
-          <button key={key} type="button" onClick={() => setStatusFilter(key)}
-            className={cn(
-              "rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors",
-              statusFilter === key ? "bg-foreground text-background" : "bg-muted/50 text-muted-foreground hover:text-foreground",
-            )}>
-            {key === "all" ? "All" : STATUS_META[key]?.label ?? key}
-            {counts[key] ? <span className="ml-1.5 opacity-60">{counts[key]}</span> : null}
-          </button>
-        ))}
-      </div>
+        <div className="flex flex-wrap gap-2">
+          {(["all", "scheduled", "done", "failed", ...(counts.cancelled ? ["cancelled"] as const : [])] as const).map((key) => (
+            <button key={key} type="button" onClick={() => setStatusFilter(key)}
+              className={cn(
+                "rounded-full px-3.5 py-1.5 text-body font-semibold transition-colors",
+                statusFilter === key ? "bg-foreground text-background" : "bg-inset text-muted-foreground hover:text-foreground",
+              )}>
+              {key === "all" ? "All" : STATUS_META[key]?.label ?? key}
+              {counts[key] ? <span className="ml-1.5 opacity-60">{counts[key]}</span> : null}
+            </button>
+          ))}
+        </div>
+      </WorkspaceCard>
 
       {isLoading ? (
         <div className="flex justify-center py-12"><Spinner /></div>

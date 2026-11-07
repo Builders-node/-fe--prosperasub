@@ -5,6 +5,7 @@ import { CalendarDays, LayoutGrid, List, Plus, Users, Wrench } from "lucide-reac
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { QueryError } from "@/components/patterns/QueryError";
+import { WorkspaceCard } from "@/components/provider/WorkspaceUI";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { UnifiedBookingCalendar } from "@/components/provider/UnifiedBookingCalendar";
 import { NewCalendarBookingDialog } from "@/components/provider/NewCalendarBookingDialog";
@@ -94,52 +95,33 @@ export function BookingsTab({
   const active = options.some((o) => o.key === view) ? view : options[0]?.key ?? "week";
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2">
-          {options.length > 1 && (
-            <div className="inline-flex rounded-full bg-muted/40 p-0.5 text-xs font-semibold">
-              {options.map((o) => {
-                const Icon = o.icon;
-                return (
-                  <button
-                    key={o.key}
-                    type="button"
-                    onClick={() => setView(o.key)}
-                    className={cn(
-                      "flex items-center gap-1.5 rounded-full px-3 py-1.5 transition-colors",
-                      active === o.key
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    <Icon className="h-3.5 w-3.5" /> {o.label}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Only where both shapes make sense — with no calendars a grid has
-              nothing to draw columns for. */}
-          {active === "week" && hasCalendars && (
-            <div className="inline-flex rounded-full bg-muted/40 p-0.5 text-xs font-semibold">
-              {([["grid", "Grid", LayoutGrid], ["list", "List", List]] as const).map(([key, label, Icon]) => (
+    <div className="space-y-1">
+      {/* The lens and the one action, on a card like every other tab's top.
+          They used to float on the page background with no inset, so on a
+          phone the text ran to the screen edge, and the lens switch was a
+          yellow pill — the same fill as the button beside it, so two things
+          shouted at once. The switch is the system's segment now. */}
+      <WorkspaceCard className="space-y-3">
+        {options.length > 1 && (
+          <div className="flex rounded-radius-md bg-inset p-0.5">
+            {options.map((o) => {
+              const Icon = o.icon;
+              return (
                 <button
-                  key={key}
+                  key={o.key}
                   type="button"
-                  onClick={() => setWeekShape(key)}
+                  onClick={() => setView(o.key)}
                   className={cn(
-                    "flex items-center gap-1.5 rounded-full px-3 py-1.5 transition-colors",
-                    shape === key ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground",
+                    "flex flex-1 items-center justify-center gap-1.5 rounded-radius-md px-3 py-2 text-body font-semibold transition-colors",
+                    active === o.key ? "bg-segment text-foreground" : "text-muted-foreground hover:text-foreground",
                   )}
                 >
-                  <Icon className="h-3.5 w-3.5" /> {label}
+                  <Icon className="h-4 w-4" /> {o.label}
                 </button>
-              ))}
-            </div>
-          )}
-        </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* Every business gets the same button in the same place.
             It was cleaning's alone: a beach club taking a call had to book the
@@ -175,8 +157,28 @@ export function BookingsTab({
               }
             />
           )}
+
+          {/* Only where both shapes make sense — with no calendars a grid has
+              nothing to draw columns for. */}
+          {active === "week" && hasCalendars && (
+            <div className="ml-auto inline-flex rounded-radius-md bg-inset p-0.5">
+              {([["grid", "Grid", LayoutGrid], ["list", "List", List]] as const).map(([key, label, Icon]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setWeekShape(key)}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-radius-md px-3 py-1.5 text-meta font-semibold transition-colors",
+                    shape === key ? "bg-segment text-foreground" : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5" /> {label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
-      </div>
+      </WorkspaceCard>
 
       {/* Without the count the week falls back to a list — still usable, so
           say why the grid is missing rather than replace the view. */}
