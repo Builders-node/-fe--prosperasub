@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Spinner } from "@/components/ui/spinner";
 import { UserLayout } from "@/components/layout/UserLayout";
+import { DecisionBar } from "@/components/patterns/DecisionBar";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { KeyboardArrowRightIcon } from "@/components/icons/FigmaIcons";
@@ -107,14 +108,16 @@ function PillSelector<T extends string | number>({ options, value, onChange }: {
   options: { value: T; label: string }[]; value: T; onChange: (v: T) => void;
 }) {
   return (
-    <div className="flex gap-2">
+    // The system segment (bg-inset track, bg-segment thumb) — the same control
+    // as the home screen's family switch. Yellow is for the Save below it.
+    <div className="flex rounded-radius-md bg-inset p-0.5">
       {options.map((opt) => (
         <button key={String(opt.value)} type="button" onClick={() => onChange(opt.value)}
           className={cn(
-            "flex-1 rounded-radius-md px-3 py-2 text-meta font-semibold transition-colors",
+            "flex-1 whitespace-nowrap rounded-radius-md px-2 py-2 text-body font-semibold transition-colors",
             value === opt.value
-              ? "bg-primary text-primary-foreground"
-              : "bg-card text-muted-foreground shadow-figma hover:text-foreground",
+              ? "bg-segment text-foreground"
+              : "text-muted-foreground hover:text-foreground",
           )}
         >
           {opt.label}
@@ -184,6 +187,25 @@ function Row({
   );
 }
 
+/**
+ * The save bar a form section ends with — the decision frame (PAGE_TYPES):
+ * one full-width primary pinned to the bottom of a phone, no tab bar under it
+ * and no Cancel beside it, because the title bar's Back already is Cancel.
+ */
+function SaveBar({ label, busyLabel, busy, disabled, onClick }: {
+  label: string; busyLabel: string; busy: boolean; disabled?: boolean; onClick: () => void;
+}) {
+  return (
+    <DecisionBar className="pb-6 md:mt-space-4 md:bg-transparent md:pb-0">
+      <div className="px-4 py-2 md:px-0 md:py-0">
+        <Button className="h-12 w-full text-title font-semibold" onClick={onClick} loading={busy} disabled={disabled || busy}>
+          {busy ? <><Spinner size="sm" /> {busyLabel}</> : label}
+        </Button>
+      </div>
+    </DecisionBar>
+  );
+}
+
 /** 20px semibold — the one heading size the design gives a section. */
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
@@ -200,6 +222,7 @@ const Profile = () => {
 
   const referrals = useReferrals();
   const section = (params.get("section") as Section) || "view";
+  const isForm = section === "edit" || section === "password" || section === "reminders";
   const openSection = (next: Section) => {
     const p = new URLSearchParams(params);
     if (next === "view") p.delete("section");
@@ -362,8 +385,19 @@ const Profile = () => {
     // BrowseLayout and mounted its own HomeHeader as a child, so the one
     // screen behind the Account tab was assembled differently from the six
     // beside it (PAGE_TYPES section 6).
-    <UserLayout title={SECTION_TITLES[section]} showBackButton backTo={backTo}>
-      <div className="app-container space-y-4 pt-space-4 md:pt-space-8">
+    <UserLayout
+      title={SECTION_TITLES[section]}
+      showBackButton
+      backTo={backTo}
+      // A form is a decision page: it ends at its own Save, so the tab bar and
+      // the bell (a way OUT of an unsaved form) are not offered on it.
+      showBottomNav={!isForm}
+      headerAction={isForm ? <span className="h-10 w-10" aria-hidden /> : undefined}
+    >
+      <div className={cn(
+        "app-container space-y-4 pt-space-4 md:pt-space-8",
+        isForm && "pb-[calc(var(--decision-bar-h,88px)+16px)] md:pb-space-8 md:max-w-[640px]",
+      )}>
         {section === "view" && (
           <>
             {/* Who you are. One white card: avatar, name, email — the same
@@ -471,26 +505,24 @@ const Profile = () => {
         {section === "referrals" && <ReferralPanel />}
 
         {section === "edit" && (
-          <section className="space-y-2">
+          <section className="space-y-2 rounded-radius-lg bg-card p-4">
             <Input ref={firstEditRef as any} id="e-name" label="Username" value={draftName} onChange={(e) => setDraftName(e.target.value)} placeholder="Your name" />
             <Input id="e-email" label="Email" type="email" value={email} readOnly className="cursor-default opacity-50" />
             <Input id="e-phone" label="Phone (optional)" type="tel" value={draftPhone} onChange={(e) => setDraftPhone(e.target.value)} placeholder="+1 234 567 8900" />
             <Input id="e-wa" label="WhatsApp (optional)" type="tel" value={draftWhatsApp} onChange={(e) => setDraftWhatsApp(e.target.value)} placeholder="+1 234 567 8900" leftIcon={<WhatsAppIcon className="h-4 w-4 text-positive" />} />
             <Input id="e-tg" label="Telegram (optional)" value={draftTelegram} onChange={(e) => setDraftTelegram(e.target.value)} placeholder="@username" leftIcon={<TelegramIcon className="h-4 w-4 text-[#2AABEE]" />} />
-            <div className="flex gap-2 pt-space-2">
-              <Button variant="secondary" className="flex-1" onClick={back} disabled={saveMutation.isPending}>Cancel</Button>
-              <Button className="flex-1" onClick={() => saveMutation.mutate()} loading={saveMutation.isPending} disabled={!hasChanges || saveMutation.isPending}>
-                {saveMutation.isPending ? <><Spinner size="sm" /> Saving…</> : "Save Changes"}
-              </Button>
-            </div>
           </section>
+        )}
+        {section === "edit" && (
+          <SaveBar label="Save" busyLabel="Saving…" busy={saveMutation.isPending}
+            disabled={!hasChanges} onClick={() => saveMutation.mutate()} />
         )}
 
         {section === "locations" && userData?.id && <SavedLocations userId={userData.id} />}
 
         {section === "reminders" && (
-          <section className="space-y-3">
-            <div className="flex items-center justify-between gap-3 rounded-radius-md bg-card p-4 shadow-figma">
+          <section className="space-y-4 rounded-radius-lg bg-card p-4">
+            <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-title font-semibold text-foreground">Enable reminders</p>
                 <p className="text-meta text-muted-foreground">Get notified before each cleaning</p>
@@ -526,32 +558,28 @@ const Profile = () => {
                 onChange={(e) => setDraftPrefs((p) => ({ ...p, access_instructions: e.target.value || null }))}
                 placeholder="e.g. Door will be open · Key under mat"
                 rows={3}
-                className="w-full resize-none rounded-radius-md bg-card p-4 text-title text-foreground shadow-figma outline-none placeholder:text-muted-foreground"
+                className="w-full resize-none rounded-radius-md bg-inset p-4 text-title text-foreground outline-none placeholder:text-muted-foreground"
               />
               <p className="mt-1 px-1 text-meta text-muted-foreground">Shown in reminder notifications sent to you.</p>
             </div>
 
-            <div className="flex gap-2">
-              <Button variant="secondary" className="flex-1" onClick={back} disabled={savePrefsMutation.isPending}>Cancel</Button>
-              <Button className="flex-1" onClick={() => savePrefsMutation.mutate()} loading={savePrefsMutation.isPending} disabled={savePrefsMutation.isPending}>
-                {savePrefsMutation.isPending ? <><Spinner size="sm" /> Saving…</> : "Save"}
-              </Button>
-            </div>
           </section>
+        )}
+        {section === "reminders" && (
+          <SaveBar label="Save" busyLabel="Saving…" busy={savePrefsMutation.isPending}
+            onClick={() => savePrefsMutation.mutate()} />
         )}
 
         {section === "password" && (
-          <section className="space-y-3">
+          <section className="space-y-3 rounded-radius-lg bg-card p-4">
             <PasswordInput id="cp" label="Current password" autoFocus value={currentPw} onChange={setCurrentPw} placeholder="Enter current password" error={pwErrors.current} />
             <PasswordInput id="np" label="New password" value={newPw} onChange={setNewPw} placeholder="At least 8 characters" error={pwErrors.new} />
             <PasswordInput id="rp" label="Confirm new password" value={confirmPw} onChange={setConfirmPw} placeholder="Repeat new password" error={pwErrors.confirm} />
-            <div className="flex gap-2 pt-1">
-              <Button variant="secondary" className="flex-1" onClick={back} disabled={changePwMutation.isPending}>Cancel</Button>
-              <Button className="flex-1" onClick={() => { if (validatePw()) changePwMutation.mutate(); }} loading={changePwMutation.isPending} disabled={changePwMutation.isPending}>
-                {changePwMutation.isPending ? <><Spinner size="sm" /> Updating…</> : "Update Password"}
-              </Button>
-            </div>
           </section>
+        )}
+        {section === "password" && (
+          <SaveBar label="Update password" busyLabel="Updating…" busy={changePwMutation.isPending}
+            onClick={() => { if (validatePw()) changePwMutation.mutate(); }} />
         )}
       </div>
     </UserLayout>
