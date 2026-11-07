@@ -42,6 +42,7 @@ import { DraftPreviewBanner } from "@/components/patterns/DraftPreviewBanner";
 interface Provider {
   id: string;
   name: string;
+  status?: string | null;
   description: string | null;
   avatar_url: string | null;
   banner_url: string | null;
@@ -253,7 +254,7 @@ const ProviderDetail = () => {
         .from("providers")
         // source_provider_id is needed to hand food off to its legacy page — see the
         // redirect below.
-        .select("id, name, description, avatar_url, banner_url, location, working_hours, contact_phone, contact_email, archetype_key, unit, source_provider_id, source_service_key, gallery_urls, admin_user_id")
+        .select("id, name, description, avatar_url, banner_url, location, working_hours, contact_phone, contact_email, archetype_key, unit, source_provider_id, source_service_key, gallery_urls, admin_user_id, status")
         .eq("id", providerId!).single();
       if (error) throw error;
       return data as Provider;
@@ -433,7 +434,9 @@ const ProviderDetail = () => {
     );
   }
 
-  if (serviceSegment && !archetypeKey && !dbArchetype) {
+  // A switched-off service is a draft: only an admin previewing it gets in.
+  const draftService = !archetypeKey && !!dbArchetype && !dbArchetype.is_active && !preview;
+  if (serviceSegment && !archetypeKey && (!dbArchetype || draftService)) {
     return (
       <BrowseLayout className="md:pb-0">
         <HomeHeader title="Not found" showBackButton onBack={goBack} />
@@ -469,7 +472,11 @@ const ProviderDetail = () => {
     );
   }
 
-  if (providerQ.isError || !providerQ.data) {
+  // A business that is not live is a draft too — the page used to show it to
+  // anyone holding the link. Admins see it with ?preview=1.
+  const hiddenProvider = !!providerQ.data?.status
+    && !["active", "approved"].includes(providerQ.data.status) && !preview;
+  if (providerQ.isError || !providerQ.data || hiddenProvider) {
     return (
       <BrowseLayout className="md:pb-0">
         <HomeHeader title="Provider" showBackButton onBack={goBack} />
