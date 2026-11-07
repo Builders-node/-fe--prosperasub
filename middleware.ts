@@ -128,7 +128,7 @@ async function cardFor(path: string): Promise<Card | null> {
     return {
       title: "Sell subscriptions and bookings in Roatán · EverySub",
       description: "Your own page, payment up front by Lightning, Bitcoin or PayPal, and your money whenever you want it. No monthly fee; 0% on customers you bring.",
-      image: DEFAULT.image, type: "website",
+      image: "https://everysub.net/for-business/hero.jpg", type: "website",
     };
   }
   return null;

@@ -145,7 +145,8 @@ export function AdBanner({ placement }: { placement: string }) {
  * Hidden where a promo has no business being: the admin panel, auth flows,
  * and the staff-facing QR verification screen.
  */
-const AD_FREE_PREFIXES = ["/admin", "/verify", "/oauth", "/auth", "/reset-password"];
+// /for-business is a pitch with its own header: a promo strip above it reads as someone else's ad.
+const AD_FREE_PREFIXES = ["/admin", "/verify", "/oauth", "/auth", "/reset-password", "/for-business"];
 
 export function SiteAdBanner() {
   const { pathname } = useLocation();
