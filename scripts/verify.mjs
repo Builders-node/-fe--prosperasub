@@ -13,14 +13,14 @@ import { execSync } from "node:child_process";
 // DOWN as they're fixed; never up. A PR that adds an error fails here.
 const TSC_BASELINE = 9;
 
-function run(cmd) {
+function run(cmd, { stdoutOnly = false } = {}) {
   // 64MB buffer — eslint --format=json over the whole src tree blows the 1MB
   // default and would otherwise arrive truncated.
   const opts = { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], maxBuffer: 64 * 1024 * 1024 };
   try {
     return { code: 0, out: execSync(cmd, opts) };
   } catch (e) {
-    return { code: e.status ?? 1, out: `${e.stdout || ""}${e.stderr || ""}` };
+    return { code: e.status ?? 1, out: stdoutOnly ? `${e.stdout || ""}` : `${e.stdout || ""}${e.stderr || ""}` };
   }
 }
 
@@ -35,7 +35,9 @@ if (tscErrors > TSC_BASELINE) {
 }
 
 console.log("▶ verify: rules-of-hooks…");
-const lint = run("npx eslint src --format=json");
+// stdout only: when eslint exits non-zero (any error, not just hooks) npm's
+// warnings on stderr were glued onto the JSON and the whole check died.
+const lint = run("npx eslint src --format=json", { stdoutOnly: true });
 let report;
 try {
   report = JSON.parse((lint.out || "").trim() || "[]");

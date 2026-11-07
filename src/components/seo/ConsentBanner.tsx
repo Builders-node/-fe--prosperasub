@@ -28,7 +28,7 @@ export function ConsentBanner() {
     >
       <div className="mx-auto flex max-w-[640px] flex-col gap-3 rounded-radius-lg bg-card p-4 ring-1 ring-border sm:flex-row sm:items-center">
         <p className="min-w-0 flex-1 text-body text-muted-foreground">
-          We use Google Analytics to see which pages help people find what they need. No ads, nothing sold.{" "}
+          We use Google Analytics (via Google Tag Manager) to see which pages help people find what they need. No ads, nothing sold.{" "}
           <Link to="/privacy" className="text-foreground underline underline-offset-2">Privacy</Link>
         </p>
         <div className="flex shrink-0 gap-2">

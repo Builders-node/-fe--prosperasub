@@ -63,7 +63,10 @@ function OwnerInviteDialog({ provider, open, onOpenChange }: {
     },
     onSuccess: (d) => {
       setLink(d);
-      if (d.to) d.emailed ? toast.success(`Sent to ${d.to}`) : toast.warning("Link made, but the email didn't go out — copy and send it.");
+      if (d.to) {
+        if (d.emailed) toast.success(`Sent to ${d.to}`);
+        else toast.warning("Link made, but the email didn't go out — copy and send it.");
+      }
       void qc.invalidateQueries({ queryKey: key });
       void qc.invalidateQueries({ queryKey: ["admin-owner-invites"] });
     },
