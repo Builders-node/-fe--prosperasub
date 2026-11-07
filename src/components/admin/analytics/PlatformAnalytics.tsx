@@ -6,8 +6,9 @@ import { AnalyticsView, rankedByRevenue } from "@/components/admin/analytics/Ana
 import { ANALYTICS_NAMES_KEY, fetchAnalyticsNames } from "@/lib/analytics/names";
 import { PageLoader } from "@/components/ui/spinner";
 import {
-  fetchPlatformRollup, groupRevenue, type RollupServiceKey,
+  fetchPlatformRollup, groupRevenue, periodFigures, rowsInPeriod, type RollupServiceKey,
 } from "@/lib/analytics/platformRollup";
+import { useRollupPeriod } from "@/hooks/useRollupPeriod";
 import { formatUSD } from "@/lib/pricing";
 import { nowHN } from "@/lib/timezone";
 import {
@@ -35,6 +36,7 @@ const SERIES_TINT: Record<RollupServiceKey, string> = {
 };
 
 export function PlatformAnalytics() {
+  const [period] = useRollupPeriod();
   const { data, isLoading } = useQuery({
     queryKey: ["admin-platform-rollup"],
     queryFn: fetchPlatformRollup,
@@ -44,7 +46,8 @@ export function PlatformAnalytics() {
 
   if (isLoading || !data) return <PageLoader />;
 
-  const { totals, services, months, rows } = data;
+  const { totals, services, months } = data;
+  const rows = rowsInPeriod(data.rows, period);
   const monthLabel = format(nowHN(), "MMMM");
   const serviceLabels = new Map(services.map((s) => [s.key as string, s.label]));
 
@@ -56,6 +59,7 @@ export function PlatformAnalytics() {
         key: s.key, label: s.label, values: s.monthly, barClass: SERIES_TINT[s.key],
       }))}
       figures={totals}
+      period={periodFigures(data.rows, period)}
       plans={{
         // Plan ids are unique across services, so the platform's plan ranking
         // is every service's plans in one list — which is the point.

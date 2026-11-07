@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Building2, ChevronsUpDown, ChevronUp, ChevronDown, Download, MoreVertical, Pencil, Trash2, Undo2 } from "lucide-react";
 import { toast } from "sonner";
@@ -74,12 +74,15 @@ const MarketplaceSubscriptions = () => {
   const qc = useQueryClient();
   const { userData } = useAuth();
   const { archetypes } = useServiceArchetypes(false);
+  // Links from Today and the Customer page arrive with a filter in the URL
+  // (`?status=pending`, `?q=email`); they used to land on an unfiltered list.
+  const [initial] = useSearchParams();
   const [service, setService] = useState("all");
-  const [status, setStatus] = useState("all");
-  const [payment, setPayment] = useState("all");
+  const [status, setStatus] = useState(initial.get("status") ?? "all");
+  const [payment, setPayment] = useState(initial.get("payment") ?? "all");
   const [kind, setKind] = useState<"all" | "subscription" | "booking">("all");
   const [origin, setOrigin] = useState<"all" | "builders_node" | "platform">("all");
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initial.get("q") ?? "");
   const [sortBy, setSortBy] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -521,7 +524,7 @@ const MarketplaceSubscriptions = () => {
                         <span className="flex flex-wrap items-center gap-2">
                           {s.user_id ? (
                             <Link
-                              to={`/admin/users?userId=${encodeURIComponent(s.user_id)}`}
+                              to={`/admin/customers/${encodeURIComponent(s.user_id)}`}
                               className="hover:text-primary hover:underline"
                             >
                               {customerLabel(s)}

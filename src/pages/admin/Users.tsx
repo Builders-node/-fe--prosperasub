@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { Ban, Pencil, Trash2, UserCheck } from "lucide-react";
@@ -25,7 +25,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { usePagination, TablePagination } from "@/components/ui/table-pagination";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { formatUSD } from "@/lib/pricing";
@@ -80,22 +79,15 @@ const AdminUsers = () => {
   const [serviceFilter, setServiceFilter] = useState<"all" | CustomerService>("all");
   const [search, setSearch] = useState("");
 
-  // ── The open sheet lives in the URL ──────────────────────────────────────
-  // `?userId=` is what Subscriptions and Support link to. It used to be
-  // ignored, so those links landed on an unfiltered list of everyone.
+  // ── One customer is a page now (/admin/customers/:id) ──────────────────
+  // `?userId=` is what older links (Subscriptions, Support, bookmarks) carry;
+  // it redirects there instead of opening a sheet.
+  const navigate = useNavigate();
   const openUserId = params.get(USER_PARAM);
-  const openUser = (id: string) => {
-    const q = new URLSearchParams(params);
-    q.set(USER_PARAM, id);
-    // Replace, like closing does: a push here plus a replace on close left a
-    // duplicate list entry for Back to walk through.
-    setParams(q, { replace: true });
-  };
-  const closeUser = () => {
-    const q = new URLSearchParams(params);
-    q.delete(USER_PARAM);
-    setParams(q, { replace: true });
-  };
+  const openUser = (id: string) => navigate(`/admin/customers/${encodeURIComponent(id)}`);
+  useEffect(() => {
+    if (openUserId) navigate(`/admin/customers/${encodeURIComponent(openUserId)}`, { replace: true });
+  }, [openUserId, navigate]);
 
   // ── Queries ──────────────────────────────────────────────────────────────
 
@@ -129,48 +121,9 @@ const AdminUsers = () => {
   const { data: activity } = useCustomerActivity();
   const { data: contacts } = useCustomerContacts();
 
-  const editUser = useMemo(
-    () => (openUserId ? (users as any[]).find((u: any) => String(u.id) === openUserId) ?? null : null),
-    [users, openUserId],
-  );
-
-  // A link to someone who is not in the list (soft-deleted, mistyped id) must
-  // say so rather than silently showing everybody.
-  useEffect(() => {
-    if (!openUserId || usersLoading || isError) return;
-    if (!(users as any[]).some((u: any) => String(u.id) === openUserId)) {
-      toast.error("That customer isn't in the list — they may have been deleted.");
-      closeUser();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openUserId, usersLoading, isError, users]);
-
-  const { data: userAuditLogs = [] } = useQuery({
-    queryKey: ["admin-user-audit", editUser?.id],
-    enabled: !!editUser?.id,
-    queryFn: async () => {
-      const { data, error } = await adminApi(`/admin/users/${editUser.id}/audit`);
-      if (error) throw error;
-      return data ?? [];
-    },
-  });
-
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["admin-users-full"] });
 
   // ── Mutations ────────────────────────────────────────────────────────────
-
-  const updateUserMutation = useMutation({
-    mutationFn: async (data: { id: string; name?: string; display_name?: string; email?: string }) => {
-      const { id, ...fields } = data;
-      const { error } = await adminApi(`/admin/users/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify(fields),
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => { toast.success("User updated"); invalidate(); closeUser(); },
-    onError: (e: Error) => toast.error(e.message),
-  });
 
   const blockMutation = useMutation({
     mutationFn: async ({ userId, block }: { userId: string; block: boolean }) => {
@@ -181,15 +134,6 @@ const AdminUsers = () => {
       if (error) throw error;
     },
     onSuccess: (_, { block }) => { toast.success(block ? "User blocked" : "User unblocked"); invalidate(); },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const softDeleteMutation = useMutation({
-    mutationFn: async (userId: string) => {
-      const { error } = await adminApi(`/admin/users/${userId}`, { method: "DELETE" });
-      if (error) throw error;
-    },
-    onSuccess: () => { toast.success("User soft-deleted"); invalidate(); closeUser(); },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -454,40 +398,6 @@ const AdminUsers = () => {
       </div>
       </AdminListShell>
 
-      {/* Edit User Sheet — open state is `?userId=`, so a link from
-          Subscriptions or Support lands here and Back closes it. */}
-      <Sheet open={!!editUser} onOpenChange={(o) => !o && closeUser()}>
-        <SheetContent side="right" className="w-full max-w-md overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>{editUser ? (editUser.display_name || editUser.name || editUser.email || "User") : "User"}</SheetTitle>
-            <SheetDescription>{editUser?.email}</SheetDescription>
-          </SheetHeader>
-          {editUser && (() => {
-            const p = people.find((x) => x.id === String(editUser.id));
-            return (
-              <ContactActions
-                className="mt-3 -ml-2"
-                name={p?.name ?? "this customer"}
-                phone={p?.phone}
-                whatsapp={p?.whatsapp}
-                email={editUser.email}
-              />
-            );
-          })()}
-          {editUser && (
-            <EditUserForm
-              key={editUser.id}
-              user={editUser}
-              auditLogs={userAuditLogs}
-              onSave={(d) => updateUserMutation.mutate({ id: editUser.id, ...d })}
-              onSoftDelete={() => softDeleteMutation.mutate(editUser.id)}
-              saving={updateUserMutation.isPending}
-              deleting={softDeleteMutation.isPending}
-            />
-          )}
-        </SheetContent>
-      </Sheet>
-
       {/* Blocking locks a customer out of the platform — it was one
           unconfirmed click on an unlabelled icon button. Unblocking stays
           immediate: it's reversible and non-destructive. */}
@@ -521,9 +431,11 @@ const AdminUsers = () => {
 };
 
 
-function EditUserForm({ user, auditLogs, onSave, onSoftDelete, saving, deleting }: {
+export function EditUserForm({ user, auditLogs, onSave, onSoftDelete, saving, deleting, hidePurchases }: {
   user: any;
   auditLogs: any[];
+  /** The Customer page lists purchases itself, above the form. */
+  hidePurchases?: boolean;
   onSave: (d: any) => void;
   onSoftDelete: () => void;
   saving: boolean;
@@ -794,6 +706,7 @@ function EditUserForm({ user, auditLogs, onSave, onSoftDelete, saving, deleting 
 
       {/* ── PLANS & HISTORY ──────────────────────────────────────── */}
       <TabsContent value="plans" className="mt-4 space-y-5">
+        {!hidePurchases && (
         <div>
           <Label>Everything they've bought</Label>
           {subsLoading ? (
@@ -824,6 +737,7 @@ function EditUserForm({ user, auditLogs, onSave, onSoftDelete, saving, deleting 
             <p className="mt-2 text-sm text-muted-foreground">Nothing bought yet</p>
           )}
         </div>
+        )}
 
         <div>
           <Label>Subscription Period History</Label>

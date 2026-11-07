@@ -4,8 +4,9 @@ import { AnalyticsView, rankedByRevenue } from "@/components/admin/analytics/Ana
 import { ANALYTICS_NAMES_KEY, fetchAnalyticsNames } from "@/lib/analytics/names";
 import { PageLoader } from "@/components/ui/spinner";
 import {
-  fetchPlatformRollup, groupRevenue, type RollupServiceKey,
+  fetchPlatformRollup, groupRevenue, periodFigures, rowsInPeriod, type RollupServiceKey,
 } from "@/lib/analytics/platformRollup";
+import { useRollupPeriod } from "@/hooks/useRollupPeriod";
 import { nowHN } from "@/lib/timezone";
 
 /**
@@ -19,6 +20,7 @@ import { nowHN } from "@/lib/timezone";
  * already in the cache instead of re-fetching the tables.
  */
 export function RollupServiceAnalytics({ serviceKey }: { serviceKey: RollupServiceKey }) {
+  const [period] = useRollupPeriod();
   const { data, isLoading } = useQuery({
     queryKey: ["admin-platform-rollup"],
     queryFn: fetchPlatformRollup,
@@ -28,7 +30,8 @@ export function RollupServiceAnalytics({ serviceKey }: { serviceKey: RollupServi
   if (isLoading || !data) return <PageLoader />;
 
   const svc = data.byKey[serviceKey];
-  const rows = data.rows.filter((r) => r.service === serviceKey);
+  const allRows = data.rows.filter((r) => r.service === serviceKey);
+  const rows = rowsInPeriod(allRows, period);
 
   return (
     <AnalyticsView
@@ -36,6 +39,7 @@ export function RollupServiceAnalytics({ serviceKey }: { serviceKey: RollupServi
       months={data.months}
       series={[{ key: svc.key, label: svc.label, values: svc.monthly, barClass: "bg-primary" }]}
       figures={svc}
+      period={periodFigures(allRows, period)}
       plans={{
         rows: rankedByRevenue(groupRevenue(rows, (r) => r.planKey, (k) => names?.plans.get(k))).slice(0, 8),
         emptyMessage: "Nothing has earned anything yet.",

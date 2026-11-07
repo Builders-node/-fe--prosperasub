@@ -3,7 +3,9 @@ import { ArrowUpRight, Car, CheckCircle2, Package, SparklesIcon, UtensilsCrossed
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { fetchPlatformRollup } from "@/lib/analytics/platformRollup";
+import { changeLabel, fetchPlatformRollup, periodFigures, type NormRow } from "@/lib/analytics/platformRollup";
+import { PeriodPicker } from "@/components/admin/analytics/PeriodPicker";
+import { useRollupPeriod } from "@/hooks/useRollupPeriod";
 import { supabaseDb } from "@/integrations/supabase/client";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { Button } from "@/components/ui/button";
@@ -128,6 +130,8 @@ async function unifiedNames(rows: UnifiedSubRow[]): Promise<(r: UnifiedSubRow) =
 const AdminDashboard = () => {
   const qc = useQueryClient();
   const { userData } = useAuth();
+  // Revenue and sales follow the period; users, active and awaiting are "now".
+  const [period, setPeriod] = useRollupPeriod("7d");
 
   const { data: stats } = useQuery({
     queryKey: ["super-admin-stats-all"],
@@ -151,6 +155,7 @@ const AdminDashboard = () => {
         activeSubs: rollup.totals.active,
         pending: rollup.totals.awaitingPayment,
         byService,
+        rows: rollup.rows as NormRow[],
       };
     },
   });
@@ -287,6 +292,10 @@ const AdminDashboard = () => {
     },
   });
 
+  const allRows = stats?.rows ?? [];
+  const pf = periodFigures(allRows, period);
+  const pfByService = (key: ServiceKey) => periodFigures(allRows.filter((r) => r.service === key), period);
+
   return (
     <SuperAdminLayout title="Today" subtitle="What needs you, then how the platform is doing">
       {/*
@@ -321,15 +330,21 @@ const AdminDashboard = () => {
 
       {/* Headline metrics. Colour lives on the NUMBER, never on the card: a
           tinted panel is a second background, and this design has one. */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <YdSectionHeading title="How it's going" className="mb-0" />
+        <PeriodPicker value={period} onChange={setPeriod} className="max-w-full" />
+      </div>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <MetricTile label="Revenue" value={formatUSD(pf.revenueCents)}
+          href={`/admin/analytics?period=${period}`} accent change={period === "all" ? undefined : changeLabel(pf.revenueCents, pf.prevRevenueCents)} />
+        <MetricTile label="Sales" value={String(pf.sales)}
+          href={`/admin/analytics?period=${period}`} change={period === "all" ? undefined : changeLabel(pf.sales, pf.prevSales)} />
         <MetricTile label="Users" value={String(stats?.users ?? 0)} href="/admin/users" />
-        <MetricTile label="Revenue" value={formatUSD(stats?.revenueCents ?? 0)} href="/admin/payments" accent />
         <MetricTile
           label="Awaiting payment"
           value={String(stats?.pending ?? 0)}
           href="/admin/marketplace/subscriptions?status=pending"
           warning={(stats?.pending ?? 0) > 0}
-          className="col-span-2 md:col-span-1"
         />
       </div>
 
@@ -420,6 +435,7 @@ const AdminDashboard = () => {
           {(Object.keys(SERVICE_META) as ServiceKey[]).map((key) => {
             const meta = SERVICE_META[key];
             const st = stats?.byService[key];
+            const sp = pfByService(key);
             const Icon = meta.icon;
             return (
               <Link
@@ -439,7 +455,7 @@ const AdminDashboard = () => {
                 <div className="flex items-end justify-between gap-2">
                   <div className="min-w-0">
                     <p className="truncate text-heading font-semibold tabular-nums text-foreground">
-                      {formatUSD(st?.revenueCents ?? 0)}
+                      {formatUSD(sp.revenueCents)}
                     </p>
                     <p className="text-meta text-muted-foreground">Revenue</p>
                   </div>
@@ -515,7 +531,7 @@ const AdminDashboard = () => {
 
 
 function MetricTile({
-  label, value, href, accent, warning, className,
+  label, value, href, accent, warning, className, change,
 }: {
   label: string;
   value: string;
@@ -523,6 +539,7 @@ function MetricTile({
   accent?: boolean;
   warning?: boolean;
   className?: string;
+  change?: { text: string; up: boolean } | null;
 }) {
   return (
     <Link
@@ -544,6 +561,11 @@ function MetricTile({
       >
         {value}
       </p>
+      {change !== undefined && (
+        <p className={cn("text-meta", change ? (change.up ? "text-positive" : "text-negative") : "text-muted-foreground")}>
+          {change ? `${change.text} vs previous` : "No earlier sales"}
+        </p>
+      )}
     </Link>
   );
 }

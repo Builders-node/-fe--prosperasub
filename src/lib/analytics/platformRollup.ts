@@ -231,3 +231,79 @@ export async function fetchPlatformRollup(): Promise<PlatformRollup> {
     },
   };
 }
+
+// ─── Periods ──────────────────────────────────────────────────────────────────
+//
+// "What came in this week" had no answer: every figure on Today and Analytics
+// was all-time. A period narrows the FLOW figures — revenue, sales, buyers —
+// to sales made inside a rolling window, and compares them with the window
+// just before it. Stock figures (active, awaiting payment) are "right now" and
+// do not take a period; a page says so rather than pretending to slice them.
+// Rolling windows are measured from this instant, so they need no timezone.
+
+export type RollupPeriod = "7d" | "30d" | "90d" | "12m" | "all";
+
+export const ROLLUP_PERIODS: { key: RollupPeriod; label: string; days: number | null }[] = [
+  { key: "7d", label: "7 days", days: 7 },
+  { key: "30d", label: "30 days", days: 30 },
+  { key: "90d", label: "90 days", days: 90 },
+  { key: "12m", label: "12 months", days: 365 },
+  { key: "all", label: "All time", days: null },
+];
+
+export const parseRollupPeriod = (raw: string | null | undefined, fallback: RollupPeriod = "30d"): RollupPeriod =>
+  ROLLUP_PERIODS.some((p) => p.key === raw) ? (raw as RollupPeriod) : fallback;
+
+export const periodLabel = (p: RollupPeriod) =>
+  p === "all" ? "all time" : `last ${ROLLUP_PERIODS.find((x) => x.key === p)!.label}`;
+
+export interface PeriodFigures {
+  period: RollupPeriod;
+  /** "last 30 days" / "all time" — for a KPI label. */
+  label: string;
+  revenueCents: number;
+  /** Paid, non-cancelled sales made in the window. */
+  sales: number;
+  /** Distinct buyers of those sales. */
+  customers: number;
+  /** The same figures for the window just before; null for "all time". */
+  prevRevenueCents: number | null;
+  prevSales: number | null;
+}
+
+const DAY_MS = 86_400_000;
+
+/** Rows sold inside the window — every row for "all time". */
+export function rowsInPeriod(rows: NormRow[], period: RollupPeriod, offsetWindows = 0, now = Date.now()): NormRow[] {
+  const days = ROLLUP_PERIODS.find((p) => p.key === period)?.days ?? null;
+  if (days == null) return offsetWindows === 0 ? rows : [];
+  const end = now - offsetWindows * days * DAY_MS;
+  const start = end - days * DAY_MS;
+  return rows.filter((r) => {
+    if (!r.createdAt) return false;
+    const t = Date.parse(r.createdAt);
+    return t > start && t <= end;
+  });
+}
+
+export function periodFigures(rows: NormRow[], period: RollupPeriod, now = Date.now()): PeriodFigures {
+  const cur = rowsInPeriod(rows, period, 0, now).filter(isRevenue);
+  const prev = period === "all" ? null : rowsInPeriod(rows, period, 1, now).filter(isRevenue);
+  return {
+    period,
+    label: periodLabel(period),
+    revenueCents: cur.reduce((s, r) => s + r.valueCents, 0),
+    sales: cur.length,
+    customers: new Set(cur.map((r) => r.customerKey).filter(Boolean)).size,
+    prevRevenueCents: prev ? prev.reduce((s, r) => s + r.valueCents, 0) : null,
+    prevSales: prev ? prev.length : null,
+  };
+}
+
+/** "+12%" / "−40%" / "new" against the previous window; null when there is nothing to compare. */
+export function changeLabel(cur: number, prev: number | null): { text: string; up: boolean } | null {
+  if (prev == null) return null;
+  if (prev === 0) return cur === 0 ? null : { text: "new", up: true };
+  const pct = Math.round(((cur - prev) / prev) * 100);
+  return { text: `${pct >= 0 ? "+" : "−"}${Math.abs(pct)}%`, up: pct >= 0 };
+}

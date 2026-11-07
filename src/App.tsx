@@ -39,6 +39,7 @@ const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 
 // Public access verification (staff scan a user's QR)
 const VerifyAccess = lazy(() => import("./pages/VerifyAccess"));
+const ClaimBusiness = lazy(() => import("./pages/ClaimBusiness"));
 
 // User
 const MySubscriptions = lazy(() => import("./pages/user/MySubscriptions"));
@@ -83,6 +84,7 @@ const AdminDashboard = lazy(() => import("./pages/admin/Dashboard"));
 const Analytics = lazy(() => import("./pages/admin/Analytics"));
 const AdminPayments = lazy(() => import("./pages/admin/Payments"));
 const AdminUsers = lazy(() => import("./pages/admin/Users"));
+const AdminCustomer = lazy(() => import("./pages/admin/Customer"));
 const CarRentals = lazy(() => import("./pages/admin/CarRentals"));
 const CleaningPlans = lazy(() => import("./pages/admin/CleaningPlans"));
 const ServiceCategories = lazy(() => import("./pages/admin/ServiceCategories"));
@@ -224,6 +226,7 @@ const App = () => {
 
               {/* Public access verification (staff scan a user's QR) */}
               <Route path="/verify" element={<VerifyAccess />} />
+              <Route path="/claim-business" element={<ClaimBusiness />} />
 
               {/* Discovery */}
               <Route path="/discovery" element={<Discovery />} />
@@ -423,6 +426,9 @@ const App = () => {
               } />
               <Route path="/admin/users" element={
                 <ProtectedRoute allowedRoles={['super_admin']} requiredPermissions={["users.read"]}><AdminUsers /></ProtectedRoute>
+              } />
+              <Route path="/admin/customers/:userId" element={
+                <ProtectedRoute allowedRoles={['super_admin']} requiredPermissions={["users.read"]}><AdminCustomer /></ProtectedRoute>
               } />
               {/* Transport is its own layer, Booking.com-style — the sidebar's
                   Transport section, mirroring the storefront's family split.

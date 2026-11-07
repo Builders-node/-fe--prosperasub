@@ -89,7 +89,7 @@ export const CUSTOMERS_SECTION: NavSection = {
   title: "Customers",
   items: [
     { label: "Customers", path: adminRoutes.superAdminUsers, icon: Users,
-      alsoActiveOn: [adminRoutes.superAdminClients],
+      alsoActiveOn: [adminRoutes.superAdminClients, "/admin/customers"],
       permissions: ["users.read"] },
     { label: "Support", path: adminRoutes.superAdminSupport, icon: LifeBuoy,
       permissions: ["users.read"] },

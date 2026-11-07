@@ -8,6 +8,8 @@ import BeachClubAnalytics from "@/legacy/beach/pages/BeachClubAnalytics";
 import { PlatformAnalytics } from "@/components/admin/analytics/PlatformAnalytics";
 import { RollupServiceAnalytics } from "@/components/admin/analytics/RollupServiceAnalytics";
 import { ROLLUP_SERVICES, type RollupServiceKey } from "@/lib/analytics/platformRollup";
+import { PeriodPicker } from "@/components/admin/analytics/PeriodPicker";
+import { useRollupPeriod } from "@/hooks/useRollupPeriod";
 
 /**
  * The picker lists what the rollup counts, not a hand-kept copy of it — the
@@ -31,6 +33,7 @@ const BESPOKE: Partial<Record<ServiceId, React.FC<{ embedded?: boolean }>>> = {
 
 const Analytics = () => {
   const [params, setParams] = useSearchParams();
+  const [period, setPeriod] = useRollupPeriod();
   const raw = params.get("service");
   const service: ServiceId = SERVICES.some((s) => s.id === raw) ? (raw as ServiceId) : "all";
 
@@ -48,7 +51,7 @@ const Analytics = () => {
       {/* One control, not a row of chips: the list is going to grow with the
           marketplace, and a row that wraps onto a second line is a row that
           stops reading as a single choice. */}
-      <div className="mb-space-5 flex items-center gap-3">
+      <div className="mb-space-5 flex flex-wrap items-center gap-3">
         <label htmlFor="analytics-service" className="text-[16px] leading-[22px] text-muted-foreground">
           Showing
         </label>
@@ -62,6 +65,7 @@ const Analytics = () => {
             <option key={s.id} value={s.id}>{s.label}</option>
           ))}
         </select>
+        <PeriodPicker value={period} onChange={setPeriod} className="min-w-0 max-w-full" />
       </div>
 
       {/* "All" is the platform summed once, not the service pages stacked. The

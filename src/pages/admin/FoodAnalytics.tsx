@@ -6,7 +6,8 @@ import { PageLoader } from "@/components/ui/spinner";
 import { AnalyticsShell, RankedBarList, StatItem } from "@/components/admin/analytics/AnalyticsPrimitives";
 import { AnalyticsView, rankedByRevenue } from "@/components/admin/analytics/AnalyticsView";
 import { ANALYTICS_NAMES_KEY, fetchAnalyticsNames } from "@/lib/analytics/names";
-import { fetchPlatformRollup, groupRevenue } from "@/lib/analytics/platformRollup";
+import { fetchPlatformRollup, groupRevenue, periodFigures, rowsInPeriod } from "@/lib/analytics/platformRollup";
+import { useRollupPeriod } from "@/hooks/useRollupPeriod";
 import { formatUSD } from "@/lib/pricing";
 import { effectiveFoodStatus } from "@/lib/subscriptionLifecycle";
 import { nowHN, todayHN } from "@/lib/timezone";
@@ -46,6 +47,7 @@ async function fetchFoodExtras() {
 }
 
 const FoodAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
+  const [period] = useRollupPeriod();
   const { data: rollup, isLoading } = useQuery({
     queryKey: ["admin-platform-rollup"],
     queryFn: fetchPlatformRollup,
@@ -65,7 +67,8 @@ const FoodAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
   }
 
   const figures = rollup.byKey.food;
-  const rows = rollup.rows.filter((r) => r.service === "food");
+  const allRows = rollup.rows.filter((r) => r.service === "food");
+  const rows = rowsInPeriod(allRows, period);
 
   return (
     <AnalyticsShell embedded={embedded} title="Food — Analytics">
@@ -74,6 +77,7 @@ const FoodAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
         months={rollup.months}
         series={[{ key: "food", label: "Food", values: figures.monthly, barClass: "bg-primary" }]}
         figures={figures}
+        period={periodFigures(allRows, period)}
         plans={{ rows: rankedByRevenue(groupRevenue(rows, (r) => r.planKey, (k) => names?.plans.get(k))) }}
         group={{
           title: "Revenue by Restaurant",

@@ -172,7 +172,7 @@ export default function AdminSupport() {
                       )}
                       {m.user_id && (
                         <Button asChild size="sm" variant="secondary">
-                          <Link to={`/admin/users?userId=${encodeURIComponent(m.user_id)}`}>
+                          <Link to={`/admin/customers/${encodeURIComponent(m.user_id)}`}>
                             <UserRound className="mr-1.5 h-3.5 w-3.5" /> Open customer
                           </Link>
                         </Button>

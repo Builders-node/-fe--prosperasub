@@ -6,7 +6,8 @@ import { PageLoader } from "@/components/ui/spinner";
 import { AnalyticsShell, StatItem } from "@/components/admin/analytics/AnalyticsPrimitives";
 import { AnalyticsView, rankedByRevenue } from "@/components/admin/analytics/AnalyticsView";
 import { ANALYTICS_NAMES_KEY, fetchAnalyticsNames } from "@/lib/analytics/names";
-import { fetchPlatformRollup, groupRevenue } from "@/lib/analytics/platformRollup";
+import { fetchPlatformRollup, groupRevenue, periodFigures, rowsInPeriod } from "@/lib/analytics/platformRollup";
+import { useRollupPeriod } from "@/hooks/useRollupPeriod";
 import { formatUSD } from "@/lib/pricing";
 import { nowHN } from "@/lib/timezone";
 
@@ -40,6 +41,7 @@ async function fetchCleaningExtras() {
 }
 
 const CleaningAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
+  const [period] = useRollupPeriod();
   const { data: rollup, isLoading } = useQuery({
     queryKey: ["admin-platform-rollup"],
     queryFn: fetchPlatformRollup,
@@ -59,7 +61,8 @@ const CleaningAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
   }
 
   const figures = rollup.byKey.cleaning;
-  const rows = rollup.rows.filter((r) => r.service === "cleaning");
+  const allRows = rollup.rows.filter((r) => r.service === "cleaning");
+  const rows = rowsInPeriod(allRows, period);
 
   return (
     <AnalyticsShell embedded={embedded} title="Cleaning — Analytics">
@@ -68,6 +71,7 @@ const CleaningAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
         months={rollup.months}
         series={[{ key: "cleaning", label: "Cleaning", values: figures.monthly, barClass: "bg-primary" }]}
         figures={figures}
+        period={periodFigures(allRows, period)}
         plans={{ rows: rankedByRevenue(groupRevenue(rows, (r) => r.planKey, (k) => names?.plans.get(k))) }}
         group={{
           title: "Revenue by Provider",

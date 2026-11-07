@@ -6,7 +6,8 @@ import { PageLoader } from "@/components/ui/spinner";
 import { AnalyticsShell, StatItem } from "@/components/admin/analytics/AnalyticsPrimitives";
 import { AnalyticsView, rankedByRevenue } from "@/components/admin/analytics/AnalyticsView";
 import { ANALYTICS_NAMES_KEY, fetchAnalyticsNames } from "@/lib/analytics/names";
-import { fetchPlatformRollup, groupRevenue } from "@/lib/analytics/platformRollup";
+import { fetchPlatformRollup, groupRevenue, periodFigures, rowsInPeriod } from "@/lib/analytics/platformRollup";
+import { useRollupPeriod } from "@/hooks/useRollupPeriod";
 import { formatUSD } from "@/lib/pricing";
 import { nowHN } from "@/lib/timezone";
 
@@ -43,6 +44,7 @@ async function fetchBeachExtras() {
 }
 
 export default function BeachClubAnalytics({ embedded = false }: { embedded?: boolean }) {
+  const [period] = useRollupPeriod();
   const { data: rollup, isLoading } = useQuery({
     queryKey: ["admin-platform-rollup"],
     queryFn: fetchPlatformRollup,
@@ -62,7 +64,8 @@ export default function BeachClubAnalytics({ embedded = false }: { embedded?: bo
   }
 
   const figures = rollup.byKey.beach;
-  const rows = rollup.rows.filter((r) => r.service === "beach");
+  const allRows = rollup.rows.filter((r) => r.service === "beach");
+  const rows = rowsInPeriod(allRows, period);
 
   return (
     <AnalyticsShell embedded={embedded} title="Beach Club — Analytics">
@@ -71,6 +74,7 @@ export default function BeachClubAnalytics({ embedded = false }: { embedded?: bo
         months={rollup.months}
         series={[{ key: "beach", label: "Beach Club", values: figures.monthly, barClass: "bg-primary" }]}
         figures={figures}
+        period={periodFigures(allRows, period)}
         plans={{ rows: rankedByRevenue(groupRevenue(rows, (r) => r.planKey, (k) => names?.plans.get(k))) }}
         group={{
           title: "Revenue by Provider",

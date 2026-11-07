@@ -18,12 +18,14 @@ import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 
 // ─── KPI card ───────────────────────────────────────────────────────────────
 export function KpiCard({
-  icon: Icon, label, value, accent,
+  icon: Icon, label, value, accent, change,
 }: {
   icon: React.FC<{ className?: string }>;
   label: string;
   value: string;
   accent: string;
+  /** Against the previous period — "+12%", "new". */
+  change?: { text: string; up: boolean } | null;
 }) {
   return (
     <div className="flex items-center gap-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
@@ -32,7 +34,14 @@ export function KpiCard({
       </span>
       <div className="min-w-0">
         <p className="truncate text-[16px] leading-[22px] text-muted-foreground">{label}</p>
-        <p className="mt-0.5 text-[24px] font-semibold leading-[29px] tabular-nums text-foreground">{value}</p>
+        <p className="mt-0.5 text-[24px] font-semibold leading-[29px] tabular-nums text-foreground">
+          {value}
+          {change && (
+            <span className={`ml-2 align-middle text-meta font-semibold ${change.up ? "text-positive" : "text-negative"}`}>
+              {change.text}
+            </span>
+          )}
+        </p>
       </div>
     </div>
   );

@@ -8,6 +8,7 @@ import {
   Menu,
 } from "lucide-react";
 import { AdminAccountMenu } from "@/components/admin/AdminAccountMenu";
+import { AdminSearchButton } from "@/components/admin/AdminSearch";
 import { LocationSelector } from "@/components/patterns/LocationSelector";
 import { Button } from "@/components/ui/button";
 import {
@@ -259,6 +260,7 @@ const SuperAdminLayout = ({ children, title, subtitle }: SuperAdminLayoutProps) 
 
             {/* Actions */}
             <div className="flex items-center gap-space-3 px-space-5">
+              <AdminSearchButton />
               <LocationSelector />
               {/* LanguageMenu hidden until the app is translated — see the
                   note in DesktopHeader; a switcher over hardcoded English

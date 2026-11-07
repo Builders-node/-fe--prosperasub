@@ -12,6 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { logAuditEvent } from "@/lib/auditLog";
 import { profileCompleteness } from "@/lib/providerProfile";
 import type { UniversalProviderRow } from "@/components/provider/UniversalInfoTab";
+import { OwnerInviteButton } from "@/components/provider/OwnerInviteButton";
 
 /**
  * The admin's way from "draft" to "live", on the business itself.
@@ -64,7 +65,7 @@ export function GoLivePanel({ provider, previewHref }: { provider: UniversalProv
     { label: "Profile filled in", done: profile.missing.length === 0, hint: profile.missing.map((m) => m.label).join(", ") },
     { label: "Photos", done: !!provider.banner_url || (provider.gallery_urls?.length ?? 0) > 0, hint: "A banner or a gallery photo" },
     { label: "At least one plan on sale", done: (plansQ.data ?? 0) > 0, hint: "Offerings → publish a plan" },
-    { label: "Owner set", done: !!provider.admin_user_id, hint: "Team → owner (or keep it platform-owned)" },
+    { label: "Owner set", done: !!provider.admin_user_id, hint: "Send the owner an invite link (or keep it platform-owned)", owner: true },
   ];
   const ready = checks.every((c) => c.done);
   const missing = checks.filter((c) => !c.done);
@@ -100,12 +101,17 @@ export function GoLivePanel({ provider, previewHref }: { provider: UniversalProv
       <section className="flex flex-wrap items-center justify-between gap-3 rounded-radius-lg bg-card p-4">
         <div className="min-w-0">
           <p className="text-title font-semibold text-foreground">Live</p>
-          <p className="text-meta text-muted-foreground">Customers can find and buy from this business.</p>
+          <p className="text-meta text-muted-foreground">
+            Customers can find and buy from this business.{!provider.admin_user_id && " No owner yet — it's platform-owned."}
+          </p>
         </div>
-        <Button size="sm" variant="secondary" disabled={setStatus.isPending}
-          onClick={() => setConfirm("inactive")}>
-          Hide
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <OwnerInviteButton provider={provider} />
+          <Button size="sm" variant="secondary" disabled={setStatus.isPending}
+            onClick={() => setConfirm("inactive")}>
+            Hide
+          </Button>
+        </div>
         {dialog}
       </section>
     );
@@ -125,10 +131,11 @@ export function GoLivePanel({ provider, previewHref }: { provider: UniversalProv
             {c.done
               ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-positive" />
               : <Circle className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground/60" />}
-            <span className="min-w-0">
+            <span className="min-w-0 flex-1">
               <span className="block text-body text-foreground">{c.label}</span>
               {!c.done && c.hint && <span className="block text-meta text-muted-foreground">{c.hint}</span>}
             </span>
+            {"owner" in c && <OwnerInviteButton provider={provider} />}
           </li>
         ))}
       </ul>

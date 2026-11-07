@@ -4,7 +4,7 @@ import {
   KpiCard, RankedBarList, StackedRevenueChart, StatItem, StatusBar,
   type RankedRow, type RevenueSeries,
 } from "@/components/admin/analytics/AnalyticsPrimitives";
-import type { RevenueGroup, RollupFigures } from "@/lib/analytics/platformRollup";
+import { changeLabel, type PeriodFigures, type RevenueGroup, type RollupFigures } from "@/lib/analytics/platformRollup";
 import { formatUSD } from "@/lib/pricing";
 
 /** A revenue grouping as the ranked list wants it — "Studio Apartment · 5 subs". */
@@ -51,6 +51,12 @@ export interface AnalyticsViewProps {
   group: { title: string; rows: RankedRow[]; emptyMessage?: string };
   /** Slot 5 — the only place a service says something the others don't. */
   details?: { title: string; children: ReactNode };
+  /**
+   * The chosen period's flow figures. When given, the headline row speaks for
+   * that window (with the change against the one before) and the rankings the
+   * caller passes are expected to be cut to it too.
+   */
+  period?: PeriodFigures;
 }
 
 function Card({ title, icon: Icon, children }: {
@@ -70,7 +76,7 @@ function Card({ title, icon: Icon, children }: {
 }
 
 export function AnalyticsView({
-  monthLabel, months, series, figures, plans, group, details,
+  monthLabel, months, series, figures, plans, group, details, period,
 }: AnalyticsViewProps) {
   const avgPerSubCents = figures.subs > 0 ? Math.round(figures.revenueCents / figures.subs) : 0;
 
@@ -78,10 +84,23 @@ export function AnalyticsView({
     <div className="space-y-space-6">
       {/* 1 — the same four figures on every screen. */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard icon={TrendingUp} label="Total Revenue" value={formatUSD(figures.revenueCents)} accent="text-positive" />
-        <KpiCard icon={TrendingUp} label={`Revenue — ${monthLabel}`} value={formatUSD(figures.monthRevenueCents)} accent="text-blue-400" />
-        <KpiCard icon={Layers} label="Active Subscriptions" value={String(figures.active)} accent="text-attention" />
-        <KpiCard icon={Users} label="Customers" value={String(figures.customers)} accent="text-purple-400" />
+        {period ? (
+          <>
+            <KpiCard icon={TrendingUp} label="Revenue" value={formatUSD(period.revenueCents)}
+              accent="text-positive" change={changeLabel(period.revenueCents, period.prevRevenueCents)} />
+            <KpiCard icon={BarChart3} label="Sales" value={String(period.sales)}
+              accent="text-primary" change={changeLabel(period.sales, period.prevSales)} />
+            <KpiCard icon={Layers} label="Active now" value={String(figures.active)} accent="text-attention" />
+            <KpiCard icon={Users} label="Buyers" value={String(period.customers)} accent="text-muted-foreground" />
+          </>
+        ) : (
+          <>
+            <KpiCard icon={TrendingUp} label="Total Revenue" value={formatUSD(figures.revenueCents)} accent="text-positive" />
+            <KpiCard icon={TrendingUp} label={`Revenue — ${monthLabel}`} value={formatUSD(figures.monthRevenueCents)} accent="text-blue-400" />
+            <KpiCard icon={Layers} label="Active Subscriptions" value={String(figures.active)} accent="text-attention" />
+            <KpiCard icon={Users} label="Customers" value={String(figures.customers)} accent="text-purple-400" />
+          </>
+        )}
       </div>
 
       {/* 2 — how revenue moved, and where the subscriptions stand today. */}
@@ -107,14 +126,14 @@ export function AnalyticsView({
 
       {/* 3 — what sells, and who sells it. */}
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card title="Revenue by Plan" icon={TrendingUp}>
+        <Card title={period && period.period !== "all" ? `Revenue by Plan · ${period.label}` : "Revenue by Plan"} icon={TrendingUp}>
           <RankedBarList
             rows={plans.rows}
             formatValue={formatUSD}
             emptyMessage={plans.emptyMessage ?? "No plan has earned anything yet."}
           />
         </Card>
-        <Card title={group.title} icon={Layers}>
+        <Card title={period && period.period !== "all" ? `${group.title} · ${period.label}` : group.title} icon={Layers}>
           <RankedBarList
             rows={group.rows}
             formatValue={formatUSD}
@@ -150,6 +169,7 @@ export function AnalyticsView({
         Revenue counts each paid, non-cancelled subscription at its full committed
         value, in the month it was sold — the same rule on every service and on the
         Overview. Active means paid and running today (Honduras time).
+        {period && period.period !== "all" && " A period cuts revenue, sales, buyers and the rankings to sales made in it; the status figures are always as of now."}
       </p>
     </div>
   );
