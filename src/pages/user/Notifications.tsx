@@ -17,7 +17,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { UserLayout } from "@/components/layout/UserLayout";
-import { TabEmptyState } from "@/components/subscriptions/MySubsPrimitives";
+import { YdEmptyState } from "@/components/yd/YdPrimitives";
 import { QueryError } from "@/components/patterns/QueryError";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -58,8 +58,8 @@ function categoryColor(category: UserNotification["category"]) {
   switch (category) {
     case "payment":      return "bg-positive/10 text-positive";
     case "subscription": return "bg-primary/10 text-primary";
-    case "booking":      return "bg-blue-500/10 text-blue-500";
-    case "reminder":     return "bg-orange-500/10 text-orange-500";
+    case "booking":      return "bg-primary/10 text-primary";
+    case "reminder":     return "bg-attention/10 text-attention";
     case "plan":         return "bg-primary/10 text-primary";
     case "announcement": return "bg-attention/10 text-attention";
     default:             return "bg-muted text-muted-foreground";
@@ -96,14 +96,14 @@ function NotificationRow({
   return (
     <div
       className={cn(
-        "group relative flex items-start gap-3 py-3 transition-colors",
+        "group relative flex items-start gap-3 px-4 py-3 transition-colors",
         !notification.isRead && "bg-primary/[0.02]",
       )}
     >
       {/* Category icon — smaller than the old card variant to compact the row */}
       <div
         className={cn(
-          "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
+          "flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px]",
           iconClass,
         )}
       >
@@ -125,8 +125,8 @@ function NotificationRow({
             <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
           )}
         </div>
-        <p className="mt-0.5 text-xs leading-snug text-muted-foreground">{notification.body}</p>
-        <p className="mt-1 text-[11px] text-muted-foreground/60">{timeAgo}</p>
+        <p className="mt-0.5 text-meta leading-snug text-muted-foreground">{notification.body}</p>
+        <p className="mt-1 text-meta text-muted-foreground/60">{timeAgo}</p>
       </div>
 
       {/* Actions — visible on hover */}
@@ -158,11 +158,11 @@ function NotificationRow({
 
 function Skeleton() {
   return (
-    <div className="divide-y divide-border/60">
+    <div className="divide-y divide-border/60 overflow-hidden rounded-radius-md bg-card">
       {Array.from({ length: 5 }).map((_, i) => (
-        <div key={i} className="animate-pulse py-3">
+        <div key={i} className="animate-pulse px-4 py-3">
           <div className="flex items-start gap-3">
-            <div className="h-8 w-8 shrink-0 rounded-lg bg-muted" />
+            <div className="h-8 w-8 shrink-0 rounded-[8px] bg-muted" />
             <div className="flex-1 space-y-2">
               <div className="h-3 w-48 rounded bg-muted" />
               <div className="h-2.5 w-72 rounded bg-muted" />
@@ -228,12 +228,14 @@ const Notifications = () => {
         {/* `EmptyState` was never a component in this codebase — this branch
             threw a ReferenceError and showed the error boundary instead of a
             sign-in prompt. The empty state ten lines down is the real one. */}
-        <TabEmptyState
-          icon={Bell}
-          title="Sign in to view notifications"
-          subtitle="Stay updated on your bookings, payments, and plan activity."
-          action={{ label: "Sign in", onClick: () => openAuthModal("login", "/notifications") }}
-        />
+        <div className="app-container pt-5">
+          <YdEmptyState
+            icon={Bell}
+            title="Sign in to view notifications"
+            subtitle="Stay updated on your bookings, payments, and plan activity."
+            action={<Button onClick={() => openAuthModal("login", "/notifications")}>Sign in</Button>}
+          />
+        </div>
       </UserLayout>
     );
   }
@@ -244,7 +246,7 @@ const Notifications = () => {
 
   return (
     <UserLayout title="Notifications">
-      <div className="app-container pb-28 pt-5">
+      <div className="app-container pt-5">
 
         {/* Header action row — page title lives in the mobile header, so we
             only need the mark-all-read action here. */}
@@ -274,7 +276,7 @@ const Notifications = () => {
                 "shrink-0 rounded-full px-4 py-1.5 text-sm font-semibold transition-colors",
                 activeTab === tab.key
                   ? "bg-foreground text-background"
-                  : "border border-border bg-card text-muted-foreground hover:text-foreground",
+                  : "bg-card text-muted-foreground hover:text-foreground",
               )}
             >
               {tab.label}
@@ -298,7 +300,7 @@ const Notifications = () => {
             retrying={isFetching}
           />
         ) : notifications.length === 0 ? (
-          <TabEmptyState
+          <YdEmptyState
             icon={Bell}
             title="No notifications"
             subtitle={activeTab === "unread"
@@ -306,7 +308,7 @@ const Notifications = () => {
               : "Activity on your account will appear here."}
           />
         ) : (
-          <div className="divide-y divide-border/60">
+          <div className="divide-y divide-border/60 overflow-hidden rounded-radius-md bg-card">
             {notifications.map((n) => (
               <NotificationRow
                 key={n.id}

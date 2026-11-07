@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { effectiveCleaningStatus, effectiveFoodStatus } from "@/lib/subscriptionLifecycle";
 import { useTabParam } from "@/hooks/useTabParam";
 import { QueryError } from "@/components/patterns/QueryError";
@@ -19,7 +19,6 @@ import {
 import { ResponsiveDialog } from "@/components/patterns/ResponsiveDialog";
 import {
   CalendarDays,
-  Clock,
   CreditCard,
   DoorOpen,
   SparklesIcon,
@@ -29,7 +28,6 @@ import {
   ArrowRight,
   RefreshCw,
   X,
-  Eye,
   CalendarClock,
   CalendarPlus,
   Waves,
@@ -40,7 +38,6 @@ import {
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { accountApi, supabase, supabaseDb } from "@/integrations/supabase/client";
@@ -54,9 +51,10 @@ import { RenewPreviewDialog } from "@/components/subscriptions/RenewPreviewDialo
 import { SubscriptionCard } from "@/components/subscriptions/SubscriptionCard";
 import { SubscriptionDetailSheet, type PurchaseDetail } from "@/components/subscriptions/SubscriptionDetailSheet";
 import {
-  SectionGroup, TabEmptyState, SectionOverline,
+  SectionGroup, SectionOverline,
 } from "@/components/subscriptions/MySubsPrimitives";
 import { RateProviderButton } from "@/components/reviews/RateProviderButton";
+import { YdEmptyState } from "@/components/yd/YdPrimitives";
 import { ReviewPromptCard } from "@/components/reviews/ReviewPromptCard";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -97,81 +95,10 @@ interface PendingRenewal {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-// ─── Section skeleton ─────────────────────────────────────────────────────────
-
-/**
- * Active / Past segmented control.
- *
- * Same treatment as the service tab strip above it (DESIGN.md §7): a
- * `bg-muted/50` track, the selected segment filled, inactive segments carrying
- * no border and no fill.
- */
-/**
- * Active/Past, and the way out to the catalogue, on one line.
- *
- * These used to be two full-width rows stacked under the service tabs — a
- * "Browse plans" block and a segmented control — so a phone showed four rows
- * of chrome (prompt, tabs, buttons, toggle) before the first subscription.
- * The browse action is a link at the end of the same line now: it is how you
- * leave this page, not the thing the page is for.
- */
 const SCOPES = ["active", "past"] as const;
 const SCOPE_LABELS = { active: "Current", past: "Past" } as const;
 
 const ENDED_STATUSES = ["expired", "cancelled", "canceled", "completed", "failed", "refunded"];
-
-function ListControls({
-  scope, onChange, browse,
-}: {
-  /** Active/Past toggle. Omitted now that the page header owns scope; the
-      component keeps the prop so any standalone caller still works. */
-  scope?: "active" | "past";
-  onChange?: (s: "active" | "past") => void;
-  browse?: { label: string; onClick: () => void };
-}) {
-  if (!scope && !browse) return null;
-  return (
-    <div className={cn("flex items-center gap-3", scope ? "justify-between" : "justify-end")}>
-      {scope && onChange && <ScopeToggle scope={scope} onChange={onChange} />}
-      {browse && (
-        <button
-          type="button"
-          onClick={browse.onClick}
-          className="shrink-0 text-[13px] font-semibold tracking-[-0.02em] text-muted-foreground transition-colors hover:text-foreground"
-        >
-          {browse.label} →
-        </button>
-      )}
-    </div>
-  );
-}
-
-function ScopeToggle({
-  scope, onChange,
-}: {
-  scope: "active" | "past";
-  onChange: (s: "active" | "past") => void;
-}) {
-  return (
-    <div className="inline-flex gap-1 rounded-full bg-inset p-1">
-      {([["active", "Active"], ["past", "Past"]] as const).map(([key, label]) => (
-        <button
-          key={key}
-          type="button"
-          aria-pressed={scope === key}
-          onClick={() => onChange(key)}
-          className={`rounded-full px-4 py-1.5 text-[13px] font-semibold tracking-[-0.02em] transition-colors ${
-            scope === key
-              ? "bg-foreground text-background"
-              : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          {label}
-        </button>
-      ))}
-    </div>
-  );
-}
 
 function Skeleton({ rows = 2 }: { rows?: number }) {
   return (
@@ -179,7 +106,7 @@ function Skeleton({ rows = 2 }: { rows?: number }) {
       {Array.from({ length: rows }).map((_, i) => (
         <div key={i} className="animate-pulse rounded-radius-md bg-card p-4">
           <div className="flex gap-4">
-            <div className="h-12 w-12 rounded-xl bg-muted" />
+            <div className="h-12 w-12 rounded-[8px] bg-muted" />
             <div className="flex-1 space-y-2 py-1">
               <div className="h-4 w-32 rounded bg-muted" />
               <div className="h-3 w-20 rounded bg-muted" />
@@ -191,133 +118,7 @@ function Skeleton({ rows = 2 }: { rows?: number }) {
   );
 }
 
-// ─── Booking row ─────────────────────────────────────────────────────────────
-
-function CleaningBookingRow({
-  booking,
-  upcoming,
-  onCancel,
-  cancelling,
-  onView,
-  onReschedule,
-  planName,
-}: {
-  booking: any;
-  upcoming: boolean;
-  onCancel?: () => void;
-  cancelling?: boolean;
-  onView?: () => void;
-  onReschedule?: () => void;
-  /** Which plan this visit belongs to — a customer can hold more than one. */
-  planName?: string | null;
-}) {
-  const slot = booking.cleaning_available_slots;
-  const dateStr = slot?.date
-    ? format(new Date(slot.date + "T00:00:00"), upcoming ? "EEE, MMM d" : "MMM d, yyyy")
-    : "—";
-  const timeStr = slot?.start_time
-    ? `${format12h(slot.start_time)} – ${format12h(slot.end_time ?? "")}`
-    : null;
-
-  return (
-    <div
-      className={cn(
-        // Same shape/spacing language as SubscriptionCard: rounded-radius-md bg-card
-        // p-4, no border. Icon tile matches h-11 w-11 rounded-xl bg-primary/10.
-        "flex items-center gap-3 rounded-radius-md bg-card p-4",
-        !upcoming && "opacity-70",
-      )}
-    >
-      {/* Icon */}
-      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-        <CalendarDays className="h-5 w-5 text-primary" />
-      </span>
-
-      {/* Info */}
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-bold leading-tight text-foreground">{dateStr}</p>
-        <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
-          {timeStr && (
-            <span className="flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              {timeStr}
-            </span>
-          )}
-          {/* Which plan this visit is for. Someone with a cleaning plan AND a
-              car wash saw two identical lists of dates and times with nothing
-              to tell them apart — and cancelling the wrong one is a real
-              mistake to make. */}
-          {planName && (
-            <span className="truncate font-semibold text-foreground/80">{planName}</span>
-          )}
-        </p>
-      </div>
-
-      {/* Right side */}
-      <div className="flex shrink-0 items-center gap-1">
-        {onView && (
-          <button
-            type="button"
-            onClick={onView}
-            aria-label="View cleaning details"
-            title="View details"
-            className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          >
-            <Eye className="h-4 w-4" />
-          </button>
-        )}
-        {upcoming && onReschedule && (
-          <button
-            type="button"
-            onClick={onReschedule}
-            aria-label="Reschedule cleaning"
-            title="Reschedule"
-            className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
-          >
-            <CalendarClock className="h-4 w-4" />
-          </button>
-        )}
-        {upcoming && onCancel ? (
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={cancelling}
-            aria-label="Cancel booking"
-            title="Cancel"
-            className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:opacity-50"
-          >
-            {cancelling ? <Spinner size="sm" /> : <X className="h-4 w-4" />}
-          </button>
-        ) : (
-          !upcoming && (
-            <StatusPill status={booking.status} />
-          )
-        )}
-      </div>
-    </div>
-  );
-}
-
 // ─── Page ─────────────────────────────────────────────────────────────────────
-
-/**
- * A tab is an archetype key, straight from service_archetypes — not a fixed
- * list. The four labels used to be hard-coded here, so the tab still said
- * "Beach" long after an admin renamed that archetype to "Lifestyle", and a new
- * archetype got no tab at all.
- *
- * The tab CONTENT is still per-service: each legacy table has its own columns
- * and its own card. What is data-driven is which tabs exist, what they are
- * called, their icons and their order.
- */
-type ServiceTab = string;
-
-/** Old `?tab=` values, so links and bookmarks keep landing where they did. */
-const LEGACY_TAB_ALIASES: Record<string, string> = {
-  beach: "entertainment",
-  "beach-club": "entertainment",
-  other: "entertainment",
-};
 
 /**
  * `provider_subscriptions.user_id` is a `uuid` column (cleaning/food are `text`).
@@ -341,22 +142,6 @@ const MySubscriptions = () => {
   const queryClient = useQueryClient();
   const navigate    = useNavigate();
 
-  // ── Service tabs, driven by service_archetypes ─────────────────────────
-  const { archetypes } = useServiceArchetypes(true);
-  const [searchParams, setSearchParams] = useSearchParams();
-  const rawTab = searchParams.get("tab") ?? "";
-  const [activeTab, setActiveTab] = useState<ServiceTab>(
-    LEGACY_TAB_ALIASES[rawTab] ?? rawTab ?? "",
-  );
-
-  // The archetype list arrives async, so the first render has no tabs to
-  // validate against. Settle on the first archetype once they land, and only
-  // if the current selection isn't one of them.
-  useEffect(() => {
-    if (!archetypes.length) return;
-    if (archetypes.some((a) => a.key === activeTab)) return;
-    setActiveTab(archetypes[0].key);
-  }, [archetypes, activeTab]);
   /**
    * Active / Past. Food, Cars and Beach rendered one flat list each with live
    * and long-dead rows intermixed and no way to separate them — a customer
@@ -379,15 +164,6 @@ const MySubscriptions = () => {
     if (!q) return true;
     try { return JSON.stringify(row).toLowerCase().includes(q); }
     catch { return true; }
-  };
-
-  const changeTab = (t: ServiceTab) => {
-    setActiveTab(t);
-    setSearchParams((sp) => {
-      const next = new URLSearchParams(sp);
-      next.set("tab", t);
-      return next;
-    }, { replace: true });
   };
 
   // ── Food subscriptions for the current user ─────────────────────────────
@@ -1027,12 +803,12 @@ const MySubscriptions = () => {
   if (!isAuthenticated) {
     return (
       <UserLayout title="My Subs">
-        <div className="app-container py-8">
-          <TabEmptyState
+        <div className="app-container pt-5">
+          <YdEmptyState
             icon={CalendarDays}
             title="Sign in to view bookings"
             subtitle="Track your subscriptions, bookings and payments."
-            action={{ label: "Sign In", onClick: () => openAuthModal("login", "/my-subscriptions") }}
+            action={<Button onClick={() => openAuthModal("login", "/my-subscriptions")}>Sign In</Button>}
           />
         </div>
       </UserLayout>
@@ -1073,7 +849,7 @@ const MySubscriptions = () => {
           type="button"
           aria-pressed={scope === key}
           onClick={() => setScope(key)}
-          className={`flex-1 rounded-radius-md px-4 py-2 text-center text-[16px] font-semibold leading-[22px] transition-colors ${
+          className={`flex-1 rounded-radius-md px-4 py-2 text-center text-title font-semibold leading-[22px] transition-colors ${
             scope === key ? "bg-card text-foreground" : "text-foreground/70 hover:text-foreground"
           }`}
         >
@@ -1092,7 +868,7 @@ const MySubscriptions = () => {
         } catch { /* best effort */ }
         await queryClient.invalidateQueries();
       }}>
-      <div className="app-container pb-28 pt-5">
+      <div className="app-container pt-5">
 
         {/* Page title lives in the mobile header — no inline H1 needed. */}
         <div className="mb-5">{scopeTabs}</div>
@@ -1109,14 +885,14 @@ const MySubscriptions = () => {
             has no rows, so this is the only empty state left. */}
         {anyLoading && !anyContent && <Skeleton rows={4} />}
         {!anyLoading && !anyContent && !anyError && (
-          <TabEmptyState
+          <YdEmptyState
             icon={LayoutGrid}
             title={query ? "Nothing matches your search"
               : scope === "active" ? "No current subscriptions" : "No past subscriptions"}
             subtitle={query ? "Try a different word, or clear the search."
               : scope === "active" ? "Subscribe to a plan and it shows up here."
               : "Plans that end or are cancelled show up here."}
-            action={query ? undefined : { label: "Browse services", onClick: () => navigate("/discovery") }}
+            action={query ? undefined : <Button onClick={() => navigate("/discovery")}>Browse services</Button>}
           />
         )}
 
@@ -1129,13 +905,13 @@ const MySubscriptions = () => {
             ) : foodError ? (
               <QueryError title="Couldn't load your meal plans" onRetry={() => refetchFood()} />
             ) : visibleFood.length === 0 ? (
-              <TabEmptyState
+              <YdEmptyState
                 icon={ChefHat}
                 title={scope === "active" ? "No current meal plans" : "No past meal plans"}
                 subtitle={scope === "active"
                   ? "Subscribe to a weekly meal plan to see it here."
                   : "Plans that end or are cancelled show up here."}
-                action={{ label: "Browse Restaurants", onClick: () => navigate("/services/food") }}
+                action={<Button onClick={() => navigate("/services/food")}>Browse Restaurants</Button>}
               />
             ) : (
               <SectionGroup>
@@ -1223,13 +999,13 @@ const MySubscriptions = () => {
               ) : beachError ? (
                 <QueryError title="Couldn't load your memberships" onRetry={() => refetchBeach()} />
               ) : visibleBeach.length === 0 ? (
-                <TabEmptyState
+                <YdEmptyState
                   icon={Waves}
                   title={scope === "active" ? "No current memberships" : "No past memberships"}
                   subtitle={scope === "active"
                     ? "Subscribe to the Beach Club to access the gym, pools and courts."
                     : "Memberships that end or are cancelled show up here."}
-                  action={{ label: "Browse Plans", onClick: () => navigate("/services/beach-club") }}
+                  action={<Button onClick={() => navigate("/services/beach-club")}>Browse Plans</Button>}
                 />
               ) : (
                 <SectionGroup>
@@ -1448,20 +1224,20 @@ const MySubscriptions = () => {
                     {pendingScheduleCleaningSubs.map((sub) => (
                       <div
                         key={sub.id}
-                        className="flex items-center justify-between gap-4 rounded-radius-md border border-warning/30 bg-warning/5 px-4 py-3"
+                        className="flex items-center justify-between gap-4 rounded-radius-md bg-attention/10 px-4 py-3"
                       >
                         <div>
                           <p className="text-sm font-bold text-foreground">
                             {(sub as any).cleaning_packages?.name}
                           </p>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-meta text-muted-foreground">
                             Paid — set your weekly schedule to activate
                           </p>
                         </div>
                         <button
                           type="button"
                           onClick={() => navigate(`/services/cleaning/book?subscriptionId=${sub.id}`)}
-                          className="shrink-0 rounded-full bg-foreground px-4 py-1.5 text-xs font-bold text-background"
+                          className="shrink-0 rounded-full bg-foreground px-4 py-1.5 text-meta font-bold text-background"
                         >
                           Set schedule
                         </button>
@@ -1483,13 +1259,13 @@ const MySubscriptions = () => {
                     {unpaidCleaningSubs.map((sub: any) => (
                       <div
                         key={sub.id}
-                        className="flex items-center justify-between gap-4 rounded-radius-md border border-warning/30 bg-warning/5 px-4 py-3"
+                        className="flex items-center justify-between gap-4 rounded-radius-md bg-attention/10 px-4 py-3"
                       >
                         <div className="min-w-0">
                           <p className="truncate text-sm font-bold text-foreground">
                             {sub.cleaning_packages?.name ?? "Cleaning plan"}
                           </p>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-meta text-muted-foreground">
                             Payment wasn't completed — nothing has been charged.
                           </p>
                         </div>
@@ -1691,8 +1467,8 @@ const MySubscriptions = () => {
 
                 {/* ── Door-access reminder alert ── */}
                 {(activeCleaningSubs.length > 0 || visibleLinkedClientSubs.length > 0) && (
-                  <div className="flex items-start gap-3 rounded-radius-md border border-primary/20 bg-primary/5 p-4">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/15">
+                  <div className="flex items-start gap-3 rounded-radius-md bg-card p-4">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] bg-primary/15">
                       <DoorOpen className="h-5 w-5 text-primary" />
                     </div>
                     <div className="min-w-0 flex-1">
@@ -1701,12 +1477,12 @@ const MySubscriptions = () => {
                       </p>
                       {cleaningPrefs?.access_instructions ? (
                         // Custom instructions set by the user
-                        <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                        <p className="mt-0.5 text-meta leading-relaxed text-muted-foreground">
                           {cleaningPrefs.access_instructions}
                         </p>
                       ) : (
                         // Generic fallback
-                        <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                        <p className="mt-0.5 text-meta leading-relaxed text-muted-foreground">
                           On your cleaning day, please make sure the apartment door is{" "}
                           <span className="font-semibold text-foreground">unlocked or accessible</span>{" "}
                           so the cleaning team can enter.
@@ -1718,11 +1494,11 @@ const MySubscriptions = () => {
 
                 {/* ── No plan empty state ── */}
                 {activeCleaningSubs.length === 0 && pausedCleaningSubs.length === 0 && pastCleaningSubs.length === 0 && pendingScheduleCleaningSubs.length === 0 && unpaidCleaningSubs.length === 0 && visibleLinkedClientSubs.length === 0 && (
-                  <TabEmptyState
+                  <YdEmptyState
                     icon={SparklesIcon}
                     title="No active cleaning plan"
                     subtitle="Choose a cleaning plan to start booking weekly sessions."
-                    action={{ label: "View Cleaning Plans", onClick: () => navigate("/services/cleaning") }}
+                    action={<Button onClick={() => navigate("/services/cleaning")}>View Cleaning Plans</Button>}
                   />
                 )}
 
@@ -1763,8 +1539,8 @@ const MySubscriptions = () => {
               <StatusPill status={viewBooking.status} />
             </div>
             {viewBooking.notes && (
-              <div className="rounded-xl bg-muted/40 p-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Notes</p>
+              <div className="rounded-radius-md bg-inset p-3">
+                <p className="text-meta font-semibold uppercase tracking-wide text-muted-foreground">Notes</p>
                 <p className="mt-1 whitespace-pre-wrap text-foreground">{viewBooking.notes}</p>
               </div>
             )}
@@ -1843,21 +1619,21 @@ const MySubscriptions = () => {
       >
         <div className="space-y-4">
           <div>
-            <label className="text-xs font-semibold text-muted-foreground">Date</label>
+            <label className="text-meta font-semibold text-muted-foreground">Date</label>
             <input
               type="date"
               value={rescheduleDate}
               min={todayHN()}
               onChange={(e) => { setRescheduleDate(e.target.value); setRescheduleSlotId(""); }}
-              className="mt-1 w-full rounded-xl border border-border bg-card px-3 py-2.5 text-sm text-foreground"
+              className="mt-1 w-full rounded-radius-md bg-inset px-3 py-2.5 text-sm text-foreground"
             />
           </div>
           <div>
-            <label className="text-xs font-semibold text-muted-foreground">Available time slots</label>
+            <label className="text-meta font-semibold text-muted-foreground">Available time slots</label>
             {rescheduleSlotsLoading ? (
               <div className="mt-2"><Spinner size="sm" /></div>
             ) : rescheduleSlots.length === 0 ? (
-              <p className="mt-2 rounded-xl border border-border bg-card px-3 py-4 text-center text-sm text-muted-foreground">
+              <p className="mt-2 rounded-radius-md bg-inset px-3 py-4 text-center text-sm text-muted-foreground">
                 {rescheduleDate ? "No open slots on this date." : "Choose a date to see slots."}
               </p>
             ) : (
@@ -1872,14 +1648,14 @@ const MySubscriptions = () => {
                       disabled={current}
                       onClick={() => setRescheduleSlotId(slot.id)}
                       className={cn(
-                        "rounded-xl border px-3 py-2.5 text-sm font-semibold transition-colors disabled:opacity-40",
+                        "rounded-radius-md px-3 py-2.5 text-sm font-semibold transition-colors disabled:opacity-40",
                         selected
-                          ? "border-primary bg-primary/10 text-primary"
-                          : "border-border bg-card text-foreground hover:bg-muted",
+                          ? "bg-foreground text-background"
+                          : "bg-inset text-foreground hover:bg-muted",
                       )}
                     >
                       {fmtTime(slot.start_time)}
-                      {current && <span className="block text-[10px] font-normal text-muted-foreground">current</span>}
+                      {current && <span className="block text-meta font-normal text-muted-foreground">current</span>}
                     </button>
                   );
                 })}
@@ -1903,14 +1679,14 @@ const MySubscriptions = () => {
           </DialogHeader>
           {paymentDialog && (
             <div className="space-y-4">
-              <div className="flex justify-center rounded-xl bg-white p-4">
+              <div className="flex justify-center rounded-radius-md bg-white p-4">
                 <QRCodeSVG value={paymentDialog.payment_request} size={200} />
               </div>
               <div className="space-y-2 text-center">
                 <p className="text-sm font-semibold text-foreground">
                   {paymentDialog.plan_name ?? "Cleaning plan"}
                 </p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-meta text-muted-foreground">
                   {paymentDialog.amount_cents != null
                     ? formatUSD(paymentDialog.amount_cents)
                     : paymentDialog.amount_sats != null

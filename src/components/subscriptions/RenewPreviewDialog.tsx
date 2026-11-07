@@ -79,7 +79,7 @@ export function RenewPreviewDialog({
             </div>
           </div>
 
-          <div className="flex items-end justify-between rounded-radius-md border border-border/60 p-3">
+          <div className="flex items-end justify-between rounded-radius-md bg-inset p-3">
             <div>
               <p className="text-xs uppercase tracking-wider text-muted-foreground">Amount</p>
               <p className="mt-0.5 text-2xl font-semibold tabular-nums text-foreground">

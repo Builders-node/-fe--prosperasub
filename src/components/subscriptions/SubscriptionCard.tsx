@@ -69,7 +69,7 @@ export function SubscriptionCard({
         if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick!(); }
       } : undefined}
       className={cn(
-        "rounded-radius-md bg-card p-2 pr-4 shadow-figma tracking-[-0.02em]",
+        "rounded-radius-md bg-card p-2 pr-4 shadow-figma",
         isRowClickable && "cursor-pointer transition-colors hover:bg-muted/40",
         className,
       )}
@@ -95,7 +95,7 @@ export function SubscriptionCard({
             filling the gap — the design's exact vertical rhythm. */}
         <div className="flex min-w-0 flex-1 flex-col py-2">
           <div className="flex items-start justify-between gap-2">
-            <p className="min-w-0 flex-1 truncate text-[16px] font-semibold leading-[19px] text-foreground">
+            <p className="min-w-0 flex-1 truncate text-title font-semibold leading-[19px] text-foreground">
               {title}
             </p>
             {statusBadge && <div className="shrink-0">{statusBadge}</div>}
@@ -109,7 +109,7 @@ export function SubscriptionCard({
             )}
             {metadata && (
               <div className="flex items-end justify-end">
-                <span className="text-[16px] font-semibold leading-[19px] tabular-nums text-foreground">
+                <span className="text-title font-semibold leading-[19px] tabular-nums text-foreground">
                   {metadata}
                 </span>
               </div>
@@ -128,7 +128,7 @@ export function SubscriptionCard({
                 type="button"
                 onClick={a.onClick}
                 className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[13px] font-semibold transition-colors",
+                  "inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-meta font-semibold transition-colors",
                   a.variant === "primary" ? "bg-foreground text-background hover:bg-foreground/90"
                   : a.variant === "ghost" ? "px-2 text-muted-foreground hover:text-foreground"
                   : "bg-inset text-foreground hover:bg-muted",

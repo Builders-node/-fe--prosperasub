@@ -18,7 +18,7 @@ export function SectionOverline({ label, count, tone = "default", className }: O
     tone === "success" ? "text-positive" :
     "text-muted-foreground";
   return (
-    <p className={cn("text-[10px] font-semibold uppercase tracking-[0.14em]", toneClass, className)}>
+    <p className={cn("text-meta font-semibold uppercase tracking-wider", toneClass, className)}>
       {label}
       {count !== undefined && count !== null && <> · <span className="tabular-nums">{count}</span></>}
     </p>

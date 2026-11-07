@@ -352,7 +352,7 @@ const Profile = () => {
   const avatarLabel = displayName.slice(0, 1).toUpperCase();
   const canChangePassword = provider !== "lightning" && !isGoogle;
   const contacts = [
-    savedPhone && { key: "phone", label: "Phone", value: savedPhone, icon: <span className="text-[15px]">📱</span> },
+    savedPhone && { key: "phone", label: "Phone", value: savedPhone, icon: <span className="text-title">📱</span> },
     savedWhatsApp && { key: "wa", label: "WhatsApp", value: savedWhatsApp, icon: <WhatsAppIcon className="h-4 w-4 text-positive" /> },
     savedTelegram && { key: "tg", label: "Telegram", value: savedTelegram.startsWith("@") ? savedTelegram : `@${savedTelegram}`, icon: <TelegramIcon className="h-4 w-4 text-[#2AABEE]" /> },
   ].filter(Boolean) as Array<{ key: string; label: string; value: string; icon: JSX.Element }>;
@@ -363,13 +363,13 @@ const Profile = () => {
     // screen behind the Account tab was assembled differently from the six
     // beside it (PAGE_TYPES section 6).
     <UserLayout title={SECTION_TITLES[section]} showBackButton backTo={backTo}>
-      <div className="space-y-4">
+      <div className="app-container space-y-4 pt-space-4 md:pt-space-8">
         {section === "view" && (
           <>
             {/* Who you are. One white card: avatar, name, email — the same
                 block the home screen opens with, not three stacked panels. */}
             <section className="flex items-center gap-4 rounded-radius-md bg-card p-4 shadow-figma">
-              <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary text-[24px] font-semibold text-primary-foreground">
+              <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary text-2xl font-semibold text-primary-foreground">
                 {avatarLabel}
               </span>
               <div className="min-w-0 flex-1">

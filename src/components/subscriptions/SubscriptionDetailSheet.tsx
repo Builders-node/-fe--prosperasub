@@ -67,8 +67,8 @@ function Row({ label, value }: { label: string; value: ReactNode }) {
   if (value == null || value === "" || value === "—") return null;
   return (
     <div className="flex items-start justify-between gap-4 py-3">
-      <span className="shrink-0 text-[14px] text-muted-foreground">{label}</span>
-      <span className="min-w-0 break-words text-right text-[14px] font-semibold text-foreground">{value}</span>
+      <span className="shrink-0 text-title text-muted-foreground">{label}</span>
+      <span className="min-w-0 break-words text-right text-title font-semibold text-foreground">{value}</span>
     </div>
   );
 }
@@ -92,11 +92,11 @@ export function SubscriptionDetailSheet({
         <div className="pb-2">
           <div className="mb-4 flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-[18px] font-semibold leading-[22px] tracking-[-0.36px] text-foreground">
+              <p className="text-heading font-semibold leading-[24px] text-foreground">
                 {detail.title}
               </p>
               {detail.provider && (
-                <p className="mt-0.5 text-[13px] text-muted-foreground">{detail.provider}</p>
+                <p className="mt-0.5 text-meta text-muted-foreground">{detail.provider}</p>
               )}
             </div>
             <StatusPill status={detail.status} />
@@ -111,8 +111,8 @@ export function SubscriptionDetailSheet({
 
           {detail.amountCents != null && (
             <div className="mb-2 rounded-radius-md bg-inset p-4">
-              <p className="text-[13px] text-muted-foreground">Paid</p>
-              <p className="mt-0.5 text-[24px] font-semibold leading-[29px] tabular-nums text-foreground">
+              <p className="text-meta text-muted-foreground">Paid</p>
+              <p className="mt-0.5 text-2xl font-semibold leading-[29px] tabular-nums text-foreground">
                 {formatUSD(detail.amountCents)}
               </p>
             </div>
@@ -134,15 +134,15 @@ export function SubscriptionDetailSheet({
               purchase now, not on the list. */}
           {detail.sessions?.filter((g) => g.items.length).map((group) => (
             <div key={group.label} className="mt-4">
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              <p className="mb-2 text-meta font-semibold uppercase tracking-wider text-muted-foreground">
                 {group.label} · <span className="tabular-nums">{group.items.length}</span>
               </p>
               <div className="space-y-2">
                 {group.items.map((it) => (
                   <div key={it.id} className="flex items-center justify-between gap-3 rounded-radius-md bg-inset px-3 py-2.5">
                     <div className="min-w-0">
-                      <p className="text-[14px] font-semibold text-foreground">{it.date}</p>
-                      {it.time && <p className="text-[12px] text-muted-foreground">{it.time}</p>}
+                      <p className="text-title font-semibold text-foreground">{it.date}</p>
+                      {it.time && <p className="text-meta text-muted-foreground">{it.time}</p>}
                     </div>
                     <StatusPill status={it.status} />
                   </div>
@@ -182,10 +182,10 @@ export function SubscriptionDetailSheet({
               <div className="flex items-start gap-3">
                 <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                 <div className="min-w-0 flex-1">
-                  <p className="text-[12px] uppercase tracking-wider text-muted-foreground">
+                  <p className="text-meta uppercase tracking-wider text-muted-foreground">
                     Delivered to
                   </p>
-                  <p className="break-words text-[14px] font-semibold text-foreground">
+                  <p className="break-words text-title font-semibold text-foreground">
                     {detail.delivery.current || "Not set"}
                   </p>
                 </div>
@@ -200,7 +200,7 @@ export function SubscriptionDetailSheet({
             <button
               type="button"
               onClick={detail.action.onClick}
-              className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-full bg-foreground px-5 py-3 text-[14px] font-semibold text-background transition-colors hover:bg-foreground/90"
+              className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-full bg-foreground px-5 py-3 text-title font-semibold text-background transition-colors hover:bg-foreground/90"
             >
               {detail.action.label}
               <ArrowRight className="h-4 w-4" />
@@ -215,7 +215,7 @@ export function SubscriptionDetailSheet({
               type="button"
               onClick={detail.cancel.onClick}
               className={
-                "mt-3 w-full py-2 text-center text-[14px] font-semibold transition-colors " +
+                "mt-3 w-full py-2 text-center text-title font-semibold transition-colors " +
                 (detail.cancel.destructive
                   ? "text-destructive hover:text-destructive/80"
                   : "text-muted-foreground hover:text-foreground")

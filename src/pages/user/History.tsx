@@ -7,7 +7,8 @@ import {
 import { format } from "date-fns";
 import { UserLayout } from "@/components/layout/UserLayout";
 import { PageLoader } from "@/components/ui/spinner";
-import { TabEmptyState } from "@/components/subscriptions/MySubsPrimitives";
+import { YdEmptyState } from "@/components/yd/YdPrimitives";
+import { StatusPill } from "@/components/patterns/StatusPill";
 import { QueryError } from "@/components/patterns/QueryError";
 import { PaymentMethodBadge } from "@/components/admin/PaymentMethodBadge";
 import { Button } from "@/components/ui/button";
@@ -220,12 +221,12 @@ const History = () => {
   if (!isAuthenticated) {
     return (
       <UserLayout title="History">
-        <div className="py-8">
-          <TabEmptyState
+        <div className="app-container pt-5">
+          <YdEmptyState
             icon={Receipt}
             title="Sign in to view history"
             subtitle="Your subscriptions, bookings and payments will appear here."
-            action={{ label: "Sign In", onClick: () => openAuthModal("login", "/history") }}
+            action={<Button onClick={() => openAuthModal("login", "/history")}>Sign In</Button>}
           />
         </div>
       </UserLayout>
@@ -234,10 +235,8 @@ const History = () => {
 
   return (
     <UserLayout title="History">
-      <div className="app-container pb-28 pt-5">
+      <div className="app-container pt-5">
         {/* Page title lives in the mobile header — no inline H1 needed. */}
-
-
         {isLoading ? (
           <HistorySkeleton />
         ) : isError ? (
@@ -248,20 +247,20 @@ const History = () => {
             retrying={isFetching}
           />
         ) : grouped.length === 0 ? (
-          <TabEmptyState
+          <YdEmptyState
             icon={Receipt}
             title="No transactions yet"
             subtitle="Everything you buy on the platform will show up here."
-            action={{ label: "Browse services", onClick: () => navigate("/discovery") }}
+            action={<Button onClick={() => navigate("/discovery")}>Browse services</Button>}
           />
         ) : (
           <div className="space-y-6">
             {grouped.map(([day, rows]) => (
               <section key={day}>
-                <h2 className="mb-2 text-lg font-semibold tracking-[-0.02em] text-foreground">
+                <h2 className="mb-2 text-heading font-semibold text-foreground">
                   {formatDayHeader(day)}
                 </h2>
-                <div className="divide-y divide-border/60">
+                <div className="divide-y divide-border/60 overflow-hidden rounded-radius-md bg-card px-4">
                   {rows.map((e) => <HistoryRow key={e.id} entry={e} />)}
                 </div>
               </section>
@@ -304,7 +303,7 @@ function HistoryRow({ entry }: { entry: HistoryEntry }) {
 
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-bold text-foreground">{entry.serviceLabel}</p>
-        <p className="truncate text-xs text-muted-foreground">{entry.subtitle}</p>
+        <p className="truncate text-meta text-muted-foreground">{entry.subtitle}</p>
       </div>
 
       {/* Right column — amount + payment method */}
@@ -317,13 +316,13 @@ function HistoryRow({ entry }: { entry: HistoryEntry }) {
             {isRefunded ? "+" : "−"}{formatUSD(entry.amountCents)}
           </p>
         ) : (
-          <span className="text-xs text-muted-foreground">Included</span>
+          <span className="text-meta text-muted-foreground">Included</span>
         )}
         {entry.paymentMethod && (
           <PaymentMethodBadge method={entry.paymentMethod} />
         )}
         {isPending && (
-          <span className="text-[10px] font-bold uppercase tracking-wider text-attention">Pending</span>
+          <StatusPill status="pending" />
         )}
       </div>
     </div>
@@ -337,7 +336,7 @@ function HistorySkeleton() {
       {[1, 2].map((day) => (
         <div key={day}>
           <div className="mb-2 h-5 w-24 animate-pulse rounded bg-muted" />
-          <div className="divide-y divide-border/60">
+          <div className="divide-y divide-border/60 overflow-hidden rounded-radius-md bg-card px-4">
             {[1, 2, 3].map((r) => (
               <div key={r} className="flex items-center gap-3 py-3">
                 <div className="h-10 w-10 shrink-0 animate-pulse rounded-full bg-muted" />
