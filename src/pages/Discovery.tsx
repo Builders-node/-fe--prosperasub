@@ -17,6 +17,7 @@ import { CarFront as CarFrontIcon } from "lucide-react";
 import { publicListingHref } from "@/lib/services/providerBridge";
 import { CategoryCarousel } from "@/components/discovery/CategoryCarousel";
 import { AllPlansSection } from "@/components/discovery/AllPlansSection";
+import { AboutEverySub } from "@/components/layout/SiteFooter";
 import { useTabParam } from "@/hooks/useTabParam";
 import { BusinessCenterIcon } from "@/components/icons/FigmaIcons";
 import { useResidenceMatters } from "@/contexts/LocationContext";
@@ -140,6 +141,7 @@ const Discovery = () => {
       // every route (SiteAdBanner in App) — two copies on one screen otherwise.
       top={<div className="md:hidden"><AdBanner placement="home_top" /></div>}
       header={<HomeHeader variant="brand" />}
+      beforeFooter={<AboutEverySub />}
     >
 
       {/*

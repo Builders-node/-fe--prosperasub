@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
 import { BottomNav } from "@/components/layout/BottomNav";
+import { SiteFooter } from "@/components/layout/SiteFooter";
 import { cn } from "@/lib/utils";
 
 /**
@@ -17,7 +18,7 @@ import { cn } from "@/lib/utils";
  * chrome) — not a replacement for it. Decision pages (PlanDetail, checkouts)
  * use neither: they end at their own CTA, with no tab bar at all.
  */
-export function BrowseLayout({ top, header, children, className }: {
+export function BrowseLayout({ top, header, children, className, beforeFooter }: {
   /** Rendered ABOVE the desktop header — the home page's ad banner. */
   top?: ReactNode;
   /** The mobile/page header rendered right under the desktop one, as-is. */
@@ -25,13 +26,18 @@ export function BrowseLayout({ top, header, children, className }: {
   children: ReactNode;
   /** Overrides for the page frame (e.g. a different bottom padding). */
   className?: string;
+  /** Desktop-only content between the page and the footer (the home page's "about"). */
+  beforeFooter?: ReactNode;
 }) {
   return (
-    <div className={cn("min-h-screen bg-background pb-24 md:pb-12", className)}>
+    <div className={cn("min-h-screen bg-background pb-24 md:pb-0", className)}>
       {top}
       <DesktopHeader />
       {header}
       {children}
+      {beforeFooter}
+      {/* Desktop only — the tab bar is the phone's site map. */}
+      <SiteFooter />
       <BottomNav />
     </div>
   );

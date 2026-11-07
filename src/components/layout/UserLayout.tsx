@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { BottomNav } from "@/components/layout/BottomNav";
+import { SiteFooter } from "@/components/layout/SiteFooter";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
 import { HomeHeader } from "@/components/layout/HomeHeader";
 import { cn } from "@/lib/utils";
@@ -116,6 +117,10 @@ export function UserLayout({
         )}
         {children}
       </main>
+
+      {/* Desktop footer on account pages; a decision page (no tab bar) ends at
+          its own CTA, so it gets no footer either. */}
+      {showBottomNav && <SiteFooter />}
 
       {/* Bottom Navigation (mobile only) */}
       {showBottomNav && <BottomNav />}
