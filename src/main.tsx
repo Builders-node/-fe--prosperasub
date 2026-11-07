@@ -1,3 +1,4 @@
+import { tryAutoRecover } from "@/lib/staleChunk";
 import React from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
@@ -22,6 +23,7 @@ class RootErrorBoundary extends React.Component<
   }
   componentDidCatch(error: Error, info: React.ErrorInfo) {
     console.error("[RootErrorBoundary]", error, info);
+    tryAutoRecover(String(error?.message ?? ""));
   }
   render() {
     if (this.state.error) {
@@ -89,34 +91,13 @@ class RootErrorBoundary extends React.Component<
 //   • "Loading chunk X failed"
 //   • "'text/html' is not a valid JavaScript MIME type" (Vite SPA fallback)
 // We auto-trigger ONE hard reload to fetch the fresh HTML + new chunks.
-const RELOAD_FLAG = "prospera-stale-chunk-reload";
-const looksLikeStaleChunk = (msg: string) =>
-  /Failed to fetch dynamically imported module|Loading chunk .* failed|is not a valid JavaScript MIME type|Importing a module script failed/i.test(msg);
-
-const tryAutoRecover = (msg: string) => {
-  if (!looksLikeStaleChunk(msg)) return false;
-  if (sessionStorage.getItem(RELOAD_FLAG)) return false; // already tried once
-  sessionStorage.setItem(RELOAD_FLAG, "1");
-  // Unregister SW + clear caches, then hard reload with cache-bust
-  (async () => {
-    try {
-      if ("serviceWorker" in navigator) {
-        const regs = await navigator.serviceWorker.getRegistrations();
-        await Promise.all(regs.map((r) => r.unregister()));
-      }
-      if ("caches" in window) {
-        const keys = await caches.keys();
-        await Promise.all(keys.map((k) => caches.delete(k)));
-      }
-    } catch {
-      // Same: the reload below is the recovery, not this cleanup.
-    }
-    const url = new URL(location.href);
-    url.searchParams.set("_t", String(Date.now()));
-    location.replace(url.toString());
-  })();
-  return true;
-};
+// The logic lives in lib/staleChunk.ts so the error boundaries can call it too.
+// Vite also announces a failed preload before the import rejects.
+window.addEventListener("vite:preloadError", (e) => {
+  if (tryAutoRecover(String((e as Event & { payload?: Error }).payload?.message ?? "Failed to fetch dynamically imported module"))) {
+    e.preventDefault();
+  }
+});
 
 // Catch synchronous render errors that escape React (rare but possible)
 window.addEventListener("error", (e) => {

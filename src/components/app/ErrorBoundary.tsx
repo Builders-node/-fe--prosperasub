@@ -1,3 +1,4 @@
+import { looksLikeStaleChunk, tryAutoRecover } from "@/lib/staleChunk";
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 
@@ -31,6 +32,9 @@ export class ErrorBoundary extends Component<Props, State> {
     // for now so devs see it in production console.
     // eslint-disable-next-line no-console
     console.error("[ErrorBoundary] caught:", error, info?.componentStack);
+    // A screen that failed to load because a deploy replaced its file: reload
+    // into the new version instead of showing "Something broke".
+    tryAutoRecover(String(error?.message ?? ""));
   }
 
   reset = () => this.setState({ error: null });
@@ -38,6 +42,13 @@ export class ErrorBoundary extends Component<Props, State> {
   render() {
     const { error } = this.state;
     if (!error) return this.props.children;
+    if (looksLikeStaleChunk(String(error.message ?? ""))) {
+      return (
+        <div className="flex min-h-[50vh] items-center justify-center text-body text-muted-foreground">
+          Updating to the latest version…
+        </div>
+      );
+    }
 
     if (this.props.fallback) return this.props.fallback(error, this.reset);
 
