@@ -217,7 +217,12 @@ const ProviderDetail = () => {
    */
   const [pinned, setPinned] = useState(false);
   useEffect(() => {
-    const onScroll = () => setPinned(window.scrollY > 280 - 56);
+    // Measured off the banner itself (when there is one), so whatever sits
+    // above it cannot leave the bar white over the white cards below.
+    const onScroll = () => {
+      const banner = document.querySelector("[data-detail-photo]");
+      setPinned(banner ? banner.getBoundingClientRect().bottom <= 56 : window.scrollY > 280 - 56);
+    };
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
@@ -489,6 +494,10 @@ const ProviderDetail = () => {
   }
 
   const p = providerQ.data;
+  const hasBanner = !!p.banner_url;
+  // Opaque once the photo has scrolled past — or from the start when there is
+  // no photo. Translucent glass over a white car was neither header nor photo.
+  const solid = pinned || !hasBanner;
 
   // A rental company's offerings are cars, so the strip reads the fleet: the
   // cheapest day rate, counted in cars. Everyone else reads their plans.
@@ -557,18 +566,16 @@ const ProviderDetail = () => {
         24px — so the page opened with the same words twice and 56px less
         photograph.
       */}
-      <div className="relative h-[280px] w-full overflow-hidden rounded-b-radius-lg bg-inset">
-        {p.banner_url ? (
-          <img src={p.banner_url} alt="" className="absolute inset-0 h-full w-full object-cover" />
-        ) : (
-          <div className="flex h-full items-center justify-center">
-            <Icon className="h-20 w-20 text-muted-foreground/15" />
-          </div>
-        )}
-        {/* The scrim is what makes white chrome legible on a photograph nobody
-            vetted — a bright sky would otherwise swallow the back button. */}
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-black/50 to-transparent" />
-      </div>
+      {/* Only a real photograph earns 280px. Without one the page opens on the
+          ordinary bar — 280px of grey with a faint glyph is not a hero. */}
+      {hasBanner && (
+        <div data-detail-photo className="relative h-[280px] w-full overflow-hidden rounded-b-radius-lg bg-inset">
+          <img src={p.banner_url!} alt="" className="absolute inset-0 h-full w-full object-cover" />
+          {/* The scrim is what makes white chrome legible on a photograph nobody
+              vetted — a bright sky would otherwise swallow the back button. */}
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-black/50 to-transparent" />
+        </div>
+      )}
 
       {/*
         The bar stays.
@@ -583,9 +590,9 @@ const ProviderDetail = () => {
         white is not a header, it is a missing one.
       */}
       <div
-        className={`sticky top-0 z-40 -mt-[280px] mb-[224px] flex h-[56px] items-center justify-between px-2 transition-colors ${
-          pinned ? "bg-card/95 backdrop-blur" : ""
-        }`}
+        className={`sticky top-0 z-40 flex h-[56px] items-center justify-between px-2 transition-colors ${
+          hasBanner ? "-mt-[280px] mb-[224px]" : ""
+        } ${solid ? "bg-card" : ""}`}
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
       >
         <button
@@ -593,7 +600,7 @@ const ProviderDetail = () => {
           onClick={goBack}
           aria-label="Back"
           className={`flex h-10 w-10 items-center justify-center rounded-full transition-colors ${
-            pinned ? "text-foreground hover:bg-muted" : "text-white hover:bg-white/15"
+            solid ? "text-foreground hover:bg-muted" : "text-white hover:bg-white/15"
           }`}
         >
           <ChevronLeft className="h-6 w-6" />
@@ -601,10 +608,12 @@ const ProviderDetail = () => {
 
         <span
           className={`pointer-events-none absolute left-1/2 -translate-x-1/2 truncate px-14 text-[16px] font-semibold tracking-[-0.02em] ${
-            pinned ? "text-foreground" : "text-white"
+            solid ? "text-foreground" : "text-white"
           }`}
         >
-          {pinned ? p.name : serviceLabel}
+          {/* The header names the SECTION, always — the page names the
+              business (PAGE_TYPES §3). */}
+          {serviceLabel}
         </span>
 
         {/* Same right-slot as every other detail page: a business's page is a
@@ -615,7 +624,7 @@ const ProviderDetail = () => {
         <ShareButton
           title={p.name}
           text={[serviceLabel, p.name].filter(Boolean).join(" · ")}
-          className={pinned ? "text-foreground hover:bg-muted" : "text-white hover:bg-white/15"}
+          className={solid ? "text-foreground hover:bg-muted" : "text-white hover:bg-white/15"}
         />
       </div>
 

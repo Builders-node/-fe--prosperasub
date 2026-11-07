@@ -42,6 +42,7 @@ export default {
         },
         /** A row, chip or rail sitting inside a card. See DESIGN.md → Layers. */
         inset: "hsl(var(--inset))",
+        segment: "hsl(var(--segment-active))",
         accent: {
           DEFAULT: "hsl(var(--accent))",
           foreground: "hsl(var(--accent-foreground))",

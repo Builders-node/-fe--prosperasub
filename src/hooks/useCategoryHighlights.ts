@@ -73,7 +73,10 @@ export function useCategoryHighlights() {
       const [cleaning, food, vehicles, beach, universal, menus, vehicleImages, media] = await Promise.all([
         supabaseDb.from("cleaning_packages")
           .select("owner_provider_id, pricing_mode, monthly_price_cents, price_per_cleaning_cents, cleanings_per_month, frequency_count, frequency_unit")
-          .eq("status", "active").is("deleted_at", null),
+          // The listing's three-flag rule (see CleaningPackages): a private or
+          // switched-off package is not what the shop sells, so it must not set
+          // the "from" price either — it made the banner say $80 over a $89 list.
+          .eq("status", "active").eq("is_active", true).eq("visibility", "public").is("deleted_at", null),
         supabaseDb.from("food_meal_plans")
           .select("provider_id, weekly_price_cents").eq("status", "active"),
         // Vehicles say "public", not "active" — the same value the car

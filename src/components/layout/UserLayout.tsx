@@ -11,6 +11,8 @@ import { HomeHeader } from "@/components/layout/HomeHeader";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n";
 import { useAuthModal } from "@/contexts/AuthModalContext";
+import { LogIn } from "lucide-react";
+import { YdEmptyState } from "@/components/yd/YdPrimitives";
 
 interface UserLayoutProps {
   children: ReactNode;
@@ -58,16 +60,26 @@ export function UserLayout({
     );
   }
 
-  // Unauthenticated state — open modal instead of redirecting to /auth
+  // Signed out on a page that needs an account: the page keeps its frame —
+  // header, back, tab bar — and says what to do, instead of a bare line of
+  // text in the middle of an empty screen with no way out (PAGE_TYPES §7).
   if (!isAuthenticated && !allowGuest) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center p-space-8">
-          <p className="mb-space-4 text-muted-foreground">{t("auth.signInRequired")}</p>
-          <Button onClick={() => openAuthModal("login", window.location.pathname)}>
-            {t("auth.signIn")}
-          </Button>
-        </div>
+      <div className="min-h-screen bg-background">
+        {!isMobile && <DesktopHeader showBackButton onBack={handleBack} breadcrumb={breadcrumb} />}
+        {isMobile && <HomeHeader title={title} showBackButton onBack={handleBack} />}
+        <main className={cn("app-container pt-4", showBottomNav ? "pb-space-24 md:pb-space-8" : "pb-space-8")}>
+          <YdEmptyState
+            icon={LogIn}
+            title={t("auth.signInRequired")}
+            action={
+              <Button onClick={() => openAuthModal("login", window.location.pathname + window.location.search)}>
+                {t("auth.signIn")}
+              </Button>
+            }
+          />
+        </main>
+        {showBottomNav && <BottomNav />}
       </div>
     );
   }

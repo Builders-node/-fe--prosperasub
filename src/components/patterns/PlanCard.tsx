@@ -121,7 +121,7 @@ export function PlanCard({
           : undefined
       }
       className={cn(
-        "flex h-[120px] gap-4 rounded-radius-md py-2 pl-2 pr-4 shadow-figma transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+        "flex h-[120px] min-w-0 gap-4 rounded-radius-md py-2 pl-2 pr-4 shadow-figma transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
         featured ? "bg-primary/10 hover:bg-primary/15" : "bg-card hover:bg-muted/40",
         open && "cursor-pointer",
         className,
@@ -171,7 +171,10 @@ export function PlanCard({
             prices up instead of stair-stepping with the text above them. */}
         <div className="mt-auto flex shrink-0 items-end justify-between gap-2">
           <RatingLine rating={rating} className="shrink-0" />
-          <div className="ml-auto flex items-end gap-1 whitespace-nowrap">
+          {/* Wraps between its pieces rather than inside them, so a long unit
+              ("/ person · month") on a narrow phone column moves to the next
+              line instead of pushing the card past the gutter. */}
+          <div className="ml-auto flex min-w-0 flex-wrap items-end justify-end gap-x-1 whitespace-nowrap">
             {hasPrice ? (
               <>
                 {price.from && (

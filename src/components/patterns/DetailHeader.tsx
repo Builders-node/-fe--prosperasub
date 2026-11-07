@@ -31,10 +31,16 @@ export function DetailHeader({
   rightAction?: ReactNode;
   overPhoto?: boolean;
 }) {
-  // 220px is just before the 280px photo clears the 56px bar.
+  // Solid as soon as the photo's bottom edge passes under the 56px bar. It is
+  // measured, not assumed: anything above the photo (the ad strip, a preview
+  // banner) moved a fixed 220px threshold, and the bar stayed white over the
+  // white cards below the picture.
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 220);
+    const onScroll = () => {
+      const photo = document.querySelector("[data-detail-photo]");
+      setScrolled(photo ? photo.getBoundingClientRect().bottom <= 56 : window.scrollY > 220);
+    };
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);

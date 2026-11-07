@@ -72,7 +72,7 @@ export function PlanOptionPicker({
                 onClick={() => onSelect({ ...selection, [group.key]: option.key })}
                 className={cn(
                   "flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-radius-md px-1.5 py-2 transition-colors",
-                  selected ? "bg-card" : "bg-transparent",
+                  selected ? "bg-segment" : "bg-transparent",
                   !available && "cursor-not-allowed opacity-40",
                 )}
               >

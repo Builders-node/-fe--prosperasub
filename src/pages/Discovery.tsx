@@ -158,7 +158,7 @@ const Discovery = () => {
                   type="button"
                   onClick={() => setFamily(f)}
                   className={`flex-1 rounded-radius-md px-4 py-2 text-center text-[16px] font-semibold leading-[22px] transition-colors ${
-                    family === f ? "bg-card text-foreground" : "text-foreground/70 hover:text-foreground"
+                    family === f ? "bg-segment text-foreground" : "text-foreground/70 hover:text-foreground"
                   }`}
                 >
                   {FAMILY_LABELS[f] ?? f.charAt(0).toUpperCase() + f.slice(1)}

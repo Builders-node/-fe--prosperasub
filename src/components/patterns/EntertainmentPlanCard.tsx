@@ -25,7 +25,7 @@ export function EntertainmentPlanCard({
       rating={rating}
       featured={featured ?? !!plan.featured}
       features={Array.isArray(plan.amenities) ? plan.amenities : []}
-      price={{ cents: plan.price_per_person_cents, unit: "/ person / month" }}
+      price={{ cents: plan.price_per_person_cents, unit: "/ person · month" }}
       cta={{ label: SUBSCRIBE, onClick: () => onSubscribe(plan.id) }}
     />
   );

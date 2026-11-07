@@ -268,9 +268,8 @@ function AuthForm({
           onClick={() => setView("login")}
           className="h-10 rounded-[10px] text-[13px] font-semibold transition-all"
           style={{
-            background: view === "login" ? "hsl(var(--yd-card))" : "transparent",
+            background: view === "login" ? "hsl(var(--segment-active))" : "transparent",
             color: view === "login" ? "hsl(var(--yd-text))" : "hsl(var(--yd-text2))",
-            boxShadow: view === "login" ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
           }}
         >
           Log in
@@ -280,9 +279,8 @@ function AuthForm({
           onClick={() => setView("signup")}
           className="h-10 rounded-[10px] text-[13px] font-semibold transition-all"
           style={{
-            background: view === "signup" ? "hsl(var(--yd-card))" : "transparent",
+            background: view === "signup" ? "hsl(var(--segment-active))" : "transparent",
             color: view === "signup" ? "hsl(var(--yd-text))" : "hsl(var(--yd-text2))",
-            boxShadow: view === "signup" ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
           }}
         >
           Register

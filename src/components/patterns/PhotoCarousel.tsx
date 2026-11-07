@@ -51,7 +51,7 @@ export function PhotoCarousel({
   };
 
   return (
-    <div className={cn("relative h-[280px] w-full overflow-hidden rounded-b-radius-lg bg-muted shadow-figma", className)}>
+    <div data-detail-photo className={cn("relative h-[280px] w-full overflow-hidden rounded-b-radius-lg bg-muted shadow-figma", className)}>
       <div
         ref={trackRef}
         onScroll={onScroll}

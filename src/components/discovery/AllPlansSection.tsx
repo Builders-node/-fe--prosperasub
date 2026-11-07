@@ -22,6 +22,7 @@ interface PlanRow {
   name: string;
   price_cents: number | null;
   period: string | null;
+  pricing_mode: string | null;
   source_plan_id: string | null;
   gallery_urls: unknown;
   provider: {
@@ -47,7 +48,7 @@ function useAllPlans() {
       const { data, error } = await supabaseDb
         .from("provider_plans")
         .select(
-          "id, name, price_cents, period, source_plan_id, gallery_urls, sort_order, " +
+          "id, name, price_cents, period, pricing_mode, source_plan_id, gallery_urls, sort_order, " +
           "provider:providers!inner(id, name, archetype_key, gallery_urls, banner_url, status)",
         )
         .eq("status", "active")
@@ -108,7 +109,11 @@ function PlanTile({ plan }: { plan: PlanRow }) {
         {hasPrice && (
           <p className="mt-auto pt-1 text-[14px] font-semibold leading-[20px] text-foreground">
             {formatUSD(plan.price_cents!)}
-            {noun && <span className="font-normal text-muted-foreground"> / {noun}</span>}
+            {noun && (
+              <span className="font-normal text-muted-foreground">
+                {plan.pricing_mode === "per_person" ? ` / person · ${noun}` : ` / ${noun}`}
+              </span>
+            )}
           </p>
         )}
       </div>

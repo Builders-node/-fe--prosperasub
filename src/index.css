@@ -195,6 +195,10 @@
        wrong (it would sink below the card), so this token goes UP there
        instead. See DESIGN.md → Layers. */
     --inset: 0 0% 96.5%;
+    /* The selected tile of a segmented control: white on the light inset
+       track, one step ABOVE the track in the dark (a card would sink below
+       it). One token so every segmented control agrees. */
+    --segment-active: 0 0% 100%;
     --muted-foreground: 0 0% 49%;   /* #7d7d7d */
     --accent: var(--brand-accent);
     --accent-foreground: var(--brand-on-accent);
@@ -322,6 +326,7 @@
     --secondary-foreground: 0 0% 90%;
     --muted: 0 0% 18%;
     --inset: 0 0% 18%;
+    --segment-active: 0 0% 27%;
     --muted-foreground: 0 0% 68%;
     --accent: var(--brand-accent);
     --accent-foreground: var(--brand-on-accent);

@@ -327,12 +327,15 @@ function StatusBanner({
   subtitle: string;
 }) {
   const Icon = invalid ? ShieldAlert : allowed ? CheckCircle2 : XCircle;
-  const tone = invalid ? "bg-amber-500" : allowed ? "bg-emerald-500" : "bg-red-500";
+  // Granted and refused are read at a glance across a counter, so they keep
+  // their full green and red. A code that cannot be read is neither — it is a
+  // neutral card, not the brand's amber with white text on it (about 2:1).
+  const tone = invalid ? "bg-card text-foreground" : allowed ? "bg-emerald-500 text-white" : "bg-red-500 text-white";
   return (
-    <div className={cn("flex flex-col items-center gap-3 rounded-radius-lg px-6 py-8 text-center text-white", tone)}>
-      <Icon className="h-16 w-16" strokeWidth={2.2} />
+    <div className={cn("flex flex-col items-center gap-3 rounded-radius-lg px-6 py-8 text-center", tone)}>
+      <Icon className={cn("h-16 w-16", invalid && "text-muted-foreground")} strokeWidth={2.2} />
       <p className="text-2xl font-semibold uppercase tracking-tight">{title}</p>
-      <p className="text-sm font-medium text-white/90">{subtitle}</p>
+      <p className={cn("text-sm font-medium", invalid ? "text-muted-foreground" : "text-white/90")}>{subtitle}</p>
     </div>
   );
 }

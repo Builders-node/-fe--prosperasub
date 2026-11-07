@@ -344,6 +344,8 @@ const App = () => {
               <Route path="/my-restaurant"  element={<ProtectedRoute><LegacyPortalRedirect service="food" /></ProtectedRoute>} />
               <Route path="/my-cleaning"    element={<ProtectedRoute><LegacyPortalRedirect service="cleaning" /></ProtectedRoute>} />
               <Route path="/become-a-provider" element={<BecomeProvider />} />
+              {/* The short spelling people type and say aloud. */}
+              <Route path="/become-provider" element={<Navigate to="/become-a-provider" replace />} />
               {/* Reachable signed out on purpose — someone who can't log in
                   is exactly who needs to reach a human. */}
               <Route path="/support" element={<Support />} />
