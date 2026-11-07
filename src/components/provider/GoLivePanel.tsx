@@ -7,7 +7,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { supabaseDb } from "@/integrations/supabase/client";
+import { accountApi, adminApi, supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAuditEvent } from "@/lib/auditLog";
 import { profileCompleteness } from "@/lib/providerProfile";
@@ -25,7 +25,12 @@ import { ProviderSetupButton } from "@/components/provider/ProviderSetupButton";
  * admin only. Nothing here blocks: a business can go live incomplete, but the
  * admin sees what is missing when they press the button.
  */
-export function GoLivePanel({ provider, previewHref }: { provider: UniversalProviderRow; previewHref: string }) {
+export function GoLivePanel({ provider, previewHref, ownerView = false }: {
+  provider: UniversalProviderRow;
+  previewHref: string;
+  /** The owner's version: the same checklist, read-only, ending in "Ready for review". */
+  ownerView?: boolean;
+}) {
   const qc = useQueryClient();
   const { userData } = useAuth();
   const live = provider.status === "active" || provider.status === "approved";
@@ -55,11 +60,28 @@ export function GoLivePanel({ provider, previewHref }: { provider: UniversalProv
     },
     onSuccess: (next) => {
       toast.success(next === "active" ? `${provider.name} is live` : `${provider.name} is hidden`);
+      // The owner and team hear it — they used to find out by noticing.
+      if (next === "active") void adminApi(`/admin/providers/${provider.id}/went-live`, { method: "POST" });
       qc.invalidateQueries({ queryKey: ["universal-provider", provider.id] });
       qc.invalidateQueries({ queryKey: ["admin-marketplace-providers"] });
       qc.invalidateQueries({ queryKey: ["marketplace-providers"] });
     },
     onError: (e: Error) => toast.error(e.message || "Could not change the status"),
+  });
+
+  const requestedAt = (provider as { review_requested_at?: string | null }).review_requested_at ?? null;
+  const [requested, setRequested] = useState(false);
+  const requestReview = useMutation({
+    mutationFn: async () => {
+      const { error } = await accountApi(`/account/providers/${provider.id}/review-request`, { method: "POST" });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      setRequested(true);
+      toast.success("Sent — EverySub will check it and put it live");
+      qc.invalidateQueries({ queryKey: ["universal-provider", provider.id] });
+    },
+    onError: (e: Error) => toast.error(e.message || "Could not send"),
   });
 
   const profile = profileCompleteness(provider);
@@ -97,6 +119,48 @@ export function GoLivePanel({ provider, previewHref }: { provider: UniversalProv
       </AlertDialogContent>
     </AlertDialog>
   );
+
+  if (ownerView) {
+    if (live) return null;
+    const waiting = requested || !!requestedAt;
+    return (
+      <section className="space-y-4 rounded-radius-lg bg-card p-4">
+        <div>
+          <p className="text-title font-semibold text-foreground">
+            {waiting ? "Waiting for review" : "Not live yet — customers can't see it"}
+          </p>
+          <p className="text-meta text-muted-foreground">
+            {waiting
+              ? "EverySub is checking your business and will put it live. You can keep editing meanwhile."
+              : "Finish what is below, check how your page looks, then tell us you're ready."}
+          </p>
+        </div>
+        <ul className="space-y-2">
+          {checks.filter((c) => c.label !== "Owner set").map((c) => (
+            <li key={c.label} className="flex items-start gap-2.5">
+              {c.done
+                ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-positive" />
+                : <Circle className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground/60" />}
+              <span className="min-w-0">
+                <span className="block text-body text-foreground">{c.label}</span>
+                {!c.done && c.hint && <span className="block text-meta text-muted-foreground">{c.hint}</span>}
+              </span>
+            </li>
+          ))}
+        </ul>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" className="gap-2" onClick={() => window.open(previewHref, "_blank")}>
+            <Eye /> See my page
+          </Button>
+          {!waiting && (
+            <Button className="gap-2" loading={requestReview.isPending} onClick={() => requestReview.mutate()}>
+              <Rocket /> Ready for review
+            </Button>
+          )}
+        </div>
+      </section>
+    );
+  }
 
   if (live) {
     return (

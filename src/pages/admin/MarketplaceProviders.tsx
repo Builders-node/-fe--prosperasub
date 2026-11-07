@@ -16,7 +16,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from "@/components/ui/sheet";
-import { supabaseDb } from "@/integrations/supabase/client";
+import { adminApi, supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAuditEvent } from "@/lib/auditLog";
 import { toast } from "sonner";
@@ -27,6 +27,8 @@ import { cn } from "@/lib/utils";
 
 interface ProviderRow {
   id: string;
+  /** Set when the owner pressed "Ready for review" (migration 20261110120000). */
+  review_requested_at?: string | null;
   category_key: string;
   archetype_key: string | null;
   name: string;
@@ -113,6 +115,19 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
     staleTime: 60_000,
   });
 
+  // Who has been sent the hand-over link, and whether they opened it.
+  const { data: invites = [] } = useQuery({
+    queryKey: ["admin-owner-invites"],
+    enabled: !embedded,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data, error } = await adminApi("/admin/owner-invites");
+      if (error) return [];
+      return (data ?? []) as Array<{ providerId: string; state: string; invitedEmail: string | null; openedAt: string | null }>;
+    },
+  });
+  const inviteOf = useMemo(() => new Map(invites.map((i) => [String(i.providerId), i])), [invites]);
+
   const { data: pendingApps = 0 } = useQuery({
     queryKey: ["admin-provider-applications-pending-count"],
     queryFn: async () => {
@@ -190,6 +205,16 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
     onError: (e: any) => toast.error(e?.message || "Could not create provider"),
   });
 
+
+  /** Owner state in words: who it was sent to, whether they opened it. */
+  const ownerNote = (p: ProviderRow): string | null => {
+    if (p.admin_user_id) return null;
+    const inv = inviteOf.get(p.id);
+    if (!inv || inv.state === "revoked") return "No owner";
+    if (inv.state === "claimed") return null;
+    if (inv.state === "expired") return "Invite expired";
+    return inv.openedAt ? "Invite opened" : `Invited${inv.invitedEmail ? ` ${inv.invitedEmail}` : ""}`;
+  };
 
   // Counts follow the service already chosen, so a tab never promises rows
   // the list then doesn't show.
@@ -291,8 +316,12 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
                     <span className="block truncate text-meta text-muted-foreground">
                       {[arche?.label ?? "No service", cat && cat.label !== arche?.label ? cat.label : null].filter(Boolean).join(" · ")}
                       {profile.missing.length > 0 && <span className="text-attention"> · Profile {profile.percent}%</span>}
+                      {ownerNote(p) && <span> · {ownerNote(p)}</span>}
                     </span>
                   </span>
+                  {p.review_requested_at && p.status !== "active" && p.status !== "approved" && (
+                    <span className="shrink-0 rounded-full bg-primary/15 px-2.5 py-0.5 text-meta font-semibold text-primary">Ready</span>
+                  )}
                   <StatusPill
                     status={p.status}
                     label={p.status === "active" || p.status === "approved" ? "Live" : p.status === "inactive" ? "Hidden" : "Draft"}

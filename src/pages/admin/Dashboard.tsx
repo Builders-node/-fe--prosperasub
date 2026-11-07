@@ -246,15 +246,18 @@ const AdminDashboard = () => {
         const { count: c, error } = await q;
         return error ? 0 : c ?? 0;
       };
-      const [applications, payouts, support, expiring, drafts] = await Promise.all([
+      const [applications, payouts, support, expiring, drafts, ready] = await Promise.all([
         count(supabaseDb.from("provider_applications").select("id", { count: "exact", head: true }).eq("status", "pending")),
         count(supabaseDb.from("provider_payouts").select("id", { count: "exact", head: true }).in("status", ["requested", "approved"])),
         count(supabaseDb.from("support_messages").select("id", { count: "exact", head: true }).eq("status", "new")),
         count(supabaseDb.from("subscriptions_unified").select("id", { count: "exact", head: true })
           .eq("status", "active").gte("ends_on", iso(today)).lte("ends_on", iso(inTwo))),
         count(supabaseDb.from("providers").select("id", { count: "exact", head: true }).eq("status", "draft")),
+        // Owners who pressed "Ready for review" — the next one to put live.
+        count(supabaseDb.from("providers").select("id", { count: "exact", head: true })
+          .neq("status", "active").not("review_requested_at", "is", null)),
       ]);
-      return { applications, payouts, support, expiring, drafts };
+      return { applications, payouts, support, expiring, drafts, ready };
     },
   });
   const needItems = [
@@ -262,6 +265,7 @@ const AdminDashboard = () => {
     { key: "payouts", label: "Payouts to send", value: needs?.payouts ?? 0, href: `${adminRoutes.superAdminPayments}?tab=payouts` },
     { key: "support", label: "New support messages", value: needs?.support ?? 0, href: adminRoutes.superAdminSupport },
     { key: "expiring", label: "Ending in 2 days", value: needs?.expiring ?? 0, href: "/admin/marketplace/subscriptions?ending=2" },
+    { key: "ready", label: "Ready for review", value: needs?.ready ?? 0, href: `${adminRoutes.superAdminMarketplaceProviders}?status=draft` },
     { key: "drafts", label: "Businesses in draft", value: needs?.drafts ?? 0, href: `${adminRoutes.superAdminMarketplaceProviders}?status=draft` },
   ].filter((n) => n.value > 0);
 

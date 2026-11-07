@@ -37,7 +37,8 @@ function OwnerInviteDialog({ provider, open, onOpenChange }: {
   provider: UniversalProviderRow; open: boolean; onOpenChange: (o: boolean) => void;
 }) {
   const qc = useQueryClient();
-  const [link, setLink] = useState<{ url: string; expiresAt: string } | null>(null);
+  const [link, setLink] = useState<{ url: string; expiresAt: string; emailed?: boolean; to?: string } | null>(null);
+  const [inviteEmail, setInviteEmail] = useState(provider.contact_email ?? "");
   const key = ["owner-invite-admin", provider.id];
 
   const statusQ = useQuery({
@@ -49,13 +50,23 @@ function OwnerInviteDialog({ provider, open, onOpenChange }: {
     },
   });
 
+  // With an address the platform sends the link itself; without one the
+  // admin gets the link to pass on by hand.
   const create = useMutation({
-    mutationFn: async () => {
-      const { data, error } = await adminApi(`/admin/providers/${provider.id}/owner-invites`, { method: "POST" });
+    mutationFn: async (to: string | null) => {
+      const { data, error } = await adminApi(`/admin/providers/${provider.id}/owner-invites`, {
+        method: "POST",
+        body: JSON.stringify(to ? { email: to } : {}),
+      });
       if (error) throw error;
-      return data as { url: string; expiresAt: string };
+      return { ...(data as { url: string; expiresAt: string; emailed?: boolean }), to: to ?? undefined };
     },
-    onSuccess: (d) => { setLink(d); void qc.invalidateQueries({ queryKey: key }); },
+    onSuccess: (d) => {
+      setLink(d);
+      if (d.to) d.emailed ? toast.success(`Sent to ${d.to}`) : toast.warning("Link made, but the email didn't go out — copy and send it.");
+      void qc.invalidateQueries({ queryKey: key });
+      void qc.invalidateQueries({ queryKey: ["admin-owner-invites"] });
+    },
     onError: (e: Error) => toast.error(e.message || "Could not create the link"),
   });
 
@@ -99,6 +110,9 @@ function OwnerInviteDialog({ provider, open, onOpenChange }: {
 
       {link ? (
         <DialogBlock title="Send this link">
+          {link.emailed && link.to && (
+            <p className="text-body text-foreground">Emailed to <strong>{link.to}</strong>. You can also send it yourself:</p>
+          )}
           <Input readOnly value={link.url} onFocus={(e) => e.currentTarget.select()} aria-label="Invite link" />
           <p className="text-meta text-muted-foreground">Valid until {formatDateHN(link.expiresAt)}. Making a new one replaces it.</p>
           <div className="flex flex-wrap gap-2">
@@ -133,9 +147,25 @@ function OwnerInviteDialog({ provider, open, onOpenChange }: {
           ) : (
             <p className="text-body text-muted-foreground">No open link.</p>
           )}
+          <div className="flex items-end gap-2">
+            <Input
+              label="Owner's email"
+              type="email"
+              inputSize="sm"
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+              placeholder="owner@business.com"
+              wrapperClassName="min-w-0 flex-1"
+            />
+            <Button size="sm" className="shrink-0 gap-2" loading={create.isPending && !!inviteEmail.trim()}
+              disabled={!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inviteEmail.trim())}
+              onClick={() => create.mutate(inviteEmail.trim())}>
+              <Mail /> Send invite
+            </Button>
+          </div>
           <div className="flex flex-wrap gap-2">
-            <Button className="gap-2" loading={create.isPending} onClick={() => create.mutate()}>
-              <Link2 /> {openLink ? "Make a new link" : "Make a link"}
+            <Button variant="secondary" className="gap-2" loading={create.isPending && !inviteEmail.trim()} onClick={() => create.mutate(null)}>
+              <Link2 /> {openLink ? "Just make a new link" : "Just make a link"}
             </Button>
             {openLink && (
               <Button variant="secondary" loading={revoke.isPending} onClick={() => revoke.mutate()}>Revoke</Button>

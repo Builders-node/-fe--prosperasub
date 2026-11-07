@@ -73,6 +73,15 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
     },
   });
 
+  /** Email + in-app notice of the decision (Edge routes/provider-alerts.ts). */
+  const sendDecision = async (appId: string, sentMessage: string) => {
+    const { data, error } = await adminApi(`/admin/provider-applications/${appId}/decision`, { method: "POST" });
+    if (error) { toast.warning("Decision saved, but the applicant could not be emailed."); return; }
+    const r = data as { emailed?: boolean } | null;
+    if (r?.emailed) toast.info(sentMessage);
+    else toast.warning("Decision saved, but no email went out — the application has no contact address.");
+  };
+
   const approve = useMutation({
     mutationFn: async (app: any) => {
       // ── Idempotency guard ──
@@ -239,7 +248,7 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
           console.warn("[approve] calendar provisioning failed", err);
         }
       }
-      return { table, alreadyApproved: false, calendar, ownerAssigned, hasApplicant: !!adminUserId, providerId: createdProviderId } as const;
+      return { table, alreadyApproved: false, calendar, ownerAssigned, hasApplicant: !!adminUserId, providerId: createdProviderId, appId: String(app.id) } as const;
     },
     onSuccess: (r) => {
       if (r.alreadyApproved) {
@@ -253,13 +262,11 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
             ? { label: "Open", onClick: () => { window.location.href = `/admin/marketplace/providers/${r.providerId}`; } }
             : undefined,
         });
-        // An applicant who has never signed in has no users row to own the
-        // business. Saying so beats a workspace nobody can open.
-        if (!r.ownerAssigned) {
-          toast.warning(r.hasApplicant
-            ? "Owner could not be assigned — set it from the business's Team tab."
-            : "The applicant has no account yet — the business is platform-owned until you set an owner in its Team tab.");
-        }
+        // The applicant is told — by email and in the app. Without an account
+        // the email carries the hand-over link, so nobody has to set an owner.
+        void sendDecision(r.appId, r.ownerAssigned
+          ? "The applicant was emailed: their business is waiting in My business."
+          : "The applicant was emailed a link to take the business over.");
         if (r.calendar && !r.calendar.calendarId) {
           toast.warning("No Google calendar was created — provision it from the provider's Overview tab.");
         }
@@ -281,7 +288,12 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
       if (error) throw error;
       await logAuditEvent(userData!.id, "reject", "provider_application", app.id, {});
     },
-    onSuccess: () => { toast.success("Application rejected"); qc.invalidateQueries({ queryKey: ["admin-provider-applications"] }); setRejectTarget(null); setRejectNotes(""); },
+    onSuccess: (_d, vars) => {
+      toast.success("Application rejected");
+      void sendDecision(String(vars.app.id), "The applicant was emailed the decision.");
+      qc.invalidateQueries({ queryKey: ["admin-provider-applications"] });
+      setRejectTarget(null); setRejectNotes("");
+    },
     onError: (e: any) => toast.error(e?.message || "Could not reject"),
   });
 

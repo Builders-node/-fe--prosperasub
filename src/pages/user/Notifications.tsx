@@ -9,6 +9,8 @@ import {
   CreditCard,
   Megaphone,
   Sparkles,
+  Store,
+  Wallet,
 } from "lucide-react";
 import { PageLoader } from "@/components/ui/spinner";
 import { formatDistanceToNow } from "date-fns";
@@ -37,6 +39,8 @@ const TABS = [
   { key: "subscription", label: "Subscriptions" },
   { key: "booking", label: "Bookings" },
   { key: "reminder", label: "Reminders" },
+  // Orders, cancellations and launch news for people who run a business.
+  { key: "business", label: "Business" },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -49,6 +53,8 @@ function categoryIcon(category: UserNotification["category"]) {
     case "reminder":     return Clock;
     case "plan":         return Sparkles;
     case "announcement": return Megaphone;
+    case "business":     return Store;
+    case "payout":       return Wallet;
     default:             return Bell;
   }
 }

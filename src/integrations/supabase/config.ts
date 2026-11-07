@@ -67,6 +67,13 @@ const EDGE_ROUTES: RegExp[] = [
   // Owner hand-over links (Edge only — Nest never had them).
   /^\/admin\/providers\/[^/]+\/owner-invites$/,
   /^\/owner-invites\/[^/]+(\/claim)?$/,
+  /^\/admin\/owner-invites$/,
+  // What a business is told: new orders, ready-for-review, went live,
+  // application decisions (Edge routes/provider-alerts.ts).
+  /^\/mail\/new-order$/,
+  /^\/account\/providers\/[^/]+\/review-request$/,
+  /^\/admin\/providers\/[^/]+\/went-live$/,
+  /^\/admin\/provider-applications\/[^/]+\/decision$/,
 ];
 
 /** Full URL for an API path — the Edge Function if that path has moved, else the Nest API. */

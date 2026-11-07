@@ -383,8 +383,8 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
           // A business that is not live yet opens in draft preview, so an admin
           // sees the page as it will look (every plan, the draft banner) rather
           // than the half-empty version a customer would get today. The flag
-          // only works for an admin (useDraftPreview); anyone else sees what
-          // customers see.
+          // works for an admin and for whoever runs the business
+          // (useDraftPreview); anyone else sees what customers see.
           onClick={() => {
             const draft = provider.status !== "active" && provider.status !== "approved";
             const href = draft
@@ -439,12 +439,13 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
 
         {/* Draft → live, for the platform: the checklist and the switch on the
             business itself, not in a list's row menu. */}
-        {isAdmin && (
-          <GoLivePanel
-            provider={provider}
-            previewHref={`${resolvedPublicHref}${resolvedPublicHref.includes("?") ? "&" : "?"}preview=1`}
-          />
-        )}
+        {/* The admin gets the switch; the owner gets the same checklist,
+            their own preview, and a way to say "ready". */}
+        <GoLivePanel
+          provider={provider}
+          ownerView={!isAdmin}
+          previewHref={`${resolvedPublicHref}${resolvedPublicHref.includes("?") ? "&" : "?"}preview=1`}
+        />
 
         {/* How it is doing. The four figures that used to be a strip of
             icon-plated cards under the tabs, in the design's tiles and above
