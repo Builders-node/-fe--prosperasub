@@ -372,14 +372,25 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
           own 16 of padding is the only inset. A container's padding on top of
           that put the text 32 from the edge and the cards on a rail. */}
       <div className="mx-auto w-full max-w-[1280px] space-y-1 pb-8 pt-1 md:px-space-4">
-        {/* Who this is. Name and description only, as in the frame: the avatar
-            and the capability chips said nothing to the person who owns the
-            business and already knows both. */}
+        {/* Who this is: the avatar, the name and the description. The avatar is
+            here so an owner sees the picture customers see — without it there
+            was no way to tell from the workspace that one had been uploaded. */}
         <section className="rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
-          <h1 className="text-[24px] font-semibold leading-[29px] text-foreground">{provider.name}</h1>
-          {provider.description && (
-            <p className="mt-2 text-[16px] leading-[22px] text-muted-foreground">{provider.description}</p>
-          )}
+          <div className="flex items-start gap-3">
+            {provider.avatar_url && (
+              <img
+                src={provider.avatar_url}
+                alt=""
+                className="h-14 w-14 shrink-0 rounded-full bg-muted object-cover"
+              />
+            )}
+            <div className="min-w-0">
+              <h1 className="text-[24px] font-semibold leading-[29px] text-foreground">{provider.name}</h1>
+              {provider.description && (
+                <p className="mt-2 text-[16px] leading-[22px] text-muted-foreground">{provider.description}</p>
+              )}
+            </div>
+          </div>
           {/* A business still under review needs telling; an approved one does
               not need a badge saying so on every visit. */}
           {provider.status && !["approved", "active"].includes(provider.status) && (
