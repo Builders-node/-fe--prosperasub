@@ -516,7 +516,7 @@ export default function BeachClubSubscriptions({ embedded = false }: { embedded?
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              variant="destructive"
               onClick={() => {
                 if (deleteTarget) deleteMutation.mutate(deleteTarget.id);
                 setDeleteTarget(null);

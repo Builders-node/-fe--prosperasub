@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/table";
 import { SaleOriginBadge, isFromBuildersNode } from "@/components/patterns/SaleOrigin";
 import { Badge } from "@/components/ui/badge";
+import { StatusPill } from "@/components/patterns/StatusPill";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -54,13 +55,13 @@ interface UserRow { id: string; name: string | null; display_name: string | null
  *   - paused | expired | cancelled: terminal or on-hold states
  *   - refunded:         money returned
  */
-function subscriptionStage(s: SaleRow): { label: string; className: string } {
-  if (s.payment_status === "refunded") return { label: "Refunded",         className: "bg-purple-500/15 text-purple-400" };
-  if (s.status === "cancelled")        return { label: "Cancelled",        className: "bg-negative/15 text-negative" };
-  if (s.status === "expired")          return { label: "Expired",          className: "bg-negative/15 text-negative" };
-  if (s.status === "paused")           return { label: "Paused",           className: "bg-attention/15 text-attention" };
-  if (s.payment_status !== "paid")     return { label: "Awaiting payment", className: "bg-attention/15 text-attention" };
-  return { label: "Active", className: "bg-positive/15 text-positive" };
+function subscriptionStage(s: SaleRow): string {
+  if (s.payment_status === "refunded") return "refunded";
+  if (s.status === "cancelled")        return "cancelled";
+  if (s.status === "expired")          return "expired";
+  if (s.status === "paused")           return "paused";
+  if (s.payment_status !== "paid")     return "pending_payment";
+  return "active";
 }
 
 /**
@@ -571,7 +572,7 @@ const MarketplaceSubscriptions = () => {
                       </TableCell>
                       <TableCell className="px-4 py-3">
                         <div className="flex flex-wrap items-center gap-1.5">
-                          <Badge className={`rounded-full text-xs ${stage.className}`}>{stage.label}</Badge>
+                          <StatusPill status={stage} />
                           {s.payment_method && (
                             <Badge variant="outline" className="rounded-full text-[10px] uppercase">{s.payment_method}</Badge>
                           )}
@@ -727,7 +728,7 @@ const MarketplaceSubscriptions = () => {
             <AlertDialogAction
               onClick={() => bulk && bulkMutation.mutate(bulk)}
               disabled={bulkMutation.isPending}
-              className={bulk === "cancel" ? "bg-negative text-white hover:bg-negative/90" : undefined}
+              variant={bulk === "cancel" ? "destructive" : undefined}
             >
               {bulkMutation.isPending ? "Applying…" : bulk === "paid" ? "Mark paid" : "Cancel them"}
             </AlertDialogAction>
@@ -750,7 +751,7 @@ const MarketplaceSubscriptions = () => {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deleteRow && deleteMutation.mutate(deleteRow)}
-              className="bg-negative text-white hover:bg-negative/90"
+              variant="destructive"
             >
               Delete
             </AlertDialogAction>

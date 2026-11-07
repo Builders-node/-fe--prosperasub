@@ -478,7 +478,7 @@ const AdminUsers = () => {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              variant="destructive"
               onClick={() => {
                 if (blockTarget) blockMutation.mutate({ userId: blockTarget.id, block: true });
                 setBlockTarget(null);

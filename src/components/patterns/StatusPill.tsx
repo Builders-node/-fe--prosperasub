@@ -77,6 +77,8 @@ const STATUS: Record<string, { label: string; tone: Tone }> = {
   // showed as a grey "Pending schedule" — the same colour as Archived, on a
   // subscription somebody had already paid for and was waiting to use.
   pending_schedule: { label: "Awaiting schedule", tone: "attention" },
+  // A booking that exists but has no money against it yet (car rentals list).
+  unpaid:          { label: "Unpaid",           tone: "attention" },
   held:            { label: "On hold",          tone: "attention" },
   paused:          { label: "Paused",           tone: "attention" },
   expiring_soon:   { label: "Expiring soon",    tone: "attention" },
@@ -94,6 +96,9 @@ const STATUS: Record<string, { label: string; tone: Tone }> = {
   public:          { label: "Public",           tone: "positive" },
   private:         { label: "Private",          tone: "attention" },
   archived:        { label: "Archived",         tone: "neutral" },
+  // Promoted to the top of a listing (beach plans). A flag, not a lifecycle
+  // state, but it sits in the same row of pills so it needs a tone.
+  featured:        { label: "Featured",         tone: "positive" },
 
   // ── settled, no action ───────────────────────────────────────────────────
   refunded:        { label: "Refunded",         tone: "neutral" },

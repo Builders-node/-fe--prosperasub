@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { StatusPill } from "@/components/patterns/StatusPill";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
@@ -577,9 +578,7 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-bold text-foreground">{c.name}</span>
                     <Badge variant="secondary" className="text-[10px] capitalize">{c.type}</Badge>
-                    <Badge className={c.is_active ? "bg-positive/15 text-positive" : "bg-muted text-muted-foreground"}>
-                      {c.is_active ? "Active" : "Hidden"}
-                    </Badge>
+                    <StatusPill status={c.is_active ? "active" : "inactive"} label={c.is_active ? undefined : "Hidden"} />
                   </div>
                   <p className="text-xs text-muted-foreground">
                     {hourLabel(c.open_hour)}–{hourLabel(c.close_hour)} · {c.slot_minutes}‑min slots
@@ -786,7 +785,7 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
           <DialogFooter>
             <Button variant="ghost" onClick={() => setDeleteTarget(null)}>Cancel</Button>
             <Button
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              variant="destructive"
               onClick={() => deleteTarget && deleteCourt.mutate(deleteTarget)}
               disabled={deleteCourt.isPending}
             >
@@ -813,7 +812,7 @@ export default function BeachClubCourts({ embedded = false }: { embedded?: boole
           <AlertDialogFooter>
             <AlertDialogCancel>Keep it</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              variant="destructive"
               onClick={() => {
                 if (cancelTarget) cancelBooking.mutate(cancelTarget);
                 setCancelTarget(null);

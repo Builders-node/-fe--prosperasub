@@ -255,7 +255,7 @@ export default function CarRentals({ embedded = false, providerId }: {
                       <p className="truncate text-[15px] font-semibold text-foreground">{b.customer}</p>
                       <StatusPill status={b.status} />
                       {b.payment_status !== "paid" && b.status !== "cancelled" && (
-                        <Badge className="bg-attention/15 text-attention">unpaid</Badge>
+                        <StatusPill status="unpaid" />
                       )}
                     </div>
                     <p className="truncate text-xs text-muted-foreground">

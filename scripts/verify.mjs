@@ -73,7 +73,7 @@ const { readFileSync, readdirSync, statSync } = await import("node:fs");
 const { join } = await import("node:path");
 const DESIGN_ALLOW = ["/components/ui/", "StatusPill.tsx", "PaymentMethodTiles.tsx", "categoryBannerArt.tsx", "foodDietaryTags.ts", "PaymentMethodBadge.tsx", "/main.tsx"];
 const DESIGN_RULES = {
-  palette:   { re: /\b(?:bg|text|border|ring|fill|stroke|from|via|to)-(?:red|green|emerald|amber|orange|yellow|blue|sky|violet|purple|rose|cyan|lime|teal|pink|indigo|fuchsia)-\d{2,3}\b/g, base: 33, fix: "use text-positive / text-attention / text-negative, or a token" },
+  palette:   { re: /\b(?:bg|text|border|ring|fill|stroke|from|via|to)-(?:red|green|emerald|amber|orange|yellow|blue|sky|violet|purple|rose|cyan|lime|teal|pink|indigo|fuchsia)-\d{2,3}\b/g, base: 27, fix: "use text-positive / text-attention / text-negative, or a token" },
   shadow:    { re: /\bshadow-(?!figma\b|none\b)[a-z0-9]/g, base: 1, fix: "the only shadow is shadow-figma" },
   gradient:  { re: /\bbg-gradient-/g, base: 7, fix: "no gradients (DESIGN.md)" },
   pxText:    { re: /\btext-\[\d+px\]/g, base: 416, fix: "use text-heading / text-title / text-meta" },

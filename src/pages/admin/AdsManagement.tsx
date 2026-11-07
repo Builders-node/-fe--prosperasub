@@ -330,7 +330,7 @@ const AdsManagement = () => {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deleteMutation.isPending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={deleteMutation.isPending}
+            <AlertDialogAction variant="destructive" disabled={deleteMutation.isPending}
               onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget.id)}>
               {deleteMutation.isPending ? "Deleting…" : "Delete"}
             </AlertDialogAction>

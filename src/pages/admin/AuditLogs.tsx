@@ -11,7 +11,6 @@ import { YdEmptyState } from "@/components/yd/YdPrimitives";
 import { adminApi, supabaseDb } from "@/integrations/supabase/client";
 import { fetchUsersByIds } from "@/lib/admin/customerNames";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -175,8 +174,8 @@ const AuditLogs = () => {
       >
 
       {/* Table */}
-      <Card>
-        <CardContent className="p-0">
+      <section className="rounded-radius-md bg-card">
+        <div className="p-0">
           {(
             <div className="overflow-x-auto">
               <Table>
@@ -254,8 +253,8 @@ const AuditLogs = () => {
               </div>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </section>
       </AdminListShell>
     </SuperAdminLayout>
   );

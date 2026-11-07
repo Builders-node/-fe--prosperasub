@@ -564,7 +564,7 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              variant="destructive"
               onClick={() => {
                 if (confirmDeactivate) toggleStatus.mutate(confirmDeactivate);
                 setConfirmDeactivate(null);

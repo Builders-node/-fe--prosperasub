@@ -465,7 +465,7 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => reject.mutate({ app: rejectTarget, notes: rejectNotes })}
-              className="bg-negative text-white hover:bg-negative/90"
+              variant="destructive"
             >
               Reject
             </AlertDialogAction>

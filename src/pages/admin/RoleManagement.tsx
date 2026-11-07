@@ -10,7 +10,6 @@ import { YdEmptyState } from "@/components/yd/YdPrimitives";
 import { adminApi } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -139,11 +138,11 @@ export default function RoleManagement() {
         actions={<Button onClick={() => setCreating(true)}><Plus className="h-4 w-4" />New Role</Button>}
       >
       <div className="grid gap-space-3 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <Card>
-          <CardHeader>
-            <CardTitle>Roles</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-space-2">
+        <section className="rounded-radius-md bg-card">
+          <div className="flex flex-col gap-space-2 p-space-6">
+            <h3 className="text-panel-title">Roles</h3>
+          </div>
+          <div className="p-space-6 pt-0 space-y-space-2">
             {(
               [...activeRoles, ...inactiveRoles].map((role) => (
                 <div key={role.id} className="flex flex-wrap items-center justify-between gap-space-3 rounded-radius-md bg-inset px-space-4 py-space-3">
@@ -168,14 +167,14 @@ export default function RoleManagement() {
                 </div>
               ))
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </section>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Permissions</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-space-3">
+        <section className="rounded-radius-md bg-card">
+          <div className="flex flex-col gap-space-2 p-space-6">
+            <h3 className="text-panel-title">Permissions</h3>
+          </div>
+          <div className="p-space-6 pt-0 space-y-space-3">
             {/* An empty catalogue and an unreachable one look identical
                 otherwise — this panel rendered as blank space. */}
             {permissionsError && (
@@ -198,8 +197,8 @@ export default function RoleManagement() {
                 </div>
               </div>
             ))}
-          </CardContent>
-        </Card>
+          </div>
+        </section>
       </div>
       </AdminListShell>
 

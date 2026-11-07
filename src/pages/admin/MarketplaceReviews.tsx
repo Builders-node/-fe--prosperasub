@@ -334,7 +334,7 @@ const MarketplaceReviews = ({ embedded = false, providerId: scopedProvider }: Ma
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deleteTarget && remove.mutate(deleteTarget)}
-              className="bg-negative text-white hover:bg-negative/90"
+              variant="destructive"
             >
               Delete
             </AlertDialogAction>

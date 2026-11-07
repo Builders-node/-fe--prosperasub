@@ -5,7 +5,6 @@ import type { DateRange } from "react-day-picker";
 import {
   Wallet, TrendingUp, TrendingDown, Calendar as CalendarIcon, Settings2, PiggyBank, Pencil, Percent,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Calendar } from "@/components/ui/calendar";
@@ -235,43 +234,43 @@ export function NetProfitPanel() {
 
       {/* KPI cards */}
       <div className="grid grid-cols-1 gap-space-3 sm:grid-cols-3">
-        <Card>
-          <CardContent className="p-space-5">
+        <section className="rounded-radius-md bg-card">
+          <div className="p-space-5">
             <div className="flex items-center gap-space-2 text-sm font-medium text-muted-foreground">
               <Wallet className="h-4 w-4" /> Total revenue
             </div>
             <p className="mt-space-2 text-3xl font-black tabular-nums text-foreground">{formatUSD(totalRevenue)}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-space-5">
+          </div>
+        </section>
+        <section className="rounded-radius-md bg-card">
+          <div className="p-space-5">
             <div className="flex items-center gap-space-2 text-sm font-medium text-muted-foreground">
               <TrendingDown className="h-4 w-4" /> Paid to providers
             </div>
             <p className="mt-space-2 text-3xl font-black tabular-nums text-foreground">{formatUSD(toProviders)}</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-primary/10">
-          <CardContent className="p-space-5">
+          </div>
+        </section>
+        <section className="rounded-radius-md bg-primary/10">
+          <div className="p-space-5">
             <div className="flex items-center gap-space-2 text-sm font-medium text-muted-foreground">
               <PiggyBank className="h-4 w-4 text-primary" /> Our commission
             </div>
             <p className="mt-space-2 text-3xl font-black tabular-nums text-primary">{money(netProfit)}</p>
-          </CardContent>
-        </Card>
+          </div>
+        </section>
       </div>
 
       {/* Per-business breakdown */}
-      <Card className="mt-space-4">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-space-2">
+      <section className="rounded-radius-md bg-card mt-space-4">
+        <div className="flex flex-col gap-space-2 p-space-6">
+          <h3 className="text-panel-title flex items-center gap-space-2">
             <TrendingUp className="h-5 w-5 text-primary" /> Commission by business
-          </CardTitle>
-          <CardDescription>
+          </h3>
+          <p className="type-body text-muted-foreground">
             {format(start, "MMM d, yyyy")} — {format(end, "MMM d, yyyy")} · revenue recognized straight-line across each subscription's service days
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+          </p>
+        </div>
+        <div className="p-space-6 pt-0">
           <div>
             <Table className="min-w-[520px]">
               <TableHeader>
@@ -312,23 +311,23 @@ export function NetProfitPanel() {
               </TableFooter>
             </Table>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
 
       <PayoutBasisCard />
 
       {/* The rates themselves */}
-      <Card className="mt-space-4">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-space-2">
+      <section className="rounded-radius-md bg-card mt-space-4">
+        <div className="flex flex-col gap-space-2 p-space-6">
+          <h3 className="text-panel-title flex items-center gap-space-2">
             <Settings2 className="h-5 w-5" /> Commission rates
-          </CardTitle>
-          <CardDescription>
+          </h3>
+          <p className="type-body text-muted-foreground">
             What the platform keeps of each business's revenue. The business sees the same
             rate and the same figures on its own Money tab, and its payout cap follows it.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-space-4">
+          </p>
+        </div>
+        <div className="p-space-6 pt-0 space-y-space-4">
           <div className="grid grid-cols-1 gap-space-3 sm:grid-cols-2 lg:grid-cols-3">
             {providers.map((p) => (
               <div key={p.id} className="space-y-2 rounded-radius-lg border border-[hsl(var(--app-divider))] p-space-4">
@@ -394,8 +393,8 @@ export function NetProfitPanel() {
               </Button>
             )}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </section>
     </div>
   );
 }

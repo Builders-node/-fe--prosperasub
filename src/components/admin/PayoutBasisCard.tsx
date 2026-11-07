@@ -1,7 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Wallet } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -54,16 +53,16 @@ export function PayoutBasisCard() {
   });
 
   return (
-    <Card className="mt-space-4">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-space-2">
+    <section className="rounded-radius-md bg-card mt-space-4">
+      <div className="flex flex-col gap-space-2 p-space-6">
+        <h3 className="text-panel-title flex items-center gap-space-2">
           <Wallet className="h-5 w-5" /> When providers can withdraw
-        </CardTitle>
-        <CardDescription>
+        </h3>
+        <p className="type-body text-muted-foreground">
           Applies to every business. The Money tab's "Available to withdraw" and the withdrawal itself follow it.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="grid grid-cols-1 gap-space-3 md:grid-cols-2">
+        </p>
+      </div>
+      <div className="p-space-6 pt-0 grid grid-cols-1 gap-space-3 md:grid-cols-2">
         {OPTIONS.map((o) => {
           const selected = basis === o.value;
           return (
@@ -82,7 +81,7 @@ export function PayoutBasisCard() {
             </button>
           );
         })}
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }

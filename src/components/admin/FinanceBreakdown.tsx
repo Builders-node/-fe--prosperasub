@@ -5,7 +5,6 @@ import type { DateRange } from "react-day-picker";
 import { Sparkles, UtensilsCrossed, Waves, TrendingUp, CalendarRange, Calendar as CalendarIcon, Download, FileSpreadsheet } from "lucide-react";
 import { fetchAllRows } from "@/lib/supabasePaging";
 import { supabaseDb } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
@@ -349,16 +348,16 @@ export function FinanceBreakdown() {
   };
 
   return (
-    <Card>
-      <CardHeader className="gap-space-3 md:flex-row md:items-start md:justify-between">
+    <section className="rounded-radius-md bg-card">
+      <div className="flex flex-col p-space-6 gap-space-3 md:flex-row md:items-start md:justify-between">
         <div>
-          <CardTitle className="flex items-center gap-space-2">
+          <h3 className="text-panel-title flex items-center gap-space-2">
             <TrendingUp className="h-5 w-5 text-muted-foreground" />
             Finance breakdown
-          </CardTitle>
-          <CardDescription>
+          </h3>
+          <p className="type-body text-muted-foreground">
             Revenue by service × payment method, recognized straight-line across each subscription's service period.
-          </CardDescription>
+          </p>
         </div>
         <div className="flex flex-col items-stretch gap-space-2 sm:flex-row sm:items-center">
           <Button
@@ -449,8 +448,8 @@ export function FinanceBreakdown() {
             </Popover>
           )}
         </div>
-      </CardHeader>
-      <CardContent>
+      </div>
+      <div className="p-space-6 pt-0">
         {/* Period + total strip — neutral card background, primary accent lives
             on the total number only. Matches the Dashboard's headline tiles. */}
         <div className="mb-space-4 flex flex-wrap items-center justify-between gap-3 rounded-radius-md bg-muted/40 px-5 py-4">
@@ -513,7 +512,7 @@ export function FinanceBreakdown() {
             </TableFooter>
           </Table>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }

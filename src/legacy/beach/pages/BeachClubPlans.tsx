@@ -3,14 +3,15 @@ import { useState } from "react";
 import { fetchPlanGallery, savePlanGallery } from "@/lib/plans/planGallery";
 import { PlanForm } from "@/components/provider/plans/PlanForm";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2, Waves } from "lucide-react";
+import { Plus, Pencil, Trash2 } from "lucide-react";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
-import { PageLoader, Spinner } from "@/components/ui/spinner";
+import { AdminListShell } from "@/components/admin/AdminListShell";
+import { Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Badge } from "@/components/ui/badge";
+import { StatusPill } from "@/components/patterns/StatusPill";
 import {
   Table, TableHeader, TableRow, TableHead, TableBody, TableCell,
 } from "@/components/ui/table";
@@ -73,7 +74,7 @@ export default function BeachClubPlans({ embedded = false }: { embedded?: boolea
     },
   });
 
-  const { data: plans = [], isLoading } = useQuery({
+  const { data: plans = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: ["admin-beach-club-plans"],
     queryFn: async () => {
       const { data, error } = await supabaseDb
@@ -155,17 +156,18 @@ export default function BeachClubPlans({ embedded = false }: { embedded?: boolea
     onError: (e: Error) => toast.error(e.message),
   });
 
-  if (isLoading) {
-    if (embedded) return <PageLoader />;
-    return <SuperAdminLayout title="Beach Club Plans"><PageLoader /></SuperAdminLayout>;
-  }
-
   const body = (
     <>
-      <div className="mb-space-4 flex justify-end">
-        <Button onClick={openCreate} className="gap-2"><Plus className="h-4 w-4" /> New Plan</Button>
-      </div>
-
+      <AdminListShell
+        actions={<Button onClick={openCreate} className="gap-2"><Plus className="h-4 w-4" /> New Plan</Button>}
+        isLoading={isLoading}
+        isError={isError}
+        error={error}
+        onRetry={() => void refetch()}
+        isEmpty={plans.length === 0}
+        emptyTitle="No plans yet"
+        emptySubtitle="Create one with New Plan."
+      >
       <div className="overflow-hidden rounded-radius-md border border-[hsl(var(--app-divider))]">
         <Table>
           <TableHeader>
@@ -178,14 +180,7 @@ export default function BeachClubPlans({ embedded = false }: { embedded?: boolea
             </TableRow>
           </TableHeader>
           <TableBody>
-            {plans.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="py-10 text-center text-muted-foreground">
-                  <Waves className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                  No plans yet — create one.
-                </TableCell>
-              </TableRow>
-            ) : plansPager.paged.map((p) => (
+            {plansPager.paged.map((p) => (
               <TableRow key={p.id}>
                 <TableCell>
                   <p className="font-bold text-foreground">{p.name}</p>
@@ -200,8 +195,8 @@ export default function BeachClubPlans({ embedded = false }: { embedded?: boolea
                 <TableCell className="text-sm text-muted-foreground">{(p.amenities ?? []).length} items</TableCell>
                 <TableCell>
                   <div className="flex flex-wrap gap-1">
-                    {p.featured && <Badge className="bg-cyan-500/15 text-cyan-400">Featured</Badge>}
-                    <Badge variant={p.is_active ? "default" : "secondary"}>{p.is_active ? "Active" : "Hidden"}</Badge>
+                    {p.featured && <StatusPill status="featured" />}
+                    <StatusPill status={p.is_active ? "active" : "inactive"} label={p.is_active ? undefined : "Hidden"} />
                   </div>
                 </TableCell>
                 <TableCell className="text-right">
@@ -220,6 +215,7 @@ export default function BeachClubPlans({ embedded = false }: { embedded?: boolea
         </Table>
         <TablePagination {...plansPager} onPage={plansPager.setPage} />
       </div>
+      </AdminListShell>
 
       {/* Create / edit dialog */}
       <Dialog open={open} onOpenChange={setOpen}>

@@ -214,7 +214,7 @@ const Locations = () => {
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              <AlertDialogAction variant="destructive"
                 onClick={() => deleteTarget && deleteMutation.mutate(deleteTarget)}>
                 Delete
               </AlertDialogAction>

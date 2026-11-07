@@ -50,8 +50,6 @@ export const OVERVIEW_SECTION: NavSection = {
       permissions: ["subscriptions.read", "payments.read"] },
     { label: "Finance",   path: adminRoutes.superAdminPayments,  icon: DollarSign,
       permissions: ["payments.read"] },
-    { label: "Promo codes", path: adminRoutes.superAdminPromoCodes, icon: TicketPercent,
-      permissions: ["payments.read"] },
   ],
 };
 
@@ -80,10 +78,15 @@ export const MARKETPLACE_SECTION: NavSection = {
         adminRoutes.superAdminMarketplacePlans,
         adminRoutes.superAdminMarketplaceProviders,
         adminRoutes.superAdminProviderApplications,
+        adminRoutes.superAdminMarketplaceReviews,
       ],
       permissions: ["admin_settings.read"] },
     { label: "Subscriptions", path: adminRoutes.superAdminMarketplaceSubscriptions, icon: CalendarDays,
       permissions: ["subscriptions.read"] },
+    // Promo codes discount marketplace sales, so they sit beside the ledger
+    // they change rather than among the overview pages. Same permission.
+    { label: "Promo codes", path: adminRoutes.superAdminPromoCodes, icon: TicketPercent,
+      permissions: ["payments.read"] },
   ],
 };
 

@@ -4,7 +4,6 @@ import { QRCodeSVG } from "qrcode.react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -397,17 +396,17 @@ const AdminPayments = () => {
 
       {/* Payment methods on/off */}
       <section className="mt-space-4 md:mt-space-5">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-space-2">
+        <section className="rounded-radius-md bg-card">
+          <div className="flex flex-col gap-space-2 p-space-6">
+            <h3 className="text-panel-title flex items-center gap-space-2">
               <CreditCard className="h-5 w-5" />
               Payment methods
-            </CardTitle>
-            <CardDescription>
+            </h3>
+            <p className="type-body text-muted-foreground">
               Turn a method on or off. When off, it's hidden from all checkouts (cleaning, food, beach).
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="divide-y divide-border/60 p-0">
+            </p>
+          </div>
+          <div className="divide-y divide-border/60 p-0">
             {/* Each toggle reads its state out of this list, so a failed fetch
                 would draw every method in its default position — a settings
                 screen stating a configuration that is not the one in
@@ -460,8 +459,8 @@ const AdminPayments = () => {
                 </div>
               );
             })}
-          </CardContent>
-        </Card>
+          </div>
+        </section>
       </section>
 
       {/* ─── Test payments — one tab per active method ───────────────────────
@@ -469,17 +468,17 @@ const AdminPayments = () => {
           admins can sanity-check every payment provider without touching a
           real subscription flow. */}
       <section className="mt-space-4 md:mt-space-5">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-space-2">
+        <section className="rounded-radius-md bg-card">
+          <div className="flex flex-col gap-space-2 p-space-6">
+            <h3 className="text-panel-title flex items-center gap-space-2">
               <CreditCard className="h-5 w-5 text-primary" />
               Test Payments
-            </CardTitle>
-            <CardDescription>
+            </h3>
+            <p className="type-body text-muted-foreground">
               Generate a $1.00 test payment against each provider — Lightning, on-chain BTC, LIVES or PayPal — to confirm the wallet + notifications pipeline is healthy.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+            </p>
+          </div>
+          <div className="p-space-6 pt-0">
             <Tabs defaultValue="lightning" variant="pills">
               <TabsList className="mb-space-4 flex flex-wrap gap-2">
                 <TabsTrigger value="lightning"><Zap className="mr-1 h-3.5 w-3.5" /> Lightning</TabsTrigger>
@@ -661,19 +660,19 @@ const AdminPayments = () => {
                 )}
               </TabsContent>
             </Tabs>
-          </CardContent>
-        </Card>
+          </div>
+        </section>
       </section>
 
-      <Card className="mt-space-5">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-space-2">
+      <section className="rounded-radius-md bg-card mt-space-5">
+        <div className="flex flex-col gap-space-2 p-space-6">
+          <h3 className="text-panel-title flex items-center gap-space-2">
             <Mail className="h-5 w-5 text-primary" />
             Admin Notification Log
-          </CardTitle>
-          <CardDescription>Email and Telegram delivery history for confirmed payments.</CardDescription>
-        </CardHeader>
-        <CardContent>
+          </h3>
+          <p className="type-body text-muted-foreground">Email and Telegram delivery history for confirmed payments.</p>
+        </div>
+        <div className="p-space-6 pt-0">
           {adminNotifications.length > 0 ? (
             <>
               {/* Mobile card view */}
@@ -785,8 +784,8 @@ const AdminPayments = () => {
               Confirmed payment notifications will appear here after the first successful payment.
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </section>
         </TabsContent>
 
         <TabsContent value="profit">
@@ -811,7 +810,7 @@ const AdminPayments = () => {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              variant="destructive"
               onClick={() => {
                 if (confirmDisable) toggleMethodMutation.mutate({ method: confirmDisable, enabled: false });
                 setConfirmDisable(null);

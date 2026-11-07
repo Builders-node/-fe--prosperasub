@@ -241,7 +241,7 @@ export default function MarketplaceServiceDetail() {
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction
                 onClick={() => remove.mutate()}
-                className="bg-negative text-white hover:bg-negative/90"
+                variant="destructive"
               >
                 Delete
               </AlertDialogAction>

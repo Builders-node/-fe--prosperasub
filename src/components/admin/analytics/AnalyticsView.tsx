@@ -92,7 +92,7 @@ export function AnalyticsView({
         <Card title="Subscription Status" icon={Layers}>
           <div className="space-y-3">
             <StatusBar label="Active" count={figures.active} total={figures.subs} color="bg-positive" textColor="text-positive" />
-            <StatusBar label="Expired" count={figures.expired} total={figures.subs} color="bg-blue-500" textColor="text-blue-400" />
+            <StatusBar label="Expired" count={figures.expired} total={figures.subs} color="bg-negative" textColor="text-negative" />
             <StatusBar label="Paused" count={figures.paused} total={figures.subs} color="bg-attention" textColor="text-attention" />
             <StatusBar label="Cancelled" count={figures.cancelled} total={figures.subs} color="bg-muted-foreground" textColor="text-muted-foreground" />
           </div>

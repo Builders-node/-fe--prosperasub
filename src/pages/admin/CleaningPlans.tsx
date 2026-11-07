@@ -634,7 +634,7 @@ const CleaningPlans = ({
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              variant="destructive"
               onClick={() => {
                 if (assignmentToDelete) deleteAssignmentMutation.mutate(assignmentToDelete.id);
                 setAssignmentToDelete(null);
