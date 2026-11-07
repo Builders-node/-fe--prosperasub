@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
+import { providerHref } from "@/lib/services/serviceUrls";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, X } from "lucide-react";
 import { toast } from "sonner";
@@ -84,9 +85,9 @@ export default function BookCalendar() {
     enabled: !!providerId,
     queryFn: async () => {
       const { data, error } = await supabaseDb
-        .from("providers").select("id, name").eq("id", providerId).maybeSingle();
+        .from("providers").select("id, name, archetype_key").eq("id", providerId).maybeSingle();
       if (error) throw error;
-      return data as { id: string; name: string } | null;
+      return data as { id: string; name: string; archetype_key: string | null } | null;
     },
   });
 
@@ -242,7 +243,22 @@ export default function BookCalendar() {
           </p>
         </section>
 
-        {calendarsLoading ? (
+        {/* Bookings are for the business's subscribers — always, not a
+            setting. Said before a time is picked, not after. Unknown (no
+            answer, or signed out) is not "no": the engine has the last word. */}
+        {coverage && coverage.member === false ? (
+          <section className="rounded-radius-lg bg-card p-6 text-center">
+            <p className="text-title font-semibold text-foreground">Booking is for subscribers</p>
+            <p className="mt-1 text-body text-muted-foreground">
+              Subscribe to one of {provider?.name ?? "this business"}'s plans, then come back to pick a time.
+            </p>
+            {provider?.archetype_key && (
+              <Button asChild className="mt-4">
+                <Link to={providerHref(provider.archetype_key, provider.id)}>See plans</Link>
+              </Button>
+            )}
+          </section>
+        ) : calendarsLoading ? (
           <Skeleton className="h-24" />
         ) : calendars.length === 0 ? (
           <section className="rounded-radius-lg bg-card p-8 text-center tracking-[-0.02em]">

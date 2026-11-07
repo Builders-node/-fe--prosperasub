@@ -158,7 +158,7 @@ export function BookingSettingsEditor({
     (showCapacity ? ` · ${s.capacity} at a time` : "");
   const rulesSummary = s.minNoticeHours ? `${s.minNoticeHours}h notice` : "Same-day booking";
   const whoSummary = [
-    s.policy.requiresMembership ? "Subscribers only" : "Anyone",
+    "Your subscribers",
     s.policy.maxActiveBookings ? `${s.policy.maxActiveBookings} upcoming max` : null,
     s.policy.cancelNoticeHours ? `cancel ${s.policy.cancelNoticeHours}h before` : null,
   ].filter(Boolean).join(" · ");
@@ -362,18 +362,8 @@ export function BookingSettingsEditor({
         </div>
       </Section>
 
-      <Section title="Who may book" subtitle="0 means no limit." summary={whoSummary} collapsible defaultOpen={false}>
-        <label className="flex items-start gap-3">
-          <Switch checked={s.policy.requiresMembership}
-            onCheckedChange={(v) => patch({ policy: { ...s.policy, requiresMembership: v } })} />
-          <span>
-            <span className="block text-body font-semibold text-foreground">Subscribers only</span>
-            <span className="mt-0.5 block text-meta text-muted-foreground">
-              Only customers with a live subscription to you may book — right for courts included in a membership.
-            </span>
-          </span>
-        </label>
-        <div className="mt-4 grid grid-cols-2 gap-3 sm:max-w-md">
+      <Section title="Who may book" subtitle="Only your subscribers — anyone with a live plan from you. Limits below: 0 means none." summary={whoSummary} collapsible defaultOpen={false}>
+        <div className="grid grid-cols-2 gap-3 sm:max-w-md">
           <NumberField label="Upcoming per customer" value={s.policy.maxActiveBookings}
             onChange={(n) => patch({ policy: { ...s.policy, maxActiveBookings: n } })} />
           <NumberField label="Per day per customer" value={s.policy.maxPerDay}

@@ -114,7 +114,7 @@ export interface BookingPolicy {
 
 /** Every restriction off: turning one on is a decision the provider makes. */
 export const DEFAULT_POLICY: BookingPolicy = {
-  requiresMembership: false,
+  requiresMembership: true,
   maxActiveBookings: 0,
   maxPerDay: 0,
   cancelNoticeHours: 0,
@@ -240,7 +240,8 @@ export function normalizePolicy(raw: unknown): BookingPolicy {
   const p = (raw ?? {}) as Partial<BookingPolicy>;
   const count = (v: unknown) => (Number(v) > 0 ? Math.floor(Number(v)) : 0);
   return {
-    requiresMembership: p.requiresMembership === true,
+    // Always: a calendar is booked by the business's subscribers (2026-11).
+    requiresMembership: true,
     maxActiveBookings: count(p.maxActiveBookings),
     maxPerDay: count(p.maxPerDay),
     cancelNoticeHours: Math.max(0, Number(p.cancelNoticeHours) || 0),
