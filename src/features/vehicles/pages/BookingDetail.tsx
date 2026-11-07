@@ -15,8 +15,7 @@ import { PayPalPanel } from "@/components/payment/PayPalPanel";
 import { useInvoicePayment } from "@/hooks/useInvoicePayment";
 import { usePaymentMethods } from "@/hooks/usePaymentMethods";
 import { useBtcPrice } from "@/hooks/useBtcPrice";
-import { attachPaymentReference } from "@/lib/payments/pendingReference";
-import { supabaseDb } from "@/integrations/supabase/client";
+import { accountApi, supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { formatUSD, centsToDollars } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
@@ -70,23 +69,30 @@ export default function BookingDetail() {
   const effectiveTotal = useMemo(() => addSurchargeCents(baseTotal, method), [addSurchargeCents, baseTotal, method]);
   const estimatedSats = convertToSats(centsToDollars(effectiveTotal));
 
+  // The server checks the payment (settled, enough, used once) and works out
+  // the fee for the method itself; nothing here writes the row.
   const markPaid = async (ref: string, m: string) => {
     if (!payingIdRef.current) return;
-    await supabaseDb.from("rental_bookings")
-      .update({
-        status: "confirmed", payment_status: "paid", payment_method: m, payment_reference: ref,
-        surcharge_cents: Math.max(0, effectiveTotal - baseTotal),
-      })
-      .eq("id", payingIdRef.current);
+    const { error } = await accountApi(`/rentals/bookings/${payingIdRef.current}/confirm`, {
+      method: "POST", body: JSON.stringify({ payment_reference: ref, payment_method: m }),
+    });
     await qc.invalidateQueries({ queryKey: ["rental-booking", id] });
     await qc.invalidateQueries({ queryKey: ["my-rental-bookings"] });
+    if (error) {
+      toast.error("We couldn't confirm the payment yet — it will update by itself once it lands.");
+      return;
+    }
     toast.success("Payment confirmed — your booking is set.");
   };
 
   const inv = useInvoicePayment({
     onPaid: (ref, m) => markPaid(ref, m),
     onInvoiceReady: (ref, m) => {
-      if (payingIdRef.current) attachPaymentReference(supabaseDb, "rental_bookings", payingIdRef.current, ref, m);
+      if (payingIdRef.current) {
+        void accountApi(`/rentals/bookings/${payingIdRef.current}/reference`, {
+          method: "POST", body: JSON.stringify({ payment_reference: ref, payment_method: m }),
+        });
+      }
     },
   });
 
@@ -118,9 +124,7 @@ export default function BookingDetail() {
     if (!booking) return;
     setCancelling(true);
     try {
-      const { error } = await supabaseDb.from("rental_bookings")
-        .update({ status: "cancelled", payment_status: "failed" })
-        .eq("id", booking.id);
+      const { error } = await accountApi(`/rentals/bookings/${booking.id}/cancel`, { method: "POST" });
       if (error) throw error;
       await qc.invalidateQueries({ queryKey: ["rental-booking", id] });
       await qc.invalidateQueries({ queryKey: ["my-rental-bookings"] });
@@ -188,7 +192,9 @@ export default function BookingDetail() {
                   totalCents={effectiveTotal}
                   onPaid={(cap: string) => markPaid(cap, "paypal")}
                   onOrderCreated={(orderId: string) =>
-                    attachPaymentReference(supabaseDb, "rental_bookings", booking.id, orderId, "paypal")}
+                    void accountApi(`/rentals/bookings/${booking.id}/reference`, {
+                      method: "POST", body: JSON.stringify({ payment_reference: orderId, payment_method: "paypal" }),
+                    })}
                   orderMeta={{ description: `${v?.name ?? "Car"} rental`, booking_id: booking.id }}
                 />
               ) : (

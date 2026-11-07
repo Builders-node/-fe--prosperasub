@@ -90,7 +90,11 @@ export function calcRentalPrice(
   rentalDays: number,
 ): RentalPriceCalc {
   const daily = vehicle.daily_price_cents || 0;
-  const weekly = vehicle.weekly_price_cents || 0;
+  // A week never costs more than seven days — every car had a weekly price
+  // above 7× daily, so a 7-day rental cost more than paying day by day.
+  // The server (Edge routes/rentals.ts) applies the same rule.
+  const weeklyRaw = vehicle.weekly_price_cents || 0;
+  const weekly = weeklyRaw > 0 && daily > 0 ? Math.min(weeklyRaw, daily * 7) : weeklyRaw;
   const monthly = vehicle.monthly_price_cents || 0;
 
   let subtotalCents: number;

@@ -213,7 +213,7 @@ export default function VehicleDetail() {
             {(v.weekly_price_cents > 0 || v.monthly_price_cents > 0) && (
               <span className="text-meta text-muted-foreground">
                 {[
-                  v.weekly_price_cents > 0 ? `${formatUSD(v.weekly_price_cents)} ${unitSuffix({ period: "weekly" })}` : null,
+                  v.weekly_price_cents > 0 ? `${formatUSD(Math.min(v.weekly_price_cents, v.daily_price_cents > 0 ? v.daily_price_cents * 7 : v.weekly_price_cents))} ${unitSuffix({ period: "weekly" })}` : null,
                   v.monthly_price_cents > 0 ? `${formatUSD(v.monthly_price_cents)} ${unitSuffix({ period: "monthly" })}` : null,
                 ].filter(Boolean).join(" · ")}
               </span>

@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { fleetWrite } from "../lib/fleetWrite";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Eye, EyeOff, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
@@ -99,9 +100,8 @@ export function VehicleTypesPanel() {
       if (!key) throw new Error("The name must contain a letter or a number.");
       const row = { label, icon: form.icon, sort_order: form.sort_order, is_active: form.is_active };
       const res = isNew
-        ? await supabaseDb.from("rental_categories").insert({ key, ...row })
-        : await supabaseDb.from("rental_categories")
-            .update({ ...row, updated_at: new Date().toISOString() }).eq("key", key);
+        ? await fleetWrite("rental_categories", "insert", { row: { key, ...row } })
+        : await fleetWrite("rental_categories", "update", { id: key, row });
       if (res.error) throw res.error;
       if (userData?.id) await logAuditEvent(userData.id, isNew ? "create" : "edit", "rental_category", key, row);
     },
@@ -111,8 +111,7 @@ export function VehicleTypesPanel() {
 
   const toggleActive = useMutation({
     mutationFn: async (t: VehicleType) => {
-      const { error: err } = await supabaseDb.from("rental_categories")
-        .update({ is_active: !t.is_active, updated_at: new Date().toISOString() }).eq("key", t.key);
+      const { error: err } = await fleetWrite("rental_categories", "update", { id: t.key, row: { is_active: !t.is_active } });
       if (err) throw err;
     },
     onSuccess: refresh,
@@ -121,7 +120,7 @@ export function VehicleTypesPanel() {
 
   const remove = useMutation({
     mutationFn: async (t: VehicleType) => {
-      const { error: err } = await supabaseDb.from("rental_categories").delete().eq("key", t.key);
+      const { error: err } = await fleetWrite("rental_categories", "delete", { id: t.key });
       if (err) throw err;
       if (userData?.id) await logAuditEvent(userData.id, "delete", "rental_category", t.key, {});
     },

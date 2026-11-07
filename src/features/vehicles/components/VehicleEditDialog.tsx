@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { fleetWrite } from "../lib/fleetWrite";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { centsToInput } from "@/lib/pricing";
@@ -131,8 +132,8 @@ export function VehicleEditDialog({ vehicle, onClose, onSaved, lockedProviderId 
         category_key: editing.category_key ?? null,
       };
       const res = editing.id
-        ? await supabaseDb.from("rental_vehicles").update(row).eq("id", editing.id)
-        : await supabaseDb.from("rental_vehicles").insert(row);
+        ? await fleetWrite("rental_vehicles", "update", { id: editing.id, row })
+        : await fleetWrite("rental_vehicles", "insert", { row });
       if (res.error) throw res.error;
       toast.success(editing.id ? "Vehicle updated" : "Vehicle added");
       onSaved();

@@ -81,6 +81,10 @@ const EDGE_ROUTES: RegExp[] = [
   // Owner promo codes and team invites (Edge routes/provider-growth.ts).
   /^\/account\/providers\/[^/]+\/promo-codes(\/[^/]+)?$/,
   /^\/account\/providers\/[^/]+\/team-invites$/,
+  // Car rentals: every write is server-side now (Edge routes/rentals.ts).
+  /^\/rentals\/bookings(\/[^/]+\/(confirm|reference|cancel))?$/,
+  /^\/admin\/rentals\/bookings\/[^/]+$/,
+  /^\/account\/rental-fleet$/,
 ];
 
 /** Full URL for an API path — the Edge Function if that path has moved, else the Nest API. */

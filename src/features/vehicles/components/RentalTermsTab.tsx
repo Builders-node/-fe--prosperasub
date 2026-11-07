@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { fleetWrite, type FleetTable } from "../lib/fleetWrite";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Pencil, Plus, ShieldCheck, PackagePlus, MapPin } from "lucide-react";
@@ -14,7 +15,6 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { supabaseDb } from "@/integrations/supabase/client";
 import { useAddons } from "../hooks/useAddons";
 import { formatUSD , centsToInput } from "@/lib/pricing";
 
@@ -102,8 +102,8 @@ export function RentalTermsTab({ providerId, canManage }: {
 
       const table = TABLE[draft.kind];
       const res = draft.id
-        ? await supabaseDb.from(table).update(row).eq("id", draft.id)
-        : await supabaseDb.from(table).insert(row);
+        ? await fleetWrite(table as FleetTable, "update", { id: draft.id, row })
+        : await fleetWrite(table as FleetTable, "insert", { row });
       if (res.error) throw res.error;
       toast.success(draft.id ? "Saved" : "Added");
       refresh();
@@ -116,7 +116,7 @@ export function RentalTermsTab({ providerId, canManage }: {
   };
 
   const toggleActive = async (kind: Kind, id: string, next: boolean) => {
-    const { error } = await supabaseDb.from(TABLE[kind]).update({ is_active: next }).eq("id", id);
+    const { error } = await fleetWrite(TABLE[kind] as FleetTable, "update", { id, row: { is_active: next } });
     if (error) { toast.error(error.message); return; }
     toast.success(next ? "Shown at checkout" : "Hidden from checkout");
     refresh();

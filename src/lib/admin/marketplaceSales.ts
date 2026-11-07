@@ -1,4 +1,4 @@
-import { supabaseDb, accountApi } from "@/integrations/supabase/client";
+import { adminApi, supabaseDb, accountApi } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/lib/supabasePaging";
 
 /**
@@ -268,4 +268,36 @@ export function buildSalePatch(
     patch.is_active = edit.status === "active";
   }
   return patch;
+}
+
+
+/**
+ * Write an admin edit to a sale. Car rentals are server-side only (the browser
+ * can't write `rental_bookings`): the patch goes to the Edge admin endpoint,
+ * where "paid" is recorded as a manual payment with a note and a status never
+ * implies money. Every other table is still written directly.
+ */
+export async function updateSaleRow(table: string, id: string, patch: Record<string, unknown>, note = "Marked paid by an admin"): Promise<void> {
+  if (table === "rental_bookings") {
+    const { payment_status, updated_at: _u, payment_method, payment_reference, ...fields } = patch as Record<string, unknown>;
+    const body: Record<string, unknown> = {};
+    if (Object.keys(fields).length) body.fields = fields;
+    if (payment_status === "paid") body.markPaid = { note, method: payment_method ?? "manual", reference: payment_reference ?? null };
+    if (!Object.keys(body).length) return;
+    const { error } = await adminApi(`/admin/rentals/bookings/${id}`, { method: "PATCH", body: JSON.stringify(body) });
+    if (error) throw error;
+    return;
+  }
+  const { error } = await supabaseDb.from(table).update({ ...patch, updated_at: new Date().toISOString() }).eq("id", id);
+  if (error) throw error;
+}
+
+export async function deleteSaleRow(table: string, id: string): Promise<void> {
+  if (table === "rental_bookings") {
+    const { error } = await adminApi(`/admin/rentals/bookings/${id}`, { method: "DELETE" });
+    if (error) throw error;
+    return;
+  }
+  const { error } = await supabaseDb.from(table).delete().eq("id", id);
+  if (error) throw error;
 }

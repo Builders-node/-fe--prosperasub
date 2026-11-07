@@ -6,7 +6,6 @@ import { toast } from "sonner";
 import { Car, ShieldCheck, Check, ChevronRight, MapPin } from "lucide-react";
 import { AppContainer } from "@/components/layout/AppContainer";
 import { CheckoutSuccessPanel } from "@/components/patterns/CheckoutSuccessPanel";
-import { notifyProviderOfOrder } from "@/lib/orders/notifyProvider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -22,12 +21,10 @@ import { useInvoicePayment } from "@/hooks/useInvoicePayment";
 import { usePaymentMethods } from "@/hooks/usePaymentMethods";
 import { useBtcPrice } from "@/hooks/useBtcPrice";
 import { useAddons } from "../hooks/useAddons";
-import { attachPaymentReference } from "@/lib/payments/pendingReference";
-import { supabaseDb, accountApi } from "@/integrations/supabase/client";
+import { accountApi } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useVehicle } from "../hooks/useVehicles";
 import { calcRentalPrice, extraCost } from "../types/carRental";
-import { fetchHeldRanges, overlapsHeld, releaseDeadHolds } from "../lib/availability";
 import { formatUSD, centsToDollars } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { carPath } from "../lib/routes";
@@ -120,14 +117,18 @@ export default function Book() {
       // marks anything paid. The direct write below is the pre-API behaviour,
       // kept as a fallback until the endpoint is deployed — the reconcile cron
       // re-verifies everything server-side either way.
+      // The server checks the payment with Blink/PayPal — that it settled,
+      // for this booking's amount, and only once. There is no browser
+      // fallback: a write from here was how a booking could be marked paid
+      // without being paid. The reconcile cron re-checks anything left pending.
       const { error } = await accountApi(`/rentals/bookings/${pendingIdRef.current}/confirm`, {
         method: "POST",
         body: JSON.stringify({ payment_reference: ref, payment_method: m }),
       });
       if (error) {
-        await supabaseDb.from("rental_bookings")
-          .update({ status: "confirmed", payment_status: "paid", payment_method: m, payment_reference: ref })
-          .eq("id", pendingIdRef.current);
+        toast.error(error.message === "payment_not_confirmed"
+          ? "We haven't seen the payment confirmed yet — your booking will update by itself once it lands."
+          : "We couldn't confirm the payment right now. If you paid, it will be matched automatically — or write to support.");
       }
     }
     setStep("done");
@@ -136,7 +137,12 @@ export default function Book() {
   const inv = useInvoicePayment({
     onPaid: (ref, m) => activate(ref, m),
     onInvoiceReady: (ref, m) => {
-      if (pendingIdRef.current) attachPaymentReference(supabaseDb, "rental_bookings", pendingIdRef.current, ref, m);
+      // Through the API: the browser no longer writes rental rows.
+      if (pendingIdRef.current) {
+        void accountApi(`/rentals/bookings/${pendingIdRef.current}/reference`, {
+          method: "POST", body: JSON.stringify({ payment_reference: ref, payment_method: m }),
+        });
+      }
     },
   });
 
@@ -182,70 +188,8 @@ export default function Book() {
       return { id: apiRow.id, charged: Number(apiRow.charged_cents) || null };
     }
     const refusal = viaApi.error ? REFUSALS[viaApi.error.message] : null;
-    if (refusal) { toast.error(refusal); return null; }
-
-    // The calendar was read when the page loaded; somebody else may have taken
-    // these dates since. This re-read is for the MESSAGE — it catches the
-    // common case early and says something a customer can act on. It cannot
-    // win a race it is on the wrong side of: two people pressing Book in the
-    // same second both pass it. What actually guarantees one car is not sold
-    // twice is the exclusion constraint on rental_bookings, handled below.
-    try {
-      const held = await fetchHeldRanges(v.id);
-      if (overlapsHeld(fromISO, toISOParam, held)) {
-        toast.error("Sorry — this car was just booked for those dates. Please pick another period.");
-        return null;
-      }
-    } catch {
-      // Availability unreadable: let the booking through rather than block a
-      // paying customer on a transient network error.
-    }
-
-    const row = {
-      user_id: userData.id, vehicle_id: v.id, start_date: fromISO, end_date: toISOParam,
-      rental_days: pricing.rentalDays, daily_price_cents: pricing.effectiveDailyRate,
-      subtotal_cents: pricing.subtotalCents, discount_pct: pricing.discountPct, discount_cents: pricing.discountCents,
-      insurance_tier_id: insuranceId || null, insurance_cents: insuranceCents,
-      delivery_zone_id: zoneId || null, delivery_fee_cents: deliveryFee,
-      extras: chosenExtras.map((e) => ({ id: e.id, name: e.name, cents: extraCost(e, days) })), extras_cents: extrasCents,
-      total_cents: baseTotal, surcharge_cents: Math.max(0, effectiveTotal - baseTotal),
-      customer_name: name.trim() || userData.name || null, customer_whatsapp: whatsapp.trim() || null,
-      delivery_address: address.trim() || (zone ? zone.name : null), delivery_notes: notes.trim() || null,
-      status: "pending", payment_status: "pending", payment_method: method,
-    };
-
-    let { data, error } = await supabaseDb.from("rental_bookings").insert(row).select("id").single();
-
-    /**
-     * 23P01 — the overlap constraint refused it. That USUALLY means somebody
-     * else holds these dates, and the message below says so.
-     *
-     * But it also fired when nobody held them at all. The constraint ignores
-     * only cancelled rows, while `stillHolds` frees an abandoned checkout
-     * after twenty minutes — so the calendar offered dates the database was
-     * always going to refuse, and the customer was told the car "was just
-     * booked" by a row that had been dead for days. Release exactly those and
-     * try once more; if the refusal was real, nothing is released and the
-     * message stands.
-     */
-    const isOverlap = (e: unknown) =>
-      (e as { code?: string } | null)?.code === "23P01"
-      || /exclusion constraint/i.test((e as { message?: string } | null)?.message ?? "");
-
-    if (error && isOverlap(error)) {
-      const released = await releaseDeadHolds(v.id, fromISO, toISOParam);
-      if (released > 0) {
-        ({ data, error } = await supabaseDb.from("rental_bookings").insert(row).select("id").single());
-      }
-    }
-
-    if (error) {
-      toast.error(isOverlap(error)
-        ? "Sorry — this car was just booked for those dates. Please pick another period."
-        : error.message);
-      return null;
-    }
-    return data?.id ? { id: data.id, charged: null } : null;
+    toast.error(refusal ?? "We couldn't reserve the car right now. Please try again in a moment.");
+    return null;
   };
 
   const startPay = async () => {
@@ -257,10 +201,8 @@ export default function Book() {
       const reserved = await reserve();
       if (!reserved) return;
       pendingIdRef.current = reserved.id;
-      // The rental company hears about it as soon as the booking exists —
-      // owner and team. Idempotent server-side, so the reconcile cron
-      // confirming the payment later does not send a second one.
-      void notifyProviderOfOrder("rental_bookings", reserved.id);
+      // The rental company is told when the rental is PAID (the confirm
+      // endpoint), not about every hold a checkout opens and abandons.
       // Charge what the row says, not what this page computed — same inputs,
       // but the row is what the reconcile cron verifies against.
       const payTotal = reserved.charged ?? effectiveTotal;
@@ -401,7 +343,9 @@ export default function Book() {
                     // customer has paid and the booking gets expired instead.
                     onOrderCreated={(orderId: string) => {
                       if (pendingIdRef.current) {
-                        attachPaymentReference(supabaseDb, "rental_bookings", pendingIdRef.current, orderId, "paypal");
+                        void accountApi(`/rentals/bookings/${pendingIdRef.current}/reference`, {
+                          method: "POST", body: JSON.stringify({ payment_reference: orderId, payment_method: "paypal" }),
+                        });
                       }
                     }}
                     orderMeta={{

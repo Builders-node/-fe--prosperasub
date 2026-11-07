@@ -43,6 +43,7 @@ interface ProviderRow {
   source_service_key: string | null;
   source_provider_id: string | null;
   archetype_key: string | null;
+  unit: string | null;
 }
 
 
@@ -61,7 +62,7 @@ export function NetProfitPanel() {
     queryFn: async () => {
       const { data, error } = await supabaseDb
         .from("providers")
-        .select("id, name, status, commission_pct, source_service_key, source_provider_id, archetype_key")
+        .select("id, name, status, commission_pct, source_service_key, source_provider_id, archetype_key, unit")
         .order("name", { ascending: true });
       if (error) throw error;
       return (data ?? []) as ProviderRow[];
@@ -88,7 +89,8 @@ export function NetProfitPanel() {
     enabled: providers.length > 0,
     queryFn: async () => {
       const pairs = await Promise.all(providers.map(async (p) => {
-        const sourceKey = p.source_service_key ?? p.archetype_key ?? "";
+        // Rental companies are matched on `unit` (no legacy key, no archetype).
+        const sourceKey = p.unit === "vehicles" ? "vehicles" : p.source_service_key ?? p.archetype_key ?? "";
         const legacyId = p.source_provider_id ?? p.id;
         const { revenue, parts } = await fetchEarned(sourceKey, legacyId, start, end, p.id);
         return [p.id, { revenue, parts }] as const;

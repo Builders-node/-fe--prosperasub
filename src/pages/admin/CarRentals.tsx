@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { supabaseDb } from "@/integrations/supabase/client";
+import { adminApi, supabaseDb } from "@/integrations/supabase/client";
 import { VehicleEditDialog } from "@/features/vehicles";
 import { carPath } from "@/features/vehicles";
 import type { RentalVehicle } from "@/features/vehicles";
@@ -154,18 +154,38 @@ export default function CarRentals({ embedded = false, providerId }: {
     };
   }, [filtered]);
 
+  /** Money that arrived outside the checkout (cash, transfer) — recorded with a reason. */
+  const markPaid = async (id: string) => {
+    const note = window.prompt("How was it paid? (cash, bank transfer…)")?.trim();
+    if (!note) return;
+    setBusy(id);
+    try {
+      const { error } = await adminApi(`/admin/rentals/bookings/${id}`, {
+        method: "PATCH", body: JSON.stringify({ markPaid: { note, method: "manual" } }),
+      });
+      if (error) throw error;
+      await qc.invalidateQueries({ queryKey: ["admin-rental-bookings"] });
+      toast.success("Marked paid");
+    } catch (e) {
+      toast.error((e as Error).message || "Could not mark it paid");
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const setStage = async (id: string, next: string) => {
     setBusy(id);
     try {
-      const patch: Record<string, unknown> = { status: next };
-      // Confirming a rental is also saying the money is in — the same coupling
-      // the storefront applies when a payment lands.
-      if (next === "confirmed" || next === "active" || next === "completed") patch.payment_status = "paid";
-      if (next === "cancelled") patch.payment_status = "failed";
-      const { error } = await supabaseDb.from("rental_bookings").update(patch).eq("id", id);
+      // The lifecycle only. A status never says money arrived (that is "Mark
+      // paid", with a reason), and cancelling a paid booking keeps the payment
+      // on record and flags a refund — the server decides both.
+      const { data, error } = await adminApi(`/admin/rentals/bookings/${id}`, {
+        method: "PATCH", body: JSON.stringify({ fields: { status: next } }),
+      });
       if (error) throw error;
       await qc.invalidateQueries({ queryKey: ["admin-rental-bookings"] });
-      toast.success(`Booking marked ${next}`);
+      if ((data as { refundNeeded?: boolean } | null)?.refundNeeded) toast.warning("Cancelled — it was paid, so refund the customer from Orders.");
+      else toast.success(`Booking marked ${next}`);
     } catch (e) {
       toast.error((e as Error).message || "Could not update the booking");
     } finally {
@@ -272,6 +292,11 @@ export default function CarRentals({ embedded = false, providerId }: {
 
                   {/* One control, not five buttons: a booking has a stage, and
                       the admin moves it. */}
+                  {b.payment_status !== "paid" && b.status !== "cancelled" && (
+                    <Button size="sm" variant="secondary" className="shrink-0" disabled={busy === b.id} onClick={() => void markPaid(b.id)}>
+                      Mark paid
+                    </Button>
+                  )}
                   <Select value={b.status} onValueChange={(v) => setStage(b.id, v)} disabled={busy === b.id}>
                     <SelectTrigger className="w-[130px] shrink-0 sm:w-[150px]"><SelectValue /></SelectTrigger>
                     <SelectContent>

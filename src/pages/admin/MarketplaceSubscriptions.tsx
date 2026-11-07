@@ -34,7 +34,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { adminApi } from "@/integrations/supabase/client";
 import { adminApiMessage } from "@/lib/admin/apiError";
 import {
-  fetchMarketplaceSales, buildSalePatch, SALE_SOURCES, type SaleRow,
+  fetchMarketplaceSales, buildSalePatch, deleteSaleRow, SALE_SOURCES, updateSaleRow, type SaleRow,
 } from "@/lib/admin/marketplaceSales";
 import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
 import { useAuth } from "@/contexts/AuthContext";
@@ -129,8 +129,7 @@ const MarketplaceSubscriptions = () => {
         if (userData?.id) await logAuditEvent(userData.id, "edit", "bookings", row.id, { status: "cancelled" });
         return;
       }
-      const { error } = await supabaseDb.from(b.table).update({ ...patch, updated_at: new Date().toISOString() }).eq("id", row.id);
-      if (error) throw error;
+      await updateSaleRow(b.table, row.id, patch, "Edited in Orders");
       if (userData?.id) await logAuditEvent(userData.id, "edit", backing(row).table, row.id, patch);
     },
     onSuccess: () => { toast.success("Saved"); invalidate(); setEditRow(null); },
@@ -142,8 +141,7 @@ const MarketplaceSubscriptions = () => {
       const b = backing(row);
       if (b.apiManaged) throw new Error("Cancel a booked hour rather than deleting it — the slot has to be given back.");
       if (wasPaid(row)) throw new Error("A paid sale is history — cancel or refund it instead of deleting it.");
-      const { error } = await supabaseDb.from(b.table).delete().eq("id", row.id);
-      if (error) throw error;
+      await deleteSaleRow(b.table, row.id);
       if (userData?.id) await logAuditEvent(userData.id, "delete", backing(row).table, row.id, {});
     },
     onSuccess: () => { toast.success("Deleted"); invalidate(); setDeleteRow(null); },
@@ -178,11 +176,7 @@ const MarketplaceSubscriptions = () => {
             const patch = action === "paid"
               ? buildSalePatch(row, { payment_status: "paid" })
               : buildSalePatch(row, { status: "cancelled" });
-            const { error } = await supabaseDb
-              .from(b.table)
-              .update({ ...patch, updated_at: new Date().toISOString() })
-              .eq("id", row.id);
-            if (error) throw error;
+            await updateSaleRow(b.table, row.id, patch, "Marked paid in Orders (bulk)");
           }
           if (userData?.id) {
             await logAuditEvent(userData.id, "edit", backing(row).table || "bookings", row.id, { bulk: action });
