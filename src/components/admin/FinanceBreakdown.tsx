@@ -1,26 +1,23 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, format } from "date-fns";
-import type { DateRange } from "react-day-picker";
+import { format } from "date-fns";
 import {
   Sparkles, UtensilsCrossed, Waves, Store, Car, TrendingUp, CalendarRange,
-  Calendar as CalendarIcon, Download, FileSpreadsheet, type LucideIcon,
+  Download, FileSpreadsheet, type LucideIcon,
 } from "lucide-react";
 import { fetchAllRows } from "@/lib/supabasePaging";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { formatUSD } from "@/lib/pricing";
 import { recognizedCents } from "@/lib/revenueRecognition";
 import { cn } from "@/lib/utils";
 import { fetchUsersByIds } from "@/lib/admin/customerNames";
 import { ROLLUP_SERVICES, type RollupServiceKey } from "@/lib/analytics/platformRollup";
+import { useFinanceRange } from "@/components/admin/finance/FinanceRange";
 import {
   Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 
-type RangeKey = "week" | "month" | "custom";
 
 /**
  * The columns are the rails a customer can pay on today, plus one bucket for
@@ -64,14 +61,6 @@ const normMethod = (m: unknown): MethodKey => {
   return "other";
 };
 
-function rangeFor(key: RangeKey, customStart: string, customEnd: string) {
-  const now = new Date();
-  if (key === "week") return { start: startOfWeek(now, { weekStartsOn: 1 }), end: endOfWeek(now, { weekStartsOn: 1 }) };
-  if (key === "month") return { start: startOfMonth(now), end: endOfMonth(now) };
-  const start = customStart ? new Date(`${customStart}T00:00:00`) : startOfMonth(now);
-  const end = customEnd ? new Date(`${customEnd}T23:59:59`) : now;
-  return { start, end };
-}
 
 type MethodRow = Record<MethodKey, number>;
 type Matrix = Record<string, MethodRow>;
@@ -139,11 +128,8 @@ function downloadCsv(rows: unknown[][], filename: string) {
 const usd = (cents: number) => (cents / 100).toFixed(2);
 
 export function FinanceBreakdown() {
-  const [range, setRange] = useState<RangeKey>("month");
-  const [customStart, setCustomStart] = useState("");
-  const [customEnd, setCustomEnd] = useState("");
-
-  const { start, end } = useMemo(() => rangeFor(range, customStart, customEnd), [range, customStart, customEnd]);
+  // The period is Finance's one control (FinanceRangePicker, top of the page).
+  const { start, end } = useFinanceRange();
   const startISO = start.toISOString();
   const endISO = end.toISOString();
 
@@ -294,73 +280,6 @@ export function FinanceBreakdown() {
             <FileSpreadsheet className="h-4 w-4" />
             {detailedLoading ? "Building…" : "Detailed CSV"}
           </Button>
-          <div className="flex gap-1 rounded-full bg-muted/50 p-1">
-            {(["week", "month", "custom"] as RangeKey[]).map((k) => (
-              <button
-                key={k}
-                type="button"
-                onClick={() => setRange(k)}
-                className={cn(
-                  "rounded-full px-3.5 py-1.5 text-sm font-semibold capitalize transition-colors",
-                  range === k ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {k}
-              </button>
-            ))}
-          </div>
-          {range === "custom" && (
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button size="sm"
-                  variant="secondary"
-                  className={cn(
-                    "justify-start gap-2 px-4 font-normal",
-                    !customStart && !customEnd && "text-muted-foreground",
-                  )}
-                >
-                  <CalendarIcon className="h-4 w-4" />
-                  {customStart || customEnd ? (
-                    <span className="tabular-nums">
-                      {customStart ? format(new Date(`${customStart}T00:00:00`), "MMM d, yyyy") : "Start"}
-                      {" – "}
-                      {customEnd ? format(new Date(`${customEnd}T00:00:00`), "MMM d, yyyy") : "End"}
-                    </span>
-                  ) : (
-                    "Pick date range"
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent align="end" className="p-0">
-                <Calendar
-                  mode="range"
-                  numberOfMonths={2}
-                  weekStartsOn={1}
-                  defaultMonth={customStart ? new Date(`${customStart}T00:00:00`) : undefined}
-                  selected={{
-                    from: customStart ? new Date(`${customStart}T00:00:00`) : undefined,
-                    to: customEnd ? new Date(`${customEnd}T00:00:00`) : undefined,
-                  }}
-                  onSelect={(r: DateRange | undefined) => {
-                    setCustomStart(r?.from ? format(r.from, "yyyy-MM-dd") : "");
-                    setCustomEnd(r?.to ? format(r.to, "yyyy-MM-dd") : "");
-                  }}
-                />
-                {(customStart || customEnd) && (
-                  <div className="flex justify-end border-t border-[hsl(var(--app-divider))] p-space-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-muted-foreground"
-                      onClick={() => { setCustomStart(""); setCustomEnd(""); }}
-                    >
-                      Clear
-                    </Button>
-                  </div>
-                )}
-              </PopoverContent>
-            </Popover>
-          )}
         </div>
       </div>
       <div className="p-space-6 pt-0">

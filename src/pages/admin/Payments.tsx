@@ -19,6 +19,7 @@ import { ProviderPayoutsPanel } from "@/components/admin/ProviderPayoutsPanel";
 import { formatUSD } from "@/lib/pricing";
 import { fetchPlatformRollup } from "@/lib/analytics/platformRollup";
 import { useTabParam } from "@/hooks/useTabParam";
+import { FinanceRangePicker, useFinanceRange } from "@/components/admin/finance/FinanceRange";
 import { QueryError } from "@/components/patterns/QueryError";
 
 const PAYMENT_METHOD_META = [
@@ -50,7 +51,19 @@ const AdminPayments = () => {
     queryKey: ["admin-platform-rollup"],
     queryFn: fetchPlatformRollup,
   });
-  const paidSales = rollup ? rollup.rows.filter((r) => r.paid && r.status !== "cancelled").length : 0;
+  // Sales MADE in the chosen period, at full price — the sales rule. The
+  // breakdown below spreads the same sales over their service period, so the
+  // two can differ for the same month; each says which it is.
+  const { start: rangeStart, end: rangeEnd, label: rangeLabel } = useFinanceRange();
+  const inRange = rollup
+    ? rollup.rows.filter((r) => {
+        if (!r.paid || r.status === "cancelled" || !r.createdAt) return false;
+        const t = Date.parse(r.createdAt);
+        return t >= rangeStart.getTime() && t <= rangeEnd.getTime();
+      })
+    : [];
+  const paidSales = inRange.length;
+  const soldCents = inRange.reduce((t, r) => t + r.valueCents, 0);
 
   const {
     data: methodSettings = [],
@@ -135,6 +148,8 @@ const AdminPayments = () => {
           { value: "payouts", label: "Payouts" },
         ]}
       />
+      {/* One period for Payments and Commission; Payouts is a ledger, not a period. */}
+      {financeTab !== "payouts" && <FinanceRangePicker className="mb-space-4" />}
 
       {financeTab === "payments" && (
         <>
@@ -150,11 +165,11 @@ const AdminPayments = () => {
             />
           ) : (
             <section className="grid grid-cols-2 gap-3 md:grid-cols-3">
-              <FinanceTile label="Paid sales" value={rollup ? String(paidSales) : "—"} hint="All-time · every service" />
-              <FinanceTile label="Awaiting payment" value={rollup ? String(rollup.totals.awaitingPayment) : "—"} hint="All-time · every service"
+              <FinanceTile label="Paid sales" value={rollup ? String(paidSales) : "—"} hint={`Made ${rangeLabel.startsWith("this") ? rangeLabel : `in ${rangeLabel}`}`} />
+              <FinanceTile label="Awaiting payment" value={rollup ? String(rollup.totals.awaitingPayment) : "—"} hint="Right now · every service"
                 warning={(rollup?.totals.awaitingPayment ?? 0) > 0} className="col-span-1" />
-              <FinanceTile label="Revenue" value={rollup ? formatUSD(rollup.totals.revenueCents) : "—"}
-                hint="All-time, same as the Dashboard — the breakdown below is per period" accent className="col-span-2 md:col-span-1" />
+              <FinanceTile label="Sold" value={rollup ? formatUSD(soldCents) : "—"}
+                hint="Full price of those sales. The breakdown below spreads each over its service period" accent className="col-span-2 md:col-span-1" />
             </section>
           )}
 

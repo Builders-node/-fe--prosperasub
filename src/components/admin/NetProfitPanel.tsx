@@ -1,20 +1,18 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { startOfMonth, endOfMonth, format } from "date-fns";
-import type { DateRange } from "react-day-picker";
+import { format } from "date-fns";
 import {
-  Wallet, TrendingUp, TrendingDown, Calendar as CalendarIcon, Settings2, PiggyBank, Pencil, Percent,
+  Wallet, TrendingUp, TrendingDown, Settings2, PiggyBank, Pencil, Percent,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { Spinner } from "@/components/ui/spinner";
 import { supabaseDb, adminApi } from "@/integrations/supabase/client";
 import { formatUSD } from "@/lib/pricing";
 import { commissionPct, splitTakeParts, DEFAULT_COMMISSION_KEY, DEFAULT_COMMISSION_PCT, type RevenuePart } from "@/lib/finance/platformTake";
 import { fetchEarned } from "@/lib/finance/providerEarnings";
 import { cn } from "@/lib/utils";
+import { useFinanceRange } from "@/components/admin/finance/FinanceRange";
 import {
   Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -36,7 +34,6 @@ import { PayoutBasisCard } from "@/components/admin/PayoutBasisCard";
  * own Money tab shows them, so the two screens cannot quote different numbers.
  */
 
-type RangeKey = "month" | "custom";
 
 interface ProviderRow {
   id: string;
@@ -48,22 +45,13 @@ interface ProviderRow {
   archetype_key: string | null;
 }
 
-function rangeFor(key: RangeKey, customStart: string, customEnd: string) {
-  const now = new Date();
-  if (key === "month") return { start: startOfMonth(now), end: endOfMonth(now) };
-  const start = customStart ? new Date(`${customStart}T00:00:00`) : startOfMonth(now);
-  const end = customEnd ? new Date(`${customEnd}T23:59:59`) : endOfMonth(now);
-  return { start, end };
-}
 
 export function NetProfitPanel() {
   const qc = useQueryClient();
 
   // ── Period ──────────────────────────────────────────────────────────────────
-  const [range, setRange] = useState<RangeKey>("month");
-  const [customStart, setCustomStart] = useState("");
-  const [customEnd, setCustomEnd] = useState("");
-  const { start, end } = useMemo(() => rangeFor(range, customStart, customEnd), [range, customStart, customEnd]);
+  // The period is Finance's one control (FinanceRangePicker, top of the page).
+  const { start, end } = useFinanceRange();
   const startISO = start.toISOString();
   const endISO = end.toISOString();
 
@@ -193,50 +181,6 @@ export function NetProfitPanel() {
 
   return (
     <div className="space-y-space-4">
-      {/* Period selector */}
-      <div className="mb-space-4 flex flex-col items-stretch gap-space-2 sm:flex-row sm:items-center sm:justify-end">
-        <div className="flex gap-1 rounded-full bg-muted/50 p-1">
-          {(["month", "custom"] as RangeKey[]).map((k) => (
-            <button key={k} type="button" onClick={() => setRange(k)}
-              className={cn(
-                "rounded-full px-3.5 py-1.5 text-sm font-semibold capitalize transition-colors",
-                range === k ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground",
-              )}>
-              {k === "month" ? "This month" : "Custom"}
-            </button>
-          ))}
-        </div>
-        {range === "custom" && (
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button size="sm" variant="secondary" className="justify-start gap-2 px-4 font-normal">
-                <CalendarIcon className="h-4 w-4" />
-                {customStart || customEnd ? (
-                  <span className="tabular-nums">
-                    {customStart ? format(new Date(`${customStart}T00:00:00`), "MMM d, yyyy") : "Start"}
-                    {" – "}
-                    {customEnd ? format(new Date(`${customEnd}T00:00:00`), "MMM d, yyyy") : "End"}
-                  </span>
-                ) : "Pick date range"}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent align="end" className="p-0">
-              <Calendar
-                mode="range" numberOfMonths={2} weekStartsOn={1}
-                defaultMonth={customStart ? new Date(`${customStart}T00:00:00`) : undefined}
-                selected={{
-                  from: customStart ? new Date(`${customStart}T00:00:00`) : undefined,
-                  to: customEnd ? new Date(`${customEnd}T00:00:00`) : undefined,
-                }}
-                onSelect={(d: DateRange | undefined) => {
-                  setCustomStart(d?.from ? format(d.from, "yyyy-MM-dd") : "");
-                  setCustomEnd(d?.to ? format(d.to, "yyyy-MM-dd") : "");
-                }}
-              />
-            </PopoverContent>
-          </Popover>
-        )}
-      </div>
 
       {/* KPI cards */}
       <div className="grid grid-cols-1 gap-space-3 sm:grid-cols-3">
