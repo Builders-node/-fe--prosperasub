@@ -11,7 +11,7 @@
 import {
   BarChart3, CalendarDays, DollarSign,
   BellRing, FileText, Layers, LayoutDashboard, MapPin, Megaphone, TicketPercent,
-  LifeBuoy, ShieldCheck, Users, Building2, CarFront, Star, } from "lucide-react";
+  LifeBuoy, ShieldCheck, Users, Building2, CarFront, Star, Wrench, } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { adminRoutes } from "./adminRoutes";
 
@@ -126,6 +126,8 @@ export const SETTINGS_SECTION: NavSection = {
     { label: "Team & roles", path: adminRoutes.superAdminRoles, icon: ShieldCheck,
       permissions: ["role_management.read"] },
     { label: "Audit log", path: adminRoutes.superAdminAuditLogs, icon: FileText,
+      permissions: ["admin_settings.read"] },
+    { label: "Diagnostics", path: "/admin/diagnostics", icon: Wrench,
       permissions: ["admin_settings.read"] },
   ],
 };
