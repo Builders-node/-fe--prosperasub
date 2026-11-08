@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import { UpsellSection } from "@/components/patterns/UpsellSection";
 import { Breadcrumbs } from "@/components/patterns/Breadcrumbs";
 import { FavoriteButton } from "@/components/patterns/FavoriteButton";
 import { useAuth } from "@/contexts/AuthContext";
@@ -274,6 +275,13 @@ export default function VehicleDetail() {
         </section>
         </div>
       </main>
+
+      <UpsellSection
+        title="Also for your stay"
+        placement="vehicle"
+        className="app-container mt-1 py-3 md:mt-4"
+        gridClassName="md:grid-cols-2 lg:grid-cols-3"
+      />
 
       {/* Phone: the action pinned to the bottom, carrying the figure. */}
       <DecisionBar className="p-4 shadow-figma md:hidden">

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { UpsellSection } from "@/components/patterns/UpsellSection";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useGoBack } from "@/hooks/useGoBack";
 import {
@@ -550,6 +551,7 @@ export default function Cart() {
                 </div>
 
                 <div className="md:grid md:grid-cols-[minmax(0,1fr)_380px] md:items-start md:gap-8">
+                  <div className="min-w-0 space-y-5">
                   <section className="divide-y divide-border/60 rounded-radius-lg bg-card px-4">
                     {items.map((item) => {
                       const shape = shapeOf(item);
@@ -594,6 +596,11 @@ export default function Cart() {
                       );
                     })}
                   </section>
+
+                  {/* Here and not on the pay step: while the basket is still
+                      being decided. Each pick lands in the list above. */}
+                  <UpsellSection title="Add to your order" placement="cart" className="px-4 md:px-0" />
+                  </div>
 
                   {/* The total, held in view on a laptop. */}
                   <aside className="mt-1 space-y-4 rounded-radius-lg bg-card p-5 md:sticky md:top-24 md:mt-0">

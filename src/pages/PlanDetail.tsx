@@ -1,4 +1,5 @@
 import { describeEntitlement, readEntitlements } from "@/lib/plans/entitlements";
+import { UpsellSection } from "@/components/patterns/UpsellSection";
 import { Breadcrumbs } from "@/components/patterns/Breadcrumbs";
 import { FavoriteButton } from "@/components/patterns/FavoriteButton";
 import { gaItem, trackEvent } from "@/lib/analytics/ga";
@@ -882,6 +883,16 @@ const PlanDetail = () => {
           </section>
         );
       })()}
+
+      {/* From other businesses — "More from" above already covers this one. */}
+      <UpsellSection
+        title="Goes well with this"
+        placement="plan"
+        exclude={[planId, plan.id, offer?.id]}
+        excludeProviderId={plan.providerId}
+        className="app-container mt-1 py-3 md:mt-4"
+        gridClassName="md:grid-cols-2 lg:grid-cols-3"
+      />
 
       {/*
         The design ends the screen here — no tab bar. A plan page is a decision,
