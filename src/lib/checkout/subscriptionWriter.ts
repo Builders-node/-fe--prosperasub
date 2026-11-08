@@ -96,12 +96,15 @@ export function buildSubscriptionWrite(
     ? { credit_applied_cents: Math.round(a.creditAppliedCents) }
     : {};
   const included = (plan.unitQuantity ?? 0) * Math.max(1, a.periods);
+  // Never a token id when the account's own id is known: "google-…" in a
+  // user_id column is an order nobody can be found from.
+  const userId = a.userUuid || a.userId;
 
   if (plan.service === "food") {
     return {
       table: "food_subscriptions",
       row: withExtra({
-        user_id: a.userId,
+        user_id: userId,
         provider_id: plan.providerLegacyId,
         meal_plan_id: plan.subjectPlanId,
         weekly_price_cents: plan.unitCents,
@@ -128,7 +131,7 @@ export function buildSubscriptionWrite(
     return {
       table: "cleaning_subscriptions",
       row: withExtra({
-        user_id: a.userId,
+        user_id: userId,
         package_id: plan.subjectPlanId,
         start_date: a.startDate,
         end_date: end,

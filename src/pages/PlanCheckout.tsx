@@ -392,7 +392,10 @@ const UniversalPlanCheckout = () => {
     return i === 0 ? effectiveTotalCents - per * (portions - 1) : per;
   };
   const write = (method: string, i = 0) => buildSubscriptionWrite(plan!, {
-    userId: userData?.id ?? userUuid ?? "",
+    // The account's real id first. A Google sign-in's token id is
+    // "google-…", which no table can join back to the person — their name,
+    // their email and every reminder were lost on two orders that way.
+    userId: userUuid ?? userData?.id ?? "",
     userUuid: userUuid ?? null,
     startDate,
     periods,
