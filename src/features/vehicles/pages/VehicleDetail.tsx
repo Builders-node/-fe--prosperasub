@@ -1,11 +1,12 @@
 import { useMemo, useRef, useState } from "react";
+import { Breadcrumbs } from "@/components/patterns/Breadcrumbs";
 import { FavoriteButton } from "@/components/patterns/FavoriteButton";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import type { DateRange } from "react-day-picker";
 import { differenceInCalendarDays, format } from "date-fns";
-import { Users, Fuel, Gauge, Snowflake, Briefcase, Car, ChevronRight } from "lucide-react";
+import { Users, Fuel, Gauge, Snowflake, Briefcase, Car } from "lucide-react";
 import { AppContainer } from "@/components/layout/AppContainer";
 import { Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
@@ -180,21 +181,7 @@ export default function VehicleDetail() {
 
         <div className="flex flex-col gap-1 md:gap-4">
         <section className="space-y-3 rounded-radius-lg bg-card p-4 shadow-figma">
-          <nav
-            aria-label="Breadcrumb"
-            className="-mx-4 flex items-start gap-2 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          >
-            {breadcrumbs.map((crumb) => (
-              <Link
-                key={crumb.label}
-                to={crumb.href}
-                className="flex shrink-0 items-start gap-0.5 rounded-radius-md bg-inset py-1 pl-2 pr-1 text-meta font-medium leading-4 text-muted-foreground transition-colors hover:text-foreground"
-              >
-                <span className="max-w-[45vw] truncate">{crumb.label}</span>
-                <ChevronRight className="h-4 w-4 shrink-0" />
-              </Link>
-            ))}
-          </nav>
+          <Breadcrumbs items={breadcrumbs} className="-mx-4 px-4" />
 
           <div className="space-y-2">
             <h1 className="text-3xl font-semibold leading-tight tracking-tight text-foreground">{v.name}</h1>

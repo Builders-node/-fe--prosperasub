@@ -1,4 +1,5 @@
 import { describeEntitlement, readEntitlements } from "@/lib/plans/entitlements";
+import { Breadcrumbs } from "@/components/patterns/Breadcrumbs";
 import { FavoriteButton } from "@/components/patterns/FavoriteButton";
 import { gaItem, trackEvent } from "@/lib/analytics/ga";
 import { Photo } from "@/components/patterns/Photo";
@@ -20,8 +21,7 @@ import { useProviderItems } from "@/lib/services/providerItems";
 import { useCart } from "@/contexts/CartContext";
 import { toast } from "sonner";
 import {
-  CheckIcon, KeyboardArrowLeftIcon, KeyboardArrowRightIcon,
-} from "@/components/icons/FigmaIcons";
+  CheckIcon, KeyboardArrowLeftIcon, } from "@/components/icons/FigmaIcons";
 import { ProviderReviewsBlock, type ProviderReviewService } from "@/components/reviews/ProviderReviewsBlock";
 import { findVariant, periodUnit, selectionFor, usePlanOffers, type PlanOffer } from "@/hooks/usePlanOffers";
 import { ADD_TO_CART, decideLabel, normalizeUnit } from "@/lib/checkout/ctaLabel";
@@ -38,7 +38,7 @@ import { fetchPlanMirrorExtras } from "@/lib/plans/planGallery";
 import { resolveMonthlyPriceCents, formatFrequencyLabel } from "@/lib/cleaningPlanPricing";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
-import { Check, SearchX, ShoppingCart, Store } from "lucide-react";
+import { Check, SearchX, ShoppingCart } from "lucide-react";
 import { LinkifiedText } from "@/components/patterns/LinkifiedText";
 import { DecisionBar } from "@/components/patterns/DecisionBar";
 import { useSeo, offerJsonLd } from "@/hooks/useSeo";
@@ -763,35 +763,7 @@ const PlanDetail = () => {
 
         <div className="flex flex-col gap-1 md:gap-4">
         <section className="space-y-3 rounded-radius-lg bg-card p-4 shadow-figma">
-          {breadcrumbs.length > 0 && (
-            <nav
-              aria-label="Breadcrumb"
-              className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-            >
-              {breadcrumbs.map((crumb) => (
-                <Link
-                  key={crumb.label}
-                  to={crumb.href}
-                  className={cn(
-                    "flex h-7 shrink-0 items-center gap-0.5 rounded-radius-md bg-inset pr-1 text-meta font-medium leading-4 text-muted-foreground transition-colors hover:text-foreground",
-                    crumb.avatar !== undefined ? "pl-1" : "pl-2",
-                  )}
-                >
-                  {crumb.avatar !== undefined && (
-                    <Photo
-                      src={crumb.avatar}
-                      alt=""
-                      icon={Store}
-                      className="mr-1 h-5 w-5 shrink-0 rounded-full object-cover"
-                      iconClassName="h-3 w-3 min-h-3 min-w-3"
-                    />
-                  )}
-                  <span className="max-w-[45vw] truncate">{crumb.label}</span>
-                  <KeyboardArrowRightIcon className="h-4 w-4 shrink-0" />
-                </Link>
-              ))}
-            </nav>
-          )}
+          {breadcrumbs.length > 0 && <Breadcrumbs items={breadcrumbs} className="-mx-4 px-4" />}
 
           <div className="space-y-2">
             <h1 className="text-[24px] font-semibold leading-tight tracking-[-0.48px] text-foreground">{title}</h1>

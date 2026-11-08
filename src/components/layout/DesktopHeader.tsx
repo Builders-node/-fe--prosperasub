@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
+import { Breadcrumbs } from "@/components/patterns/Breadcrumbs";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { ArrowLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { NotificationBell } from "@/components/layout/NotificationBell";
@@ -125,11 +126,7 @@ export function DesktopHeader({
               </button>
             )}
             {breadcrumb && (
-              <nav className="flex min-w-0 items-center gap-2" aria-label="Breadcrumb">
-                <Link to="/" className="transition-colors hover:text-foreground">{t("common.home")}</Link>
-                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/50" />
-                <span className="truncate font-medium text-foreground">{breadcrumb}</span>
-              </nav>
+              <Breadcrumbs items={[{ label: t("common.home"), href: "/" }, { label: breadcrumb }]} />
             )}
           </div>
         </div>

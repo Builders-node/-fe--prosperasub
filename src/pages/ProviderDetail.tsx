@@ -1,4 +1,5 @@
 import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
+import { Breadcrumbs } from "@/components/patterns/Breadcrumbs";
 import { FavoriteButton } from "@/components/patterns/FavoriteButton";
 import { Photo } from "@/components/patterns/Photo";
 import { useEffect, useState } from "react";
@@ -10,7 +11,7 @@ import { archetypeFromSlug, planHref, serviceMetaFromSlug, serviceSlug } from "@
 import { Button } from "@/components/ui/button";
 import {
   SparklesIcon, Waves, Car,
-  MapPin, Phone, Mail, Clock, Star, ChevronRight, ChevronLeft,
+  MapPin, Phone, Mail, Clock, Star, ChevronLeft,
   Store,
 } from "lucide-react";
 import { ShareButton } from "@/components/patterns/ShareButton";
@@ -652,14 +653,12 @@ const ProviderDetail = () => {
               Atlantis · Atlantis" from the header down. A crumb that repeats
               the one before it is dropped as well — the Beach Club is its own
               service, and "Beach Club › Beach Club" says nothing twice. */}
-          <div className="flex flex-wrap gap-2">
-            {[serviceLabel, p.location]
+          <Breadcrumbs
+            items={[serviceLabel, p.location]
               .filter((c): c is string => !!c && !!c.trim())
               .filter((c, i, all) => all.findIndex((o) => o.toLowerCase() === c.toLowerCase()) === i)
-              .map((c, i) => (
-                <Crumb key={c} to={i === 0 ? meta.listingRoute : undefined}>{c}</Crumb>
-              ))}
-          </div>
+              .map((c, i) => ({ label: c, href: i === 0 ? meta.listingRoute : undefined }))}
+          />
 
           <div className="mt-3 space-y-2">
             <h1 className="text-[24px] font-semibold leading-tight text-foreground">{p.name}</h1>
@@ -833,16 +832,6 @@ function planPhoto(plan: UniversalPlan & { gallery_urls?: unknown }): string | n
   return first ?? null;
 }
 
-/** A breadcrumb chip: 12px medium on the inset fill, radius 16. */
-function Crumb({ children, to }: { children: React.ReactNode; to?: string }) {
-  const inner = (
-    <span className="inline-flex items-center gap-0.5 rounded-radius-md bg-inset px-2 py-1 text-[12px] font-medium leading-4 tracking-[-0.02em] text-muted-foreground">
-      {children}
-      <ChevronRight className="h-4 w-4" />
-    </span>
-  );
-  return to ? <Link to={to}>{inner}</Link> : inner;
-}
 
 /**
  * A plan, as the design draws it: a 104px picture, the name, two lines of

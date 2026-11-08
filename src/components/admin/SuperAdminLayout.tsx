@@ -1,9 +1,9 @@
 import { ReactNode } from "react";
+import { Breadcrumbs } from "@/components/patterns/Breadcrumbs";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import {
   BadgeDollarSign,
   Store,
-  ChevronRight,
   LogOut,
   Menu,
 } from "lucide-react";
@@ -240,23 +240,9 @@ const SuperAdminLayout = ({ children, title, subtitle }: SuperAdminLayoutProps) 
             </div>
 
             {/* Breadcrumb */}
-            <nav
-              className="flex min-w-0 flex-1 items-center gap-space-2 px-space-5 text-control"
-              aria-label="Breadcrumb"
-            >
-              <Link
-                to="/admin/dashboard"
-                className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
-              >
-                Admin
-              </Link>
-              {title && (
-                <>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/50" aria-hidden />
-                  <span className="truncate font-semibold text-foreground">{title}</span>
-                </>
-              )}
-            </nav>
+            <div className="flex min-w-0 flex-1 px-space-5">
+              <Breadcrumbs items={[{ label: "Admin", href: "/admin/dashboard" }, ...(title ? [{ label: title }] : [])]} />
+            </div>
 
             {/* Actions */}
             <div className="flex items-center gap-space-3 px-space-5">
