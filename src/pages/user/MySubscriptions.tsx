@@ -44,6 +44,7 @@ import { useAuthModal } from "@/contexts/AuthModalContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { accountApi, supabase, supabaseDb } from "@/integrations/supabase/client";
 import { useUserUuid } from "@/hooks/useUserUuid";
+import { usePlanPhotos } from "@/hooks/usePlanPhotos";
 import { format, isPast, addWeeks, parseISO } from "date-fns";
 import { addDaysISO, addMonthsISO, addWeeksISO, formatDateHN, formatRangeHN, todayHN } from "@/lib/timezone";
 import { formatUSD } from "@/lib/pricing";
@@ -741,6 +742,17 @@ const MySubscriptions = () => {
     String(b.status) !== "cancelled" && String(b.end_date ?? "") >= todayHN();
   const visibleRentals = inScope(rentalBookings as any[], isLiveRental);
 
+  /** Each card's photo — the plan's, else its business's (see usePlanPhotos). */
+  const photoFor = usePlanPhotos([
+    ...visibleFood.map((x: any) => x.meal_plan_id),
+    ...visibleBeach.map((x: any) => x.plan_id),
+    ...visibleUniversal.map((x: any) => x.plan_id),
+    ...[...activeCleaningSubs, ...pausedCleaningSubs, ...pastCleaningSubs, ...visibleLinkedClientSubs]
+      .map((x: any) => x.package_id),
+  ]);
+  /** A comped one-off was "$0.00" — say what it was. */
+  const priceOrFree = (cents: number) => (cents > 0 ? formatUSD(cents) : "Free");
+
   const byDateTime = (a: any, b: any) => {
     const dtA = `${a.cleaning_available_slots?.date ?? "9999"}T${a.cleaning_available_slots?.start_time ?? "00:00:00"}`;
     const dtB = `${b.cleaning_available_slots?.date ?? "9999"}T${b.cleaning_available_slots?.start_time ?? "00:00:00"}`;
@@ -945,8 +957,10 @@ const MySubscriptions = () => {
                   };
                   return (
                     <SubscriptionCard
+                      compact={scope === "past"}
                       key={s.id}
                       icon={UtensilsCrossed}
+                      image={photoFor(s.meal_plan_id)}
                       title={s.food_meal_plans?.name ?? "Meal plan"}
                       subtitle={s.started_at
                         ? formatRangeHN(s.started_at, foodEnd(s))
@@ -983,7 +997,7 @@ const MySubscriptions = () => {
                       })}
                       actions={[
                         ...(foodCanRenew(s) ? [
-                          { key: "renew", label: "Renew", icon: RefreshCw, onClick: openRenewDialog, variant: "secondary" as const },
+                          { key: "renew", label: scope === "past" ? "Order again" : "Renew", icon: RefreshCw, onClick: openRenewDialog, variant: "secondary" as const },
                         ] : []),
                       ]}
                     />
@@ -1046,8 +1060,10 @@ const MySubscriptions = () => {
 
                     return (
                       <SubscriptionCard
+                        compact={scope === "past"}
                         key={s.id}
                         icon={Waves}
+                        image={photoFor(s.plan_id)}
                         title={s.plan_name || "Beach Club Membership"}
                         subtitle={<>
                           {s.people || 1} {(s.people || 1) === 1 ? "person" : "people"}
@@ -1083,7 +1099,7 @@ const MySubscriptions = () => {
                             { key: "court", label: "Book a court", icon: LandPlot, onClick: () => navigate("/services/beach-club/courts"), variant: "primary" as const },
                           ] : []),
                           ...(canRenew ? [
-                            { key: "renew", label: "Renew", icon: RefreshCw, onClick: openRenewDialog, variant: "secondary" as const },
+                            { key: "renew", label: scope === "past" ? "Order again" : "Renew", icon: RefreshCw, onClick: openRenewDialog, variant: "secondary" as const },
                           ] : []),
                         ]}
                       />
@@ -1117,8 +1133,10 @@ const MySubscriptions = () => {
                   const providerName = s.providers?.name ?? s.metadata?.provider_name ?? null;
                   return (
                     <SubscriptionCard
+                      compact={scope === "past"}
                       key={s.id}
                       icon={LayoutGrid}
+                      image={photoFor(s.plan_id)}
                       title={planName}
                       subtitle={<>
                         {providerName}
@@ -1152,7 +1170,7 @@ const MySubscriptions = () => {
                       actions={st === "cancelled" ? [] : [
                         ...(s.plan_id ? [{
                           key: "renew",
-                          label: "Renew",
+                          label: scope === "past" ? "Order again" : "Renew",
                           icon: RefreshCw,
                           variant: "secondary" as const,
                           onClick: () => navigate(`/checkout/${s.plan_id}?renew=${s.id}`),
@@ -1183,6 +1201,7 @@ const MySubscriptions = () => {
                   const openBooking = () => navigate(carPath(`booking/${b.id}`));
                   return (
                     <SubscriptionCard
+                      compact={scope === "past"}
                       key={b.id}
                       icon={CarFront}
                       image={b.rental_vehicles?.image_url ?? null}
@@ -1323,15 +1342,17 @@ const MySubscriptions = () => {
                       ];
                       if (sub.package_id) actions.push({
                         key: "renew",
-                        label: "Renew",
+                        label: scope === "past" ? "Order again" : "Renew",
                         icon: RefreshCw,
                         variant: "secondary" as const,
                         onClick: openRenewDialog,
                       });
                       return (
                         <SubscriptionCard
+                          compact={scope === "past"}
                           key={sub.id}
                           icon={SparklesIcon}
+                          image={photoFor((sub as any).package_id)}
                           title={(sub as any).cleaning_packages?.name}
                           subtitle={paused
                             ? "Paused"
@@ -1376,8 +1397,10 @@ const MySubscriptions = () => {
                       const isPending = sub.payment_status !== "paid";
                       return (
                         <SubscriptionCard
+                          compact={scope === "past"}
                           key={sub.id}
                           icon={SparklesIcon}
+                          image={photoFor(sub.package_id)}
                           title={sub.cleaning_packages?.name ?? "Cleaning plan"}
                           subtitle={sub.recurring_day_of_week != null
                             ? "Weekly schedule active"
@@ -1431,14 +1454,16 @@ const MySubscriptions = () => {
                       };
                       return (
                         <SubscriptionCard
+                          compact={scope === "past"}
                           key={sub.id}
                           icon={SparklesIcon}
-                          title={(sub as any).cleaning_packages?.name ?? "Cleaning plan"}
+                          image={photoFor((sub as any).package_id)}
+                          title={(sub as any).cleaning_packages?.name ?? (sub.package_id ? "Cleaning plan" : "One-time cleaning")}
                           subtitle={sub.service_start_date || sub.start_date
                             ? formatRangeHN(sub.service_start_date || sub.start_date, sub.service_end_date || sub.end_date)
                             : undefined}
                           statusBadge={<StatusPill status={pastStatus} />}
-                          metadata={<span className="tabular-nums">{formatUSD((sub.monthly_price_cents || 0) * (sub.billing_period_months || 1))}</span>}
+                          metadata={<span className="tabular-nums">{priceOrFree((sub.monthly_price_cents || 0) * (sub.billing_period_months || 1))}</span>}
                           onClick={() => setDetail({
                             title: (sub as any).cleaning_packages?.name ?? "Cleaning plan",
                             status: pastStatus,
@@ -1464,7 +1489,7 @@ const MySubscriptions = () => {
                             sessions: bookingSessions(sub.id),
                           })}
                           actions={sub.package_id && pastStatus === "expired" ? [
-                            { key: "renew", label: "Renew", icon: RefreshCw, onClick: openRenewDialog, variant: "primary" as const },
+                            { key: "renew", label: scope === "past" ? "Order again" : "Renew", icon: RefreshCw, onClick: openRenewDialog, variant: "primary" as const },
                           ] : []}
                         />
                       );
