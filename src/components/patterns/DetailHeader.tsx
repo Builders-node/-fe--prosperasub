@@ -82,7 +82,7 @@ export function DetailHeader({
         share. It looked deliberate because the desktop header sits above it on
         some pages and not others.
       */}
-      <div className="sticky top-0 z-40 hidden bg-card md:block">
+      <div className="sticky top-[var(--desktop-header-h,0px)] z-30 hidden bg-card md:block">
         <div className="app-container flex h-14 items-center gap-3">
           <button
             type="button"

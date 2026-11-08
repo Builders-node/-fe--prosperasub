@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ArrowLeft, ChevronRight } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -30,6 +31,24 @@ export function DesktopHeader({
   const navigate = useNavigate();
   const showSecondaryNav = showBackButton || breadcrumb;
 
+  // The header is sticky, and so is a detail page's own bar below it. Both
+  // used to stick at top 0, so on scroll the page bar slid over the header.
+  // The header publishes its real height (it grows with the secondary nav) and
+  // anything sticky beneath it sticks at `--desktop-header-h`.
+  const headerRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const publish = () => document.documentElement.style.setProperty("--desktop-header-h", `${el.offsetHeight}px`);
+    publish();
+    const ro = new ResizeObserver(publish);
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      document.documentElement.style.removeProperty("--desktop-header-h");
+    };
+  }, []);
+
   const handleBack = () => {
     if (onBack) {
       onBack();
@@ -39,7 +58,7 @@ export function DesktopHeader({
   };
 
   return (
-    <header className="hidden md:block sticky top-0 z-40 bg-background border-b border-border/30">
+    <header ref={headerRef} className="hidden md:block sticky top-0 z-40 bg-background border-b border-border/30">
       {/* ── Yandex Go desktop header: logo · tabs · search · account ── */}
       <div className="app-container flex h-[68px] items-center gap-4">
 
