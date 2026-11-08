@@ -20,6 +20,8 @@ import { fetchAllRows } from "@/lib/supabasePaging";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAuditEvent } from "@/lib/auditLog";
 import { formatDateHN } from "@/lib/timezone";
+import { useTableSort } from "@/lib/table/useTableSort";
+import { SortHeader } from "@/components/ui/sort-header";
 
 /**
  * Telling everybody something.
@@ -127,6 +129,14 @@ const Announcements = () => {
     }
     return [...seen.values()];
   }, [sent]);
+
+  // A list, not a grid — so a small strip of sort headers above it. Without a
+  // choice it stays newest first, the order it is fetched in.
+  const sort = useTableSort(history, {
+    title: (h) => h.title,
+    sent: (h) => new Date(h.created_at),
+    reach: (h) => h.count,
+  });
 
   const send = useMutation({
     mutationFn: async () => {
@@ -257,11 +267,18 @@ const Announcements = () => {
           <h2 className="text-title font-semibold text-foreground">
             Already sent
           </h2>
+          {history.length > 1 && (
+            <div className="flex flex-wrap items-center gap-4 text-[12px] text-muted-foreground">
+              <span aria-sort={sort.ariaSort("title")}><SortHeader {...sort.headerProps("title")}>Title</SortHeader></span>
+              <span aria-sort={sort.ariaSort("sent")}><SortHeader {...sort.headerProps("sent")}>Sent</SortHeader></span>
+              <span aria-sort={sort.ariaSort("reach")}><SortHeader {...sort.headerProps("reach")}>Reach</SortHeader></span>
+            </div>
+          )}
           {history.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nothing yet.</p>
           ) : (
             <ul className="divide-y divide-border/60">
-              {history.map((h, i) => (
+              {sort.sorted.map((h, i) => (
                 <li key={i} className="py-3">
                   <p className="text-[15px] font-semibold text-foreground">{h.title}</p>
                   <p className="line-clamp-2 text-[13px] text-muted-foreground">{h.body}</p>

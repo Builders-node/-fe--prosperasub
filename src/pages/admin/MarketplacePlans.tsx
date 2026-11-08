@@ -5,6 +5,8 @@ import { Building2, ExternalLink } from "lucide-react";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { AdminListShell } from "@/components/admin/AdminListShell";
 import { usePagination, TablePagination } from "@/components/ui/table-pagination";
+import { useTableSort } from "@/lib/table/useTableSort";
+import { SortHeader } from "@/components/ui/sort-header";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -107,8 +109,21 @@ const MarketplacePlans = ({ embedded = false, archetypeKey }: MarketplacePlansPr
     });
   }, [plans, service, providerId, status, search, providerById]);
 
+  const sort = useTableSort(visible, {
+    plan: (p) => p.name,
+    provider: (p) => providerById.get(p.provider_id)?.name ?? null,
+    service: (p) => {
+      const key = providerById.get(p.provider_id)?.archetype_key;
+      return archetypes.find((a) => a.key === key)?.label ?? null;
+    },
+    price: (p) => p.price_cents,
+    status: (p) => (p.status === "active" ? 0 : p.status === "inactive" ? 1 : 2),
+  // Its own key: this list is also a tab of a service's drill-down, and a
+  // shared ?sort= would follow the admin from tab to tab.
+  }, { param: "plans_sort" });
+
   // Client-side: the filters already have every row in hand.
-  const pager = usePagination(visible, 25);
+  const pager = usePagination(sort.sorted, 25);
 
   const formatPeriod = (period: string) => period.replace(/_/g, " ");
 
@@ -161,11 +176,11 @@ const MarketplacePlans = ({ embedded = false, archetypeKey }: MarketplacePlansPr
         <div className="overflow-hidden rounded-radius-md bg-card">
           {/* Desktop header row */}
           <div className="hidden grid-cols-[minmax(0,3fr)_minmax(0,2fr)_120px_minmax(0,1fr)_80px_80px] items-center gap-4 border-b border-border/40 px-space-5 py-space-3 text-meta font-semibold text-muted-foreground md:grid">
-            <div>Plan</div>
-            <div>Provider</div>
-            <div>Service</div>
-            <div className="text-right">Price</div>
-            <div>Status</div>
+            <div aria-sort={sort.ariaSort("plan")}><SortHeader {...sort.headerProps("plan")}>Plan</SortHeader></div>
+            <div aria-sort={sort.ariaSort("provider")}><SortHeader {...sort.headerProps("provider")}>Provider</SortHeader></div>
+            <div aria-sort={sort.ariaSort("service")}><SortHeader {...sort.headerProps("service")}>Service</SortHeader></div>
+            <div className="flex justify-end" aria-sort={sort.ariaSort("price")}><SortHeader {...sort.headerProps("price")} align="right">Price</SortHeader></div>
+            <div aria-sort={sort.ariaSort("status")}><SortHeader {...sort.headerProps("status")}>Status</SortHeader></div>
             <div className="text-right">Actions</div>
           </div>
 

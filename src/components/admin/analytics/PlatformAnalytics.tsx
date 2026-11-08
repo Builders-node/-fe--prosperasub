@@ -14,6 +14,8 @@ import { nowHN } from "@/lib/timezone";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import { useTableSort } from "@/lib/table/useTableSort";
+import { SortHeader } from "@/components/ui/sort-header";
 
 /**
  * The platform, as one set of figures — in the same layout, in the same order,
@@ -30,6 +32,7 @@ import {
 // there are services, strongest first.
 const TINTS = ["bg-primary", "bg-primary/70", "bg-primary/45", "bg-primary/30", "bg-primary/20", "bg-primary/12"];
 const tintAt = (i: number) => TINTS[Math.min(i, TINTS.length - 1)];
+const NO_SERVICES: Awaited<ReturnType<typeof fetchPlatformRollup>>["services"] = [];
 
 export function PlatformAnalytics() {
   const [period] = useRollupPeriod();
@@ -40,9 +43,22 @@ export function PlatformAnalytics() {
 
   const { data: names } = useQuery({ queryKey: ANALYTICS_NAMES_KEY, queryFn: fetchAnalyticsNames });
 
+  // Before the early return — a hook. Its own param: the page also carries
+  // the service picker and period in the URL.
+  const services = data?.services ?? NO_SERVICES;
+  const sort = useTableSort(services, {
+    service: (s) => s.label,
+    revenue: (s) => s.revenueCents,
+    month: (s) => s.monthRevenueCents,
+    active: (s) => s.active,
+    subs: (s) => s.subs,
+    customers: (s) => s.customers,
+    awaiting: (s) => s.awaitingPayment,
+  }, { param: "services_sort" });
+
   if (isLoading || !data) return <PageLoader />;
 
-  const { totals, services, months } = data;
+  const { totals, months } = data;
   const rows = rowsInPeriod(data.rows, period);
   const monthLabel = format(nowHN(), "MMMM");
   const serviceLabels = new Map(services.map((s) => [s.key as string, s.label]));
@@ -74,18 +90,18 @@ export function PlatformAnalytics() {
             <Table className="min-w-[560px]">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="px-3 py-2">Service</TableHead>
-                  <TableHead className="px-3 py-2 text-right">Revenue</TableHead>
-                  <TableHead className="px-3 py-2 text-right">{monthLabel}</TableHead>
-                  <TableHead className="px-3 py-2 text-right">Active</TableHead>
-                  <TableHead className="px-3 py-2 text-right">Subs</TableHead>
-                  <TableHead className="px-3 py-2 text-right">Customers</TableHead>
-                  <TableHead className="px-3 py-2 text-right">Awaiting</TableHead>
+                  <TableHead className="px-3 py-2" aria-sort={sort.ariaSort("service")}><SortHeader {...sort.headerProps("service")}>Service</SortHeader></TableHead>
+                  <TableHead className="px-3 py-2 text-right" aria-sort={sort.ariaSort("revenue")}><SortHeader {...sort.headerProps("revenue")} align="right">Revenue</SortHeader></TableHead>
+                  <TableHead className="px-3 py-2 text-right" aria-sort={sort.ariaSort("month")}><SortHeader {...sort.headerProps("month")} align="right">{monthLabel}</SortHeader></TableHead>
+                  <TableHead className="px-3 py-2 text-right" aria-sort={sort.ariaSort("active")}><SortHeader {...sort.headerProps("active")} align="right">Active</SortHeader></TableHead>
+                  <TableHead className="px-3 py-2 text-right" aria-sort={sort.ariaSort("subs")}><SortHeader {...sort.headerProps("subs")} align="right">Subs</SortHeader></TableHead>
+                  <TableHead className="px-3 py-2 text-right" aria-sort={sort.ariaSort("customers")}><SortHeader {...sort.headerProps("customers")} align="right">Customers</SortHeader></TableHead>
+                  <TableHead className="px-3 py-2 text-right" aria-sort={sort.ariaSort("awaiting")}><SortHeader {...sort.headerProps("awaiting")} align="right">Awaiting</SortHeader></TableHead>
                   <TableHead className="w-10 px-3 py-2" />
                 </TableRow>
               </TableHeader>
               <TableBody className="divide-y divide-border">
-                {services.map((s) => (
+                {sort.sorted.map((s) => (
                   <TableRow key={s.key} className="transition-colors hover:bg-muted/40">
                     <TableCell className="px-3 py-3">
                       <Link to={`/admin/analytics?service=${s.key}`} className="font-semibold text-foreground">

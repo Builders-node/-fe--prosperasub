@@ -17,6 +17,8 @@ import {
   Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
+import { useTableSort } from "@/lib/table/useTableSort";
+import { SortHeader } from "@/components/ui/sort-header";
 import { PayoutBasisCard } from "@/components/admin/PayoutBasisCard";
 
 /**
@@ -113,6 +115,14 @@ export function NetProfitPanel() {
   const isListed = (p: { status: string | null }, revenue: number) => p.status === "active" || revenue > 0;
   const listed = rows.filter((r) => isListed(r, r.revenue));
   const hiddenCount = rows.length - listed.length;
+  // Its own param: payouts and the breakdown share /admin/payments.
+  const sort = useTableSort(listed, {
+    business: (r) => r.name,
+    revenue: (r) => r.revenue,
+    rate: (r) => r.pct,
+    ours: (r) => r.ours,
+    theirs: (r) => r.theirs,
+  }, { param: "profit_sort" });
   const totalRevenue = rows.reduce((s, r) => s + r.revenue, 0);
   const netProfit = rows.reduce((s, r) => s + r.ours, 0);
   // Everything we don't keep is the businesses' share — earned by them, not
@@ -228,15 +238,15 @@ export function NetProfitPanel() {
             <Table className="min-w-[520px]">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="py-2 pr-4">Business</TableHead>
-                  <TableHead className="px-3 py-2 text-right">Revenue</TableHead>
-                  <TableHead className="px-3 py-2 text-right">Rate</TableHead>
-                  <TableHead className="px-3 py-2 text-right">Our commission</TableHead>
-                  <TableHead className="px-3 py-2 text-right">They keep</TableHead>
+                  <TableHead className="py-2 pr-4" aria-sort={sort.ariaSort("business")}><SortHeader {...sort.headerProps("business")}>Business</SortHeader></TableHead>
+                  <TableHead className="px-3 py-2 text-right" aria-sort={sort.ariaSort("revenue")}><SortHeader {...sort.headerProps("revenue")} align="right">Revenue</SortHeader></TableHead>
+                  <TableHead className="px-3 py-2 text-right" aria-sort={sort.ariaSort("rate")}><SortHeader {...sort.headerProps("rate")} align="right">Rate</SortHeader></TableHead>
+                  <TableHead className="px-3 py-2 text-right" aria-sort={sort.ariaSort("ours")}><SortHeader {...sort.headerProps("ours")} align="right">Our commission</SortHeader></TableHead>
+                  <TableHead className="px-3 py-2 text-right" aria-sort={sort.ariaSort("theirs")}><SortHeader {...sort.headerProps("theirs")} align="right">They keep</SortHeader></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody className={cn(isLoading && "opacity-50")}>
-                {listed.map((row) => (
+                {sort.sorted.map((row) => (
                   <TableRow key={row.id} className="border-b border-border/40">
                     <TableCell className="py-2.5 pr-4 font-semibold text-foreground">{row.name}</TableCell>
                     <TableCell className="px-3 py-2.5 text-right font-mono tabular-nums text-foreground">{formatUSD(row.revenue)}</TableCell>

@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { AdminListShell } from "@/components/admin/AdminListShell";
 import { usePagination, TablePagination } from "@/components/ui/table-pagination";
+import { useTableSort } from "@/lib/table/useTableSort";
+import { SortHeader } from "@/components/ui/sort-header";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -153,7 +155,13 @@ const MarketplaceReviews = ({ embedded = false, providerId: scopedProvider }: Ma
       .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
   }, [rows, search, rating, visibility, providerFilter, providerName]);
 
-  const pager = usePagination(filtered, 25);
+  const sort = useTableSort(filtered, {
+    rating: (r) => r.rating,
+    review: (r) => r.customer_name,
+    business: (r) => providerName.get(r.provider_id) ?? null,
+    when: (r) => (r.created_at ? new Date(r.created_at) : null),
+  });
+  const pager = usePagination(sort.sorted, 25);
 
   const hasFilters = search !== "" || rating !== "all" || visibility !== "all" || providerFilter !== "all";
   const clearFilters = () => {
@@ -210,10 +218,10 @@ const MarketplaceReviews = ({ embedded = false, providerId: scopedProvider }: Ma
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="px-4 py-3">Rating</TableHead>
-              <TableHead className="px-4 py-3">Review</TableHead>
-              <TableHead className="hidden px-4 py-3 md:table-cell">Business</TableHead>
-              <TableHead className="hidden px-4 py-3 md:table-cell">When</TableHead>
+              <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("rating")}><SortHeader {...sort.headerProps("rating")}>Rating</SortHeader></TableHead>
+              <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("review")}><SortHeader {...sort.headerProps("review")}>Review</SortHeader></TableHead>
+              <TableHead className="hidden px-4 py-3 md:table-cell" aria-sort={sort.ariaSort("business")}><SortHeader {...sort.headerProps("business")}>Business</SortHeader></TableHead>
+              <TableHead className="hidden px-4 py-3 md:table-cell" aria-sort={sort.ariaSort("when")}><SortHeader {...sort.headerProps("when")}>When</SortHeader></TableHead>
               <TableHead className="w-10" />
             </TableRow>
           </TableHeader>

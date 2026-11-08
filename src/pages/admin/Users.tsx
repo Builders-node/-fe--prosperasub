@@ -31,6 +31,8 @@ import { StatusPill, statusLabel } from "@/components/patterns/StatusPill";
 import { pickPhone } from "@/components/patterns/CustomerPhone";
 import { formatDateHN } from "@/lib/timezone";
 import { cn } from "@/lib/utils";
+import { useTableSort } from "@/lib/table/useTableSort";
+import { SortHeader } from "@/components/ui/sort-header";
 import { useResidences } from "@/hooks/useResidences";
 import { addressFromProfile, addressPayload, EMPTY_ADDRESS } from "@/lib/address";
 
@@ -187,7 +189,16 @@ const AdminUsers = () => {
   }, [people, filter, serviceFilter, search, adminSlugs]);
 
   const isLoading = usersLoading;
-  const pager = usePagination(filteredPeople, 20);
+  // Click a header to sort; without a click the list stays newest first.
+  const statusRank = (p: Person) => (p.isBlocked ? 0 : p.services.size > 0 ? 3 : p.lapsed ? 2 : 1);
+  const sort = useTableSort(filteredPeople, {
+    person: (p) => p.name,
+    services: (p) => p.services.size || null,
+    roles: (p) => userRoles(p.raw).join(", ") || null,
+    joined: (p) => (p.createdAt ? new Date(p.createdAt) : null),
+    status: (p) => statusRank(p),
+  });
+  const pager = usePagination(sort.sorted, 20);
   const paged = pager.paged;
 
   const FILTERS: { label: string; value: Filter; count?: number }[] = [
@@ -248,11 +259,11 @@ const AdminUsers = () => {
       <div className="overflow-hidden rounded-radius-md bg-card">
               {/* Header row (desktop) */}
               <div className={cn("hidden items-center gap-4 border-b border-border/40 px-space-5 py-space-3 text-meta font-semibold text-muted-foreground md:grid", ROW_GRID)}>
-                <div>Person</div>
-                <div>Services</div>
-                <div>Roles</div>
-                <div>Joined</div>
-                <div>Status</div>
+                <div aria-sort={sort.ariaSort("person")}><SortHeader {...sort.headerProps("person")}>Person</SortHeader></div>
+                <div aria-sort={sort.ariaSort("services")}><SortHeader {...sort.headerProps("services")}>Services</SortHeader></div>
+                <div aria-sort={sort.ariaSort("roles")}><SortHeader {...sort.headerProps("roles")}>Roles</SortHeader></div>
+                <div aria-sort={sort.ariaSort("joined")}><SortHeader {...sort.headerProps("joined")}>Joined</SortHeader></div>
+                <div aria-sort={sort.ariaSort("status")}><SortHeader {...sort.headerProps("status")}>Status</SortHeader></div>
                 <div className="text-right">Actions</div>
               </div>
 

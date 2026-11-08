@@ -20,6 +20,8 @@ import { useFinanceRange } from "@/components/admin/finance/FinanceRange";
 import {
   Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import { useTableSort, type SortAccessors } from "@/lib/table/useTableSort";
+import { SortHeader } from "@/components/ui/sort-header";
 
 
 /**
@@ -170,6 +172,16 @@ export function FinanceBreakdown() {
   const categoryTotal = (c: string) => METHODS.reduce((s, m) => s + cellOf(c, m.key), 0);
   const grandTotal = serviceKeys.reduce((s, c) => s + categoryTotal(c), 0);
 
+  // Click-to-sort on the table only (the CSV keeps Settings order). Its own
+  // param: payouts and net profit share /admin/payments. A zero cell reads
+  // "—", so it sorts as empty — last either way.
+  const orZero = (v: number) => (v ? v : null);
+  const sort = useTableSort(serviceKeys, {
+    service: (k) => labelFor(k, index),
+    ...Object.fromEntries(METHODS.map((m) => [m.key, (k: string) => orZero(cellOf(k, m.key))])),
+    total: (k) => orZero(categoryTotal(k)),
+  } as SortAccessors<string, "service" | MethodKey | "total">, { param: "breakdown_sort" });
+
   // ─── Detailed CSV (per sale, with customer, business + plan) ───────────────
   const [detailedLoading, setDetailedLoading] = useState(false);
 
@@ -301,15 +313,15 @@ export function FinanceBreakdown() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="py-2 pr-4">Service</TableHead>
+                <TableHead className="py-2 pr-4" aria-sort={sort.ariaSort("service")}><SortHeader {...sort.headerProps("service")}>Service</SortHeader></TableHead>
                 {METHODS.map((m) => (
-                  <TableHead key={m.key} className="px-3 py-2 text-right">{m.label}</TableHead>
+                  <TableHead key={m.key} className="px-3 py-2 text-right" aria-sort={sort.ariaSort(m.key)}><SortHeader {...sort.headerProps(m.key)} align="right">{m.label}</SortHeader></TableHead>
                 ))}
-                <TableHead className="pl-3 py-2 text-right">Total</TableHead>
+                <TableHead className="pl-3 py-2 text-right" aria-sort={sort.ariaSort("total")}><SortHeader {...sort.headerProps("total")} align="right">Total</SortHeader></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody className={cn(isLoading && "opacity-50")}>
-              {serviceKeys.map((key) => {
+              {sort.sorted.map((key) => {
                 const Icon = iconFor(key, index);
                 return (
                   <TableRow key={key} className="border-b border-border/40">

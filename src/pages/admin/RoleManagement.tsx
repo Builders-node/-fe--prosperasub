@@ -24,6 +24,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import { QueryError } from "@/components/patterns/QueryError";
+import { useTableSort } from "@/lib/table/useTableSort";
+import { SortHeader } from "@/components/ui/sort-header";
 
 type Role = {
   id: string;
@@ -120,6 +122,13 @@ export default function RoleManagement() {
 
   const activeRoles = roles.filter((role) => role.status === "active");
   const inactiveRoles = roles.filter((role) => role.status !== "active");
+  // Not a grid, so no header row to click — the panel carries a small strip of
+  // the same sort headers instead. Without a choice: active first, as before.
+  const sort = useTableSort([...activeRoles, ...inactiveRoles], {
+    name: (role) => role.name,
+    status: (role) => (role.status === "active" ? 0 : 1),
+    permissions: (role) => role.permissions.length,
+  });
 
   return (
     <SuperAdminLayout title="Team" subtitle="Admin roles and what each one may open">
@@ -141,10 +150,15 @@ export default function RoleManagement() {
         <section className="rounded-radius-md bg-card">
           <div className="flex flex-col gap-space-2 p-space-6">
             <h3 className="text-panel-title">Roles</h3>
+            <div className="flex flex-wrap items-center gap-space-4 text-xs text-muted-foreground">
+              <span aria-sort={sort.ariaSort("name")}><SortHeader {...sort.headerProps("name")}>Name</SortHeader></span>
+              <span aria-sort={sort.ariaSort("status")}><SortHeader {...sort.headerProps("status")}>Status</SortHeader></span>
+              <span aria-sort={sort.ariaSort("permissions")}><SortHeader {...sort.headerProps("permissions")}>Permissions</SortHeader></span>
+            </div>
           </div>
           <div className="p-space-6 pt-0 space-y-space-2">
             {(
-              [...activeRoles, ...inactiveRoles].map((role) => (
+              sort.sorted.map((role) => (
                 <div key={role.id} className="flex flex-wrap items-center justify-between gap-space-3 rounded-radius-md bg-inset px-space-4 py-space-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-space-2">

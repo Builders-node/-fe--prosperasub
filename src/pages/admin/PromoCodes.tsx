@@ -20,6 +20,8 @@ import { adminApi, supabaseDb } from "@/integrations/supabase/client";
 import { adminApiMessage, isNotDeployed } from "@/lib/admin/apiError";
 import { formatUSD } from "@/lib/pricing";
 import { formatDateHN } from "@/lib/timezone";
+import { useTableSort } from "@/lib/table/useTableSort";
+import { SortHeader } from "@/components/ui/sort-header";
 
 /**
  * Promo codes.
@@ -56,6 +58,9 @@ interface PromoRow {
 
 const valueOf = (p: PromoRow) =>
   p.kind === "percent" ? `${p.percent_off}% off` : `${formatUSD(p.amount_off_cents ?? 0)} off`;
+
+/** Live codes first, then switched off, then anything else (expired…). */
+const STATUS_RANK: Record<string, number> = { active: 0, inactive: 1 };
 
 /**
  * Cashback, on the same page as promo codes because it is the same money: a
@@ -183,6 +188,18 @@ const PromoCodes = () => {
         .some((v) => (v ?? "").toLowerCase().includes(needle)));
   }, [rows, search, providerName]);
 
+  const sort = useTableSort(filtered, {
+    code: (p) => p.code,
+    // A percentage and a fixed sum don't compare; group by kind, then by size
+    // (the collator orders the numbers numerically).
+    off: (p) => p.kind === "percent" ? `percent ${p.percent_off ?? 0}` : `fixed ${p.amount_off_cents ?? 0}`,
+    where: (p) => p.provider_id ? providerName.get(p.provider_id) ?? null : "Anywhere",
+    used: (p) => p.redemptions,
+    given: (p) => p.given_away_cents,
+    until: (p) => p.ends_at ? new Date(p.ends_at) : null,
+    status: (p) => STATUS_RANK[p.status] ?? 2,
+  });
+
   return (
     <SuperAdminLayout title="Promo codes" subtitle="Discounts the platform pays for, not the business">
       <BonusSettings />
@@ -211,18 +228,18 @@ const PromoCodes = () => {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="px-4 py-3">Code</TableHead>
-              <TableHead className="px-4 py-3">Takes off</TableHead>
-              <TableHead className="hidden px-4 py-3 md:table-cell">Where</TableHead>
-              <TableHead className="px-4 py-3">Used</TableHead>
-              <TableHead className="hidden px-4 py-3 text-right md:table-cell">Given away</TableHead>
-              <TableHead className="hidden px-4 py-3 md:table-cell">Until</TableHead>
-              <TableHead className="px-4 py-3">Status</TableHead>
+              <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("code")}><SortHeader {...sort.headerProps("code")}>Code</SortHeader></TableHead>
+              <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("off")}><SortHeader {...sort.headerProps("off")}>Takes off</SortHeader></TableHead>
+              <TableHead className="hidden px-4 py-3 md:table-cell" aria-sort={sort.ariaSort("where")}><SortHeader {...sort.headerProps("where")}>Where</SortHeader></TableHead>
+              <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("used")}><SortHeader {...sort.headerProps("used")}>Used</SortHeader></TableHead>
+              <TableHead className="hidden px-4 py-3 text-right md:table-cell" aria-sort={sort.ariaSort("given")}><SortHeader {...sort.headerProps("given")} align="right">Given away</SortHeader></TableHead>
+              <TableHead className="hidden px-4 py-3 md:table-cell" aria-sort={sort.ariaSort("until")}><SortHeader {...sort.headerProps("until")}>Until</SortHeader></TableHead>
+              <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("status")}><SortHeader {...sort.headerProps("status")}>Status</SortHeader></TableHead>
               <TableHead className="w-10" />
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.map((p) => (
+            {sort.sorted.map((p) => (
               <TableRow key={p.id}>
                 <TableCell className="px-4 py-3">
                   <p className="font-mono font-semibold text-foreground">{p.code}</p>

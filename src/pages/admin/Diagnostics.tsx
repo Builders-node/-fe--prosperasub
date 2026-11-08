@@ -16,6 +16,8 @@ import { PayPalPanel } from "@/components/payment/PayPalPanel";
 import { formatUSD } from "@/lib/pricing";
 import { useTabParam } from "@/hooks/useTabParam";
 import { QueryError } from "@/components/patterns/QueryError";
+import { useTableSort } from "@/lib/table/useTableSort";
+import { SortHeader } from "@/components/ui/sort-header";
 
 /**
  * The developer's corner of the admin.
@@ -90,6 +92,10 @@ const formatNotificationDate = (value: string) =>
 
 // The pill vocabulary's own tones (see StatusPill) — so "sent" here and "paid"
 // on Finance are the same green for the same good news.
+/** Delivered first, failed last — so "worst first" is one click away. */
+const NOTIFICATION_STATUS_RANK: Record<string, number> = { sent: 0, pending: 1, skipped: 2, failed: 3 };
+const notificationStatusRank = (status: string) => NOTIFICATION_STATUS_RANK[status] ?? 1;
+
 const notificationStatusClass = (status: string) => {
   if (status === "sent") return "bg-positive/15 text-positive";
   if (status === "failed") return "bg-destructive/15 text-destructive";
@@ -459,7 +465,17 @@ function NotificationLog() {
     },
   });
 
-  const notifPager = usePagination(adminNotifications, 15);
+  // Sorted before paging; the server sends the latest 50 in one go. Amount is
+  // the USD figure — a sats-only row has none and sorts last.
+  const notifSort = useTableSort(adminNotifications, {
+    payment: (n) => n.serviceName,
+    amount: (n) => (typeof n.amountCents === "number" ? n.amountCents : null),
+    email: (n) => notificationStatusRank(n.emailStatus),
+    telegram: (n) => notificationStatusRank(n.telegramStatus),
+    paid: (n) => (n.paidAt ? new Date(n.paidAt) : null),
+  }, { param: "notif_sort" });
+
+  const notifPager = usePagination(notifSort.sorted, 15);
 
   const resendNotificationMutation = useMutation({
     mutationFn: async (id: string) => {
@@ -539,11 +555,11 @@ function NotificationLog() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Payment</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Telegram</TableHead>
-                    <TableHead>Paid at</TableHead>
+                    <TableHead aria-sort={notifSort.ariaSort("payment")}><SortHeader {...notifSort.headerProps("payment")}>Payment</SortHeader></TableHead>
+                    <TableHead aria-sort={notifSort.ariaSort("amount")}><SortHeader {...notifSort.headerProps("amount")}>Amount</SortHeader></TableHead>
+                    <TableHead aria-sort={notifSort.ariaSort("email")}><SortHeader {...notifSort.headerProps("email")}>Email</SortHeader></TableHead>
+                    <TableHead aria-sort={notifSort.ariaSort("telegram")}><SortHeader {...notifSort.headerProps("telegram")}>Telegram</SortHeader></TableHead>
+                    <TableHead aria-sort={notifSort.ariaSort("paid")}><SortHeader {...notifSort.headerProps("paid")}>Paid at</SortHeader></TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>

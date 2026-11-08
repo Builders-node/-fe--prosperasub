@@ -2,11 +2,13 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useUrlState } from "@/hooks/useUrlState";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Building2, ChevronsUpDown, ChevronUp, ChevronDown, Download, MoreVertical, Pencil, Trash2, Undo2 } from "lucide-react";
+import { Building2, Download, MoreVertical, Pencil, Trash2, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { AdminListShell } from "@/components/admin/AdminListShell";
 import { usePagination, TablePagination } from "@/components/ui/table-pagination";
+import { useTableSort } from "@/lib/table/useTableSort";
+import { SortHeader } from "@/components/ui/sort-header";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -43,8 +45,6 @@ import { cn } from "@/lib/utils";
 import { fetchUsersByIds } from "@/lib/admin/customerNames";
 import { formatUSD } from "@/lib/pricing";
 
-type SortKey = "name" | "date" | "service";
-
 interface Provider { id: string; name: string; archetype_key: string | null; }
 interface UserRow { id: string; name: string | null; display_name: string | null; email: string | null; }
 
@@ -64,6 +64,11 @@ function subscriptionStage(s: SaleRow): string {
   if (s.payment_status !== "paid")     return "pending_payment";
   return "active";
 }
+
+/** Stage order for sorting: what needs attention first, then running, then done. */
+const STAGE_RANK: Record<string, number> = {
+  pending_payment: 0, active: 1, paused: 2, expired: 3, cancelled: 4, refunded: 5,
+};
 
 /**
  * Every sale on the platform, read from `subscriptions_unified` via
@@ -91,8 +96,6 @@ const MarketplaceSubscriptions = () => {
   // `?ending=2` — running sales whose period ends within N days (Today links here).
   const [ending, setEnding] = useUrlState<string>("ending", "");
   const endingDays = /^\d{1,3}$/.test(ending) ? Number(ending) : null;
-  const [sortBy, setSortBy] = useState<SortKey>("date");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulk, setBulk] = useState<null | "paid" | "cancel">(null);
   const [editRow, setEditRow] = useState<SaleRow | null>(null);
@@ -231,15 +234,6 @@ const MarketplaceSubscriptions = () => {
     onError: (e) => toast.error(adminApiMessage(e, "Could not refund")),
   });
 
-  const toggleSort = (key: SortKey) => {
-    if (sortBy === key) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
-      setSortBy(key);
-      setSortDir(key === "date" ? "desc" : "asc");
-    }
-  };
-
   const { data: providers = [] } = useQuery({
     queryKey: ["marketplace-providers-slim"],
     queryFn: async () => {
@@ -329,26 +323,28 @@ const MarketplaceSubscriptions = () => {
     });
   }, [rows, service, status, payment, kind, origin, search, endingDays, providerById, userById]);
 
-  const sorted = useMemo(() => {
-    const svcLabel = (key?: string | null) => archetypes.find((a) => a.key === key)?.label ?? "";
-    const dir = sortDir === "asc" ? 1 : -1;
-    return [...visible].sort((a, b) => {
-      let cmp = 0;
-      if (sortBy === "name") {
-        cmp = customerLabel(a).localeCompare(customerLabel(b));
-      } else if (sortBy === "service") {
-        const prov = (s: SaleRow) => providerById.get(s.provider_id)?.archetype_key ?? null;
-        cmp = svcLabel(prov(a)).localeCompare(svcLabel(prov(b)));
-      } else {
-        // date — prefer start_date, fall back to created_at
-        const key = (s: SaleRow) => s.start_date || s.created_at || "";
-        cmp = key(a).localeCompare(key(b));
-      }
-      // stable tiebreak on created_at so equal keys keep a deterministic order
-      if (cmp === 0) cmp = (a.created_at || "").localeCompare(b.created_at || "");
-      return cmp * dir;
-    });
-  }, [visible, sortBy, sortDir, archetypes, providerById, userById]);
+  // Every row is already in hand (see the paging note below), so every column
+  // sorts here. The choice lives in `?sort=` like the filters; the keys `name`,
+  // `service` and `date` are the ones this page used before, so old links hold.
+  // Ties keep `visible` order, which is pre-sorted by created_at for stability.
+  const svcLabel = (key?: string | null) => archetypes.find((a) => a.key === key)?.label ?? null;
+  const visibleByCreated = useMemo(
+    () => [...visible].sort((a, b) => (a.created_at || "").localeCompare(b.created_at || "")),
+    [visible],
+  );
+  type SaleSortKey = "name" | "plan" | "provider" | "service" | "kind" | "date" | "stage" | "amount";
+  const sort = useTableSort<SaleRow, SaleSortKey>(visibleByCreated, {
+    name: (s) => { const l = customerLabel(s); return l === "—" ? null : l; },
+    plan: (s) => s.plan_name,
+    provider: (s) => providerById.get(s.provider_id)?.name ?? null,
+    service: (s) => svcLabel(providerById.get(s.provider_id)?.archetype_key),
+    kind: (s) => s.kind,
+    // date — prefer start_date, fall back to created_at
+    date: (s) => { const d = s.start_date || s.created_at; return d ? new Date(d) : null; },
+    stage: (s) => STAGE_RANK[subscriptionStage(s)] ?? null,
+    amount: (s) => (typeof s.price_cents === "number" ? s.price_cents : null),
+  }, { initial: { key: "date", dir: "desc" } });
+  const sorted = sort.sorted;
 
   // One row per sale, so this list only ever grows. Paged client-side: the
   // adapter already has every row in hand for the counts and the filters, so
@@ -506,14 +502,14 @@ const MarketplaceSubscriptions = () => {
                       })}
                     />
                   </TableHead>
-                  <SortHeader label="Customer" sortKey="name" active={sortBy} dir={sortDir} onSort={toggleSort} />
-                  <TableHead className="px-4 py-3">Plan</TableHead>
-                  <TableHead className="px-4 py-3">Provider</TableHead>
-                  <SortHeader label="Service" sortKey="service" active={sortBy} dir={sortDir} onSort={toggleSort} />
-                  <TableHead className="px-4 py-3">Type</TableHead>
-                  <SortHeader label="Period" sortKey="date" active={sortBy} dir={sortDir} onSort={toggleSort} />
-                  <TableHead className="px-4 py-3">Stage</TableHead>
-                  <TableHead className="px-4 py-3 text-right">Amount</TableHead>
+                  <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("name")}><SortHeader {...sort.headerProps("name")}>Customer</SortHeader></TableHead>
+                  <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("plan")}><SortHeader {...sort.headerProps("plan")}>Plan</SortHeader></TableHead>
+                  <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("provider")}><SortHeader {...sort.headerProps("provider")}>Provider</SortHeader></TableHead>
+                  <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("service")}><SortHeader {...sort.headerProps("service")}>Service</SortHeader></TableHead>
+                  <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("kind")}><SortHeader {...sort.headerProps("kind")}>Type</SortHeader></TableHead>
+                  <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("date")}><SortHeader {...sort.headerProps("date")}>Period</SortHeader></TableHead>
+                  <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("stage")}><SortHeader {...sort.headerProps("stage")}>Stage</SortHeader></TableHead>
+                  <TableHead className="px-4 py-3 text-right" aria-sort={sort.ariaSort("amount")}><SortHeader {...sort.headerProps("amount")} align="right">Amount</SortHeader></TableHead>
                   <TableHead className="w-10 px-2 py-3" aria-label="Actions" />
                 </TableRow>
               </TableHeader>
@@ -947,30 +943,6 @@ function EditForm({
         <Button onClick={submit} disabled={saving} loading={saving} loadingText="Saving…">Save</Button>
       </SheetFooter>
     </div>
-  );
-}
-
-function SortHeader({
-  label, sortKey, active, dir, onSort,
-}: {
-  label: string; sortKey: SortKey; active: SortKey; dir: "asc" | "desc"; onSort: (k: SortKey) => void;
-}) {
-  const isActive = active === sortKey;
-  const Icon = !isActive ? ChevronsUpDown : dir === "asc" ? ChevronUp : ChevronDown;
-  return (
-    <TableHead className="px-4 py-3">
-      <button
-        type="button"
-        onClick={() => onSort(sortKey)}
-        className={cn(
-          "inline-flex items-center gap-1 transition-colors hover:text-foreground",
-          isActive && "text-foreground",
-        )}
-      >
-        {label}
-        <Icon className={cn("h-3.5 w-3.5", !isActive && "text-muted-foreground/50")} />
-      </button>
-    </TableHead>
   );
 }
 

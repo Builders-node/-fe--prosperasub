@@ -13,6 +13,8 @@ import { accountApi, adminApi, supabaseDb } from "@/integrations/supabase/client
 import { formatUSD } from "@/lib/pricing";
 import { formatDateHN } from "@/lib/timezone";
 import { QueryError } from "@/components/patterns/QueryError";
+import { useTableSort } from "@/lib/table/useTableSort";
+import { SortHeader } from "@/components/ui/sort-header";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -449,6 +451,14 @@ function OwedBalances({ onRecord }: { onRecord: (providerId: string, owedCents: 
     rows.some((r) => pick(r) == null) ? null : rows.reduce((s, r) => s + (pick(r) ?? 0), 0);
   const money = (v: number | null) => (v == null ? "—" : formatUSD(v));
 
+  // Its own param: net profit and the breakdown share /admin/payments.
+  const sort = useTableSort(rows, {
+    business: (r) => r.name,
+    earned: (r) => r.earnedCents,
+    paid: (r) => r.paidCents,
+    owed: (r) => r.owedCents,
+  }, { param: "payouts_sort" });
+
   return (
     <section className="rounded-radius-lg bg-card p-space-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -484,15 +494,15 @@ function OwedBalances({ onRecord }: { onRecord: (providerId: string, owedCents: 
           <Table className="min-w-[640px]">
             <TableHeader>
               <TableRow>
-                <TableHead className="py-2 pr-4">Business</TableHead>
-                <TableHead className="px-3 py-2 text-right">Earned</TableHead>
-                <TableHead className="px-3 py-2 text-right" title="Paid, plus requests approved or in flight">Paid</TableHead>
-                <TableHead className="px-3 py-2 text-right">Owed</TableHead>
+                <TableHead className="py-2 pr-4" aria-sort={sort.ariaSort("business")}><SortHeader {...sort.headerProps("business")}>Business</SortHeader></TableHead>
+                <TableHead className="px-3 py-2 text-right" aria-sort={sort.ariaSort("earned")}><SortHeader {...sort.headerProps("earned")} align="right">Earned</SortHeader></TableHead>
+                <TableHead className="px-3 py-2 text-right" title="Paid, plus requests approved or in flight" aria-sort={sort.ariaSort("paid")}><SortHeader {...sort.headerProps("paid")} align="right">Paid</SortHeader></TableHead>
+                <TableHead className="px-3 py-2 text-right" aria-sort={sort.ariaSort("owed")}><SortHeader {...sort.headerProps("owed")} align="right">Owed</SortHeader></TableHead>
                 <TableHead className="pl-3 py-2 text-right"><span className="sr-only">Actions</span></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((r) => (
+              {sort.sorted.map((r) => (
                 <TableRow key={r.providerId} className="border-b border-border/40">
                   <TableCell className="py-2.5 pr-4">
                     <p className="font-semibold text-foreground">{r.name}</p>
