@@ -334,12 +334,16 @@ const PlanDetail = () => {
 
   // Opening a plan that is one combination of an offer should show that
   // combination selected, not an empty picker.
+  // `?v=` names the combination when a link to one variant was folded into
+  // the offer's own address (see "One product, one address" below).
+  const variantParam = new URLSearchParams(location.search).get("v");
   useEffect(() => {
     if (!offer) { setSelection({}); return; }
     const current = offer.variants.find((v) =>
+      (variantParam && (v.id === variantParam || v.sourcePlanId === variantParam)) ||
       (plan?.source === "universal" ? v.id : v.sourcePlanId) === plan?.id);
     setSelection(current ? selectionFor(current) : selectionFor(offer.variants[0] ?? { optionKeys: {} } as never));
-  }, [offer, plan]);
+  }, [offer, plan, variantParam]);
 
   const chosen = offer ? findVariant(offer, selection) : null;
 
@@ -473,9 +477,25 @@ const PlanDetail = () => {
     : plan?.source === "cleaning" ? "cleaning"
     : plan?.source === "food" ? "food"
     : (providerQ.data?.archetype_key ?? archetypeKey);
-  const canonical = plan ? planHref(canonicalKey, plan.id) : null;
+  /**
+   * One product, one address.
+   *
+   * A combination of an offer ("Mon–Fri, 1 meal a day") used to be a page of
+   * its own: its legacy id opened the same product with different photos and
+   * a different line under the title, and search and the listings linked
+   * there while the home page linked to the offer. A variant's address now
+   * folds into the offer's, carrying the combination in `?v=` so it opens
+   * selected.
+   */
+  const onVariant = !!offer && !!plan && offer.id !== plan.id;
+  const canonical = !plan ? null
+    : onVariant ? planHref(canonicalKey, offer!.id)
+    : planHref(canonicalKey, plan.id);
   if (canonical && canonical !== location.pathname) {
-    return <Navigate to={`${canonical}${location.search}`} replace />;
+    const qs = new URLSearchParams(location.search);
+    if (onVariant && !qs.get("v")) qs.set("v", plan!.id);
+    const search = qs.toString();
+    return <Navigate to={`${canonical}${search ? `?${search}` : ""}`} replace />;
   }
 
   if (planQ.isLoading) return <PageLoader />;

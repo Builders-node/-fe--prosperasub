@@ -153,8 +153,13 @@ async function pageFor(path: string): Promise<Page | null> {
   if (parts[0] === "services" && planIdx >= 0 && SAFE_ID.test(parts[planIdx + 1] ?? "")) {
     const id = parts[planIdx + 1];
     const filter = UUID.test(id) ? `or=(id.eq.${id},source_plan_id.eq.${id})` : `source_plan_id=eq.${id}`;
-    const [plan] = await rows(`provider_plans?${filter}&select=${PLAN_COLS},status&limit=1`);
+    let [plan] = await rows(`provider_plans?${filter}&select=${PLAN_COLS},status,parent_plan_id&limit=1`);
     if (!plan || plan.status !== "active") return null;
+    // A combination of an offer is the offer: same page, same canonical address.
+    if (plan.parent_plan_id) {
+      const [parent] = await rows(`provider_plans?id=eq.${plan.parent_plan_id}&select=${PLAN_COLS},status,parent_plan_id&limit=1`);
+      if (parent && parent.status === "active") plan = parent;
+    }
     const [prov] = plan.provider_id ? await rows(`providers?id=eq.${plan.provider_id}&select=id,name,banner_url,unit,archetype_key`) : [];
     const price = priceLine(plan.price_cents, plan.period);
     const description = [price, clip(plan.description, 160)].filter(Boolean).join(" — ") || `${plan.name} on EverySub.`;

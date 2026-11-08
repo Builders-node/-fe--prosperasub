@@ -434,7 +434,9 @@ const FoodListing = () => {
                       images={offer?.gallery?.length ? offer.gallery : menuDishes}
                       rating={ratings[provider.id]}
                       offer={offer}
-                      onOpen={() => navigate(`/services/food/plans/${plan.id}`)}
+                      // A combination of an offer opens the offer, with it selected —
+                      // one product, one address (see PlanDetail).
+                      onOpen={() => navigate(offer ? `/services/food/plans/${offer.id}?v=${plan.id}` : `/services/food/plans/${plan.id}`)}
                     />
                   );
                 })}

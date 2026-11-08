@@ -207,13 +207,10 @@ export function useGlobalSearch(query: string) {
 
       const cheapest = offerCheapestSource.get(String(p.id));
       const provider = providerRows.get(String(p.provider_id));
-      const href = cheapest
-        // An offer opens on its cheapest combination — the same door the
-        // listing card uses, so the option chips are already there.
-        ? legacyPlanHref(provider, cheapest.sourceId)
-        // A plan with no legacy row behind it has its own page under whatever
-        // archetype its provider belongs to.
-        : `/services/${provider?.archetype_key ?? "beach-club"}/plans/${p.id}`;
+      // An offer has one address — its own; `?v=` opens it on its cheapest
+      // combination so the option chips arrive already chosen.
+      const segment = provider?.archetype_key ?? (provider?.source_service_key === "beach" ? "beach-club" : provider?.source_service_key) ?? "beach-club";
+      const href = `/services/${segment}/plans/${p.id}${cheapest ? `?v=${cheapest.sourceId}` : ""}`;
 
       push(String(p.id), p.name, providerName.get(String(p.provider_id)) ?? null, href,
            p.price_cents ?? null, p.period === "weekly" ? "/ week" : "/ month", [p.description],
