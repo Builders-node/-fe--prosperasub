@@ -23,7 +23,8 @@ import {
 } from "@/components/icons/FigmaIcons";
 import { ProviderReviewsBlock, type ProviderReviewService } from "@/components/reviews/ProviderReviewsBlock";
 import { findVariant, periodUnit, selectionFor, usePlanOffers, type PlanOffer } from "@/hooks/usePlanOffers";
-import { ADD_TO_CART, SUBSCRIBE, fromLabel, normalizeUnit, payLabel } from "@/lib/checkout/ctaLabel";
+import { ADD_TO_CART, decideLabel, normalizeUnit } from "@/lib/checkout/ctaLabel";
+import { normPeriod } from "@/lib/services/planPeriod";
 import { useArchetypeLabel } from "@/hooks/useServiceArchetypes";
 import { publicListingHref } from "@/lib/services/providerBridge";
 import { planHref, providerHref } from "@/lib/services/serviceUrls";
@@ -35,7 +36,7 @@ import { fetchPlanMirrorExtras } from "@/lib/plans/planGallery";
 import { resolveMonthlyPriceCents, formatFrequencyLabel } from "@/lib/cleaningPlanPricing";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
-import { SearchX } from "lucide-react";
+import { SearchX, ShoppingCart } from "lucide-react";
 import { LinkifiedText } from "@/components/patterns/LinkifiedText";
 import { DecisionBar } from "@/components/patterns/DecisionBar";
 import { useSeo, offerJsonLd } from "@/hooks/useSeo";
@@ -75,6 +76,8 @@ interface ResolvedPlan {
   features: string[];
   priceCents: number | null;
   priceUnit: string;
+  /** Sold once rather than per period — the button says Buy, not Subscribe. */
+  oneTime?: boolean;
   providerId: string | null;
   /** A line the service wants under the title — cleaning's frequency. */
   meta: string | null;
@@ -172,6 +175,7 @@ const PlanDetail = () => {
             entitlements: universal.entitlements,
             priceCents: universal.price_cents ?? null,
             priceUnit: periodUnit(universal.period),
+            oneTime: normPeriod(universal.period) === "one_time",
             providerId: universal.provider_id ? String(universal.provider_id) : null,
             meta: null,
           };
@@ -589,19 +593,50 @@ const PlanDetail = () => {
   // previews it — but not bought.
   const shopStatus = (providerQ.data as { status?: string | null } | null | undefined)?.status;
   const notOnSale = !!shopStatus && !["active", "approved"].includes(shopStatus);
-  const ctaLabel =
-    notOnSale ? "Not on sale yet"
-    : isFood ? ADD_TO_CART
-    : typeof priceCents === "number" && priceCents > 0 && !showFrom ? payLabel(priceCents, unit)
-    : SUBSCRIBE;
-  const fromRange = showFrom ? fromLabel(priceCents, unit) : null;
+  // One-time when the chosen combination (or the plan itself) is sold once.
+  const oneTime = chosen ? normPeriod(chosen.period) === "one_time" : !!plan?.oneTime;
+  const ctaLabel = notOnSale ? "Not on sale yet" : decideLabel(priceCents, unit, { oneTime, from: showFrom });
+
+  const buyDisabled = notOnSale || (!!offer && !chosen) || (mealsPerDay > 0 && meals.length !== Math.min(mealsPerDay, 3));
+
+  /**
+   * Add to cart — the quiet second button, on every plan. The basket is for
+   * people taking several things at once; the main button is the one-tap path.
+   */
+  const addToCartOnly = () => {
+    if (!plan) return;
+    if (isFood) {
+      addToCart({
+        service: "food", providerId: plan.legacyProviderId ?? "", providerName: providerName ?? "Restaurant",
+        planId: buyableId, planName: chosen?.name ?? plan.title, unitPriceCents: priceCents ?? 0,
+        periods: 1, mealsPerDay: mealsPerDay || 1, meals,
+      } as never, 1);
+    } else {
+      addToCart({
+        service: "plan", providerId: plan.providerId ?? "", providerName: providerName ?? "Provider",
+        planId: buyableId, planName: offer?.name && chosen ? `${offer.name} · ${chosen.name}` : (chosen?.name ?? plan.title),
+        unitPriceCents: priceCents ?? 0, periods: 1,
+      } as never, 1);
+    }
+    toast.success("Added to your cart", { action: { label: "View cart", onClick: () => navigate("/cart") } });
+  };
+  const cartButton = (
+    <button
+      type="button"
+      onClick={addToCartOnly}
+      disabled={buyDisabled}
+      className="flex w-full items-center justify-center gap-2 rounded-radius-md px-4 py-2.5 text-body font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-40"
+    >
+      <ShoppingCart className="h-4 w-4" /> {ADD_TO_CART}
+    </button>
+  );
 
   // One button, two places: the bottom bar on a phone, the details column on a laptop.
   const buyButton = (
   <button
     type="button"
     onClick={subscribe}
-    disabled={notOnSale || (!!offer && !chosen) || (mealsPerDay > 0 && meals.length !== Math.min(mealsPerDay, 3))}
+    disabled={buyDisabled}
     className="w-full rounded-radius-md bg-primary px-4 py-3 text-title font-semibold leading-6 text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
   >
     {/* Three actions, three labels. This button used to word itself
@@ -717,10 +752,8 @@ const PlanDetail = () => {
 
         {/* Laptop: the decision sits with the details, not in a bar across the screen. */}
         <section className="hidden space-y-2 rounded-radius-lg bg-card p-4 shadow-figma md:block">
-          {showFrom && fromRange && (
-            <p className="text-center text-meta text-muted-foreground">{fromRange}</p>
-          )}
           {buyButton}
+          {!notOnSale && cartButton}
         </section>
 
         {(plan.features.length > 0 || entitlementLines.length > 0) && (
@@ -769,10 +802,8 @@ const PlanDetail = () => {
           {/* An offer whose variants disagree about price has no single price
               to put in the button, so the range goes above it and the button
               says the one thing it always says. */}
-          {showFrom && fromRange && (
-            <p className="mb-1.5 text-center text-[13px] text-muted-foreground">{fromRange}</p>
-          )}
           {buyButton}
+          {!notOnSale && <div className="mt-1">{cartButton}</div>}
         </div>
       </DecisionBar>
     </div>

@@ -12,11 +12,15 @@ import { periodNoun } from "@/lib/services/planPeriod";
  * relearning — and none of the differences carried information the screen was
  * not already showing.
  *
- * There are three actions and this is all of them:
+ * Three verbs, each meaning one thing, and the price always beside them:
  *
- *   Subscribe                            — commit to a plan; payment comes next
- *   Add to cart                          — put a line in the basket
- *   Pay $75.00 / person / month          — hand over money, now
+ *   Subscribe · $75.00 / person / month  — chose a plan (the plan page)
+ *   Buy · $45.00                         — chose a one-time thing (the plan page)
+ *   Add to cart                          — put it aside (secondary, every plan)
+ *   Pay $90.00                           — hand over money, now (checkout, cart)
+ *
+ * "Pay" belongs only where money actually leaves — a plan page doesn't charge
+ * anything, and its button used to say "Pay $75.00" on the way to a checkout.
  *
  * The payment method is NOT in the label. It is chosen immediately above the
  * button, and repeating it there was the single largest source of variants. The
@@ -26,6 +30,7 @@ import { periodNoun } from "@/lib/services/planPeriod";
  */
 
 export const SUBSCRIBE = "Subscribe";
+export const BUY = "Buy";
 export const ADD_TO_CART = "Add to cart";
 
 /** "" · "/ person" · "/ month" · "/ person / month" */
@@ -74,4 +79,15 @@ export function payLabel(cents?: number | null, suffix = ""): string {
 export function fromLabel(cents?: number | null, suffix = ""): string | null {
   if (typeof cents !== "number" || cents <= 0) return null;
   return `From ${formatUSD(cents)}${suffix ? ` ${suffix}` : ""}`;
+}
+
+/**
+ * The plan page's main button: the verb, then the price it is about.
+ * "Subscribe · $75.00 / person / month", "Buy · $45.00",
+ * "Subscribe · from $45.00 / week" while the options aren't settled.
+ */
+export function decideLabel(cents: number | null | undefined, suffix = "", opts: { oneTime?: boolean; from?: boolean } = {}): string {
+  const verb = opts.oneTime ? BUY : SUBSCRIBE;
+  if (typeof cents !== "number" || cents <= 0) return verb;
+  return `${verb} · ${opts.from ? "from " : ""}${formatUSD(cents)}${suffix ? ` ${suffix}` : ""}`;
 }
