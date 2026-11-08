@@ -3,7 +3,6 @@ import { gaItem, trackEvent } from "@/lib/analytics/ga";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { CheckoutStickyFooter } from "@/components/patterns/CheckoutStickyFooter";
-import { AddToCartButton } from "@/components/cart/AddToCartButton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CheckCircle2, Gift, RefreshCw, Wallet, CalendarDays, Sparkles, MapPin, MessageCircle } from "lucide-react";
@@ -208,7 +207,15 @@ const UniversalPlanCheckout = () => {
     // Pre-pick as many options as the plan allows, in its own order: a
     // customer who wants exactly what the plan implies should not have to
     // assemble it themselves.
-    if (plan.selection) setSelections(plan.selection.options.slice(0, plan.selection.max).map((o) => o.key));
+    if (plan.selection) {
+      // What the plan page already asked ("?meals=lunch,dinner") arrives
+      // picked — the customer is not asked the same question twice.
+      const valid = new Set(plan.selection.options.map((o) => o.key));
+      const fromPage = (searchParams.get("meals") ?? "").split(",").map((k) => k.trim()).filter((k) => valid.has(k));
+      setSelections(fromPage.length
+        ? fromPage.slice(0, plan.selection.max)
+        : plan.selection.options.slice(0, plan.selection.max).map((o) => o.key));
+    }
   }, [plan?.universalId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
@@ -1001,22 +1008,9 @@ const UniversalPlanCheckout = () => {
 
       {!showPayment && (
         <CheckoutStickyFooter>
-          {/* A renewal is not a basket item — it extends one specific row and
-              only the server can do it. */}
-          {!renewing && (
-          <AddToCartButton
-            className="mb-2 w-full"
-            line={{
-              service: "plan",
-              providerId: plan.providerUniversalId,
-              providerName: plan.providerName ?? "Provider",
-              planId: plan.universalId,
-              planName: plan.name,
-              unitPriceCents: totalCents,
-              periods: 1,
-            }}
-          />
-          )}
+          {/* No "Add to cart" here: by now the customer has decided, and a second
+              button that leaves the checkout only made them wonder which one
+              pays. Putting a plan aside lives on the plan page. */}
           {enabledMethods.length === 0 && (
             <p className="mb-2 rounded-xl bg-attention/10 px-3 py-2 text-center text-xs text-attention">
               Payments are temporarily unavailable. Try again in a few minutes.

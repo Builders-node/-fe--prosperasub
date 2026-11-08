@@ -36,7 +36,7 @@ import { fetchPlanMirrorExtras } from "@/lib/plans/planGallery";
 import { resolveMonthlyPriceCents, formatFrequencyLabel } from "@/lib/cleaningPlanPricing";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
-import { SearchX, ShoppingCart } from "lucide-react";
+import { Check, SearchX, ShoppingCart } from "lucide-react";
 import { LinkifiedText } from "@/components/patterns/LinkifiedText";
 import { DecisionBar } from "@/components/patterns/DecisionBar";
 import { useSeo, offerJsonLd } from "@/hooks/useSeo";
@@ -331,7 +331,7 @@ const PlanDetail = () => {
   });
 
 
-  const { addItem: addToCart } = useCart();
+  const { addItem: addToCart, has: inCart, count: cartCount } = useCart();
 
   const [selection, setSelection] = useState<Record<string, string>>({});
 
@@ -386,29 +386,24 @@ const PlanDetail = () => {
       : plan?.source === "universal" ? chosen.id : chosen.sourcePlanId ?? plan?.id ?? "")
     : plan?.id ?? "";
 
-  // One checkout, one URL shape. Every service used to have its own — and its
-  // own screen behind it — which is the thing this replaces.
-  const checkoutHref = !plan ? "" : `/checkout/${buyableId}`;
-
-  const buyFood = () => {
-    if (!plan) return;
-    addToCart({
-      service: "food",
-      providerId: plan.legacyProviderId ?? "",
-      providerName: providerName ?? "Restaurant",
-      planId: buyableId,
-      planName: chosen?.name ?? plan.title,
-      unitPriceCents: priceCents ?? 0,
-      periods: 1,
-      mealsPerDay: mealsPerDay || 1,
-      meals,
-    } as never, 1);
-    toast.success("Added to your cart");
-    navigate("/cart");
-  };
+  /**
+   * Subscribe goes to the checkout — for every service, food included.
+   *
+   * Food used to drop the plan in the cart and open it instead, from the days
+   * when only the cart could write a meal subscription. The checkout writes it
+   * now (subscriptionWriter's food branch, with the meals and a delivery
+   * address), so the detour only confused people: one button, two
+   * destinations. The meals chosen here ride along in `?meals=` and arrive
+   * already picked — nobody is asked twice.
+   */
+  const checkoutHref = !plan ? "" : (() => {
+    const qs = new URLSearchParams();
+    if (isFood && meals.length) qs.set("meals", meals.join(","));
+    const q = qs.toString();
+    return `/checkout/${buyableId}${q ? `?${q}` : ""}`;
+  })();
 
   const subscribe = () => {
-    if (isFood) { buyFood(); return; }
     if (!checkoutHref) return;
     if (isAuthenticated) navigate(checkoutHref);
     else openAuthModal("login", checkoutHref);
@@ -600,11 +595,14 @@ const PlanDetail = () => {
   const buyDisabled = notOnSale || (!!offer && !chosen) || (mealsPerDay > 0 && meals.length !== Math.min(mealsPerDay, 3));
 
   /**
-   * Add to cart — the quiet second button, on every plan. The basket is for
-   * people taking several things at once; the main button is the one-tap path.
+   * Add to cart — the quiet second button, on every plan, and the ONLY way in.
+   * It puts the plan aside and stays here; a plan already in the cart says so
+   * and opens the cart instead of stacking a second copy.
    */
+  const alreadyInCart = !!buyableId && inCart(buyableId);
   const addToCartOnly = () => {
     if (!plan) return;
+    if (alreadyInCart) { navigate("/cart"); return; }
     if (isFood) {
       addToCart({
         service: "food", providerId: plan.legacyProviderId ?? "", providerName: providerName ?? "Restaurant",
@@ -618,17 +616,28 @@ const PlanDetail = () => {
         unitPriceCents: priceCents ?? 0, periods: 1,
       } as never, 1);
     }
-    toast.success("Added to your cart", { action: { label: "View cart", onClick: () => navigate("/cart") } });
+    toast.success("Saved to your cart", { action: { label: "View cart", onClick: () => navigate("/cart") } });
   };
   const cartButton = (
-    <button
-      type="button"
-      onClick={addToCartOnly}
-      disabled={buyDisabled}
-      className="flex w-full items-center justify-center gap-2 rounded-radius-md px-4 py-2.5 text-body font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-40"
-    >
-      <ShoppingCart className="h-4 w-4" /> {ADD_TO_CART}
-    </button>
+    <div className="space-y-1">
+      <button
+        type="button"
+        onClick={addToCartOnly}
+        disabled={buyDisabled && !alreadyInCart}
+        className="flex w-full items-center justify-center gap-2 rounded-radius-md px-4 py-2.5 text-body font-semibold text-foreground transition-colors hover:bg-muted disabled:opacity-40"
+      >
+        {alreadyInCart
+          ? <><Check className="h-4 w-4" /> In your cart · View cart</>
+          : <><ShoppingCart className="h-4 w-4" /> {ADD_TO_CART}</>}
+      </button>
+      {/* Somebody collecting several plans sees the way back to them — the
+          cart never opens by itself. */}
+      {cartCount > 0 && !alreadyInCart && (
+        <button type="button" onClick={() => navigate("/cart")} className="block w-full text-center text-meta text-muted-foreground hover:text-foreground">
+          {cartCount} {cartCount === 1 ? "item" : "items"} in your cart · Check out together
+        </button>
+      )}
+    </div>
   );
 
   // One button, two places: the bottom bar on a phone, the details column on a laptop.
