@@ -261,8 +261,8 @@ const UniversalPlanCheckout = () => {
   const [promoError, setPromoError] = useState<string | null>(null);
   const [promoChecking, setPromoChecking] = useState(false);
 
-  const applyPromo = async () => {
-    const code = promoInput.trim().toUpperCase();
+  const applyPromo = async (given?: string) => {
+    const code = (given ?? promoInput).trim().toUpperCase();
     if (!code || !plan) return;
     setPromoChecking(true);
     setPromoError(null);
@@ -288,6 +288,21 @@ const UniversalPlanCheckout = () => {
       setPromoChecking(false);
     }
   };
+
+  /**
+   * `?promo=CODE` — a link that carries a code (the win-back email's personal
+   * one) fills the field and checks it once the plan is known, so the customer
+   * sees the reduced total without typing anything. A renewal takes no code.
+   */
+  const linkPromo = searchParams.get("promo");
+  const linkPromoTriedRef = useRef(false);
+  useEffect(() => {
+    if (!linkPromo || renewSubId || linkPromoTriedRef.current || !plan || totalCents <= 0) return;
+    linkPromoTriedRef.current = true;
+    setPromoInput(linkPromo.toUpperCase());
+    void applyPromo(linkPromo);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linkPromo, renewSubId, plan, totalCents]);
 
   // A code and a bonus are written onto ONE row, and the database recomputes
   // each on the row it sits on — so they apply to single orders only.

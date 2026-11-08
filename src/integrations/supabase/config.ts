@@ -61,7 +61,7 @@ const EDGE_ROUTES: RegExp[] = [
   /^\/account\/subscriptions\/[^/]+\/auto-renew\/cancel$/,
   // Cancel/resume moved with it: for a PayPal-renewed membership they must
   // suspend/re-activate PayPal billing too.
-  /^\/account\/(cleaning|food|beach|plan)\/subscriptions\/[^/]+\/(cancel|resume)$/,
+  /^\/account\/(cleaning|food|beach|plan)\/subscriptions\/[^/]+\/(cancel|resume|feedback)$/,
   // Provider withdrawals: pays from the BTC wallet when USD is short.
   /^\/account\/providers\/[^/]+\/payouts(\/available|\/request)?$/,
   // Owner hand-over links (Edge only — Nest never had them).

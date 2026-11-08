@@ -1,4 +1,5 @@
 import { fieldClass } from "@/components/ui/input";
+import { LEAVE_REASONS, type LeaveReason } from "@/lib/subscriptions/leaveReasons";
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { effectiveCleaningStatus, effectiveFoodStatus } from "@/lib/subscriptionLifecycle";
@@ -514,12 +515,16 @@ const MySubscriptions = () => {
   const [cancelTarget, setCancelTarget] = useState<
     { service: string; id: string; name: string; endsOn: string | null } | null
   >(null);
+  /** Why — optional, one tap, asked in the cancel dialog. */
+  const [cancelReason, setCancelReason] = useState<LeaveReason | null>(null);
 
   const cancelMutation = useMutation({
-    mutationFn: async ({ service, id, resume }: { service: string; id: string; resume?: boolean }) => {
+    mutationFn: async ({ service, id, resume, reason }: { service: string; id: string; resume?: boolean; reason?: LeaveReason | null }) => {
+      // The reason rides on the cancel call; the server records it and never
+      // lets a failed write stop the cancellation.
       const { data, error } = await accountApi(
         `/account/${service}/subscriptions/${id}/${resume ? "resume" : "cancel"}`,
-        { method: "POST" },
+        { method: "POST", ...(!resume && reason ? { body: JSON.stringify({ reason }) } : {}) },
       );
       if (error) throw error;
       return data;
@@ -527,6 +532,7 @@ const MySubscriptions = () => {
     onSuccess: (_data, vars) => {
       toast.success(vars.resume ? "Subscription resumed." : "Subscription won't renew.");
       setCancelTarget(null);
+      setCancelReason(null);
       queryClient.invalidateQueries({ queryKey: ["my-cleaning-subscriptions-all"] });
       queryClient.invalidateQueries({ queryKey: ["my-food-subscriptions"] });
       queryClient.invalidateQueries({ queryKey: ["my-beach-subscriptions"] });
@@ -1571,7 +1577,7 @@ const MySubscriptions = () => {
           that day. */}
       <ResponsiveDialog
         open={!!cancelTarget}
-        onOpenChange={(open) => { if (!open) setCancelTarget(null); }}
+        onOpenChange={(open) => { if (!open) { setCancelTarget(null); setCancelReason(null); } }}
         title={<span className="flex items-center gap-2"><X className="h-5 w-5 text-destructive" />Cancel {cancelTarget?.name}?</span>}
         description={
           cancelTarget?.endsOn
@@ -1587,7 +1593,7 @@ const MySubscriptions = () => {
               variant="destructive"
               className="flex-1"
               disabled={cancelMutation.isPending}
-              onClick={() => cancelTarget && cancelMutation.mutate({ service: cancelTarget.service, id: cancelTarget.id })}
+              onClick={() => cancelTarget && cancelMutation.mutate({ service: cancelTarget.service, id: cancelTarget.id, reason: cancelReason })}
             >
               {cancelMutation.isPending && <Spinner size="sm" className="mr-2" />}
               Cancel subscription
@@ -1595,9 +1601,31 @@ const MySubscriptions = () => {
           </div>
         }
       >
-        <p className="text-sm text-muted-foreground">
-          Nothing is charged again and nothing is refunded — this simply stops the next period.
-        </p>
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Nothing is charged again and nothing is refunded — this simply stops the next period.
+          </p>
+          {/* One optional question. It never blocks the cancel button. */}
+          <div className="space-y-2">
+            <p className="text-label text-foreground">Mind telling us why? <span className="text-muted-foreground">Optional</span></p>
+            <div className="flex flex-wrap gap-2">
+              {LEAVE_REASONS.map((r) => (
+                <button
+                  key={r.key}
+                  type="button"
+                  aria-pressed={cancelReason === r.key}
+                  onClick={() => setCancelReason(cancelReason === r.key ? null : r.key)}
+                  className={cn(
+                    "h-10 rounded-full px-4 text-body font-medium transition-colors",
+                    cancelReason === r.key ? "bg-foreground text-background" : "bg-muted text-foreground hover:bg-muted/80",
+                  )}
+                >
+                  {r.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
       </ResponsiveDialog>
 
 

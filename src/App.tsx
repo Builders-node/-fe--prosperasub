@@ -48,6 +48,7 @@ const Privacy = lazy(() => import("./pages/legal/Privacy"));
 // User
 const MySubscriptions = lazy(() => import("./pages/user/MySubscriptions"));
 const Profile = lazy(() => import("./pages/user/Profile"));
+const LeavingFeedback = lazy(() => import("./pages/user/LeavingFeedback"));
 const Notifications = lazy(() => import("./pages/user/Notifications"));
 const History = lazy(() => import("./pages/user/History"));
 const MyBusiness = lazy(() => import("./pages/user/MyBusiness"));
@@ -335,6 +336,9 @@ const App = () => {
               } />
               <Route path="/account" element={
                 <ProtectedRoute><Profile /></ProtectedRoute>
+              } />
+              <Route path="/feedback/leaving" element={
+                <ProtectedRoute><LeavingFeedback /></ProtectedRoute>
               } />
               <Route path="/notifications" element={
                 <ProtectedRoute><Notifications /></ProtectedRoute>
