@@ -10,6 +10,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
 import { DateRangePicker, toISO } from "../components/DateRangePicker";
 import { PhotoCarousel } from "@/components/patterns/PhotoCarousel";
+import { ProductGallery } from "@/components/patterns/ProductGallery";
 import { DetailHeader } from "@/components/patterns/DetailHeader";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
 import { DecisionBar } from "@/components/patterns/DecisionBar";
@@ -121,6 +122,12 @@ export default function VehicleDetail() {
       : []),
   ];
 
+  const bookButton = (
+    <Button size="lg" variant={pricing ? "primary" : "secondary"} className="w-full font-semibold" onClick={goBook}>
+      {pricing ? `Book · ${formatUSD(pricing.totalCents)}` : "Pick your dates"}
+    </Button>
+  );
+
   return (
     /*
       Built as the platform's detail page, not a car-shaped one. The plan page
@@ -147,17 +154,25 @@ export default function VehicleDetail() {
         rightAction={<ShareButton title={v.name} text={shareText} className="hover:bg-black/10 md:text-foreground" />}
       />
 
-      <PhotoCarousel
-        photos={shots}
-        alt={v.name}
-        fallback={
-          <div className="flex h-[280px] w-full items-center justify-center rounded-b-radius-lg bg-muted">
-            <Car className="h-16 w-16 text-muted-foreground/40" />
-          </div>
-        }
-      />
+      {/* Phone: the swipeable band. A laptop gets the gallery column below. */}
+      <div className="md:hidden">
+        <PhotoCarousel
+          photos={shots}
+          alt={v.name}
+          fallback={
+            <div className="flex h-[280px] w-full items-center justify-center rounded-b-radius-lg bg-muted">
+              <Car className="h-16 w-16 text-muted-foreground/40" />
+            </div>
+          }
+        />
+      </div>
 
-      <main className="flex flex-col gap-1 pt-1 md:mx-auto md:max-w-[1280px] md:gap-4 md:px-6 md:py-space-8">
+      {/* Laptop: every photo on the left (held in view), the car and its dates
+          on the right — the same frame as a plan page. */}
+      <main className="pt-1 md:mx-auto md:grid md:max-w-[1280px] md:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] md:items-start md:gap-8 md:px-6 md:py-space-8">
+        <ProductGallery photos={shots} alt={v.name} className="hidden md:sticky md:top-24 md:block" />
+
+        <div className="flex flex-col gap-1 md:gap-4">
         <section className="space-y-3 rounded-radius-lg bg-card p-4 shadow-figma">
           <nav
             aria-label="Breadcrumb"
@@ -260,18 +275,16 @@ export default function VehicleDetail() {
               </div>
             </div>
           )}
+
+          {/* Laptop: the action sits under the total it books. */}
+          <div className="hidden md:block">{bookButton}</div>
         </section>
+        </div>
       </main>
 
-      {/* The action, where the platform keeps it: pinned on a phone, in flow on
-          a desktop. It also carries the figure, so the price is still on screen
-          at the moment of deciding. */}
-      <DecisionBar className="p-4 shadow-figma md:mx-auto md:mt-4 md:max-w-[1280px] md:rounded-radius-lg md:px-6">
-        <Button size="lg" variant={pricing ? "primary" : "secondary"} className="w-full font-semibold" onClick={goBook}>
-          {pricing
-            ? `Book · ${formatUSD(pricing.totalCents)}`
-            : "Pick your dates"}
-        </Button>
+      {/* Phone: the action pinned to the bottom, carrying the figure. */}
+      <DecisionBar className="p-4 shadow-figma md:hidden">
+        {bookButton}
       </DecisionBar>
     </div>
   );
