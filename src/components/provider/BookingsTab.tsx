@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { NewCleaningSubscriptionDialog } from "@/components/cleaning/NewCleaningSubscriptionDialog";
 import { useTabParam } from "@/hooks/useTabParam";
 import { useQuery } from "@tanstack/react-query";
 import { CalendarDays, LayoutGrid, List, Plus, Users, Wrench } from "lucide-react";
@@ -53,6 +54,8 @@ export function BookingsTab({
 }) {
   // Which of the three, kept in the URL beside the workspace tab, so a reload
   // on "Customers" comes back on Customers rather than on today's list.
+  /** A subscription just added — its booking dialog opens next. */
+  const [scheduleFor, setScheduleFor] = useState<string | null>(null);
   const [view, setView] = useTabParam<View>(["today", "week", "customer"], {
     key: "view",
     fallback: today ? "today" : "week",
@@ -139,6 +142,21 @@ export function BookingsTab({
           {active !== "customer" && (isCleaning
             ? <NewCleaningBookingDialog providerId={providerId} />
             : <NewCalendarBookingDialog providerId={calendarsId} />)}
+          {/* A customer who paid off the platform needs a subscription, not
+              just a visit — food and the beach always had this; cleaning
+              did not. Saving it goes straight on to booking its visits. */}
+          {isCleaning && (
+            <NewCleaningSubscriptionDialog providerId={providerId} onCreated={setScheduleFor} />
+          )}
+          {isCleaning && scheduleFor && (
+            <NewCleaningBookingDialog
+              key={scheduleFor}
+              providerId={providerId}
+              defaultSubscriptionId={scheduleFor}
+              defaultOpen
+              trigger={<span className="hidden" />}
+            />
+          )}
           {isFood && (
             <NewFoodSubscriptionDialog
               providerId={providerId}

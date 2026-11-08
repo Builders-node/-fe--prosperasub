@@ -46,6 +46,8 @@ interface Props {
   trigger?: React.ReactNode;
   /** Open with this subscription already picked — "Schedule" on a subscriber. */
   defaultSubscriptionId?: string;
+  /** Open as soon as it mounts — straight on from creating a subscription. */
+  defaultOpen?: boolean;
 }
 
 interface SubOption {
@@ -121,10 +123,10 @@ function suggestCadenceFor(perMonth: number): Exclude<Cadence, "once"> {
   return "monthly";
 }
 
-export function NewCleaningBookingDialog({ providerId, trigger, defaultSubscriptionId }: Props) {
+export function NewCleaningBookingDialog({ providerId, trigger, defaultSubscriptionId, defaultOpen = false }: Props) {
   const qc = useQueryClient();
   const { userData } = useAuth();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const [mode, setMode] = useState<"subscription" | "user">("subscription");
   const [subId, setSubId] = useState<string>("");
   const [userId, setUserId] = useState<string>("");
