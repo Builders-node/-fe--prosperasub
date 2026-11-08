@@ -14,6 +14,7 @@ import { YdEmptyState } from "@/components/yd/YdPrimitives";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -39,7 +40,7 @@ import { useResidences } from "@/hooks/useResidences";
 import { useSelectedResidence } from "@/contexts/LocationContext";
 import { formatUSD, centsToDollars } from "@/lib/pricing";
 import { payLabel } from "@/lib/checkout/ctaLabel";
-import { CheckoutCard, CheckoutLineItem, PersonalDataCard, ResumeCard } from "@/components/checkout/CheckoutBlocks";
+import { CheckoutCard, CheckoutLineItem, FieldRow, FieldRows, PersonalDataCard, ResumeCard, fieldInputClass } from "@/components/checkout/CheckoutBlocks";
 import { PaymentMethodTiles } from "@/components/payment/PaymentMethodTiles";
 import { todayHN, addDaysISO } from "@/lib/timezone";
 import { DURATION_OPTIONS } from "@/lib/durations";
@@ -652,91 +653,66 @@ export default function Cart() {
                   onEdit={() => setDetailsOpen((o) => !o)}
                   incomplete={missingDetails}
                 >
-                  <div className="overflow-hidden rounded-radius-md bg-inset divide-y divide-border/40">
-                    {/* Full name */}
-                    <div className="flex items-center gap-3 px-4">
-                      <UserIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      <div className="min-w-0 flex-1">
-                        <label className="block pt-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                          Full name <span className="text-destructive">*</span>
-                        </label>
-                        <input
-                          value={form.customer_name}
-                          onChange={(e) => setForm((f) => ({ ...f, customer_name: e.target.value }))}
-                          placeholder="Your full name"
-                          className="w-full border-0 bg-transparent px-0 pb-3 pt-0.5 text-base text-foreground outline-none placeholder:text-muted-foreground/60"
-                        />
-                      </div>
-                    </div>
+                  <FieldRows>
+                    <FieldRow label="Full name" required htmlFor="cart-name">
+                      <input
+                        id="cart-name"
+                        value={form.customer_name}
+                        onChange={(e) => setForm((f) => ({ ...f, customer_name: e.target.value }))}
+                        placeholder="Your full name"
+                        autoComplete="name"
+                        className={fieldInputClass}
+                      />
+                    </FieldRow>
 
-                    {/* WhatsApp */}
-                    <div className="flex items-center gap-3 px-4">
-                      <MessageCircle className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      <div className="min-w-0 flex-1">
-                        <label className="block pt-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                          WhatsApp <span className="text-destructive">*</span>
-                        </label>
-                        <input
-                          type="tel"
-                          inputMode="tel"
-                          value={form.customer_whatsapp}
-                          onChange={(e) => {
-                            setForm((f) => ({ ...f, customer_whatsapp: e.target.value }));
-                            if (phoneErr) setPhoneErr("");
-                          }}
-                          onBlur={() => setPhoneErr(form.customer_whatsapp.trim() ? (phoneError(form.customer_whatsapp) ?? "") : "")}
-                          autoComplete="tel"
-                          placeholder="+504 1234 5678"
-                          className="w-full border-0 bg-transparent px-0 pb-3 pt-0.5 text-base text-foreground outline-none placeholder:text-muted-foreground/60"
-                        />
-                      </div>
-                    </div>
-                    {phoneErr && <p className="text-xs text-destructive">{phoneErr}</p>}
+                    <FieldRow label="WhatsApp" required htmlFor="cart-phone">
+                      <input
+                        id="cart-phone"
+                        type="tel"
+                        inputMode="tel"
+                        value={form.customer_whatsapp}
+                        onChange={(e) => {
+                          setForm((f) => ({ ...f, customer_whatsapp: e.target.value }));
+                          if (phoneErr) setPhoneErr("");
+                        }}
+                        onBlur={() => setPhoneErr(form.customer_whatsapp.trim() ? (phoneError(form.customer_whatsapp) ?? "") : "")}
+                        autoComplete="tel"
+                        placeholder="+504 1234 5678"
+                        className={cn(fieldInputClass, phoneErr && "ring-2 ring-destructive/70")}
+                      />
+                      {phoneErr && <p className="text-meta text-destructive">{phoneErr}</p>}
+                    </FieldRow>
 
-                    {/* Residence */}
                     {residences.length > 0 && (
-                      <div className="flex items-center gap-3 px-4">
-                        <MapPin className="h-4 w-4 shrink-0 text-muted-foreground" />
-                        <div className="min-w-0 flex-1">
-                          <label className="block pt-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                            Residence
-                          </label>
-                          <Select value={form.residence || "_none"} onValueChange={(v) => setForm((f) => ({ ...f, residence: v === "_none" ? "" : v }))}>
-                            <SelectTrigger className="h-auto w-full justify-between border-0 bg-transparent px-0 pb-3 pt-0.5 text-base text-foreground shadow-none focus:ring-0">
-                              <SelectValue placeholder="Other / not listed" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="_none">Other / not listed</SelectItem>
-                              {residences.map((r) => <SelectItem key={r.id} value={r.name}>{r.name}</SelectItem>)}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
+                      <FieldRow label="Residence">
+                        <Select value={form.residence || "_none"} onValueChange={(v) => setForm((f) => ({ ...f, residence: v === "_none" ? "" : v }))}>
+                          <SelectTrigger><SelectValue placeholder="Other / not listed" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="_none">Other / not listed</SelectItem>
+                            {residences.map((r) => <SelectItem key={r.id} value={r.name}>{r.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </FieldRow>
                     )}
 
-                    {/* Delivery address — saved chips + textarea */}
-                    <div className="flex items-start gap-3 px-4 py-3">
-                      <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                      <div className="min-w-0 flex-1 space-y-2">
-                        <label className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                          Delivery address <span className="text-destructive">*</span>
-                        </label>
+                    <FieldRow label="Delivery address" required htmlFor="cart-address">
+                      <div className="space-y-1.5">
                         <LocationPicker
                           userId={userData?.id}
                           value={form.delivery_address}
                           onPick={(line) => setForm((f) => ({ ...f, delivery_address: line }))}
                         />
-                        <textarea
+                        <Textarea
+                          id="cart-address"
                           value={form.delivery_address}
                           onChange={(e) => setForm((f) => ({ ...f, delivery_address: e.target.value }))}
                           rows={2}
                           placeholder="Apartment / unit, building, street…"
-                          className="w-full resize-none border-0 bg-transparent px-0 py-1 text-base text-foreground outline-none placeholder:text-muted-foreground/60"
+                          className="min-h-[72px] resize-none"
                         />
                       </div>
-                    </div>
+                    </FieldRow>
 
-                    {/* Notes — Yandex Eda "Комментарий" pattern: row → sheet */}
                     <NotesField
                       value={form.notes}
                       onChange={(next) => setForm((f) => ({ ...f, notes: next }))}
@@ -745,7 +721,7 @@ export default function Cart() {
                       description="Allergies, preferences, anything the kitchen should know."
                       placeholder="What should we know?"
                     />
-                  </div>
+                  </FieldRows>
                 </PersonalDataCard>
 
                 {/* The design's order: what you bought, who you are, what it

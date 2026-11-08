@@ -40,7 +40,7 @@ const SECTION_TITLES: Record<Section, string> = {
   edit: "Edit Profile",
   password: "Change Password",
   locations: "Saved Locations",
-  reminders: "Cleaning Reminders",
+  reminders: "Reminders",
   referrals: "Invite a Friend",
 };
 
@@ -446,7 +446,7 @@ const Profile = () => {
               />
               <Row
                 icon={prefs.reminder_enabled ? Bell : BellOff}
-                label="Cleaning reminders"
+                label="Reminders"
                 value={prefs.reminder_enabled
                   ? `${reminderLabel(prefs.reminder_minutes_before)} · ${methodLabel(prefs.reminder_method)}`
                   : "Disabled"}

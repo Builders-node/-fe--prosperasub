@@ -232,9 +232,7 @@ export function LocationPicker({
   return (
     <div className="space-y-1">
       {locations.length > 0 && (
-        <p className="mb-1 text-[10px] font-black uppercase tracking-[0.14em] text-muted-foreground">
-          Saved addresses
-        </p>
+        <p className="text-meta text-muted-foreground">Saved addresses</p>
       )}
       {locations.map((loc) => {
         const selected = !!value && value === loc.line;
@@ -246,48 +244,47 @@ export function LocationPicker({
             aria-pressed={selected}
             title={loc.line}
             className={cn(
-              "flex w-full items-center gap-3 rounded-radius-md px-2 py-2 text-left transition-colors",
-              "hover:bg-muted/40",
+              "flex w-full items-center gap-3 rounded-radius-md bg-muted px-4 py-3 text-left transition-colors",
+              "hover:bg-muted/80",
             )}
           >
             <span
               className={cn(
-                "flex h-6 w-6 shrink-0 items-center justify-center rounded-full transition-colors",
-                selected ? "bg-foreground" : "border border-border bg-transparent",
+                "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
+                selected ? "border-primary bg-primary" : "border-muted-foreground/40 bg-transparent",
               )}
               aria-hidden
             >
-              {selected && <Check className="h-3.5 w-3.5 text-background" strokeWidth={3} />}
+              {selected && <span className="h-2 w-2 rounded-full bg-primary-foreground" />}
             </span>
             <span className="min-w-0 flex-1">
               <span className="flex items-center gap-1.5">
-                <span className="truncate text-[14px] font-bold text-foreground">
+                <span className="truncate text-body font-semibold text-foreground">
                   {loc.label || "Location"}
                 </span>
                 {loc.is_default && (
-                  <span className="inline-flex items-center gap-0.5 rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-primary">
-                    <Star className="h-2 w-2 fill-primary" /> Default
+                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-meta font-semibold text-primary">
+                    <Star className="h-3 w-3 fill-primary" /> Default
                   </span>
                 )}
               </span>
-              <span className="mt-0.5 block truncate text-[12px] text-muted-foreground">
+              <span className="mt-0.5 block truncate text-meta text-muted-foreground">
                 {loc.line}
               </span>
             </span>
-            <MapPin className="h-4 w-4 shrink-0 text-muted-foreground/60" />
-          </button>
+            </button>
         );
       })}
       {onAddNew && (
         <button
           type="button"
           onClick={onAddNew}
-          className="mt-1 flex w-full items-center gap-3 rounded-radius-md px-2 py-2 text-left transition-colors hover:bg-muted/40"
+          className="flex w-full items-center gap-3 rounded-radius-md bg-muted px-4 py-3 text-left transition-colors hover:bg-muted/80"
         >
           <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-dashed border-border">
             <Plus className="h-3.5 w-3.5 text-muted-foreground" />
           </span>
-          <span className="text-[14px] font-bold text-foreground">Add new address</span>
+          <span className="text-body font-semibold text-foreground">Add new address</span>
         </button>
       )}
     </div>

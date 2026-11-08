@@ -3,6 +3,7 @@ import { MessageCircle, ChevronRight } from "lucide-react";
 import { ResponsiveDialog } from "@/components/patterns/ResponsiveDialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { FIELD_SURFACE } from "@/components/ui/input";
 
 interface Props {
   value: string;
@@ -74,27 +75,20 @@ export function NotesField({
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className={cn("flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/30", className)}
-      >
-        <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
-        <span className="min-w-0 flex-1">
-          <span className="block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-            {label}
-          </span>
-          <span
-            className={cn(
-              "mt-0.5 block truncate text-base",
-              value ? "text-foreground" : "text-muted-foreground/60",
-            )}
-          >
+      <div className={cn("space-y-1.5", className)}>
+        <span className="block text-label text-foreground">{label}</span>
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className={cn(FIELD_SURFACE, "flex h-12 items-center gap-3 px-4 text-left")}
+        >
+          <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <span className={cn("min-w-0 flex-1 truncate", value ? "text-foreground" : "text-muted-foreground")}>
             {value || placeholder}
           </span>
-        </span>
-        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/60" />
-      </button>
+          <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+        </button>
+      </div>
 
       <ResponsiveDialog
         open={open}

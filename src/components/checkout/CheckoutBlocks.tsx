@@ -2,6 +2,7 @@ import { ChevronRight } from "lucide-react";
 import { Photo } from "@/components/patterns/Photo";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
+import { FIELD_SURFACE } from "@/components/ui/input";
 
 /**
  * The checkout, as cards — measured off the Figma frame rather than guessed.
@@ -166,48 +167,36 @@ function Line({ label, value }: { label: string; value: string }) {
 }
 
 /**
- * The field list inside Personal data — a grey block of borderless rows.
- *
- * The redesign has no bordered input pills anywhere; the cart's checkout was
- * already built this way and the single-plan one was not, so the same two
- * questions looked like different forms depending on how you arrived. One
- * component now, so they cannot drift again.
+ * The fields inside Personal data — the app's own field: the label above, a
+ * filled grey box (FIELD_SURFACE, 48 tall), no border, no icon. It used to be
+ * a block of borderless rows with 10px uppercase labels, a look no other form
+ * in the app had. Both checkouts read these, so they cannot drift.
  */
 export function FieldRows({ children }: { children: React.ReactNode }) {
+  return <div className="space-y-4">{children}</div>;
+}
+
+export function FieldRow({
+  label, required, children, htmlFor,
+}: {
+  /** Kept for old call sites; the field style has no icon. */
+  icon?: React.ReactNode;
+  label: string;
+  required?: boolean;
+  htmlFor?: string;
+  children: React.ReactNode;
+  align?: "center" | "start";
+}) {
   return (
-    <div className="divide-y divide-border/40 overflow-hidden rounded-radius-md bg-inset">
+    <div className="space-y-1.5">
+      <label htmlFor={htmlFor} className="block text-label text-foreground">
+        {label}
+        {required && <span className="text-destructive"> *</span>}
+      </label>
       {children}
     </div>
   );
 }
 
-export function FieldRow({
-  icon, label, required, children, align = "center",
-}: {
-  icon: React.ReactNode;
-  label: string;
-  required?: boolean;
-  children: React.ReactNode;
-  /** `start` for a multi-line control, so the icon sits on the first line. */
-  align?: "center" | "start";
-}) {
-  return (
-    <div className={cn("flex gap-3 px-4", align === "center" ? "items-center" : "items-start py-3")}>
-      <span className={cn("shrink-0 text-muted-foreground", align === "start" && "mt-0.5")}>{icon}</span>
-      <div className="min-w-0 flex-1">
-        <span className={cn(
-          "block text-[10px] font-bold uppercase tracking-wider text-muted-foreground",
-          align === "center" && "pt-3",
-        )}>
-          {label}
-          {required && <span className="text-destructive"> *</span>}
-        </span>
-        {children}
-      </div>
-    </div>
-  );
-}
-
-/** The borderless control inside a FieldRow. */
-export const fieldInputClass =
-  "w-full border-0 bg-transparent px-0 pb-3 pt-0.5 text-base text-foreground outline-none placeholder:text-muted-foreground/60";
+/** A hand-made input inside a FieldRow — the standard 48-tall field. */
+export const fieldInputClass = `${FIELD_SURFACE} h-12 px-4`;
