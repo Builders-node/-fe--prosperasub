@@ -37,7 +37,7 @@ import { fetchPlanMirrorExtras } from "@/lib/plans/planGallery";
 import { resolveMonthlyPriceCents, formatFrequencyLabel } from "@/lib/cleaningPlanPricing";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
-import { Check, SearchX, ShoppingCart } from "lucide-react";
+import { Check, SearchX, ShoppingCart, Store } from "lucide-react";
 import { LinkifiedText } from "@/components/patterns/LinkifiedText";
 import { DecisionBar } from "@/components/patterns/DecisionBar";
 import { useSeo, offerJsonLd } from "@/hooks/useSeo";
@@ -605,13 +605,15 @@ const PlanDetail = () => {
   const seenCrumbs = new Set<string>();
   const breadcrumbs = ([
     providerName && plan.providerId
-      ? { label: providerName, href: providerHref(archetypeKey, plan.providerId) }
+      // The business's own face beside its name — a small avatar, so the
+      // crumb reads as "who sells this" and not as one more category.
+      ? { label: providerName, href: providerHref(archetypeKey, plan.providerId), avatar: ((providerQ.data as any)?.avatar_url as string | null) ?? null }
       : null,
     listing ? { label: serviceLabel, href: listing } : null,
     category && listing
       ? { label: category.label, href: `${listing}?category=${encodeURIComponent(category.key)}` }
       : null,
-  ].filter(Boolean) as Array<{ label: string; href: string }>)
+  ].filter(Boolean) as Array<{ label: string; href: string; avatar?: string | null }>)
     .filter((c) => {
       const key = c.label.trim().toLowerCase();
       if (seenCrumbs.has(key)) return false;
@@ -764,8 +766,20 @@ const PlanDetail = () => {
                 <Link
                   key={crumb.label}
                   to={crumb.href}
-                  className="flex shrink-0 items-start gap-0.5 rounded-radius-md bg-inset py-1 pl-2 pr-1 text-meta font-medium leading-4 text-muted-foreground transition-colors hover:text-foreground"
+                  className={cn(
+                    "flex shrink-0 items-center gap-0.5 rounded-radius-md bg-inset py-1 pr-1 text-meta font-medium leading-4 text-muted-foreground transition-colors hover:text-foreground",
+                    crumb.avatar !== undefined ? "pl-1" : "pl-2",
+                  )}
                 >
+                  {crumb.avatar !== undefined && (
+                    <Photo
+                      src={crumb.avatar}
+                      alt=""
+                      icon={Store}
+                      className="mr-1 h-5 w-5 shrink-0 rounded-full object-cover"
+                      iconClassName="h-3 w-3 min-h-3 min-w-3"
+                    />
+                  )}
                   <span className="max-w-[45vw] truncate">{crumb.label}</span>
                   <KeyboardArrowRightIcon className="h-4 w-4 shrink-0" />
                 </Link>
