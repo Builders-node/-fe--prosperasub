@@ -71,7 +71,9 @@ export function SectionGroup({ label, count, tone, children }: SectionGroupProps
   return (
     <section className="space-y-2">
       {label && <SectionOverline label={label} count={count} tone={tone} />}
-      <div className="grid gap-3 lg:grid-cols-2">{children}</div>
+      {/* grid-cols-1 = minmax(0,1fr): without it a grid item is as wide as its
+          content, and a long plan name pushed the card off a phone screen. */}
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">{children}</div>
     </section>
   );
 }

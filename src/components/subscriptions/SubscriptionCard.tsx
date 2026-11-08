@@ -103,7 +103,7 @@ export function SubscriptionCard({
       <div
         {...shell}
         className={cn(
-          "rounded-radius-md bg-card p-2 pr-3 shadow-figma",
+          "min-w-0 rounded-radius-md bg-card p-2 pr-3 shadow-figma",
           isRowClickable && "cursor-pointer transition-colors hover:bg-muted/40",
           className,
         )}
@@ -130,7 +130,7 @@ export function SubscriptionCard({
     <div
       {...shell}
       className={cn(
-        "rounded-radius-md bg-card p-2 pr-4 shadow-figma",
+        "min-w-0 rounded-radius-md bg-card p-2 pr-4 shadow-figma",
         isRowClickable && "cursor-pointer transition-colors hover:bg-muted/40",
         className,
       )}
