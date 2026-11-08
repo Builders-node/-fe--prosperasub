@@ -40,6 +40,7 @@ import { LinkifiedText } from "@/components/patterns/LinkifiedText";
 import { DecisionBar } from "@/components/patterns/DecisionBar";
 import { useSeo, offerJsonLd } from "@/hooks/useSeo";
 import { PhotoCarousel } from "@/components/patterns/PhotoCarousel";
+import { ProductGallery } from "@/components/patterns/ProductGallery";
 
 /**
  * The plan, before the till.
@@ -601,8 +602,8 @@ const PlanDetail = () => {
         business has a photo.
       */}
       {/* Always the band: the photo, or the standard placeholder. */}
-      {(
-        // Every photo, swipeable (PhotoCarousel); the placeholder band when there are none.
+      {/* Phone: the swipeable band. A laptop gets the gallery column below instead. */}
+      <div className="md:hidden">
         <PhotoCarousel
           photos={gallery}
           alt={title}
@@ -612,7 +613,7 @@ const PlanDetail = () => {
             </div>
           }
         />
-      )}
+      </div>
 
       {/*
         Full-bleed on a phone: the design gives the cards no side gutter, so
@@ -620,7 +621,11 @@ const PlanDetail = () => {
         separation. The page container comes back on a desktop, where a
         1280px-wide card would be unreadable.
       */}
-      <main className="flex flex-col gap-1 pt-1 md:mx-auto md:max-w-[1280px] md:gap-4 md:px-6 md:py-space-8">
+      <main className="pt-1 md:mx-auto md:grid md:max-w-[1280px] md:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] md:items-start md:gap-8 md:px-6 md:py-space-8">
+        {/* Laptop: every photo on the left, held in view while the details scroll. */}
+        <ProductGallery photos={gallery} alt={title} className="hidden md:sticky md:top-24 md:block" />
+
+        <div className="flex flex-col gap-1 md:gap-4">
         <section className="space-y-3 rounded-radius-lg bg-card p-4 shadow-figma">
           {breadcrumbs.length > 0 && (
             <nav
@@ -706,6 +711,7 @@ const PlanDetail = () => {
             <ProviderReviewsBlock providerId={plan.providerId} service={reviewService} />
           </div>
         )}
+        </div>
       </main>
 
       {/*
