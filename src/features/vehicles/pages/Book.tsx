@@ -263,10 +263,18 @@ export default function Book() {
     </AppContainer>
   );
 
+  const payButton = (
+    <Button size="lg" className="w-full" disabled={reserving}
+      onClick={() => (isAuthenticated ? void startPay() : openAuthModal("login", location.pathname + location.search))}>
+      {reserving && <Spinner size="sm" className="mr-2" />}
+      {isAuthenticated ? `Pay ${formatUSD(effectiveTotal)}` : `Sign in to book · ${formatUSD(effectiveTotal)}`}
+    </Button>
+  );
+
   return (
     // Phone: blocks run edge to edge, as on the vehicle page — the cards ARE
     // the frame. The container's gutter returns from md up.
-    <AppContainer className={cn("max-md:px-0 pt-1 md:py-6", step === "form" && "pb-[calc(var(--checkout-footer-h,120px)+16px)]")}>
+    <AppContainer className={cn("max-md:px-0 pt-1 md:py-6", step === "form" && "pb-[calc(var(--checkout-footer-h,120px)+16px)] lg:pb-6")}>
       <div className="grid gap-1 lg:grid-cols-[1fr_360px] lg:gap-4">
         <div className="space-y-1">
           {step === "form" ? (
@@ -406,6 +414,9 @@ export default function Book() {
                 <span>Total</span><span className="tabular-nums">{formatUSD(effectiveTotal)}</span>
               </div>
             </div>
+            {/* On a laptop the button sits under the total it pays, in the
+                column that stays in view — not in a bar across the page. */}
+            {step === "form" && <div className="mt-4 hidden lg:block">{payButton}</div>}
           </div>
         </div>
       </div>
@@ -413,13 +424,9 @@ export default function Book() {
       {/* The one place a Pay button lives on this platform: pinned to the
           bottom, always reachable — same component as PlanCheckout and Cart. */}
       {step === "form" && (
-        <CheckoutStickyFooter>
-          <Button size="lg" className="w-full" disabled={reserving}
-            onClick={() => (isAuthenticated ? void startPay() : openAuthModal("login", location.pathname + location.search))}>
-            {reserving && <Spinner size="sm" className="mr-2" />}
-            {isAuthenticated ? `Pay ${formatUSD(effectiveTotal)}` : `Sign in to book · ${formatUSD(effectiveTotal)}`}
-          </Button>
-        </CheckoutStickyFooter>
+        <div className="lg:hidden">
+          <CheckoutStickyFooter>{payButton}</CheckoutStickyFooter>
+        </div>
       )}
 
       {/* Insurance sheet — ResponsiveDialog so it is a bottom sheet on a
