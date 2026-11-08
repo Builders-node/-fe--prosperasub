@@ -526,12 +526,21 @@ export default function Cart() {
           // The one empty-state component, and neutral words — the cart takes
           // any service's plans now, so it must not send everyone to the
           // restaurant.
-          <YdEmptyState
-            icon={ShoppingCart}
-            title="Your cart is empty"
-            subtitle="Add plans from any service and pay for them together."
-            action={<Button onClick={() => navigate("/discovery")}>Browse services</Button>}
-          />
+          <>
+            <YdEmptyState
+              icon={ShoppingCart}
+              title="Your cart is empty"
+              subtitle="Add plans from any service and pay for them together."
+              action={<Button onClick={() => navigate("/discovery")}>Browse services</Button>}
+            />
+            {/* The moment someone doesn't know what to take: what others take. */}
+            <UpsellSection
+              title="Popular on EverySub"
+              placement="cart"
+              limit={6}
+              gridClassName="md:grid-cols-2 lg:grid-cols-3"
+            />
+          </>
         ) : (
           <>
             {/* The basket, laid out like a shop's: the heading and "Clear cart",
