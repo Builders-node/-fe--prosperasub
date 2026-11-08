@@ -14,6 +14,7 @@ import { YdEmptyState } from "@/components/yd/YdPrimitives";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Photo } from "@/components/patterns/Photo";
 import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
 import {
@@ -556,9 +557,12 @@ export default function Cart() {
                       const per = shape.periodNoun;
                       return (
                         <div key={item.key} className="flex gap-4 py-4">
-                          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-radius-md bg-primary/10 md:h-20 md:w-20">
-                            <Icon className="h-8 w-8 text-primary" />
-                          </span>
+                          <Photo
+                            src={planById.get(item.planId)?.image}
+                            alt={item.planName}
+                            icon={Icon}
+                            className="h-14 w-14 shrink-0 rounded-radius-md object-cover md:h-20 md:w-20"
+                          />
                           <div className="min-w-0 flex-1 space-y-2">
                             <div className="flex items-start justify-between gap-3">
                               <div className="min-w-0">
@@ -637,6 +641,7 @@ export default function Cart() {
                   })()}
                   priceCents={cartLineTotal(item)}
                   quantity={item.qty}
+                  image={planById.get(item.planId)?.image}
                 />
               ))}
 

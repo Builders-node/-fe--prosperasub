@@ -93,6 +93,10 @@ const asSelection = (value: unknown): SelectionGroup | null => {
   };
 };
 
+function firstPhoto(list: unknown): string | null {
+  return Array.isArray(list) && typeof list[0] === "string" && list[0] ? list[0] : null;
+}
+
 /**
  * Resolve any plan id — legacy or universal — into the one shape.
  *
@@ -102,7 +106,7 @@ const asSelection = (value: unknown): SelectionGroup | null => {
 export async function resolveCheckoutPlan(planId: string): Promise<CheckoutPlan | null> {
   const { data: rows } = await supabaseDb
     .from("provider_plans")
-    .select("*, providers(name, source_provider_id, status)")
+    .select("*, providers(name, source_provider_id, status, gallery_urls, avatar_url)")
     .or(`id.eq.${planId},source_plan_id.eq.${planId}`)
     .limit(1);
 
@@ -151,9 +155,10 @@ export async function resolveCheckoutPlan(planId: string): Promise<CheckoutPlan 
     needsArea: service === "food",
     unitLabel: row.included_unit ?? null,
     unitQuantity: row.included_quantity ?? null,
-    image: Array.isArray(row.gallery_urls) && typeof row.gallery_urls[0] === "string"
-      ? String(row.gallery_urls[0])
-      : null,
+    // The plan's own photo, else the business's — the same order the plan
+    // page uses, so the cart and checkout show what the customer just saw.
+    image: firstPhoto(row.gallery_urls) ?? firstPhoto(row.providers?.gallery_urls)
+      ?? (typeof row.providers?.avatar_url === "string" && row.providers.avatar_url ? row.providers.avatar_url : null),
   };
 }
 
