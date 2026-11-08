@@ -146,7 +146,7 @@ export function AdBanner({ placement }: { placement: string }) {
  * and the staff-facing QR verification screen.
  */
 // /for-business is a pitch with its own header: a promo strip above it reads as someone else's ad.
-const AD_FREE_PREFIXES = ["/admin", "/verify", "/oauth", "/auth", "/reset-password", "/for-business"];
+const AD_FREE_PREFIXES = ["/admin", "/verify", "/oauth", "/auth", "/reset-password", "/for-business", "/how-it-works", "/pay-with-bitcoin", "/about"];
 
 export function SiteAdBanner() {
   const { pathname } = useLocation();

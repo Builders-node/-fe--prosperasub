@@ -91,6 +91,9 @@ const main = async () => {
   // The pages anyone may land on.
   entries.push(
     url("/for-business", { changefreq: "monthly", priority: 0.8 }),
+    url("/how-it-works", { changefreq: "monthly", priority: 0.7 }),
+    url("/pay-with-bitcoin", { changefreq: "weekly", priority: 0.8 }),
+    url("/about", { changefreq: "monthly", priority: 0.5 }),
     url("/become-a-provider", { changefreq: "monthly", priority: 0.5 }),
     url("/support", { changefreq: "monthly", priority: 0.3 }),
     url("/terms", { changefreq: "yearly", priority: 0.2 }),

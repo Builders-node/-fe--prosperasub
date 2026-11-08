@@ -23,7 +23,7 @@
  * `?_og=1` forces the robot page, for checking it from a browser.
  */
 export const config = {
-  matcher: ["/", "/services/:path*", "/vehicles/:path*", "/discovery", "/for-business", "/become-a-provider"],
+  matcher: ["/", "/services/:path*", "/vehicles/:path*", "/discovery", "/for-business", "/become-a-provider", "/how-it-works", "/pay-with-bitcoin", "/about"],
 };
 
 const PREVIEW_BOT = /facebookexternalhit|Facebot|WhatsApp|Twitterbot|Slackbot|TelegramBot|LinkedInBot|Discordbot|Pinterest|SkypeUriPreview|vkShare|redditbot|Embedly|Iframely|bitlybot|Applebot/i;
@@ -263,6 +263,42 @@ async function pageFor(path: string): Promise<Page | null> {
       h1: "Sell subscriptions and bookings in Roatán",
       text: [description, "Your own page and checkout, a schedule with Google Calendar, team access, promo codes, messages to subscribers and withdrawals to a Lightning or Bitcoin address."],
       lists: [{ heading: "Get started", links: [{ href: "/become-a-provider", label: "Apply to sell — about 5 minutes" }] }],
+      jsonLd: [ORG],
+    };
+  }
+
+  if (parts[0] === "how-it-works") {
+    const description = "Pick a local service on Roatán, choose your options, pay up front by Lightning, Bitcoin, card or PayPal — then meals, cleaning, memberships and rentals just happen.";
+    return {
+      title: "How EverySub works — subscriptions and bookings on Roatán", description, image: `${SITE}/for-business/hero.jpg`, type: "website",
+      h1: "Subscribe once, it shows up every week",
+      text: [description, "1. Pick a service. 2. Choose what fits. 3. Pay up front. 4. It just happens — deliveries, visits and bookings on schedule, all in one account with reminders and an access QR."],
+      lists: [{ heading: "Start", links: await servicesList() }],
+    };
+  }
+
+  if (parts[0] === "pay-with-bitcoin") {
+    const provs = await rows(`providers?status=eq.active&select=id,name,unit,archetype_key,location&order=name`);
+    const description = "Pay Roatán businesses with Bitcoin: Lightning in seconds, on-chain Bitcoin, or card and PayPal. Every business on EverySub accepts all of them.";
+    return {
+      title: "Pay with Bitcoin in Roatán — Lightning, on-chain, card", description, image: `${SITE}/for-business/hero.jpg`, type: "website",
+      h1: "Pay with Bitcoin, all over Roatán",
+      text: [description, "Choose a plan, pick Lightning at checkout, scan the QR with any Lightning wallet (Blink, Wallet of Satoshi, Phoenix, Strike…) and it confirms in seconds."],
+      lists: [{
+        heading: "Businesses in Roatán that accept Bitcoin",
+        links: provs.map((p) => ({ href: providerPath(p), label: p.name, note: p.location || null })).filter((l): l is Link => !!l.href),
+      }],
+      jsonLd: [{ "@context": "https://schema.org", "@type": "ItemList", name: "Businesses in Roatán that accept Bitcoin",
+        itemListElement: provs.map((p, i) => ({ "@type": "ListItem", position: i + 1, name: p.name, url: `${SITE}${providerPath(p) ?? "/discovery"}` })) }],
+    };
+  }
+
+  if (parts[0] === "about") {
+    const description = "EverySub is a marketplace for subscriptions, bookings and rentals from local businesses on Roatán, Honduras — paid up front by Lightning, Bitcoin, card or PayPal.";
+    return {
+      title: "About EverySub — local services on Roatán", description, image: `${SITE}/for-business/hero.jpg`, type: "website",
+      h1: "About EverySub", text: [description, "Contact: WhatsApp +504 9706-7865 · support@prosperasub.com · Roatán, Islas de la Bahía, Honduras."],
+      lists: [{ heading: "More", links: [{ href: "/how-it-works", label: "How it works" }, { href: "/pay-with-bitcoin", label: "Pay with Bitcoin" }, { href: "/for-business", label: "For businesses" }] }],
       jsonLd: [ORG],
     };
   }

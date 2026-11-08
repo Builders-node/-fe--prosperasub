@@ -53,6 +53,9 @@ const History = lazy(() => import("./pages/user/History"));
 const MyBusiness = lazy(() => import("./pages/user/MyBusiness"));
 const BecomeProvider = lazy(() => import("./pages/BecomeProvider"));
 const ForBusiness = lazy(() => import("./pages/ForBusiness"));
+const HowItWorks = lazy(() => import("./pages/HowItWorks"));
+const PayWithBitcoin = lazy(() => import("./pages/PayWithBitcoin"));
+const About = lazy(() => import("./pages/About"));
 const ProviderApplications = lazy(() => import("./pages/admin/ProviderApplications"));
 const LegacyPortalRedirect = lazy(() => import("./pages/user/LegacyPortalRedirect"));
 
@@ -356,6 +359,9 @@ const App = () => {
               <Route path="/my-cleaning"    element={<ProtectedRoute><LegacyPortalRedirect service="cleaning" /></ProtectedRoute>} />
               <Route path="/become-a-provider" element={<BecomeProvider />} />
               <Route path="/for-business" element={<ForBusiness />} />
+              <Route path="/how-it-works" element={<HowItWorks />} />
+              <Route path="/pay-with-bitcoin" element={<PayWithBitcoin />} />
+              <Route path="/about" element={<About />} />
               {/* The short spelling people type and say aloud. */}
               <Route path="/become-provider" element={<Navigate to="/become-a-provider" replace />} />
               {/* Reachable signed out on purpose — someone who can't log in

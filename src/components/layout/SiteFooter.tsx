@@ -70,6 +70,9 @@ export function SiteFooter() {
           { label: "Talk to us on WhatsApp", to: WHATSAPP_HREF, external: true },
         ]} />
         <Column title="Help" links={[
+          { label: "How it works", to: "/how-it-works" },
+          { label: "Pay with Bitcoin", to: "/pay-with-bitcoin" },
+          { label: "About EverySub", to: "/about" },
           { label: "Support", to: "/support" },
           { label: "My account", to: "/account" },
           { label: "Order history", to: "/history" },

@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 
 import { SiteFooter } from "@/components/layout/SiteFooter";
+import { ACCENT, ArrowCta, Glass, GlassRow, H1, H2, H3, TwoTone } from "@/components/marketing/Marketing";
 import { LEGAL_CONTACT } from "@/components/legal/LegalPage";
 import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
 import { useSeo } from "@/hooks/useSeo";
@@ -33,14 +34,6 @@ const APPLY = "/become-a-provider";
 const PATH = "/for-business";
 const IMG = "/for-business";
 
-/** Display sizes, fluid between phone and desktop. */
-const H1: CSSProperties = { fontSize: "clamp(2.4rem, 6.4vw, 5.6rem)", lineHeight: 1.02, letterSpacing: "-0.035em" };
-const H2: CSSProperties = { fontSize: "clamp(2rem, 4.6vw, 4rem)", lineHeight: 1.04, letterSpacing: "-0.03em" };
-const H3: CSSProperties = { fontSize: "clamp(1.5rem, 2.6vw, 2.25rem)", lineHeight: 1.1, letterSpacing: "-0.02em" };
-
-/** The accent line of a headline: deep amber on light (readable), brand amber on dark. */
-const ACCENT = "text-[hsl(var(--brand-accent-active))] dark:text-primary";
-
 function useDefaultCommission() {
   return useQuery({
     queryKey: ["global-setting", DEFAULT_COMMISSION_KEY],
@@ -51,69 +44,6 @@ function useDefaultCommission() {
       return Number.isFinite(n) && n >= 0 ? n : 10;
     },
   });
-}
-
-// ─── Small building blocks ───────────────────────────────────────────────────
-
-/** The page's call to action: a pill with the arrow in its own amber disc. */
-function ArrowCta({ to, href, children, tone = "light", className }: {
-  to?: string; href?: string; children: ReactNode; tone?: "light" | "dark" | "glass"; className?: string;
-}) {
-  const cls = cn(
-    "group inline-flex h-12 items-center gap-3 rounded-full pl-1.5 pr-5 text-body font-semibold transition-transform active:scale-[0.98]",
-    tone === "light" && "bg-white text-neutral-900 hover:bg-white/90",
-    tone === "dark" && "bg-foreground text-background hover:opacity-90",
-    tone === "glass" && "bg-white/10 pl-5 text-white ring-1 ring-white/30 backdrop-blur hover:bg-white/20",
-    className,
-  );
-  const inner = (
-    <>
-      {tone !== "glass" && (
-        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground transition-transform group-hover:translate-x-0.5">
-          <ArrowRight className="h-4 w-4" />
-        </span>
-      )}
-      {children}
-    </>
-  );
-  if (href) return <a href={href} target="_blank" rel="noreferrer" className={cls}>{inner}</a>;
-  return <Link to={to ?? APPLY} className={cls}>{inner}</Link>;
-}
-
-/** Frosted glass over the rendered backgrounds. */
-function Glass({ className, children }: { className?: string; children: ReactNode }) {
-  return (
-    <div className={cn("rounded-radius-xl bg-white/15 text-white ring-1 ring-white/35 backdrop-blur-xl", className)}>
-      {children}
-    </div>
-  );
-}
-
-function GlassRow({ icon: Icon, title, meta, value }: { icon: typeof Store; title: string; meta?: string; value?: string }) {
-  return (
-    <div className="flex items-center gap-3 rounded-radius-md bg-white/10 px-3 py-2.5 ring-1 ring-white/20">
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-neutral-900">
-        <Icon className="h-4 w-4" />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-body font-semibold">{title}</span>
-        {meta && <span className="block truncate text-meta text-white/75">{meta}</span>}
-      </span>
-      {value && <span className="shrink-0 text-body font-semibold tabular-nums">{value}</span>}
-    </div>
-  );
-}
-
-/** A section heading in two tones: the accent line, then the plain one. */
-function TwoTone({ accent, plain, accentFirst = true, center, as: Tag = "h2", style = H2 }: {
-  accent: string; plain: string; accentFirst?: boolean; center?: boolean; as?: "h1" | "h2"; style?: CSSProperties;
-}) {
-  return (
-    <Tag className={cn("font-semibold text-foreground", center && "text-center")} style={style}>
-      {accentFirst ? (<><span className={cn("block", ACCENT)}>{accent}</span><span className="block">{plain}</span></>)
-        : (<><span className="block">{plain}</span><span className={cn("block", ACCENT)}>{accent}</span></>)}
-    </Tag>
-  );
 }
 
 // ─── The screens drawn on the glass ──────────────────────────────────────────
@@ -356,7 +286,7 @@ export default function ForBusiness() {
             <div className="relative grid gap-8 p-6 md:grid-cols-[1fr_auto_1fr] md:items-stretch md:p-12">
               <div className="flex flex-col justify-start gap-6 text-white">
                 <p className="font-semibold" style={H3}>from a weekly meal plan to a three-day jeep.</p>
-                <div><ArrowCta>Apply now</ArrowCta></div>
+                <div><ArrowCta to={APPLY}>Apply now</ArrowCta></div>
               </div>
               <div className="flex justify-center"><BalanceMock /></div>
               <div className="flex items-end text-white">
@@ -400,7 +330,7 @@ export default function ForBusiness() {
               </div>
             ))}
           </div>
-          <div className="mt-8 flex justify-center"><ArrowCta tone="dark">Apply — about 5 minutes</ArrowCta></div>
+          <div className="mt-8 flex justify-center"><ArrowCta tone="dark" to={APPLY}>Apply — about 5 minutes</ArrowCta></div>
         </section>
 
         {/* ─── People ────────────────────────────────────────────── */}
@@ -478,7 +408,7 @@ export default function ForBusiness() {
                 <h2 className="font-semibold" style={H2}>ready to sell on EverySub?</h2>
                 <p className="max-w-[460px] text-body text-white/85 md:text-lg">Apply in about five minutes, or ask us anything first. We'll get you live.</p>
                 <div className="flex flex-wrap gap-3">
-                  <ArrowCta>Apply now</ArrowCta>
+                  <ArrowCta to={APPLY}>Apply now</ArrowCta>
                   <ArrowCta tone="glass" href={LEGAL_CONTACT.whatsappHref}><MessageCircle className="h-4 w-4" /> Talk to us</ArrowCta>
                 </div>
               </div>
@@ -565,7 +495,7 @@ function FeatureSwitcher() {
                       ))}
                     </ul>
                     <div className="mt-5 flex flex-wrap gap-3">
-                      <ArrowCta tone="dark">Apply</ArrowCta>
+                      <ArrowCta tone="dark" to={APPLY}>Apply</ArrowCta>
                       <a href="#pricing" className="inline-flex h-12 items-center rounded-full px-5 text-body font-semibold ring-1 ring-border hover:bg-muted">See pricing</a>
                     </div>
                   </div>
