@@ -576,6 +576,22 @@ const PlanDetail = () => {
     : SUBSCRIBE;
   const fromRange = showFrom ? fromLabel(priceCents, unit) : null;
 
+  // One button, two places: the bottom bar on a phone, the details column on a laptop.
+  const buyButton = (
+  <button
+    type="button"
+    onClick={subscribe}
+    disabled={notOnSale || (!!offer && !chosen) || (mealsPerDay > 0 && meals.length !== Math.min(mealsPerDay, 3))}
+    className="w-full rounded-radius-md bg-primary px-4 py-3 text-title font-semibold leading-6 text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
+  >
+    {/* Three actions, three labels. This button used to word itself
+        four ways — "Add to cart · $90.00 / week", "From $79.00 / month",
+        "Pay $80.00 / month", "Subscribe" — for what is, from the
+        customer's side, the same tap. */}
+    {ctaLabel}
+  </button>
+  );
+
   return (
     <div className="min-h-screen bg-background pb-[calc(var(--decision-bar-h,120px)+16px)] md:pb-12">
       <DesktopHeader />
@@ -679,6 +695,14 @@ const PlanDetail = () => {
           )}
         </section>
 
+        {/* Laptop: the decision sits with the details, not in a bar across the screen. */}
+        <section className="hidden space-y-2 rounded-radius-lg bg-card p-4 shadow-figma md:block">
+          {showFrom && fromRange && (
+            <p className="text-center text-meta text-muted-foreground">{fromRange}</p>
+          )}
+          {buyButton}
+        </section>
+
         {(plan.features.length > 0 || entitlementLines.length > 0) && (
           <section className="space-y-3 rounded-radius-lg bg-card p-4 shadow-figma">
             <h2 className="text-heading font-semibold text-foreground">What's included</h2>
@@ -720,7 +744,7 @@ const PlanDetail = () => {
         screen. The price rides inside the button rather than beside it: the two
         were one decision pretending to be two.
       */}
-      <DecisionBar className="pb-6 md:mt-6 md:rounded-none">
+      <DecisionBar className="pb-6 md:hidden">
         <div className="px-4 py-2 md:mx-auto md:max-w-[1280px] md:px-6">
           {/* An offer whose variants disagree about price has no single price
               to put in the button, so the range goes above it and the button
@@ -728,18 +752,7 @@ const PlanDetail = () => {
           {showFrom && fromRange && (
             <p className="mb-1.5 text-center text-[13px] text-muted-foreground">{fromRange}</p>
           )}
-          <button
-            type="button"
-            onClick={subscribe}
-            disabled={notOnSale || (!!offer && !chosen) || (mealsPerDay > 0 && meals.length !== Math.min(mealsPerDay, 3))}
-            className="w-full rounded-radius-md bg-primary px-4 py-3 text-title font-semibold leading-6 text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
-          >
-            {/* Three actions, three labels. This button used to word itself
-                four ways — "Add to cart · $90.00 / week", "From $79.00 / month",
-                "Pay $80.00 / month", "Subscribe" — for what is, from the
-                customer's side, the same tap. */}
-            {ctaLabel}
-          </button>
+          {buyButton}
         </div>
       </DecisionBar>
     </div>

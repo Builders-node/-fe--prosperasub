@@ -53,7 +53,7 @@ export function ProductGallery({ photos, alt = "", className }: { photos: string
                 n === i ? "ring-2 ring-primary" : "opacity-70 hover:opacity-100",
               )}
             >
-              <Photo src={src} loading="lazy" className="absolute inset-0" />
+              <Photo src={src} loading="eager" className="absolute inset-0" />
             </button>
           ))}
         </div>
