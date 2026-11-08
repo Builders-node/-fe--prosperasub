@@ -33,7 +33,9 @@ import { attachPaymentReference } from "@/lib/payments/pendingReference";
 import { useInvoicePayment } from "@/hooks/useInvoicePayment";
 import { serviceListingHref, serviceSlug } from "@/lib/services/serviceUrls";
 import { termLabel, termLabelFor, includedLabel, periodNoun } from "@/lib/services/planPeriod";
-import { resolveCheckoutPlan, totalFor } from "@/lib/checkout/planCheckoutModel";
+import { resolveCheckoutPlan, termOptionsFor, totalFor } from "@/lib/checkout/planCheckoutModel";
+import { OrderSize } from "@/components/checkout/OrderSize";
+import { cn } from "@/lib/utils";
 import { buildSubscriptionWrite, endDateOf } from "@/lib/checkout/subscriptionWriter";
 import { payLabel } from "@/lib/checkout/ctaLabel";
 import {
@@ -111,6 +113,8 @@ const UniversalPlanCheckout = () => {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("lightning");
   const mutationCalledRef = useRef(false);
   const pendingSubIdRef = useRef<string | null>(null);
+  /** The other portions' rows, when a food order has more than one. */
+  const pendingExtraIdsRef = useRef<string[]>([]);
   /** Minted once per screen, so a retried call extends the period once. */
   const renewKeyRef = useRef<string | null>(null);
 
@@ -169,6 +173,12 @@ const UniversalPlanCheckout = () => {
   const periodsCeiling = plan?.periodsMax ?? periodsMin;
   const [periods, setPeriods] = useState(1);
   const [people, setPeople] = useState(1);
+  /**
+   * Portions — food only. N portions are N subscriptions (each one is a person
+   * eating, cooked and delivered on its own), written together and paid once,
+   * exactly as the cart has always done it.
+   */
+  const [portions, setPortions] = useState(1);
   const [selections, setSelections] = useState<string[]>([]);
   const [address, setAddress] = useState("");
   const [area, setArea] = useState("");
@@ -229,7 +239,16 @@ const UniversalPlanCheckout = () => {
 
   const perPerson = plan?.pricingMode === "per_person";
   const unitCents = plan?.unitCents ?? 0;
-  const totalCents = plan ? totalFor(plan, periods, people) : 0;
+  const isFoodPlan = plan?.service === "food";
+  const unitTotalCents = plan ? totalFor(plan, periods, people) : 0;
+  const multi = portions > 1;
+  const totalCents = unitTotalCents * portions;
+  // The terms on offer: the usual ones for this billing period, inside the
+  // provider's own bounds where they set any.
+  const termOptions = plan && !plan.oneTime
+    ? [...new Set([...termOptionsFor(plan.period).filter((n) => n >= periodsMin && n <= periodsCeiling), periodsMin, periodsCeiling])]
+        .filter((n) => n >= periodsMin && n <= periodsCeiling).sort((a, b) => a - b)
+    : [];
 
   /**
    * A promo code, and what the DATABASE says it is worth.
@@ -272,7 +291,9 @@ const UniversalPlanCheckout = () => {
     }
   };
 
-  const discountCents = Math.min(promo?.discountCents ?? 0, totalCents);
+  // A code and a bonus are written onto ONE row, and the database recomputes
+  // each on the row it sits on — so they apply to single orders only.
+  const discountCents = multi ? 0 : Math.min(promo?.discountCents ?? 0, totalCents);
 
   /**
    * Bonus balance, spent on this order.
@@ -285,7 +306,7 @@ const UniversalPlanCheckout = () => {
   const { balanceCents } = useBonusBalance();
   const [useBonus, setUseBonus] = useState(false);
   const afterPromoCents = Math.max(0, totalCents - discountCents);
-  const bonusCents = useBonus ? Math.min(balanceCents, afterPromoCents) : 0;
+  const bonusCents = useBonus && !multi ? Math.min(balanceCents, afterPromoCents) : 0;
 
   const payableCents = Math.max(0, afterPromoCents - bonusCents);
   const effectiveTotalCents = addSurchargeCents(payableCents, paymentMethod);
@@ -299,7 +320,7 @@ const UniversalPlanCheckout = () => {
    */
   const [autoRenew, setAutoRenew] = useState(true);
   const autoRenewEligible =
-    !!plan && !plan.oneTime && !renewSubId && discountCents === 0 && bonusCents === 0;
+    !!plan && !plan.oneTime && !renewSubId && discountCents === 0 && bonusCents === 0 && !multi;
   /** "month", "4 weeks", "3 months" — the term PayPal will repeat. */
   const renewTerm = plan ? (periods > 1 ? termLabelFor(plan.period, periods) : periodNoun(plan.period) || "period") : "period";
   const feePct = surchargePercent(paymentMethod);
@@ -338,7 +359,7 @@ const UniversalPlanCheckout = () => {
       // A renewal reserved nothing, so there is nothing to attach it to. The
       // audit row carries the reference instead, written by the server.
       if (renewSubId) return;
-      void attachPaymentReference(supabaseDb, subTable(), pendingSubIdRef.current, paymentRef, method);
+      attachAll(paymentRef, method);
     },
   });
 
@@ -347,14 +368,20 @@ const UniversalPlanCheckout = () => {
    * The answers are identical; only the row shape differs, and that lives in
    * `buildSubscriptionWrite` rather than in four screens.
    */
-  const write = (method: string) => buildSubscriptionWrite(plan!, {
+  /** One row's share of the charge: the whole of it, or split across portions. */
+  const rowCharge = (i: number) => {
+    if (!multi) return effectiveTotalCents;
+    const per = Math.round(effectiveTotalCents / portions);
+    return i === 0 ? effectiveTotalCents - per * (portions - 1) : per;
+  };
+  const write = (method: string, i = 0) => buildSubscriptionWrite(plan!, {
     userId: userData?.id ?? userUuid ?? "",
     userUuid: userUuid ?? null,
     startDate,
     periods,
     people,
-    totalCents,
-    chargedCents: effectiveTotalCents,
+    totalCents: multi ? unitTotalCents : totalCents,
+    chargedCents: rowCharge(i),
     paymentMethod: method,
     phone: phone.trim(),
     notes: notes.trim(),
@@ -367,7 +394,13 @@ const UniversalPlanCheckout = () => {
     promoDiscountCents: discountCents,
     creditAppliedCents: bonusCents,
   });
-  const buildRow = (method: string) => write(method).row;
+  const buildRow = (method: string, i = 0) => write(method, i).row;
+  const buildRows = (method: string) => Array.from({ length: portions }, (_, i) => buildRow(method, i));
+  /** Every row this order wrote — one, or one per portion. */
+  const allRowIds = () => [pendingSubIdRef.current, ...pendingExtraIdsRef.current].filter((x): x is string => !!x);
+  const attachAll = (ref: string, method: string) => {
+    for (const id of allRowIds()) void attachPaymentReference(supabaseDb, subTable(), id, ref, method);
+  };
   const subTable = () => write("lightning").table;
 
   /**
@@ -382,20 +415,22 @@ const UniversalPlanCheckout = () => {
     if (renewSubId) return renewSubId;
     try {
       if (pendingSubIdRef.current) {
-        await supabaseDb
+        const ids = allRowIds();
+        await Promise.all(ids.map((id, i) => supabaseDb
           .from(subTable())
-          .update({ ...buildRow(method), updated_at: new Date().toISOString() })
-          .eq("id", pendingSubIdRef.current);
+          .update({ ...buildRow(method, i), updated_at: new Date().toISOString() })
+          .eq("id", id)));
         return pendingSubIdRef.current;
       }
       const { data, error } = await supabaseDb
         .from(subTable())
-        .insert(buildRow(method))
-        .select("id")
-        .single();
+        .insert(buildRows(method))
+        .select("id");
       if (error) throw error;
-      pendingSubIdRef.current = data.id;
-      return data.id;
+      const ids = (data ?? []).map((r: { id: string }) => r.id);
+      pendingSubIdRef.current = ids[0] ?? null;
+      pendingExtraIdsRef.current = ids.slice(1);
+      return pendingSubIdRef.current;
     } catch (err: any) {
       toast.error(err?.message || "Could not reserve subscription");
       return null;
@@ -437,17 +472,19 @@ const UniversalPlanCheckout = () => {
       if (pendingSubIdRef.current) {
         const { data, error } = await supabaseDb
           .from(subTable())
-          .update(patch).eq("id", pendingSubIdRef.current).select().single();
+          .update(patch).in("id", allRowIds()).select();
         if (error) throw error;
-        return data;
+        return (data ?? []).find((r: { id: string }) => r.id === pendingSubIdRef.current) ?? (data ?? [])[0];
       }
       const { data, error } = await supabaseDb
         .from(subTable())
-        .insert({ ...buildRow(o.method), ...patch })
-        .select().single();
+        .insert(buildRows(o.method).map((r) => ({ ...r, ...patch })))
+        .select();
       if (error) throw error;
-      pendingSubIdRef.current = data.id;
-      return data;
+      const rows = data ?? [];
+      pendingSubIdRef.current = rows[0]?.id ?? null;
+      pendingExtraIdsRef.current = rows.slice(1).map((r: { id: string }) => r.id);
+      return rows[0];
     },
     onSuccess: (row: any) => {
       // The business that has to fulfil this hears about it now — owner and
@@ -637,7 +674,12 @@ const UniversalPlanCheckout = () => {
         {/* 1 — what is being bought. */}
         <CheckoutLineItem
           title={plan.name}
-          description={plan.providerName ? `${plan.providerName} · ${termLabel(plan.period)}` : termLabel(plan.period)}
+          description={[
+            plan.providerName,
+            plan.oneTime ? null : termLabelFor(plan.period, periods),
+            multi ? `${portions} portions` : null,
+            perPerson && people > 1 ? `${people} people` : null,
+          ].filter(Boolean).join(" · ")}
           priceCents={totalCents}
           image={plan.image}
         />
@@ -679,28 +721,19 @@ const UniversalPlanCheckout = () => {
                 </FieldRows>
               )}
 
-              {/* Only shown when the plan actually offers a choice — a plan
-                  sold one period at a time has nothing to step through. */}
-              {!renewing && periodsCeiling > periodsMin && (
-                <>
-                  <Label className="mt-4 block text-xs text-muted-foreground">
-                    How long — {termLabelFor(plan.period, periods)}
-                  </Label>
-                  <Stepper
-                    value={periods}
-                    min={periodsMin}
-                    max={periodsCeiling}
-                    onChange={setPeriods}
-                    unit={termLabel(plan.period)}
-                  />
-                </>
-              )}
-
-              {perPerson && !renewing && (
-                <>
-                  <Label className="mt-4 block text-xs text-muted-foreground">People</Label>
-                  <Stepper value={people} min={1} max={20} onChange={setPeople} unit="person" />
-                </>
+              {/* How long and how many — the same control as the cart's. */}
+              {!renewing && (
+                <OrderSize
+                  className="mt-4"
+                  termOptions={termOptions}
+                  periods={periods}
+                  onPeriods={setPeriods}
+                  periodNoun={periodNoun(plan.period)}
+                  priceForTerm={(n) => totalFor(plan, n, people) * portions}
+                  quantity={perPerson
+                    ? { value: people, onChange: setPeople, noun: "person" }
+                    : isFoodPlan ? { value: portions, onChange: setPortions, noun: "portion" } : null}
+                />
               )}
 
               {/* What the customer picks INSIDE the plan. It changes nothing
@@ -806,7 +839,8 @@ const UniversalPlanCheckout = () => {
         {/* A code, and what it took off. The field is the only place a
             customer can put one in, so it sits with the money rather than
             hidden behind a link. */}
-        <section className="rounded-radius-md bg-card p-4">
+        {/* Single orders only — see discountCents. */}
+        <section className={cn("rounded-radius-md bg-card p-4", multi && "hidden")}>
           <Label htmlFor="promo">Promo code</Label>
           <div className="mt-1 flex gap-2">
             <Input
@@ -878,6 +912,7 @@ const UniversalPlanCheckout = () => {
               : []),
             { label: "Term", value: termLabelFor(plan.period, periods) },
             ...(perPerson ? [{ label: "People", value: String(Math.max(1, people)) }] : []),
+            ...(multi ? [{ label: "Portions", value: String(portions) }] : []),
             { label: renewing ? "Renews from" : "Start date",
               value: format(new Date(`${effectiveStart}T00:00:00`), "d MMM yyyy") },
             // A one-time purchase does not "end" — the date is how long what
@@ -944,7 +979,7 @@ const UniversalPlanCheckout = () => {
             // reserved row before the customer pays, or a closed tab strands it.
             onInvoiceReady={(id) => {
               if (renewSubId) return;
-              void attachPaymentReference(supabaseDb, subTable(), pendingSubIdRef.current, id, "crypto_gateway");
+              attachAll(id, "crypto_gateway");
             }}
           />
         ) : showPayment && (inv.state.invoice || inv.state.address) ? (
@@ -1045,23 +1080,5 @@ const UniversalPlanCheckout = () => {
  * get wrong — and the bounds come from the plan, so the control cannot offer
  * a quantity the provider does not sell.
  */
-function Stepper({ value, min, max, unit, onChange }: {
-  value: number; min: number; max: number; unit: string; onChange: (n: number) => void;
-}) {
-  return (
-    <div className="mt-1.5 flex items-center gap-3">
-      <button type="button" aria-label="Fewer"
-        className="flex h-11 w-11 items-center justify-center rounded-radius-md bg-inset text-lg font-semibold text-foreground disabled:opacity-40"
-        disabled={value <= min} onClick={() => onChange(Math.max(min, value - 1))}>−</button>
-      <span className="min-w-[6ch] text-center text-[16px] font-semibold tabular-nums text-foreground">
-        {value}
-      </span>
-      <button type="button" aria-label="More"
-        className="flex h-11 w-11 items-center justify-center rounded-radius-md bg-inset text-lg font-semibold text-foreground disabled:opacity-40"
-        disabled={value >= max} onClick={() => onChange(Math.min(max, value + 1))}>+</button>
-      <span className="text-meta text-muted-foreground">{unit}</span>
-    </div>
-  );
-}
 
 export default UniversalPlanCheckout;

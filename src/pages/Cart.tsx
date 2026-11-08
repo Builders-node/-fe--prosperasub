@@ -49,6 +49,7 @@ import { notifyProviderOfOrder } from "@/lib/orders/notifyProvider";
 import { resolveCheckoutPlan, type CheckoutPlan } from "@/lib/checkout/planCheckoutModel";
 import type { CartService } from "@/lib/cart/cartItem";
 import { Sparkles, Waves, Package } from "lucide-react";
+import { OrderSize } from "@/components/checkout/OrderSize";
 
 /** A line reads as its service at a glance, not as food-with-a-different-name. */
 const SERVICE_ICON: Record<CartService, typeof UtensilsCrossed> = {
@@ -497,62 +498,24 @@ export default function Cart() {
                       </button>
                     </div>
 
-                    {/* How long — weeks for meals, months for everything else.
-                        A service that only sells one length says so instead of
-                        offering a select with a single option. */}
-                    <div className="mt-2">
-                      {shape.periodOptions.length > 1 ? (
-                        <Select value={String(item.periods)} onValueChange={(v) => setPeriods(item.key, parseInt(v))}>
-                          <SelectTrigger inputSize="sm" className="w-auto min-w-[104px] rounded-full">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {shape.periodOptions.map((n) => (
-                              <SelectItem key={n} value={String(n)}>
-                                {n} {shape.periodNoun}{n === 1 ? "" : "s"}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      ) : (
-                        <span className="inline-flex rounded-full bg-muted/40 px-3 py-1 text-xs text-muted-foreground">
-                          {periodLabel(item)}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="mt-3 flex items-center justify-between gap-2">
-                      {shape.allowsQuantity ? (
-                        <div className="inline-flex items-center rounded-full bg-muted/40">
-                          <button
-                            type="button"
-                            onClick={() => setQty(item.key, item.qty - 1)}
-                            aria-label="Decrease"
-                            className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground"
-                          >
-                            <Minus className="h-3.5 w-3.5" />
-                          </button>
-                          <span className="w-6 text-center text-sm font-bold tabular-nums text-foreground">{item.qty}</span>
-                          <button
-                            type="button"
-                            onClick={() => setQty(item.key, item.qty + 1)}
-                            aria-label="Increase"
-                            className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground"
-                          >
-                            <Plus className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      ) : (
-                        <span />
-                      )}
+                    {/* How long and how many — the same control as the checkout's. */}
+                    <OrderSize
+                      className="mt-3"
+                      termOptions={shape.periodOptions}
+                      periods={item.periods}
+                      onPeriods={(n) => setPeriods(item.key, n)}
+                      periodNoun={shape.periodNoun}
+                      priceForTerm={(n) => item.unitPriceCents * n * Math.max(1, item.qty)}
+                      quantity={shape.allowsQuantity && shape.unitNoun
+                        ? { value: item.qty, onChange: (n) => setQty(item.key, n), noun: shape.unitNoun }
+                        : null}
+                    />
+                    <div className="mt-3 flex items-center justify-between">
+                      <span className="text-meta text-muted-foreground">Line total</span>
                       <p className="text-base font-semibold tabular-nums text-foreground">
                         {formatUSD(cartLineTotal(item))}
                       </p>
                     </div>
-
-                    {shape.allowsQuantity && shape.unitNoun && (
-                      <p className="mt-1 text-xs text-muted-foreground">{quantityLabel(item)}</p>
-                    )}
                   </div>
                 </div>
                 );

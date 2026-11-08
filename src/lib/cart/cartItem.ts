@@ -1,3 +1,5 @@
+// The same terms the checkout offers — one list, so the two screens agree.
+import { termOptionsFor } from "@/lib/services/planPeriod";
 /**
  * What a cart line is, now that it isn't only food.
  *
@@ -57,14 +59,14 @@ export const CART_SERVICES: Record<CartService, ServiceShape> = {
     label: "Meals",
     periodNoun: "week",
     unitNoun: "portion",
-    periodOptions: [1, 2, 4, 8, 12],
+    periodOptions: termOptionsFor("weekly"),
     allowsQuantity: true,
   },
   cleaning: {
     label: "Cleaning",
     periodNoun: "month",
     unitNoun: null,
-    periodOptions: [1, 2, 3],
+    periodOptions: termOptionsFor("monthly"),
     // Two subscriptions to the same cleaning plan would need two schedules and
     // two sets of visits; the platform has no idea which is which.
     allowsQuantity: false,
@@ -73,14 +75,14 @@ export const CART_SERVICES: Record<CartService, ServiceShape> = {
     label: "Beach Club",
     periodNoun: "month",
     unitNoun: "person",
-    periodOptions: [1],
+    periodOptions: termOptionsFor("monthly"),
     allowsQuantity: true,
   },
   plan: {
     label: "Subscriptions",
     periodNoun: "month",
     unitNoun: null,
-    periodOptions: [1, 3, 6, 12],
+    periodOptions: termOptionsFor("monthly"),
     allowsQuantity: false,
   },
 };

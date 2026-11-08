@@ -1,5 +1,6 @@
 import { supabaseDb } from "@/integrations/supabase/client";
-import { normPeriod } from "@/lib/services/planPeriod";
+import { normPeriod, termOptionsFor } from "@/lib/services/planPeriod";
+export { termOptionsFor };
 
 /**
  * One shape every plan resolves to, whatever service sells it.
@@ -118,9 +119,13 @@ export async function resolveCheckoutPlan(planId: string): Promise<CheckoutPlan 
   // are meaningless for it and an old row may hold anything.
   const oneTime = normPeriod(row.period) === "one_time";
   const periodsMin = oneTime ? 1 : Math.max(1, Number(row.periods_min ?? 1));
-  // Unset means one period. Offering more than the provider has said they sell
-  // would be the checkout making a commercial decision for them.
-  const periodsMax = oneTime ? 1 : row.periods_max != null ? Number(row.periods_max) : periodsMin;
+  // Unset means the platform's usual terms (TERM_OPTIONS) — the same choice
+  // the cart has always offered. It used to mean "one period only", so the
+  // checkout sold a single week while the cart sold twelve; a provider who
+  // wants a cap sets one ("How it's sold" → periods max).
+  const periodsMax = oneTime ? 1
+    : row.periods_max != null ? Number(row.periods_max)
+    : Math.max(periodsMin, ...termOptionsFor(row.period));
 
   return {
     service,
@@ -157,3 +162,4 @@ export function totalFor(plan: CheckoutPlan, periods: number, people: number): n
   const perPerson = plan.pricingMode === "per_person";
   return plan.unitCents * Math.max(1, periods) * (perPerson ? Math.max(1, people) : 1);
 }
+

@@ -108,3 +108,17 @@ export function includedLabel(
 function pluralise(noun: string): string {
   return /(s|x|ch|sh)$/i.test(noun) ? `${noun}es` : `${noun}s`;
 }
+
+/**
+ * The terms a customer can pick, by billing period — on the checkout and in
+ * the cart alike. A provider's own min/max (periods_*) bounds them.
+ */
+export function termOptionsFor(period: string | null | undefined): number[] {
+  switch (normPeriod(period)) {
+    case "weekly":    return [1, 2, 4, 8, 12];
+    case "quarterly": return [1, 2, 4];
+    case "yearly":    return [1, 2];
+    case "one_time":  return [1];
+    default:          return [1, 3, 6, 12];
+  }
+}
