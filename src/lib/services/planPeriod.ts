@@ -122,3 +122,20 @@ export function termOptionsFor(period: string | null | undefined): number[] {
     default:          return [1, 3, 6, 12];
   }
 }
+
+/**
+ * Whether PayPal can renew this term by itself. A PayPal plan repeats ONE
+ * interval of at most 52 weeks, 12 months or 1 year — the same caps the Edge
+ * route enforces (routes/paypal-subscriptions.ts capInterval). A longer term
+ * is paid once; offering auto-renew for it only produced an error at Pay.
+ */
+export function paypalCanRenew(period: string | null | undefined, periods: number): boolean {
+  const n = Math.max(1, periods || 1);
+  switch (normPeriod(period)) {
+    case "weekly":    return n <= 52;
+    case "quarterly": return 3 * n <= 12;
+    case "yearly":    return n <= 1;
+    case "one_time":  return false;
+    default:          return n <= 12;
+  }
+}

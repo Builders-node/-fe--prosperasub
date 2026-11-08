@@ -32,7 +32,7 @@ import { CryptoGatewayPanel } from "@/components/payment/CryptoGatewayPanel";
 import { attachPaymentReference } from "@/lib/payments/pendingReference";
 import { useInvoicePayment } from "@/hooks/useInvoicePayment";
 import { serviceListingHref, serviceSlug } from "@/lib/services/serviceUrls";
-import { termLabel, termLabelFor, includedLabel, periodNoun } from "@/lib/services/planPeriod";
+import { termLabel, termLabelFor, includedLabel, periodNoun, paypalCanRenew } from "@/lib/services/planPeriod";
 import { resolveCheckoutPlan, totalFor } from "@/lib/checkout/planCheckoutModel";
 import { OrderSize } from "@/components/checkout/OrderSize";
 import { orderShape } from "@/lib/checkout/orderShape";
@@ -317,8 +317,12 @@ const UniversalPlanCheckout = () => {
    * does a one-off. On by default and said plainly next to the button.
    */
   const [autoRenew, setAutoRenew] = useState(true);
-  const autoRenewEligible =
+  // Everything that allows auto-renew except the term's length…
+  const autoRenewPossible =
     !!plan && !plan.oneTime && !renewSubId && discountCents === 0 && bonusCents === 0 && !multi;
+  // …and the term too: PayPal repeats at most 52 weeks / 12 months / 1 year.
+  const termTooLongToRenew = autoRenewPossible && !paypalCanRenew(plan!.period, periods);
+  const autoRenewEligible = autoRenewPossible && !termTooLongToRenew;
   /** "month", "4 weeks", "3 months" — the term PayPal will repeat. */
   const renewTerm = plan ? (periods > 1 ? termLabelFor(plan.period, periods) : periodNoun(plan.period) || "period") : "period";
   const feePct = surchargePercent(paymentMethod);
@@ -1002,6 +1006,15 @@ const UniversalPlanCheckout = () => {
             {/* Said before the PayPal step, not only on it: choosing PayPal here
                 means the plan renews by itself, and that should never be news
                 on the button that charges. */}
+            {paymentMethod === "paypal" && termTooLongToRenew && (
+              <div className="mt-3 flex items-start gap-2 rounded-radius-sm bg-inset px-3 py-2.5 text-sm text-muted-foreground">
+                <RefreshCw className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                <span>
+                  {termLabelFor(plan.period, periods)} is paid once — PayPal can renew a term of up to a year.
+                  We'll remind you before it ends.
+                </span>
+              </div>
+            )}
             {paymentMethod === "paypal" && autoRenewEligible && (
               <div className="mt-3 flex items-start gap-2 rounded-radius-sm bg-inset px-3 py-2.5 text-sm text-muted-foreground">
                 <RefreshCw className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
