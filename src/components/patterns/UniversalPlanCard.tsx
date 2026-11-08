@@ -83,6 +83,7 @@ export function UniversalPlanCard({
         disabled: !hasPrice,
         disabledLabel: "Not bookable yet",
       }}
+      favorite={{ kind: "plan", id: plan.id }}
     />
   );
 }

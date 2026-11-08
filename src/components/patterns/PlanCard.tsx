@@ -1,4 +1,5 @@
 import type { LucideIcon } from "lucide-react";
+import { FavoriteButton } from "@/components/patterns/FavoriteButton";
 import { Star } from "lucide-react";
 import type { ReactNode } from "react";
 import { formatUSD } from "@/lib/pricing";
@@ -60,6 +61,8 @@ export interface PlanCardProps {
   /** When set, the whole card is clickable and the CTA is a shortcut to it. */
   onOpen?: () => void;
   className?: string;
+  /** A heart on the photo — save this to favourites without opening it. */
+  favorite?: { kind: "plan" | "vehicle"; id: string };
 }
 
 /** ★ 4.8 (12) — absent entirely when nobody has rated, never "0.0" or "No reviews". */
@@ -88,6 +91,7 @@ export function PlanCard({
   cta,
   onOpen,
   className,
+  favorite,
 }: PlanCardProps) {
   const hasPrice = typeof price.cents === "number" && price.cents > 0;
   // An empty string in the gallery is still a gallery entry, and it drew a
@@ -129,7 +133,12 @@ export function PlanCard({
     >
       {/* Square, the height of the card — the photo, or the standard
           placeholder, so every card in a list keeps the same shape. */}
-      <PhotoSlider photos={photos} className="aspect-square h-full shrink-0 rounded-[8px]" />
+      <div className="relative aspect-square h-full shrink-0">
+        <PhotoSlider photos={photos} className="h-full w-full rounded-[8px]" />
+        {favorite && (
+          <FavoriteButton kind={favorite.kind} id={favorite.id} name={title} variant="overlay" className="absolute right-1 top-1" />
+        )}
+      </div>
 
       {/* `overflow-hidden` is what keeps the row 120px tall: without it a long
           description pushes the price out through the bottom of the card. */}

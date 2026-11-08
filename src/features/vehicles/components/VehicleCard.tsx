@@ -46,6 +46,7 @@ export function VehicleCard({ v, showProvider = false }: {
       price={{ cents: v.daily_price_cents, unit: "/ day" }}
       cta={{ label: "Book", onClick: open }}
       onOpen={open}
+      favorite={{ kind: "vehicle", id: v.id }}
     />
   );
 }

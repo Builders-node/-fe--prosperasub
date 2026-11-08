@@ -52,6 +52,7 @@ export function CleaningPackageCard({
         from: !!offer,
       }}
       cta={{ label: SUBSCRIBE, onClick: () => onSubscribe(pkg.id) }}
+      favorite={{ kind: "plan", id: String(pkg.id) }}
     />
   );
 }

@@ -90,6 +90,7 @@ export function MealPlanCard({
       }}
       cta={{ label: SUBSCRIBE, onClick: onOpen }}
       onOpen={onOpen}
+      favorite={{ kind: "plan", id: String(plan.id) }}
     />
   );
 }

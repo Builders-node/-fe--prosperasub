@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import { FavoriteButton } from "@/components/patterns/FavoriteButton";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { useParams, useNavigate, Link } from "react-router-dom";
@@ -151,7 +152,12 @@ export default function VehicleDetail() {
         centreLabel="Vehicles"
         onBack={goBack}
         overPhoto={shots.length > 0}
-        rightAction={<ShareButton title={v.name} text={shareText} className="hover:bg-black/10 md:text-foreground" />}
+        rightAction={
+          <div className="flex items-center">
+            <FavoriteButton kind="vehicle" id={v.id} name={v.name} className="hover:bg-black/10 md:text-foreground" />
+            <ShareButton title={v.name} text={shareText} className="hover:bg-black/10 md:text-foreground" />
+          </div>
+        }
       />
 
       {/* Phone: the swipeable band. A laptop gets the gallery column below. */}

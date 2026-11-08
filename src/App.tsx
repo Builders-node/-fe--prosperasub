@@ -12,6 +12,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { AuthModalProvider } from "@/contexts/AuthModalContext";
 import { LocationProvider } from "@/contexts/LocationContext";
 import { CartProvider } from "@/contexts/CartContext";
+import { FavoritesSync } from "@/lib/favorites/useFavorites";
 import { LanguageProvider } from "@/i18n";
 
 import ProtectedRoute from "@/components/app/ProtectedRoute";
@@ -49,6 +50,7 @@ const Privacy = lazy(() => import("./pages/legal/Privacy"));
 const MySubscriptions = lazy(() => import("./pages/user/MySubscriptions"));
 const Profile = lazy(() => import("./pages/user/Profile"));
 const LeavingFeedback = lazy(() => import("./pages/user/LeavingFeedback"));
+const Favorites = lazy(() => import("./pages/user/Favorites"));
 const Notifications = lazy(() => import("./pages/user/Notifications"));
 const History = lazy(() => import("./pages/user/History"));
 const MyBusiness = lazy(() => import("./pages/user/MyBusiness"));
@@ -206,6 +208,7 @@ const App = () => {
                 <AuthModalProvider>
                 <LocationProvider>
                 <CartProvider>
+                <FavoritesSync />
                 {/* Site chrome on desktop: the ad strip rides above every
                     customer-facing route instead of living on Discovery alone
                     and vanishing on the first click. See SiteAdBanner. */}
@@ -337,6 +340,8 @@ const App = () => {
               <Route path="/account" element={
                 <ProtectedRoute><Profile /></ProtectedRoute>
               } />
+              {/* Open to guests: their hearts live in the browser until sign-in. */}
+              <Route path="/favorites" element={<Favorites />} />
               <Route path="/feedback/leaving" element={
                 <ProtectedRoute><LeavingFeedback /></ProtectedRoute>
               } />

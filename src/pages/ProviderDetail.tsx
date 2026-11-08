@@ -1,4 +1,5 @@
 import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
+import { FavoriteButton } from "@/components/patterns/FavoriteButton";
 import { Photo } from "@/components/patterns/Photo";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -625,11 +626,19 @@ const ProviderDetail = () => {
             link to someone. The bell that used to sit here made the identical
             position mean "notifications" on this screen and "share" on the
             plan and car screens. */}
-        <ShareButton
-          title={p.name}
-          text={[serviceLabel, p.name].filter(Boolean).join(" · ")}
-          className={solid ? "text-foreground hover:bg-muted" : "text-white hover:bg-white/15"}
-        />
+        <div className="flex items-center">
+          <FavoriteButton
+            kind="provider"
+            id={p.id}
+            name={p.name}
+            className={solid ? "text-foreground hover:bg-muted" : "text-white hover:bg-white/15"}
+          />
+          <ShareButton
+            title={p.name}
+            text={[serviceLabel, p.name].filter(Boolean).join(" · ")}
+            className={solid ? "text-foreground hover:bg-muted" : "text-white hover:bg-white/15"}
+          />
+        </div>
       </div>
 
       <main className="app-container space-y-1 pb-8 pt-1 md:py-8">

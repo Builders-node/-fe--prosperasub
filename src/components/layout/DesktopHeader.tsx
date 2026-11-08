@@ -8,6 +8,7 @@ import { useI18n } from "@/i18n";
 import { AccountMenu } from "@/components/layout/AccountMenu";
 import { LocationSelector } from "@/components/patterns/LocationSelector";
 import { CartButton } from "@/components/layout/CartButton";
+import { FavoritesButton } from "@/components/layout/FavoritesButton";
 
 interface DesktopHeaderProps {
   showBackButton?: boolean;
@@ -78,6 +79,7 @@ export function DesktopHeader({
 
         {/* Right actions */}
         <div className="flex items-center gap-3 ml-auto">
+          {!hideNav && <FavoritesButton />}
           {!hideNav && <CartButton />}
           {/* Hidden until the app is actually translated: the switcher offered
               Español while ~a dozen files carry translations and the rest is

@@ -1,7 +1,8 @@
 import { fieldClass } from "@/components/ui/input";
 import { useEffect, useRef, useState, type ComponentType, type SVGProps } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Bell, BellOff, Eye, EyeOff, FileText, Gift, KeyRound, Lock, LogOut, MapPin, Pencil, Shield } from "lucide-react";
+import { Bell, BellOff, Eye, EyeOff, FileText, Gift, Heart, KeyRound, Lock, LogOut, MapPin, Pencil, Shield } from "lucide-react";
+import { useFavorites } from "@/lib/favorites/useFavorites";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -216,6 +217,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 
 const Profile = () => {
   const navigate = useNavigate();
+  const favorites = useFavorites();
   const [params, setParams] = useSearchParams();
   const { userData, refreshUserData, isAdmin, isAdminResolved, logout } = useAuth();
   const queryClient = useQueryClient();
@@ -438,6 +440,12 @@ const Profile = () => {
 
             <SectionTitle>Account</SectionTitle>
             <section className="rounded-radius-md bg-card p-1.5 shadow-figma">
+              <Row
+                icon={Heart}
+                label="Favourites"
+                value={favorites.count ? `${favorites.count} saved` : "Tap the heart on anything you like"}
+                onClick={() => navigate("/favorites")}
+              />
               <Row
                 icon={MapPin}
                 label="Saved locations"

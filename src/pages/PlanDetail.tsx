@@ -1,4 +1,5 @@
 import { describeEntitlement, readEntitlements } from "@/lib/plans/entitlements";
+import { FavoriteButton } from "@/components/patterns/FavoriteButton";
 import { gaItem, trackEvent } from "@/lib/analytics/ga";
 import { Photo } from "@/components/patterns/Photo";
 import { useEffect, useMemo, useState } from "react";
@@ -718,7 +719,12 @@ const PlanDetail = () => {
         centreLabel={serviceLabel}
         onBack={goBack}
         overPhoto
-        rightAction={<ShareButton title={title} text={shareText} className="hover:bg-black/10 md:text-foreground" />}
+        rightAction={
+          <div className="flex items-center">
+            <FavoriteButton kind="plan" id={planId} name={title} className="hover:bg-black/10 md:text-foreground" />
+            <ShareButton title={title} text={shareText} className="hover:bg-black/10 md:text-foreground" />
+          </div>
+        }
       />
 
       {/*
