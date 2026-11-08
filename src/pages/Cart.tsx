@@ -446,6 +446,56 @@ export default function Cart() {
     setStep("cart");
   };
 
+  // Built once, placed twice: in the flow on a phone, in the sticky right
+  // column on a laptop.
+  const resume = (
+    <ResumeCard
+                  goodsCents={totalCents}
+                  feeCents={Math.max(0, effectiveTotalCents - totalCents)}
+                  feeLabel={feePct > 0 ? `Fee · ${feePct}%` : "Fee"}
+                  totalCents={effectiveTotalCents}
+                  extra={[{ label: "Items", value: String(count) }]}
+                />
+  );
+  const payBlock = (
+    <>
+          {enabledMethods.length === 0 && (
+            <p className="mb-2 rounded-xl bg-attention/10 px-3 py-2 text-center text-xs text-attention">
+              Payments are temporarily unavailable. Try again in a few minutes.
+            </p>
+          )}
+          <Button size="lg" className="w-full rounded-radius-md font-semibold tracking-[-0.02em]"
+            onClick={startCheckout}
+            disabled={
+              !formValid ||
+              isGenerating ||
+              enabledMethods.length === 0 ||
+              !enabledMethods.includes(paymentMethod) ||
+              ((paymentMethod === "lightning" || paymentMethod === "onchain") && (isPriceLoading || !btcPrice))
+            }>
+            {isGenerating ? (
+              <><Spinner size="sm" className="mr-2" /> Starting…</>
+            ) : !isAuthenticated ? (
+              "Log in to checkout"
+            ) : (
+              // Same words as every other pay button. The rail is picked right
+              // above this; spelling it out here gave one action four names.
+              payLabel(effectiveTotalCents)
+            )}
+          </Button>
+          {!formValid && (
+            <p className="mt-1.5 flex items-center justify-center gap-1 text-center text-[11px] text-muted-foreground">
+              <Check className="h-3 w-3" />
+              {missingUuid
+                // Rare, and worth saying out loud rather than a dead button:
+                // one of the lines needs the account fully set up.
+                ? "We're still setting up your account — reload in a moment"
+                : "Fill name, WhatsApp and delivery address to continue"}
+            </p>
+          )}
+    </>
+  );
+
   // ─── Render ────────────────────────────────────────────────────────────────
   return (
     // The Decision frame every checkout uses (UserLayout without the tab bar),
@@ -453,7 +503,7 @@ export default function Cart() {
     // may look at their basket; the pay step asks them to sign in.
     <UserLayout title={atCheckout ? "Checkout" : "Cart"} showBackButton backTo="/discovery" breadcrumb="Cart" allowGuest showBottomNav={false}>
       <div className={atCheckout
-        ? "mx-auto max-w-xl space-y-1 pt-1 pb-[calc(var(--checkout-footer-h,180px)+16px)] md:px-4 md:py-space-6"
+        ? "mx-auto max-w-xl pt-1 pb-[calc(var(--checkout-footer-h,180px)+16px)] md:max-w-5xl md:px-4 md:py-space-6"
         : "app-container space-y-5 py-space-4 md:py-space-6"}>
         {step === "success" ? (
           <CheckoutSuccessPanel
@@ -485,22 +535,7 @@ export default function Cart() {
                 the lines on the left (photo, name, price — the quantity on the
                 right), and the total with the one button on the right, held
                 in view. The checkout step keeps its own compact list. */}
-            {atCheckout ? (
-              items.map((item) => (
-                <CheckoutLineItem
-                  key={item.key}
-                  title={item.planName}
-                  description={(() => {
-                    const sh = shapeOf(item);
-                    const term = sh.periodNoun ? `${item.periods} ${sh.periodNoun}${item.periods === 1 ? "" : "s"}` : null;
-                    const qty = sh.quantity && item.qty > 1 ? `${item.qty} ${sh.quantity.noun === "person" ? "people" : "portions"}` : null;
-                    return [item.providerName, term, qty].filter(Boolean).join(" · ");
-                  })()}
-                  priceCents={cartLineTotal(item)}
-                  quantity={item.qty}
-                />
-              ))
-            ) : (
+            {!atCheckout && (
               <>
                 <div className="flex items-end justify-between gap-4">
                   <h1 className="text-3xl font-semibold tracking-tight md:text-5xl">Your cart</h1>
@@ -586,7 +621,25 @@ export default function Cart() {
               </>
             )}
 
-            {step === "cart" && atCheckout && (
+            {atCheckout && (
+              <div className="md:grid md:grid-cols-[minmax(0,1fr)_380px] md:items-start md:gap-8">
+              <div className="min-w-0 space-y-1">
+            {items.map((item) => (
+                <CheckoutLineItem
+                  key={item.key}
+                  title={item.planName}
+                  description={(() => {
+                    const sh = shapeOf(item);
+                    const term = sh.periodNoun ? `${item.periods} ${sh.periodNoun}${item.periods === 1 ? "" : "s"}` : null;
+                    const qty = sh.quantity && item.qty > 1 ? `${item.qty} ${sh.quantity.noun === "person" ? "people" : "portions"}` : null;
+                    return [item.providerName, term, qty].filter(Boolean).join(" · ");
+                  })()}
+                  priceCents={cartLineTotal(item)}
+                  quantity={item.qty}
+                />
+              ))}
+
+            {step === "cart" && (
               <>
                 {/* Delivery details — mobile-first pattern: one card, rows
                     separated by divide-y, borderless inputs. Icon + label
@@ -698,13 +751,7 @@ export default function Cart() {
                 {/* The design's order: what you bought, who you are, what it
                     costs, how you pay. The total belongs after the details it
                     can still change — an address can add a delivery fee. */}
-                <ResumeCard
-                  goodsCents={totalCents}
-                  feeCents={Math.max(0, effectiveTotalCents - totalCents)}
-                  feeLabel={feePct > 0 ? `Fee · ${feePct}%` : "Fee"}
-                  totalCents={effectiveTotalCents}
-                  extra={[{ label: "Items", value: String(count) }]}
-                />
+                <div className="md:hidden">{resume}</div>
 
                 <CheckoutCard title="Payment method">
                   <PaymentMethodTiles value={paymentMethod} onChange={setPaymentMethod} available={enabledMethods} />
@@ -771,15 +818,24 @@ export default function Cart() {
             {step === "pay" && (paymentMethod === "lightning" || paymentMethod === "onchain") && (
               <Button variant="ghost" className="w-full" onClick={backToCart}>Cancel payment</Button>
             )}
+              </div>
+
+              {/* The total and the button, held in view while the form scrolls. */}
+              <aside className="hidden space-y-1 md:sticky md:top-24 md:block">
+                {resume}
+                {step === "cart" && <div className="rounded-radius-lg bg-card p-4">{payBlock}</div>}
+              </aside>
+              </div>
+            )}
           </>
         )}
       </div>
 
       {/* Sticky checkout bar */}
       {showStickyCheckout && (
-        <div className={showBasketOnly ? "md:hidden" : undefined}>
+        <div className="md:hidden">
         <CheckoutStickyFooter>
-          {enabledMethods.length === 0 && (
+          {showBasketOnly && enabledMethods.length === 0 && (
             <p className="mb-2 rounded-xl bg-attention/10 px-3 py-2 text-center text-xs text-attention">
               Payments are temporarily unavailable. Try again in a few minutes.
             </p>
@@ -789,37 +845,7 @@ export default function Cart() {
               onClick={() => isAuthenticated ? navigate("/cart/checkout") : openAuthModal("login", "/cart/checkout")}>
               {isAuthenticated ? `Continue to checkout · ${formatUSD(totalCents)}` : "Log in to checkout"}
             </Button>
-          ) : (
-          <Button size="lg" className="w-full rounded-radius-md font-semibold tracking-[-0.02em]"
-            onClick={startCheckout}
-            disabled={
-              !formValid ||
-              isGenerating ||
-              enabledMethods.length === 0 ||
-              !enabledMethods.includes(paymentMethod) ||
-              ((paymentMethod === "lightning" || paymentMethod === "onchain") && (isPriceLoading || !btcPrice))
-            }>
-            {isGenerating ? (
-              <><Spinner size="sm" className="mr-2" /> Starting…</>
-            ) : !isAuthenticated ? (
-              "Log in to checkout"
-            ) : (
-              // Same words as every other pay button. The rail is picked right
-              // above this; spelling it out here gave one action four names.
-              payLabel(effectiveTotalCents)
-            )}
-          </Button>
-          )}
-          {!showBasketOnly && !formValid && (
-            <p className="mt-1.5 flex items-center justify-center gap-1 text-center text-[11px] text-muted-foreground">
-              <Check className="h-3 w-3" />
-              {missingUuid
-                // Rare, and worth saying out loud rather than a dead button:
-                // one of the lines needs the account fully set up.
-                ? "We're still setting up your account — reload in a moment"
-                : "Fill name, WhatsApp and delivery address to continue"}
-            </p>
-          )}
+          ) : payBlock}
         </CheckoutStickyFooter>
         </div>
       )}

@@ -658,6 +658,66 @@ const UniversalPlanCheckout = () => {
 
   const orderDescription = `${plan.providerName ?? "Plan"} - ${plan.name} - ${formatUSD(effectiveTotalCents)}`;
 
+  // Built once, placed twice: in the flow on a phone, in the sticky right
+  // column on a laptop — the same total and the same button either way.
+  const resume = (
+  <ResumeCard
+            goodsCents={totalCents}
+            feeCents={Math.max(0, effectiveTotalCents - payableCents)}
+            feeLabel={feePct > 0 ? `Fee · ${feePct}%` : "Fee"}
+            totalCents={effectiveTotalCents}
+            extra={[
+              ...(discountCents > 0
+                ? [{ label: `Promo · ${promo?.code}`, value: `−${formatUSD(discountCents)}` }]
+                : []),
+              ...(bonusCents > 0
+                ? [{ label: "Bonus", value: `−${formatUSD(bonusCents)}` }]
+                : []),
+              ...(includedLabel(plan.unitQuantity, plan.unitLabel, plan.period)
+                ? [{ label: "Included", value: includedLabel(plan.unitQuantity, plan.unitLabel, plan.period)! }]
+                : []),
+              { label: "Term", value: termLabelFor(plan.period, periods) },
+              ...(perPerson ? [{ label: "People", value: String(Math.max(1, people)) }] : []),
+              ...(multi ? [{ label: "Portions", value: String(portions) }] : []),
+              { label: renewing ? "Renews from" : "Start date",
+                value: format(new Date(`${effectiveStart}T00:00:00`), "d MMM yyyy") },
+              // A one-time purchase does not "end" — the date is how long what
+              // was bought stays usable (a pass, a session to schedule).
+              { label: plan.oneTime ? "Valid until" : "Ends", value: format(endDate, "d MMM yyyy") },
+            ]}
+          />
+  );
+  const payBlock = (
+    <>
+          {/* No "Add to cart" here: by now the customer has decided, and a second
+              button that leaves the checkout only made them wonder which one
+              pays. Putting a plan aside lives on the plan page. */}
+          {enabledMethods.length === 0 && (
+            <p className="mb-2 rounded-xl bg-attention/10 px-3 py-2 text-center text-xs text-attention">
+              Payments are temporarily unavailable. Try again in a few minutes.
+            </p>
+          )}
+          <Button
+            size="lg"
+            className="w-full rounded-radius-md bg-primary font-semibold tracking-[-0.02em] text-primary-foreground hover:bg-[hsl(var(--brand-accent-hover))]"
+            onClick={startPayment}
+            loading={isGenerating}
+            disabled={
+              isGenerating ||
+              totalCents <= 0 ||
+              enabledMethods.length === 0 ||
+              !enabledMethods.includes(paymentMethod) ||
+              ((paymentMethod === "lightning" || paymentMethod === "onchain") && (isPriceLoading || !btcPrice))
+            }
+          >
+            {/* One label, whatever the rail. The method is chosen immediately
+                above and the sats equivalent is in the summary, so naming
+                either here only made the same button read four ways. */}
+            {payLabel(effectiveTotalCents)}
+          </Button>
+    </>
+  );
+
   return (
     <UserLayout
       title={renewing ? "Renew" : "Checkout"}
@@ -665,7 +725,9 @@ const UniversalPlanCheckout = () => {
       backTo={renewing ? "/my-subscriptions" : listingHref}
       showBottomNav={false}
     >
-      <div className="mx-auto max-w-xl space-y-1 pt-1 pb-[calc(var(--checkout-footer-h,180px)+16px)] md:px-4 md:py-8">
+      <div className="mx-auto max-w-xl pt-1 pb-[calc(var(--checkout-footer-h,180px)+16px)] md:max-w-5xl md:px-4 md:py-8">
+      <div className="md:grid md:grid-cols-[minmax(0,1fr)_380px] md:items-start md:gap-8">
+      <div className="min-w-0 space-y-1">
         {renewing && (
           <p className="px-1 pb-1 text-sm text-muted-foreground">
             Extends the same subscription — nothing new is created, and the new
@@ -899,31 +961,7 @@ const UniversalPlanCheckout = () => {
           </section>
         )}
 
-        <ResumeCard
-          goodsCents={totalCents}
-          feeCents={Math.max(0, effectiveTotalCents - payableCents)}
-          feeLabel={feePct > 0 ? `Fee · ${feePct}%` : "Fee"}
-          totalCents={effectiveTotalCents}
-          extra={[
-            ...(discountCents > 0
-              ? [{ label: `Promo · ${promo?.code}`, value: `−${formatUSD(discountCents)}` }]
-              : []),
-            ...(bonusCents > 0
-              ? [{ label: "Bonus", value: `−${formatUSD(bonusCents)}` }]
-              : []),
-            ...(includedLabel(plan.unitQuantity, plan.unitLabel, plan.period)
-              ? [{ label: "Included", value: includedLabel(plan.unitQuantity, plan.unitLabel, plan.period)! }]
-              : []),
-            { label: "Term", value: termLabelFor(plan.period, periods) },
-            ...(perPerson ? [{ label: "People", value: String(Math.max(1, people)) }] : []),
-            ...(multi ? [{ label: "Portions", value: String(portions) }] : []),
-            { label: renewing ? "Renews from" : "Start date",
-              value: format(new Date(`${effectiveStart}T00:00:00`), "d MMM yyyy") },
-            // A one-time purchase does not "end" — the date is how long what
-            // was bought stays usable (a pass, a session to schedule).
-            { label: plan.oneTime ? "Valid until" : "Ends", value: format(endDate, "d MMM yyyy") },
-          ]}
-        />
+        <div className="md:hidden">{resume}</div>
 
         {showPayment && paymentMethod === "paypal" ? (
           <section className="overflow-hidden rounded-radius-md bg-card p-4">
@@ -1054,35 +1092,18 @@ const UniversalPlanCheckout = () => {
         ) : null}
       </div>
 
+      {/* The total and the button, held in view while the form scrolls. */}
+      <aside className="hidden space-y-1 md:sticky md:top-24 md:block">
+        {resume}
+        {!showPayment && <div className="rounded-radius-lg bg-card p-4">{payBlock}</div>}
+      </aside>
+      </div>
+      </div>
+
       {!showPayment && (
-        <CheckoutStickyFooter>
-          {/* No "Add to cart" here: by now the customer has decided, and a second
-              button that leaves the checkout only made them wonder which one
-              pays. Putting a plan aside lives on the plan page. */}
-          {enabledMethods.length === 0 && (
-            <p className="mb-2 rounded-xl bg-attention/10 px-3 py-2 text-center text-xs text-attention">
-              Payments are temporarily unavailable. Try again in a few minutes.
-            </p>
-          )}
-          <Button
-            size="lg"
-            className="w-full rounded-radius-md bg-primary font-semibold tracking-[-0.02em] text-primary-foreground hover:bg-[hsl(var(--brand-accent-hover))]"
-            onClick={startPayment}
-            loading={isGenerating}
-            disabled={
-              isGenerating ||
-              totalCents <= 0 ||
-              enabledMethods.length === 0 ||
-              !enabledMethods.includes(paymentMethod) ||
-              ((paymentMethod === "lightning" || paymentMethod === "onchain") && (isPriceLoading || !btcPrice))
-            }
-          >
-            {/* One label, whatever the rail. The method is chosen immediately
-                above and the sats equivalent is in the summary, so naming
-                either here only made the same button read four ways. */}
-            {payLabel(effectiveTotalCents)}
-          </Button>
-        </CheckoutStickyFooter>
+        <div className="md:hidden">
+          <CheckoutStickyFooter>{payBlock}</CheckoutStickyFooter>
+        </div>
       )}
     </UserLayout>
   );
