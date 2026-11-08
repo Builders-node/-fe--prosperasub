@@ -134,9 +134,11 @@ export function BookingsTab({
             subscription flow beside it, because adding a customer to a weekly
             meal plan is a different act, not a booking. */}
         <div className="flex flex-wrap items-center gap-2">
-          {isCleaning
+          {/* Booking is a schedule act — the Customers lens has its own
+              per-subscriber "Schedule visits" where one is needed. */}
+          {active !== "customer" && (isCleaning
             ? <NewCleaningBookingDialog providerId={providerId} />
-            : <NewCalendarBookingDialog providerId={calendarsId} />}
+            : <NewCalendarBookingDialog providerId={calendarsId} />)}
           {isFood && (
             <NewFoodSubscriptionDialog
               providerId={providerId}

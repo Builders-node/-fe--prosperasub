@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { PageLoader } from "@/components/ui/spinner";
-import { StatusPill } from "@/components/patterns/StatusPill";
+import { StatusPill, statusLabel as statusWord } from "@/components/patterns/StatusPill";
 import { accountApi, supabaseDb } from "@/integrations/supabase/client";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
@@ -23,7 +23,8 @@ import { YdEmptyState } from "@/components/yd/YdPrimitives";
 import { CustomerPhone } from "@/components/patterns/CustomerPhone";
 import { SaleOriginBadge } from "@/components/patterns/SaleOrigin";
 import { todayHN, addDaysISO, addMonthsISO } from "@/lib/timezone";
-import { CalendarClock, MapPin, Megaphone, MoreHorizontal, PauseCircle, PlayCircle, RefreshCcw, XCircle } from "lucide-react";
+import { CalendarClock, CalendarPlus, MapPin, Megaphone, MoreHorizontal, PauseCircle, PlayCircle, RefreshCcw, XCircle } from "lucide-react";
+import { NewCleaningBookingDialog } from "@/components/cleaning/NewCleaningBookingDialog";
 import { ResponsiveDialog } from "@/components/patterns/ResponsiveDialog";
 import { Label } from "@/components/ui/label";
 import {
@@ -75,26 +76,57 @@ export function SubscribersList({ providerId, legacyId, sourceKey }: {
   }, [rows, q]);
 
   /**
-   * Three groups, because an owner reads this list with three questions: who
-   * is running, whose period is about to lapse, and who is over. A flat list
-   * hides the middle one, which is the only group that needs acting on.
+   * A cleaning subscription that is paid and running with not one visit on the
+   * books. Its status is `active`, not `pending_schedule`, so nothing flagged
+   * it: the customer had paid, the period was starting, and the schedule was
+   * empty — found only when they asked where the cleaner was.
+   */
+  const isCleaning = shape.table === "cleaning_subscriptions";
+  const runningPaidIds = useMemo(
+    () => rows.filter((r) => r.status === "active" && !isPendingPayment({ payment_status: r.paymentStatus })).map((r) => r.id),
+    [rows],
+  );
+  const { data: withVisits } = useQuery({
+    queryKey: [...KEY, "has-visits", runningPaidIds.join(",")],
+    enabled: isCleaning && runningPaidIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabaseDb
+        .from("cleaning_bookings")
+        .select("subscription_id")
+        .in("subscription_id", runningPaidIds)
+        .neq("status", "cancelled");
+      if (error) throw error;
+      return new Set((data ?? []).map((b: { subscription_id: string | null }) => String(b.subscription_id)));
+    },
+  });
+  const needsTime = (r: SubscriberRow) =>
+    isCleaning && !!withVisits && runningPaidIds.includes(r.id) && !withVisits.has(r.id);
+
+  /**
+   * Groups, because an owner reads this list with questions: who is waiting
+   * for a time, who is running, whose period is about to lapse, and who is
+   * over. A flat list hides the ones that need acting on.
    */
   const groups = useMemo(() => {
     const soon = addDaysISO(todayHN(), 7);
+    const waiting: SubscriberRow[] = [];
     const running: SubscriberRow[] = [];
     const ending: SubscriberRow[] = [];
     const past: SubscriberRow[] = [];
     for (const r of filtered) {
       if (r.status !== "active") { past.push(r); continue; }
+      if (needsTime(r)) { waiting.push(r); continue; }
       const end = (r.end ?? "").slice(0, 10);
       (end && end <= soon ? ending : running).push(r);
     }
     return [
+      { key: "waiting", label: "Needs a visit scheduled", rows: waiting },
       { key: "ending", label: "Ending within a week", rows: ending },
       { key: "active", label: "Active", rows: running },
       { key: "past", label: "Past", rows: past },
     ].filter((g) => g.rows.length);
-  }, [filtered]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtered, withVisits]);
 
   const approve = async (row: SubscriberRow) => {
     try {
@@ -234,14 +266,23 @@ export function SubscribersList({ providerId, legacyId, sourceKey }: {
           <p key={g.key} className="px-1 pt-3 text-[14px] font-semibold uppercase tracking-wide text-muted-foreground">
             {g.label} · {g.rows.length}
           </p>,
-          ...g.rows.map((r) => (
+          ...g.rows.map((r) => {
+          const past = g.key === "past";
+          return (
           <article key={r.id} className="flex items-center gap-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-[16px] font-semibold leading-[22px] text-foreground">
-                  {r.customerName || r.customerEmail || "Customer"}
+                  {/* An account with no name still has a way to be called. */}
+                  {r.customerName || r.customerEmail || r.phone || "Customer"}
                 </span>
-                <StatusPill status={r.status} />
+                {/* Past rows say how it ended in grey: they are history, and a
+                    column of red EXPIRED read as a list of problems. */}
+                {past
+                  ? <span className="text-meta text-muted-foreground">{statusWord(r.status)}</span>
+                  : g.key === "waiting"
+                    ? <StatusPill status="pending_schedule" />
+                    : <StatusPill status={r.status} />}
                 <SaleOriginBadge paymentReference={r.paymentReference ?? null} />
                 {isPendingPayment({ payment_status: r.paymentStatus }) && (
                   <Button size="sm" variant="outline" className="px-3"
@@ -256,7 +297,25 @@ export function SubscribersList({ providerId, legacyId, sourceKey }: {
               </p>
               {r.phone && <CustomerPhone phone={r.phone} className="mt-0.5" />}
               {r.detail && (
-                <p className="mt-0.5 text-[14px] leading-[18px] text-muted-foreground">{r.detail}</p>
+                <p className="mt-0.5 flex items-center gap-1 text-[14px] leading-[18px] text-muted-foreground">
+                  {/* What the service calls the place (apartment, address)
+                      — a bare "207" said nothing. */}
+                  <MapPin className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{r.detail}</span>
+                </p>
+              )}
+              {g.key === "waiting" && legacyId && (
+                <div className="mt-2">
+                  <NewCleaningBookingDialog
+                    providerId={legacyId}
+                    defaultSubscriptionId={r.id}
+                    trigger={
+                      <Button size="sm" className="gap-1.5">
+                        <CalendarPlus className="h-4 w-4" /> Schedule visits
+                      </Button>
+                    }
+                  />
+                </div>
               )}
             </div>
             <span className="shrink-0 text-right">
@@ -309,7 +368,8 @@ export function SubscribersList({ providerId, legacyId, sourceKey }: {
               </DropdownMenuContent>
             </DropdownMenu>
           </article>
-          )),
+          );
+          }),
         ])
       )}
 

@@ -44,6 +44,8 @@ interface Props {
   providerId: string;
   /** Optional trigger to open the dialog. Defaults to a "+ New booking" button. */
   trigger?: React.ReactNode;
+  /** Open with this subscription already picked — "Schedule" on a subscriber. */
+  defaultSubscriptionId?: string;
 }
 
 interface SubOption {
@@ -119,7 +121,7 @@ function suggestCadenceFor(perMonth: number): Exclude<Cadence, "once"> {
   return "monthly";
 }
 
-export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
+export function NewCleaningBookingDialog({ providerId, trigger, defaultSubscriptionId }: Props) {
   const qc = useQueryClient();
   const { userData } = useAuth();
   const [open, setOpen] = useState(false);
@@ -131,6 +133,9 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
   const [startTime, setStartTime] = useState<string>("09:00");
   const [endTime, setEndTime] = useState<string>("11:00");
   const [notes, setNotes] = useState<string>("");
+  /** Where the visit happens — the apartment. Its own field: it used to be
+   *  pre-filled into Notes, so every visit read "Notes: 207". */
+  const [where, setWhere] = useState<string>("");
   const [cadence, setCadence] = useState<Cadence>("once");
   // Which days the cleaner should come. Empty = whatever day the anchor date
   // falls on, which is what "Weekly" used to mean and still does by default.
@@ -352,11 +357,15 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
     return selectedUser ? { kind: "user", user: selectedUser } : null;
   }, [mode, selectedSub, selectedUser]);
 
-  // Auto-fill notes from the subscription's apartment_note on selection so the
-  // admin doesn't have to retype every visit.
+  // Auto-fill the place from the subscription's apartment_note on selection so
+  // the admin doesn't have to retype every visit.
   useEffect(() => {
-    if (selectedSub?.apartment_note && !notes) setNotes(selectedSub.apartment_note);
-  }, [selectedSub, notes]);
+    if (selectedSub?.apartment_note && !where) setWhere(selectedSub.apartment_note);
+  }, [selectedSub, where]);
+
+  useEffect(() => {
+    if (open && defaultSubscriptionId) { setMode("subscription"); setSubId(defaultSubscriptionId); }
+  }, [open, defaultSubscriptionId]);
 
   // When the admin picks a subscription, auto-select the cadence that MATCHES
   // that plan's natural rhythm (daily plan → daily; 4x/month → weekly; …).
@@ -521,6 +530,7 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
             reservation_type: "booking_reserved",
             source: cadence === "once" ? "admin_manual" : "admin_bulk",
             notes: notes.trim() || null,
+            location: where.trim() || null,
             google_calendar_sync_status: "pending",
           }).select("id").single();
           if (bErr) throw new Error(bErr.message);
@@ -626,6 +636,7 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
     setStartTime("09:00");
     setEndTime("11:00");
     setNotes("");
+    setWhere("");
     setCadence("once");
     setCount(1);
   };
@@ -828,18 +839,27 @@ export function NewCleaningBookingDialog({ providerId, trigger }: Props) {
             )}
 
             <div>
+              <Input
+                label="Where"
+                value={where}
+                onChange={(e) => setWhere(e.target.value)}
+                placeholder="Apartment, building"
+              />
+              {selectedSub?.apartment_note && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  From the subscription's apartment note — edit if needed.
+                </p>
+              )}
+            </div>
+
+            <div>
               <Label>Notes for the cleaner</Label>
               <Textarea
                 rows={3}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Apartment, access instructions, quirks…"
+                placeholder="Access instructions, quirks…"
               />
-              {selectedSub?.apartment_note && (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Pre-filled from the subscription's apartment note — edit if needed.
-                </p>
-              )}
             </div>
 
             {/* Repeat — bulk-book N visits at the same time slot. Anchored on

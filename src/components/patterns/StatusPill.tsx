@@ -86,6 +86,8 @@ const STATUS: Record<string, { label: string; tone: Tone }> = {
   under_review:    { label: "Under review",     tone: "attention" },
 
   // ── stopped ──────────────────────────────────────────────────────────────
+  // A visit whose day has passed and nobody marked done (or cancelled).
+  not_marked_done: { label: "Not marked done",  tone: "attention" },
   expired:         { label: "Expired",          tone: "negative" },
   cancelled:       { label: "Cancelled",        tone: "negative" },
   canceled:        { label: "Cancelled",        tone: "negative" },

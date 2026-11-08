@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { todayHN } from "@/lib/timezone";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format, addDays, isSameDay } from "date-fns";
 import { ChevronLeft, ChevronRight, CalendarDays, MoreHorizontal, CheckCircle2, XCircle, PauseCircle, PlayCircle, CalendarClock } from "lucide-react";
@@ -491,25 +492,32 @@ function BookingRow({
     : row.endAt
       ? `${timeLabel(row.startAt)} – ${timeLabel(row.endAt)}`
       : timeLabel(row.startAt);
+  // Its day is over and it still says "booked": nobody marked it done. That is
+  // the thing to act on, so it says so and the button is on the row, not in
+  // the menu — past weeks used to read as if the work were still ahead.
+  const overdue =
+    row.sourceTable === "cleaning_bookings" &&
+    row.status.toLowerCase() === "booked" &&
+    format(row.endAt ?? row.startAt, "yyyy-MM-dd") < todayHN();
+  const title = dayLabel
+    ? (row.customerName ?? row.planName ?? "Booking")
+    // What was booked, then what it is on, then who.
+    : (row.planName ?? row.resourceName ?? row.customerName ?? "Booking");
+  // The line under the title never repeats it.
+  const whoLine = !dayLabel && row.customerName && row.customerName !== title ? `${row.customerName} · ` : "";
   return (
     <div className="flex items-start gap-3 py-3">
       <div className="min-w-0 flex-1 space-y-1">
         <div className="flex items-center gap-2">
-          <p className="truncate text-sm font-bold text-foreground">
-            {dayLabel
-              ? (row.customerName ?? row.planName ?? "Booking")
-              // What was booked, then what it is on, then who — so the title
-              // never repeats the line under it.
-              : (row.planName ?? row.resourceName ?? row.customerName ?? "Booking")}
-          </p>
-          <StatusPill status={row.status} />
+          <p className="truncate text-sm font-bold text-foreground">{title}</p>
+          <StatusPill status={overdue ? "not_marked_done" : row.status} />
           <SaleOriginBadge source={row.meta?.source} paymentReference={row.meta?.payment_reference} />
         </div>
         {/* The line under the title never repeats it: grouped by day the title
             is what was booked and this is who booked it; grouped by calendar
             the title is the customer and this is when. */}
         <p className="truncate text-xs text-muted-foreground">
-          {dayLabel ? `${dayLabel} · ${timeRange}` : `${row.customerName ?? "—"} · ${timeRange}`}
+          {dayLabel ? `${dayLabel} · ${timeRange}` : `${whoLine}${timeRange}`}
         </p>
         {/* Its own line and a real tel:/WhatsApp link — the number used to be
             appended as grey text after the time range, where it was both hard
@@ -517,7 +525,7 @@ function BookingRow({
         {phone && <CustomerPhone phone={phone} />}
         {location && (
           <p className="truncate text-xs text-muted-foreground">
-            <span className="font-semibold text-foreground/80">Location:</span> {location}
+            <span className="font-semibold text-foreground/80">Where:</span> {location}
           </p>
         )}
         {access && (
@@ -536,6 +544,12 @@ function BookingRow({
           </p>
         )}
       </div>
+      {overdue && (
+        <Button size="sm" variant="secondary" className="shrink-0 gap-1.5" disabled={pending}
+          onClick={() => onSetStatus("completed")}>
+          <CheckCircle2 className="h-4 w-4" /> Mark done
+        </Button>
+      )}
       {row.priceCents != null && (
         <span className="shrink-0 text-sm font-bold tabular-nums text-foreground">
           {formatUSD(row.priceCents)}

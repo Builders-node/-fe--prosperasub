@@ -486,7 +486,7 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
               }
             />
           )}
-          <WorkspaceStat label="Customers" value={kpis.isPending || kpis.isError ? "—" : String(kpis.active)} />
+          <WorkspaceStat label="Active customers" value={kpis.isPending || kpis.isError ? "—" : String(kpis.active)} />
           <WorkspaceStat label="Upcoming 7d" value={kpis.isPending || kpis.isError ? "—" : String(kpis.upcoming)} />
           {/* Three tiles without a Balance would leave a hole in the second
               row, so the last one takes the width instead. */}
