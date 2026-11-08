@@ -760,14 +760,14 @@ const PlanDetail = () => {
           {breadcrumbs.length > 0 && (
             <nav
               aria-label="Breadcrumb"
-              className="-mx-4 flex items-start gap-2 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              className="-mx-4 flex items-center gap-2 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             >
               {breadcrumbs.map((crumb) => (
                 <Link
                   key={crumb.label}
                   to={crumb.href}
                   className={cn(
-                    "flex shrink-0 items-center gap-0.5 rounded-radius-md bg-inset py-1 pr-1 text-meta font-medium leading-4 text-muted-foreground transition-colors hover:text-foreground",
+                    "flex h-7 shrink-0 items-center gap-0.5 rounded-radius-md bg-inset pr-1 text-meta font-medium leading-4 text-muted-foreground transition-colors hover:text-foreground",
                     crumb.avatar !== undefined ? "pl-1" : "pl-2",
                   )}
                 >
