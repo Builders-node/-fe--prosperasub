@@ -91,3 +91,50 @@ export function OrderSize({ termOptions, periods, onPeriods, periodNoun, priceFo
     </div>
   );
 }
+
+/** The −/+ pill on its own — a cart row puts it on the right, like a shop does. */
+export function QtyStepper({ value, onChange, noun, max = 20 }: { value: number; onChange: (n: number) => void; noun: string; max?: number }) {
+  return (
+    <div className="inline-flex items-center rounded-full bg-inset">
+      <button
+        type="button" aria-label={value <= 1 ? "Remove" : `Fewer ${noun}s`}
+        onClick={() => onChange(value - 1)}
+        className="flex h-9 w-9 items-center justify-center rounded-full text-foreground transition-colors hover:bg-muted"
+      >
+        <Minus className="h-4 w-4" />
+      </button>
+      <span className="w-7 text-center text-body font-semibold tabular-nums text-foreground">{value}</span>
+      <button
+        type="button" aria-label={`More ${noun}s`}
+        disabled={value >= max}
+        onClick={() => onChange(Math.min(max, value + 1))}
+        className="flex h-9 w-9 items-center justify-center rounded-full text-foreground transition-colors hover:bg-muted disabled:opacity-30"
+      >
+        <Plus className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+
+/** Terms as small pills — the cart row's version of "How long". */
+export function TermPills({ options, value, onChange, noun }: { options: number[]; value: number; onChange: (n: number) => void; noun: string }) {
+  if (options.length <= 1) return null;
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {options.map((n) => (
+        <button
+          key={n}
+          type="button"
+          aria-pressed={n === value}
+          onClick={() => onChange(n)}
+          className={cn(
+            "h-8 rounded-full px-3 text-meta font-semibold transition-colors",
+            n === value ? "bg-foreground text-background" : "bg-inset text-muted-foreground hover:text-foreground",
+          )}
+        >
+          {n} {noun}{n === 1 ? "" : "s"}
+        </button>
+      ))}
+    </div>
+  );
+}

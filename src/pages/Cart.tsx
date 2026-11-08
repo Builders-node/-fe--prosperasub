@@ -49,7 +49,7 @@ import { notifyProviderOfOrder } from "@/lib/orders/notifyProvider";
 import { resolveCheckoutPlan, type CheckoutPlan } from "@/lib/checkout/planCheckoutModel";
 import type { CartService } from "@/lib/cart/cartItem";
 import { Sparkles, Waves, Package } from "lucide-react";
-import { OrderSize } from "@/components/checkout/OrderSize";
+import { QtyStepper, TermPills } from "@/components/checkout/OrderSize";
 
 /** A line reads as its service at a glance, not as food-with-a-different-name. */
 const SERVICE_ICON: Record<CartService, typeof UtensilsCrossed> = {
@@ -451,13 +451,10 @@ export default function Cart() {
           />
         ) : (
           <>
-            {!atCheckout && (
-              <h1 className="text-2xl font-semibold tracking-[-0.02em] md:text-3xl">Your cart</h1>
-            )}
-
-            {/* Items — one card container with row dividers (Yandex Lavka pattern).
-                Left: 56px thumbnail tile · middle: name + provider + duration
-                chip + qty pill · right: total price + close X. */}
+            {/* The basket, laid out like a shop's: the heading and "Clear cart",
+                the lines on the left (photo, name, price — the quantity on the
+                right), and the total with the one button on the right, held
+                in view. The checkout step keeps its own compact list. */}
             {atCheckout ? (
               items.map((item) => (
                 <CheckoutLineItem
@@ -469,75 +466,89 @@ export default function Cart() {
                 />
               ))
             ) : (
-            <section className="overflow-hidden rounded-radius-lg bg-card divide-y divide-border/60">
-              {items.map((item) => {
-                const shape = CART_SERVICES[item.service];
-                const Icon = SERVICE_ICON[item.service];
-                return (
-                <div key={item.key} className="flex items-start gap-3 p-4">
-                  <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-                    <Icon className="h-6 w-6 text-primary" />
-                  </span>
+              <>
+                <div className="flex items-end justify-between gap-4">
+                  <h1 className="text-3xl font-semibold tracking-tight md:text-5xl">Your cart</h1>
+                  <Button
+                    variant="secondary" size="sm" className="gap-1.5"
+                    onClick={() => { if (window.confirm("Remove everything from your cart?")) clear(); }}
+                  >
+                    <Trash2 className="h-4 w-4" /> Clear cart
+                  </Button>
+                </div>
 
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-bold leading-tight text-foreground">{item.planName}</p>
-                        <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                          {item.providerName} · {formatUSD(item.unitPriceCents)}/{shape.periodNoun === "week" ? "wk" : "mo"}
-                          {shape.unitNoun ? ` per ${shape.unitNoun}` : ""}
-                        </p>
+                <div className="md:grid md:grid-cols-[minmax(0,1fr)_380px] md:items-start md:gap-8">
+                  <section className="divide-y divide-border/60 rounded-radius-lg bg-card px-4">
+                    {items.map((item) => {
+                      const shape = CART_SERVICES[item.service];
+                      const Icon = SERVICE_ICON[item.service];
+                      const per = shape.periodNoun;
+                      return (
+                        <div key={item.key} className="flex gap-4 py-4">
+                          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-radius-md bg-primary/10 md:h-20 md:w-20">
+                            <Icon className="h-8 w-8 text-primary" />
+                          </span>
+                          <div className="min-w-0 flex-1 space-y-2">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="line-clamp-2 text-title font-semibold leading-tight text-foreground">{item.planName}</p>
+                                <p className="mt-0.5 line-clamp-2 text-body text-muted-foreground">
+                                  <span className="font-semibold text-foreground">{formatUSD(item.unitPriceCents)}</span>
+                                  {` / ${per}`}{shape.unitNoun ? ` per ${shape.unitNoun}` : ""} · {item.providerName}
+                                </p>
+                              </div>
+                              {shape.allowsQuantity && shape.unitNoun ? (
+                                <QtyStepper value={item.qty} noun={shape.unitNoun} onChange={(n) => setQty(item.key, n)} />
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => removeItem(item.key)}
+                                  aria-label="Remove"
+                                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-inset text-muted-foreground transition-colors hover:text-foreground"
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
+                              )}
+                            </div>
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <TermPills options={shape.periodOptions} value={item.periods} noun={per} onChange={(n) => setPeriods(item.key, n)} />
+                              <span className="ml-auto text-title font-semibold tabular-nums text-foreground">{formatUSD(cartLineTotal(item))}</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </section>
+
+                  {/* The total, held in view on a laptop. */}
+                  <aside className="mt-1 space-y-4 rounded-radius-lg bg-card p-5 md:sticky md:top-24 md:mt-0">
+                    <div>
+                      <h2 className="text-heading font-semibold text-foreground">Total</h2>
+                      <p className="text-body text-muted-foreground">{count} item{count === 1 ? "" : "s"} · paid together</p>
+                    </div>
+                    <div className="space-y-2 border-t border-border/60 pt-4 text-body">
+                      {items.map((item) => (
+                        <div key={item.key} className="flex justify-between gap-3 text-muted-foreground">
+                          <span className="truncate">{item.planName}{item.qty > 1 ? ` × ${item.qty}` : ""}</span>
+                          <span className="shrink-0 tabular-nums">{formatUSD(cartLineTotal(item))}</span>
+                        </div>
+                      ))}
+                      <div className="flex justify-between text-muted-foreground">
+                        <span>Payment fee</span>
+                        <span className="shrink-0">depends on method</span>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => removeItem(item.key)}
-                        aria-label="Remove item"
-                        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
                     </div>
-
-                    {/* How long and how many — the same control as the checkout's. */}
-                    <OrderSize
-                      className="mt-3"
-                      termOptions={shape.periodOptions}
-                      periods={item.periods}
-                      onPeriods={(n) => setPeriods(item.key, n)}
-                      periodNoun={shape.periodNoun}
-                      priceForTerm={(n) => item.unitPriceCents * n * Math.max(1, item.qty)}
-                      quantity={shape.allowsQuantity && shape.unitNoun
-                        ? { value: item.qty, onChange: (n) => setQty(item.key, n), noun: shape.unitNoun }
-                        : null}
-                    />
-                    <div className="mt-3 flex items-center justify-between">
-                      <span className="text-meta text-muted-foreground">Line total</span>
-                      <p className="text-base font-semibold tabular-nums text-foreground">
-                        {formatUSD(cartLineTotal(item))}
-                      </p>
+                    <div className="flex items-baseline justify-between border-t border-border/60 pt-4">
+                      <span className="text-title font-semibold text-foreground">To pay</span>
+                      <span className="text-3xl font-semibold tabular-nums tracking-tight text-foreground">{formatUSD(totalCents)}</span>
                     </div>
-                  </div>
+                    <Button size="lg" className="hidden w-full font-semibold md:flex"
+                      onClick={() => isAuthenticated ? navigate("/cart/checkout") : openAuthModal("login", "/cart/checkout")}>
+                      {isAuthenticated ? "Continue to checkout" : "Log in to checkout"}
+                    </Button>
+                  </aside>
                 </div>
-                );
-              })}
-            </section>
-            )}
-
-            {/* Summary — the design's Resume once we are at the till. */}
-            {!atCheckout && (
-            <section className="rounded-radius-md bg-muted/40 p-4">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-sm font-bold text-foreground">
-                  Total ({count} item{count > 1 ? "s" : ""})
-                </span>
-                <div className="text-right">
-                  <span className="text-2xl font-semibold tabular-nums text-primary">{formatUSD(effectiveTotalCents)}</span>
-                  {feePct > 0 && (
-                    <p className="text-[10px] text-muted-foreground">Base {formatUSD(totalCents)} + {feePct}% fee</p>
-                  )}
-                </div>
-              </div>
-            </section>
+              </>
             )}
 
             {step === "cart" && atCheckout && (
@@ -731,6 +742,7 @@ export default function Cart() {
 
       {/* Sticky checkout bar */}
       {showStickyCheckout && (
+        <div className={showBasketOnly ? "md:hidden" : undefined}>
         <CheckoutStickyFooter>
           {enabledMethods.length === 0 && (
             <p className="mb-2 rounded-xl bg-attention/10 px-3 py-2 text-center text-xs text-attention">
@@ -740,7 +752,7 @@ export default function Cart() {
           {showBasketOnly ? (
             <Button size="lg" className="w-full rounded-radius-md font-semibold tracking-[-0.02em]"
               onClick={() => isAuthenticated ? navigate("/cart/checkout") : openAuthModal("login", "/cart/checkout")}>
-              {isAuthenticated ? payLabel(totalCents) : "Log in to checkout"}
+              {isAuthenticated ? `Continue to checkout · ${formatUSD(totalCents)}` : "Log in to checkout"}
             </Button>
           ) : (
           <Button size="lg" className="w-full rounded-radius-md font-semibold tracking-[-0.02em]"
@@ -774,6 +786,7 @@ export default function Cart() {
             </p>
           )}
         </CheckoutStickyFooter>
+        </div>
       )}
 
       {/* The sticky checkout bar and the bottom nav occupy the same strip, so
