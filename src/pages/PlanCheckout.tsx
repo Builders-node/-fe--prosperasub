@@ -33,8 +33,9 @@ import { attachPaymentReference } from "@/lib/payments/pendingReference";
 import { useInvoicePayment } from "@/hooks/useInvoicePayment";
 import { serviceListingHref, serviceSlug } from "@/lib/services/serviceUrls";
 import { termLabel, termLabelFor, includedLabel, periodNoun } from "@/lib/services/planPeriod";
-import { resolveCheckoutPlan, termOptionsFor, totalFor } from "@/lib/checkout/planCheckoutModel";
+import { resolveCheckoutPlan, totalFor } from "@/lib/checkout/planCheckoutModel";
 import { OrderSize } from "@/components/checkout/OrderSize";
+import { orderShape } from "@/lib/checkout/orderShape";
 import { cn } from "@/lib/utils";
 import { buildSubscriptionWrite, endDateOf } from "@/lib/checkout/subscriptionWriter";
 import { payLabel } from "@/lib/checkout/ctaLabel";
@@ -243,12 +244,9 @@ const UniversalPlanCheckout = () => {
   const unitTotalCents = plan ? totalFor(plan, periods, people) : 0;
   const multi = portions > 1;
   const totalCents = unitTotalCents * portions;
-  // The terms on offer: the usual ones for this billing period, inside the
-  // provider's own bounds where they set any.
-  const termOptions = plan && !plan.oneTime
-    ? [...new Set([...termOptionsFor(plan.period).filter((n) => n >= periodsMin && n <= periodsCeiling), periodsMin, periodsCeiling])]
-        .filter((n) => n >= periodsMin && n <= periodsCeiling).sort((a, b) => a - b)
-    : [];
+  // How long and how many — THE rule (lib/checkout/orderShape), shared with the cart.
+  const shape = plan ? orderShape(plan) : null;
+  const termOptions = shape?.termOptions ?? [];
 
   /**
    * A promo code, and what the DATABASE says it is worth.
@@ -730,9 +728,11 @@ const UniversalPlanCheckout = () => {
                   onPeriods={setPeriods}
                   periodNoun={periodNoun(plan.period)}
                   priceForTerm={(n) => totalFor(plan, n, people) * portions}
-                  quantity={perPerson
-                    ? { value: people, onChange: setPeople, noun: "person" }
-                    : isFoodPlan ? { value: portions, onChange: setPortions, noun: "portion" } : null}
+                  quantity={shape?.quantity?.noun === "person"
+                    ? { value: people, onChange: setPeople, noun: "person", max: shape.quantity.max }
+                    : shape?.quantity?.noun === "portion"
+                      ? { value: portions, onChange: setPortions, noun: "portion", max: shape.quantity.max }
+                      : null}
                 />
               )}
 

@@ -50,6 +50,8 @@ import { resolveCheckoutPlan, type CheckoutPlan } from "@/lib/checkout/planCheck
 import type { CartService } from "@/lib/cart/cartItem";
 import { Sparkles, Waves, Package } from "lucide-react";
 import { QtyStepper, TermPills } from "@/components/checkout/OrderSize";
+import { orderShape, type OrderShape } from "@/lib/checkout/orderShape";
+import { useQueries } from "@tanstack/react-query";
 
 /** A line reads as its service at a glance, not as food-with-a-different-name. */
 const SERVICE_ICON: Record<CartService, typeof UtensilsCrossed> = {
@@ -80,6 +82,34 @@ function endDateFor(startISO: string, weeks: number): string {
 export default function Cart() {
   const navigate = useNavigate();
   const { items, totalCents, count, setQty, setPeriods, removeItem, clear } = useCart();
+
+  /**
+   * Each line's plan — so "how long" and "how many" follow THE rule
+   * (lib/checkout/orderShape), exactly as the checkout does for the same plan.
+   * Until a plan has loaded, the line falls back to its service's defaults.
+   */
+  const planIds = [...new Set(items.map((i) => i.planId))];
+  const planResults = useQueries({
+    queries: planIds.map((id) => ({
+      queryKey: ["checkout-plan", id],
+      queryFn: () => resolveCheckoutPlan(id),
+      staleTime: 5 * 60_000,
+    })),
+  });
+  const planById = new Map(planIds.map((id, i) => [id, planResults[i]?.data ?? null]));
+  const shapeOf = (item: (typeof items)[number]): OrderShape => {
+    const p = planById.get(item.planId);
+    const base: OrderShape = p ? orderShape(p) : {
+      termOptions: CART_SERVICES[item.service].periodOptions,
+      periodNoun: CART_SERVICES[item.service].periodNoun,
+      quantity: CART_SERVICES[item.service].allowsQuantity && CART_SERVICES[item.service].unitNoun
+        ? { noun: CART_SERVICES[item.service].unitNoun as "portion" | "person", max: 20 } : null,
+    };
+    // A line saved before a term was dropped still shows what it holds.
+    const terms = base.termOptions.length && !base.termOptions.includes(item.periods)
+      ? [...base.termOptions, item.periods].sort((x, y) => x - y) : base.termOptions;
+    return { ...base, termOptions: terms };
+  };
   const { isAuthenticated, userData } = useAuth();
   const { openAuthModal } = useAuthModal();
   const userUuid = useUserUuid();
@@ -460,7 +490,12 @@ export default function Cart() {
                 <CheckoutLineItem
                   key={item.key}
                   title={item.planName}
-                  description={`${item.providerName} · ${periodLabel(item)}`}
+                  description={(() => {
+                    const sh = shapeOf(item);
+                    const term = sh.periodNoun ? `${item.periods} ${sh.periodNoun}${item.periods === 1 ? "" : "s"}` : null;
+                    const qty = sh.quantity && item.qty > 1 ? `${item.qty} ${sh.quantity.noun === "person" ? "people" : "portions"}` : null;
+                    return [item.providerName, term, qty].filter(Boolean).join(" · ");
+                  })()}
                   priceCents={cartLineTotal(item)}
                   quantity={item.qty}
                 />
@@ -480,7 +515,7 @@ export default function Cart() {
                 <div className="md:grid md:grid-cols-[minmax(0,1fr)_380px] md:items-start md:gap-8">
                   <section className="divide-y divide-border/60 rounded-radius-lg bg-card px-4">
                     {items.map((item) => {
-                      const shape = CART_SERVICES[item.service];
+                      const shape = shapeOf(item);
                       const Icon = SERVICE_ICON[item.service];
                       const per = shape.periodNoun;
                       return (
@@ -494,11 +529,11 @@ export default function Cart() {
                                 <p className="line-clamp-2 text-title font-semibold leading-tight text-foreground">{item.planName}</p>
                                 <p className="mt-0.5 line-clamp-2 text-body text-muted-foreground">
                                   <span className="font-semibold text-foreground">{formatUSD(item.unitPriceCents)}</span>
-                                  {` / ${per}`}{shape.unitNoun ? ` per ${shape.unitNoun}` : ""} · {item.providerName}
+                                  {per ? ` / ${per}` : ""}{shape.quantity ? ` per ${shape.quantity.noun}` : ""} · {item.providerName}
                                 </p>
                               </div>
-                              {shape.allowsQuantity && shape.unitNoun ? (
-                                <QtyStepper value={item.qty} noun={shape.unitNoun} onChange={(n) => setQty(item.key, n)} />
+                              {shape.quantity ? (
+                                <QtyStepper value={item.qty} noun={shape.quantity.noun} max={shape.quantity.max} onChange={(n) => setQty(item.key, n)} />
                               ) : (
                                 <button
                                   type="button"
@@ -511,7 +546,7 @@ export default function Cart() {
                               )}
                             </div>
                             <div className="flex flex-wrap items-center justify-between gap-2">
-                              <TermPills options={shape.periodOptions} value={item.periods} noun={per} onChange={(n) => setPeriods(item.key, n)} />
+                              <TermPills options={shape.termOptions} value={item.periods} noun={per} onChange={(n) => setPeriods(item.key, n)} />
                               <span className="ml-auto text-title font-semibold tabular-nums text-foreground">{formatUSD(cartLineTotal(item))}</span>
                             </div>
                           </div>
