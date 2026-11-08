@@ -28,6 +28,7 @@ import { normPeriod } from "@/lib/services/planPeriod";
 import { useArchetypeLabel } from "@/hooks/useServiceArchetypes";
 import { publicListingHref } from "@/lib/services/providerBridge";
 import { planHref, providerHref } from "@/lib/services/serviceUrls";
+import { UniversalPlanCard, type UniversalPlan } from "@/components/patterns/UniversalPlanCard";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { supabaseDb } from "@/integrations/supabase/client";
@@ -288,6 +289,25 @@ const PlanDetail = () => {
   // needs bridging — passing `legacyService` here looked up legacy ids that do
   // not exist and silently returned no offers, which is why the option chips
   // never appeared.
+  /**
+   * The business's other plans — "More from Elias Cuisine". Top-level, on
+   * sale and public only: a variant is part of its offer, not another product.
+   */
+  const moreQ = useQuery({
+    queryKey: ["plan-detail-more", plan?.providerId],
+    enabled: !!plan?.providerId,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data } = await supabaseDb
+        .from("provider_plans")
+        .select("id, name, description, price_cents, period, features, gallery_urls, included_quantity, included_unit, source_plan_id, sort_order")
+        .eq("provider_id", plan!.providerId!)
+        .eq("status", "active").eq("visibility", "public").is("parent_plan_id", null)
+        .order("sort_order", { ascending: true });
+      return (data ?? []) as unknown as Array<UniversalPlan & { source_plan_id: string | null }>;
+    },
+  });
+
   const { offers, offerBySourcePlanId } = usePlanOffers(
     plan?.providerId ? [plan.providerId] : [],
   );
@@ -470,6 +490,34 @@ const PlanDetail = () => {
       .map((e) => describeEntitlement(e, chosen?.period ?? null))
       .filter((l) => l && !/^Unlimited access$/i.test(l));
   }, [planQ.data, chosen]);
+
+  /**
+   * The price per thing — "$9.00 per meal", "$22.25 per cleaning" — from the
+   * first counted line of what the plan grants. Access ("unlimited") has no
+   * unit price, and neither does a plan that counts nothing.
+   */
+  const perUnitOf = (ents: unknown, cents: number | null | undefined) => {
+    if (typeof cents !== "number" || cents <= 0) return null;
+    const line = readEntitlements({ entitlements: ents }).find((e) => typeof e.quantity === "number" && e.quantity > 1 && e.unit && e.unit !== "access");
+    return line ? { cents: Math.round(cents / line.quantity!), unit: line.unit } : null;
+  };
+  const currentUnit = perUnitOf(chosen ? chosen.entitlements : planQ.data?.entitlements, priceCents);
+  /** The cheapest unit among the offer's combinations, when it beats this one by 5% or more. */
+  const bestDeal = (() => {
+    if (!offer || !currentUnit) return null;
+    let best: { variant: (typeof offer.variants)[number]; cents: number } | null = null;
+    for (const v of offer.variants) {
+      if (v.status !== "active") continue;
+      const u = perUnitOf(v.entitlements, v.priceCents);
+      if (!u || u.unit !== currentUnit.unit) continue;
+      if (!best || u.cents < best.cents || (u.cents === best.cents && v.priceCents < best.variant.priceCents)) best = { variant: v, cents: u.cents };
+    }
+    if (!best || best.cents >= currentUnit.cents * 0.95) return null;
+    const label = offer.groups
+      .map((g) => g.options.find((o) => o.key === best!.variant.optionKeys[g.key])?.label)
+      .filter(Boolean).join(" · ");
+    return { variant: best.variant, cents: best.cents, savePct: Math.round((1 - best.cents / currentUnit.cents) * 100), label };
+  })();
 
   const canonicalKey =
     plan?.source === "beach" ? "entertainment"
@@ -741,6 +789,27 @@ const PlanDetail = () => {
             <PlanOptionPicker offer={offer} selection={selection} onSelect={setSelection} />
           )}
 
+          {currentUnit && (
+            <div className="space-y-1.5">
+              <p className="text-meta text-muted-foreground">
+                {formatUSD(currentUnit.cents)} per {currentUnit.unit}
+              </p>
+              {bestDeal && (
+                <button
+                  type="button"
+                  onClick={() => setSelection(selectionFor(bestDeal.variant))}
+                  className="flex w-full items-center justify-between gap-3 rounded-radius-md bg-primary/10 px-3 py-2 text-left text-meta text-foreground transition-colors hover:bg-primary/15"
+                >
+                  <span>
+                    <span className="font-semibold">Save {bestDeal.savePct}% per {currentUnit.unit}</span>
+                    {bestDeal.label ? ` with ${bestDeal.label}` : ""} — {formatUSD(bestDeal.cents)} per {currentUnit.unit}
+                  </span>
+                  <span className="shrink-0 font-semibold">Switch</span>
+                </button>
+              )}
+            </div>
+          )}
+
           {isFood && mealsPerDay > 0 && (
             <div className="rounded-radius-md bg-inset px-4 py-3">
               <MealSelectionPicker
@@ -799,6 +868,28 @@ const PlanDetail = () => {
         )}
         </div>
       </main>
+
+      {/* More from this business — every other product it sells, below the fold. */}
+      {(() => {
+        const here = new Set([plan.id, offer?.id].filter(Boolean) as string[]);
+        const others = (moreQ.data ?? []).filter((p) => !here.has(p.id) && !(p.source_plan_id && here.has(String(p.source_plan_id))));
+        const segment = (providerQ.data as { archetype_key?: string | null } | null | undefined)?.archetype_key ?? archetypeKey;
+        if (!others.length || !providerName) return null;
+        return (
+          <section className="mt-1 space-y-3 rounded-radius-lg bg-card p-4 shadow-figma md:mx-auto md:mt-4 md:max-w-[1280px] md:bg-transparent md:px-6 md:shadow-none">
+            <h2 className="text-heading font-semibold text-foreground">More from {providerName}</h2>
+            <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
+              {others.map((p) => (
+                <UniversalPlanCard
+                  key={p.id}
+                  plan={p}
+                  onSubscribe={() => navigate(planHref(segment, p.source_plan_id ? String(p.source_plan_id) : p.id))}
+                />
+              ))}
+            </div>
+          </section>
+        );
+      })()}
 
       {/*
         The design ends the screen here — no tab bar. A plan page is a decision,
