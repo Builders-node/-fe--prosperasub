@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { AddressFields } from "@/components/account/AddressFields";
+import { ResponsiveDialog } from "@/components/patterns/ResponsiveDialog";
 import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -100,42 +101,6 @@ export function SavedLocations({ userId }: { userId: string }) {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  // ── Add / edit form ─────────────────────────────────────────────────────────
-  if (editing) {
-    return (
-      <div className="space-y-3 rounded-radius-lg bg-card p-4">
-        <Input
-          id="loc-label"
-          label="Label"
-          value={label}
-          onChange={(e) => setLabel(e.target.value)}
-          placeholder="e.g. Home, Office"
-        />
-        {residences.length > 0 && (
-          <div>
-            <Label className="mb-1.5">Residence</Label>
-            <Select value={residence || "_none"} onValueChange={(v) => setResidence(v === "_none" ? "" : v)}>
-              <SelectTrigger><SelectValue placeholder="Select residence" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="_none">Other / not listed</SelectItem>
-                {residences.map((r) => (
-                  <SelectItem key={r.id} value={r.name}>{r.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-        <AddressFields value={addr} onChange={setAddr} />
-        <div className="flex gap-2 pt-1">
-          <Button variant="ghost" className="flex-1" onClick={() => setEditing(null)} disabled={saveMutation.isPending}>Cancel</Button>
-          <Button className="flex-1" onClick={() => saveMutation.mutate()} loading={saveMutation.isPending} disabled={saveMutation.isPending}>
-            {saveMutation.isPending ? <><Spinner size="sm" /> Saving…</> : "Save"}
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
   // ── List view ────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-3">
@@ -190,6 +155,47 @@ export function SavedLocations({ userId }: { userId: string }) {
       <Button variant="secondary" className="w-full gap-2" onClick={openNew}>
         <Plus className="h-4 w-4" /> Add location
       </Button>
+
+      {/* Add / edit in a dialog over the list (a sheet on a phone) — it used to
+          replace the list in place, which read as a new page on a laptop. */}
+      <ResponsiveDialog
+        open={!!editing}
+        onOpenChange={(o) => { if (!o && !saveMutation.isPending) setEditing(null); }}
+        title={editing === "new" ? "New location" : "Edit location"}
+        footer={
+          <div className="flex w-full gap-2">
+            <Button variant="secondary" className="flex-1" onClick={() => setEditing(null)} disabled={saveMutation.isPending}>Cancel</Button>
+            <Button className="flex-1" onClick={() => saveMutation.mutate()} loading={saveMutation.isPending} disabled={saveMutation.isPending}>
+              {saveMutation.isPending ? <><Spinner size="sm" /> Saving…</> : "Save"}
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-3">
+          <Input
+            id="loc-label"
+            label="Label"
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            placeholder="e.g. Home, Office"
+          />
+          {residences.length > 0 && (
+            <div>
+              <Label className="mb-1.5">Residence</Label>
+              <Select value={residence || "_none"} onValueChange={(v) => setResidence(v === "_none" ? "" : v)}>
+                <SelectTrigger><SelectValue placeholder="Select residence" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_none">Other / not listed</SelectItem>
+                  {residences.map((r) => (
+                    <SelectItem key={r.id} value={r.name}>{r.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          <AddressFields value={addr} onChange={setAddr} />
+        </div>
+      </ResponsiveDialog>
     </div>
   );
 }
