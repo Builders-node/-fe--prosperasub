@@ -1,15 +1,13 @@
 import { useState, useMemo, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Plus, Calendar as CalendarIcon } from "lucide-react";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from "@/components/ui/dialog";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Spinner } from "@/components/ui/spinner";
+import { ResponsiveDialog } from "@/components/patterns/ResponsiveDialog";
+import { QtyStepper } from "@/components/checkout/OrderSize";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -98,6 +96,10 @@ const WEEKDAYS = [
   { dow: 0, short: "Sun" },
 ] as const;
 
+const DAY_PLURAL: Record<number, string> = {
+  0: "Sundays", 1: "Mondays", 2: "Tuesdays", 3: "Wednesdays", 4: "Thursdays", 5: "Fridays", 6: "Saturdays",
+};
+
 const CADENCE_LABEL: Record<Cadence, string> = {
   once:     "Just this date",
   daily:    "Daily",
@@ -143,6 +145,7 @@ export function NewCleaningBookingDialog({ providerId, trigger, defaultSubscript
   // falls on, which is what "Weekly" used to mean and still does by default.
   const [weekdays, setWeekdays] = useState<number[]>([]);
   const [count, setCount] = useState<number>(1);
+  const [showDates, setShowDates] = useState(false);
 
   // `providerId` here is the LEGACY cleaning_providers id — that is what the
   // workspace passes down and what cleaning_bookings.provider_id stores. Slots
@@ -167,7 +170,7 @@ export function NewCleaningBookingDialog({ providerId, trigger, defaultSubscript
 
       const { data: subRows } = await supabaseDb
         .from("cleaning_subscriptions")
-        .select("id,user_id,client_id,package_id,apartment_note,subscription_status,payment_status,billing_period_months")
+        .select("id,user_id,client_id,package_id,apartment_note,customer_whatsapp,subscription_status,payment_status,billing_period_months")
         .in("package_id", pkgIds)
         .eq("payment_status", "paid")
         .in("subscription_status", ["active", "pending_schedule"])
@@ -197,7 +200,10 @@ export function NewCleaningBookingDialog({ providerId, trigger, defaultSubscript
         const client = r.client_id ? clientMap.get(String(r.client_id)) : null;
         const customer =
           user?.display_name ?? user?.name ?? user?.email ??
-          client?.contact_person ?? client?.company_name ?? "Customer";
+          client?.contact_person ?? client?.company_name ??
+          // An account the users table cannot name (an old google- id) still
+          // has the number it paid with.
+          r.customer_whatsapp ?? "Customer";
         const pkg = r.package_id ? pkgMap.get(r.package_id) : null;
         // Total visits across the paid period. Falls back to 1 (single visit)
         // when we can't figure it out — the admin can bump the count manually.
@@ -649,64 +655,86 @@ export function NewCleaningBookingDialog({ providerId, trigger, defaultSubscript
     </Button>
   );
 
+  // One line that says what the button will create — the whole series, read
+  // before the dates themselves.
+  const weekdayWords = (weekdaysApply && weekdays.length
+    ? WEEKDAYS.filter((d) => weekdays.includes(d.dow))
+    : WEEKDAYS.filter((d) => d.dow === dowOf(date))
+  ).map((d) => DAY_PLURAL[d.dow]).join(", ");
+  const rhythm = cadence === "once" ? null
+    : cadence === "daily" ? "every day"
+    : cadence === "monthly" ? "monthly"
+    : cadence === "biweekly" ? `every other week · ${weekdayWords}`
+    : weekdayWords;
+  const matchesPlan = !!selectedSub && count === selectedSub.suggested_count
+    && weekdays.length === 0 && cadence === suggestCadenceFor(selectedSub.per_month);
+
+  const section = "space-y-2";
+  const heading = "text-title font-semibold text-foreground";
+  const segment = (on: boolean) => cn(
+    "flex h-10 flex-1 items-center justify-center rounded-radius-md px-2 text-meta font-semibold transition-colors",
+    on ? "bg-segment text-foreground" : "text-muted-foreground hover:text-foreground",
+  );
+
   return (
     <>
       {trigger ? <span onClick={() => setOpen(true)}>{trigger}</span> : defaultTrigger}
 
-      <Dialog open={open} onOpenChange={(o) => { if (!o) resetAndClose(); }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <CalendarIcon className="h-5 w-5 text-primary" /> New cleaning booking
-            </DialogTitle>
-          </DialogHeader>
+      <ResponsiveDialog
+        open={open}
+        onOpenChange={(o) => { if (!o && !create.isPending) resetAndClose(); }}
+        title="Book a cleaning"
+        footer={
+          <div className="flex w-full gap-2">
+            <Button variant="secondary" className="flex-1" onClick={resetAndClose} disabled={create.isPending}>Cancel</Button>
+            <Button
+              className="flex-1"
+              onClick={() => create.mutate()}
+              // `target`, not `subId` — booking for a bare customer never sets
+              // a subscription id, so the old check left the button dead.
+              disabled={!target || !date || !startTime || !dates.length || dayOff || create.isPending}
+            >
+              {create.isPending && <Spinner size="sm" className="mr-2" />}
+              {dates.length > 1 ? `Book ${dates.length} visits` : "Book visit"}
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-6">
+          {/* 1 — who. Booking used to require an existing paid subscription,
+              so a customer who paid off-platform or is on a trial couldn't be
+              scheduled at all. */}
+          <section className={section}>
+            <h3 className={heading}>Who</h3>
+            <div className="flex rounded-radius-md bg-inset p-0.5">
+              {([
+                { key: "subscription", label: "A subscriber" },
+                { key: "user", label: "Any customer" },
+              ] as const).map((m) => (
+                <button
+                  key={m.key}
+                  type="button"
+                  // Dropping the other side's pick matters: `selectedSub`
+                  // survived a switch and went on driving the visit count.
+                  onClick={() => {
+                    if (m.key === mode) return;
+                    setMode(m.key);
+                    if (m.key === "user") setSubId(""); else { setUserId(""); setUserSearch(""); }
+                  }}
+                  className={segment(mode === m.key)}
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
 
-          <div className="space-y-4">
-            {/* Who the visit is for. Booking used to require an existing paid
-                subscription, so a customer who paid off-platform or is being
-                given a trial couldn't be scheduled at all. */}
-            <div className="space-y-2">
-              <Label>Book for *</Label>
-              <div className="flex gap-1.5">
-                {([
-                  { key: "subscription", label: "Existing subscription" },
-                  { key: "user", label: "Any customer" },
-                ] as const).map((m) => (
-                  <button
-                    key={m.key}
-                    type="button"
-                    // Dropping the other side's pick matters: `selectedSub`
-                    // survived a switch to "Any customer" and went on driving
-                    // the visit count and the "matches subscription period"
-                    // note for a subscription that was no longer the target.
-                    onClick={() => {
-                      if (m.key === mode) return;
-                      setMode(m.key);
-                      if (m.key === "user") setSubId(""); else { setUserId(""); setUserSearch(""); }
-                    }}
-                    className={cn(
-                      "flex-1 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
-                      mode === m.key
-                        ? "bg-foreground text-background"
-                        : "bg-card text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    {m.label}
-                  </button>
-                ))}
-              </div>
-
-              {mode === "subscription" ? (
+            {mode === "subscription" ? (
+              <>
                 <Select value={subId} onValueChange={setSubId}>
                   <SelectTrigger>
                     <SelectValue placeholder={subsLoading ? "Loading…" : "Pick a subscription"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {subs.length === 0 && (
-                      <div className="px-3 py-2 text-xs text-muted-foreground">
-                        {subsLoading ? "Loading subscriptions…" : "Nothing to pick — see below."}
-                      </div>
-                    )}
                     {subs.map((s) => (
                       <SelectItem key={s.id} value={s.id}>
                         {s.customer_name} · {s.package_name}
@@ -714,102 +742,66 @@ export function NewCleaningBookingDialog({ providerId, trigger, defaultSubscript
                     ))}
                   </SelectContent>
                 </Select>
-              ) : null}
-              {/* Said on the page, not only inside the dropdown. An admin
-                  facing an empty list had to open it to find out why, and the
-                  way forward — book for anyone — is the tab next to it. */}
-              {mode === "subscription" && !subsLoading && subs.length === 0 ? (
-                <p className="text-xs text-muted-foreground">
-                  No paid subscriptions for this provider yet. Use{" "}
-                  <button
-                    type="button"
-                    className="font-semibold text-primary underline-offset-2 hover:underline"
-                    onClick={() => { setMode("user"); setSubId(""); }}
-                  >
-                    Any customer
-                  </button>{" "}
-                  to book a visit anyway.
-                </p>
-              ) : null}
-              {mode === "user" ? (
-                <>
-                  <Select value={userId} onValueChange={setUserId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder={usersLoading ? "Loading…" : "Pick a customer"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {/* Search lives inside the list so it filters what's on
-                          screen without the dialog growing a second field. */}
-                      <div className="px-2 pb-1 pt-2">
-                        <Input
-                          value={userSearch}
-                          onChange={(e) => setUserSearch(e.target.value)}
-                          onKeyDown={(e) => e.stopPropagation()}
-                          placeholder="Search by name or email…"
-                          className="h-8"
-                        />
-                      </div>
-                      {visibleUsers.length === 0 && (
-                        <div className="px-3 py-2 text-xs text-muted-foreground">
-                          {usersLoading ? "Loading customers…" : "No customer matches that search."}
-                        </div>
-                      )}
-                      {visibleUsers.map((u) => (
-                        <SelectItem key={u.id} value={u.id}>
-                          {u.label}{u.email && u.email !== u.label ? ` · ${u.email}` : ""}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    No subscription is attached, so this visit doesn't draw down anyone's
-                    remaining cleanings. Use it for off-platform or complimentary visits.
+                {!subsLoading && subs.length === 0 && (
+                  <p className="text-meta text-muted-foreground">
+                    No paid subscriptions yet —{" "}
+                    <button type="button" className="font-semibold text-foreground underline underline-offset-2"
+                      onClick={() => { setMode("user"); setSubId(""); }}>
+                      book for any customer
+                    </button>.
                   </p>
-                </>
-              ) : null}
-            </div>
-
-            <div>
-              <Label>Date *</Label>
-              <Input
-                type="date"
-                value={date}
-                min={todayHN()}
-                onChange={(e) => setDate(e.target.value)}
-              />
-            </div>
-
-            {noGrid ? (
-              // Nothing seeded yet. Typing a time is worse than picking one, but
-              // it beats an admin who cannot book at all; the slot grid is
-              // seeded daily and by the Cleaning workspace.
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label>Start time *</Label>
-                  <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
-                </div>
-                <div>
-                  <Label>End time</Label>
-                  <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
-                </div>
-                <p className="col-span-2 text-xs text-attention">
-                  This provider has no slot grid yet, so the visit will create its own time. Seed the
-                  slots to keep bookings on one schedule.
-                </p>
-              </div>
-            ) : dayOff ? (
-              <div>
-                <Label>Time slot *</Label>
-                <p className="rounded-radius-md bg-muted/40 px-3 py-2.5 text-sm text-muted-foreground">
-                  This provider doesn't work on {WEEKDAYS.find((d) => d.dow === dowOf(date))?.short ?? "this day"}s
-                  — no slots on {date}. Pick another date.
-                </p>
-              </div>
+                )}
+              </>
             ) : (
-              <div>
-                <Label>Time slot *</Label>
+              <>
+                <Select value={userId} onValueChange={setUserId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={usersLoading ? "Loading…" : "Pick a customer"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {/* Search inside the list, so the dialog does not grow a second field. */}
+                    <div className="px-2 pb-1 pt-2">
+                      <Input
+                        value={userSearch}
+                        onChange={(e) => setUserSearch(e.target.value)}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        placeholder="Search by name or email…"
+                        inputSize="sm"
+                      />
+                    </div>
+                    {visibleUsers.length === 0 && (
+                      <div className="px-3 py-2 text-meta text-muted-foreground">
+                        {usersLoading ? "Loading customers…" : "No customer matches that search."}
+                      </div>
+                    )}
+                    {visibleUsers.map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        {u.label}{u.email && u.email !== u.label ? ` · ${u.email}` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-meta text-muted-foreground">
+                  Not tied to a subscription — for off-platform or free visits.
+                </p>
+              </>
+            )}
+          </section>
+
+          {/* 2 — when the first visit is. */}
+          <section className={section}>
+            <h3 className={heading}>When</h3>
+            <div className="grid grid-cols-2 gap-2">
+              <Input type="date" aria-label="Date" value={date} min={todayHN()} onChange={(e) => setDate(e.target.value)} />
+              {noGrid ? (
+                <div className="flex gap-1">
+                  <Input type="time" aria-label="Start" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+                  <Input type="time" aria-label="End" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+                </div>
+              ) : (
                 <Select
-                  value={startTime}
+                  value={dayOff ? "" : startTime}
+                  disabled={dayOff}
                   onValueChange={(v) => {
                     const w = slotWindows.find((x) => x.start === v);
                     if (!w) return;
@@ -817,191 +809,140 @@ export function NewCleaningBookingDialog({ providerId, trigger, defaultSubscript
                     setEndTime(w.end);
                   }}
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder={windowsLoading ? "Loading slots…" : "Pick a time slot"} />
+                  <SelectTrigger aria-label="Time">
+                    <SelectValue placeholder={dayOff ? "Closed" : windowsLoading ? "Loading…" : "Time"} />
                   </SelectTrigger>
                   <SelectContent>
                     {slotWindows.map((w) => (
                       <SelectItem key={`${w.start}-${w.end}`} value={w.start}>
                         {w.start}{w.end ? ` – ${w.end}` : ""}
-                        <span className="ml-2 text-xs text-muted-foreground">
-                          {/* Still selectable when full: squeezing one more
-                              visit in is what this dialog is for. */}
-                          {w.left > 0 ? `${w.left} left` : "full"}
-                        </span>
+                        {/* Still selectable when full: squeezing one more in is what this is for. */}
+                        <span className="ml-2 text-meta text-muted-foreground">{w.left > 0 ? `${w.left} left` : "full"}</span>
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Only the times this provider actually runs — so the visit counts against the
-                  right slot instead of inventing one.
-                </p>
+              )}
+            </div>
+            {dayOff && (
+              <p className="text-meta text-attention">
+                Closed on {WEEKDAYS.find((d) => d.dow === dowOf(date))?.short ?? "that day"}s — pick another date.
+              </p>
+            )}
+            {noGrid && (
+              <p className="text-meta text-muted-foreground">No time slots set up yet, so type the time.</p>
+            )}
+          </section>
+
+          {/* 3 — how often. One row of choices, then only what that choice needs. */}
+          <section className={section}>
+            <h3 className={heading}>How often</h3>
+            <div className="grid grid-cols-5 gap-0.5 rounded-radius-md bg-inset p-0.5">
+              {(["once", "weekly", "biweekly", "monthly", "daily"] as Cadence[]).map((c) => (
+                <button key={c} type="button" onClick={() => setCadence(c)} className={segment(cadence === c)}>
+                  {c === "once" ? "Once" : c === "biweekly" ? "2 weeks" : CADENCE_LABEL[c]}
+                </button>
+              ))}
+            </div>
+
+            {weekdaysApply && (
+              <div className="space-y-1.5 pt-1">
+                <p className="text-label text-foreground">On</p>
+                {/* items-stretch keeps this a real row: the dialog unwraps
+                    wrappers that only space their children. */}
+                <div className="flex items-stretch gap-1">
+                  {WEEKDAYS.map((d) => {
+                    const on = weekdays.includes(d.dow) || (weekdays.length === 0 && d.dow === dowOf(date));
+                    // A day the provider never runs this time cannot be picked.
+                    const off = !!grid?.weekdays.size && !grid.weekdays.has(d.dow);
+                    return (
+                      <button
+                        key={d.dow}
+                        type="button"
+                        disabled={off && !weekdays.includes(d.dow)}
+                        title={off ? "Closed at this time" : undefined}
+                        aria-pressed={on}
+                        onClick={() => setWeekdays((prev) =>
+                          prev.includes(d.dow) ? prev.filter((x) => x !== d.dow) : [...prev, d.dow])}
+                        className={cn(
+                          "flex h-10 flex-1 items-center justify-center rounded-radius-md text-meta font-semibold transition-colors",
+                          on ? "bg-foreground text-background" : "bg-inset text-foreground hover:bg-muted",
+                          off && !on && "pointer-events-none opacity-30",
+                        )}
+                      >
+                        {d.short}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             )}
 
-            <div>
-              <Input
-                label="Where"
-                value={where}
-                onChange={(e) => setWhere(e.target.value)}
-                placeholder="Apartment, building"
-              />
-              {selectedSub?.apartment_note && (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  From the subscription's apartment note — edit if needed.
-                </p>
-              )}
-            </div>
-
-            <div>
-              <Label>Notes for the cleaner</Label>
-              <Textarea
-                rows={3}
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Access instructions, quirks…"
-              />
-            </div>
-
-            {/* Repeat — bulk-book N visits at the same time slot. Anchored on
-                the Date field above; steps out by cadence. */}
-            <div className="space-y-2 rounded-radius-md bg-muted/30 p-3">
-              <Label>Repeat</Label>
-              <div className="flex flex-wrap gap-1.5">
-                {(Object.keys(CADENCE_LABEL) as Cadence[]).map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setCadence(c)}
-                    className={cn(
-                      "rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
-                      cadence === c
-                        ? "bg-foreground text-background"
-                        : "bg-card text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    {CADENCE_LABEL[c]}
-                  </button>
-                ))}
+            {cadence !== "once" && (
+              <div className="flex items-center justify-between gap-3 pt-1">
+                <div>
+                  <p className="text-label text-foreground">Visits</p>
+                  {matchesPlan && <p className="text-meta text-muted-foreground">The whole paid period</p>}
+                </div>
+                <QtyStepper value={count} noun="visit" max={MAX_VISITS} onChange={(n) => setCount(Math.max(1, n))} />
               </div>
-              {/* Which days the cleaner should come. "Weekly" alone could only
-                  mean "the same weekday as the start date"; a customer who wants
-                  Mon + Thu had to be booked twice, once per day. */}
-              {weekdaysApply && (
-                <div className="mt-2 space-y-1.5">
-                  <Label className="text-xs">Days of the week</Label>
-                  <div className="flex flex-wrap gap-1">
-                    {WEEKDAYS.map((d) => {
-                      const on = weekdays.includes(d.dow);
-                      // A day the provider never runs this time cannot be picked.
-                      const off = !!grid?.weekdays.size && !grid.weekdays.has(d.dow);
-                      return (
-                        <button
-                          key={d.dow}
-                          type="button"
-                          disabled={off && !on}
-                          title={off ? "The provider doesn't run this time on this day" : undefined}
-                          onClick={() => setWeekdays((prev) =>
-                            prev.includes(d.dow) ? prev.filter((x) => x !== d.dow) : [...prev, d.dow])}
-                          className={cn(
-                            "rounded-full px-2.5 py-1 text-xs font-semibold transition-colors",
-                            on ? "bg-foreground text-background"
-                               : "bg-card text-muted-foreground hover:text-foreground",
-                            off && !on && "pointer-events-none opacity-40 line-through",
-                          )}
-                        >
-                          {d.short}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {weekdays.length === 0
-                      ? `No day picked — repeats on ${WEEKDAYS.find((d) => d.dow === dowOf(date))?.short ?? "the start day"}, the start date's own day.`
-                      : `Visits land only on the days above, starting ${date}.`}
-                  </p>
-                </div>
-              )}
-              {cadence !== "once" && (
-                <div className="mt-2 flex items-center gap-2">
-                  <Label className="text-xs shrink-0">Number of visits</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={MAX_VISITS}
-                    value={count}
-                    onChange={(e) => setCount(Math.max(1, Math.min(MAX_VISITS, parseInt(e.target.value || "1", 10))))}
-                    className="h-8 w-20"
-                  />
-                  {!!selectedSub && count === selectedSub.suggested_count
-                    && weekdays.length === 0
-                    && cadence === suggestCadenceFor(selectedSub.per_month) && (
-                    // Only truthful when BOTH the count is the suggested total
-                    // AND the cadence matches the plan's rhythm — otherwise the
-                    // series spans more (or less) than the paid window.
-                    <span className="text-xs text-muted-foreground">(matches subscription period)</span>
-                  )}
-                </div>
-              )}
+            )}
+          </section>
 
-              {/* What this will actually create.
-                  Four visits a month apart were reported as "it only added
-                  one": they were all there, three of them months away, and the
-                  dialog said so in one line of grey 12px type. Every date, in
-                  full, before the button is pressed. */}
-              {cadence !== "once" && dates.length > 0 && (
-                <div className="mt-2 space-y-1.5 rounded-radius-md bg-card p-2.5">
-                  <p className="text-xs font-semibold">
-                    {dates.length} visit{dates.length === 1 ? "" : "s"}, {dayLabel(dates[0])}
-                    {dates.length > 1 ? ` → ${dayLabel(dates[dates.length - 1])}` : ""}
-                    {spansMonths > 1 && (
-                      <span className="font-normal text-muted-foreground"> · across {spansMonths} months</span>
-                    )}
-                  </p>
-                  <div className="flex flex-wrap gap-1">
-                    {dates.map((d) => (
-                      <span
-                        key={d}
-                        className="rounded-full bg-muted/60 px-2 py-0.5 text-[11px] tabular-nums text-muted-foreground"
-                      >
-                        {dayLabel(d)}
-                      </span>
-                    ))}
-                  </div>
-                  <p className="text-[11px] text-muted-foreground">
-                    All at {startTime}{endTime ? `–${endTime}` : ""}.
-                    {spansMonths > 1 && " Only the nearest ones show in this month's list."}
-                  </p>
-                </div>
-              )}
-
-              {cadence !== "once" && grid?.dates.size ? (
-                <p className="text-xs text-muted-foreground">
-                  Days the provider doesn't run {startTime} are skipped
-                  {cadence === "daily" || weekdays.length ? "" : " — a visit that lands on one moves to the next working day"}.
-                  {droppedVisits > 0 && (
-                    <span className="text-attention"> {droppedVisits} visit{droppedVisits === 1 ? "" : "s"} had no working day left and won't be booked.</span>
-                  )}
+          {/* What the button will create — one line first, the dates on request.
+              Four visits a month apart were once reported as "it only added
+              one", so the span is always said. */}
+          {dates.length > 0 && !dayOff && (
+            <section className="space-y-2 rounded-radius-md bg-inset p-3">
+              <p className="text-body font-semibold text-foreground">
+                {dates.length} visit{dates.length === 1 ? "" : "s"}
+                {rhythm ? ` · ${rhythm}` : ""}
+                {startTime ? ` · ${startTime}${endTime ? `–${endTime}` : ""}` : ""}
+              </p>
+              <p className="text-meta text-muted-foreground">
+                {dayLabel(dates[0])}{dates.length > 1 ? ` → ${dayLabel(dates[dates.length - 1])}` : ""}
+                {spansMonths > 1 ? ` · across ${spansMonths} months` : ""}
+                {cadence !== "once" && grid?.dates.size ? " · closed days skipped" : ""}
+              </p>
+              {droppedVisits > 0 && (
+                <p className="text-meta text-attention">
+                  {droppedVisits} visit{droppedVisits === 1 ? "" : "s"} had no open day left and won't be booked.
                 </p>
-              ) : null}
-            </div>
-          </div>
+              )}
+              {dates.length > 1 && (
+                <>
+                  <button type="button" onClick={() => setShowDates((v) => !v)}
+                    className="text-meta font-semibold text-foreground underline underline-offset-2">
+                    {showDates ? "Hide dates" : "Show dates"}
+                  </button>
+                  {showDates && (
+                    <div className="flex flex-wrap gap-1">
+                      {dates.map((d) => (
+                        <span key={d} className="rounded-full bg-card px-2.5 py-1 text-meta tabular-nums text-muted-foreground">
+                          {dayLabel(d)}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </section>
+          )}
 
-          <DialogFooter>
-            <Button variant="ghost" onClick={resetAndClose}>Cancel</Button>
-            <Button
-              onClick={() => create.mutate()}
-              // `target`, not `subId` — booking for a bare customer never sets
-              // a subscription id, so the old check left the button dead.
-              disabled={!target || !date || !startTime || !dates.length || dayOff || create.isPending}
-            >
-              {create.isPending && <Spinner size="sm" className="mr-2" />}
-              {dates.length > 1 ? `Create ${dates.length} bookings` : "Create booking"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          {/* 4 — where, and anything the cleaner should know. */}
+          <section className={section}>
+            <h3 className={heading}>Where</h3>
+            <Input value={where} onChange={(e) => setWhere(e.target.value)} placeholder="Apartment, building" aria-label="Where" />
+            <Textarea
+              rows={2}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Notes for the cleaner — access, quirks (optional)"
+              aria-label="Notes for the cleaner"
+            />
+          </section>
+        </div>
+      </ResponsiveDialog>
     </>
   );
 }
