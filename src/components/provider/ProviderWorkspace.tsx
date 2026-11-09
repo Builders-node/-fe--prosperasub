@@ -408,7 +408,10 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
           // works for an admin and for whoever runs the business
           // (useDraftPreview); anyone else sees what customers see.
           onClick={() => {
-            const draft = provider.status !== "active" && provider.status !== "approved";
+            // Its service switched off hides it just as surely as its own
+            // status — the public page answers "No such service" then.
+            const serviceOff = archetypes.find((a) => a.key === provider.archetype_key)?.is_active === false;
+            const draft = (provider.status !== "active" && provider.status !== "approved") || serviceOff;
             const href = draft
               ? `${resolvedPublicHref}${resolvedPublicHref.includes("?") ? "&" : "?"}preview=1`
               : resolvedPublicHref;

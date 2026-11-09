@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { accountApi, adminApi, supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
 import { logAuditEvent } from "@/lib/auditLog";
 import { profileCompleteness } from "@/lib/providerProfile";
 import type { UniversalProviderRow } from "@/components/provider/UniversalInfoTab";
@@ -32,8 +33,10 @@ export function GoLivePanel({ provider, previewHref, ownerView = false }: {
   ownerView?: boolean;
 }) {
   const qc = useQueryClient();
-  const { userData } = useAuth();
+  const { userData, isSuperAdmin } = useAuth();
   const live = provider.status === "active" || provider.status === "approved";
+  const { archetypes } = useServiceArchetypes(false);
+  const service = archetypes.find((a) => a.key === provider.archetype_key) ?? null;
   const [confirm, setConfirm] = useState<"active" | "inactive" | null>(null);
 
   const plansQ = useQuery({
@@ -166,10 +169,29 @@ export function GoLivePanel({ provider, previewHref, ownerView = false }: {
     return (
       <section className="flex flex-wrap items-center justify-between gap-3 rounded-radius-lg bg-card p-4">
         <div className="min-w-0">
-          <p className="text-title font-semibold text-foreground">Live</p>
-          <p className="text-meta text-muted-foreground">
-            Customers can find and buy from this business.{!provider.admin_user_id && " No owner yet — it's platform-owned."}
-          </p>
+          {/* Live, but its service is switched off: the business is ready and
+              still invisible — its page says "No such service". This used to
+              read "Customers can find and buy", which was untrue. */}
+          {service && !service.is_active ? (
+            <>
+              <p className="text-title font-semibold text-foreground">Live, but its service is off</p>
+              <p className="text-meta text-attention">
+                {service.label} is switched off, so customers can't see this business yet.{" "}
+                {isSuperAdmin && (
+                  <a href={`/admin/marketplace/service/${service.key}`} className="font-semibold underline underline-offset-2">
+                    Turn the service on
+                  </a>
+                )}
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-title font-semibold text-foreground">Live</p>
+              <p className="text-meta text-muted-foreground">
+                Customers can find and buy from this business.{!provider.admin_user_id && " No owner yet — it's platform-owned."}
+              </p>
+            </>
+          )}
         </div>
         <div className="flex flex-wrap gap-2">
           <ProviderSetupButton provider={provider} />
