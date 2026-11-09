@@ -34,6 +34,12 @@ interface SuperAdminLayoutProps {
   children: ReactNode;
   title?: string;
   subtitle?: string;
+  /**
+   * Keep the title for the breadcrumb, skip the page heading — for a page
+   * whose own content already opens with the same name and description
+   * (a business's workspace has its profile card right below).
+   */
+  hideHeading?: boolean;
 }
 
 // ─── Shared styles ────────────────────────────────────────────────────────────
@@ -139,7 +145,7 @@ function NavSectionBlock({
 }
 
 // ─── Main layout ──────────────────────────────────────────────────────────────
-const SuperAdminLayout = ({ children, title, subtitle }: SuperAdminLayoutProps) => {
+const SuperAdminLayout = ({ children, title, subtitle, hideHeading }: SuperAdminLayoutProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { logout } = useAuth();
@@ -258,7 +264,7 @@ const SuperAdminLayout = ({ children, title, subtitle }: SuperAdminLayoutProps) 
 
         {/* Page content */}
         <main className="app-container min-w-0 py-space-5 lg:py-space-6">
-          {title && (
+          {title && !hideHeading && (
             /* 24px semibold with the design's negative tracking — a page title,
                not a marketing headline. A 36px black heading above a 12px
                caption is what made every admin screen read as a different

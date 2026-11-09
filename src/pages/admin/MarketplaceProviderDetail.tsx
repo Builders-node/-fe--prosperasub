@@ -29,7 +29,8 @@ export default function MarketplaceProviderDetail() {
   return (
     <SuperAdminLayout
       title={provider?.name || "Provider"}
-      subtitle={provider?.description || "Manage this business — plans, subscriptions, staff, and everything under one roof."}
+      // The profile card right below opens with this name and description.
+      hideHeading
     >
       <ProviderWorkspace providerId={providerId ?? ""} backHref="/admin/marketplace/providers" />
     </SuperAdminLayout>
