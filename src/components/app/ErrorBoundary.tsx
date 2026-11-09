@@ -1,4 +1,4 @@
-import { looksLikeStaleChunk, tryAutoRecover } from "@/lib/staleChunk";
+import { canAutoRecover, looksLikeStaleChunk, tryAutoRecover } from "@/lib/staleChunk";
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 
@@ -10,6 +10,8 @@ interface Props {
 
 interface State {
   error: Error | null;
+  /** A reload into the new version is under way — say so instead of an error. */
+  recovering: boolean;
 }
 
 /**
@@ -21,9 +23,9 @@ interface State {
  * inside the affected page for a per-query retry.
  */
 export class ErrorBoundary extends Component<Props, State> {
-  state: State = { error: null };
+  state: State = { error: null, recovering: false };
 
-  static getDerivedStateFromError(error: Error): State {
+  static getDerivedStateFromError(error: Error): Partial<State> {
     return { error };
   }
 
@@ -34,15 +36,20 @@ export class ErrorBoundary extends Component<Props, State> {
     console.error("[ErrorBoundary] caught:", error, info?.componentStack);
     // A screen that failed to load because a deploy replaced its file: reload
     // into the new version instead of showing "Something broke".
-    tryAutoRecover(String(error?.message ?? ""));
+    // Only a reload actually under way earns "Updating…". When the guard
+    // refuses (one already happened this minute and the file still fails),
+    // that screen used to stay up for ever with no button — fall through to
+    // the ordinary error screen, which has "Clear cache and reload".
+    const recovering = tryAutoRecover(String(error?.message ?? ""));
+    if (recovering) this.setState({ recovering: true });
   }
 
-  reset = () => this.setState({ error: null });
+  reset = () => this.setState({ error: null, recovering: false });
 
   render() {
     const { error } = this.state;
     if (!error) return this.props.children;
-    if (looksLikeStaleChunk(String(error.message ?? ""))) {
+    if (looksLikeStaleChunk(String(error.message ?? "")) && (this.state.recovering || canAutoRecover())) {
       return (
         <div className="flex min-h-[50vh] items-center justify-center text-body text-muted-foreground">
           Updating to the latest version…

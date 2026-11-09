@@ -19,6 +19,15 @@ const WINDOW_MS = 60_000;
 export const looksLikeStaleChunk = (msg: string) =>
   /Failed to fetch dynamically imported module|Loading chunk .* failed|is not a valid JavaScript MIME type|Importing a module script failed|error loading dynamically imported module/i.test(msg);
 
+/** Whether a reload would be allowed right now (no reload in the last minute). */
+export function canAutoRecover(): boolean {
+  try {
+    return Date.now() - Number(sessionStorage.getItem(RELOAD_KEY) || 0) >= WINDOW_MS;
+  } catch {
+    return true;
+  }
+}
+
 export function tryAutoRecover(msg: string): boolean {
   if (!looksLikeStaleChunk(msg)) return false;
   try {

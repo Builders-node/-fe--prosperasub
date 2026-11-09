@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { Building2, ExternalLink } from "lucide-react";
+import { Building2, ChevronRight, ExternalLink } from "lucide-react";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { AdminListShell } from "@/components/admin/AdminListShell";
 import { usePagination, TablePagination } from "@/components/ui/table-pagination";
@@ -97,17 +97,63 @@ const MarketplacePlans = ({ embedded = false, archetypeKey }: MarketplacePlansPr
       : prov?.archetype_key === service
   );
 
-  const visible = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return plans.filter((p) => {
-      const prov = providerById.get(p.provider_id);
-      if (!matchesService(prov)) return false;
-      if (providerId !== "all" && p.provider_id       !== providerId) return false;
-      if (status     !== "all" && p.status            !== status)     return false;
-      if (q && !(p.name.toLowerCase().includes(q) || (p.description ?? "").toLowerCase().includes(q) || (prov?.name ?? "").toLowerCase().includes(q))) return false;
-      return true;
-    });
-  }, [plans, service, providerId, status, search, providerById]);
+  /**
+   * An offer and its variants are one product: the list shows the offer, and
+   * its variants open under it on the arrow. They used to be rows of their
+   * own, so "Meal Plan" and its six combinations read as seven products.
+   */
+  const byId = useMemo(() => new Map(plans.map((p) => [p.id, p])), [plans]);
+  const childrenOf = useMemo(() => {
+    const m = new Map<string, Plan[]>();
+    for (const p of plans) {
+      // A variant whose offer is gone stays a row of its own rather than vanish.
+      if (!p.parent_plan_id || !byId.has(p.parent_plan_id)) continue;
+      const list = m.get(p.parent_plan_id) ?? [];
+      list.push(p);
+      m.set(p.parent_plan_id, list);
+    }
+    for (const list of m.values()) list.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.price_cents - b.price_cents);
+    return m;
+  }, [plans, byId]);
+
+  const q = search.trim().toLowerCase();
+  const matches = (p: Plan) => {
+    const prov = providerById.get(p.provider_id);
+    if (!matchesService(prov)) return false;
+    if (providerId !== "all" && p.provider_id !== providerId) return false;
+    if (status !== "all" && p.status !== status) return false;
+    if (q && !(p.name.toLowerCase().includes(q) || (p.description ?? "").toLowerCase().includes(q) || (prov?.name ?? "").toLowerCase().includes(q))) return false;
+    return true;
+  };
+
+  /** Top-level rows: a plan, or an offer that matches itself or through a variant. */
+  const visible = useMemo(() => plans.filter((p) => {
+    if (p.parent_plan_id && byId.has(p.parent_plan_id)) return false;
+    return matches(p) || (childrenOf.get(p.id) ?? []).some(matches);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [plans, byId, childrenOf, service, providerId, status, search, providerById]);
+
+  /** Which variants to list under an open offer: all of them, unless a filter narrows. */
+  const shownChildren = (parent: Plan) => {
+    const kids = childrenOf.get(parent.id) ?? [];
+    const narrowed = status !== "all" || (q && !matches(parent));
+    return narrowed ? kids.filter(matches) : kids;
+  };
+
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const toggle = (id: string) => setExpanded((prev) => {
+    const next = new Set(prev);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+  // A search that hits only a variant opens its offer, or the hit stays hidden.
+  const isOpen = (p: Plan) => expanded.has(p.id) || (!!q && !matches(p) && (childrenOf.get(p.id) ?? []).some(matches));
+
+  /** An offer's own price is often 0 — what it sells for is its cheapest variant. */
+  const fromCents = (p: Plan) => {
+    const prices = (childrenOf.get(p.id) ?? []).map((c) => c.price_cents).filter((c) => c > 0);
+    return prices.length ? Math.min(...prices) : null;
+  };
 
   const sort = useTableSort(visible, {
     plan: (p) => p.name,
@@ -116,7 +162,7 @@ const MarketplacePlans = ({ embedded = false, archetypeKey }: MarketplacePlansPr
       const key = providerById.get(p.provider_id)?.archetype_key;
       return archetypes.find((a) => a.key === key)?.label ?? null;
     },
-    price: (p) => p.price_cents,
+    price: (p) => fromCents(p) ?? p.price_cents,
     status: (p) => (p.status === "active" ? 0 : p.status === "inactive" ? 1 : 2),
   // Its own key: this list is also a tab of a service's drill-down, and a
   // shared ?sort= would follow the admin from tab to tab.
@@ -163,6 +209,124 @@ const MarketplacePlans = ({ embedded = false, archetypeKey }: MarketplacePlansPr
     // eslint-disable-next-line react-hooks/exhaustive-deps
   ), [plans, archetypeKey, providerById, service]);
 
+  const renderRow = (p: Plan, child = false) => {
+    const prov = providerById.get(p.provider_id);
+    const arche = prov ? archetypes.find((a) => a.key === prov.archetype_key) : undefined;
+    const AIcon = arche?.Icon ?? Building2;
+
+    const kids = child ? 0 : (childrenOf.get(p.id)?.length ?? 0);
+    const open = kids > 0 && isOpen(p);
+    const from = child ? null : fromCents(p);
+    const planCell = (
+      <div className={cn("flex min-w-0 items-center gap-3", child && "pl-10")}>
+        {!child && (
+          <span className={cn("flex h-6 w-6 shrink-0 items-center justify-center text-muted-foreground transition-transform", open && "rotate-90", !kids && "invisible")} aria-hidden>
+            <ChevronRight className="h-4 w-4" />
+          </span>
+        )}
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-radius-md bg-inset">
+          <AIcon className="h-4 w-4 text-foreground" />
+        </div>
+        <div className="min-w-0">
+          <p className="flex items-center gap-2 truncate text-sm font-semibold text-foreground">
+            {p.name}
+            {/* An offer and its variants both live in this table, so
+                the list says which is which — otherwise "Meal Plan"
+                and its six combinations read as seven products. */}
+            {variantCounts[p.id] ? (
+              <span className="shrink-0 rounded-full bg-primary/15 px-2 py-0.5 text-meta font-semibold text-primary">
+                {variantCounts[p.id]} options
+              </span>
+            ) : p.parent_plan_id ? (
+              <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-meta font-semibold text-muted-foreground">
+                {Object.values(p.option_keys ?? {}).join(" · ") || "variant"}
+              </span>
+            ) : null}
+          </p>
+          {p.description && (
+            <p className="truncate text-xs text-muted-foreground">{p.description}</p>
+          )}
+        </div>
+      </div>
+    );
+
+    const priceCell = (
+      <div className="text-right">
+        <p className="text-sm font-bold tabular-nums text-foreground">
+          {from != null ? <><span className="text-meta font-normal text-muted-foreground">from </span>{formatUSD(from, p.currency)}</> : formatUSD(p.price_cents, p.currency)}
+        </p>
+        <p className="text-meta text-muted-foreground">
+          /{formatPeriod(p.period)}
+        </p>
+      </div>
+    );
+
+    // Was a local green/grey pair printing the raw value; the rest of
+    // the platform humanises statuses and uses one set of tones.
+    const statusCell = <StatusPill status={p.status} />;
+
+    const actionCell = prov ? (
+      <div className="flex justify-end">
+        <Link
+          onClick={(e) => e.stopPropagation()}
+          to={`/admin/marketplace/providers/${prov.id}`}
+          className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          aria-label={`Open ${prov.name}`}
+        >
+          <ExternalLink className="h-3.5 w-3.5" />
+        </Link>
+      </div>
+    ) : null;
+
+    return (
+      <div
+        key={p.id}
+        // An offer's whole row opens it; the arrow says so.
+        role={kids ? "button" : undefined}
+        tabIndex={kids ? 0 : undefined}
+        aria-expanded={kids ? open : undefined}
+        onClick={kids ? () => toggle(p.id) : undefined}
+        onKeyDown={kids ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(p.id); } } : undefined}
+        className={cn("group px-space-5 py-space-3 transition-colors hover:bg-muted/30", kids && "cursor-pointer", child && "bg-inset/40")}
+      >
+        {/* Desktop grid row */}
+        <div className="hidden grid-cols-[minmax(0,3fr)_minmax(0,2fr)_120px_minmax(0,1fr)_80px_80px] items-center gap-4 md:grid">
+          {planCell}
+          <div className="min-w-0 truncate text-sm text-muted-foreground">{prov?.name ?? "—"}</div>
+          <div>
+            {arche ? (
+              <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-foreground">
+                {arche.label}
+              </span>
+            ) : <span className="text-xs text-muted-foreground">—</span>}
+          </div>
+          {priceCell}
+          <div>{statusCell}</div>
+          {actionCell}
+        </div>
+
+        {/* Mobile card layout */}
+        <div className="space-y-2 md:hidden">
+          <div className="flex items-start justify-between gap-3">
+            {planCell}
+            {statusCell}
+          </div>
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-muted-foreground">
+              {prov?.name ?? "—"}{arche ? ` · ${arche.label}` : ""}
+            </span>
+            <span className="font-bold tabular-nums text-foreground">
+              {from != null ? `from ${formatUSD(from, p.currency)}` : formatUSD(p.price_cents, p.currency)}
+              <span className="ml-1 text-meta text-muted-foreground">
+                /{formatPeriod(p.period)}
+              </span>
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const body = (
       <AdminListShell
         search={search} onSearch={setSearch} searchPlaceholder="Search plans, providers…"
@@ -186,102 +350,12 @@ const MarketplacePlans = ({ embedded = false, archetypeKey }: MarketplacePlansPr
 
           <div className="divide-y divide-border/40">
             {pager.paged.map((p) => {
-              const prov = providerById.get(p.provider_id);
-              const arche = prov ? archetypes.find((a) => a.key === prov.archetype_key) : undefined;
-              const AIcon = arche?.Icon ?? Building2;
-
-              const planCell = (
-                <div className="flex min-w-0 items-center gap-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-radius-md bg-inset">
-                    <AIcon className="h-4 w-4 text-foreground" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="flex items-center gap-2 truncate text-sm font-semibold text-foreground">
-                      {p.name}
-                      {/* An offer and its variants both live in this table, so
-                          the list says which is which — otherwise "Meal Plan"
-                          and its six combinations read as seven products. */}
-                      {variantCounts[p.id] ? (
-                        <span className="shrink-0 rounded-full bg-primary/15 px-2 py-0.5 text-meta font-semibold text-primary">
-                          {variantCounts[p.id]} options
-                        </span>
-                      ) : p.parent_plan_id ? (
-                        <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-meta font-semibold text-muted-foreground">
-                          {Object.values(p.option_keys ?? {}).join(" · ") || "variant"}
-                        </span>
-                      ) : null}
-                    </p>
-                    {p.description && (
-                      <p className="truncate text-xs text-muted-foreground">{p.description}</p>
-                    )}
-                  </div>
-                </div>
-              );
-
-              const priceCell = (
-                <div className="text-right">
-                  <p className="text-sm font-bold tabular-nums text-foreground">
-                    {formatUSD(p.price_cents, p.currency)}
-                  </p>
-                  <p className="text-meta text-muted-foreground">
-                    /{formatPeriod(p.period)}
-                  </p>
-                </div>
-              );
-
-              // Was a local green/grey pair printing the raw value; the rest of
-              // the platform humanises statuses and uses one set of tones.
-              const statusCell = <StatusPill status={p.status} />;
-
-              const actionCell = prov ? (
-                <div className="flex justify-end">
-                  <Link
-                    to={`/admin/marketplace/providers/${prov.id}`}
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                    aria-label={`Open ${prov.name}`}
-                  >
-                    <ExternalLink className="h-3.5 w-3.5" />
-                  </Link>
-                </div>
-              ) : null;
-
+              const open = (childrenOf.get(p.id)?.length ?? 0) > 0 && isOpen(p);
               return (
-                <div key={p.id} className="group px-space-5 py-space-3 transition-colors hover:bg-muted/30">
-                  {/* Desktop grid row */}
-                  <div className="hidden grid-cols-[minmax(0,3fr)_minmax(0,2fr)_120px_minmax(0,1fr)_80px_80px] items-center gap-4 md:grid">
-                    {planCell}
-                    <div className="min-w-0 truncate text-sm text-muted-foreground">{prov?.name ?? "—"}</div>
-                    <div>
-                      {arche ? (
-                        <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-foreground">
-                          {arche.label}
-                        </span>
-                      ) : <span className="text-xs text-muted-foreground">—</span>}
-                    </div>
-                    {priceCell}
-                    <div>{statusCell}</div>
-                    {actionCell}
-                  </div>
-
-                  {/* Mobile card layout */}
-                  <div className="space-y-2 md:hidden">
-                    <div className="flex items-start justify-between gap-3">
-                      {planCell}
-                      {statusCell}
-                    </div>
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">
-                        {prov?.name ?? "—"}{arche ? ` · ${arche.label}` : ""}
-                      </span>
-                      <span className="font-bold tabular-nums text-foreground">
-                        {formatUSD(p.price_cents, p.currency)}
-                        <span className="ml-1 text-meta text-muted-foreground">
-                          /{formatPeriod(p.period)}
-                        </span>
-                      </span>
-                    </div>
-                  </div>
-                </div>
+                <Fragment key={p.id}>
+                  {renderRow(p)}
+                  {open && shownChildren(p).map((c) => renderRow(c, true))}
+                </Fragment>
               );
             })}
           </div>
