@@ -988,7 +988,7 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
       {/* Pinned under the blocks like every dialog's buttons. A live plan shows
           the bar only once something changed; a draft always offers both. */}
       {(!live || dirty) && (
-      <div className="sticky bottom-0 z-10 flex gap-2 bg-background px-4 pb-4 pt-2">
+      <div className="sticky bottom-0 z-10 flex gap-2 bg-background px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2">
         {live ? (
           <Button className="flex-1" disabled={save.isPending} loading={save.isPending} loadingText="Saving…"
             onClick={() => save.mutate(false)}>

@@ -428,7 +428,7 @@ export function BookingSettingsForm({ provider, onDirtyChange }: {
           there is something to save — a pale disabled "Save settings" beside
           "All changes saved" read as broken. */}
       {dirty && (
-        <div className="sticky bottom-0 z-10 mt-1 flex gap-2 bg-background px-4 pb-4 pt-2">
+        <div className="sticky bottom-0 z-10 mt-1 flex gap-2 bg-background px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-2">
           <Button type="button" variant="ghost" onClick={() => setS(saved)} disabled={save.isPending}>Undo</Button>
           <Button type="button" className="flex-1" onClick={() => save.mutate()}
             disabled={save.isPending} loading={save.isPending} loadingText="Saving…">

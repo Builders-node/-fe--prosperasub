@@ -198,7 +198,10 @@ export function PlansTab({ providerId, sourceKey }: {
               <StatusPill status={editing === "new" || (editingRow && editingRow.status !== "active") ? "draft" : "active"} />
             </SheetTitle>
           </SheetHeader>
-          <div className="mt-1 min-h-0 flex-1 overflow-y-auto bg-background pb-8">
+          {/* No bottom padding here: a sticky footer inside measures "bottom: 0"
+              from this box's padding edge, so pb-8 left the Save bar floating
+              32px up with the form showing through underneath. */}
+          <div className="mt-1 min-h-0 flex-1 overflow-y-auto bg-background">
             {editing && (
               <OfferEditor
                 providerId={providerId}
