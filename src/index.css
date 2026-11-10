@@ -930,3 +930,16 @@
 html {
   scrollbar-gutter: stable;
 }
+
+/* ─── Modals and selects must not take the header away ────────────────────
+   Radix locks scrolling with `body[data-scroll-locked] { overflow: hidden }`.
+   Because <html> has `overflow-x: clip` (above), the body's overflow is not
+   handed to the viewport — `hidden` makes <body> a scroll container of its
+   own, every sticky header then sticks to an unscrolled <body>, and on a
+   scrolled page the header vanished whenever a dialog or a select opened
+   (measured: top 0 → −556px). `clip` hides overflow the same way without
+   creating a scroll container. Scrolling behind the dialog stays blocked:
+   the lock also cancels wheel and touch events. */
+html body[data-scroll-locked] {
+  overflow: clip !important;
+}
