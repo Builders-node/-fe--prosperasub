@@ -836,78 +836,82 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
           <ChevronDown className={cn("h-5 w-5 text-muted-foreground transition-transform", advancedOpen && "rotate-180")} />
         </button>
         {advancedOpen && (
-          <div className="grid gap-3 p-4 pt-0 sm:grid-cols-2">
-            <Field label="Price is" hint={PRICING_HINT[sold.pricingMode] ?? ""}>
-              <select value={sold.pricingMode} onChange={(e) => setSold((v) => ({ ...v, pricingMode: e.target.value }))}
-                className={fieldClass}>
-                <option value="flat">Flat</option>
-                <option value="per_unit">Per unit</option>
-                <option value="per_person">Per person</option>
-              </select>
-            </Field>
+          <div className="space-y-5 p-4 pt-0">
+            {/* 1 — how the price is worked out and what happens after the sale. */}
+            <MoreGroup title="Price & what happens after the sale">
+              <Field label="Price is" hint={PRICING_HINT[sold.pricingMode] ?? ""}>
+                <select value={sold.pricingMode} onChange={(e) => setSold((v) => ({ ...v, pricingMode: e.target.value }))}
+                  className={fieldClass}>
+                  <option value="flat">Flat</option>
+                  <option value="per_unit">Per unit</option>
+                  <option value="per_person">Per person</option>
+                </select>
+              </Field>
+              {/* Checkout reads it to decide whether to ask for an address
+                  (`planCheckoutModel.needsAddress`). Defaulted from the service. */}
+              <Field label="After the sale" hint={FULFILMENT_HINT[sold.fulfilment] ?? ""}>
+                <select value={sold.fulfilment} onChange={(e) => setSold((v) => ({ ...v, fulfilment: e.target.value }))}
+                  className={fieldClass}>
+                  <option value="none">Nothing to schedule</option>
+                  <option value="visits">Visits</option>
+                  <option value="deliveries">Deliveries</option>
+                  <option value="resource_hours">Booked hours</option>
+                </select>
+              </Field>
+              {/* A per-person price can also be a marked-up one (the beach club).
+                  Filling these in is what makes a price derived. */}
+              {(sold.providerPrice || sold.markup || sold.pricingMode === "derived") && (
+                <>
+                  <Field label="Provider is paid ($)">
+                    <Input inputSize="sm" inputMode="decimal" value={sold.providerPrice}
+                      onChange={(e) => setSold((v) => ({ ...v, providerPrice: e.target.value }))} />
+                  </Field>
+                  <Field label="Platform adds ($)">
+                    <Input inputSize="sm" inputMode="decimal" value={sold.markup}
+                      onChange={(e) => setSold((v) => ({ ...v, markup: e.target.value }))} />
+                  </Field>
+                </>
+              )}
+            </MoreGroup>
 
-            {/*
-              What has to happen after the sale. Checkout reads it to decide
-              whether to ask for an address (`planCheckoutModel.needsAddress`).
-              Defaulted from the service at creation, so it is rarely touched.
-            */}
-            <Field label="Fulfilment" hint={FULFILMENT_HINT[sold.fulfilment] ?? ""}>
-              <select value={sold.fulfilment} onChange={(e) => setSold((v) => ({ ...v, fulfilment: e.target.value }))}
-                className={fieldClass}>
-                <option value="none">Nothing to schedule</option>
-                <option value="visits">Visits</option>
-                <option value="deliveries">Deliveries</option>
-                <option value="resource_hours">Booked hours</option>
-              </select>
-            </Field>
-
-            {/* Independent of the mode above: a per-person price can also be a
-                marked-up one, which is exactly what the beach club is. Filling
-                these in is what makes a price derived. */}
-            {(sold.providerPrice || sold.markup || sold.pricingMode === "derived") && (
-              <>
-                <Field label="Provider is paid ($)">
-                  <Input inputSize="sm" inputMode="decimal" value={sold.providerPrice}
-                    onChange={(e) => setSold((v) => ({ ...v, providerPrice: e.target.value }))} />
+            {/* 2 — what one purchase holds. Only asked when something is counted:
+                a plan that schedules nothing and is not priced per unit has
+                nothing to count, and a stale value is still shown so it can be
+                cleared. */}
+            {(sold.fulfilment !== "none" || sold.pricingMode === "per_unit" || !!sold.unit || !!sold.quantity) && (
+              <MoreGroup title={oneTime ? "What one purchase includes" : `What one ${PER[sold.period] ?? "period"} includes`}>
+                <Field label="Counted in" hint="The word customers see, e.g. visit, meal, session.">
+                  <Input inputSize="sm" value={sold.unit} placeholder={UNIT_EXAMPLE[sold.fulfilment] ?? "e.g. session"}
+                    onChange={(e) => setSold((v) => ({ ...v, unit: e.target.value }))} />
                 </Field>
-                <Field label="Platform adds ($)">
-                  <Input inputSize="sm" inputMode="decimal" value={sold.markup}
-                    onChange={(e) => setSold((v) => ({ ...v, markup: e.target.value }))} />
+                <Field label="How many" hint="Leave empty if it is not limited.">
+                  <Input inputSize="sm" inputMode="numeric" value={sold.quantity} placeholder="Unlimited"
+                    onChange={(e) => setSold((v) => ({ ...v, quantity: e.target.value }))} />
                 </Field>
-              </>
+              </MoreGroup>
             )}
 
-            <Field label="What is counted" hint="cleaning · meal · session">
-              <Input inputSize="sm" value={sold.unit} placeholder="cleaning"
-                onChange={(e) => setSold((v) => ({ ...v, unit: e.target.value }))} />
-            </Field>
-            <Field label={sold.period === "one_time" ? "How many included" : "How many per period"}>
-              <Input inputSize="sm" inputMode="numeric" value={sold.quantity} placeholder="4"
-                onChange={(e) => setSold((v) => ({ ...v, quantity: e.target.value }))} />
-            </Field>
-
-            {/* How many periods may be bought at once — a question a one-time
-                offer does not have, so it is not asked. */}
-            {sold.period !== "one_time" && (
-              <>
-                <Field label="Periods offered by default">
-                  <Input inputSize="sm" inputMode="numeric" value={sold.periodsDefault}
+            {/* 3 — how long a customer can buy at once. A one-time offer has no term. */}
+            {!oneTime && (
+              <MoreGroup title="How long they can buy for">
+                <Field label="Pre-selected at checkout" hint={`In ${PER[sold.period] ?? "period"}s.`}>
+                  <Input inputSize="sm" inputMode="numeric" value={sold.periodsDefault} placeholder="1"
                     onChange={(e) => setSold((v) => ({ ...v, periodsDefault: e.target.value }))} />
                 </Field>
-                <Field label="Fewest / most they may buy">
+                <Field label="Shortest – longest" hint="Leave the right side empty for no limit.">
                   <div className="flex items-center gap-2">
-                    <Input inputSize="sm" inputMode="numeric" value={sold.periodsMin}
+                    <Input inputSize="sm" inputMode="numeric" value={sold.periodsMin} placeholder="1"
                       onChange={(e) => setSold((v) => ({ ...v, periodsMin: e.target.value }))} />
                     <span className="text-muted-foreground">–</span>
-                    <Input inputSize="sm" inputMode="numeric" value={sold.periodsMax} placeholder="no limit"
+                    <Input inputSize="sm" inputMode="numeric" value={sold.periodsMax} placeholder="No limit"
                       onChange={(e) => setSold((v) => ({ ...v, periodsMax: e.target.value }))} />
                   </div>
                 </Field>
-              </>
+              </MoreGroup>
             )}
 
             {sold.fulfilment === "deliveries" && (
-              <>
+              <MoreGroup title="Delivery window">
                 <Field label="Earliest arrival" hint="When the first delivery window opens.">
                   <Input inputSize="sm" type="time" value={minutesToTime(sold.leadMinutes)}
                     onChange={(e) => setSold((v) => ({ ...v, leadMinutes: timeToMinutes(e.target.value) }))} />
@@ -916,20 +920,14 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
                   <Input inputSize="sm" inputMode="numeric" value={sold.windowMinutes} placeholder="120"
                     onChange={(e) => setSold((v) => ({ ...v, windowMinutes: e.target.value }))} />
                 </Field>
-              </>
+              </MoreGroup>
             )}
 
-            {/*
-              Moving an appointment.
-
-              Only for a plan that HAS appointments — a plan fulfilled by
-              nothing has none to move, and offering the setting there would be
-              a question with no subject. The provider can always move their
-              own day from Operations; this decides whether the customer gets a
-              door of their own, and on what terms.
-            */}
+            {/* Moving an appointment — only for a plan that HAS appointments. The
+                provider can always move their own day from Operations; this
+                decides whether the customer gets a door of their own. */}
             {sold.fulfilment !== "none" && (
-              <>
+              <MoreGroup title="Rescheduling">
                 <Field
                   label="Customer can move an appointment"
                   hint="Off means they have to ask you. You can always move one yourself."
@@ -939,7 +937,6 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
                     onCheckedChange={(on) => setSold((v) => ({ ...v, rescheduleAllowed: on }))}
                   />
                 </Field>
-
                 {sold.rescheduleAllowed && (
                   <>
                     <Field label="Notice needed (hours)" hint="How long before it starts they can still move it. Empty = any time before.">
@@ -947,27 +944,31 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
                         inputSize="sm"
                         inputMode="numeric"
                         value={hoursFromMinutes(sold.rescheduleNotice)}
-                        placeholder="24"
+                        placeholder="Any time"
                         onChange={(e) => setSold((v) => ({ ...v, rescheduleNotice: minutesFromHours(e.target.value) }))}
                       />
                     </Field>
                     <Field label="Times one appointment can move" hint="Empty = no limit. Bounds the customer who keeps pushing the same visit a day at a time.">
-                      <Input inputSize="sm" inputMode="numeric" value={sold.rescheduleMax} placeholder="no limit"
+                      <Input inputSize="sm" inputMode="numeric" value={sold.rescheduleMax} placeholder="No limit"
                         onChange={(e) => setSold((v) => ({ ...v, rescheduleMax: e.target.value }))} />
                     </Field>
                     <Field label="How far it can move (days)" hint="Empty = anywhere ahead. Stops something bought for September being parked in December.">
-                      <Input inputSize="sm" inputMode="numeric" value={sold.rescheduleWindow} placeholder="14"
+                      <Input inputSize="sm" inputMode="numeric" value={sold.rescheduleWindow} placeholder="Anywhere ahead"
                         onChange={(e) => setSold((v) => ({ ...v, rescheduleWindow: e.target.value }))} />
                     </Field>
                   </>
                 )}
-              </>
+              </MoreGroup>
             )}
 
-            <Field label="Tags" hint="Comma separated — what a customer can filter by.">
-              <Input value={includes.tags} placeholder={placeholdersFor(sourceKey).tags}
-                onChange={(e) => setIncludes((v) => ({ ...v, tags: e.target.value }))} />
-            </Field>
+            <MoreGroup title="Search">
+              <div className="sm:col-span-2">
+                <Field label="Tags" hint="Comma separated — words a customer can filter by.">
+                  <Input value={includes.tags} placeholder={`e.g. ${placeholdersFor(sourceKey).tags}`}
+                    onChange={(e) => setIncludes((v) => ({ ...v, tags: e.target.value }))} />
+                </Field>
+              </div>
+            </MoreGroup>
           </div>
         )}
       </section>
@@ -1382,3 +1383,20 @@ function moveItem<T>(items: T[], index: number, step: -1 | 1): T[] {
   [next[index], next[to]] = [next[to], next[index]];
   return next;
 }
+
+/** One titled block inside "More settings" — two columns on wider sheets. */
+function MoreGroup({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-3">
+      <p className="text-meta font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
+      <div className="grid gap-3 sm:grid-cols-2">{children}</div>
+    </div>
+  );
+}
+
+/** What a placeholder suggests for "Counted in", by what the plan fulfils. */
+const UNIT_EXAMPLE: Record<string, string> = {
+  visits: "e.g. visit",
+  deliveries: "e.g. meal",
+  resource_hours: "e.g. hour",
+};

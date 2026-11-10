@@ -152,11 +152,11 @@ export function GoLivePanel({ provider, previewHref, ownerView = false }: {
           ))}
         </ul>
         <div className="flex flex-wrap gap-2">
-          <Button variant="secondary" className="gap-2" onClick={() => window.open(previewHref, "_blank")}>
+          <Button size="sm" variant="secondary" className="gap-2" onClick={() => window.open(previewHref, "_blank")}>
             <Eye /> See my page
           </Button>
           {!waiting && (
-            <Button className="gap-2" loading={requestReview.isPending} onClick={() => requestReview.mutate()}>
+            <Button size="sm" className="gap-2" loading={requestReview.isPending} onClick={() => requestReview.mutate()}>
               <Rocket /> Ready for review
             </Button>
           )}
@@ -230,10 +230,10 @@ export function GoLivePanel({ provider, previewHref, ownerView = false }: {
       </ul>
       <div className="flex flex-wrap gap-2">
         <ProviderSetupButton provider={provider} />
-        <Button variant="secondary" className="gap-2" onClick={() => window.open(previewHref, "_blank")}>
+        <Button size="sm" variant="secondary" className="gap-2" onClick={() => window.open(previewHref, "_blank")}>
           <Eye /> Preview
         </Button>
-        <Button className="gap-2" disabled={setStatus.isPending}
+        <Button size="sm" className="gap-2" disabled={setStatus.isPending}
           onClick={() => (ready ? setStatus.mutate("active") : setConfirm("active"))}>
           <Rocket /> Go live
         </Button>
