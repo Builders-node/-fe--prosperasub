@@ -10,6 +10,7 @@ import { AccountMenu } from "@/components/layout/AccountMenu";
 import { LocationSelector } from "@/components/patterns/LocationSelector";
 import { CartButton } from "@/components/layout/CartButton";
 import { FavoritesButton } from "@/components/layout/FavoritesButton";
+import { HeaderSearch } from "@/components/layout/HeaderSearch";
 
 interface DesktopHeaderProps {
   showBackButton?: boolean;
@@ -74,12 +75,14 @@ export function DesktopHeader({
 
         <LocationSelector />
 
-        <div className="flex-1" />
-
-        {rightContent && <div className="flex-1" />}
+        {/* Search the whole catalogue from any page — centred in the space
+            between the location and the account icons. */}
+        <div className="flex min-w-0 flex-1 justify-center px-2">
+          {!hideNav && <HeaderSearch />}
+        </div>
 
         {/* Right actions */}
-        <div className="flex items-center gap-3 ml-auto">
+        <div className="flex shrink-0 items-center gap-3">
           {!hideNav && <FavoritesButton />}
           {!hideNav && <CartButton />}
           {/* Hidden until the app is actually translated: the switcher offered
