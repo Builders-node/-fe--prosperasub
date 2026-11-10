@@ -1,4 +1,5 @@
 import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
+import { cn } from "@/lib/utils";
 import { Breadcrumbs } from "@/components/patterns/Breadcrumbs";
 import { FavoriteButton } from "@/components/patterns/FavoriteButton";
 import { Photo, initialsOf } from "@/components/patterns/Photo";
@@ -574,12 +575,17 @@ const ProviderDetail = () => {
       */}
       {/* Only a real photograph earns 280px. Without one the page opens on the
           ordinary bar — 280px of grey with a faint glyph is not a hero. */}
+      {/* Edge to edge on a phone; on a laptop the photograph sits in the page's
+          column with every corner rounded — it used to run the full window
+          while the cards under it stopped at 1280. */}
       {hasBanner && (
-        <div data-detail-photo className="relative h-[280px] w-full overflow-hidden rounded-b-radius-lg bg-inset">
-          <Photo src={p.banner_url} icon={Store} loading="eager" className="absolute inset-0" />
-          {/* The scrim is what makes white chrome legible on a photograph nobody
-              vetted — a bright sky would otherwise swallow the back button. */}
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-black/50 to-transparent" />
+        <div className="md:app-container md:pt-space-4">
+          <div data-detail-photo className="relative h-[280px] w-full overflow-hidden rounded-b-radius-lg bg-inset md:rounded-radius-lg">
+            <Photo src={p.banner_url} icon={Store} loading="eager" className="absolute inset-0" />
+            {/* The scrim is what makes white chrome legible on a photograph nobody
+                vetted — a bright sky would otherwise swallow the back button. */}
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-black/50 to-transparent" />
+          </div>
         </div>
       )}
 
@@ -596,7 +602,10 @@ const ProviderDetail = () => {
         white is not a header, it is a missing one.
       */}
       <div
-        className={`sticky top-0 z-40 flex h-[56px] items-center justify-between px-2 transition-colors ${
+        // On a laptop: the column's width (its controls on the photograph, not at
+        // the window's edges; +8 keeps them inside the banner's corner), and
+        // stuck under the site header rather than over it.
+        className={`sticky top-0 z-40 flex h-[56px] items-center justify-between px-2 transition-colors md:app-container md:top-[var(--desktop-header-h,0px)] md:px-[clamp(24px,calc(4vw+8px),32px)] ${
           hasBanner ? "-mt-[280px] mb-[224px]" : ""
         } ${solid ? "bg-card" : ""}`}
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
@@ -771,7 +780,10 @@ const ProviderDetail = () => {
           ) : (plansQ.data ?? []).length === 0 ? (
             <TabEmptyState icon={Icon} title="No plans yet" subtitle="We're setting things up. Check back soon." />
           ) : (
-            (plansQ.data ?? []).map((plan) => (
+            // Two columns on a wide screen — one plan stretched across 1280px
+            // was a line of text with a lot of air.
+            <div className={cn("grid grid-cols-1 gap-1", (plansQ.data ?? []).length > 1 && "lg:grid-cols-2")}>
+            {(plansQ.data ?? []).map((plan) => (
               <PlanRow
                 key={plan.id}
                 plan={plan}
@@ -781,7 +793,8 @@ const ProviderDetail = () => {
                 image={planPhoto(plan) ?? gallery[0] ?? null}
                 onOpen={() => openPlan(plan.id)}
               />
-            ))
+            ))}
+            </div>
           )
         )}
 
