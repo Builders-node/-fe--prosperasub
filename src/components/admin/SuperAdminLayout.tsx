@@ -40,6 +40,14 @@ interface SuperAdminLayoutProps {
    * (a business's workspace has its profile card right below).
    */
   hideHeading?: boolean;
+  /**
+   * The page this one sits inside, as a breadcrumb step between Admin and
+   * the title (Admin › Services › Healthcare). It is the way back up — a page
+   * that has one does not need its own "← back" button.
+   */
+  parent?: { label: string; href: string };
+  /** Buttons that act on the whole page, on the title's line (right side). */
+  actions?: ReactNode;
 }
 
 // ─── Shared styles ────────────────────────────────────────────────────────────
@@ -145,7 +153,7 @@ function NavSectionBlock({
 }
 
 // ─── Main layout ──────────────────────────────────────────────────────────────
-const SuperAdminLayout = ({ children, title, subtitle, hideHeading }: SuperAdminLayoutProps) => {
+const SuperAdminLayout = ({ children, title, subtitle, hideHeading, parent, actions }: SuperAdminLayoutProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { logout } = useAuth();
@@ -247,7 +255,7 @@ const SuperAdminLayout = ({ children, title, subtitle, hideHeading }: SuperAdmin
 
             {/* Breadcrumb */}
             <div className="flex min-w-0 flex-1 px-space-5">
-              <Breadcrumbs items={[{ label: "Admin", href: "/admin/dashboard" }, ...(title ? [{ label: title }] : [])]} />
+              <Breadcrumbs items={[{ label: "Admin", href: "/admin/dashboard" }, ...(parent ? [parent] : []), ...(title ? [{ label: title }] : [])]} />
             </div>
 
             {/* Actions */}
@@ -269,15 +277,18 @@ const SuperAdminLayout = ({ children, title, subtitle, hideHeading }: SuperAdmin
                not a marketing headline. A 36px black heading above a 12px
                caption is what made every admin screen read as a different
                product from the one it administers (DESIGN.md §3). */
-            <div className="admin-page-header mb-space-5">
-              <h1 className="text-[24px] font-semibold leading-tight tracking-[-0.5px] text-foreground md:text-[28px] md:tracking-[-0.6px]">
-                {title}
-              </h1>
-              {subtitle && (
-                <p className="mt-1 text-meta text-muted-foreground md:text-[14px]">
-                  {subtitle}
-                </p>
-              )}
+            <div className="admin-page-header mb-space-5 flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h1 className="text-[24px] font-semibold leading-tight tracking-[-0.5px] text-foreground md:text-[28px] md:tracking-[-0.6px]">
+                  {title}
+                </h1>
+                {subtitle && (
+                  <p className="mt-1 text-meta text-muted-foreground md:text-[14px]">
+                    {subtitle}
+                  </p>
+                )}
+              </div>
+              {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
             </div>
           )}
           {children}

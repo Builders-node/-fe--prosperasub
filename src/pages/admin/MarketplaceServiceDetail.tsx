@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, ArrowLeft, Eye, EyeOff, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { AlertTriangle, Eye, EyeOff, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { Button } from "@/components/ui/button";
@@ -135,7 +135,7 @@ export default function MarketplaceServiceDetail() {
   // An unknown key would otherwise render four empty lists with no explanation.
   if (!isLoading && !isUnassigned && !archetype) {
     return (
-      <SuperAdminLayout title="Service not found">
+      <SuperAdminLayout title="Service not found" parent={{ label: "Services", href: "/admin/marketplace" }}>
         <div className="rounded-radius-md bg-card p-8 text-center">
           <AlertTriangle className="mx-auto h-8 w-8 text-attention" />
           <p className="mt-3 font-bold text-foreground">No service named "{key}"</p>
@@ -156,15 +156,14 @@ export default function MarketplaceServiceDetail() {
     : archetype?.description || "Categories, providers and plans in this service";
 
   return (
-    <SuperAdminLayout title={title} subtitle={subtitle}>
-      <div className="space-y-5">
-        <div className="flex flex-wrap items-center gap-3">
-          <Button asChild variant="ghost" size="sm">
-            <Link to="/admin/marketplace">
-              <ArrowLeft className="mr-1.5 h-4 w-4" /> All services
-            </Link>
-          </Button>
-          {archetype && (
+    <SuperAdminLayout
+      title={title}
+      subtitle={subtitle}
+      // The way back up is the breadcrumb (Admin › Services › Healthcare) —
+      // a separate "← All services" row sat between the title and the tabs
+      // and pushed this service's own buttons onto a line of their own.
+      parent={{ label: "Services", href: "/admin/marketplace" }}
+      actions={archetype ? (
             <>
               {!archetype.is_active && (
                 <span className="rounded-full bg-muted px-2.5 py-1 text-meta text-muted-foreground">
@@ -178,7 +177,6 @@ export default function MarketplaceServiceDetail() {
               <Button
                 variant="outline"
                 size="sm"
-                className="ml-auto"
                 onClick={() => setEditing(archetype as unknown as Archetype)}
               >
                 <Pencil className="mr-1.5 h-3.5 w-3.5" /> Edit service
@@ -208,9 +206,9 @@ export default function MarketplaceServiceDetail() {
                 </DropdownMenuContent>
               </DropdownMenu>
             </>
-          )}
-        </div>
-
+      ) : null}
+    >
+      <div className="space-y-5">
         {/* The admin's controlled tab strip — one component, not a third copy
             of the same markup. */}
         <TabPills
