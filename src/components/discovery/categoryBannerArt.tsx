@@ -132,7 +132,39 @@ function Healthcare() {
   );
 }
 
+function Diving() {
+  return (
+    <>
+      <circle cx="118" cy="72" r="56" fill={GLOW} />
+      {/* Snorkel: rises behind the mask on the right, mouthpiece tucked under. */}
+      <path d="M160 18h10v74c0 14-10 24-24 24h-10v-10h10c8 0 14-6 14-14Z" fill={INK} />
+      <rect x="157" y="12" width="16" height="10" rx="3" fill={TOMATO} />
+      {/* Strap, then the frame and its two lenses. */}
+      <rect x="58" y="62" width="120" height="10" rx="5" fill={INK} />
+      <path d="M78 50h80c8 0 12 6 12 12v18c0 10-8 18-18 18h-14c-6 0-10-4-12-10l-4-8-4 8c-2 6-6 10-12 10H84c-10 0-18-8-18-18V62c0-6 4-12 12-12Z" fill={INK} />
+      <path d="M84 58h28c4 0 6 2 6 6v6l-4 10c-2 5-5 8-10 8h-16c-6 0-10-4-10-10V64c0-4 2-6 6-6Z" fill={WATER} />
+      <path d="M152 58h-28c-4 0-6 2-6 6v6l4 10c2 5 5 8 10 8h16c6 0 10-4 10-10V64c0-4-2-6-6-6Z" fill={WATER} />
+      <g fill={FOAM}>
+        <path d="M86 62h10l-12 14v-10c0-2 1-4 2-4Z" />
+        <path d="M126 62h10l-12 14v-10c0-2 1-4 2-4Z" />
+      </g>
+      {/* Bubbles rising off the left — clear of the title on a phone. */}
+      <g fill={PAPER}>
+        <circle cx="62" cy="40" r="9" />
+        <circle cx="46" cy="22" r="6" />
+        <circle cx="70" cy="14" r="4" />
+        <circle cx="96" cy="24" r="5" />
+      </g>
+      {/* A small fish under the mask. */}
+      <path d="M92 120c8-10 22-10 30 0-8 10-22 10-30 0Z" fill={TOMATO} />
+      <path d="M122 120l12-8v16Z" fill={TOMATO} />
+      <circle cx="100" cy="118" r="2.5" fill={INK} />
+    </>
+  );
+}
+
 const ART: Record<string, ComponentType> = {
+  diving: Diving,
   meal_subscription: Meal,
   apartment_cleaning: Cleaning,
   car_wash: CarWash,
