@@ -794,17 +794,21 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
             onChange={(resourceIds) => setAccess((v) => ({ ...v, resourceIds }))}
           />
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Hours included" hint="Empty means as many as they like.">
+            <Field label="Hours included" hint="Leave empty for unlimited, or set a number of hours.">
               <Input
-                inputMode="numeric" inputSize="sm" value={access.hours} placeholder="4"
+                inputMode="numeric" inputSize="sm" value={access.hours} placeholder="Unlimited"
                 onChange={(e) => setAccess((v) => ({ ...v, hours: e.target.value }))}
               />
             </Field>
-            <Field label="Hours reset" hint="When the allowance starts again.">
+            <Field
+              label="Hours reset"
+              hint={access.hours.trim() ? "When the allowance starts again." : "Only matters once hours are limited."}
+            >
               <select
                 value={access.hoursPeriod}
+                disabled={!access.hours.trim()}
                 onChange={(e) => setAccess((v) => ({ ...v, hoursPeriod: e.target.value }))}
-                className={fieldClass}
+                className={cn(fieldClass, "disabled:opacity-50")}
               >
                 <option value="">Same as billing</option>
                 {["weekly", "monthly", "quarterly", "yearly"].map((p) => (
