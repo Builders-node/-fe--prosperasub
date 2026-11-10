@@ -226,7 +226,11 @@ const ProviderDetail = () => {
     // above it cannot leave the bar white over the white cards below.
     const onScroll = () => {
       const banner = document.querySelector("[data-detail-photo]");
-      setPinned(banner ? banner.getBoundingClientRect().bottom <= 56 : window.scrollY > 280 - 56);
+      // On a laptop the bar sits under the site header, so it turns solid
+      // that much later — when the photo has passed under the bar, not the
+      // top of the window.
+      const headerH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--desktop-header-h")) || 0;
+      setPinned(banner ? banner.getBoundingClientRect().bottom <= 56 + headerH : window.scrollY > 280 - 56);
     };
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
@@ -602,14 +606,18 @@ const ProviderDetail = () => {
         white is not a header, it is a missing one.
       */}
       <div
-        // On a laptop: the column's width (its controls on the photograph, not at
-        // the window's edges; +8 keeps them inside the banner's corner), and
-        // stuck under the site header rather than over it.
-        className={`sticky top-0 z-40 flex h-[56px] items-center justify-between px-2 transition-colors md:app-container md:top-[var(--desktop-header-h,0px)] md:px-[clamp(24px,calc(4vw+8px),32px)] ${
+        // The bar itself spans the window — once it turns solid it reads as a
+        // header, not a 1280px strip floating over the page — and on a laptop
+        // sticks under the site header rather than over it.
+        className={`sticky top-0 z-40 h-[56px] transition-colors md:top-[var(--desktop-header-h,0px)] ${
           hasBanner ? "-mt-[280px] mb-[224px]" : ""
         } ${solid ? "bg-card" : ""}`}
         style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
       >
+        {/* Its controls keep to the page column, so over the photograph they
+            sit on the banner's corners (+8 inside them), not at the window's
+            edges. */}
+        <div className="relative flex h-full items-center justify-between px-2 md:app-container md:px-[clamp(24px,calc(4vw+8px),32px)]">
         <button
           type="button"
           onClick={goBack}
@@ -648,6 +656,7 @@ const ProviderDetail = () => {
             text={[serviceLabel, p.name].filter(Boolean).join(" · ")}
             className={solid ? "text-foreground hover:bg-muted" : "text-white hover:bg-white/15"}
           />
+        </div>
         </div>
       </div>
 
