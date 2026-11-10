@@ -77,8 +77,6 @@ export const LEGACY_PORTAL_SOURCE_KEYS = new Set<string>(Object.keys(LEGACY_SERV
 const PUBLIC_LISTING_HREF: Record<string, string> = {
   food: "/services/food",
   cleaning: "/services/cleaning",
-  beach: "/services/beach-club",
-  beach_club: "/services/beach-club",
 };
 
 /**

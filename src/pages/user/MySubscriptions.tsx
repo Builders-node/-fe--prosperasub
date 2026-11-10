@@ -63,6 +63,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { to12h as format12h } from "@/lib/booking/bookingSettings";
 import { carPath } from "@/features/vehicles";
+import { useBeachClubHome } from "@/legacy/beach";
 
 /**
  * Compute what the server-side renewal will land on: continuous period,
@@ -191,6 +192,9 @@ const MySubscriptions = () => {
     enabled: (!!userUuid || !!userData?.id),
   });
 
+
+  // Where "Browse plans" goes: the club's own page, in whatever service it is filed under.
+  const beachHome = useBeachClubHome();
 
   // ── Beach Club memberships for the current user ─────────────────────────
   const {
@@ -1026,7 +1030,7 @@ const MySubscriptions = () => {
                   subtitle={scope === "active"
                     ? "Subscribe to the Beach Club to access the gym, pools and courts."
                     : "Memberships that end or are cancelled show up here."}
-                  action={<Button onClick={() => navigate("/services/beach-club")}>Browse Plans</Button>}
+                  action={<Button onClick={() => navigate(beachHome)}>Browse Plans</Button>}
                 />
               ) : (
                 <SectionGroup>
@@ -1096,7 +1100,7 @@ const MySubscriptions = () => {
                           // when any membership was active and said nothing
                           // about which one.
                           ...(st === "active" && !expired ? [
-                            { key: "court", label: "Book a court", icon: LandPlot, onClick: () => navigate("/services/beach-club/courts"), variant: "primary" as const },
+                            { key: "court", label: "Book a court", icon: LandPlot, onClick: () => navigate(s.provider_id ? `/providers/${s.provider_id}/book` : beachHome), variant: "primary" as const },
                           ] : []),
                           ...(canRenew ? [
                             { key: "renew", label: scope === "past" ? "Order again" : "Renew", icon: RefreshCw, onClick: openRenewDialog, variant: "secondary" as const },

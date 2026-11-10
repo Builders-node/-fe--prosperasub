@@ -15,7 +15,7 @@ never be taken down by a deploy to the marketplace, and the marketplace can
 never be taken down by someone editing landing copy.
 
 The one thing it does NOT duplicate is checkout. Every CTA links straight into
-the real product at `everysub.net/services/beach-club/checkout/<planId>` — no
+the real product at `everysub.net/checkout/<planId>` — no
 second payment implementation to keep in sync.
 
 ## Running it

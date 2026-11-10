@@ -63,8 +63,6 @@ const ProviderApplications = lazy(() => import("./pages/admin/ProviderApplicatio
 const LegacyPortalRedirect = lazy(() => import("./pages/user/LegacyPortalRedirect"));
 
 // Beach Club
-const BeachClub = lazy(() => import("./legacy/beach/pages/BeachClub"));
-const BeachCourts = lazy(() => import("./legacy/beach/pages/BeachCourts"));
 const BookCalendar = lazy(() => import("./pages/BookCalendar"));
 
 // Cleaning
@@ -266,15 +264,6 @@ const App = () => {
                 <ProtectedRoute><FoodSubscriptionDetail /></ProtectedRoute>
               } />
 
-              {/* Beach Club */}
-              <Route path="/services/beach-club" element={<BeachClub />} />
-              <Route path="/services/beach-club/courts" element={
-                <ProtectedRoute><BeachCourts /></ProtectedRoute>
-              } />
-              <Route path="/services/beach-club/checkout/:planId" element={
-                <ProtectedRoute><PlanCheckout /></ProtectedRoute>
-              } />
-
               {/* The vehicles archetype is universal in the data model — a rental
                   business is an ordinary `providers` row — but its storefront is
                   the /vehicles section, not the generic providers-and-plans
@@ -319,9 +308,6 @@ const App = () => {
               <Route path="/food/:id"                element={<LegacyRewrite from="/food" to="/services/food" />} />
               <Route path="/food/:providerId/plans/:planId" element={<LegacyRewrite from="/food" to="/services/food" />} />
               <Route path="/food/subscription/:id"   element={<LegacyRewrite from="/food" to="/services/food" />} />
-              <Route path="/beach-club"              element={<Navigate to="/services/beach-club" replace />} />
-              <Route path="/beach-club/courts"       element={<Navigate to="/services/beach-club/courts" replace />} />
-              <Route path="/beach-club/checkout/:planId" element={<LegacyRewrite from="/beach-club" to="/services/beach-club" />} />
 
               {/* Cart */}
               {/* The basket and the checkout are two screens: one to review

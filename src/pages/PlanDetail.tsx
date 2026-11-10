@@ -432,10 +432,9 @@ const PlanDetail = () => {
   };
 
   /**
-   * The URL segment is not the archetype key — the beach club lives at
-   * /services/beach-club while its archetype is `entertainment`, so titling
-   * the page from the URL printed "beach-club" at the customer. The provider
-   * row knows which archetype it belongs to; ask it.
+   * The URL segment is not always the archetype key (a legacy plan is reached
+   * by an old link before its canonical redirect). The provider row knows
+   * which archetype it belongs to; ask it.
    */
   const providerArchetype = (providerQ.data as any)?.archetype_key as string | undefined;
   const serviceLabel = useArchetypeLabel(providerArchetype ?? archetypeKey, archetypeKey);
@@ -592,7 +591,7 @@ const PlanDetail = () => {
     plan.source === "food" ? "food" :
     archetypeKey === "cleaning" ? "cleaning" :
     archetypeKey === "food" ? "food" :
-    archetypeKey === "beach-club" || archetypeKey === "entertainment" ? "beach" : null;
+    archetypeKey === "entertainment" ? "beach" : null;
 
 
 

@@ -42,7 +42,8 @@ function legacyPlanHref(provider: any, legacyPlanId: string): string {
   switch (provider?.source_service_key) {
     case "food":     return `/services/food/plans/${legacyPlanId}`;
     case "cleaning": return `/services/cleaning/plans/${legacyPlanId}`;
-    case "beach":    return `/services/beach-club/plans/${legacyPlanId}`;
+    // The club lives in whichever service it is filed under.
+    case "beach":    return `/services/${provider?.archetype_key ?? "entertainment"}/plans/${legacyPlanId}`;
     default:         return "/discovery";
   }
 }
@@ -75,7 +76,7 @@ export function useGlobalSearch(query: string) {
         supabaseDb.from("food_meal_plans")
           .select("id, name, description, provider_id, weekly_price_cents").eq("status", "active"),
         supabaseDb.from("beach_club_plans")
-          .select("id, name, tagline, price_per_person_cents").eq("is_active", true),
+          .select("id, name, tagline, price_per_person_cents, owner_provider_id").eq("is_active", true),
         // The fleet: a car is an offer like any other, and searching its make
         // used to return nothing at all.
         supabaseDb.from("rental_vehicles")
@@ -190,7 +191,7 @@ export function useGlobalSearch(query: string) {
     });
     data.beach.forEach((p: any) => {
       push(String(p.id), p.name, "Beach Club",
-           `/services/beach-club/plans/${p.id}`, p.price_per_person_cents ?? null,
+           `/services/${providerRows.get(String(p.owner_provider_id))?.archetype_key ?? "entertainment"}/plans/${p.id}`, p.price_per_person_cents ?? null,
            "/ person · month", [p.tagline]);
     });
     // Cars, by make and model — "hyundai", "tucson", "2024" all find one.
@@ -209,7 +210,7 @@ export function useGlobalSearch(query: string) {
       const provider = providerRows.get(String(p.provider_id));
       // An offer has one address — its own; `?v=` opens it on its cheapest
       // combination so the option chips arrive already chosen.
-      const segment = provider?.archetype_key ?? (provider?.source_service_key === "beach" ? "beach-club" : provider?.source_service_key) ?? "beach-club";
+      const segment = provider?.archetype_key ?? provider?.source_service_key ?? "entertainment";
       const href = `/services/${segment}/plans/${p.id}${cheapest ? `?v=${cheapest.sourceId}` : ""}`;
 
       push(String(p.id), p.name, providerName.get(String(p.provider_id)) ?? null, href,

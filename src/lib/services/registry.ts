@@ -151,7 +151,8 @@ export const SERVICES: Record<ServiceKey, ServiceConfig> = {
     tint: "bg-cyan-50 dark:bg-cyan-950/40",
     chip: "bg-cyan-500",
     accent: "bg-cyan-500",
-    tileHref: "/services/beach-club",
+    // No listing of its own: the club is one business inside a service.
+    tileHref: "/discovery",
     adminRootHref: "/admin/marketplace/providers/00000000-0000-0000-0000-000000beac41",
     visibilityKey: "category_beach_visible",
     subscriptionsTable: "provider_subscriptions",

@@ -6,3 +6,4 @@
  * router lazy-imports directly so each screen keeps its own chunk.
  */
 export { NewBeachMembershipDialog } from "./components/NewBeachMembershipDialog";
+export { useBeachClubHome } from "./hooks/useBeachClubHome";

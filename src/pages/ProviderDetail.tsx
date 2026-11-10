@@ -216,8 +216,6 @@ const ProviderDetail = () => {
   // after what the business sells (SERVICE_META.offeringsHeading).
   // The bell on the banner goes where the app's bell always goes.
   const { archetypeKey: serviceSegment, providerId } = useParams<{ archetypeKey: string; providerId: string }>();
-  // `beach-club` and `entertainment` are the same service. Resolve to the
-  // canonical key once, here.
   /**
    * Which vertical this page is showing.
    *

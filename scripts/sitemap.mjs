@@ -57,11 +57,11 @@ const main = async () => {
   const archetypes = await rows("service_archetypes?select=key,updated_at&is_active=eq.true");
   for (const a of archetypes) {
     if (a.key === "vehicles" || a.key === "rental") continue; // /vehicles, above
-    entries.push(url(`/services/${a.key === "entertainment" ? "beach-club" : a.key}`, { lastmod: a.updated_at, changefreq: "daily", priority: 0.9 }));
+    entries.push(url(`/services/${a.key}`, { lastmod: a.updated_at, changefreq: "daily", priority: 0.9 }));
   }
 
   // The URL segment a service uses (src/lib/services/serviceUrls.ts KEY_TO_SLUG).
-  const slugOf = (key) => (key === "entertainment" ? "beach-club" : key);
+  const slugOf = (key) => key;
 
   // Businesses. A provider page is the richest public page the platform has —
   // and only car rentals used to be listed, so Google had no address for any

@@ -35,8 +35,6 @@ const SLUG_TO_KEY: Record<string, ArchetypeKey> = {
   "car-rental": "rental",
   // The archetype's DB key. Any link built from the row itself must resolve.
   vehicles: "rental",
-  "beach-club": "entertainment",
-  beach: "entertainment",
   entertainment: "entertainment",
 };
 
@@ -45,8 +43,9 @@ const KEY_TO_SLUG: Record<ArchetypeKey, string> = {
   cleaning: "cleaning",
   food: "food",
   rental: "rental",
-  // `entertainment` is the internal key; `beach-club` is the public word.
-  entertainment: "beach-club",
+  // The Beach Club's old /services/beach-club listing is gone: the club is one
+  // business inside whichever service it is filed under.
+  entertainment: "entertainment",
 };
 
 /** Resolve any URL segment to the canonical key, or null if unknown. */
@@ -94,7 +93,7 @@ export const SERVICE_META: Record<ArchetypeKey, ServiceMeta> = {
   cleaning:      { offeringsHeading: "Plans",    collection: "plans",    icon: SparklesIcon, listingRoute: "/services/cleaning" },
   food:          { offeringsHeading: "Plans",    collection: "plans",    icon: ChefHat,      listingRoute: "/services/food" },
   rental:        { offeringsHeading: "Vehicles", collection: "vehicles", icon: Car,          listingRoute: "/vehicles" },
-  entertainment: { offeringsHeading: "Plans",    collection: "plans",    icon: Waves,        listingRoute: "/services/beach-club" },
+  entertainment: { offeringsHeading: "Plans",    collection: "plans",    icon: Waves,        listingRoute: "/services/entertainment" },
 };
 
 /** Metadata for a URL segment, or null when the segment names no known service. */
