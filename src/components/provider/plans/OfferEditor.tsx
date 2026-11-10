@@ -18,6 +18,7 @@ import { OptionsEditor, comboKey, type DraftGroup } from "@/components/provider/
 import { readEntitlements, serializeEntitlements, type Entitlement } from "@/lib/plans/entitlements";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
+import { TagInput } from "@/components/patterns/TagInput";
 
 /**
  * One plan, with its prices inside it.
@@ -640,6 +641,25 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
     onError: (e: Error) => toast.error(e.message || "Couldn't change the plan"),
   });
 
+  // What other plans are tagged with, most used first — so one business's
+  // "coffee" is offered to the next instead of becoming "Coffee " and "cafe".
+  const { data: popularTags = [] } = useQuery({
+    queryKey: ["plan-tags-popular"],
+    staleTime: 10 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabaseDb.from("provider_plans").select("tags").not("tags", "is", null).limit(1000);
+      if (error) return [];
+      const count = new Map<string, { tag: string; n: number }>();
+      (data ?? []).forEach((r: { tags: string[] | null }) => (r.tags ?? []).forEach((t) => {
+        const k = t.trim().toLowerCase();
+        if (!k) return;
+        const c = count.get(k);
+        if (c) c.n += 1; else count.set(k, { tag: t.trim(), n: 1 });
+      }));
+      return [...count.values()].sort((a, b) => b.n - a.n).map((c) => c.tag).slice(0, 30);
+    },
+  });
+
   if (isLoading) return <div className="flex justify-center py-12"><Spinner /></div>;
   // Before the "no longer here" branch: a failed read has no offer either, and
   // telling the owner their plan was deleted when it was not is worse than
@@ -963,9 +983,12 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
 
             <MoreGroup title="Search">
               <div className="sm:col-span-2">
-                <Field label="Tags" hint="Comma separated — words a customer can filter by.">
-                  <Input value={includes.tags} placeholder={`e.g. ${placeholdersFor(sourceKey).tags}`}
-                    onChange={(e) => setIncludes((v) => ({ ...v, tags: e.target.value }))} />
+                <Field label="Tags" hint="Words a customer can filter by. Enter or comma adds one — up to 20.">
+                  <TagInput
+                    value={tagsFromText(includes.tags)}
+                    onChange={(list) => setIncludes((v) => ({ ...v, tags: list.join(", ") }))}
+                    suggestions={[...popularTags, ...tagsFromText(placeholdersFor(sourceKey).tags)]}
+                  />
                 </Field>
               </div>
             </MoreGroup>
@@ -1400,3 +1423,7 @@ const UNIT_EXAMPLE: Record<string, string> = {
   deliveries: "e.g. meal",
   resource_hours: "e.g. hour",
 };
+
+/** The editor keeps tags as "a, b, c" (that is what save splits); the chip field wants a list. */
+const tagsFromText = (text: string): string[] =>
+  text.split(",").map((t) => t.trim()).filter(Boolean);
