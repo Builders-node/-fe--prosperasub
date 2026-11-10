@@ -1,7 +1,7 @@
 import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
 import { Breadcrumbs } from "@/components/patterns/Breadcrumbs";
 import { FavoriteButton } from "@/components/patterns/FavoriteButton";
-import { Photo } from "@/components/patterns/Photo";
+import { Photo, initialsOf } from "@/components/patterns/Photo";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { formatWorkingHours } from "@/lib/workingHours";
@@ -661,7 +661,18 @@ const ProviderDetail = () => {
           />
 
           <div className="mt-3 space-y-2">
-            <h1 className="text-[24px] font-semibold leading-tight text-foreground">{p.name}</h1>
+            {/* The business's face beside its name — the logo was uploaded,
+                shown in the admin's card and on its product pages, and missing
+                only here, on its own page. Initials when there is none. */}
+            <div className="flex items-center gap-3">
+              <Photo
+                src={p.avatar_url}
+                alt=""
+                label={initialsOf(p.name)}
+                className="h-14 w-14 shrink-0 rounded-full object-cover"
+              />
+              <h1 className="min-w-0 text-[24px] font-semibold leading-tight text-foreground">{p.name}</h1>
+            </div>
             {p.description && (
               <p className="text-[16px] leading-[22px] text-muted-foreground">
                 <LinkifiedText text={p.description} />
