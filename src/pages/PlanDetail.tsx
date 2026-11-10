@@ -522,7 +522,10 @@ const PlanDetail = () => {
   })();
 
   const canonicalKey =
-    plan?.source === "beach" ? "entertainment"
+    // The club's plans live wherever the club is filed (Clubs & Sport now, not
+    // Lifestyle). Until its row arrives, keep the URL as it is — guessing here
+    // bounced the visitor through an old address and back.
+    plan?.source === "beach" ? (providerQ.data?.archetype_key ?? archetypeKey)
     : plan?.source === "cleaning" ? "cleaning"
     : plan?.source === "food" ? "food"
     : (providerQ.data?.archetype_key ?? archetypeKey);
@@ -598,10 +601,11 @@ const PlanDetail = () => {
    * out of a plan into the thing that contains it. Each crumb is dropped when
    * there is nothing behind it to click, rather than rendered dead.
    */
+  // The beach has no listing of its own any more — it is one business in the
+  // service it is filed under, so the crumb goes to that service.
   const listing = publicListingHref(
-    plan.source === "cleaning" ? "cleaning" : plan.source === "beach" ? "beach"
-      : plan.source === "food" ? "food" : null,
-    archetypeKey,
+    plan.source === "cleaning" ? "cleaning" : plan.source === "food" ? "food" : null,
+    plan.source === "beach" ? (providerArchetype ?? archetypeKey) : archetypeKey,
   );
   const category = categoryQ.data as { key: string; label: string } | null | undefined;
   const seenCrumbs = new Set<string>();

@@ -523,7 +523,10 @@ const ProviderDetail = () => {
   // Every archetype collects reviews — the customer sees ★ ratings on the cards,
   // so the Reviews tab must work wherever they arrived from. cleaning/food keep
   // their own key; beach is "beach"; any other (universal) provider is "plan".
+  // The club is recognised by its own row, not by the service it is filed
+  // under — it moved out of Lifestyle and its reviews must not move with the URL.
   const reviewService: ProviderReviewService =
+    providerQ.data?.source_service_key === "beach" ? "beach" :
     archetypeKey === "cleaning" ? "cleaning" :
     archetypeKey === "entertainment" ? "beach" :
     archetypeKey === "food" ? "food" :
