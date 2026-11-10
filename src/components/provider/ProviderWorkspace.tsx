@@ -395,38 +395,41 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
 
   return (
     <>
-      {/* The banner IS the header — 280 tall, its own bottom corners rounded,
-          with the one control the design leaves off the cards floating on it. */}
-      <div className="relative h-[280px] w-full overflow-hidden rounded-b-radius-lg bg-muted">
-        <Photo src={provider.banner_url} icon={Store} loading="eager" />
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/35 to-transparent" />
-        <button
-          type="button"
-          // A business that is not live yet opens in draft preview, so an admin
-          // sees the page as it will look (every plan, the draft banner) rather
-          // than the half-empty version a customer would get today. The flag
-          // works for an admin and for whoever runs the business
-          // (useDraftPreview); anyone else sees what customers see.
-          onClick={() => {
-            // Its service switched off hides it just as surely as its own
-            // status — the public page answers "No such service" then.
-            const serviceOff = archetypes.find((a) => a.key === provider.archetype_key)?.is_active === false;
-            const draft = (provider.status !== "active" && provider.status !== "approved") || serviceOff;
-            const href = draft
-              ? `${resolvedPublicHref}${resolvedPublicHref.includes("?") ? "&" : "?"}preview=1`
-              : resolvedPublicHref;
-            window.open(href, "_blank");
-          }}
-          className="absolute right-4 top-4 flex items-center gap-1.5 rounded-full bg-black/35 px-3.5 py-2 text-[14px] font-semibold text-white backdrop-blur transition-colors hover:bg-black/50"
-        >
-          <ExternalLink className="h-4 w-4" /> View public
-        </button>
-      </div>
-
       {/* No side gutter: in the design the cards ARE the page width and their
           own 16 of padding is the only inset. A container's padding on top of
           that put the text 32 from the edge and the cards on a rail. */}
-      <div className="mx-auto w-full max-w-[1280px] space-y-1 pb-8 pt-1 md:px-space-4">
+      <div className="mx-auto w-full max-w-[1280px] space-y-1 pb-8 md:px-space-4">
+        {/* The banner IS the header — 280 tall, its own bottom corners rounded,
+            with the one control the design leaves off the cards floating on it.
+            It sits in the cards' column: edge to edge on a phone (the column
+            has no gutter there), the column's width on a laptop — it used to
+            run the full window while everything under it stopped at 1280. */}
+        <div className="relative h-[280px] w-full overflow-hidden rounded-b-radius-lg bg-muted md:mt-space-4 md:rounded-radius-lg">
+          <Photo src={provider.banner_url} icon={Store} loading="eager" />
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/35 to-transparent" />
+          <button
+            type="button"
+            // A business that is not live yet opens in draft preview, so an admin
+            // sees the page as it will look (every plan, the draft banner) rather
+            // than the half-empty version a customer would get today. The flag
+            // works for an admin and for whoever runs the business
+            // (useDraftPreview); anyone else sees what customers see.
+            onClick={() => {
+              // Its service switched off hides it just as surely as its own
+              // status — the public page answers "No such service" then.
+              const serviceOff = archetypes.find((a) => a.key === provider.archetype_key)?.is_active === false;
+              const draft = (provider.status !== "active" && provider.status !== "approved") || serviceOff;
+              const href = draft
+                ? `${resolvedPublicHref}${resolvedPublicHref.includes("?") ? "&" : "?"}preview=1`
+                : resolvedPublicHref;
+              window.open(href, "_blank");
+            }}
+            className="absolute right-4 top-4 flex items-center gap-1.5 rounded-full bg-black/35 px-3.5 py-2 text-[14px] font-semibold text-white backdrop-blur transition-colors hover:bg-black/50"
+          >
+            <ExternalLink className="h-4 w-4" /> View public
+          </button>
+        </div>
+
         {/* Who this is: the avatar, the name and the description. The avatar is
             here so an owner sees the picture customers see — without it there
             was no way to tell from the workspace that one had been uploaded. */}
@@ -475,7 +478,7 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
         {/* How it is doing. The four figures that used to be a strip of
             icon-plated cards under the tabs, in the design's tiles and above
             them — where a business looks before choosing where to go. */}
-        <section className="grid grid-cols-2 gap-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
+        <section className="grid grid-cols-2 gap-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em] md:grid-cols-4">
           {isOwner && (
             <WorkspaceStat
               label="Balance"
