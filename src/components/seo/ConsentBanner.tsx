@@ -18,7 +18,7 @@ export function ConsentBanner() {
     return () => window.removeEventListener("everysub:consent", on);
   }, []);
 
-  if (!GA_ID || decided || pathname.startsWith("/admin")) return null;
+  if (!GA_ID || decided || pathname.startsWith("/admin") || pathname.startsWith("/dev/")) return null;
 
   return (
     <div

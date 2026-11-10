@@ -50,24 +50,7 @@ export function LocationSelector({ variant = "chip", className }: Props) {
   };
 
   const trigger = variant === "row" ? (
-    <button
-      type="button"
-      onClick={() => setOpen(true)}
-      aria-label={t("nav.chooseLocation")}
-      className={cn(
-        "flex w-full items-center gap-2 bg-card px-4 py-3 text-left transition-colors hover:bg-muted/40",
-        className,
-      )}
-    >
-      <LocationOnIcon className={cn("h-6 w-6 shrink-0", residence ? "text-primary" : "text-muted-foreground")} />
-      <span className={cn(
-        "min-w-0 flex-1 truncate text-title",
-        residence ? "text-foreground" : "text-muted-foreground",
-      )}>
-        {residence || t("nav.chooseLocation")}
-      </span>
-      <KeyboardArrowRightIcon className="h-6 w-6 shrink-0 text-muted-foreground" />
-    </button>
+    <LocationRowView label={residence} onClick={() => setOpen(true)} className={className} />
   ) : variant === "icon" ? (
     <button
       type="button"
@@ -81,23 +64,22 @@ export function LocationSelector({ variant = "chip", className }: Props) {
     >
       <LocationOnIcon className="h-6 w-6" />
     </button>
+  ) : variant === "chip" ? (
+    <LocationChipView label={residence} onClick={() => setOpen(true)} className={className} />
   ) : (
     <button
       type="button"
       onClick={() => setOpen(true)}
       aria-label={t("nav.chooseLocation")}
       className={cn(
-        "flex items-center gap-1.5 font-semibold transition-colors",
-        variant === "chip"
-          ? "h-9 rounded-full bg-muted/60 px-3 text-sm text-foreground hover:bg-muted"
-          : "w-full justify-between rounded-xl bg-muted/50 px-3.5 py-2 text-sm text-foreground",
+        "flex w-full items-center justify-between gap-1.5 rounded-xl bg-muted/50 px-3.5 py-2 text-sm font-semibold text-foreground transition-colors",
         className,
       )}
     >
       <span className="flex min-w-0 items-center gap-1.5">
         <MapPin className={cn("h-4 w-4 shrink-0", residence ? "text-primary" : "text-muted-foreground")} />
         <span className={cn("truncate", !residence && "text-muted-foreground")}>
-          {variant === "full" && <span className="text-muted-foreground">Deliver to: </span>}
+          <span className="text-muted-foreground">Deliver to: </span>
           {label}
         </span>
       </span>
@@ -146,5 +128,49 @@ export function LocationSelector({ variant = "chip", className }: Props) {
         </ul>
       </ResponsiveDialog>
     </>
+  );
+}
+
+/**
+ * The desktop header's location pill — a view, so the states sheet can draw it.
+ * 40px like every other control in the bar; the pin turns orange once a place
+ * is chosen.
+ */
+export function LocationChipView({ label, onClick, className }: { label: string | null | undefined; onClick?: () => void; className?: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label="Choose location"
+      className={cn(
+        "flex h-10 max-w-[220px] shrink-0 items-center gap-1.5 rounded-full bg-muted pl-2.5 pr-3 text-[14px] font-semibold text-foreground transition-colors hover:bg-muted/70",
+        className,
+      )}
+    >
+      <LocationOnIcon className={cn("h-5 w-5 shrink-0", label ? "text-primary" : "text-muted-foreground")} />
+      <span className={cn("truncate", !label && "text-muted-foreground")}>{label || "Choose location"}</span>
+      <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+    </button>
+  );
+}
+
+/** The phone header's location row — pin, the place, a chevron. */
+export function LocationRowView({ label, onClick, className }: { label: string | null | undefined; onClick?: () => void; className?: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label="Choose location"
+      className={cn(
+        "flex w-full items-center gap-2 bg-card px-4 py-3 text-left transition-colors hover:bg-muted/40",
+        className,
+      )}
+    >
+      <LocationOnIcon className={cn("h-6 w-6 shrink-0", label ? "text-primary" : "text-muted-foreground")} />
+      <span className={cn("min-w-0 flex-1 truncate text-title", label ? "text-foreground" : "text-muted-foreground")}>
+        {label || "Choose location"}
+      </span>
+      <KeyboardArrowRightIcon className="h-6 w-6 shrink-0 text-muted-foreground" />
+    </button>
   );
 }

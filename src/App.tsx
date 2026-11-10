@@ -73,6 +73,8 @@ const CleaningBook = lazy(() => import("./pages/cleaning/CleaningBook"));
 // Cart
 const Cart = lazy(() => import("./pages/Cart"));
 const SearchPage = lazy(() => import("./pages/Search"));
+// Every state of the bars on one page — development builds only.
+const NavbarStates = import.meta.env.DEV ? lazy(() => import("./pages/dev/NavbarStates")) : null;
 
 // Public provider profile — generic for cleaning/entertainment. Food
 // keeps its own /services/food/:id detail page (richer legacy layout).
@@ -318,6 +320,7 @@ const App = () => {
               {/* "Search on Everysub" — one field over the whole catalogue.
                   Public: browsing is what a search is for. */}
               <Route path="/search" element={<SearchPage />} />
+              {NavbarStates && <Route path="/dev/navbar" element={<NavbarStates />} />}
 
               {/* User */}
               <Route path="/my-subscriptions" element={

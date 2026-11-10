@@ -22,18 +22,21 @@ const KIND_LABEL: Record<SearchHit["kind"], string> = { category: "Category", se
  * its own component, mounted on demand — so the header costs nothing on pages
  * where nobody searches. ⌘K / Ctrl+K focuses it from anywhere.
  */
-export function HeaderSearch() {
+export function HeaderSearch({ initialQuery = "" }: {
+  /** The states sheet opens it mid-search; the live header starts empty. */
+  initialQuery?: string;
+} = {}) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const [query, setQuery] = useState("");
-  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState(initialQuery);
+  const [open, setOpen] = useState(!!initialQuery);
   const [active, setActive] = useState(0);
   const [hits, setHits] = useState<SearchHit[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const boxRef = useRef<HTMLDivElement>(null);
 
   // A new page closes the dropdown and forgets the query.
-  useEffect(() => { setOpen(false); setQuery(""); }, [pathname]);
+  useEffect(() => { if (!initialQuery) { setOpen(false); setQuery(""); } }, [pathname, initialQuery]);
 
   useEffect(() => {
     const onKey = (e: globalThis.KeyboardEvent) => {

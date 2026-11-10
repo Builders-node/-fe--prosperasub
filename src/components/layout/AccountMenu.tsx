@@ -18,6 +18,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useMyBusinesses } from "@/hooks/useMyBusinesses";
 import { useI18n } from "@/i18n";
 import { accountApi } from "@/integrations/supabase/client";
+import { HeaderAvatarButton } from "@/components/layout/HeaderParts";
 
 export function AccountMenu() {
   const { userData, isSuperAdmin, logout, isAuthenticated } = useAuth();
@@ -48,13 +49,7 @@ export function AccountMenu() {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            aria-label={t("nav.account")}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary text-base font-black text-primary-foreground transition hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            {avatarLabel}
-          </button>
+          <HeaderAvatarButton initial={avatarLabel} label={t("nav.account")} />
         </DropdownMenuTrigger>
         <AppDropdownContent align="end">
           <AppDropdownProfile

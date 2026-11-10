@@ -1,42 +1,45 @@
-import { useEffect, useRef } from "react";
-import { Breadcrumbs } from "@/components/patterns/Breadcrumbs";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { forwardRef, useEffect, useRef, type ReactNode } from "react";
+import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
+import { Breadcrumbs } from "@/components/patterns/Breadcrumbs";
 import { useAuthModal } from "@/contexts/AuthModalContext";
-import { NotificationBell } from "@/components/layout/NotificationBell";
 import { useI18n } from "@/i18n";
 import { AccountMenu } from "@/components/layout/AccountMenu";
 import { LocationSelector } from "@/components/patterns/LocationSelector";
-import { CartButton } from "@/components/layout/CartButton";
-import { FavoritesButton } from "@/components/layout/FavoritesButton";
 import { HeaderSearch } from "@/components/layout/HeaderSearch";
+import { FavoriteIcon, NotificationsIcon, ShoppingBagIcon } from "@/components/icons/FigmaIcons";
+import {
+  HeaderAccountSlot, HeaderIconLink, useHeaderSession, type HeaderSession,
+} from "@/components/layout/HeaderParts";
+import { cn } from "@/lib/utils";
 
 interface DesktopHeaderProps {
   showBackButton?: boolean;
   onBack?: () => void;
   breadcrumb?: string;
-  hideNav?: boolean;
-  rightContent?: React.ReactNode;
 }
 
-export function DesktopHeader({
-  showBackButton = false,
-  onBack,
-  breadcrumb,
-  hideNav = false,
-  rightContent,
-}: DesktopHeaderProps) {
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
+/**
+ * The desktop bar, on every customer page (md and up).
+ *
+ *   [EverySub · location]      [ search ]      [♡ · bag · bell · avatar]
+ *
+ * Three columns, the outer two equal (1fr | auto | 1fr), so the search sits on
+ * the page's centre line whatever is on either side of it. With a plain flex
+ * row it slid sideways on every page that has no location to choose — the
+ * same bar, a different shape from one page to the next.
+ *
+ * One white panel (`--card`), like the phone's header, and no border: the
+ * panel against the page is the separation (DESIGN.md — borderless). The
+ * optional second row (back · breadcrumb) is part of the same panel.
+ */
+export function DesktopHeader({ showBackButton = false, onBack, breadcrumb }: DesktopHeaderProps) {
+  const session = useHeaderSession();
   const { openAuthModal } = useAuthModal();
   const { t } = useI18n();
-  const location = useLocation();
-  const navigate = useNavigate();
-  const showSecondaryNav = showBackButton || breadcrumb;
 
-  // The header is sticky, and so is a detail page's own bar below it. Both
-  // used to stick at top 0, so on scroll the page bar slid over the header.
-  // The header publishes its real height (it grows with the secondary nav) and
+  // The header is sticky, and so is a detail page's own bar below it. The
+  // header publishes its real height (it grows with the second row) and
   // anything sticky beneath it sticks at `--desktop-header-h`.
   const headerRef = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -52,88 +55,92 @@ export function DesktopHeader({
     };
   }, []);
 
-  const handleBack = () => {
-    if (onBack) {
-      onBack();
-    } else {
-      window.history.back();
-    }
-  };
-
   return (
-    <header ref={headerRef} className="hidden md:block sticky top-0 z-40 bg-background border-b border-border/30">
-      {/* ── Yandex Go desktop header: logo · tabs · search · account ── */}
-      <div className="app-container flex h-[68px] items-center gap-4">
+    <DesktopHeaderView
+      ref={headerRef}
+      session={session}
+      location={<LocationSelector />}
+      search={<HeaderSearch />}
+      account={<AccountMenu />}
+      onLogin={() => openAuthModal("login")}
+      subRow={showBackButton || breadcrumb ? (
+        <DesktopSubRow
+          onBack={showBackButton ? (onBack ?? (() => window.history.back())) : undefined}
+          backLabel={t("common.back")}
+          crumbs={breadcrumb ? [{ label: t("common.home"), href: "/" }, { label: breadcrumb }] : undefined}
+        />
+      ) : null}
+    />
+  );
+}
 
-        {/* Logo wordmark */}
-        <Link
-          to="/"
-          className="shrink-0 text-[19px] font-black tracking-tight text-foreground hover:text-primary transition-colors"
-        >
-          EverySub
-        </Link>
+/** The bar as a picture of its inputs — what the states sheet draws. */
+interface DesktopHeaderViewProps {
+  session: HeaderSession;
+  location?: ReactNode;
+  search?: ReactNode;
+  /** What a signed-in person sees in the account slot (the menu). */
+  account: ReactNode;
+  onLogin: () => void;
+  subRow?: ReactNode;
+  sticky?: boolean;
+  className?: string;
+}
 
-        <LocationSelector />
-
-        {/* Search the whole catalogue from any page — centred in the space
-            between the location and the account icons. */}
-        <div className="flex min-w-0 flex-1 justify-center px-2">
-          {!hideNav && <HeaderSearch />}
+export const DesktopHeaderView = forwardRef<HTMLElement, DesktopHeaderViewProps>(function DesktopHeaderView(
+  { session, location, search, account, onLogin, subRow, sticky = true, className },
+  ref,
+) {
+  return (
+    <header ref={ref} className={cn("hidden bg-card md:block", sticky && "sticky top-0 z-40", className)}>
+      <div className="app-container grid h-16 grid-cols-[1fr_minmax(0,420px)_1fr] items-center gap-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <Link
+            to="/"
+            className="shrink-0 text-[20px] font-black tracking-tight text-primary transition-opacity hover:opacity-80"
+          >
+            EverySub
+          </Link>
+          {location}
         </div>
 
-        {/* Right actions */}
-        <div className="flex shrink-0 items-center gap-3">
-          {!hideNav && <FavoritesButton />}
-          {!hideNav && <CartButton />}
-          {/* Hidden until the app is actually translated: the switcher offered
-              Español while ~a dozen files carry translations and the rest is
-              hardcoded English — picking it produced a mixed-language app,
-              which is worse than an honest English one. The i18n context and
-              dictionary stay; render <LanguageMenu /> here again once the
-              coverage exists. */}
-          {!hideNav && <NotificationBell />}
-          {rightContent ?? (
-            !hideNav && (
-              authLoading ? (
-                /* Skeleton placeholder — prevents login→avatar flash */
-                <div className="h-10 w-10 animate-pulse rounded-full bg-muted" />
-              ) : isAuthenticated ? (
-                <AccountMenu />
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => openAuthModal("login")}
-                  className="h-9 rounded-full px-5 text-[13px] font-semibold transition-colors hover:opacity-80"
-                  style={{ background: "hsl(var(--yd-cta-bg))", color: "hsl(var(--yd-cta-fg))" }}
-                >
-                  {t("nav.logIn")}
-                </button>
-              )
-            )
+        <div className="flex min-w-0 justify-center">{search}</div>
+
+        <div className="flex items-center justify-end gap-1">
+          <HeaderIconLink to="/favorites" label="Favourites" icon={FavoriteIcon} count={session.favorites} />
+          <HeaderIconLink to="/cart" label="Cart" icon={ShoppingBagIcon} count={session.cart} />
+          {session.status === "signedIn" && (
+            <HeaderIconLink to="/notifications" label="Notifications" icon={NotificationsIcon} count={session.unread} />
           )}
-        </div>
-      </div>
-
-      {/* Secondary nav: back + breadcrumb */}
-      {showSecondaryNav && (
-        <div className="border-t border-border/30 bg-muted/30">
-          <div className="app-container flex h-11 items-center gap-3 text-sm text-muted-foreground">
-            {showBackButton && (
-              <button
-                type="button"
-                onClick={handleBack}
-                className="flex items-center gap-1.5 rounded-full px-3 py-1 font-medium transition-colors hover:bg-muted hover:text-foreground"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                {t("common.back")}
-              </button>
-            )}
-            {breadcrumb && (
-              <Breadcrumbs items={[{ label: t("common.home"), href: "/" }, { label: breadcrumb }]} />
-            )}
+          <div className="ml-2">
+            <HeaderAccountSlot session={session} onLogin={onLogin} signedIn={account} />
           </div>
         </div>
-      )}
+      </div>
+      {subRow}
     </header>
+  );
+});
+
+/** Back and a breadcrumb, under the bar on account pages — same panel, no rule. */
+export function DesktopSubRow({ onBack, backLabel = "Back", crumbs }: {
+  onBack?: () => void;
+  backLabel?: string;
+  crumbs?: Array<{ label: string; href?: string }>;
+}) {
+  return (
+    <div className="app-container flex h-12 items-center gap-3 text-[14px] text-muted-foreground">
+      {onBack && (
+        <button
+          type="button"
+          onClick={onBack}
+          className="-ml-3 flex h-10 items-center gap-1.5 rounded-full px-3 font-semibold text-foreground transition-colors hover:bg-muted"
+        >
+          <ArrowLeft className="h-5 w-5" />
+          {backLabel}
+        </button>
+      )}
+      {crumbs && <Breadcrumbs items={crumbs} />}
+    </div>
   );
 }

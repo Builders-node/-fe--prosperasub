@@ -1,7 +1,8 @@
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
-import { getNavigationForRoles, isNavItemActive } from "@/config/navigation";
+import { getNavigationForRoles, isNavItemActive, type NavItem } from "@/config/navigation";
+import { HeaderBadge } from "@/components/layout/HeaderBadge";
 import { useEffect } from "react";
 import { useCart } from "@/contexts/CartContext";
 import { useI18n, type TranslationKey } from "@/i18n";
@@ -56,52 +57,62 @@ export function BottomNav() {
   }
 
   return (
-    // White bar, 60px of content plus the home-indicator inset — the design's
-    // 84px total on an iPhone 14. No top border: the page behind it is #f6f6f6
-    // and the white is the separation.
+    <BottomNavView
+      items={visibleNavItems}
+      isActive={(item) => isNavItemActive(item, location.pathname)}
+      label={(item) => t(item.label as TranslationKey)}
+      cart={cartCount}
+      signedIn={isAuthenticated}
+      onLocked={(item) => openAuthModal("login", item.path)}
+    />
+  );
+}
+
+/**
+ * The tab bar as a picture of its inputs — what the live bar and the states
+ * sheet (/dev/navbar) both draw. 60px of white plus the home-indicator inset;
+ * 24px glyphs; the active tab is orange and nothing else changes.
+ */
+export function BottomNavView({ items, isActive, label, cart, signedIn, onLocked, fixed = true, className }: {
+  className?: string;
+  items: NavItem[];
+  isActive: (item: NavItem) => boolean;
+  label: (item: NavItem) => string;
+  cart: number;
+  signedIn: boolean;
+  onLocked?: (item: NavItem) => void;
+  fixed?: boolean;
+}) {
+  return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-50 bg-card md:hidden"
-      style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+      className={cn("z-50 bg-card md:hidden", fixed && "fixed bottom-0 left-0 right-0", className)}
+      style={{ paddingBottom: fixed ? "env(safe-area-inset-bottom, 0px)" : undefined }}
     >
-      <div className="flex items-stretch" style={{ height: 60 }}>
-        {visibleNavItems.map((item) => {
-          const isActive = isNavItemActive(item, location.pathname);
-          // Active is the brand orange, everything else the secondary grey —
-          // no weight change, no stroke change: the colour is the state.
-          const tone = isActive ? "text-primary" : "text-muted-foreground";
+      <div className="flex h-[60px] items-stretch">
+        {items.map((item) => {
+          const active = isActive(item);
+          const tone = active ? "text-primary" : "text-muted-foreground";
           const className = "flex flex-1 flex-col items-center justify-center gap-1 p-2 transition-colors";
           // A finger resting on the glass is ~100ms of free time before the
           // click fires — enough for most chunks to arrive.
           const warm = () => prefetchRoute(item.path);
-          const isCart = item.path === "/cart";
           const inner = (
             <>
               <span className={cn("relative flex h-6 w-6 items-center justify-center", tone)}>
                 <item.icon className="h-full w-full" />
-                {isCart && cartCount > 0 && (
-                  <span className="absolute -right-2 -top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-primary px-1 text-[9px] font-black leading-none text-primary-foreground">
-                    {cartCount > 99 ? "99+" : cartCount}
-                  </span>
-                )}
+                {item.path === "/cart" && <HeaderBadge count={cart} placement="glyph" />}
               </span>
-              <span className={cn("text-[12px] leading-4", tone)}>{t(item.label as TranslationKey)}</span>
+              <span className={cn("text-[12px] leading-4", tone)}>{label(item)}</span>
             </>
           );
 
-          if (item.requiresAuth && !isAuthenticated) {
+          if (item.requiresAuth && !signedIn) {
             return (
-              <button
-                key={item.path}
-                type="button"
-                className={className}
-                onClick={() => openAuthModal("login", item.path)}
-                onPointerDown={warm}
-              >
+              <button key={item.path} type="button" className={className} onClick={() => onLocked?.(item)} onPointerDown={warm}>
                 {inner}
               </button>
             );
           }
-
           return (
             <Link key={item.path} to={item.path} className={className} onPointerDown={warm} onMouseEnter={warm}>
               {inner}
