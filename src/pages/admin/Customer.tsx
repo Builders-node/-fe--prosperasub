@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { ArrowLeft, Ban, LifeBuoy, UserCheck } from "lucide-react";
+import { ArrowLeft, Ban, ChevronRight, LifeBuoy, Store, UserCheck } from "lucide-react";
 import { toast } from "sonner";
 
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
@@ -23,6 +23,9 @@ import { adminApi } from "@/integrations/supabase/client";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { EditUserForm } from "./Users";
+import { Photo, initialsOf } from "@/components/patterns/Photo";
+import { useCustomerBusinesses } from "@/lib/admin/useCustomerBusinesses";
+import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
 
 /**
  * One customer, on one page (`/admin/customers/:userId`).
@@ -80,6 +83,11 @@ export default function AdminCustomer() {
       return data ?? [];
     },
   });
+
+  // Businesses they own or help run — a customer here may also be a seller.
+  const businessesQ = useCustomerBusinesses(userId, user?.email);
+  const { archetypes } = useServiceArchetypes(false);
+  const serviceLabel = (key: string | null) => archetypes.find((a) => a.key === key)?.label ?? "No service";
 
   // Support messages are service-role only; the admin endpoint returns the
   // latest 200 and this keeps the ones from this person (by account, or by
@@ -202,6 +210,36 @@ export default function AdminCustomer() {
           <Figure label="Awaiting payment" value={owed.length ? formatUSD(owedCents) : "—"} warn={owed.length > 0} />
           <Figure label="Purchases" value={String(sales.length)} />
         </section>
+
+        {/* What they run, if anything — owner or manager. */}
+        {(businessesQ.data?.length ?? 0) > 0 && (
+          <section className="rounded-radius-lg bg-card p-4">
+            <h2 className="mb-3 flex items-center gap-2 text-title font-semibold text-foreground">
+              <Store className="h-4 w-4 text-muted-foreground" /> Businesses
+            </h2>
+            <div className="space-y-1">
+              {businessesQ.data!.map((b) => (
+                <Link
+                  key={b.id}
+                  to={`/admin/marketplace/providers/${b.id}`}
+                  className="flex items-center gap-3 rounded-radius-md bg-inset p-3 transition-colors hover:bg-muted"
+                >
+                  <span aria-hidden className="h-10 w-10 shrink-0 overflow-hidden rounded-full">
+                    <Photo src={b.avatarUrl} label={initialsOf(b.name)} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-body font-semibold text-foreground">{b.name}</p>
+                    <p className="truncate text-meta text-muted-foreground">
+                      {b.role === "owner" ? "Owner" : "Manager"} · {serviceLabel(b.archetypeKey)}
+                    </p>
+                  </div>
+                  {b.status && <StatusPill status={b.status} className="shrink-0" />}
+                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Everything they bought, live first. */}
         <section className="rounded-radius-lg bg-card p-4">
