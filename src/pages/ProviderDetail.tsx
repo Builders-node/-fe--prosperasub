@@ -1,4 +1,5 @@
 import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
+import { DetailHeader } from "@/components/patterns/DetailHeader";
 import { cn } from "@/lib/utils";
 import { Breadcrumbs } from "@/components/patterns/Breadcrumbs";
 import { FavoriteButton } from "@/components/patterns/FavoriteButton";
@@ -12,7 +13,7 @@ import { archetypeFromSlug, planHref, serviceMetaFromSlug, serviceSlug } from "@
 import { Button } from "@/components/ui/button";
 import {
   SparklesIcon, Waves, Car,
-  MapPin, Phone, Mail, Clock, Star, ChevronLeft,
+  MapPin, Phone, Mail, Clock, Star,
   Store,
 } from "lucide-react";
 import { ShareButton } from "@/components/patterns/ShareButton";
@@ -213,29 +214,6 @@ const ProviderDetail = () => {
   const [tab, setTab] = useTabParam<TabKey>(["plans", "reviews", "gallery"]);
   // "Plans" for a service, "Vehicles" for a fleet — the same three tabs, named
   // after what the business sells (SERVICE_META.offeringsHeading).
-  /**
-   * Whether the bar has left the photograph behind.
-   *
-   * Measured off the window rather than an observer on the banner: the banner
-   * unmounts and remounts as the provider loads, and an observer attached to a
-   * node that disappears reports nothing for ever after.
-   */
-  const [pinned, setPinned] = useState(false);
-  useEffect(() => {
-    // Measured off the banner itself (when there is one), so whatever sits
-    // above it cannot leave the bar white over the white cards below.
-    const onScroll = () => {
-      const banner = document.querySelector("[data-detail-photo]");
-      // On a laptop the bar sits under the site header, so it turns solid
-      // that much later — when the photo has passed under the bar, not the
-      // top of the window.
-      const headerH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--desktop-header-h")) || 0;
-      setPinned(banner ? banner.getBoundingClientRect().bottom <= 56 + headerH : window.scrollY > 280 - 56);
-    };
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
   // The bell on the banner goes where the app's bell always goes.
   const { archetypeKey: serviceSegment, providerId } = useParams<{ archetypeKey: string; providerId: string }>();
   // `beach-club` and `entertainment` are the same service. Resolve to the
@@ -508,7 +486,6 @@ const ProviderDetail = () => {
   const hasBanner = true;
   // Opaque once the photo has scrolled past — or from the start when there is
   // no photo. Translucent glass over a white car was neither header nor photo.
-  const solid = pinned || !hasBanner;
 
   // A rental company's offerings are cars, so the strip reads the fleet: the
   // cheapest day rate, counted in cars. Everyone else reads their plans.
@@ -579,6 +556,29 @@ const ProviderDetail = () => {
       */}
       {/* Only a real photograph earns 280px. Without one the page opens on the
           ordinary bar — 280px of grey with a faint glyph is not a hero. */}
+      {/* The same header as the plan and car pages — one component, so the
+          three detail pages cannot drift apart again (this page had its own,
+          the only one of its kind). On a phone it floats on the banner and
+          turns solid once the photo has scrolled under it; on a laptop it is
+          the ordinary title bar under the site header. The bar names the
+          business; the card below says where it sits. */}
+      <DetailHeader
+        title={p.name}
+        centreLabel={serviceLabel}
+        onBack={goBack}
+        overPhoto={hasBanner}
+        rightAction={
+          <div className="flex items-center">
+            <FavoriteButton kind="provider" id={p.id} name={p.name} className="hover:bg-black/10 md:text-foreground" />
+            <ShareButton
+              title={p.name}
+              text={[serviceLabel, p.name].filter(Boolean).join(" · ")}
+              className="hover:bg-black/10 md:text-foreground"
+            />
+          </div>
+        }
+      />
+
       {/* Edge to edge on a phone; on a laptop the photograph sits in the page's
           column with every corner rounded — it used to run the full window
           while the cards under it stopped at 1280. */}
@@ -592,73 +592,6 @@ const ProviderDetail = () => {
           </div>
         </div>
       )}
-
-      {/*
-        The bar stays.
-        It is pulled back over the top of the banner and stuck to the viewport,
-        so scrolling never takes the way out with it — on a long list of plans
-        the back button was 900px above the fold. It sits OUTSIDE the banner
-        because `position: sticky` is bounded by the nearest clipping ancestor,
-        and the banner clips its own photograph.
-
-        Over the picture it is transparent and white, exactly as drawn; once the
-        picture has scrolled past it takes the card surface, because white on
-        white is not a header, it is a missing one.
-      */}
-      <div
-        // The bar itself spans the window — once it turns solid it reads as a
-        // header, not a 1280px strip floating over the page — and on a laptop
-        // sticks under the site header rather than over it.
-        className={`sticky top-0 z-40 h-[56px] transition-colors md:top-[var(--desktop-header-h,0px)] ${
-          hasBanner ? "-mt-[280px] mb-[224px]" : ""
-        } ${solid ? "bg-card" : ""}`}
-        style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
-      >
-        {/* Its controls keep to the page column, so over the photograph they
-            sit on the banner's corners (+8 inside them), not at the window's
-            edges. */}
-        <div className="relative flex h-full items-center justify-between px-2 md:app-container md:px-[clamp(24px,calc(4vw+8px),32px)]">
-        <button
-          type="button"
-          onClick={goBack}
-          aria-label="Back"
-          className={`flex h-10 w-10 items-center justify-center rounded-full transition-colors ${
-            solid ? "text-foreground hover:bg-muted" : "text-white hover:bg-white/15"
-          }`}
-        >
-          <ChevronLeft className="h-6 w-6" />
-        </button>
-
-        <span
-          className={`pointer-events-none absolute left-1/2 -translate-x-1/2 truncate px-14 text-[16px] font-semibold tracking-[-0.02em] ${
-            solid ? "text-foreground" : "text-white"
-          }`}
-        >
-          {/* The header names the SECTION, always — the page names the
-              business (PAGE_TYPES §3). */}
-          {serviceLabel}
-        </span>
-
-        {/* Same right-slot as every other detail page: a business's page is a
-            shop window, and the useful action on a shop window is handing its
-            link to someone. The bell that used to sit here made the identical
-            position mean "notifications" on this screen and "share" on the
-            plan and car screens. */}
-        <div className="flex items-center">
-          <FavoriteButton
-            kind="provider"
-            id={p.id}
-            name={p.name}
-            className={solid ? "text-foreground hover:bg-muted" : "text-white hover:bg-white/15"}
-          />
-          <ShareButton
-            title={p.name}
-            text={[serviceLabel, p.name].filter(Boolean).join(" · ")}
-            className={solid ? "text-foreground hover:bg-muted" : "text-white hover:bg-white/15"}
-          />
-        </div>
-        </div>
-      </div>
 
       <main className="app-container space-y-1 pb-8 pt-1 md:py-8">
         {/* ─── Who this is ─────────────────────────────────────────────────
