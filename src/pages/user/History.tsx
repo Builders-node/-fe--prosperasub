@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
-  SparklesIcon, UtensilsCrossed, Waves, LandPlot, Receipt, RefreshCw,
+  SparklesIcon, UtensilsCrossed, Waves, LandPlot, Receipt, RefreshCw, Store, CarFront,
 } from "lucide-react";
 import { format } from "date-fns";
 import { UserLayout } from "@/components/layout/UserLayout";
@@ -20,7 +20,7 @@ import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 
 // ─── Unified entry shape ────────────────────────────────────────────────────
-type ServiceKey = "cleaning" | "food" | "entertainment" | "court";
+type ServiceKey = "cleaning" | "food" | "entertainment" | "court" | "plan" | "cars";
 type EntryKind = "purchase" | "renewal";
 
 interface HistoryEntry {
@@ -43,6 +43,8 @@ const SERVICE_META: Record<ServiceKey, {
   food:          { label: "Food",          icon: UtensilsCrossed },
   entertainment: { label: "Entertainment", icon: Waves },
   court:         { label: "Court booking", icon: LandPlot },
+  plan:          { label: "Purchase",      icon: Store },
+  cars:          { label: "Car rental",    icon: CarFront },
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -63,47 +65,31 @@ function useUserHistory() {
       const ids = [userUuid, userData?.id].filter(Boolean) as string[];
       if (ids.length === 0) return [];
 
-      const [cleaning, food, beach, courts, renewals] = await Promise.all([
-        supabaseDb.from("cleaning_subscriptions")
-          .select("id,created_at,package_id,total_price_cents,monthly_price_cents,payment_method,payment_status")
-          .in("user_id", ids).order("created_at", { ascending: false }),
-        supabaseDb.from("food_subscriptions")
-          .select("id,created_at,meal_plan_id,weekly_price_cents,payment_method,payment_status")
-          .in("user_id", ids).order("created_at", { ascending: false }),
-        supabaseDb.from("provider_subscriptions")
-          .select("id,created_at,plan_id,payment_method,payment_status,total_cents:price_cents")
-          .eq("source_service_key", "beach")
+      // Every purchase, whatever the service, from the one read model
+      // (subscriptions_unified) — it already carries the plan's name and the
+      // FULL committed value. Reading the three tables apart showed a meal
+      // plan's weekly price as what was paid, and left universal purchases
+      // (a dive course, any new service) out of the history altogether.
+      const [orders, courts, renewals] = await Promise.all([
+        supabaseDb.from("subscriptions_unified")
+          .select("id,service,created_at,plan_name,price_cents,payment_method,payment_status")
           .in("user_id", ids).order("created_at", { ascending: false }),
         // Bookings live in the engine's own table, which the browser cannot
         // read — it is service-role only. The legacy court table this used to
         // ask has been empty since the cutover, so a member who books a court
         // every week has been looking at a history with no courts in it.
         accountApi("/booking/mine?limit=200"),
-        // Every server-recorded renewal (food + cleaning + beach). Populated by
-        // the new SubscriptionRenewalService — one row per verified extension.
+        // Every server-recorded renewal (food + cleaning + beach + balance).
         supabaseDb.from("subscription_renewals")
           .select("id,created_at,service,subscription_id,previous_end,new_start,new_end,amount_cents,payment_method,payment_reference")
           .in("renewed_by_user", ids).order("created_at", { ascending: false }),
       ]);
+      if (orders.error) throw orders.error;
 
-      // Resolve item names — one round-trip per legacy item table for whatever
-      // ids actually showed up. Empty ids skip the query.
-      const [pkgs, meals, plans, courtRows] = await Promise.all([
-        idsFrom(cleaning.data, "package_id").length
-          ? supabaseDb.from("cleaning_packages").select("id,name").in("id", idsFrom(cleaning.data, "package_id"))
-          : Promise.resolve({ data: [] as any[] }),
-        idsFrom(food.data, "meal_plan_id").length
-          ? supabaseDb.from("food_meal_plans").select("id,name").in("id", idsFrom(food.data, "meal_plan_id"))
-          : Promise.resolve({ data: [] as any[] }),
-        idsFrom(beach.data, "plan_id").length
-          ? supabaseDb.from("beach_club_plans").select("id,name").in("id", idsFrom(beach.data, "plan_id"))
-          : Promise.resolve({ data: [] as any[] }),
-        // The engine already answers with the calendar's name.
-        Promise.resolve({ data: [] as any[] }),
-      ]);
-
-      const nameOf = (rows: any[] | null | undefined, id: string, fallback: string) =>
-        rows?.find((r) => r.id === id)?.name ?? fallback;
+      const serviceOf = (svc: string): ServiceKey =>
+        svc === "beach" ? "entertainment"
+          : svc === "food" || svc === "cleaning" || svc === "cars" ? svc
+          : "plan";
 
       // Map SubscriptionRenewalService's service tag to our History service key.
       // `beach` on the backend renders under "entertainment" in the UI to match
@@ -112,43 +98,25 @@ function useUserHistory() {
         if (svc === "beach") return "entertainment";
         if (svc === "food") return "food";
         if (svc === "cleaning") return "cleaning";
+        if (svc === "plan") return "plan";
         return "court";
       };
 
       const entries: HistoryEntry[] = [
-        ...(cleaning.data ?? []).map((r: any): HistoryEntry => ({
-          id: `cleaning:${r.id}`,
-          createdAt: r.created_at,
-          kind: "purchase",
-          service: "cleaning",
-          serviceLabel: SERVICE_META.cleaning.label,
-          subtitle: nameOf(pkgs.data, r.package_id, "Cleaning package"),
-          amountCents: r.total_price_cents ?? r.monthly_price_cents ?? null,
-          paymentMethod: r.payment_method,
-          paymentStatus: r.payment_status,
-        })),
-        ...(food.data ?? []).map((r: any): HistoryEntry => ({
-          id: `food:${r.id}`,
-          createdAt: r.created_at,
-          kind: "purchase",
-          service: "food",
-          serviceLabel: SERVICE_META.food.label,
-          subtitle: nameOf(meals.data, r.meal_plan_id, "Meal plan"),
-          amountCents: r.weekly_price_cents ?? null,
-          paymentMethod: r.payment_method,
-          paymentStatus: r.payment_status,
-        })),
-        ...(beach.data ?? []).map((r: any): HistoryEntry => ({
-          id: `beach:${r.id}`,
-          createdAt: r.created_at,
-          kind: "purchase",
-          service: "entertainment",
-          serviceLabel: SERVICE_META.entertainment.label,
-          subtitle: nameOf(plans.data, r.plan_id, "Beach Club plan"),
-          amountCents: r.total_cents ?? null,
-          paymentMethod: r.payment_method,
-          paymentStatus: r.payment_status,
-        })),
+        ...(orders.data ?? []).map((r: any): HistoryEntry => {
+          const service = serviceOf(String(r.service));
+          return {
+            id: `${r.service}:${r.id}`,
+            createdAt: r.created_at,
+            kind: "purchase",
+            service,
+            serviceLabel: SERVICE_META[service].label,
+            subtitle: r.plan_name ?? SERVICE_META[service].label,
+            amountCents: r.price_cents ?? null,
+            paymentMethod: r.payment_method,
+            paymentStatus: r.payment_status,
+          };
+        }),
         ...((courts.data ?? []) as any[]).map((r: any): HistoryEntry => ({
           id: `court:${r.id}`,
           // What a booking IS, is when it is — the moment it was created is
@@ -184,11 +152,6 @@ function useUserHistory() {
       return entries;
     },
   });
-}
-
-// Small helper — pull a column across a rowset, filter out empties.
-function idsFrom(rows: any[] | null | undefined, col: string): string[] {
-  return [...new Set((rows ?? []).map((r) => r[col]).filter(Boolean))] as string[];
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

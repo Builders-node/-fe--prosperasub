@@ -74,57 +74,20 @@ export function ProviderReviewsBlock({ providerId, service, ownerUserId, placeho
     enabled: !!providerId,
   });
 
-  // Only actual customers can leave a review. We check the legacy per-service
-  // subscription table for a row owned by this user against this universal
-  // provider. Path is service-specific because the legacy tables aren't linked
-  // to universal providers.id directly — we use the owner_provider_id bridge
-  // I added earlier (cleaning_packages/beach_club_plans).
+  // Only actual customers can leave a review: anyone with an order from this
+  // business, whatever the service. subscriptions_unified carries the
+  // UNIVERSAL provider id on every row (cleaning, food, beach, plans, cars),
+  // so this is one query — it used to be four, each hopping through a legacy
+  // id-space to find the business.
   const { data: isCustomer = false } = useQuery({
-    queryKey: ["provider-reviews-is-customer", service, providerId, uuid, userData?.id],
+    queryKey: ["provider-reviews-is-customer", providerId, uuid, userData?.id],
     enabled: !!providerId && (!!uuid || !!userData?.id),
     queryFn: async () => {
       const ids = [uuid, userData?.id].filter(Boolean) as string[];
       if (!ids.length) return false;
-
-      if (service === "cleaning") {
-        // cleaning_subscriptions → cleaning_packages.owner_provider_id
-        const { data: pkgs } = await supabaseDb.from("cleaning_packages")
-          .select("id").eq("owner_provider_id", providerId);
-        const pkgIds = (pkgs ?? []).map((p: any) => p.id);
-        if (!pkgIds.length) return false;
-        const { data } = await supabaseDb.from("cleaning_subscriptions")
-          .select("id").in("user_id", ids).in("package_id", pkgIds).limit(1);
-        return (data?.length ?? 0) > 0;
-      }
-      if (service === "beach" || service === "plan") {
-        // A membership (beach) or a universal-plan subscription is a row in
-        // provider_subscriptions against this universal provider, so "did this
-        // customer buy from this business" is one query — no hop through legacy
-        // plans to find the owner.
-        const { data } = await supabaseDb.from("provider_subscriptions")
-          .select("id").eq("provider_id", providerId).in("user_id", ids).limit(1);
-        return (data?.length ?? 0) > 0;
-      }
-      if (service === "cars") {
-        // A rental is booked, not subscribed: the customer's proof is a
-        // booking against this business.
-        const { data } = await supabaseDb.from("rental_bookings")
-          .select("id").eq("provider_id", providerId).in("user_id", ids).limit(1);
-        return (data?.length ?? 0) > 0;
-      }
-      if (service === "food") {
-        // food_subscriptions is keyed by the LEGACY food provider id, so bridge
-        // the universal providers.id back to it first (the mirror of what
-        // FoodReviews does going the other way).
-        const { data: prov } = await supabaseDb.from("providers")
-          .select("source_provider_id").eq("id", providerId).maybeSingle();
-        const legacyId = (prov as { source_provider_id?: string } | null)?.source_provider_id;
-        if (!legacyId) return false;
-        const { data } = await supabaseDb.from("food_subscriptions")
-          .select("id").eq("provider_id", legacyId).in("user_id", ids).limit(1);
-        return (data?.length ?? 0) > 0;
-      }
-      return false;
+      const { data } = await supabaseDb.from("subscriptions_unified")
+        .select("id").eq("provider_id", providerId).in("user_id", ids).limit(1);
+      return (data?.length ?? 0) > 0;
     },
   });
 

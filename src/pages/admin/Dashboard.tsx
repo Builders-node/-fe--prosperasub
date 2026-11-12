@@ -18,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { approvePayment, type ApproveService } from "@/lib/subscriptionApprove";
 import { cn } from "@/lib/utils";
-import { fetchUsersByIds, fetchClientNames, customerNameFrom } from "@/lib/admin/customerNames";
+import { fetchUsersByIds, customerNameFrom } from "@/lib/admin/customerNames";
 import { formatUSD } from "@/lib/pricing";
 import { QueryError } from "@/components/patterns/QueryError";
 import { YdSectionHeading } from "@/components/yd/YdPrimitives";
@@ -75,6 +75,7 @@ interface UnifiedSubRow {
   service: string;
   provider_id?: string | null;
   user_id: string | null;
+  customer_name?: string | null;
   price_cents: number | null;
   paid?: boolean;
   payment_status?: string | null;
@@ -85,54 +86,20 @@ interface UnifiedSubRow {
 }
 
 /**
- * Customer names for unified rows. The view carries only `user_id`; the human
- * name may live on the users row, on food's own `customer_name`, on cleaning's
- * client record, or in the universal row's metadata — one batched lookup per
- * shape, then one resolver for every row.
+ * Customer names for unified rows: the account's name, else the name written
+ * on the order (food, beach, cars and walk-ins carry one — the view exposes it
+ * as `customer_name`). It used to be four lookups into four tables, one per
+ * service's idea of where a name lives.
  */
 async function unifiedNames(rows: UnifiedSubRow[]): Promise<(r: UnifiedSubRow) => string> {
-  const idsOf = (...services: string[]) =>
-    rows.filter((r) => services.includes(r.service)).map((r) => r.id);
-  const foodIds = idsOf("food");
-  const cleaningIds = idsOf("cleaning");
-  const universalIds = idsOf("beach", "plan");
-  const carIds = idsOf("cars");
-
-  const [userMap, food, cleaning, universal, cars] = await Promise.all([
-    // fetchUsersByIds drops ids that `users.id` (a uuid column) can't hold.
-    // One Google-sub id in the batch made PostgREST reject the whole query
-    // with 22P02, emptying the map and turning every name into a fallback.
-    fetchUsersByIds(rows.map((r) => r.user_id).filter(Boolean) as string[]),
-    foodIds.length
-      ? supabaseDb.from("food_subscriptions").select("id, customer_name").in("id", foodIds)
-      : Promise.resolve({ data: [] as any[] }),
-    cleaningIds.length
-      ? supabaseDb.from("cleaning_subscriptions").select("id, client_id").in("id", cleaningIds)
-      : Promise.resolve({ data: [] as any[] }),
-    universalIds.length
-      ? supabaseDb.from("provider_subscriptions").select("id, customer_name:metadata->>customer_name").in("id", universalIds)
-      : Promise.resolve({ data: [] as any[] }),
-    carIds.length
-      ? supabaseDb.from("rental_bookings").select("id, customer_name").in("id", carIds)
-      : Promise.resolve({ data: [] as any[] }),
-  ]);
-
-  const clientMap = await fetchClientNames(((cleaning.data ?? []) as any[]).map((r) => r.client_id));
-  const byId = new Map<string, { customerName?: string | null; clientId?: string | null }>();
-  ((food.data ?? []) as any[]).forEach((r) => byId.set(String(r.id), { customerName: r.customer_name }));
-  ((cleaning.data ?? []) as any[]).forEach((r) => byId.set(String(r.id), { clientId: r.client_id }));
-  ((universal.data ?? []) as any[]).forEach((r) => byId.set(String(r.id), { customerName: r.customer_name }));
-  ((cars.data ?? []) as any[]).forEach((r) => byId.set(String(r.id), { customerName: r.customer_name }));
-
-  return (r) => {
-    const extra = byId.get(String(r.id)) ?? {};
-    return customerNameFrom({
-      user: r.user_id ? userMap.get(String(r.user_id)) : null,
-      customerName: extra.customerName,
-      clientName: extra.clientId ? clientMap.get(String(extra.clientId)) : null,
-      fallback: "Customer",
-    });
-  };
+  // fetchUsersByIds drops ids that `users.id` (a uuid column) can't hold.
+  const userMap = await fetchUsersByIds(rows.map((r) => r.user_id).filter(Boolean) as string[]);
+  return (r) => customerNameFrom({
+    user: r.user_id ? userMap.get(String(r.user_id)) : null,
+    customerName: r.customer_name ?? null,
+    clientName: null,
+    fallback: "Customer",
+  });
 }
 
 const AdminDashboard = () => {
@@ -186,7 +153,7 @@ const AdminDashboard = () => {
       // person who approves payments could not see it existed.
       const { data, error } = await supabaseDb
         .from("subscriptions_unified")
-        .select("id, service, provider_id, user_id, price_cents, payment_status, status, created_at, payment_method, payment_reference")
+        .select("id, service, provider_id, user_id, customer_name, price_cents, payment_status, status, created_at, payment_method, payment_reference")
         .neq("payment_status", "paid").neq("payment_status", "refunded")
         .not("status", "in", "(cancelled,expired)")
         .order("created_at", { ascending: false })
@@ -287,7 +254,7 @@ const AdminDashboard = () => {
       // only place that sentence is true.
       const { data, error } = await supabaseDb
         .from("subscriptions_unified")
-        .select("id, service, provider_id, user_id, price_cents, paid, created_at")
+        .select("id, service, provider_id, user_id, customer_name, price_cents, paid, created_at")
         .order("created_at", { ascending: false })
         .limit(8);
       if (error) throw error;
