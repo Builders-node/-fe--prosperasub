@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useCategoryHighlights, type CategoryHighlight } from "@/hooks/useCategoryHighlights";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
@@ -167,14 +168,11 @@ export function CategoryCarousel({ family }: {
         A carousel earns its place on a phone, where one card is all that
         fits. On a desktop it was one rotating card in a page of empty space —
         hiding the other categories behind a timer while showing nothing else.
-        Same slides, laid out as a grid: everything visible at once, nothing
-        to wait for. The carousel below keeps the phones.
+        Same slides in ONE row (two rows of banners took the whole first
+        screen): four across, the rest a scroll or an arrow away. The
+        carousel below keeps the phones.
       */}
-      {count > 1 && (
-        <section aria-label="Browse by category" className="hidden gap-2 md:grid md:grid-cols-3">
-          {highlights.map((h) => <Slide key={h.key} item={h} />)}
-        </section>
-      )}
+      {count > 1 && <DesktopRow items={highlights} />}
     <section
       aria-roledescription="carousel"
       aria-label="Browse by category"
@@ -207,5 +205,59 @@ export function CategoryCarousel({ family }: {
 
     </section>
     </>
+  );
+}
+
+/** Desktop: one row of slides, four across (three on a tablet), scrolled by arrows. */
+function DesktopRow({ items }: { items: CategoryHighlight[] }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [edges, setEdges] = useState({ start: true, end: true });
+  const measure = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    setEdges({ start: el.scrollLeft <= 4, end: el.scrollLeft + el.clientWidth >= el.scrollWidth - 4 });
+  }, []);
+  useEffect(() => {
+    measure();
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [measure, items.length]);
+  const page = (dir: 1 | -1) => ref.current?.scrollBy({ left: dir * ref.current.clientWidth, behavior: "smooth" });
+
+  return (
+    <section aria-label="Browse by category" className="relative hidden md:block">
+      <div
+        ref={ref}
+        onScroll={measure}
+        className="flex snap-x snap-mandatory gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
+        {items.map((h) => (
+          <div key={h.key} className="w-[calc((100%-16px)/3)] shrink-0 snap-start lg:w-[calc((100%-24px)/4)]">
+            <Slide item={h} />
+          </div>
+        ))}
+      </div>
+      {!edges.start && <RowArrow dir={-1} onClick={() => page(-1)} />}
+      {!edges.end && <RowArrow dir={1} onClick={() => page(1)} />}
+    </section>
+  );
+}
+
+function RowArrow({ dir, onClick }: { dir: 1 | -1; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={dir === 1 ? "More categories" : "Previous categories"}
+      className={cn(
+        "absolute top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-card text-foreground shadow-figma transition-colors hover:bg-muted",
+        dir === 1 ? "-right-3" : "-left-3",
+      )}
+    >
+      {dir === 1 ? <ChevronRight className="h-6 w-6" /> : <ChevronLeft className="h-6 w-6" />}
+    </button>
   );
 }
