@@ -7,10 +7,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useUserUuid } from "@/hooks/useUserUuid";
 import { useFavorites } from "@/lib/favorites/useFavorites";
 import { useRecentlyViewed } from "@/lib/recentlyViewed";
-import { Photo, initialsOf } from "@/components/patterns/Photo";
 import { formatDateHN, todayHN } from "@/lib/timezone";
 import { cn } from "@/lib/utils";
-import { PlanRail, ShelfHeader, planIndex, useHomePlans, type HomePlan } from "@/components/discovery/homePlans";
+import { OfferCard, PlanRail, RAIL_TILE, Rail, ShelfHeader, planIndex, planPhotos, useHomePlans, type HomePlan } from "@/components/discovery/homePlans";
 
 /**
  * The part of the home page that is about the person looking at it:
@@ -28,10 +27,10 @@ const SOON_DAYS = 5;
 const MAX_SUBS = 8;
 
 interface Sub {
-  id: string; service: string; provider_id: string | null; plan_name: string | null;
+  id: string; service: string; provider_id: string | null; plan_id: string | null; plan_name: string | null;
   status: string; ends_on: string | null;
 }
-interface Prov { id: string; name: string; avatar_url: string | null }
+interface Prov { id: string; name: string; banner_url: string | null; gallery_urls: unknown }
 
 function useMyRunningSubs() {
   const { userData, isAuthenticated } = useAuth();
@@ -44,7 +43,7 @@ function useMyRunningSubs() {
     queryFn: async () => {
       const { data, error } = await supabaseDb
         .from("subscriptions_unified")
-        .select("id, service, provider_id, plan_name, status, ends_on")
+        .select("id, service, provider_id, plan_id, plan_name, status, ends_on")
         .in("user_id", ids)
         .eq("status", "active")
         .order("ends_on", { ascending: true, nullsFirst: false })
@@ -53,7 +52,7 @@ function useMyRunningSubs() {
       const subs = (data ?? []) as Sub[];
       const provIds = [...new Set(subs.map((s) => s.provider_id).filter((x): x is string => !!x))];
       const { data: provs } = provIds.length
-        ? await supabaseDb.from("providers").select("id, name, avatar_url").in("id", provIds)
+        ? await supabaseDb.from("providers").select("id, name, banner_url, gallery_urls").in("id", provIds)
         : { data: [] };
       const byId = new Map(((provs ?? []) as Prov[]).map((p) => [p.id, p]));
       return subs.map((s) => ({ ...s, provider: s.provider_id ? byId.get(s.provider_id) ?? null : null }));
@@ -91,9 +90,9 @@ export function ForYouSection() {
             title="Your subscriptions"
             action={<Link to="/my-subscriptions" className="shrink-0 text-[14px] font-semibold text-primary">See all</Link>}
           />
-          <div className="-mx-space-4 flex gap-2 overflow-x-auto px-space-4 pb-1 [scrollbar-width:none] md:mx-0 md:grid md:grid-cols-3 md:overflow-visible md:px-0 [&::-webkit-scrollbar]:hidden">
-            {running.map((s) => <SubCard key={`${s.service}-${s.id}`} sub={s} />)}
-          </div>
+          <Rail>
+            {running.map((s) => <SubCard key={`${s.service}-${s.id}`} sub={s} plan={s.plan_id ? index.get(String(s.plan_id)) ?? null : null} />)}
+          </Rail>
         </section>
       )}
 
@@ -117,7 +116,7 @@ export function ForYouSection() {
   );
 }
 
-function SubCard({ sub }: { sub: Sub & { provider: Prov | null } }) {
+function SubCard({ sub, plan }: { sub: Sub & { provider: Prov | null }; plan: HomePlan | null }) {
   const daysLeft = sub.ends_on ? differenceInCalendarDays(parseISO(sub.ends_on), parseISO(todayHN())) : null;
   const soon = daysLeft !== null && daysLeft <= SOON_DAYS;
   const line = daysLeft === null
@@ -126,23 +125,21 @@ function SubCard({ sub }: { sub: Sub & { provider: Prov | null } }) {
       : daysLeft === 1 ? "Ends tomorrow"
         : soon ? `Ends in ${daysLeft} days` : `Active · until ${formatDateHN(sub.ends_on!)}`;
 
+  // The same card as any plan on this page — it IS one of those plans, just
+  // one this person already pays for — with how long it runs where the price
+  // would be.
   return (
-    <Link
-      to="/my-subscriptions"
-      className="flex w-[260px] shrink-0 items-center gap-3 rounded-radius-md bg-card p-3 shadow-figma transition-colors active:scale-[0.99] hover:bg-muted/40 md:w-auto"
-    >
-      <span aria-hidden className="h-11 w-11 shrink-0 overflow-hidden rounded-full">
-        <Photo src={sub.provider?.avatar_url} label={initialsOf(sub.provider?.name ?? sub.plan_name)} />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-[15px] font-semibold leading-[20px] text-foreground">
-          {sub.plan_name ?? "Subscription"}
-        </span>
-        <span className="block truncate text-meta text-muted-foreground">{sub.provider?.name ?? ""}</span>
-        <span className={cn("block truncate text-meta", soon ? "font-semibold text-primary" : "text-muted-foreground")}>
+    <OfferCard
+      href="/my-subscriptions"
+      photos={planPhotos(plan, sub.provider)}
+      title={sub.plan_name ?? plan?.name ?? "Subscription"}
+      subtitle={sub.provider?.name ?? plan?.provider?.name}
+      footer={
+        <p className={cn("text-[14px] leading-[20px]", soon ? "font-semibold text-primary" : "text-muted-foreground")}>
           {line}{soon ? " · Renew" : ""}
-        </span>
-      </span>
-    </Link>
+        </p>
+      }
+      className={RAIL_TILE}
+    />
   );
 }

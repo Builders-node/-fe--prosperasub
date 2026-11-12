@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { forwardRef, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabaseDb } from "@/integrations/supabase/client";
@@ -96,20 +96,48 @@ export function interleaveByProvider(plans: HomePlan[]): HomePlan[] {
   return out;
 }
 
-export function PlanTile({ plan, className }: { plan: HomePlan; className?: string }) {
-  const provider = plan.provider!;
-  // The plan's own photograph first; the business's only as a fallback.
-  const own = urls(plan.gallery_urls);
-  const images = own.length ? own : [...urls(provider.gallery_urls), provider.banner_url].filter((u): u is string => !!u);
-  const noun = periodNoun(plan.period);
-  const hasPrice = typeof plan.price_cents === "number" && plan.price_cents > 0;
-  // Same link the provider's own list uses: the original id where the row
-  // mirrors a legacy plan, so there is one address per product.
-  const href = planHref(provider.archetype_key!, plan.source_plan_id ? String(plan.source_plan_id) : plan.id);
+/** The photos a plan card shows: its own first, the business's as a fallback. */
+export function planPhotos(plan: HomePlan | null | undefined, provider?: { gallery_urls?: unknown; banner_url?: string | null } | null): string[] {
+  const own = urls(plan?.gallery_urls);
+  if (own.length) return own;
+  const p = provider ?? plan?.provider ?? null;
+  return [...urls(p?.gallery_urls), p?.banner_url].filter((u): u is string => !!u);
+}
 
+/** "$75.00 / person · month" — the price line every plan card ends on. */
+export function PriceLine({ cents, period, perPerson = false }: { cents: number | null; period: string | null; perPerson?: boolean }) {
+  if (typeof cents !== "number" || cents <= 0) return null;
+  const noun = periodNoun(period);
+  return (
+    <p className="text-[14px] font-semibold leading-[20px] text-foreground">
+      {formatUSD(cents)}
+      {noun && <span className="font-normal text-muted-foreground">{perPerson ? ` / person · ${noun}` : ` / ${noun}`}</span>}
+    </p>
+  );
+}
+
+/**
+ * THE card for an offer on the home page — a plan for sale, a plan someone
+ * saved, a plan someone already pays for, a plan a business paid to feature.
+ * They are the same thing to the customer, so they are one shape: photo,
+ * name, business, and a last line that says what matters HERE (the price, or
+ * how long the subscription runs). A badge marks a paid placement.
+ */
+export const OfferCard = forwardRef<HTMLAnchorElement, {
+  href: string;
+  photos: string[];
+  title: string;
+  subtitle?: string | null;
+  footer?: ReactNode;
+  badge?: string;
+  className?: string;
+  onClick?: () => void;
+}>(function OfferCard({ href, photos, title, subtitle, footer, badge, className, onClick }, ref) {
   return (
     <Link
+      ref={ref}
       to={href}
+      onClick={onClick}
       className={cn(
         "flex flex-col overflow-hidden rounded-radius-md bg-card shadow-figma transition-colors active:scale-[0.98] hover:bg-muted/40",
         className,
@@ -117,22 +145,37 @@ export function PlanTile({ plan, className }: { plan: HomePlan; className?: stri
     >
       {/* The frame owns the size: the photo is pinned inside it and cropped,
           so a tall picture can never stretch its card past the others. */}
-      <PhotoSlider photos={images} className="aspect-[4/3] w-full shrink-0 bg-muted" />
-      <div className="flex flex-1 flex-col gap-1 p-3 tracking-[-0.02em]">
-        <p className="line-clamp-2 text-[15px] font-semibold leading-[20px] text-foreground">{plan.name}</p>
-        <p className="line-clamp-1 text-[13px] leading-[18px] text-muted-foreground">{provider.name}</p>
-        {hasPrice && (
-          <p className="mt-auto pt-1 text-[14px] font-semibold leading-[20px] text-foreground">
-            {formatUSD(plan.price_cents!)}
-            {noun && (
-              <span className="font-normal text-muted-foreground">
-                {plan.pricing_mode === "per_person" ? ` / person · ${noun}` : ` / ${noun}`}
-              </span>
-            )}
-          </p>
+      <div className="relative aspect-[4/3] w-full shrink-0">
+        <PhotoSlider photos={photos} className="h-full w-full bg-muted" />
+        {badge && (
+          <span className="absolute left-2 top-2 rounded-full bg-black/55 px-2 py-0.5 text-meta font-semibold text-white backdrop-blur">
+            {badge}
+          </span>
         )}
       </div>
+      <div className="flex flex-1 flex-col gap-1 p-3 tracking-[-0.02em]">
+        <p className="line-clamp-2 text-[15px] font-semibold leading-[20px] text-foreground">{title}</p>
+        {subtitle && <p className="line-clamp-1 text-[13px] leading-[18px] text-muted-foreground">{subtitle}</p>}
+        {footer && <div className="mt-auto pt-1">{footer}</div>}
+      </div>
     </Link>
+  );
+});
+
+export function PlanTile({ plan, className }: { plan: HomePlan; className?: string }) {
+  const provider = plan.provider!;
+  // Same link the provider's own list uses: the original id where the row
+  // mirrors a legacy plan, so there is one address per product.
+  const href = planHref(provider.archetype_key!, plan.source_plan_id ? String(plan.source_plan_id) : plan.id);
+  return (
+    <OfferCard
+      href={href}
+      photos={planPhotos(plan)}
+      title={plan.name}
+      subtitle={provider.name}
+      footer={<PriceLine cents={plan.price_cents} period={plan.period} perPerson={plan.pricing_mode === "per_person"} />}
+      className={className}
+    />
   );
 }
 
@@ -149,17 +192,27 @@ export function ShelfHeader({ title, subtitle, action }: { title: string; subtit
   );
 }
 
+/** Width of one card inside a Rail: two and a bit on a phone, four across on a laptop. */
+export const RAIL_TILE = "w-[44%] shrink-0 snap-start sm:w-[30%] md:w-auto";
+
 /**
- * A row of plan cards: swipes sideways on a phone (two and a bit visible, so
+ * A row of offer cards: swipes sideways on a phone (two and a bit visible, so
  * it reads as "there is more"), four across on a laptop.
  */
-export function PlanRail({ plans, loading = false }: { plans: HomePlan[]; loading?: boolean }) {
-  const tile = "w-[44%] shrink-0 snap-start sm:w-[30%] md:w-auto";
+export function Rail({ children }: { children: ReactNode }) {
   return (
     <div className="-mx-space-4 flex snap-x snap-mandatory gap-2 overflow-x-auto px-space-4 pb-1 [scrollbar-width:none] md:mx-0 md:grid md:grid-cols-4 md:overflow-visible md:px-0 [&::-webkit-scrollbar]:hidden">
-      {loading
-        ? [0, 1, 2, 3].map((i) => <Skeleton key={i} className={cn("h-[220px]", tile)} />)
-        : plans.map((p) => <PlanTile key={p.id} plan={p} className={tile} />)}
+      {children}
     </div>
+  );
+}
+
+export function PlanRail({ plans, loading = false }: { plans: HomePlan[]; loading?: boolean }) {
+  return (
+    <Rail>
+      {loading
+        ? [0, 1, 2, 3].map((i) => <Skeleton key={i} className={cn("h-[220px]", RAIL_TILE)} />)
+        : plans.map((p) => <PlanTile key={p.id} plan={p} className={RAIL_TILE} />)}
+    </Rail>
   );
 }
