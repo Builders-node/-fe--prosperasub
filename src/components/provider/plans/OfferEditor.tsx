@@ -19,6 +19,7 @@ import { readEntitlements, serializeEntitlements, type Entitlement } from "@/lib
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { TagPicker } from "@/components/provider/plans/TagPicker";
+import { etaText, useDeliveryZones, type DeliveryMode } from "@/lib/delivery/zones";
 
 /**
  * One plan, with its prices inside it.
@@ -75,6 +76,10 @@ interface PlanRow {
   excludes: unknown;
   tags: string[] | null;
   gallery_urls: string[] | null;
+  /** Delivery (migration 20261124120000) — absent before it. */
+  delivery_mode?: string | null;
+  delivery_zone_ids?: string[] | null;
+  delivery_fee_cents?: number | null;
 }
 
 
@@ -223,6 +228,13 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
   });
   const [includes, setIncludes] = useState({ features: "", excludes: "", tags: "" });
   /**
+   * Delivery by the platform's couriers: off, delivery only, or the customer
+   * chooses pickup or delivery. `zoneIds` null = every zone; `fee` empty = each
+   * zone's own price. Only for offers sold through the universal checkout.
+   */
+  const [deliv, setDeliv] = useState<{ mode: DeliveryMode; zoneIds: string[] | null; fee: string }>({ mode: "off", zoneIds: null, fee: "" });
+  const zonesQ = useDeliveryZones();
+  /**
    * The plan's own photographs.
    *
    * They live on `provider_plans.gallery_urls` whatever service sells the
@@ -318,6 +330,11 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
       rescheduleWindow: offer.reschedule_window_days != null ? String(offer.reschedule_window_days) : "",
     });
     setGallery(Array.isArray(offer.gallery_urls) ? offer.gallery_urls.filter(Boolean) : []);
+    setDeliv({
+      mode: offer.delivery_mode === "delivery" || offer.delivery_mode === "both" ? offer.delivery_mode : "off",
+      zoneIds: offer.delivery_zone_ids ?? null,
+      fee: offer.delivery_fee_cents != null ? (offer.delivery_fee_cents / 100).toFixed(2) : "",
+    });
 
     // An "hour" line is the court allowance; everything else belongs to
     // whoever wrote it and is written back untouched.
@@ -471,6 +488,17 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
         updated_at: new Date().toISOString(),
       }).eq("id", o.id);
       if (switchErr) throw switchErr;
+
+      // 1c. Delivery — its own write, so a database without the delivery
+      //     migration still saves everything else.
+      if (!o.source_service_key) {
+        const { error: delivErr } = await supabaseDb.from("provider_plans").update({
+          delivery_mode: deliv.mode,
+          delivery_zone_ids: deliv.zoneIds && deliv.zoneIds.length ? deliv.zoneIds : null,
+          delivery_fee_cents: deliv.fee.trim() === "" ? null : Math.max(0, Math.round(Number(deliv.fee) * 100)),
+        }).eq("id", o.id);
+        if (delivErr && !/delivery_|does not exist|schema cache/i.test(delivErr.message)) throw delivErr;
+      }
 
       // No second write: a food / cleaning / beach plan's legacy row is kept
       // in step by the provider_plans_mirror_to_legacy trigger — attributes,
@@ -889,6 +917,59 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
                   <Input inputSize="sm" inputMode="numeric" value={sold.windowMinutes} placeholder="120"
                     onChange={(e) => setSold((v) => ({ ...v, windowMinutes: e.target.value }))} />
                 </Field>
+              </MoreGroup>
+            )}
+
+            {/* Delivery by platform couriers — offers sold through the universal
+                checkout only (a food or cleaning plan delivers its own way). */}
+            {!offer?.source_service_key && (
+              <MoreGroup title="Delivery">
+                <Field
+                  label="How the customer gets it"
+                  hint={deliv.mode === "off"
+                    ? "Not delivered — e.g. a membership, a class, a visit to you."
+                    : "Our couriers bring it. The price and time come from the delivery zones; the fee is the platform's."}
+                >
+                  <select value={deliv.mode} onChange={(e) => setDeliv((v) => ({ ...v, mode: e.target.value as DeliveryMode }))}
+                    className={fieldClass}>
+                    <option value="off">Not delivered</option>
+                    <option value="delivery">Delivered</option>
+                    <option value="both">Pickup or delivery</option>
+                  </select>
+                </Field>
+                {deliv.mode !== "off" && (
+                  <>
+                    <Field label="Delivered to" hint={(zonesQ.data ?? []).length ? "Every zone, or only the ones you pick." : "No delivery zones yet — EverySub draws them in Admin → Delivery."}>
+                      <div className="flex flex-wrap gap-2">
+                        <button type="button" onClick={() => setDeliv((v) => ({ ...v, zoneIds: null }))}
+                          className={cn("h-8 rounded-full px-3 text-[13px] font-semibold transition-colors",
+                            deliv.zoneIds === null ? "bg-foreground text-background" : "bg-inset text-muted-foreground hover:text-foreground")}>
+                          All zones
+                        </button>
+                        {(zonesQ.data ?? []).map((z) => {
+                          const on = deliv.zoneIds?.includes(z.id) ?? false;
+                          return (
+                            <button key={z.id} type="button"
+                              title={[z.fee_cents ? formatUSD(z.fee_cents) : "Free", etaText(z.eta_min_minutes, z.eta_max_minutes)].filter(Boolean).join(" · ")}
+                              onClick={() => setDeliv((v) => {
+                                const cur = v.zoneIds ?? [];
+                                const next = on ? cur.filter((id) => id !== z.id) : [...cur, z.id];
+                                return { ...v, zoneIds: next.length ? next : null };
+                              })}
+                              className={cn("h-8 rounded-full px-3 text-[13px] font-semibold transition-colors",
+                                on ? "bg-foreground text-background" : "bg-inset text-muted-foreground hover:text-foreground")}>
+                              {z.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </Field>
+                    <Field label="Delivery fee for this offer ($)" hint="Empty = each zone's own price. Use it for something heavy or bulky.">
+                      <Input inputSize="sm" inputMode="decimal" value={deliv.fee} placeholder="Zone price"
+                        onChange={(e) => setDeliv((v) => ({ ...v, fee: e.target.value }))} />
+                    </Field>
+                  </>
+                )}
               </MoreGroup>
             )}
 

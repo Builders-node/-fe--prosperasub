@@ -18,6 +18,7 @@ const plan = (over: Partial<CheckoutPlan> = {}): CheckoutPlan => ({
   pricingMode: "flat", fulfilment: "none", oneTime: false,
   selection: null, needsAddress: false, needsArea: false,
   unitLabel: null, unitQuantity: null, image: null,
+  delivery: { mode: "off", zoneIds: null, feeCents: null },
   ...over,
 });
 

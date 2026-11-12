@@ -44,6 +44,7 @@ import { cn } from "@/lib/utils";
 import { Check, SearchX, ShoppingCart } from "lucide-react";
 import { LinkifiedText } from "@/components/patterns/LinkifiedText";
 import { DecisionBar } from "@/components/patterns/DecisionBar";
+import { DeliveryRow } from "@/components/delivery/DeliveryRow";
 import { useSeo, offerJsonLd } from "@/hooks/useSeo";
 import { PhotoCarousel } from "@/components/patterns/PhotoCarousel";
 import { ProductGallery } from "@/components/patterns/ProductGallery";
@@ -839,6 +840,12 @@ const PlanDetail = () => {
             <p className="text-meta text-destructive">
               That combination isn't offered — pick another.
             </p>
+          )}
+
+          {/* Delivered by platform couriers: the price and time for the
+              visitor's own pin, before checkout. Universal offers only. */}
+          {plan.source === "universal" && !plan.serviceKey && (
+            <DeliveryRow planId={chosen?.id ?? plan.id} priceCents={priceCents ?? 0} />
           )}
         </section>
 

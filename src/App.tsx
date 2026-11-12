@@ -114,6 +114,7 @@ const RoleManagement = lazy(() => import("./pages/admin/RoleManagement"));
 const AdsManagement = lazy(() => import("./pages/admin/AdsManagement"));
 const AdminPromotions = lazy(() => import("./pages/admin/Promotions"));
 const AdminCollections = lazy(() => import("./pages/admin/Collections"));
+const AdminDelivery = lazy(() => import("./pages/admin/Delivery"));
 const AdminTags = lazy(() => import("./pages/admin/Tags"));
 
 // Where the platform operates. Lived under "Admin Food" and was named for the
@@ -418,6 +419,9 @@ const App = () => {
               } />
               <Route path="/admin/tags" element={
                 <ProtectedRoute allowedRoles={['super_admin']} requiredPermissions={["admin_settings.read"]}><AdminTags /></ProtectedRoute>
+              } />
+              <Route path="/admin/delivery" element={
+                <ProtectedRoute allowedRoles={['super_admin']} requiredPermissions={["admin_settings.read"]}><AdminDelivery /></ProtectedRoute>
               } />
               <Route path="/admin/collections" element={
                 <ProtectedRoute allowedRoles={['super_admin']} requiredPermissions={["admin_settings.read"]}><AdminCollections /></ProtectedRoute>

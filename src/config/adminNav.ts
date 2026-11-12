@@ -10,7 +10,7 @@
 import {
   BarChart3, CalendarDays, DollarSign,
   BellRing, FileText, Layers, LayoutDashboard, MapPin, Megaphone, Sparkles, TicketPercent,
-  LifeBuoy, ShieldCheck, Users, Building2, CarFront, Star, Wrench, LayoutGrid, Tag, } from "lucide-react";
+  LifeBuoy, ShieldCheck, Users, Building2, CarFront, Star, Wrench, LayoutGrid, Tag, Truck } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { adminRoutes } from "./adminRoutes";
 
@@ -136,6 +136,8 @@ export const SETTINGS_SECTION: NavSection = {
       ],
       permissions: ["admin_settings.read"] },
     { label: "Locations",  path: adminRoutes.superAdminLocations, icon: MapPin,
+      permissions: ["admin_settings.read"] },
+    { label: "Delivery", path: adminRoutes.superAdminDelivery, icon: Truck,
       permissions: ["admin_settings.read"] },
     { label: "Tags", path: adminRoutes.superAdminTags, icon: Tag,
       permissions: ["admin_settings.read"] },

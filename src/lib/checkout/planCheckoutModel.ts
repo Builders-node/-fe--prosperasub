@@ -1,5 +1,6 @@
 import { supabaseDb } from "@/integrations/supabase/client";
 import { normPeriod, termOptionsFor } from "@/lib/services/planPeriod";
+import { offerDeliveryOf, type OfferDelivery } from "@/lib/delivery/zones";
 export { termOptionsFor };
 
 /**
@@ -73,6 +74,11 @@ export interface CheckoutPlan {
   unitQuantity: number | null;
   /** The plan's own photograph, for the line item at the till. */
   image: string | null;
+  /**
+   * Delivery by platform couriers — the OFFER's switch (a variant inherits
+   * it). Always "off" outside the universal checkout.
+   */
+  delivery: OfferDelivery;
 }
 
 const asSelection = (value: unknown): SelectionGroup | null => {
@@ -112,6 +118,13 @@ export async function resolveCheckoutPlan(planId: string): Promise<CheckoutPlan 
 
   const row = (rows ?? [])[0] as any;
   if (!row) return null;
+
+  // Delivery is set on the offer; an order names one of its variants.
+  let deliverySource = row;
+  if (row.parent_plan_id && (row.delivery_mode ?? "off") === "off") {
+    const { data: parent } = await supabaseDb.from("provider_plans").select("*").eq("id", row.parent_plan_id).maybeSingle();
+    if (parent) deliverySource = parent;
+  }
 
   const service: CheckoutService =
     row.source_service_key === "food" ? "food"
@@ -159,6 +172,7 @@ export async function resolveCheckoutPlan(planId: string): Promise<CheckoutPlan 
     // page uses, so the cart and checkout show what the customer just saw.
     image: firstPhoto(row.gallery_urls) ?? firstPhoto(row.providers?.gallery_urls)
       ?? (typeof row.providers?.avatar_url === "string" && row.providers.avatar_url ? row.providers.avatar_url : null),
+    delivery: service === "universal" ? offerDeliveryOf(deliverySource) : offerDeliveryOf(null),
   };
 }
 
