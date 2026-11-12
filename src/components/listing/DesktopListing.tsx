@@ -10,6 +10,7 @@ import { ALL_CATEGORIES } from "@/components/listing/ListingNav";
 import { SORT_LABELS, type SortKey } from "@/hooks/useListingSearch";
 import { trackPromotion, useActivePromotions } from "@/lib/promotions";
 import { cn } from "@/lib/utils";
+import { formatUSD } from "@/lib/pricing";
 import { SearchX } from "lucide-react";
 
 /**
@@ -44,6 +45,10 @@ export interface ListingPlan {
   promotionId: string | null;
   /** Up to two tag labels for the card. */
   tags?: string[];
+  /** Overrides the period's word: a car is "/ day", not a cadence. */
+  unit?: string;
+  /** What the heart saves — a plan unless said otherwise (a vehicle). */
+  favoriteKind?: "plan" | "vehicle";
 }
 
 export interface ListingBusiness { id: string; name: string; avatarUrl: string | null }
@@ -104,8 +109,9 @@ export function useDesktopFilters() {
       const next = biz.includes(id) ? biz.filter((x) => x !== id) : [...biz, id];
       set({ biz: next.join(",") || null });
     },
-    reset: () => set({ min: null, max: null, biz: null, category: null, tags: null }),
-    active: min !== null || max !== null || biz.length > 0 || !!params.get("tags"),
+    // seats / gear are the vehicles listing's own (features/vehicles Fleet).
+    reset: () => set({ min: null, max: null, biz: null, category: null, tags: null, seats: null, gear: null }),
+    active: min !== null || max !== null || biz.length > 0 || !!params.get("tags") || !!params.get("seats") || !!params.get("gear"),
     apply: <T extends ListingPlan>(rows: T[]) => rows.filter((r) => {
       if (biz.length && !biz.includes(r.providerId)) return false;
       const dollars = r.priceCents === null ? null : r.priceCents / 100;
@@ -118,7 +124,10 @@ export function useDesktopFilters() {
 
 export function DesktopListing({
   title, categories, category, onCategory, businesses, plans, loading, sort, sorts, onSort, filters, empty, extraFilters, notice,
+  noun = ["plan", "plans"],
 }: {
+  /** What the count says: "6 vehicles", "12 plans". */
+  noun?: [string, string];
   title: string;
   categories: Array<{ key: string; label: string }>;
   category: string;
@@ -239,7 +248,7 @@ export function DesktopListing({
           ) : <span />}
           {!loading && (
             <span className="text-[14px] text-muted-foreground">
-              {plans.length} {plans.length === 1 ? "plan" : "plans"}
+              {plans.length} {plans.length === 1 ? noun[0] : noun[1]}
             </span>
           )}
         </div>
@@ -312,13 +321,19 @@ function ListingCard({ plan }: { plan: ListingPlan }) {
       onClick={promo ? () => trackPromotion(promo, "click") : undefined}
       photos={plan.photos}
       badge={promo ? "Featured" : undefined}
-      corner={<FavoriteButton kind="plan" id={plan.id} name={plan.name} variant="overlay" />}
+      corner={<FavoriteButton kind={plan.favoriteKind ?? "plan"} id={plan.id} name={plan.name} variant="overlay" />}
       title={plan.name}
       subtitle={plan.providerName}
       chips={plan.tags}
       footer={
         <div className="space-y-0.5">
-          <PriceLine cents={plan.priceCents} period={plan.period} perPerson={plan.perPerson} />
+          {plan.unit && typeof plan.priceCents === "number" && plan.priceCents > 0 ? (
+            <p className="text-[14px] font-semibold leading-[20px] text-foreground">
+              {formatUSD(plan.priceCents)}<span className="font-normal text-muted-foreground"> / {plan.unit}</span>
+            </p>
+          ) : (
+            <PriceLine cents={plan.priceCents} period={plan.period} perPerson={plan.perPerson} />
+          )}
           {plan.rating && plan.rating.count > 0 && (
             <p className="flex items-center gap-1 text-[13px] text-muted-foreground">
               <Star className="h-3.5 w-3.5 fill-primary text-primary" />

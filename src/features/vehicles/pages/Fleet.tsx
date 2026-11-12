@@ -15,8 +15,10 @@ import { useVehicles } from "../hooks/useVehicles";
 import { useVehicleTypes } from "../hooks/useVehicleTypes";
 import { useListingSearch } from "@/hooks/useListingSearch";
 import { useCategoryParam } from "@/hooks/useCategoryParam";
-import { useQuery } from "@tanstack/react-query";
-import { supabaseDb } from "@/integrations/supabase/client";
+import { useSearchParams } from "react-router-dom";
+import { DesktopListing, FilterGroup, useDesktopFilters, type ListingPlan } from "@/components/listing/DesktopListing";
+import { carPath as vehicleHref } from "../lib/routes";
+import { cn } from "@/lib/utils";
 
 /**
  * The fleet, built out of the same pieces as every other listing.
@@ -92,6 +94,55 @@ export default function Fleet() {
 
   const shown = search.results;
 
+  /**
+   * The laptop: the same listing as every service (DesktopListing) — the
+   * filters on the left, cards on the right. Cars add what decides a car:
+   * how many seats and which gearbox (?seats= ?gear=, in the URL like the rest).
+   */
+  const filters = useDesktopFilters();
+  const [params, setParams] = useSearchParams();
+  const minSeats = Number(params.get("seats")) || 0;
+  const gear = params.get("gear");
+  const setParam = (k: string, v: string | null) => setParams((prev) => {
+    const out = new URLSearchParams(prev);
+    if (v) out.set(k, v); else out.delete(k);
+    return out;
+  }, { replace: true });
+  const seatOptions = useMemo(() => [...new Set(vehicles.map((v) => v.seats).filter((n) => n > 0))].sort((a, b) => a - b), [vehicles]);
+  const gears = useMemo(() => [...new Set(vehicles.map((v) => v.transmission))], [vehicles]);
+
+  const desktopVehicles: ListingPlan[] = useMemo(() => filters.apply(
+    search.results
+      // The provider rail narrows the phone; the laptop narrows by the Businesses filter.
+      .filter((v) => (minSeats ? v.seats >= minSeats : true))
+      .filter((v) => (gear ? v.transmission === gear : true))
+      .map((v) => ({
+        id: v.id,
+        name: v.name,
+        providerId: v.provider?.id ?? "",
+        providerName: v.provider?.name ?? "",
+        priceCents: v.daily_price_cents,
+        period: null,
+        perPerson: false,
+        photos: [v.image_url, ...(v.gallery_urls ?? [])].filter((u): u is string => !!u),
+        href: vehicleHref(`vehicle/${v.id}`),
+        rating: null,
+        promotionId: null,
+        unit: "day",
+        favoriteKind: "vehicle" as const,
+        tags: [
+          `${v.seats} seats`,
+          v.transmission === "automatic" ? "Auto" : "Manual",
+          ...(v.air_conditioning ? ["A/C"] : []),
+        ],
+      })),
+  ), [search.results, filters, minSeats, gear]);
+
+  const chip = (on: boolean) => cn(
+    "h-10 rounded-full px-4 text-[14px] font-semibold transition-colors",
+    on ? "bg-primary text-primary-foreground" : "bg-muted text-foreground hover:bg-muted/70",
+  );
+
   return (
     // The platform's listing frame — the same one every other listing sits in.
     // This page used to be a bare <div> that mounted DesktopHeader itself and
@@ -109,8 +160,56 @@ export default function Fleet() {
         // A vehicle is collected, or delivered to an address given at
         // checkout — narrowing by residence would filter nothing.
         showLocation={false}
+        desktopBar={false}
       />}>
-      <AppContainer className="py-space-4 md:py-space-8">
+      <DesktopListing
+        title="Vehicles"
+        categories={(categoriesQ.data ?? []).map((c) => ({ key: c.key, label: c.label }))}
+        category={activeCategory}
+        onCategory={setActiveCategory}
+        businesses={providers.map((p) => ({ id: p.id, name: p.name, avatarUrl: p.avatarUrl }))}
+        plans={desktopVehicles}
+        loading={isLoading}
+        sort={search.sort}
+        sorts={search.availableSorts}
+        onSort={search.setSort}
+        filters={filters}
+        noun={["vehicle", "vehicles"]}
+        extraFilters={
+          <>
+            {seatOptions.length > 1 && (
+              <FilterGroup title="Seats">
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" className={chip(!minSeats)} onClick={() => setParam("seats", null)}>Any</button>
+                  {seatOptions.map((n) => (
+                    <button key={n} type="button" className={chip(minSeats === n)} onClick={() => setParam("seats", minSeats === n ? null : String(n))}>
+                      {n}+
+                    </button>
+                  ))}
+                </div>
+              </FilterGroup>
+            )}
+            {gears.length > 1 && (
+              <FilterGroup title="Gearbox">
+                <div className="flex flex-wrap gap-2">
+                  <button type="button" className={chip(!gear)} onClick={() => setParam("gear", null)}>Any</button>
+                  {gears.map((g) => (
+                    <button key={g} type="button" className={chip(gear === g)} onClick={() => setParam("gear", gear === g ? null : g)}>
+                      {g === "automatic" ? "Automatic" : "Manual"}
+                    </button>
+                  ))}
+                </div>
+              </FilterGroup>
+            )}
+          </>
+        }
+        empty={isError
+          ? <QueryError title="Couldn't load vehicles" error={error} onRetry={() => void refetch()} />
+          : <YdEmptyState icon={Car} title={vehicles.length ? "No vehicles match" : "No vehicles available yet"}
+              subtitle={vehicles.length ? "Try other filters, or reset them." : "Check back soon."} />}
+      />
+      {/* The phone: chips, the rental companies, the list. */}
+      <AppContainer className="py-space-4 md:hidden">
         <CategoryChips
           categories={(categoriesQ.data ?? []).map((c) => ({
             key: c.key,
