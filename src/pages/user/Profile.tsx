@@ -19,6 +19,7 @@ import { ReferralPanel } from "@/components/account/ReferralPanel";
 import { WalletPanel } from "@/components/account/WalletPanel";
 import { FavoritesPanel } from "@/pages/user/Favorites";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { HEADER_ACTION_CLASS } from "@/components/layout/headerAction";
 import { useReferrals } from "@/hooks/useReferrals";
 import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/i18n";
@@ -711,9 +712,10 @@ const Profile = () => {
         // The profile itself: Edit in place of the bell — the one action this
         // page has, and the bell is a tab-bar tap away anyway.
         : base === "view" ? (
-          <button type="button" onClick={() => openSection("edit")} aria-label="Edit profile"
-            className="flex h-10 w-10 items-center justify-center rounded-full text-foreground transition-colors hover:bg-muted">
-            <Pencil className="h-6 w-6" />
+          <button type="button" onClick={() => openSection("edit")} aria-label="Edit profile" className={HEADER_ACTION_CLASS}>
+            {/* 20px Lucide = the visual size of the header's 24px Material glyphs
+                (their drawing sits inside a 24px box with padding). */}
+            <Pencil className="h-5 w-5" strokeWidth={1.75} />
           </button>
         ) : undefined}
     >
