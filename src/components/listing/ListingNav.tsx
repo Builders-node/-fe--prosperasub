@@ -93,7 +93,7 @@ export function ProviderRail({
         — the standard affordance that there is more to swipe. `snap-x` makes
         the swipe settle on a tile instead of anywhere.
       */}
-      <div className="-mx-space-4 flex snap-x snap-mandatory gap-2 overflow-x-auto px-space-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="-mx-space-4 flex snap-x snap-mandatory scroll-px-space-4 gap-2 overflow-x-auto px-space-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {providers.map((p) => (
           <button
             key={p.id}

@@ -216,9 +216,14 @@ export const RAIL_TILE = "w-[44%] shrink-0 snap-start sm:w-[30%] md:w-auto";
  * A row of offer cards: swipes sideways on a phone (two and a bit visible, so
  * it reads as "there is more"), four across on a laptop.
  */
+/**
+ * A row that swipes on a phone and is a grid on a laptop. `scroll-px` matters:
+ * snapping aligns a tile to the scroller's padding box only when told the
+ * padding — without it the first tile snapped flush to the screen edge.
+ */
 export function Rail({ children }: { children: ReactNode }) {
   return (
-    <div className="-mx-space-4 flex snap-x snap-mandatory gap-2 overflow-x-auto px-space-4 pb-1 [scrollbar-width:none] md:mx-0 md:grid md:grid-cols-4 md:overflow-visible md:px-0 [&::-webkit-scrollbar]:hidden">
+    <div className="-mx-space-4 flex snap-x snap-mandatory scroll-px-space-4 gap-2 overflow-x-auto px-space-4 pb-1 [scrollbar-width:none] md:mx-0 md:grid md:grid-cols-4 md:overflow-visible md:px-0 [&::-webkit-scrollbar]:hidden">
       {children}
     </div>
   );
