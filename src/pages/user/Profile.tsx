@@ -774,6 +774,24 @@ const Profile = () => {
             <Input id="e-phone" label="Phone (optional)" type="tel" value={draftPhone} onChange={(e) => setDraftPhone(e.target.value)} placeholder="+1 234 567 8900" />
             <Input id="e-wa" label="WhatsApp (optional)" type="tel" value={draftWhatsApp} onChange={(e) => setDraftWhatsApp(e.target.value)} placeholder="+1 234 567 8900" leftIcon={<WhatsAppIcon className="h-4 w-4 text-positive" />} />
             <Input id="e-tg" label="Telegram (optional)" value={draftTelegram} onChange={(e) => setDraftTelegram(e.target.value)} placeholder="@username" leftIcon={<TelegramIcon className="h-4 w-4 text-[#2AABEE]" />} />
+
+          {/* Sign-in & security — where people look for "change password". */}
+          <div className="mt-2 space-y-2 rounded-radius-md bg-inset p-3">
+            <p className="text-body font-semibold text-foreground">Sign-in & security</p>
+            {isGoogle ? (
+              <p className="text-meta text-muted-foreground">
+                You sign in with Google, so there is no EverySub password — your password and security live in your{" "}
+                <a href="https://myaccount.google.com/security" target="_blank" rel="noreferrer" className="font-semibold text-primary">Google account</a>.
+              </p>
+            ) : canChangePassword ? (
+              <Button variant="secondary" size="sm" className="gap-1.5"
+                onClick={() => { setEditOpen(false); openSection("password"); }}>
+                <KeyRound className="h-4 w-4" /> Change password
+              </Button>
+            ) : (
+              <p className="text-meta text-muted-foreground">This account signs in with a wallet — there is no password to change.</p>
+            )}
+          </div>
         </div>
       </ResponsiveDialog>
     </UserLayout>
