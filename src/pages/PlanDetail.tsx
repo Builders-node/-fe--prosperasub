@@ -791,30 +791,40 @@ const PlanDetail = () => {
                 {formatUSD(currentUnit.cents)} per {currentUnit.unit}
               </p>
               {bestDeal && (
+                // A cheaper combination of the same offer, one tap away. A row
+                // in the card's inset grey like the tracks above it — the
+                // orange is the saving itself, not a tinted box around it.
                 <button
                   type="button"
                   onClick={() => setSelection(selectionFor(bestDeal.variant))}
-                  className="flex w-full items-center justify-between gap-3 rounded-radius-md bg-primary/10 px-3 py-2 text-left text-meta text-foreground transition-colors hover:bg-primary/15"
+                  className="flex w-full items-center gap-3 rounded-radius-md bg-inset p-2 pr-3 text-left transition-colors hover:bg-segment"
                 >
-                  <span>
-                    <span className="font-semibold">Save {bestDeal.savePct}% per {currentUnit.unit}</span>
-                    {bestDeal.label ? ` with ${bestDeal.label}` : ""} — {formatUSD(bestDeal.cents)} per {currentUnit.unit}
+                  <span className="flex h-10 shrink-0 items-center rounded-radius-sm bg-primary px-2.5 text-[14px] font-bold tabular-nums text-primary-foreground">
+                    −{bestDeal.savePct}%
                   </span>
-                  <span className="shrink-0 font-semibold">Switch</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-title font-semibold leading-[22px] text-foreground">
+                      {formatUSD(bestDeal.cents)} per {currentUnit.unit}
+                    </span>
+                    {bestDeal.label && (
+                      <span className="block truncate text-meta leading-4 text-muted-foreground">
+                        with {bestDeal.label}
+                      </span>
+                    )}
+                  </span>
+                  <span className="shrink-0 text-title font-semibold text-primary">Switch</span>
                 </button>
               )}
             </div>
           )}
 
           {isFood && mealsPerDay > 0 && (
-            <div className="rounded-radius-md bg-inset px-4 py-3">
-              <MealSelectionPicker
-                value={meals}
-                onChange={setMeals}
-                mealsPerDay={mealsPerDay}
-                items={providerItems}
-              />
-            </div>
+            <MealSelectionPicker
+              value={meals}
+              onChange={setMeals}
+              mealsPerDay={mealsPerDay}
+              items={providerItems}
+            />
           )}
 
           {offer && !chosen && (

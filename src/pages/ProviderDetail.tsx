@@ -756,7 +756,10 @@ const ProviderDetail = () => {
             <TabEmptyState icon={Icon} title="No photos yet" subtitle="The provider hasn't added pictures." />
           ) : (
             <section className="rounded-radius-lg bg-card p-4">
-              <div className="grid grid-cols-2 gap-2">
+              {/* Two across on a phone; on a laptop two columns made each photo
+                  ~800px square — a wall, not a gallery. Four at 1280 keeps a
+                  tile near the size of a card. */}
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
                 {gallery.map((src) => (
                   <div key={src} className="aspect-square w-full overflow-hidden rounded-radius-md">
                     <Photo src={src} />

@@ -79,25 +79,32 @@ export function MealSelectionPicker({
     onChange(sortMeals(Array.from(next), items));
   };
 
+  const remaining = cap - value.length;
+
+  /*
+   * The same vocabulary as the plan's option tracks just above it
+   * (PlanOptionPicker): an inset rail, the chosen tiles are the raised white
+   * ones. It used to be three separate orange-glowing boxes with a green
+   * counter — a different control from the one the customer had just used,
+   * for the same kind of choice.
+   */
   return (
-    <div className="space-y-3">
-      <div className="flex items-baseline justify-between">
-        <p className="text-sm font-bold text-foreground">
-          Pick your {cap} {cap === 1 ? "meal" : "meals"} per day
+    <div className="space-y-2">
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="text-title font-semibold text-foreground">
+          {cap === 1 ? "Your meal each day" : `Your ${cap} meals each day`}
         </p>
-        <p
-          className={cn(
-            "text-xs font-bold tabular-nums",
-            isValid ? "text-positive" : "text-muted-foreground",
-          )}
-        >
-          {value.length} / {cap}
+        <p className="shrink-0 text-meta tabular-nums text-muted-foreground">
+          {value.length} of {cap}
         </p>
       </div>
 
-      {/* Two per row on a narrow phone, and however many the provider has —
-          a fixed three-column grid left a fourth item alone on its own line. */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+      <div
+        role="group"
+        aria-label="Meals each day"
+        className="grid w-full gap-0.5 rounded-radius-md bg-inset p-0.5"
+        style={{ gridTemplateColumns: `repeat(${Math.min(options.length, 4)}, minmax(0, 1fr))` }}
+      >
         {options.map((meal) => {
           const on = selected.has(meal);
           const Icon = iconFor(meal);
@@ -107,30 +114,30 @@ export function MealSelectionPicker({
               type="button"
               onClick={() => toggle(meal)}
               disabled={disabled}
+              aria-pressed={on}
               className={cn(
-                "flex flex-col items-center gap-1.5 rounded-radius-md px-3 py-4 transition-colors",
-                on
-                  ? "bg-primary/15 text-primary ring-1 ring-primary/40"
-                  : "bg-muted/40 text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                "flex min-w-0 flex-col items-center justify-center gap-1 rounded-radius-md px-1.5 py-2.5 transition-colors",
+                on ? "bg-segment" : "bg-transparent hover:text-foreground",
                 disabled && "cursor-not-allowed opacity-50",
               )}
-              aria-pressed={on}
             >
-              <Icon className="h-5 w-5" />
-              <span className="text-xs font-semibold">{itemLabel(meal, items)}</span>
+              <Icon className={cn("h-5 w-5", on ? "text-primary" : "text-muted-foreground")} />
+              <span className={cn(
+                "w-full truncate text-center text-title font-semibold leading-[22px]",
+                on ? "text-foreground" : "text-muted-foreground",
+              )}>
+                {itemLabel(meal, items)}
+              </span>
             </button>
           );
         })}
       </div>
 
-      {!isValid && value.length > 0 && value.length < cap && (
-        <p className="text-xs text-muted-foreground">
-          Pick {cap - value.length} more to continue.
-        </p>
-      )}
-      {value.length === 0 && (
-        <p className="text-xs text-muted-foreground">
-          Choose {cap === 1 ? "a meal" : `${cap} meals`} you want delivered every day.
+      {remaining > 0 && (
+        <p className="text-meta text-muted-foreground">
+          {value.length === 0
+            ? `Choose ${cap === 1 ? "the meal" : `${cap} meals`} you want delivered every day.`
+            : `Pick ${remaining} more to continue.`}
         </p>
       )}
     </div>
