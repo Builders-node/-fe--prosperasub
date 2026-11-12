@@ -17,6 +17,13 @@ interface Props {
    */
   variant?: "chip" | "full" | "icon" | "row";
   className?: string;
+  /**
+   * Show it even on a page that does not read the location. The desktop
+   * header passes this: a control that comes and goes between pages is a bar
+   * that changes shape under the visitor — the place they chose is theirs
+   * across the whole site, not a feature of one page.
+   */
+  always?: boolean;
 }
 
 /**
@@ -27,7 +34,7 @@ interface Props {
  * (ResponsiveDialog). Not a Popover anchored to the trigger: that drops out of
  * the viewport on narrow screens.
  */
-export function LocationSelector({ variant = "chip", className }: Props) {
+export function LocationSelector({ variant = "chip", className, always = false }: Props) {
   const { t } = useI18n();
   const { data: residences = [] } = useResidences();
   const { residence, setResidence, residenceMatters } = useLocationControl();
@@ -40,7 +47,7 @@ export function LocationSelector({ variant = "chip", className }: Props) {
   // promise the page cannot keep: the beach club is a place you go to, and the
   // generic service listing has no service areas to match against. Pages that
   // do use it claim it (LocationContext), which is what flips this on.
-  if (!residenceMatters) return null;
+  if (!residenceMatters && !always) return null;
 
   const label = residence || "Choose location";
 

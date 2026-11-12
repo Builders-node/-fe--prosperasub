@@ -59,7 +59,7 @@ export function DesktopHeader({ showBackButton = false, onBack, breadcrumb }: De
     <DesktopHeaderView
       ref={headerRef}
       session={session}
-      location={<LocationSelector />}
+      location={<LocationSelector always />}
       search={<HeaderSearch />}
       account={<AccountMenu />}
       onLogin={() => openAuthModal("login")}
