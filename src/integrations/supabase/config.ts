@@ -93,6 +93,9 @@ const EDGE_ROUTES: RegExp[] = [
   /^\/admin\/promotions(\/settings|\/[^/]+\/end)?$/,
   // Home collections, admin side (Edge routes/collections.ts).
   /^\/admin\/collections(\/[^/]+(\/plans)?)?$/,
+  // The wallet: balance, top-ups, auto-renew from the balance (Edge routes/wallet.ts).
+  /^\/account\/wallet(\/topups(\/confirm)?)?$/,
+  /^\/account\/subscriptions\/[^/]+\/auto-renew$/,
   // The sales funnel per business (Edge routes/funnel.ts).
   /^\/funnel\/events$/,
   /^\/account\/providers\/[^/]+\/funnel$/,

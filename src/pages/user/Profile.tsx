@@ -1,7 +1,7 @@
 import { fieldClass } from "@/components/ui/input";
 import { useEffect, useRef, useState, type ComponentType, type SVGProps } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Bell, BellOff, Eye, EyeOff, FileText, Gift, Heart, KeyRound, Lock, LogOut, MapPin, Pencil, Shield } from "lucide-react";
+import { Bell, BellOff, Eye, EyeOff, FileText, Gift, Heart, KeyRound, Lock, LogOut, MapPin, Pencil, Shield, Wallet } from "lucide-react";
 import { useFavorites } from "@/lib/favorites/useFavorites";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -16,6 +16,7 @@ import { BottomNav } from "@/components/layout/BottomNav";
 import { KeyboardArrowRightIcon } from "@/components/icons/FigmaIcons";
 import { SavedLocations, useUserLocations } from "@/components/account/SavedLocations";
 import { ReferralPanel } from "@/components/account/ReferralPanel";
+import { WalletPanel } from "@/components/account/WalletPanel";
 import { useReferrals } from "@/hooks/useReferrals";
 import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/i18n";
@@ -34,7 +35,7 @@ import { cn } from "@/lib/utils";
  * step, a section can be linked to, and a reload lands where you were.
  */
 
-type Section = "view" | "edit" | "password" | "locations" | "reminders" | "referrals";
+type Section = "view" | "edit" | "password" | "locations" | "reminders" | "referrals" | "wallet";
 
 const SECTION_TITLES: Record<Section, string> = {
   view: "Profile",
@@ -43,6 +44,7 @@ const SECTION_TITLES: Record<Section, string> = {
   locations: "Saved Locations",
   reminders: "Reminders",
   referrals: "Invite a Friend",
+  wallet: "Balance",
 };
 
 interface CleaningPrefs {
@@ -447,6 +449,12 @@ const Profile = () => {
                 onClick={() => navigate("/favorites")}
               />
               <Row
+                icon={Wallet}
+                label="Balance & auto-renew"
+                value="Top up once, subscriptions renew on their own"
+                onClick={() => openSection("wallet")}
+              />
+              <Row
                 icon={MapPin}
                 label="Saved locations"
                 value={defaultLocation ? defaultLocation.line : "Add a location"}
@@ -520,6 +528,7 @@ const Profile = () => {
         )}
 
         {section === "referrals" && <ReferralPanel />}
+        {section === "wallet" && <WalletPanel />}
 
         {section === "edit" && (
           <section className="space-y-2 rounded-radius-lg bg-card p-4">
