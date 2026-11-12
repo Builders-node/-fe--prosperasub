@@ -23,6 +23,8 @@ export { VehicleCard } from "./components/VehicleCard";
 export { useVehicleTypes, VEHICLE_TYPES_KEY, type VehicleType } from "./hooks/useVehicleTypes";
 export { VehicleTypesPanel } from "./components/VehicleTypesPanel";
 export { useVehicles } from "./hooks/useVehicles";
+/** Every write to the fleet and its terms goes through the API. */
+export { fleetWrite } from "./lib/fleetWrite";
 
 export type {
   RentalVehicle, RentalBooking, VehicleStatus, Transmission, FuelType,

@@ -253,7 +253,9 @@ export default function Book() {
     <AppContainer className="py-space-6">
       <CheckoutSuccessPanel
         icon={Car}
-        amount={formatUSD(baseTotal)}
+        // What was actually charged — the payment fee included, as on the
+        // invoice. The base alone under-stated a PayPal or on-chain payment.
+        amount={formatUSD(serverCharged ?? effectiveTotal)}
         eyebrow="Booking confirmed"
         subtitle={`${v.name} · ${format(new Date(fromISO + "T00:00:00"), "MMM d")} → ${format(new Date(toISOParam + "T00:00:00"), "MMM d")}`}
         ctaLabel="View my bookings"

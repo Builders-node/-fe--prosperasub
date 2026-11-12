@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/select";
 import { adminApi, supabaseDb } from "@/integrations/supabase/client";
 import { VehicleEditDialog } from "@/features/vehicles";
-import { carPath } from "@/features/vehicles";
+import { carPath, fleetWrite } from "@/features/vehicles";
 import type { RentalVehicle } from "@/features/vehicles";
 import { fetchUsersByIds, customerNameFrom } from "@/lib/admin/customerNames";
 import { formatUSD } from "@/lib/pricing";
@@ -197,7 +197,9 @@ export default function CarRentals({ embedded = false, providerId }: {
 
   const toggleVehicle = async (v: any) => {
     const next = v.status === "public" ? "private" : "public";
-    const { error } = await supabaseDb.from("rental_vehicles").update({ status: next }).eq("id", v.id);
+    // Through the API: the browser lost write access to rental_* tables
+    // (migration 20261113120000), so a direct update here only ever failed.
+    const { error } = await fleetWrite("rental_vehicles", "update", { id: v.id, row: { status: next } });
     if (error) { toast.error(error.message); return; }
     await qc.invalidateQueries({ queryKey: ["admin-rental-vehicles"] });
     toast.success(next === "public" ? "Car is listed" : "Car is hidden");

@@ -82,7 +82,7 @@ export interface RentalPriceCalc {
  * Capped rental price for a span of days.
  *  - daily (1–6 days)   → daily × days
  *  - weekly (7+ days)   → full_weeks × weekly + min(leftover × daily, weekly)
- *  - monthly cap        → the total can never exceed monthly_price_cents
+ *  - monthly cap        → each 30-day month costs at most monthly_price_cents
  * Recovered from the original module (commit 55e3782).
  */
 export function calcRentalPrice(
@@ -97,27 +97,23 @@ export function calcRentalPrice(
   const weekly = weeklyRaw > 0 && daily > 0 ? Math.min(weeklyRaw, daily * 7) : weeklyRaw;
   const monthly = vehicle.monthly_price_cents || 0;
 
-  let subtotalCents: number;
-  let tier: RentalPriceCalc["tier"];
-  if (weekly > 0 && rentalDays >= 7) {
-    const weeks = Math.floor(rentalDays / 7);
-    const leftoverDays = rentalDays % 7;
-    const leftoverCost = Math.min(leftoverDays * daily, weekly);
-    subtotalCents = weeks * weekly + leftoverCost;
-    tier = "weekly";
-  } else {
-    subtotalCents = rentalDays * daily;
-    tier = "daily";
-  }
+  /** Days priced by weeks, leftover days capped at one week. */
+  const byWeeks = (d: number) =>
+    weekly > 0 && d >= 7 ? Math.floor(d / 7) * weekly + Math.min((d % 7) * daily, weekly) : d * daily;
 
+  const subtotalCents = byWeeks(rentalDays);
+  let tier: RentalPriceCalc["tier"] = weekly > 0 && rentalDays >= 7 ? "weekly" : "daily";
+
+  /**
+   * The monthly price caps each 30-day MONTH, not the whole rental. Capping the
+   * total let 60 or 90 days cost exactly one month's price.
+   */
   let totalCents = subtotalCents;
   let capped = false;
-  if (monthly > 0 && totalCents > monthly) {
-    totalCents = monthly;
-    capped = true;
-    tier = "monthly";
-  } else if (monthly > 0 && rentalDays >= 28) {
-    tier = "monthly";
+  if (monthly > 0) {
+    const byMonths = Math.floor(rentalDays / 30) * monthly + Math.min(byWeeks(rentalDays % 30), monthly);
+    if (byMonths < totalCents) { totalCents = byMonths; capped = true; }
+    if (capped || rentalDays >= 28) tier = "monthly";
   }
 
   const discountCents = Math.max(0, subtotalCents - totalCents);
