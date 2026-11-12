@@ -90,7 +90,7 @@ const EDGE_ROUTES: RegExp[] = [
   // Paid placements (Edge routes/promotions.ts).
   /^\/promotions\/(active|events)$/,
   /^\/account\/providers\/[^/]+\/promotions(\/(boost|featured))?$/,
-  /^\/admin\/promotions(\/settings|\/[^/]+\/end)?$/,
+  /^\/admin\/promotions(\/settings|\/grant|\/[^/]+\/end)?$/,
   // Home collections, admin side (Edge routes/collections.ts).
   /^\/admin\/collections(\/[^/]+(\/plans)?)?$/,
   // The wallet: balance, top-ups, auto-renew from the balance (Edge routes/wallet.ts).

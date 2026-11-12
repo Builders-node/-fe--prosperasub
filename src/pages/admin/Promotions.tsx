@@ -7,7 +7,9 @@ import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { AdminListShell } from "@/components/admin/AdminListShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { adminApi } from "@/integrations/supabase/client";
+import { adminApi, supabaseDb } from "@/integrations/supabase/client";
+import { fieldClass } from "@/components/ui/input";
+import { useHomePlans } from "@/components/discovery/homePlans";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 
@@ -75,6 +77,8 @@ export default function Promotions() {
         <Stat label="Boost take · 30d" value={formatUSD(boostRevenue)} />
       </div>
 
+      <GrantCard />
+
       {data?.settings && <SettingsCard initial={data.settings} />}
 
       <AdminListShell
@@ -107,7 +111,7 @@ export default function Promotions() {
                   </p>
                   <p className="truncate text-meta text-muted-foreground">
                     {r.kind === "featured"
-                      ? `${format(new Date(r.starts_at), "MMM d")} → ${r.ends_at ? format(new Date(r.ends_at), "MMM d") : "—"} · ${formatUSD(r.price_cents)}`
+                      ? `${format(new Date(r.starts_at), "MMM d")} → ${r.ends_at ? format(new Date(r.ends_at), "MMM d") : "—"} · ${r.price_cents > 0 ? formatUSD(r.price_cents) : "Free"}`
                       : r.status === "active" ? "On" : r.status === "paused" ? "Off" : "Ended"}
                     {` · ${s.impressions} views · ${s.clicks} taps · ${s.orders} orders · ${formatUSD(s.revenueCents)}`}
                   </p>
@@ -175,6 +179,93 @@ function SettingsCard({ initial }: { initial: Settings }) {
       </div>
       <div className="flex justify-end">
         <Button size="sm" loading={save.isPending} onClick={() => save.mutate()}>Save prices</Button>
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Give a business a featured slot, free — for a launch, a partner, a test.
+ * The same slot a purchase makes (price $0, no money moves), so the rails, the
+ * slot limits, the stats and End treat it alike (Edge POST /admin/promotions/grant).
+ */
+function GrantCard() {
+  const qc = useQueryClient();
+  const { data: businesses = [] } = useQuery({
+    queryKey: ["promo-grant-businesses"],
+    queryFn: async () => {
+      const { data, error } = await supabaseDb.from("providers")
+        .select("id, name, archetype_key").eq("status", "active").order("name");
+      if (error) throw error;
+      return (data ?? []) as Array<{ id: string; name: string; archetype_key: string | null }>;
+    },
+  });
+  const { data: plans = [] } = useHomePlans();
+  const [providerId, setProviderId] = useState("");
+  const [planId, setPlanId] = useState("");
+  const [placement, setPlacement] = useState<"home" | "service">("home");
+  const [weeks, setWeeks] = useState("2");
+  const ownPlans = plans.filter((p) => p.provider?.id === providerId);
+  const biz = businesses.find((b) => b.id === providerId);
+  useEffect(() => { setPlanId(""); if (biz && !biz.archetype_key) setPlacement("home"); }, [providerId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const grant = useMutation({
+    mutationFn: async () => {
+      const { error } = await adminApi("/admin/promotions/grant", {
+        method: "POST",
+        body: JSON.stringify({ providerId, planId: planId || null, placement, weeks: Number(weeks) }),
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success(`${biz?.name ?? "Business"} is featured for ${weeks} week${weeks === "1" ? "" : "s"}`);
+      setProviderId(""); setPlanId("");
+      void qc.invalidateQueries({ queryKey: ["admin-promotions"] });
+      void qc.invalidateQueries({ queryKey: ["promotions-active"] });
+    },
+    onError: (e: Error) => toast.error(e.message || "Could not feature it"),
+  });
+
+  return (
+    <section className="mb-4 space-y-3 rounded-radius-lg bg-card p-4">
+      <div>
+        <h2 className="text-title font-semibold text-foreground">Feature for free</h2>
+        <p className="text-meta text-muted-foreground">Put a business or one of its offers in a featured slot at no cost. Its owner is told.</p>
+      </div>
+      <div className="grid gap-3 md:grid-cols-2">
+        <select className={fieldClass} value={providerId} onChange={(e) => setProviderId(e.target.value)} aria-label="Business">
+          <option value="">Business…</option>
+          {businesses.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+        </select>
+        <select className={fieldClass} value={planId} onChange={(e) => setPlanId(e.target.value)} disabled={!providerId} aria-label="Offer">
+          <option value="">The whole business</option>
+          {ownPlans.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </select>
+      </div>
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex rounded-full bg-inset p-0.5">
+          {(["home", "service"] as const).map((pl) => (
+            <button
+              key={pl}
+              type="button"
+              disabled={pl === "service" && !!biz && !biz.archetype_key}
+              onClick={() => setPlacement(pl)}
+              className={cn(
+                "h-9 rounded-full px-4 text-[14px] font-semibold transition-colors disabled:opacity-40",
+                placement === pl ? "bg-segment text-foreground" : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {pl === "home" ? "Home page" : "Its service listing"}
+            </button>
+          ))}
+        </div>
+        <select className={cn(fieldClass, "w-auto")} value={weeks} onChange={(e) => setWeeks(e.target.value)} aria-label="How long">
+          {["1", "2", "4", "8", "12"].map((w) => <option key={w} value={w}>{w} week{w === "1" ? "" : "s"}</option>)}
+        </select>
+        <span className="flex-1" />
+        <Button size="sm" disabled={!providerId} loading={grant.isPending} onClick={() => grant.mutate()}>
+          Feature for free
+        </Button>
       </div>
     </section>
   );
