@@ -467,9 +467,12 @@ const Profile = () => {
                   </span>
                 )}
               </div>
-              <Button variant="secondary" size="sm" className="shrink-0 gap-1.5 self-start" onClick={() => openSection("edit")}>
-                <Pencil className="h-4 w-4" /> Edit
-              </Button>
+              {/* A phone has Edit in the title bar instead (where the bell was). */}
+              {!isMobile && (
+                <Button variant="secondary" size="sm" className="shrink-0 gap-1.5 self-start" onClick={() => openSection("edit")}>
+                  <Pencil className="h-4 w-4" /> Edit
+                </Button>
+              )}
               </div>
 
               {/* The account at a glance — each figure is a door to its section. */}
@@ -703,7 +706,16 @@ const Profile = () => {
       // A form is a decision page on a phone: it ends at its own Save, so the
       // tab bar and the bell (a way OUT of an unsaved form) are not offered.
       showBottomNav={!isMobile || !isSubScreen}
-      headerAction={isMobile && isSubScreen ? <span className="h-10 w-10" aria-hidden /> : undefined}
+      headerAction={!isMobile ? undefined
+        : isSubScreen ? <span className="h-10 w-10" aria-hidden />
+        // The profile itself: Edit in place of the bell — the one action this
+        // page has, and the bell is a tab-bar tap away anyway.
+        : base === "view" ? (
+          <button type="button" onClick={() => openSection("edit")} aria-label="Edit profile"
+            className="flex h-10 items-center gap-1.5 rounded-full px-3 text-body font-semibold text-foreground transition-colors hover:bg-muted">
+            <Pencil className="h-4 w-4" /> Edit
+          </button>
+        ) : undefined}
     >
       {isMobile ? (
         <div className={cn(
