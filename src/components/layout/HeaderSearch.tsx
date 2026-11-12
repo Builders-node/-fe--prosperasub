@@ -80,9 +80,9 @@ export function HeaderSearch({ initialQuery = "" }: {
   if (pathname === "/search") return null;
 
   return (
-    <div ref={boxRef} className="relative w-full max-w-[420px]">
-      <div className="flex h-10 items-center gap-2 rounded-full bg-muted px-3 transition-shadow focus-within:ring-2 focus-within:ring-primary/50">
-        <SearchIcon className="h-5 w-5 shrink-0 text-muted-foreground" />
+    <div ref={boxRef} className="relative w-full">
+      <div className="flex h-12 items-center gap-3 rounded-radius-md bg-muted px-4 transition-shadow focus-within:ring-2 focus-within:ring-primary/50">
+        <SearchIcon className="h-6 w-6 shrink-0 text-foreground" />
         <input
           ref={inputRef}
           type="search"
@@ -92,7 +92,7 @@ export function HeaderSearch({ initialQuery = "" }: {
           onKeyDown={onKeyDown}
           placeholder="Search on EverySub"
           aria-label="Search on EverySub"
-          className="min-w-0 flex-1 bg-transparent text-[14px] text-foreground outline-none placeholder:text-muted-foreground [&::-webkit-search-cancel-button]:hidden"
+          className="min-w-0 flex-1 bg-transparent text-[16px] text-foreground outline-none placeholder:text-muted-foreground [&::-webkit-search-cancel-button]:hidden"
         />
         {query ? (
           <button

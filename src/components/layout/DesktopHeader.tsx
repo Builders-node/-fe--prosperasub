@@ -22,12 +22,13 @@ interface DesktopHeaderProps {
 /**
  * The desktop bar, on every customer page (md and up).
  *
- *   [EverySub · location]      [ search ]      [♡ · bag · bell · avatar]
+ *   EverySub  [ search ··························· ]  [➤ address  ›]  ♡ bag bell (F)
  *
- * Three columns, the outer two equal (1fr | auto | 1fr), so the search sits on
- * the page's centre line whatever is on either side of it. With a plain flex
- * row it slid sideways on every page that has no location to choose — the
- * same bar, a different shape from one page to the next.
+ * Drawn after Yandex Lavka's bar: 80px tall, the logo, then the search
+ * starting right after it and taking the room, the address in an outlined box
+ * on the right, then the icons. The search always starts at the same x (the
+ * logo is fixed) and the address box is always there (LocationSelector
+ * `always`), so the bar has one shape on every page.
  *
  * One white panel (`--card`), like the phone's header, and no border: the
  * panel against the page is the separation (DESIGN.md — borderless). The
@@ -93,20 +94,21 @@ export const DesktopHeaderView = forwardRef<HTMLElement, DesktopHeaderViewProps>
 ) {
   return (
     <header ref={ref} className={cn("hidden bg-card md:block", sticky && "sticky top-0 z-40", className)}>
-      <div className="app-container grid h-16 grid-cols-[1fr_minmax(0,420px)_1fr] items-center gap-4">
-        <div className="flex min-w-0 items-center gap-3">
-          <Link
-            to="/"
-            className="shrink-0 text-[20px] font-black tracking-tight text-primary transition-opacity hover:opacity-80"
-          >
-            EverySub
-          </Link>
-          {location}
+      <div className="app-container flex h-20 items-center gap-4">
+        <Link
+          to="/"
+          className="shrink-0 text-[24px] font-black tracking-tight text-primary transition-opacity hover:opacity-80"
+        >
+          EverySub
+        </Link>
+
+        <div className="flex min-w-0 flex-1 justify-start">
+          <div className="w-full max-w-[640px]">{search}</div>
         </div>
 
-        <div className="flex min-w-0 justify-center">{search}</div>
+        {location}
 
-        <div className="flex items-center justify-end gap-1">
+        <div className="flex shrink-0 items-center gap-1">
           <HeaderIconLink to="/favorites" label="Favourites" icon={FavoriteIcon} count={session.favorites} />
           <HeaderIconLink to="/cart" label="Cart" icon={ShoppingBagIcon} count={session.cart} />
           {session.status === "signedIn" && (

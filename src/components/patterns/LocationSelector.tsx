@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MapPin, ChevronDown, Check } from "lucide-react";
+import { MapPin, ChevronDown, Check, Navigation } from "lucide-react";
 import { KeyboardArrowRightIcon, LocationOnIcon } from "@/components/icons/FigmaIcons";
 import { ResponsiveDialog } from "@/components/patterns/ResponsiveDialog";
 import { useResidences } from "@/hooks/useResidences";
@@ -139,9 +139,11 @@ export function LocationSelector({ variant = "chip", className, always = false }
 }
 
 /**
- * The desktop header's location pill — a view, so the states sheet can draw it.
- * 40px like every other control in the bar; the pin turns orange once a place
- * is chosen.
+ * The desktop header's address box — a view, so the states sheet can draw it.
+ * Drawn after Yandex Lavka's: a 48px box with a hairline outline, a
+ * navigation arrow, the place, a chevron right. The one outlined control in
+ * the bar, because it is the one that SAYS something (where you are) rather
+ * than being a door; the arrow turns orange once a place is chosen.
  */
 export function LocationChipView({ label, onClick, className }: { label: string | null | undefined; onClick?: () => void; className?: string }) {
   return (
@@ -150,13 +152,15 @@ export function LocationChipView({ label, onClick, className }: { label: string 
       onClick={onClick}
       aria-label="Choose location"
       className={cn(
-        "flex h-10 max-w-[220px] shrink-0 items-center gap-1.5 rounded-full bg-muted pl-2.5 pr-3 text-[14px] font-semibold text-foreground transition-colors hover:bg-muted/70",
+        "flex h-12 w-[280px] min-w-0 shrink items-center gap-3 rounded-radius-md bg-card px-4 text-left outline outline-1 -outline-offset-1 outline-foreground/15 transition-colors hover:bg-muted/50",
         className,
       )}
     >
-      <LocationOnIcon className={cn("h-5 w-5 shrink-0", label ? "text-primary" : "text-muted-foreground")} />
-      <span className={cn("truncate", !label && "text-muted-foreground")}>{label || "Choose location"}</span>
-      <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+      <Navigation className={cn("h-5 w-5 shrink-0 fill-current", label ? "text-primary" : "text-foreground")} strokeWidth={0} />
+      <span className={cn("min-w-0 flex-1 truncate text-[16px]", label ? "text-foreground" : "text-muted-foreground")}>
+        {label || "Choose location"}
+      </span>
+      <KeyboardArrowRightIcon className="h-5 w-5 shrink-0 text-muted-foreground" />
     </button>
   );
 }
