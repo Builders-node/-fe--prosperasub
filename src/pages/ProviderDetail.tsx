@@ -28,6 +28,8 @@ import { TabEmptyState } from "@/components/subscriptions/MySubsPrimitives";
 import { CleaningPackageCard } from "@/components/patterns/CleaningPackageCard";
 import { EntertainmentPlanCard } from "@/components/patterns/EntertainmentPlanCard";
 import { UniversalPlanCard, type UniversalPlan } from "@/components/patterns/UniversalPlanCard";
+import { OfferCard, PriceLine } from "@/components/discovery/homePlans";
+import { useTagDictionary } from "@/lib/tags";
 import {
   ProviderReviewsBlock,
   type ProviderReviewService,
@@ -143,7 +145,7 @@ function useUniversalPlans(providerId: string | undefined, enabled: boolean, pre
     queryFn: async () => {
       let q = supabaseDb
         .from("provider_plans")
-        .select("id, name, description, price_cents, currency, period, features, included_quantity, included_unit, source_plan_id, gallery_urls")
+        .select("id, name, description, price_cents, currency, period, pricing_mode, tags, features, included_quantity, included_unit, source_plan_id, gallery_urls")
         .eq("provider_id", providerId!);
       // ?preview=1 (admin): a draft provider's plans before they go live.
       if (!preview) q = q.eq("status", "active");
@@ -287,6 +289,7 @@ const ProviderDetail = () => {
    */
   const preview = useDraftPreview();
   const plansQ = useUniversalPlans(providerId, !!providerId, preview);
+  const { labelsOf } = useTagDictionary();
 
   /**
    * A rental company's offerings are its cars. The car IS the offer — the
@@ -369,10 +372,7 @@ const ProviderDetail = () => {
    * product under a second address; the page corrects it, but a link that is
    * right to begin with beats a redirect.
    */
-  const openPlan = (planId: string) => {
-    const row = (plansQ.data ?? []).find((p) => p.id === planId) as { source_plan_id?: string | null } | undefined;
-    navigate(planHref(serviceSegment ?? "", row?.source_plan_id ? String(row.source_plan_id) : planId) + (preview ? "?preview=1" : ""));
-  };
+
 
   // ── Loading / not-found (mirror FoodProviderDetail) ──────────────────────
   // An unknown service segment is a wrong URL, not an empty business. Saying so
@@ -723,20 +723,33 @@ const ProviderDetail = () => {
           ) : (plansQ.data ?? []).length === 0 ? (
             <TabEmptyState icon={Icon} title="No plans yet" subtitle="We're setting things up. Check back soon." />
           ) : (
-            // Two columns on a wide screen — one plan stretched across 1280px
-            // was a line of text with a lot of air.
-            <div className={cn("grid grid-cols-1 gap-1", (plansQ.data ?? []).length > 1 && "lg:grid-cols-2")}>
-            {(plansQ.data ?? []).map((plan) => (
-              <PlanRow
-                key={plan.id}
-                plan={plan}
-                // The plan's own photograph first. The provider's is a fallback,
-                // and using it alone made every plan a business sells look
-                // identical to every other.
-                image={planPhoto(plan) ?? gallery[0] ?? null}
-                onOpen={() => openPlan(plan.id)}
-              />
-            ))}
+            // Cards, like every other shelf of plans on the site — a photo
+            // you can see, the price under it. The long rows showed a 104px
+            // thumbnail at the end of a 1280px stripe.
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+              {(plansQ.data ?? []).map((plan) => {
+                const own = Array.isArray((plan as any).gallery_urls) ? ((plan as any).gallery_urls as unknown[]).filter((u): u is string => typeof u === "string" && !!u) : [];
+                const src = (plan as { source_plan_id?: string | null }).source_plan_id;
+                const linkId = src ? String(src) : plan.id;
+                return (
+                  <OfferCard
+                    key={plan.id}
+                    href={planHref(serviceSegment ?? "", linkId) + (preview ? "?preview=1" : "")}
+                    // The plan's own photographs first; the business's only as
+                    // a fallback, or every plan it sells looks the same.
+                    photos={own.length ? own : gallery.slice(0, 1)}
+                    title={plan.name}
+                    subtitle={plan.description}
+                    chips={labelsOf((plan as any).tags, 2)}
+                    corner={<FavoriteButton kind="plan" id={plan.id} name={plan.name} variant="overlay" />}
+                    footer={
+                      typeof plan.price_cents === "number" && plan.price_cents > 0
+                        ? <PriceLine cents={plan.price_cents} period={plan.period ?? null} perPerson={(plan as any).pricing_mode === "per_person"} />
+                        : <p className="text-[14px] text-muted-foreground">Price on request</p>
+                    }
+                  />
+                );
+              })}
             </div>
           )
         )}
@@ -802,46 +815,5 @@ function planPhoto(plan: UniversalPlan & { gallery_urls?: unknown }): string | n
   return first ?? null;
 }
 
-
-/**
- * A plan, as the design draws it: a 104px picture, the name, two lines of
- * description, and the price pinned to the bottom right after the word "From".
- *
- * The grid card this replaces was built for a listing of many providers; on a
- * provider's own page the rows are all the same business, and a row shows more
- * of what distinguishes them in less height.
- */
-function PlanRow({ plan, image, onOpen }: {
-  plan: UniversalPlan;
-  image: string | null;
-  onOpen: () => void;
-}) {
-  const hasPrice = typeof plan.price_cents === "number" && plan.price_cents > 0;
-  return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className="flex w-full gap-4 rounded-radius-md bg-card py-2 pl-2 pr-4 text-left tracking-[-0.02em]"
-    >
-      <span className="h-[104px] w-[104px] shrink-0 overflow-hidden rounded-[8px]">
-        <Photo src={image} />
-      </span>
-      <span className="flex min-w-0 flex-1 flex-col gap-1 py-2">
-        <span className="truncate text-[16px] font-semibold text-foreground">{plan.name}</span>
-        <span className="flex flex-1 flex-col justify-end gap-1">
-          {plan.description && (
-            <span className="line-clamp-2 text-[12px] text-muted-foreground">{plan.description}</span>
-          )}
-          <span className="flex items-end justify-end gap-1">
-            {hasPrice && <span className="text-[12px] text-muted-foreground">From</span>}
-            <span className="text-[16px] font-semibold text-foreground">
-              {hasPrice ? formatUSD(plan.price_cents!) : "Price on request"}
-            </span>
-          </span>
-        </span>
-      </span>
-    </button>
-  );
-}
 
 export default ProviderDetail;

@@ -30,7 +30,7 @@ import { DesktopListing, FilterGroup, featuredFirst, useDesktopFilters, usePromo
 import { planHref } from "@/lib/services/serviceUrls";
 import { useOfferFacts } from "@/lib/services/serviceAreas";
 import { useResidenceFilter } from "@/hooks/useResidenceFilter";
-import { DIETARY_TAGS, type DietaryTag } from "@/lib/foodDietaryTags";
+import { tagIcon, useTagDictionary } from "@/lib/tags";
 import { cn } from "@/lib/utils";
 
 /**
@@ -159,18 +159,34 @@ const ServicePage = () => {
   const hiddenHere = (plansQ.data ?? []).length - servedPlans.length;
 
   const [params, setParams] = useSearchParams();
-  const diet = params.get("diet") as DietaryTag | null;
-  const setDiet = (next: DietaryTag | null) => setParams((prev) => {
+  // Tags (lib/tags.ts): each dictionary group the shown plans use becomes a
+  // filter. Inside a group a plan needs ANY chosen tag (Beginner or Advanced),
+  // across groups ALL of them (Beginner AND Kids). ?tags=a,b in the URL.
+  const dict = useTagDictionary();
+  const chosenTags = (params.get("tags") ?? "").split(",").filter(Boolean);
+  const toggleTag = (key: string) => setParams((prev) => {
     const out = new URLSearchParams(prev);
-    if (next) out.set("diet", next); else out.delete("diet");
+    const cur = (out.get("tags") ?? "").split(",").filter(Boolean);
+    const next = cur.includes(key) ? cur.filter((k) => k !== key) : [...cur, key];
+    if (next.length) out.set("tags", next.join(",")); else out.delete("tags");
     return out;
   }, { replace: true });
-  const dietsOf = (p: any) => facts?.diets.get(String(p.id)) ?? [];
-  const availableDiets = useMemo(() => {
-    const seen = new Set(servedPlans.flatMap((p: any) => dietsOf(p)));
-    return (Object.keys(DIETARY_TAGS) as DietaryTag[]).filter((k) => seen.has(k));
+  const tagsOf = (p: any): string[] => facts?.tags.get(String(p.id)) ?? (Array.isArray(p.tags) ? p.tags : []);
+  const tagGroups = useMemo(() => {
+    const seen = new Set(servedPlans.flatMap((p: any) => tagsOf(p)));
+    return dict.groups
+      .map((g) => ({ ...g, tags: g.tags.filter((t) => seen.has(t.key)) }))
+      .filter((g) => g.tags.length > 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [servedPlans, facts]);
+  }, [servedPlans, facts, dict.groups]);
+  const matchesTags = (p: any) => {
+    if (!chosenTags.length) return true;
+    const own = new Set(tagsOf(p));
+    return tagGroups.every((g) => {
+      const picked = g.tags.filter((t) => chosenTags.includes(t.key));
+      return picked.length === 0 || picked.some((t) => own.has(t.key));
+    });
+  };
 
   const providerGroups = useMemo(() => {
     // A business stays on the page while it has something sold here — or
@@ -204,30 +220,29 @@ const ServicePage = () => {
   const visiblePlans = useMemo(() => {
     let rows = servedPlans;
     if (activeCategory !== ALL_CATEGORIES) rows = rows.filter((r: any) => r.providers?.category_key === activeCategory);
-    if (diet) rows = rows.filter((r: any) => dietsOf(r).includes(diet));
+    rows = rows.filter(matchesTags);
     return rows;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [servedPlans, activeCategory, diet, facts]);
+  }, [servedPlans, activeCategory, chosenTags.join(","), facts, tagGroups]);
 
-  /** Diets as chips — the sidebar on a laptop, a row above the list on a phone. */
-  const dietChips = (size: "sm" | "md") => availableDiets.map((key) => {
-    const meta = DIETARY_TAGS[key];
-    const DietIcon = meta.icon;
-    const on = diet === key;
+  /** A group's tags as chips — the sidebar on a laptop, a row above the list on a phone. */
+  const tagChips = (tags: Array<{ key: string; label: string }>, size: "sm" | "md") => tags.map((t) => {
+    const TagIcon = tagIcon(t.key);
+    const on = chosenTags.includes(t.key);
     return (
       <button
-        key={key}
+        key={t.key}
         type="button"
         aria-pressed={on}
-        onClick={() => setDiet(on ? null : key)}
+        onClick={() => toggleTag(t.key)}
         className={cn(
           "inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 font-semibold transition-colors",
           size === "md" ? "h-10 text-[14px]" : "h-8 text-[13px]",
           on ? "bg-primary text-primary-foreground" : "bg-muted text-foreground hover:bg-muted/70",
         )}
       >
-        <DietIcon className="h-4 w-4" />
-        {meta.label}
+        {TagIcon && <TagIcon className="h-4 w-4" />}
+        {t.label}
       </button>
     );
   });
@@ -238,7 +253,9 @@ const ServicePage = () => {
   ) : null;
 
   const search = useListingSearch(visiblePlans, {
-    text: (p: any) => [p.name, p.description, p.providers?.name, ...(Array.isArray(p.features) ? p.features : [])],
+    // Tags by key AND by label: "kids" and "Good for kids" both find it.
+    text: (p: any) => [p.name, p.description, p.providers?.name, ...(Array.isArray(p.features) ? p.features : []),
+      ...tagsOf(p), ...dict.labelsOf(tagsOf(p))],
     price: (p: any) => p.price_cents,
     rating: (p: any) => ratings[p.provider_id]?.average ?? null,
     name: (p: any) => p.name ?? "",
@@ -266,6 +283,7 @@ const ServicePage = () => {
       href: planHref(archetypeKey ?? "", String(plan.id)) + (preview ? "?preview=1" : ""),
       rating: ratings[plan.provider_id] ?? null,
       promotionId: promotionOf(plan),
+      tags: dict.labelsOf(tagsOf(plan), 2),
     };
   }));
   const desktopBusinesses = useMemo(() => {
@@ -328,8 +346,14 @@ const ServicePage = () => {
         sorts={search.availableSorts}
         onSort={search.setSort}
         filters={filters}
-        extraFilters={availableDiets.length > 0 ? (
-          <FilterGroup title="Diet"><div className="flex flex-wrap gap-2">{dietChips("md")}</div></FilterGroup>
+        extraFilters={tagGroups.length > 0 ? (
+          <>
+            {tagGroups.map((g) => (
+              <FilterGroup key={g.key} title={g.label}>
+                <div className="flex flex-wrap gap-2">{tagChips(g.tags, "md")}</div>
+              </FilterGroup>
+            ))}
+          </>
         ) : null}
         notice={hiddenNotice}
         empty={plansQ.isError ? (
@@ -377,9 +401,9 @@ const ServicePage = () => {
 
         <section id="plans" className="mt-space-6 scroll-mt-4">
           <h2 className="mb-3 text-heading font-semibold text-foreground">Plans</h2>
-          {availableDiets.length > 0 && (
+          {tagGroups.length > 0 && (
             <div className="-mx-space-4 mb-3 flex gap-2 overflow-x-auto px-space-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {dietChips("sm")}
+              {tagChips(tagGroups.flatMap((g) => g.tags), "sm")}
             </div>
           )}
           {hiddenNotice && <div className="mb-3">{hiddenNotice}</div>}
@@ -407,6 +431,7 @@ const ServicePage = () => {
                       plan={plan}
                       featured={!!promotionOf(plan)}
                       featuredLabel="Featured"
+                      tags={dict.labelsOf(tagsOf(plan), 2)}
                       rating={ratings[plan.provider_id]}
                       photos={providerMedia[plan.provider_id]}
                       onSubscribe={openPlan}

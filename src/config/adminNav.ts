@@ -3,14 +3,14 @@
  *   Today · Businesses (the list) · Vehicles · Reviews · Orders · Customers ·
  *   Support · Finance · Analytics · Banners · Collections · Announcements · Promo codes ·
  *   Services (the service tree: categories + businesses per service) ·
- *   Locations · Team · Audit log · Diagnostics.
+ *   Locations · Tags · Team · Audit log · Diagnostics.
  * A URL takes the permission of the nav item that covers it (permissionsForPath).
  */
 
 import {
   BarChart3, CalendarDays, DollarSign,
   BellRing, FileText, Layers, LayoutDashboard, MapPin, Megaphone, Sparkles, TicketPercent,
-  LifeBuoy, ShieldCheck, Users, Building2, CarFront, Star, Wrench, LayoutGrid, } from "lucide-react";
+  LifeBuoy, ShieldCheck, Users, Building2, CarFront, Star, Wrench, LayoutGrid, Tag, } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { adminRoutes } from "./adminRoutes";
 
@@ -136,6 +136,8 @@ export const SETTINGS_SECTION: NavSection = {
       ],
       permissions: ["admin_settings.read"] },
     { label: "Locations",  path: adminRoutes.superAdminLocations, icon: MapPin,
+      permissions: ["admin_settings.read"] },
+    { label: "Tags", path: adminRoutes.superAdminTags, icon: Tag,
       permissions: ["admin_settings.read"] },
     { label: "Team", path: adminRoutes.superAdminRoles, icon: ShieldCheck,
       permissions: ["role_management.read"] },

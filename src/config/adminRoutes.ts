@@ -26,6 +26,7 @@ export const adminRoutes = {
   superAdminUsers: "/admin/users",
   superAdminSupport: "/admin/support",
   superAdminLocations: "/admin/locations",
+  superAdminTags: "/admin/tags",
   superAdminAds: "/admin/ads",
   superAdminRoles: "/admin/roles",
   superAdminAuditLogs: "/admin/audit-logs",

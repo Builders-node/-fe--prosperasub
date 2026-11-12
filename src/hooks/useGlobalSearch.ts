@@ -5,6 +5,7 @@ import { providerHref } from "@/lib/services/serviceUrls";
 import { VEHICLES_UNIT } from "@/lib/services/vehiclesUnit";
 import { carPath, carProviderPath } from "@/features/vehicles";
 import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
+import { useTagDictionary } from "@/lib/tags";
 
 /**
  * "Search on Everysub" — one field over the whole catalogue.
@@ -52,6 +53,7 @@ const norm = (s: string) => s.toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g
 
 export function useGlobalSearch(query: string) {
   const { archetypes } = useServiceArchetypes(true);
+  const { labelsOf } = useTagDictionary();
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["global-search-catalogue"],
@@ -67,7 +69,7 @@ export function useGlobalSearch(query: string) {
         // rows have collapsed into one offer, and which of them a hit on the
         // offer should open.
         supabaseDb.from("provider_plans")
-          .select("id, provider_id, name, description, price_cents, period, parent_plan_id, source_service_key, source_plan_id")
+          .select("id, provider_id, name, description, price_cents, period, parent_plan_id, source_service_key, source_plan_id, tags")
           // Private plans are unlisted, which includes being unsearchable.
           .eq("status", "active").eq("visibility", "public"),
         supabaseDb.from("cleaning_packages")
@@ -214,7 +216,9 @@ export function useGlobalSearch(query: string) {
       const href = `/services/${segment}/plans/${p.id}${cheapest ? `?v=${cheapest.sourceId}` : ""}`;
 
       push(String(p.id), p.name, providerName.get(String(p.provider_id)) ?? null, href,
-           p.price_cents ?? null, p.period === "weekly" ? "/ week" : "/ month", [p.description],
+           p.price_cents ?? null, p.period === "weekly" ? "/ week" : "/ month",
+           // Its tags, by key and by label — "kids" finds the after-school programme.
+           [p.description, ...(Array.isArray(p.tags) ? p.tags : []), ...labelsOf(p.tags)],
            !!cheapest);
     });
   }

@@ -8,6 +8,7 @@ import { planHref } from "@/lib/services/serviceUrls";
 import { PhotoSlider } from "@/components/patterns/PhotoSlider";
 import { Skeleton } from "@/components/patterns/Skeleton";
 import { cn } from "@/lib/utils";
+import { useTagDictionary } from "@/lib/tags";
 
 /**
  * The plans the home page shows, fetched ONCE and shared by every shelf on it
@@ -27,6 +28,8 @@ export interface HomePlan {
   pricing_mode: string | null;
   source_plan_id: string | null;
   gallery_urls: unknown;
+  /** Dictionary keys (lib/tags.ts) — and any old free-text words. */
+  tags: string[] | null;
   provider: {
     id: string;
     name: string;
@@ -48,7 +51,7 @@ export function useHomePlans() {
       const { data, error } = await supabaseDb
         .from("provider_plans")
         .select(
-          "id, name, price_cents, period, pricing_mode, source_plan_id, gallery_urls, sort_order, " +
+          "id, name, price_cents, period, pricing_mode, source_plan_id, gallery_urls, tags, sort_order, " +
           "provider:providers!inner(id, name, archetype_key, gallery_urls, banner_url, status)",
         )
         .eq("status", "active")
@@ -132,9 +135,11 @@ export const OfferCard = forwardRef<HTMLAnchorElement, {
   badge?: string;
   /** Over the photo's top-right corner — the heart, on a listing. */
   corner?: ReactNode;
+  /** A plan's tags (labels), at most two — under the business name. */
+  chips?: string[];
   className?: string;
   onClick?: () => void;
-}>(function OfferCard({ href, photos, title, subtitle, footer, badge, corner, className, onClick }, ref) {
+}>(function OfferCard({ href, photos, title, subtitle, footer, badge, corner, chips, className, onClick }, ref) {
   return (
     <Link
       ref={ref}
@@ -159,6 +164,13 @@ export const OfferCard = forwardRef<HTMLAnchorElement, {
       <div className="flex flex-1 flex-col gap-1 p-3 tracking-[-0.02em]">
         <p className="line-clamp-2 text-[15px] font-semibold leading-[20px] text-foreground">{title}</p>
         {subtitle && <p className="line-clamp-1 text-[13px] leading-[18px] text-muted-foreground">{subtitle}</p>}
+        {chips && chips.length > 0 && (
+          <div className="flex flex-wrap gap-1 pt-0.5">
+            {chips.slice(0, 2).map((c) => (
+              <span key={c} className="rounded-full bg-muted px-2 py-0.5 text-[12px] font-semibold leading-[16px] text-foreground/80">{c}</span>
+            ))}
+          </div>
+        )}
         {footer && <div className="mt-auto pt-1">{footer}</div>}
       </div>
     </Link>
@@ -167,6 +179,7 @@ export const OfferCard = forwardRef<HTMLAnchorElement, {
 
 export function PlanTile({ plan, className }: { plan: HomePlan; className?: string }) {
   const provider = plan.provider!;
+  const { labelsOf } = useTagDictionary();
   // Same link the provider's own list uses: the original id where the row
   // mirrors a legacy plan, so there is one address per product.
   const href = planHref(provider.archetype_key!, plan.source_plan_id ? String(plan.source_plan_id) : plan.id);
@@ -176,6 +189,7 @@ export function PlanTile({ plan, className }: { plan: HomePlan; className?: stri
       photos={planPhotos(plan)}
       title={plan.name}
       subtitle={provider.name}
+      chips={labelsOf(plan.tags, 2)}
       footer={<PriceLine cents={plan.price_cents} period={plan.period} perPerson={plan.pricing_mode === "per_person"} />}
       className={className}
     />

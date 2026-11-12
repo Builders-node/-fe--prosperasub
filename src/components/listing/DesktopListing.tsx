@@ -42,6 +42,8 @@ export interface ListingPlan {
   rating: { average: number; count: number } | null;
   /** The promotion that put it first, if one did. */
   promotionId: string | null;
+  /** Up to two tag labels for the card. */
+  tags?: string[];
 }
 
 export interface ListingBusiness { id: string; name: string; avatarUrl: string | null }
@@ -102,8 +104,8 @@ export function useDesktopFilters() {
       const next = biz.includes(id) ? biz.filter((x) => x !== id) : [...biz, id];
       set({ biz: next.join(",") || null });
     },
-    reset: () => set({ min: null, max: null, biz: null, category: null }),
-    active: min !== null || max !== null || biz.length > 0,
+    reset: () => set({ min: null, max: null, biz: null, category: null, tags: null }),
+    active: min !== null || max !== null || biz.length > 0 || !!params.get("tags"),
     apply: <T extends ListingPlan>(rows: T[]) => rows.filter((r) => {
       if (biz.length && !biz.includes(r.providerId)) return false;
       const dollars = r.priceCents === null ? null : r.priceCents / 100;
@@ -313,6 +315,7 @@ function ListingCard({ plan }: { plan: ListingPlan }) {
       corner={<FavoriteButton kind="plan" id={plan.id} name={plan.name} variant="overlay" />}
       title={plan.name}
       subtitle={plan.providerName}
+      chips={plan.tags}
       footer={
         <div className="space-y-0.5">
           <PriceLine cents={plan.priceCents} period={plan.period} perPerson={plan.perPerson} />

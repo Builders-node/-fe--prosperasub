@@ -14,8 +14,8 @@ import { supabaseDb } from "@/integrations/supabase/client";
  *            food_provider_residences. An empty list means "everywhere"
  *            (useResidenceFilter's rule). An offer is sold in a place when ANY
  *            of its variants is; one variant with no list makes it everywhere.
- *   diets  — food_meal_plans.dietary_tags, unioned over the variants, plus the
- *            universal plan's own `tags` that name a known diet.
+ *   tags   — the universal plan's own `tags` (dictionary keys, lib/tags.ts),
+ *            plus food_meal_plans.dietary_tags unioned over the variants.
  *
  * A service with no legacy rows (clubs, healthcare) costs two tiny queries
  * that return nothing, and every offer then serves everywhere.
@@ -26,11 +26,11 @@ export interface OfferFacts {
   areas: Map<string, string[]>;
   /** universal provider id → residence ids the business serves; [] = everywhere. */
   providerAreas: Map<string, string[]>;
-  /** offer id → diet tags. */
-  diets: Map<string, string[]>;
+  /** offer id → tag keys (the universal tags plus food's diets). */
+  tags: Map<string, string[]>;
 }
 
-const EMPTY: OfferFacts = { areas: new Map(), providerAreas: new Map(), diets: new Map() };
+const EMPTY: OfferFacts = { areas: new Map(), providerAreas: new Map(), tags: new Map() };
 
 export function useOfferFacts(
   archetypeKey: string | null | undefined,
@@ -132,5 +132,5 @@ export async function fetchOfferFacts(
         if (id) providerAreas.set(id, [...(providerAreas.get(id) ?? []), String(l.residence_id)]);
       }
 
-      return { areas, providerAreas, diets };
+      return { areas, providerAreas, tags: diets };
 }

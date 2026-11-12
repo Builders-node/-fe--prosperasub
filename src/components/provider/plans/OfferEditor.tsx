@@ -18,7 +18,8 @@ import { OptionsEditor, comboKey, type DraftGroup } from "@/components/provider/
 import { readEntitlements, serializeEntitlements, type Entitlement } from "@/lib/plans/entitlements";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
-import { TagInput } from "@/components/patterns/TagInput";
+import { TagPicker } from "@/components/provider/plans/TagPicker";
+import { FOOD_DIET_KEYS } from "@/lib/tags";
 
 /**
  * One plan, with its prices inside it.
@@ -641,25 +642,6 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
     onError: (e: Error) => toast.error(e.message || "Couldn't change the plan"),
   });
 
-  // What other plans are tagged with, most used first — so one business's
-  // "coffee" is offered to the next instead of becoming "Coffee " and "cafe".
-  const { data: popularTags = [] } = useQuery({
-    queryKey: ["plan-tags-popular"],
-    staleTime: 10 * 60 * 1000,
-    queryFn: async () => {
-      const { data, error } = await supabaseDb.from("provider_plans").select("tags").not("tags", "is", null).limit(1000);
-      if (error) return [];
-      const count = new Map<string, { tag: string; n: number }>();
-      (data ?? []).forEach((r: { tags: string[] | null }) => (r.tags ?? []).forEach((t) => {
-        const k = t.trim().toLowerCase();
-        if (!k) return;
-        const c = count.get(k);
-        if (c) c.n += 1; else count.set(k, { tag: t.trim(), n: 1 });
-      }));
-      return [...count.values()].sort((a, b) => b.n - a.n).map((c) => c.tag).slice(0, 30);
-    },
-  });
-
   if (isLoading) return <div className="flex justify-center py-12"><Spinner /></div>;
   // Before the "no longer here" branch: a failed read has no offer either, and
   // telling the owner their plan was deleted when it was not is worse than
@@ -983,11 +965,12 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
 
             <MoreGroup title="Search">
               <div className="sm:col-span-2">
-                <Field label="Tags" hint="Words a customer can filter by. Enter or comma adds one — up to 20.">
-                  <TagInput
+                <Field label="Tags" hint="What customers filter and search by. The list is kept by EverySub — ask us to add a word.">
+                  <TagPicker
                     value={tagsFromText(includes.tags)}
                     onChange={(list) => setIncludes((v) => ({ ...v, tags: list.join(", ") }))}
-                    suggestions={[...popularTags, ...tagsFromText(placeholdersFor(sourceKey).tags)]}
+                    // Food keeps its tags in its own table, which accepts diets only.
+                    groups={sourceKey === "food" ? ["diet", "audience"] : undefined}
                   />
                 </Field>
               </div>
@@ -1343,7 +1326,9 @@ async function writeAttributes(
 ) {
   if (plan.source_plan_id && sourceKey === "food") {
     const { error } = await supabaseDb.from("food_meal_plans")
-      .update({ highlights: features, dietary_tags: tags, updated_at: new Date().toISOString() })
+      // dietary_tags has a CHECK of known diets; anything else lives only on
+      // the universal row (provider_plans.tags), written by the caller.
+      .update({ highlights: features, dietary_tags: tags.filter((t) => FOOD_DIET_KEYS.has(t)), updated_at: new Date().toISOString() })
       .eq("id", plan.source_plan_id);
     if (error) throw error;
     return;

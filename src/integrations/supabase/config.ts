@@ -93,6 +93,8 @@ const EDGE_ROUTES: RegExp[] = [
   /^\/admin\/promotions(\/settings|\/[^/]+\/end)?$/,
   // Home collections, admin side (Edge routes/collections.ts).
   /^\/admin\/collections(\/[^/]+(\/plans)?)?$/,
+  // The tag dictionary, admin side (Edge routes/tags.ts).
+  /^\/admin\/tags(\/groups)?(\/[a-z0-9_]+)?$/,
   // Applications to sell (Edge routes/provider-applications.ts).
   /^\/provider-applications\/options$/,
   /^\/account\/provider-applications$/,

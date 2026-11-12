@@ -13,6 +13,7 @@ import { adminApi } from "@/integrations/supabase/client";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { planIndex, useHomePlans, type HomePlan } from "@/components/discovery/homePlans";
+import { useTagDictionary } from "@/lib/tags";
 
 /**
  * Collections — the shelves on the home page ("Popular", "For beginners",
@@ -25,7 +26,7 @@ import { planIndex, useHomePlans, type HomePlan } from "@/components/discovery/h
  * customer cannot buy.
  */
 
-interface Shelf { id: string; title: string; subtitle: string | null; sortOrder: number; isActive: boolean; planIds: string[] }
+interface Shelf { id: string; title: string; subtitle: string | null; sortOrder: number; isActive: boolean; planIds: string[]; tagKey: string | null }
 const KEY = ["admin-collections"];
 
 async function call(path: string, method: string, body?: unknown) {
@@ -38,7 +39,7 @@ export default function Collections() {
   const qc = useQueryClient();
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: KEY,
-    queryFn: async () => (await call("/admin/collections", "GET")) as { enabled: boolean; rows: Shelf[] },
+    queryFn: async () => (await call("/admin/collections", "GET")) as { enabled: boolean; tagsReady?: boolean; rows: Shelf[] },
   });
   const { data: plans = [] } = useHomePlans();
   const index = useMemo(() => planIndex(plans), [plans]);
@@ -109,6 +110,7 @@ export default function Collections() {
               canUp={i > 0}
               canDown={i < rows.length - 1}
               onChanged={refresh}
+              tagsReady={!!data?.tagsReady}
             />
           ))}
         </div>
@@ -118,11 +120,16 @@ export default function Collections() {
 }
 
 function ShelfCard({
-  shelf, plans, index, onMove, canUp, canDown, onChanged,
+  shelf, plans, index, onMove, canUp, canDown, onChanged, tagsReady,
 }: {
   shelf: Shelf; plans: HomePlan[]; index: Map<string, HomePlan>;
   onMove: (dir: -1 | 1) => void; canUp: boolean; canDown: boolean; onChanged: () => void;
+  tagsReady: boolean;
 }) {
+  const dict = useTagDictionary();
+  const autoCount = shelf.tagKey
+    ? plans.filter((p) => Array.isArray(p.tags) && p.tags.includes(shelf.tagKey!) && !shelf.planIds.includes(p.id)).length
+    : 0;
   const [title, setTitle] = useState(shelf.title);
   const [subtitle, setSubtitle] = useState(shelf.subtitle ?? "");
   useEffect(() => { setTitle(shelf.title); setSubtitle(shelf.subtitle ?? ""); }, [shelf.title, shelf.subtitle]);
@@ -184,9 +191,31 @@ function ShelfCard({
         </Button>
       </div>
 
+      {tagsReady && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-body text-foreground">Also every plan tagged</span>
+          <select
+            className={cn(fieldClass, "w-auto min-w-[180px]")}
+            value={shelf.tagKey ?? ""}
+            onChange={(e) => patch.mutate({ tagKey: e.target.value || null })}
+            aria-label="Fill with a tag"
+          >
+            <option value="">— no tag, hand-picked only —</option>
+            {dict.groups.map((g) => (
+              <optgroup key={g.key} label={g.label}>
+                {g.tags.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
+              </optgroup>
+            ))}
+          </select>
+          {shelf.tagKey && <span className="text-meta text-muted-foreground">+{autoCount} automatically</span>}
+        </div>
+      )}
+
       <div className="space-y-0.5 rounded-radius-md bg-background p-1">
         {ids.length === 0 && (
-          <p className="p-3 text-meta text-muted-foreground">No offers yet — the shelf is not shown until it has one.</p>
+          <p className="p-3 text-meta text-muted-foreground">
+            {shelf.tagKey ? "No hand-picked offers — the tag fills the shelf." : "No offers yet — the shelf is not shown until it has one."}
+          </p>
         )}
         {ids.map((id, i) => {
           const p = index.get(id);
