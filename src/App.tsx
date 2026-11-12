@@ -115,6 +115,7 @@ const AdsManagement = lazy(() => import("./pages/admin/AdsManagement"));
 const AdminPromotions = lazy(() => import("./pages/admin/Promotions"));
 const AdminCollections = lazy(() => import("./pages/admin/Collections"));
 const AdminDelivery = lazy(() => import("./pages/admin/Delivery"));
+const Courier = lazy(() => import("./pages/Courier"));
 const AdminTags = lazy(() => import("./pages/admin/Tags"));
 
 // Where the platform operates. Lived under "Admin Food" and was named for the
@@ -327,6 +328,10 @@ const App = () => {
               } />
               <Route path="/account" element={
                 <ProtectedRoute><Profile /></ProtectedRoute>
+              } />
+              {/* A platform courier's day — answered only for a linked courier account. */}
+              <Route path="/courier" element={
+                <ProtectedRoute><Courier /></ProtectedRoute>
               } />
               {/* Open to guests: their hearts live in the browser until sign-in. */}
               <Route path="/favorites" element={<Favorites />} />

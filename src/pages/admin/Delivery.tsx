@@ -388,7 +388,7 @@ interface DeliveryRow {
   providers: { name: string } | null;
   delivery_zones: { name: string } | null;
 }
-interface Courier { id: string; name: string; phone: string | null; is_active: boolean }
+interface Courier { id: string; name: string; phone: string | null; is_active: boolean; user_id: string | null }
 
 function useCouriers() {
   return useQuery({
@@ -485,30 +485,52 @@ function CouriersTab() {
   const q = useCouriers();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const refresh = () => void qc.invalidateQueries({ queryKey: ["admin-couriers"] });
   const add = useMutation({
-    mutationFn: () => call("/admin/couriers", "POST", { name, phone }),
-    onSuccess: () => { setName(""); setPhone(""); refresh(); toast.success("Courier added"); },
+    mutationFn: () => call("/admin/couriers", "POST", { name, phone, email: email.trim() || undefined }),
+    onSuccess: () => { setName(""); setPhone(""); setEmail(""); refresh(); toast.success("Courier added"); },
     onError: (e: Error) => toast.error(e.message || "Could not add"),
   });
   const toggle = useMutation({
     mutationFn: (c: Courier) => call(`/admin/couriers/${c.id}`, "PATCH", { isActive: !c.is_active }),
     onSuccess: refresh,
   });
+  /** Linking an account is what opens /courier for that person. */
+  const link = useMutation({
+    mutationFn: ({ id, email: e }: { id: string; email: string | null }) => call(`/admin/couriers/${id}`, "PATCH", { email: e }),
+    onSuccess: (_d, v) => { refresh(); toast.success(v.email ? "Account linked — they can open everysub.net/courier" : "Account unlinked"); },
+    onError: (e: Error) => toast.error(e.message || "Could not link it"),
+  });
   if (q.isLoading) return <Skeleton className="h-40" />;
   return (
-    <div className="max-w-[640px] space-y-3">
+    <div className="max-w-[720px] space-y-3">
+      <p className="text-body text-muted-foreground">
+        A courier with a linked account opens <span className="font-semibold text-foreground">everysub.net/courier</span> on their phone:
+        their deliveries, directions, and the buttons that tell the customer it is on the way and delivered.
+      </p>
       <div className="flex flex-wrap gap-2 rounded-radius-lg bg-card p-4">
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" className="min-w-[160px] flex-1" />
         <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="WhatsApp" className="min-w-[160px] flex-1" />
+        <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Their EverySub account email" className="min-w-[220px] flex-[2]" />
         <Button disabled={!name.trim() || add.isPending} onClick={() => add.mutate()}><Plus className="mr-1.5 h-4 w-4" /> Add</Button>
       </div>
       {(q.data?.couriers ?? []).map((c) => (
         <div key={c.id} className="flex items-center gap-3 rounded-radius-md bg-card p-3">
           <div className="min-w-0 flex-1">
             <p className={cn("text-body font-semibold", c.is_active ? "text-foreground" : "text-muted-foreground")}>{c.name}</p>
-            {c.phone && <p className="text-meta text-muted-foreground">{c.phone}</p>}
+            <p className="text-meta text-muted-foreground">
+              {[c.phone, c.user_id ? "Account linked · opens /courier" : "No account linked"].filter(Boolean).join(" · ")}
+            </p>
           </div>
+          <Button size="sm" variant="secondary" disabled={link.isPending}
+            onClick={() => {
+              if (c.user_id) { if (window.confirm(`Unlink ${c.name}'s account?`)) link.mutate({ id: c.id, email: null }); return; }
+              const e = window.prompt(`${c.name}'s EverySub account email`)?.trim();
+              if (e) link.mutate({ id: c.id, email: e });
+            }}>
+            {c.user_id ? "Unlink" : "Link account"}
+          </Button>
           <Switch checked={c.is_active} onCheckedChange={() => toggle.mutate(c)} aria-label={`${c.name} is working`} />
         </div>
       ))}
