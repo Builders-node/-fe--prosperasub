@@ -1,11 +1,28 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, ReactNode } from "react";
+import type { DeliveryAddress } from "@/lib/geo/places";
 
 const STORAGE_KEY = "prospera_residence";
+/** The pin the visitor dropped on the map (AddressMapDialog). */
+const ADDRESS_KEY = "prospera_address";
+
+function readAddress(): DeliveryAddress | null {
+  try {
+    const raw = localStorage.getItem(ADDRESS_KEY);
+    if (!raw) return null;
+    const a = JSON.parse(raw) as DeliveryAddress;
+    return Number.isFinite(a?.lat) && Number.isFinite(a?.lng) && typeof a.line === "string" ? a : null;
+  } catch {
+    return null;
+  }
+}
 
 interface LocationContextValue {
   /** Selected residence/community name, or "" when none chosen. */
   residence: string;
   setResidence: (name: string) => void;
+  /** Where to bring things — a point on the map, or null before one is chosen. */
+  address: DeliveryAddress | null;
+  setAddress: (a: DeliveryAddress | null) => void;
   /** True while something on the current page actually uses the residence. */
   residenceMatters: boolean;
   /** Called by consumers on mount; returns the un-claim. */
@@ -15,6 +32,8 @@ interface LocationContextValue {
 const LocationContext = createContext<LocationContextValue>({
   residence: "",
   setResidence: () => {},
+  address: null,
+  setAddress: () => {},
   residenceMatters: false,
   claimResidence: () => () => {},
 });
@@ -27,6 +46,17 @@ export function LocationProvider({ children }: { children: ReactNode }) {
       return "";
     }
   });
+
+  const [address, setAddressState] = useState<DeliveryAddress | null>(readAddress);
+  const setAddress = useCallback((a: DeliveryAddress | null) => {
+    setAddressState(a);
+    try {
+      if (a) localStorage.setItem(ADDRESS_KEY, JSON.stringify(a));
+      else localStorage.removeItem(ADDRESS_KEY);
+    } catch {
+      /* ignore storage errors */
+    }
+  }, []);
 
   // How many mounted components care about the residence right now.
   //
@@ -63,14 +93,15 @@ export function LocationProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
       if (e.key === STORAGE_KEY) setResidenceState(e.newValue || "");
+      if (e.key === ADDRESS_KEY) setAddressState(readAddress());
     };
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
   }, []);
 
   const value = useMemo(
-    () => ({ residence, setResidence, residenceMatters: claims > 0, claimResidence }),
-    [residence, setResidence, claims, claimResidence],
+    () => ({ residence, setResidence, address, setAddress, residenceMatters: claims > 0, claimResidence }),
+    [residence, setResidence, address, setAddress, claims, claimResidence],
   );
 
   return <LocationContext.Provider value={value}>{children}</LocationContext.Provider>;

@@ -35,6 +35,12 @@ export default defineConfig(() => ({
           // Supabase client — no React dependency, heavy (~200KB)
           if (id.includes("@supabase")) return "supabase";
 
+          // MapLibre (~800KB) — left to Rollup, which puts it in the lazy
+          // AddressMap chunk. Naming a chunk for it made Rollup park shared
+          // CJS helpers there, so index.html preloaded the whole map library
+          // for every visitor; "vendor" would have done the same.
+          if (id.includes("maplibre-gl")) return undefined;
+
           // NOTE: qrcode.react depends on React, so it must NOT be split into
           // its own chunk — doing so splits a React consumer from React and
           // triggers "Cannot access 'L' before initialization" (TDZ) at load.
