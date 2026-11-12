@@ -285,18 +285,34 @@ const Profile = () => {
    * Favourites when nothing is chosen.
    */
   const isMobile = useIsMobile();
-  /** Edit profile is a modal over the page, not a screen of its own. */
-  const editOpen = section === "edit";
-  const base: Section = editOpen ? "view" : section;
+  /**
+   * Edit profile is a modal over the page, not a screen of its own — and not
+   * a step in the history either: Back must never reopen a dialog that was
+   * closed. An old ?section=edit link still opens it, then drops the param.
+   */
+  const [editOpen, setEditOpen] = useState(section === "edit");
+  useEffect(() => {
+    if (section !== "edit") return;
+    setEditOpen(true);
+    const p = new URLSearchParams(params);
+    p.delete("section");
+    setParams(p, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [section]);
+  const base: Section = section === "edit" ? "view" : section;
   const active: Section = !isMobile && base === "view" ? "favorites" : base;
   const isForm = base === "password" || base === "reminders";
   /** Sub-screens: no tab bar and no bell — Back is the way out. */
   const isSubScreen = isForm || base === "locations";
-  const openSection = (next: Section) => {
+  /**
+   * `replace` for leaving a form after saving it: Back from the profile should
+   * not walk into the form that was just closed.
+   */
+  const openSection = (next: Section, opts: { replace?: boolean } = {}) => {
     const p = new URLSearchParams(params);
     if (next === "view") p.delete("section");
     else p.set("section", next);
-    setParams(p);
+    setParams(p, { replace: !!opts.replace });
   };
   // Back out of a section the same way the browser would, so the two routes
   // never disagree about where "back" goes.
@@ -399,7 +415,7 @@ const Profile = () => {
       toast.success("Profile updated");
       setSavedName(draftName.trim()); setSavedPhone(draftPhone.trim());
       setSavedTelegram(draftTelegram.trim()); setSavedWhatsApp(draftWhatsApp.trim());
-      openSection("view");
+      setEditOpen(false);
       queryClient.invalidateQueries({ queryKey: ["user-profile"] });
       refreshUserData();
     },
@@ -412,7 +428,7 @@ const Profile = () => {
       if (error) throw error;
       return data as CleaningPrefs;
     },
-    onSuccess: (data) => { setPrefs(data); setDraftPrefs(data); openSection("view"); toast.success("Preferences saved"); },
+    onSuccess: (data) => { setPrefs(data); setDraftPrefs(data); openSection("view", { replace: true }); toast.success("Preferences saved"); },
     onError: (err: Error) => toast.error(err.message || "Failed to save"),
   });
 
@@ -432,7 +448,7 @@ const Profile = () => {
       const { data, error } = await accountApi("/account/change-password", { method: "PATCH", body: JSON.stringify({ current_password: currentPw, new_password: newPw }) });
       if (error) throw error; return data;
     },
-    onSuccess: () => { toast.success("Password updated successfully"); openSection("view"); },
+    onSuccess: () => { toast.success("Password updated successfully"); openSection("view", { replace: true }); },
     onError: (err: Error) => {
       const msg = err.message || "";
       if (msg.toLowerCase().includes("incorrect") || msg.toLowerCase().includes("invalid")) setPwErrors((e) => ({ ...e, current: "Current password is incorrect" }));
@@ -470,7 +486,7 @@ const Profile = () => {
               </div>
               {/* A phone has Edit in the title bar instead (where the bell was). */}
               {!isMobile && (
-                <Button variant="secondary" size="sm" className="shrink-0 gap-1.5 self-start" onClick={() => openSection("edit")}>
+                <Button variant="secondary" size="sm" className="shrink-0 gap-1.5 self-start" onClick={() => setEditOpen(true)}>
                   <Pencil className="h-4 w-4" /> Edit
                 </Button>
               )}
@@ -712,7 +728,7 @@ const Profile = () => {
         // The profile itself: Edit in place of the bell — the one action this
         // page has, and the bell is a tab-bar tap away anyway.
         : base === "view" ? (
-          <button type="button" onClick={() => openSection("edit")} aria-label="Edit profile" className={HEADER_ACTION_CLASS}>
+          <button type="button" onClick={() => setEditOpen(true)} aria-label="Edit profile" className={HEADER_ACTION_CLASS}>
             {/* 20px Lucide = the visual size of the header's 24px Material glyphs
                 (their drawing sits inside a 24px box with padding). */}
             <Pencil className="h-5 w-5" strokeWidth={1.75} />
@@ -743,7 +759,7 @@ const Profile = () => {
       {/* Edit profile — a modal over the page (a sheet on a phone). */}
       <ResponsiveDialog
         open={editOpen}
-        onOpenChange={(o) => { if (!o) openSection("view"); }}
+        onOpenChange={setEditOpen}
         title="Edit profile"
         footer={
           <Button size="lg" className="w-full" onClick={() => saveMutation.mutate()} loading={saveMutation.isPending}
