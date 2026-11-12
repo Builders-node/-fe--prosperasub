@@ -44,7 +44,7 @@ import { cn } from "@/lib/utils";
 import { Check, SearchX, ShoppingCart } from "lucide-react";
 import { LinkifiedText } from "@/components/patterns/LinkifiedText";
 import { DecisionBar } from "@/components/patterns/DecisionBar";
-import { DeliveryRow } from "@/components/delivery/DeliveryRow";
+import { DeliveryRow, useOfferDelivery } from "@/components/delivery/DeliveryRow";
 import { useSeo, offerJsonLd } from "@/hooks/useSeo";
 import { PhotoCarousel } from "@/components/patterns/PhotoCarousel";
 import { ProductGallery } from "@/components/patterns/ProductGallery";
@@ -363,6 +363,7 @@ const PlanDetail = () => {
 
 
   const { addItem: addToCart, has: inCart, count: cartCount } = useCart();
+  const offerDeliveryQ = useOfferDelivery(plan?.source === "universal" && !plan?.serviceKey ? plan.id : null);
 
   const [selection, setSelection] = useState<Record<string, string>>({});
 
@@ -682,7 +683,9 @@ const PlanDetail = () => {
     }
     toast.success("Saved to your cart", { action: { label: "View cart", onClick: () => navigate("/cart") } });
   };
-  const cartButton = (
+  // A delivery-only offer needs an address, which only its checkout asks for.
+  const deliveryOnly = offerDeliveryQ.data?.mode === "delivery";
+  const cartButton = deliveryOnly ? null : (
     <div className="space-y-1">
       <button
         type="button"

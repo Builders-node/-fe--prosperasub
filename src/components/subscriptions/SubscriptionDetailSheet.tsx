@@ -12,6 +12,7 @@ import { formatRangeHN, formatDateHN } from "@/lib/timezone";
 import { TipPanel } from "@/components/subscriptions/TipPanel";
 import { RateProviderButton, type Service } from "@/components/reviews/RateProviderButton";
 import { AccessQrCode } from "@/components/account/AccessQrCode";
+import { DeliveryStatusBlock } from "@/components/delivery/DeliveryStatusBlock";
 
 /**
  * What a customer sees when they tap a subscription: the purchase, not the
@@ -139,6 +140,9 @@ export function SubscriptionDetailSheet({
               <AccessQrCode subscriptionId={detail.accessId} />
             </DialogBlock>
           )}
+
+          {/* A delivered purchase: where it is and where it is going. */}
+          <DeliveryStatusBlock subscriptionId={detail.accessId} />
 
           <DialogBlock title="Details" className="space-y-0">
             <Row label="Period" value={formatRangeHN(detail.periodStart, detail.periodEnd) ?? undefined} />

@@ -278,6 +278,12 @@ export default function Cart() {
       if (!resolved || resolved.status !== "active" || !resolved.providerActive) {
         throw new Error(`"${item.planName}" is no longer on sale.`);
       }
+      // The cart has no address step: a delivery-only offer is bought from its
+      // own page, where the pin and the zone's price are chosen. ("Pickup or
+      // delivery" offers go through the cart as pickup.)
+      if (resolved.delivery.mode === "delivery") {
+        throw new Error(`"${item.planName}" is delivered — buy it from its own page so we know where to bring it.`);
+      }
       plans.set(item.planId, resolved);
     }
 
