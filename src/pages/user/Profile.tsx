@@ -17,6 +17,8 @@ import { KeyboardArrowRightIcon } from "@/components/icons/FigmaIcons";
 import { SavedLocations, useUserLocations } from "@/components/account/SavedLocations";
 import { ReferralPanel } from "@/components/account/ReferralPanel";
 import { WalletPanel } from "@/components/account/WalletPanel";
+import { FavoritesPanel } from "@/pages/user/Favorites";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useReferrals } from "@/hooks/useReferrals";
 import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/i18n";
@@ -35,10 +37,11 @@ import { cn } from "@/lib/utils";
  * step, a section can be linked to, and a reload lands where you were.
  */
 
-type Section = "view" | "edit" | "password" | "locations" | "reminders" | "referrals" | "wallet";
+type Section = "view" | "edit" | "password" | "locations" | "reminders" | "referrals" | "wallet" | "favorites";
 
 const SECTION_TITLES: Record<Section, string> = {
   view: "Profile",
+  favorites: "Favourites",
   edit: "Edit Profile",
   password: "Change Password",
   locations: "Saved Locations",
@@ -155,19 +158,22 @@ function methodLabel(m: string) {
  * same way the design does it everywhere else.
  */
 function Row({
-  icon: Icon, label, value, onClick, tone = "default",
+  icon: Icon, label, value, onClick, tone = "default", active = false,
 }: {
   icon: ComponentType<SVGProps<SVGSVGElement>>;
   label: string;
   value?: React.ReactNode;
   onClick: () => void;
   tone?: "default" | "accent" | "danger";
+  /** The section open beside the menu (laptop). */
+  active?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center gap-3 rounded-radius-md p-3 text-left transition-colors hover:bg-inset"
+      aria-current={active ? "page" : undefined}
+      className={cn("flex w-full items-center gap-3 rounded-radius-md p-3 text-left transition-colors hover:bg-inset", active && "bg-inset")}
     >
       <span className={cn(
         "flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px]",
@@ -227,6 +233,13 @@ const Profile = () => {
 
   const referrals = useReferrals();
   const section = (params.get("section") as Section) || "view";
+  /**
+   * A phone walks into a section and back out (one screen at a time). A laptop
+   * keeps the menu on the left and opens the section beside it, on this page —
+   * Favourites when nothing is chosen.
+   */
+  const isMobile = useIsMobile();
+  const active: Section = !isMobile && section === "view" ? "favorites" : section;
   const isForm = section === "edit" || section === "password" || section === "reminders";
   /** Sub-screens: no tab bar and no bell — Back is the way out. */
   const isSubScreen = isForm || section === "locations";
@@ -306,15 +319,15 @@ const Profile = () => {
   // Entering a section seeds its draft from what is saved, so leaving and
   // coming back never shows a half-typed edit from last time.
   useEffect(() => {
-    if (section === "edit") {
+    if (active === "edit") {
       setDraftName(savedName); setDraftPhone(savedPhone);
       setDraftTelegram(savedTelegram); setDraftWhatsApp(savedWhatsApp);
       setTimeout(() => firstEditRef.current?.focus(), 50);
     }
-    if (section === "reminders") setDraftPrefs(prefs);
-    if (section !== "password") { setCurrentPw(""); setNewPw(""); setConfirmPw(""); setPwErrors({}); }
+    if (active === "reminders") setDraftPrefs(prefs);
+    if (active !== "password") { setCurrentPw(""); setNewPw(""); setConfirmPw(""); setPwErrors({}); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [section]);
+  }, [active]);
 
   const hasChanges =
     draftName.trim() !== savedName.trim() || draftPhone.trim() !== savedPhone.trim() ||
@@ -387,26 +400,9 @@ const Profile = () => {
     savedTelegram && { key: "tg", label: "Telegram", value: savedTelegram.startsWith("@") ? savedTelegram : `@${savedTelegram}`, icon: <TelegramIcon className="h-4 w-4 text-[#2AABEE]" /> },
   ].filter(Boolean) as Array<{ key: string; label: string; value: string; icon: JSX.Element }>;
 
-  return (
-    // The account frame, like every other /account screen. This page sat in
-    // BrowseLayout and mounted its own HomeHeader as a child, so the one
-    // screen behind the Account tab was assembled differently from the six
-    // beside it (PAGE_TYPES section 6).
-    <UserLayout
-      title={SECTION_TITLES[section]}
-      showBackButton
-      backTo={backTo}
-      // A form is a decision page: it ends at its own Save, so the tab bar and
-      // the bell (a way OUT of an unsaved form) are not offered on it.
-      showBottomNav={!isSubScreen}
-      headerAction={isSubScreen ? <span className="h-10 w-10" aria-hidden /> : undefined}
-    >
-      <div className={cn(
-        "app-container space-y-4 pt-space-4 md:pt-space-8",
-        isForm && "pb-[calc(var(--decision-bar-h,88px)+16px)] md:pb-space-8 md:max-w-[640px]",
-      )}>
-        {section === "view" && (
-          <>
+  /** Who you are and every way into a section. */
+  const menu = (
+    <>
             {/* Who you are. One white card: avatar, name, email — the same
                 block the home screen opens with, not three stacked panels. */}
             <section className="flex items-center gap-4 rounded-radius-md bg-card p-4 shadow-figma">
@@ -446,19 +442,22 @@ const Profile = () => {
                 icon={Heart}
                 label="Favourites"
                 value={favorites.count ? `${favorites.count} saved` : "Tap the heart on anything you like"}
-                onClick={() => navigate("/favorites")}
+                onClick={() => openSection("favorites")}
+                active={!isMobile && active === "favorites"}
               />
               <Row
                 icon={Wallet}
                 label="Balance & auto-renew"
                 value="Top up once, subscriptions renew on their own"
                 onClick={() => openSection("wallet")}
+                active={!isMobile && active === "wallet"}
               />
               <Row
                 icon={MapPin}
                 label="Saved locations"
                 value={defaultLocation ? defaultLocation.line : "Add a location"}
                 onClick={() => openSection("locations")}
+                active={!isMobile && active === "locations"}
               />
               <Row
                 icon={prefs.reminder_enabled ? Bell : BellOff}
@@ -467,6 +466,7 @@ const Profile = () => {
                   ? `${reminderLabel(prefs.reminder_minutes_before)} · ${methodLabel(prefs.reminder_method)}`
                   : "Disabled"}
                 onClick={() => openSection("reminders")}
+                active={!isMobile && active === "reminders"}
               />
               {/* Shown as soon as there is a code to copy. The screen behind
                   it degrades honestly when the account API is missing: the
@@ -482,13 +482,14 @@ const Profile = () => {
                       : "profile.inviteFriendValuePlain",
                   )}
                   onClick={() => openSection("referrals")}
+                  active={!isMobile && active === "referrals"}
                 />
               )}
               <Row icon={Pencil} label="Edit profile"
                 value={contacts.length === 0 ? "Add your contact details" : undefined}
-                onClick={() => openSection("edit")} />
+                onClick={() => openSection("edit")} active={!isMobile && active === "edit"} />
               {canChangePassword && (
-                <Row icon={KeyRound} label="Change password" onClick={() => openSection("password")} />
+                <Row icon={KeyRound} label="Change password" onClick={() => openSection("password")} active={!isMobile && active === "password"} />
               )}
             </section>
 
@@ -524,13 +525,17 @@ const Profile = () => {
             <section className="rounded-radius-md bg-card p-1.5 shadow-figma">
               <Row icon={LogOut} tone="danger" label={t("profile.logOut")} onClick={() => void logout().then(() => navigate("/"))} />
             </section>
-          </>
-        )}
+    </>
+  );
 
-        {section === "referrals" && <ReferralPanel />}
-        {section === "wallet" && <WalletPanel />}
+  /** The open section. */
+  const panel = (
+    <>
+        {active === "favorites" && <FavoritesPanel />}
+        {active === "referrals" && <ReferralPanel />}
+        {active === "wallet" && <WalletPanel />}
 
-        {section === "edit" && (
+        {active === "edit" && (
           <section className="space-y-2 rounded-radius-lg bg-card p-4">
             <Input ref={firstEditRef as any} id="e-name" label="Username" value={draftName} onChange={(e) => setDraftName(e.target.value)} placeholder="Your name" />
             <Input id="e-email" label="Email" type="email" value={email} readOnly className="cursor-default opacity-50" />
@@ -539,14 +544,14 @@ const Profile = () => {
             <Input id="e-tg" label="Telegram (optional)" value={draftTelegram} onChange={(e) => setDraftTelegram(e.target.value)} placeholder="@username" leftIcon={<TelegramIcon className="h-4 w-4 text-[#2AABEE]" />} />
           </section>
         )}
-        {section === "edit" && (
+        {active === "edit" && (
           <SaveBar label="Save" busyLabel="Saving…" busy={saveMutation.isPending}
             disabled={!hasChanges} onClick={() => saveMutation.mutate()} />
         )}
 
-        {section === "locations" && userData?.id && <SavedLocations userId={userData.id} />}
+        {active === "locations" && userData?.id && <SavedLocations userId={userData.id} />}
 
-        {section === "reminders" && (
+        {active === "reminders" && (
           <section className="space-y-4 rounded-radius-lg bg-card p-4">
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -591,23 +596,56 @@ const Profile = () => {
 
           </section>
         )}
-        {section === "reminders" && (
+        {active === "reminders" && (
           <SaveBar label="Save" busyLabel="Saving…" busy={savePrefsMutation.isPending}
             onClick={() => savePrefsMutation.mutate()} />
         )}
 
-        {section === "password" && (
+        {active === "password" && (
           <section className="space-y-3 rounded-radius-lg bg-card p-4">
             <PasswordInput id="cp" label="Current password" autoFocus value={currentPw} onChange={setCurrentPw} placeholder="Enter current password" error={pwErrors.current} />
             <PasswordInput id="np" label="New password" value={newPw} onChange={setNewPw} placeholder="At least 8 characters" error={pwErrors.new} />
             <PasswordInput id="rp" label="Confirm new password" value={confirmPw} onChange={setConfirmPw} placeholder="Repeat new password" error={pwErrors.confirm} />
           </section>
         )}
-        {section === "password" && (
+        {active === "password" && (
           <SaveBar label="Update password" busyLabel="Updating…" busy={changePwMutation.isPending}
             onClick={() => { if (validatePw()) changePwMutation.mutate(); }} />
         )}
-      </div>
+    </>
+  );
+
+  return (
+    // The account frame, like every other /account screen (PAGE_TYPES §6).
+    <UserLayout
+      title={isMobile ? SECTION_TITLES[section] : "Profile"}
+      showBackButton
+      backTo={isMobile ? backTo : "/discovery"}
+      // A form is a decision page on a phone: it ends at its own Save, so the
+      // tab bar and the bell (a way OUT of an unsaved form) are not offered.
+      showBottomNav={!isMobile || !isSubScreen}
+      headerAction={isMobile && isSubScreen ? <span className="h-10 w-10" aria-hidden /> : undefined}
+    >
+      {isMobile ? (
+        <div className={cn(
+          "app-container space-y-4 pt-space-4",
+          isForm && "pb-[calc(var(--decision-bar-h,88px)+16px)]",
+        )}>
+          {section === "view" ? menu : panel}
+        </div>
+      ) : (
+        // Laptop: the menu stays on the left and the section opens beside it,
+        // on this page — no trip to another screen and back.
+        <div className="app-container grid grid-cols-[340px_minmax(0,1fr)] items-start gap-6 pb-space-8 pt-space-8 lg:grid-cols-[380px_minmax(0,1fr)]">
+          <aside className="space-y-4">{menu}</aside>
+          <main className="min-w-0 space-y-4">
+            <h1 className="px-1 text-3xl font-semibold tracking-tight text-foreground">{SECTION_TITLES[active]}</h1>
+            <div className={cn("space-y-4", ["edit", "password", "reminders"].includes(active) && "max-w-[640px]")}>
+              {panel}
+            </div>
+          </main>
+        </div>
+      )}
     </UserLayout>
   );
 };

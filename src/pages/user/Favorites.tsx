@@ -136,6 +136,21 @@ async function resolveRows(items: FavoriteItem[]): Promise<Map<string, Row>> {
 const ICON: Record<FavoriteKind, typeof Heart> = { plan: LayoutGrid, provider: Building2, vehicle: CarFront };
 
 export default function Favorites() {
+  return (
+    <UserLayout title="Favourites" allowGuest>
+      <div className="app-container space-y-4 py-space-4 md:py-space-6">
+        <h1 className="hidden text-3xl font-semibold tracking-tight md:block md:text-5xl">Favourites</h1>
+        <FavoritesPanel />
+      </div>
+    </UserLayout>
+  );
+}
+
+/**
+ * The saved list itself — the /favorites page, and the Favourites panel of
+ * the profile on a laptop (pages/user/Profile.tsx), which opens it in place.
+ */
+export function FavoritesPanel() {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const { openAuthModal } = useAuthModal();
@@ -159,10 +174,7 @@ export default function Favorites() {
   const shown = items.filter((i) => filter === "all" || i.kind === filter);
 
   return (
-    <UserLayout title="Favourites" allowGuest>
-      <div className="app-container space-y-4 py-space-4 md:py-space-6">
-        <h1 className="hidden text-3xl font-semibold tracking-tight md:block md:text-5xl">Favourites</h1>
-
+      <div className="space-y-4">
         {!isAuthenticated && items.length > 0 && (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-radius-lg bg-card p-4">
             <p className="text-body text-muted-foreground">Saved on this device. Sign in to keep them on your phone and laptop alike.</p>
@@ -247,6 +259,5 @@ export default function Favorites() {
           </>
         )}
       </div>
-    </UserLayout>
   );
 }
