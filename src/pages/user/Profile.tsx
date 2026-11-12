@@ -573,11 +573,14 @@ const Profile = () => {
               </>
             )}
 
-            {/* The phone has no footer, so the legal pages live here too. */}
-            <section className="rounded-radius-md bg-card p-1.5 shadow-figma">
-              <Row icon={FileText} label="Terms of Service" onClick={() => navigate("/terms")} />
-              <Row icon={Lock} label="Privacy Policy" onClick={() => navigate("/privacy")} />
-            </section>
+            {/* The phone has no footer, so the legal pages live here too. A
+                laptop has them in the site footer — not repeated here. */}
+            {isMobile && (
+              <section className="rounded-radius-md bg-card p-1.5 shadow-figma">
+                <Row icon={FileText} label="Terms of Service" onClick={() => navigate("/terms")} />
+                <Row icon={Lock} label="Privacy Policy" onClick={() => navigate("/privacy")} />
+              </section>
+            )}
 
             <section className="rounded-radius-md bg-card p-1.5 shadow-figma">
               <Row icon={LogOut} tone="danger" label={t("profile.logOut")} onClick={() => void logout().then(() => navigate("/"))} />
