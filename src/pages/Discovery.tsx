@@ -261,10 +261,6 @@ const Discovery = () => {
         ) : (
           /* ─── Services ─────────────────────────────────────────────── */
           <>
-          <ForYouSection />
-          <FeaturedRail placement="home" />
-          <CollectionsSection />
-          <BusinessesRail />
           <section className="space-y-3">
             <h2 className="text-heading font-semibold text-foreground">
               {t("discovery.services")}
@@ -283,6 +279,11 @@ const Discovery = () => {
               </div>
             )}
           </section>
+          {/* Services first — the map of what is here — then the shelves. */}
+          <FeaturedRail placement="home" />
+          <ForYouSection />
+          <CollectionsSection />
+          <BusinessesRail />
           </>
         )}
 
