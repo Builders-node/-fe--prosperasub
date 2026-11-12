@@ -712,8 +712,8 @@ const Profile = () => {
         // page has, and the bell is a tab-bar tap away anyway.
         : base === "view" ? (
           <button type="button" onClick={() => openSection("edit")} aria-label="Edit profile"
-            className="flex h-10 items-center gap-1.5 rounded-full px-3 text-body font-semibold text-foreground transition-colors hover:bg-muted">
-            <Pencil className="h-4 w-4" /> Edit
+            className="flex h-10 w-10 items-center justify-center rounded-full text-foreground transition-colors hover:bg-muted">
+            <Pencil className="h-6 w-6" />
           </button>
         ) : undefined}
     >
