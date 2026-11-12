@@ -23,7 +23,7 @@ import type { FoodProvider, FoodMealPlan } from "@/types/food";
 import { DIETARY_TAGS, dietaryTagMeta, type DietaryTag } from "@/lib/foodDietaryTags";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/patterns/Skeleton";
-import { FeaturedRail } from "@/components/discovery/FeaturedRail";
+import { DesktopListing, FilterGroup, featuredFirst, useDesktopFilters, usePromotionLookup, type ListingPlan } from "@/components/listing/DesktopListing";
 
 type PlanWithResidences = FoodMealPlan & { residenceIds: string[] };
 type ProviderWithPlans = FoodProvider & {
@@ -274,9 +274,71 @@ const FoodListing = () => {
     name: ({ plan }) => plan.name,
   });
 
+  // Paid placements first in the list, marked — on the phone and the laptop.
+  const lookupPromotion = usePromotionLookup("food");
+  type Row = (typeof filteredPlans)[number];
+  const promotionOf = ({ plan, provider }: Row) => {
+    const offer = offerBySourcePlanId.get(String(plan.id));
+    return lookupPromotion([plan.id, offer?.id], [provider.id]);
+  };
+  const ordered = featuredFirst(search.results, (r) => !!promotionOf(r));
+  const hrefOf = ({ plan }: Row) => {
+    const offer = offerBySourcePlanId.get(String(plan.id));
+    return offer ? `/services/food/plans/${offer.id}?v=${plan.id}` : `/services/food/plans/${plan.id}`;
+  };
+
+  const filters = useDesktopFilters();
+  const desktopPlans: ListingPlan[] = filters.apply(ordered.map((r) => {
+    const offer = offerBySourcePlanId.get(String(r.plan.id)) ?? null;
+    const dishes = planImages[r.plan.id] ?? [];
+    return {
+      id: String(offer?.id ?? r.plan.id),
+      name: offer?.name ?? r.plan.name,
+      providerId: String(r.provider.id),
+      providerName: r.provider.name,
+      priceCents: typeof r.plan.weekly_price_cents === "number" ? r.plan.weekly_price_cents : null,
+      period: "weekly",
+      perPerson: false,
+      photos: offer?.gallery?.length ? offer.gallery : dishes,
+      href: hrefOf(r),
+      rating: ratings[r.provider.id] ?? null,
+      promotionId: promotionOf(r),
+    };
+  }));
+
+  // Diets, as a filter group in the sidebar — the same control the phone has
+  // as a chip row.
+  const dietFilter = availableTags.length > 0 ? (
+    <FilterGroup title="Diet">
+      <div className="flex flex-wrap gap-2">
+        {availableTags.map((key) => {
+          const meta = DIETARY_TAGS[key];
+          const Icon = meta.icon;
+          const on = dietaryFilter === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              aria-pressed={on}
+              onClick={() => setDietaryFilter(on ? null : key)}
+              className={cn(
+                "inline-flex h-10 items-center gap-1.5 rounded-full px-3 text-[14px] font-semibold transition-colors",
+                on ? "bg-primary text-primary-foreground" : "bg-muted text-foreground hover:bg-muted/70",
+              )}
+            >
+              <Icon className="h-4 w-4" />
+              {meta.label}
+            </button>
+          );
+        })}
+      </div>
+    </FilterGroup>
+  ) : null;
+
   return (
     <BrowseLayout>
       <ListingHeader
+        desktopBar={false}
         title={serviceTitle}
         onBack={goBack}
         query={search.query}
@@ -287,8 +349,35 @@ const FoodListing = () => {
         sorts={search.availableSorts}
       />
 
-      <main className="app-container py-space-4 md:py-space-8">
-        <FeaturedRail placement="service" archetypeKey="food" className="mb-space-6" />
+      <DesktopListing
+        title={serviceTitle}
+        categories={chipCategories.map((c) => ({ key: c.key, label: c.label }))}
+        category={activeCategory}
+        onCategory={setActiveCategory}
+        businesses={railProviders.map((p) => ({ id: String(p.id), name: p.name, avatarUrl: p.avatarUrl }))}
+        plans={desktopPlans}
+        loading={plansLoading}
+        sort={search.sort}
+        sorts={search.availableSorts}
+        onSort={search.setSort}
+        filters={filters}
+        extraFilters={dietFilter}
+        notice={!plansLoading && hiddenCount > 0 ? (
+          <p className="text-[14px] text-muted-foreground">
+            {hiddenCount} restaurant{hiddenCount > 1 ? "s" : ""} not available in {residence}
+          </p>
+        ) : null}
+        empty={isError ? (
+          <QueryError title="Couldn't load restaurants" error={error instanceof Error ? error.message : undefined} onRetry={() => refetch()} retrying={isFetching} />
+        ) : visibleProviders.length === 0 ? (
+          isFiltering
+            ? <YdEmptyState icon={MapPin} title={`No restaurants in ${residence} yet`} subtitle="Try another location or check back soon." />
+            : <YdEmptyState icon={ChefHat} title="No restaurants yet" subtitle="We're setting things up. Check back soon." />
+        ) : undefined}
+      />
+
+      {/* The phone: chips, restaurants, diets, the list. */}
+      <main className="app-container py-space-4 md:hidden">
 
         {/* ─── Providers → Categories → the list ───────────────────── */}
         {!isLoading && !isError && railProviders.length > 0 && (
@@ -414,7 +503,7 @@ const FoodListing = () => {
               </div>
             ) : search.results.length > 0 ? (
               <div className="grid gap-3 md:gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {search.results.map(({ plan, provider }) => {
+                {ordered.map(({ plan, provider }) => {
                   const offer = offerBySourcePlanId.get(String(plan.id)) ?? null;
                   /**
                    * The same photo rule as every card on the platform: the
@@ -434,6 +523,8 @@ const FoodListing = () => {
                       images={offer?.gallery?.length ? offer.gallery : menuDishes}
                       rating={ratings[provider.id]}
                       offer={offer}
+                      featured={!!promotionOf({ plan, provider } as Row)}
+                      featuredLabel="Featured"
                       // A combination of an offer opens the offer, with it selected —
                       // one product, one address (see PlanDetail).
                       onOpen={() => navigate(offer ? `/services/food/plans/${offer.id}?v=${plan.id}` : `/services/food/plans/${plan.id}`)}

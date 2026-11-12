@@ -20,6 +20,7 @@ export function MealPlanCard({
   providerName,
   images = [],
   featured,
+  featuredLabel,
   rating,
   offer,
   onOpen,
@@ -29,6 +30,7 @@ export function MealPlanCard({
   providerName?: string;
   images?: string[];
   featured?: boolean;
+  featuredLabel?: string;
   rating?: PlanCardRating | null;
   /**
    * Set when this plan is the cheapest variant of an offer. The card then
@@ -49,6 +51,7 @@ export function MealPlanCard({
       photos={images}
       rating={rating}
       featured={featured}
+      featuredLabel={featuredLabel}
       badges={
         tags.length > 0
           ? tags.map((t) => {

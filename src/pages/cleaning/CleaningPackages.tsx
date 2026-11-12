@@ -25,7 +25,7 @@ import { QueryError } from "@/components/patterns/QueryError";
 import { Skeleton } from "@/components/patterns/Skeleton";
 import { YdEmptyState } from "@/components/yd/YdPrimitives";
 import { CleaningPackageCard } from "@/components/patterns/CleaningPackageCard";
-import { FeaturedRail } from "@/components/discovery/FeaturedRail";
+import { DesktopListing, featuredFirst, useDesktopFilters, usePromotionLookup, type ListingPlan } from "@/components/listing/DesktopListing";
 
 interface CleaningProvider {
   id: string;
@@ -272,9 +272,41 @@ const CleaningPackages = () => {
     name: (i) => i.pkg.name ?? "",
   });
 
+  // Paid placements first in the list, marked — on the phone and the laptop.
+  const lookupPromotion = usePromotionLookup("cleaning");
+  const promotionOf = (i: (typeof flatPackages)[number]) => {
+    const offer = offerBySourcePlanId.get(String(i.pkg.id));
+    return lookupPromotion([i.pkg.id, offer?.id], [i.providerId, i.pkg.provider_id]);
+  };
+  const ordered = featuredFirst(search.results, (i) => !!promotionOf(i));
+  const hrefOf = (i: (typeof flatPackages)[number]) => {
+    const offer = offerBySourcePlanId.get(String(i.pkg.id));
+    return offer ? `/services/cleaning/plans/${offer.id}?v=${i.pkg.id}` : `/services/cleaning/plans/${i.pkg.id}`;
+  };
+
+  const filters = useDesktopFilters();
+  const desktopPlans: ListingPlan[] = filters.apply(ordered.map((i) => {
+    const offer = offerBySourcePlanId.get(String(i.pkg.id)) ?? null;
+    return {
+      id: String(offer?.id ?? i.pkg.id),
+      name: offer?.name ?? i.pkg.name,
+      providerId: i.providerId,
+      providerName: i.providerName,
+      priceCents: resolveMonthlyPriceCents(i.pkg) ?? null,
+      period: "monthly",
+      perPerson: false,
+      photos: offer?.gallery?.length ? offer.gallery : i.gallery,
+      href: hrefOf(i),
+      rating: ratings[i.providerId] ?? null,
+      promotionId: promotionOf(i),
+    };
+  }));
+  const catalogLoading = packagesQ.isLoading || providersQ.isLoading || categoriesQ.isLoading || offersLoading;
+
   return (
     <BrowseLayout>
       <ListingHeader
+        desktopBar={false}
         title={serviceTitle}
         onBack={goBack}
         query={search.query}
@@ -285,8 +317,31 @@ const CleaningPackages = () => {
         sorts={search.availableSorts}
       />
 
-      <main className="app-container space-y-8 py-space-4 md:py-space-8">
-        <FeaturedRail placement="service" archetypeKey="cleaning" />
+      <DesktopListing
+        title={serviceTitle}
+        categories={chipCategories.map((c) => ({ key: c.key, label: c.label }))}
+        category={activeCategory}
+        onCategory={setActiveCategory}
+        businesses={railProviders.map((p) => ({ id: p.id, name: p.name, avatarUrl: p.avatarUrl }))}
+        plans={desktopPlans}
+        loading={catalogLoading}
+        sort={search.sort}
+        sorts={search.availableSorts}
+        onSort={search.setSort}
+        filters={filters}
+        empty={providersQ.isError || packagesQ.isError ? (
+          <QueryError
+            title="Couldn't load the catalog"
+            onRetry={() => { providersQ.refetch(); packagesQ.refetch(); categoriesQ.refetch(); }}
+            retrying={providersQ.isFetching || packagesQ.isFetching || categoriesQ.isFetching}
+          />
+        ) : categoryGroups.length === 0 ? (
+          <YdEmptyState icon={SparklesIcon} title={t("cleaning.noPackagesTitle")} subtitle={t("cleaning.noPackagesDescription")} />
+        ) : undefined}
+      />
+
+      {/* The phone: chips, businesses, the list. */}
+      <main className="app-container space-y-8 py-space-4 md:hidden">
 
         {/* Providers → Categories → the list. See components/listing/
             ListingNav — the same three-step shape on all four services. */}
@@ -338,12 +393,14 @@ const CleaningPackages = () => {
               <YdEmptyState icon={SearchX} title="No plans match" subtitle="Try a different word, or clear the search." />
             ) : (
               <div className="grid gap-2 md:grid-cols-2">
-                {search.results.map((item) => {
+                {ordered.map((item) => {
                   const offer = offerBySourcePlanId.get(String(item.pkg.id)) ?? null;
                   return (
                     <CleaningPackageCard
                       key={item.pkg.id}
                       pkg={item.pkg}
+                      featured={!!promotionOf(item)}
+                      featuredLabel="Featured"
                       rating={ratings[item.providerId]}
                       offer={offer}
                       // The plan's own photos (its offer's gallery) first; the

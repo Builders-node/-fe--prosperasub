@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/patterns/Skeleton";
 import { OfferCard, PriceLine } from "@/components/discovery/homePlans";
 import { ALL_CATEGORIES } from "@/components/listing/ListingNav";
 import { SORT_LABELS, type SortKey } from "@/hooks/useListingSearch";
-import { trackPromotion } from "@/lib/promotions";
+import { trackPromotion, useActivePromotions } from "@/lib/promotions";
 import { cn } from "@/lib/utils";
 import { SearchX } from "lucide-react";
 
@@ -46,6 +46,39 @@ export interface ListingPlan {
 
 export interface ListingBusiness { id: string; name: string; avatarUrl: string | null }
 
+/**
+ * Which paid placement, if any, lifts a plan on a service's listing. A
+ * promotion of a plan lifts that plan; of a business, all of its plans. Plans
+ * and businesses are matched by ANY id they go by (universal or legacy), so
+ * the legacy listings (food, cleaning) can ask with what they hold.
+ */
+export function usePromotionLookup(archetypeKey: string | null | undefined) {
+  const { data: promos = [] } = useActivePromotions("service", archetypeKey);
+  return useMemo(() => {
+    const byPlan = new Map<string, string>();
+    const byProvider = new Map<string, string>();
+    for (const p of promos) {
+      if (p.plan) {
+        byPlan.set(p.plan.id, p.id);
+        if (p.plan.sourcePlanId) byPlan.set(String(p.plan.sourcePlanId), p.id);
+      } else {
+        byProvider.set(p.provider.id, p.id);
+        if (p.provider.sourceProviderId) byProvider.set(String(p.provider.sourceProviderId), p.id);
+      }
+    }
+    return (planIds: Array<string | null | undefined>, providerIds: Array<string | null | undefined>): string | null => {
+      for (const id of planIds) if (id && byPlan.has(String(id))) return byPlan.get(String(id))!;
+      for (const id of providerIds) if (id && byProvider.has(String(id))) return byProvider.get(String(id))!;
+      return null;
+    };
+  }, [promos]);
+}
+
+/** Featured first, the rest in the order they came. */
+export function featuredFirst<T>(rows: T[], isFeatured: (row: T) => boolean): T[] {
+  return [...rows.filter(isFeatured), ...rows.filter((r) => !isFeatured(r))];
+}
+
 /** ?min ?max (dollars) and ?biz (comma-separated provider ids). */
 export function useDesktopFilters() {
   const [params, setParams] = useSearchParams();
@@ -82,7 +115,7 @@ export function useDesktopFilters() {
 }
 
 export function DesktopListing({
-  title, categories, category, onCategory, businesses, plans, loading, sort, sorts, onSort, filters, empty,
+  title, categories, category, onCategory, businesses, plans, loading, sort, sorts, onSort, filters, empty, extraFilters, notice,
 }: {
   title: string;
   categories: Array<{ key: string; label: string }>;
@@ -97,6 +130,10 @@ export function DesktopListing({
   onSort: (s: SortKey) => void;
   filters: ReturnType<typeof useDesktopFilters>;
   empty?: ReactNode;
+  /** A page's own filters (food: diets), drawn after the price. */
+  extraFilters?: ReactNode;
+  /** One line above the grid (e.g. "2 restaurants don't deliver to Pristine Bay"). */
+  notice?: ReactNode;
 }) {
   const priceRange = useMemo(() => {
     const prices = plans.map((p) => p.priceCents).filter((c): c is number => typeof c === "number" && c > 0);
@@ -145,6 +182,8 @@ export function DesktopListing({
             />
           </div>
         </FilterGroup>
+
+        {extraFilters}
 
         {businesses.length > 1 && (
           <FilterGroup title="Businesses">
@@ -203,6 +242,8 @@ export function DesktopListing({
           )}
         </div>
 
+        {notice}
+
         {loading ? (
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
             {[0, 1, 2].map((i) => <Skeleton key={i} className="h-[300px]" />)}
@@ -219,7 +260,7 @@ export function DesktopListing({
   );
 }
 
-function FilterGroup({ title, children }: { title: string; children: ReactNode }) {
+export function FilterGroup({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="space-y-2">
       <h2 className="text-[16px] font-semibold text-foreground">{title}</h2>

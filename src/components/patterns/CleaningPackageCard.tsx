@@ -12,11 +12,12 @@ import { resolveMonthlyPriceCents, formatFrequencyLabel } from "@/lib/cleaningPl
  * package is priced underneath, and that frequency is worth a chip.
  */
 export function CleaningPackageCard({
-  pkg, onSubscribe, featured = false, rating, photos, offer,
+  pkg, onSubscribe, featured = false, featuredLabel, rating, photos, offer,
 }: {
   pkg: any;
   onSubscribe: (id: string) => void;
   featured?: boolean;
+  featuredLabel?: string;
   rating?: PlanCardRating | null;
   photos?: string[];
   /**
@@ -33,6 +34,7 @@ export function CleaningPackageCard({
       photos={photos}
       rating={rating}
       featured={featured}
+      featuredLabel={featuredLabel}
       chips={
         offer
           ? [

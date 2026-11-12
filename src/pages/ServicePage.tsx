@@ -26,8 +26,7 @@ import { PageLoader } from "@/components/ui/spinner";
 import { SearchX } from "lucide-react";
 import { useDraftPreview } from "@/hooks/useDraftPreview";
 import { DraftPreviewBanner } from "@/components/patterns/DraftPreviewBanner";
-import { DesktopListing, useDesktopFilters, type ListingPlan } from "@/components/listing/DesktopListing";
-import { useActivePromotions } from "@/lib/promotions";
+import { DesktopListing, featuredFirst, useDesktopFilters, usePromotionLookup, type ListingPlan } from "@/components/listing/DesktopListing";
 import { planHref } from "@/lib/services/serviceUrls";
 
 /**
@@ -180,26 +179,14 @@ const ServicePage = () => {
   });
 
   // Paid placements stand FIRST in the list, marked — not in a section of
-  // their own. A promotion of a plan lifts that plan; of a business, all of
-  // its plans.
-  const { data: promos = [] } = useActivePromotions("service", archetypeKey);
-  const promotionOf = useMemo(() => {
-    const byPlan = new Map<string, string>();
-    const byProvider = new Map<string, string>();
-    for (const p of promos) {
-      if (p.plan) { byPlan.set(p.plan.id, p.id); if (p.plan.sourcePlanId) byPlan.set(p.plan.sourcePlanId, p.id); }
-      else byProvider.set(p.provider.id, p.id);
-    }
-    return (plan: any): string | null => byPlan.get(String(plan.id)) ?? byProvider.get(String(plan.provider_id)) ?? null;
-  }, [promos]);
-  const ordered = useMemo(() => {
-    const top = search.results.filter((p: any) => promotionOf(p));
-    return [...top, ...search.results.filter((p: any) => !promotionOf(p))];
-  }, [search.results, promotionOf]);
+  // their own.
+  const lookupPromotion = usePromotionLookup(archetypeKey);
+  const promotionOf = (plan: any) => lookupPromotion([plan.id], [plan.provider_id]);
+  const ordered = featuredFirst(search.results, (p: any) => !!promotionOf(p));
 
   const filters = useDesktopFilters();
   const providerNames = useMemo(() => new Map((providersQ.data ?? []).map((p) => [p.id, p])), [providersQ.data]);
-  const desktopPlans: ListingPlan[] = useMemo(() => filters.apply(ordered.map((plan: any) => {
+  const desktopPlans: ListingPlan[] = filters.apply(ordered.map((plan: any) => {
     const own = Array.isArray(plan.gallery_urls) ? plan.gallery_urls.filter((u: unknown) => typeof u === "string" && u) : [];
     return {
       id: String(plan.id),
@@ -214,7 +201,7 @@ const ServicePage = () => {
       rating: ratings[plan.provider_id] ?? null,
       promotionId: promotionOf(plan),
     };
-  })), [ordered, filters, providerNames, providerMedia, ratings, promotionOf, archetypeKey, preview]);
+  }));
   const desktopBusinesses = useMemo(() => {
     const visible = new Set(visiblePlans.map((p: any) => String(p.provider_id)));
     return (providersQ.data ?? [])
