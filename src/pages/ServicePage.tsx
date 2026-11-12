@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useSeo } from "@/hooks/useSeo";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useGoBack } from "@/hooks/useGoBack";
 import { useQuery } from "@tanstack/react-query";
 import { useProviderRatings } from "@/hooks/useProviderRatings";
@@ -26,8 +26,12 @@ import { PageLoader } from "@/components/ui/spinner";
 import { SearchX } from "lucide-react";
 import { useDraftPreview } from "@/hooks/useDraftPreview";
 import { DraftPreviewBanner } from "@/components/patterns/DraftPreviewBanner";
-import { DesktopListing, featuredFirst, useDesktopFilters, usePromotionLookup, type ListingPlan } from "@/components/listing/DesktopListing";
+import { DesktopListing, FilterGroup, featuredFirst, useDesktopFilters, usePromotionLookup, type ListingPlan } from "@/components/listing/DesktopListing";
 import { planHref } from "@/lib/services/serviceUrls";
+import { useOfferFacts } from "@/lib/services/serviceAreas";
+import { useResidenceFilter } from "@/hooks/useResidenceFilter";
+import { DIETARY_TAGS, type DietaryTag } from "@/lib/foodDietaryTags";
+import { cn } from "@/lib/utils";
 
 /**
  * The listing for a service that has no bespoke page of its own.
@@ -47,6 +51,8 @@ import { planHref } from "@/lib/services/serviceUrls";
 interface ProviderRow {
   id: string;
   name: string;
+  source_provider_id: string | null;
+  source_service_key: string | null;
   category_key: string | null;
   avatar_url: string | null;
   gallery_urls: unknown;
@@ -80,7 +86,7 @@ const ServicePage = () => {
     queryFn: async () => {
       let q = supabaseDb
         .from("providers")
-        .select("id, name, category_key, avatar_url, gallery_urls")
+        .select("id, name, category_key, avatar_url, gallery_urls, source_provider_id, source_service_key")
         .eq("archetype_key", archetypeKey!);
       if (!preview) q = q.eq("status", "active");
       const { data, error } = await q.order("sort_order", { ascending: true });
@@ -123,7 +129,7 @@ const ServicePage = () => {
     queryFn: async () => {
       let q = supabaseDb
         .from("provider_plans")
-        .select("id, provider_id, name, description, price_cents, currency, period, pricing_mode, features, included_quantity, included_unit, gallery_urls, providers!inner(name, archetype_key, category_key)")
+        .select("id, provider_id, name, description, price_cents, currency, period, pricing_mode, tags, features, included_quantity, included_unit, gallery_urls, providers!inner(name, archetype_key, category_key)")
         .eq("providers.archetype_key", archetypeKey!);
       if (!preview) q = q.eq("status", "active");
       const { data, error } = await q
@@ -139,12 +145,42 @@ const ServicePage = () => {
     enabled: !!archetypeKey,
   });
 
-  const providerGroups = useMemo(
-    () => groupProvidersByCategory<ProviderRow>(
-      providersQ.data ?? [], categoriesQ.data ?? [], (p) => p.category_key,
-    ),
-    [providersQ.data, categoriesQ.data],
+  // ── Where you are, and what you eat ─────────────────────────────────────
+  // Offers sold only in some residences (cleaning, food) drop out when the
+  // visitor has chosen a place they don't serve; a business that serves none
+  // of it goes with them. See lib/services/serviceAreas.
+  const facts = useOfferFacts(archetypeKey, plansQ.data ?? [], providersQ.data ?? []).data;
+  const { residence, servesHere, isFiltering } = useResidenceFilter();
+  const servedPlans = useMemo(
+    () => (plansQ.data ?? []).filter((p: any) =>
+      servesHere(facts?.areas.get(String(p.id))) && servesHere(facts?.providerAreas.get(String(p.provider_id)))),
+    [plansQ.data, facts, servesHere],
   );
+  const hiddenHere = (plansQ.data ?? []).length - servedPlans.length;
+
+  const [params, setParams] = useSearchParams();
+  const diet = params.get("diet") as DietaryTag | null;
+  const setDiet = (next: DietaryTag | null) => setParams((prev) => {
+    const out = new URLSearchParams(prev);
+    if (next) out.set("diet", next); else out.delete("diet");
+    return out;
+  }, { replace: true });
+  const dietsOf = (p: any) => facts?.diets.get(String(p.id)) ?? [];
+  const availableDiets = useMemo(() => {
+    const seen = new Set(servedPlans.flatMap((p: any) => dietsOf(p)));
+    return (Object.keys(DIETARY_TAGS) as DietaryTag[]).filter((k) => seen.has(k));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [servedPlans, facts]);
+
+  const providerGroups = useMemo(() => {
+    // A business stays on the page while it has something sold here — or
+    // nothing listed at all yet (its "coming soon" is still worth seeing).
+    const all = plansQ.data ?? [];
+    const served = new Set(servedPlans.map((p: any) => String(p.provider_id)));
+    const listed = new Set(all.map((p: any) => String(p.provider_id)));
+    const shown = (providersQ.data ?? []).filter((p) => served.has(p.id) || !listed.has(p.id));
+    return groupProvidersByCategory<ProviderRow>(shown, categoriesQ.data ?? [], (p) => p.category_key);
+  }, [providersQ.data, categoriesQ.data, plansQ.data, servedPlans]);
 
   const [activeCategory, setActiveCategory] = useCategoryParam();
 
@@ -166,10 +202,40 @@ const ServicePage = () => {
   );
 
   const visiblePlans = useMemo(() => {
-    const rows = plansQ.data ?? [];
-    if (activeCategory === ALL_CATEGORIES) return rows;
-    return rows.filter((r: any) => r.providers?.category_key === activeCategory);
-  }, [plansQ.data, activeCategory]);
+    let rows = servedPlans;
+    if (activeCategory !== ALL_CATEGORIES) rows = rows.filter((r: any) => r.providers?.category_key === activeCategory);
+    if (diet) rows = rows.filter((r: any) => dietsOf(r).includes(diet));
+    return rows;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [servedPlans, activeCategory, diet, facts]);
+
+  /** Diets as chips — the sidebar on a laptop, a row above the list on a phone. */
+  const dietChips = (size: "sm" | "md") => availableDiets.map((key) => {
+    const meta = DIETARY_TAGS[key];
+    const DietIcon = meta.icon;
+    const on = diet === key;
+    return (
+      <button
+        key={key}
+        type="button"
+        aria-pressed={on}
+        onClick={() => setDiet(on ? null : key)}
+        className={cn(
+          "inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 font-semibold transition-colors",
+          size === "md" ? "h-10 text-[14px]" : "h-8 text-[13px]",
+          on ? "bg-primary text-primary-foreground" : "bg-muted text-foreground hover:bg-muted/70",
+        )}
+      >
+        <DietIcon className="h-4 w-4" />
+        {meta.label}
+      </button>
+    );
+  });
+  const hiddenNotice = isFiltering && hiddenHere > 0 ? (
+    <p className="text-[14px] text-muted-foreground">
+      {hiddenHere} {hiddenHere === 1 ? "plan isn't" : "plans aren't"} available in {residence}
+    </p>
+  ) : null;
 
   const search = useListingSearch(visiblePlans, {
     text: (p: any) => [p.name, p.description, p.providers?.name, ...(Array.isArray(p.features) ? p.features : [])],
@@ -262,6 +328,10 @@ const ServicePage = () => {
         sorts={search.availableSorts}
         onSort={search.setSort}
         filters={filters}
+        extraFilters={availableDiets.length > 0 ? (
+          <FilterGroup title="Diet"><div className="flex flex-wrap gap-2">{dietChips("md")}</div></FilterGroup>
+        ) : null}
+        notice={hiddenNotice}
         empty={plansQ.isError ? (
           <QueryError
             title="Couldn't load plans"
@@ -270,7 +340,9 @@ const ServicePage = () => {
             retrying={plansQ.isFetching}
           />
         ) : (visiblePlans.length === 0 ? (
-          <YdEmptyState icon={Icon} title="No plans yet" subtitle="We're setting things up. Check back soon." />
+          isFiltering && hiddenHere > 0
+            ? <YdEmptyState icon={Icon} title={`Nothing in ${residence} yet`} subtitle="Try another location or check back soon." />
+            : <YdEmptyState icon={Icon} title="No plans yet" subtitle="We're setting things up. Check back soon." />
         ) : undefined)}
       />
 
@@ -305,6 +377,12 @@ const ServicePage = () => {
 
         <section id="plans" className="mt-space-6 scroll-mt-4">
           <h2 className="mb-3 text-heading font-semibold text-foreground">Plans</h2>
+          {availableDiets.length > 0 && (
+            <div className="-mx-space-4 mb-3 flex gap-2 overflow-x-auto px-space-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {dietChips("sm")}
+            </div>
+          )}
+          {hiddenNotice && <div className="mb-3">{hiddenNotice}</div>}
 
           {plansQ.isLoading ? (
             <div className="grid gap-3 md:grid-cols-2 md:gap-4">

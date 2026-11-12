@@ -21,8 +21,8 @@ const CHUNKS: Record<string, () => Promise<unknown>> = {
   "/account": () => import("@/pages/user/Profile"),
   "/notifications": () => import("@/pages/user/Notifications"),
   "/my-business": () => import("@/pages/user/MyBusiness"),
-  "/services/cleaning": () => import("@/pages/cleaning/CleaningPackages"),
-  "/services/food": () => import("@/pages/food/FoodListing"),
+  "/services/cleaning": () => import("@/pages/ServicePage"),
+  "/services/food": () => import("@/pages/ServicePage"),
 };
 
 const started = new Set<string>();

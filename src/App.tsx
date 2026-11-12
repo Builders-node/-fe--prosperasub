@@ -66,7 +66,6 @@ const LegacyPortalRedirect = lazy(() => import("./pages/user/LegacyPortalRedirec
 const BookCalendar = lazy(() => import("./pages/BookCalendar"));
 
 // Cleaning
-const CleaningPackages = lazy(() => import("./pages/cleaning/CleaningPackages"));
 const CleaningBook = lazy(() => import("./pages/cleaning/CleaningBook"));
 
 
@@ -85,7 +84,6 @@ const PlanDetail = lazy(() => import("./pages/PlanDetail"));
 
 
 // Food
-const FoodListing = lazy(() => import("./pages/food/FoodListing"));
 const FoodProviderDetail = lazy(() => import("./pages/food/FoodProviderDetail"));
 const FoodPlanDetail = lazy(() => import("./pages/food/FoodPlanDetail"));
 const FoodSubscriptionDetail = lazy(() => import("./pages/food/FoodSubscriptionDetail"));
@@ -251,7 +249,6 @@ const App = () => {
                   short URLs below 302 to the canonical path. */}
 
               {/* Cleaning */}
-              <Route path="/services/cleaning" element={<CleaningPackages />} />
               <Route path="/services/cleaning/checkout/:planId" element={
                 <ProtectedRoute><PlanCheckout /></ProtectedRoute>
               } />
@@ -260,7 +257,6 @@ const App = () => {
               } />
 
               {/* Food */}
-              <Route path="/services/food" element={<FoodListing />} />
               <Route path="/services/food/:id" element={<FoodProviderDetail />} />
               <Route path="/services/food/:providerId/plans/:planId" element={<FoodPlanDetail />} />
               <Route path="/services/food/subscription/:id" element={
@@ -275,10 +271,10 @@ const App = () => {
               <Route path="/services/vehicles" element={<Navigate to="/vehicles" replace />} />
 
               {/* Generic listing for any archetype without a bespoke page.
-                  The static /services/<name> routes above win over this dynamic
-                  one — React Router prefers a static segment — so the rich
-                  cleaning / food / beach pages are untouched. This is what lets
-                  a service added in /admin/services be reachable at all. */}
+                  EVERY service's listing is this one page now — food and
+                  cleaning included (their own listings were deleted once this
+                  page learned residences and diets). This is also what lets a
+                  service added in /admin/services be reachable at all. */}
               <Route path="/services/:archetypeKey" element={<ServicePage />} />
 
               {/* The plan's own page — what a card in a listing opens. Food's
