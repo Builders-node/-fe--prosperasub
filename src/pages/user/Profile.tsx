@@ -22,7 +22,11 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useReferrals } from "@/hooks/useReferrals";
 import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/i18n";
-import { accountApi, supabase } from "@/integrations/supabase/client";
+import { accountApi, supabase, supabaseDb } from "@/integrations/supabase/client";
+import { useBonusBalance } from "@/hooks/useBonusBalance";
+import { useUserUuid } from "@/hooks/useUserUuid";
+import { formatUSD } from "@/lib/pricing";
+import { ResponsiveDialog } from "@/components/patterns/ResponsiveDialog";
 import { cn } from "@/lib/utils";
 
 /**
@@ -216,6 +220,17 @@ function SaveBar({ label, busyLabel, busy, disabled, onClick }: {
   );
 }
 
+/** One figure in the profile card, and the door to where it comes from. */
+function Stat({ label, value, onClick }: { label: string; value: string; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick}
+      className="rounded-radius-md bg-inset px-3 py-2.5 text-left transition-colors hover:bg-muted">
+      <span className="block text-meta text-muted-foreground">{label}</span>
+      <span className="mt-0.5 block text-title font-semibold tabular-nums text-foreground">{value}</span>
+    </button>
+  );
+}
+
 /** 20px semibold — the one heading size the design gives a section. */
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
@@ -232,6 +247,32 @@ const Profile = () => {
   const { t } = useI18n();
 
   const referrals = useReferrals();
+  const bonus = useBonusBalance();
+  const userUuid = useUserUuid();
+  /** The wallet's balance in cents — null until known (or when the API is unreachable). */
+  const walletQ = useQuery({
+    queryKey: ["wallet-balance"],
+    enabled: !!userData?.id,
+    staleTime: 60_000,
+    retry: false,
+    queryFn: async (): Promise<number | null> => {
+      const { data, error } = await accountApi("/account/wallet");
+      if (error) return null;
+      return Number((data as { balanceCents?: number } | null)?.balanceCents ?? 0);
+    },
+  });
+  /** Purchases that are on right now, every service (subscriptions_unified). */
+  const activeSubsQ = useQuery({
+    queryKey: ["active-subscription-count", userUuid, userData?.id],
+    enabled: !!userData?.id,
+    staleTime: 60_000,
+    queryFn: async (): Promise<number | null> => {
+      const ids = [...new Set([userUuid, userData?.id].filter(Boolean) as string[])];
+      const { count, error } = await supabaseDb.from("subscriptions_unified")
+        .select("id", { count: "exact", head: true }).in("user_id", ids).eq("status", "active");
+      return error ? null : count ?? 0;
+    },
+  });
   const section = (params.get("section") as Section) || "view";
   /**
    * A phone walks into a section and back out (one screen at a time). A laptop
@@ -239,10 +280,13 @@ const Profile = () => {
    * Favourites when nothing is chosen.
    */
   const isMobile = useIsMobile();
-  const active: Section = !isMobile && section === "view" ? "favorites" : section;
-  const isForm = section === "edit" || section === "password" || section === "reminders";
+  /** Edit profile is a modal over the page, not a screen of its own. */
+  const editOpen = section === "edit";
+  const base: Section = editOpen ? "view" : section;
+  const active: Section = !isMobile && base === "view" ? "favorites" : base;
+  const isForm = base === "password" || base === "reminders";
   /** Sub-screens: no tab bar and no bell — Back is the way out. */
-  const isSubScreen = isForm || section === "locations";
+  const isSubScreen = isForm || base === "locations";
   const openSection = (next: Section) => {
     const p = new URLSearchParams(params);
     if (next === "view") p.delete("section");
@@ -319,7 +363,7 @@ const Profile = () => {
   // Entering a section seeds its draft from what is saved, so leaving and
   // coming back never shows a half-typed edit from last time.
   useEffect(() => {
-    if (active === "edit") {
+    if (editOpen) {
       setDraftName(savedName); setDraftPhone(savedPhone);
       setDraftTelegram(savedTelegram); setDraftWhatsApp(savedWhatsApp);
       setTimeout(() => firstEditRef.current?.focus(), 50);
@@ -327,7 +371,7 @@ const Profile = () => {
     if (active === "reminders") setDraftPrefs(prefs);
     if (active !== "password") { setCurrentPw(""); setNewPw(""); setConfirmPw(""); setPwErrors({}); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active]);
+  }, [active, editOpen]);
 
   const hasChanges =
     draftName.trim() !== savedName.trim() || draftPhone.trim() !== savedPhone.trim() ||
@@ -405,7 +449,8 @@ const Profile = () => {
     <>
             {/* Who you are. One white card: avatar, name, email — the same
                 block the home screen opens with, not three stacked panels. */}
-            <section className="flex items-center gap-4 rounded-radius-md bg-card p-4 shadow-figma">
+            <section className="space-y-4 rounded-radius-md bg-card p-4 shadow-figma">
+              <div className="flex items-center gap-4">
               <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary text-2xl font-semibold text-primary-foreground">
                 {avatarLabel}
               </span>
@@ -416,6 +461,21 @@ const Profile = () => {
                   <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-inset px-2 py-1 text-meta text-muted-foreground">
                     <GoogleIcon /> Google account
                   </span>
+                )}
+              </div>
+              <Button variant="secondary" size="sm" className="shrink-0 gap-1.5 self-start" onClick={() => openSection("edit")}>
+                <Pencil className="h-4 w-4" /> Edit
+              </Button>
+              </div>
+
+              {/* The account at a glance — each figure is a door to its section. */}
+              <div className="grid grid-cols-2 gap-1 sm:grid-cols-3">
+                <Stat label="Active subscriptions" value={activeSubsQ.data == null ? "—" : String(activeSubsQ.data)}
+                  onClick={() => navigate("/my-subscriptions")} />
+                <Stat label="Balance" value={walletQ.data == null ? "—" : formatUSD(walletQ.data)}
+                  onClick={() => openSection("wallet")} />
+                {bonus.balanceCents > 0 && (
+                  <Stat label="Bonus" value={formatUSD(bonus.balanceCents)} onClick={() => openSection("referrals")} />
                 )}
               </div>
             </section>
@@ -485,9 +545,6 @@ const Profile = () => {
                   active={!isMobile && active === "referrals"}
                 />
               )}
-              <Row icon={Pencil} label="Edit profile"
-                value={contacts.length === 0 ? "Add your contact details" : undefined}
-                onClick={() => openSection("edit")} active={!isMobile && active === "edit"} />
               {canChangePassword && (
                 <Row icon={KeyRound} label="Change password" onClick={() => openSection("password")} active={!isMobile && active === "password"} />
               )}
@@ -534,20 +591,6 @@ const Profile = () => {
         {active === "favorites" && <FavoritesPanel />}
         {active === "referrals" && <ReferralPanel />}
         {active === "wallet" && <WalletPanel />}
-
-        {active === "edit" && (
-          <section className="space-y-2 rounded-radius-lg bg-card p-4">
-            <Input ref={firstEditRef as any} id="e-name" label="Username" value={draftName} onChange={(e) => setDraftName(e.target.value)} placeholder="Your name" />
-            <Input id="e-email" label="Email" type="email" value={email} readOnly className="cursor-default opacity-50" />
-            <Input id="e-phone" label="Phone (optional)" type="tel" value={draftPhone} onChange={(e) => setDraftPhone(e.target.value)} placeholder="+1 234 567 8900" />
-            <Input id="e-wa" label="WhatsApp (optional)" type="tel" value={draftWhatsApp} onChange={(e) => setDraftWhatsApp(e.target.value)} placeholder="+1 234 567 8900" leftIcon={<WhatsAppIcon className="h-4 w-4 text-positive" />} />
-            <Input id="e-tg" label="Telegram (optional)" value={draftTelegram} onChange={(e) => setDraftTelegram(e.target.value)} placeholder="@username" leftIcon={<TelegramIcon className="h-4 w-4 text-[#2AABEE]" />} />
-          </section>
-        )}
-        {active === "edit" && (
-          <SaveBar label="Save" busyLabel="Saving…" busy={saveMutation.isPending}
-            disabled={!hasChanges} onClick={() => saveMutation.mutate()} />
-        )}
 
         {active === "locations" && userData?.id && <SavedLocations userId={userData.id} />}
 
@@ -646,6 +689,27 @@ const Profile = () => {
           </main>
         </div>
       )}
+
+      {/* Edit profile — a modal over the page (a sheet on a phone). */}
+      <ResponsiveDialog
+        open={editOpen}
+        onOpenChange={(o) => { if (!o) openSection("view"); }}
+        title="Edit profile"
+        footer={
+          <Button size="lg" className="w-full" onClick={() => saveMutation.mutate()} loading={saveMutation.isPending}
+            disabled={!hasChanges || saveMutation.isPending}>
+            {saveMutation.isPending ? <><Spinner size="sm" /> Saving…</> : "Save"}
+          </Button>
+        }
+      >
+        <div className="space-y-2">
+            <Input ref={firstEditRef as any} id="e-name" label="Username" value={draftName} onChange={(e) => setDraftName(e.target.value)} placeholder="Your name" />
+            <Input id="e-email" label="Email" type="email" value={email} readOnly className="cursor-default opacity-50" />
+            <Input id="e-phone" label="Phone (optional)" type="tel" value={draftPhone} onChange={(e) => setDraftPhone(e.target.value)} placeholder="+1 234 567 8900" />
+            <Input id="e-wa" label="WhatsApp (optional)" type="tel" value={draftWhatsApp} onChange={(e) => setDraftWhatsApp(e.target.value)} placeholder="+1 234 567 8900" leftIcon={<WhatsAppIcon className="h-4 w-4 text-positive" />} />
+            <Input id="e-tg" label="Telegram (optional)" value={draftTelegram} onChange={(e) => setDraftTelegram(e.target.value)} placeholder="@username" leftIcon={<TelegramIcon className="h-4 w-4 text-[#2AABEE]" />} />
+        </div>
+      </ResponsiveDialog>
     </UserLayout>
   );
 };
