@@ -701,7 +701,7 @@ const Profile = () => {
   return (
     // The account frame, like every other /account screen (PAGE_TYPES §6).
     <UserLayout
-      title={isMobile ? SECTION_TITLES[section] : "Profile"}
+      title={isMobile ? SECTION_TITLES[base] : "Profile"}
       showBackButton
       backTo={isMobile ? backTo : "/discovery"}
       // A form is a decision page on a phone: it ends at its own Save, so the
@@ -724,7 +724,7 @@ const Profile = () => {
           "app-container space-y-4 pt-space-4",
           isForm && "pb-[calc(var(--decision-bar-h,88px)+16px)]",
         )}>
-          {section === "view" ? menu : panel}
+          {base === "view" ? menu : panel}
         </div>
       ) : (
         // Laptop: the menu stays on the left and the section opens beside it,
