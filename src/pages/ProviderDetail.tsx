@@ -1,4 +1,5 @@
 import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
+import { useTrackFunnel } from "@/lib/funnel";
 import { DetailHeader } from "@/components/patterns/DetailHeader";
 import { cn } from "@/lib/utils";
 import { Breadcrumbs } from "@/components/patterns/Breadcrumbs";
@@ -290,6 +291,8 @@ const ProviderDetail = () => {
   const preview = useDraftPreview();
   const plansQ = useUniversalPlans(providerId, !!providerId, preview);
   const { labelsOf } = useTagDictionary();
+  // The business's sales funnel (lib/funnel) — not while an admin previews a draft.
+  useTrackFunnel("provider_view", providerQ.data?.id, null, !preview && !!providerQ.data);
 
   /**
    * A rental company's offerings are its cars. The car IS the offer — the

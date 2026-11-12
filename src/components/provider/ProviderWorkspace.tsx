@@ -18,6 +18,7 @@ import { providerHref } from "@/lib/services/serviceUrls";
 import { INFO_TAB_META } from "@/components/provider/capabilities";
 import { ProviderDetailsRows, ProviderProfileEditor, type UniversalProviderRow } from "@/components/provider/UniversalInfoTab";
 import { ProfileCompletenessCard } from "@/components/provider/ProfileCompletenessCard";
+import { ProviderFunnelCard } from "@/components/provider/ProviderFunnelCard";
 import { GoLivePanel } from "@/components/provider/GoLivePanel";
 import { ProviderQrCard } from "@/components/provider/ProviderQrCard";
 import { ProviderPromoCodes } from "@/components/provider/ProviderPromoCodes";
@@ -262,6 +263,9 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
             provider on the platform went live without contacts, and two
             without hours or an address. Renders nothing once it is complete. */}
         {isOwner && <ProfileCompletenessCard provider={provider} />}
+        {/* Where customers drop off — views → checkout → paid. The whole team
+            sees it (a manager runs the shop too). */}
+        <ProviderFunnelCard providerId={provider.id} />
         {/* Reputation, right under the header's Rating tile that it explains.
             Renders nothing until somebody has actually rated the business. */}
         <ProviderReviewsPanel providerId={provider.id} />

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useTrackFunnel } from "@/lib/funnel";
 import { gaItem, trackEvent } from "@/lib/analytics/ga";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -139,6 +140,11 @@ const UniversalPlanCheckout = () => {
     enabled: !!planId,
     queryFn: () => resolveCheckoutPlan(planId!),
   });
+
+  // The business's sales funnel (lib/funnel): reached the till.
+  useTrackFunnel("checkout_start", plan?.providerUniversalId, planId);
+  // …and pressed Pay with a method chosen (every rail, PayPal included).
+  useTrackFunnel("payment_chosen", plan?.providerUniversalId, planId, showPayment);
 
   /**
    * Whether the business takes bookings — same query (and cache) as the

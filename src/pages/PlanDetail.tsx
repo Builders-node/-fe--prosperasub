@@ -1,4 +1,5 @@
 import { describeEntitlement, readEntitlements } from "@/lib/plans/entitlements";
+import { useTrackFunnel } from "@/lib/funnel";
 import { UpsellSection } from "@/components/patterns/UpsellSection";
 import { Breadcrumbs } from "@/components/patterns/Breadcrumbs";
 import { FavoriteButton } from "@/components/patterns/FavoriteButton";
@@ -287,6 +288,9 @@ const PlanDetail = () => {
       return data;
     },
   });
+
+  // The business's sales funnel (lib/funnel).
+  useTrackFunnel("plan_view", plan?.providerId, planId);
 
   // Options come from the offer this plan belongs to — the same bridge the
   // listing card uses, so the chips here match the "from $x" there.
