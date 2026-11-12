@@ -46,12 +46,13 @@ function featureList(features: unknown): string[] {
 }
 
 export function UniversalPlanCard({
-  plan, onSubscribe, featured = false, rating, photos,
+  plan, onSubscribe, featured = false, featuredLabel, rating, photos,
 }: {
   plan: UniversalPlan;
   /** Opens the plan's own page. Every caller does this — none buys from here. */
   onSubscribe: (id: string) => void;
   featured?: boolean;
+  featuredLabel?: string;
   rating?: PlanCardRating | null;
   photos?: string[];
 }) {
@@ -66,6 +67,7 @@ export function UniversalPlanCard({
       photos={planPhotos(plan, photos)}
       rating={rating}
       featured={featured}
+      featuredLabel={featuredLabel}
       // "4 massages a month" is the offer, not a footnote — it goes where the
       // eye lands after the name.
       chips={included ? [{ label: included }] : []}

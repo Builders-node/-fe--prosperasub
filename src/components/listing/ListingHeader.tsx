@@ -30,6 +30,7 @@ export function ListingHeader({
   onSortChange,
   sorts = [],
   showLocation = true,
+  desktopBar = true,
 }: {
   title: string;
   onBack?: () => void;
@@ -42,6 +43,8 @@ export function ListingHeader({
   sorts?: SortKey[];
   /** Off where the choice changes nothing — the beach has one address. */
   showLocation?: boolean;
+  /** Off where the page draws its own desktop controls (a filter sidebar). */
+  desktopBar?: boolean;
 }) {
   const goBack = useGoBack();
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -93,7 +96,7 @@ export function ListingHeader({
     <>
       {/* Desktop keeps its own header, so the panel is a mobile shape; there
           the same two controls sit at the top of the content column. */}
-      <div className="app-container hidden items-center gap-2 pt-space-8 md:flex">
+      <div className={cn("app-container hidden items-center gap-2 pt-space-8", desktopBar && "md:flex")}>
         {searchField}
         {sortButton}
       </div>

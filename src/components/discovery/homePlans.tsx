@@ -130,9 +130,11 @@ export const OfferCard = forwardRef<HTMLAnchorElement, {
   subtitle?: string | null;
   footer?: ReactNode;
   badge?: string;
+  /** Over the photo's top-right corner — the heart, on a listing. */
+  corner?: ReactNode;
   className?: string;
   onClick?: () => void;
-}>(function OfferCard({ href, photos, title, subtitle, footer, badge, className, onClick }, ref) {
+}>(function OfferCard({ href, photos, title, subtitle, footer, badge, corner, className, onClick }, ref) {
   return (
     <Link
       ref={ref}
@@ -152,6 +154,7 @@ export const OfferCard = forwardRef<HTMLAnchorElement, {
             {badge}
           </span>
         )}
+        {corner && <div className="absolute right-2 top-2">{corner}</div>}
       </div>
       <div className="flex flex-1 flex-col gap-1 p-3 tracking-[-0.02em]">
         <p className="line-clamp-2 text-[15px] font-semibold leading-[20px] text-foreground">{title}</p>

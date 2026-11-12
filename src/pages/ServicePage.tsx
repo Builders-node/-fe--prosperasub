@@ -26,7 +26,9 @@ import { PageLoader } from "@/components/ui/spinner";
 import { SearchX } from "lucide-react";
 import { useDraftPreview } from "@/hooks/useDraftPreview";
 import { DraftPreviewBanner } from "@/components/patterns/DraftPreviewBanner";
-import { FeaturedRail } from "@/components/discovery/FeaturedRail";
+import { DesktopListing, useDesktopFilters, type ListingPlan } from "@/components/listing/DesktopListing";
+import { useActivePromotions } from "@/lib/promotions";
+import { planHref } from "@/lib/services/serviceUrls";
 
 /**
  * The listing for a service that has no bespoke page of its own.
@@ -122,7 +124,7 @@ const ServicePage = () => {
     queryFn: async () => {
       let q = supabaseDb
         .from("provider_plans")
-        .select("id, provider_id, name, description, price_cents, currency, period, features, included_quantity, included_unit, gallery_urls, providers!inner(name, archetype_key, category_key)")
+        .select("id, provider_id, name, description, price_cents, currency, period, pricing_mode, features, included_quantity, included_unit, gallery_urls, providers!inner(name, archetype_key, category_key)")
         .eq("providers.archetype_key", archetypeKey!);
       if (!preview) q = q.eq("status", "active");
       const { data, error } = await q
@@ -177,6 +179,49 @@ const ServicePage = () => {
     name: (p: any) => p.name ?? "",
   });
 
+  // Paid placements stand FIRST in the list, marked — not in a section of
+  // their own. A promotion of a plan lifts that plan; of a business, all of
+  // its plans.
+  const { data: promos = [] } = useActivePromotions("service", archetypeKey);
+  const promotionOf = useMemo(() => {
+    const byPlan = new Map<string, string>();
+    const byProvider = new Map<string, string>();
+    for (const p of promos) {
+      if (p.plan) { byPlan.set(p.plan.id, p.id); if (p.plan.sourcePlanId) byPlan.set(p.plan.sourcePlanId, p.id); }
+      else byProvider.set(p.provider.id, p.id);
+    }
+    return (plan: any): string | null => byPlan.get(String(plan.id)) ?? byProvider.get(String(plan.provider_id)) ?? null;
+  }, [promos]);
+  const ordered = useMemo(() => {
+    const top = search.results.filter((p: any) => promotionOf(p));
+    return [...top, ...search.results.filter((p: any) => !promotionOf(p))];
+  }, [search.results, promotionOf]);
+
+  const filters = useDesktopFilters();
+  const providerNames = useMemo(() => new Map((providersQ.data ?? []).map((p) => [p.id, p])), [providersQ.data]);
+  const desktopPlans: ListingPlan[] = useMemo(() => filters.apply(ordered.map((plan: any) => {
+    const own = Array.isArray(plan.gallery_urls) ? plan.gallery_urls.filter((u: unknown) => typeof u === "string" && u) : [];
+    return {
+      id: String(plan.id),
+      name: plan.name,
+      providerId: String(plan.provider_id),
+      providerName: plan.providers?.name ?? providerNames.get(plan.provider_id)?.name ?? "",
+      priceCents: typeof plan.price_cents === "number" ? plan.price_cents : null,
+      period: plan.period ?? null,
+      perPerson: plan.pricing_mode === "per_person",
+      photos: own.length ? own : (providerMedia[plan.provider_id] ?? []),
+      href: planHref(archetypeKey ?? "", String(plan.id)) + (preview ? "?preview=1" : ""),
+      rating: ratings[plan.provider_id] ?? null,
+      promotionId: promotionOf(plan),
+    };
+  })), [ordered, filters, providerNames, providerMedia, ratings, promotionOf, archetypeKey, preview]);
+  const desktopBusinesses = useMemo(() => {
+    const visible = new Set(visiblePlans.map((p: any) => String(p.provider_id)));
+    return (providersQ.data ?? [])
+      .filter((p) => visible.has(p.id))
+      .map((p) => ({ id: p.id, name: p.name, avatarUrl: p.avatar_url ?? null }));
+  }, [providersQ.data, visiblePlans]);
+
   const Icon = archetype?.Icon;
 
   // The archetype list decides whether this is a real service. Rendering an
@@ -214,11 +259,37 @@ const ServicePage = () => {
         sort={search.sort}
         onSortChange={search.setSort}
         sorts={search.availableSorts}
+        desktopBar={false}
       />
 
-      <main className="app-container py-space-4 md:py-space-8">
+      {preview && <div className="app-container hidden pt-space-4 md:block"><DraftPreviewBanner /></div>}
+      <DesktopListing
+        title={archetype.label}
+        categories={chips.map((c) => ({ key: c.key, label: c.label }))}
+        category={activeCategory}
+        onCategory={setActiveCategory}
+        businesses={desktopBusinesses}
+        plans={desktopPlans}
+        loading={plansQ.isLoading || providersQ.isLoading}
+        sort={search.sort}
+        sorts={search.availableSorts}
+        onSort={search.setSort}
+        filters={filters}
+        empty={plansQ.isError ? (
+          <QueryError
+            title="Couldn't load plans"
+            error={plansQ.error instanceof Error ? plansQ.error.message : undefined}
+            onRetry={() => plansQ.refetch()}
+            retrying={plansQ.isFetching}
+          />
+        ) : (visiblePlans.length === 0 ? (
+          <YdEmptyState icon={Icon} title="No plans yet" subtitle="We're setting things up. Check back soon." />
+        ) : undefined)}
+      />
+
+      {/* The phone: search, category chips, businesses, the list. */}
+      <main className="app-container py-space-4 md:hidden">
         {preview && <div className="mb-4"><DraftPreviewBanner /></div>}
-        <FeaturedRail placement="service" archetypeKey={archetype.key} className="mb-space-6" />
         {providersQ.isLoading ? (
           <div className="grid gap-3 md:grid-cols-2 md:gap-4">
             {[1, 2].map((i) => <Skeleton key={i} className="h-72" />)}
@@ -265,10 +336,12 @@ const ServicePage = () => {
                 <YdEmptyState icon={SearchX} title="No plans match" subtitle="Try a different word, or clear the search." />
               ) : (
                 <div className="grid gap-2 md:grid-cols-2">
-                  {search.results.map((plan: any) => (
+                  {ordered.map((plan: any) => (
                     <UniversalPlanCard
                       key={plan.id}
                       plan={plan}
+                      featured={!!promotionOf(plan)}
+                      featuredLabel="Featured"
                       rating={ratings[plan.provider_id]}
                       photos={providerMedia[plan.provider_id]}
                       onSubscribe={openPlan}

@@ -87,7 +87,7 @@ export function PlanCard({
   price,
   rating,
   featured = false,
-  featuredLabel = "Most Popular",
+  featuredLabel,
   cta,
   onOpen,
   className,
@@ -135,6 +135,13 @@ export function PlanCard({
           placeholder, so every card in a list keeps the same shape. */}
       <div className="relative aspect-square h-full shrink-0">
         <PhotoSlider photos={photos} className="h-full w-full rounded-[8px]" />
+        {/* A PAID place must say so on the card itself (Terms) — the tint
+            alone reads as "popular". Only when a caller names the label. */}
+        {featured && featuredLabel && (
+          <span className="absolute bottom-1 left-1 rounded-full bg-black/55 px-1.5 py-0.5 text-[11px] font-semibold text-white backdrop-blur">
+            {featuredLabel}
+          </span>
+        )}
         {favorite && (
           <FavoriteButton kind={favorite.kind} id={favorite.id} name={title} variant="overlay" className="absolute right-1 top-1" />
         )}
@@ -146,7 +153,7 @@ export function PlanCard({
         {/* The "Most Popular" pill used to sit here and took two thirds of the
             width, leaving "Toyota Rai…". The tinted background says the same
             thing and costs no room. */}
-        <h3 className="truncate text-title font-semibold text-foreground" title={featured ? `${title} — ${featuredLabel}` : title}>
+        <h3 className="truncate text-title font-semibold text-foreground" title={featured ? `${title} — ${featuredLabel ?? "Most Popular"}` : title}>
           {title}
         </h3>
 
