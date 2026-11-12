@@ -24,6 +24,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useI18n } from "@/i18n";
 import { accountApi, supabase, supabaseDb } from "@/integrations/supabase/client";
 import { useBonusBalance } from "@/hooks/useBonusBalance";
+import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
 import { useUserUuid } from "@/hooks/useUserUuid";
 import { formatUSD } from "@/lib/pricing";
 import { ResponsiveDialog } from "@/components/patterns/ResponsiveDialog";
@@ -59,6 +60,8 @@ interface CleaningPrefs {
   reminder_method: string;
   reminder_minutes_before: number;
   access_instructions: string | null;
+  /** Service (archetype) keys to be reminded about; null = all of them. */
+  reminder_services?: string[] | null;
 }
 
 function TelegramIcon({ className }: { className?: string }) {
@@ -247,6 +250,7 @@ const Profile = () => {
   const { t } = useI18n();
 
   const referrals = useReferrals();
+  const { archetypes } = useServiceArchetypes(true);
   const bonus = useBonusBalance();
   const userUuid = useUserUuid();
   /** The wallet's balance in cents — null until known (or when the API is unreachable). */
@@ -318,7 +322,7 @@ const Profile = () => {
   const [confirmPw, setConfirmPw] = useState("");
   const [pwErrors,  setPwErrors]  = useState<Record<string, string>>({});
 
-  const [prefs, setPrefs] = useState<CleaningPrefs>({ reminder_enabled: true, reminder_method: "all", reminder_minutes_before: 60, access_instructions: null });
+  const [prefs, setPrefs] = useState<CleaningPrefs>({ reminder_enabled: true, reminder_method: "all", reminder_minutes_before: 60, access_instructions: null, reminder_services: null });
   const [draftPrefs, setDraftPrefs] = useState<CleaningPrefs>(prefs);
 
   const firstEditRef = useRef<HTMLInputElement>(null);
@@ -352,7 +356,7 @@ const Profile = () => {
   useQuery<CleaningPrefs>({
     queryKey: ["account-cleaning-prefs", userData?.id],
     queryFn: async () => {
-      const { data, error } = await accountApi("/account/preferences/cleaning");
+      const { data, error } = await accountApi("/account/preferences/reminders");
       if (error) throw error;
       return data as CleaningPrefs;
     },
@@ -403,7 +407,7 @@ const Profile = () => {
 
   const savePrefsMutation = useMutation({
     mutationFn: async () => {
-      const { data, error } = await accountApi("/account/preferences/cleaning", { method: "PUT", body: JSON.stringify(draftPrefs) });
+      const { data, error } = await accountApi("/account/preferences/reminders", { method: "PUT", body: JSON.stringify(draftPrefs) });
       if (error) throw error;
       return data as CleaningPrefs;
     },
@@ -523,7 +527,11 @@ const Profile = () => {
                 icon={prefs.reminder_enabled ? Bell : BellOff}
                 label="Reminders"
                 value={prefs.reminder_enabled
-                  ? `${reminderLabel(prefs.reminder_minutes_before)} · ${methodLabel(prefs.reminder_method)}`
+                  ? [
+                      reminderLabel(prefs.reminder_minutes_before),
+                      methodLabel(prefs.reminder_method),
+                      prefs.reminder_services ? `${prefs.reminder_services.length} of ${archetypes.length || "all"} services` : "All services",
+                    ].join(" · ")
                   : "Disabled"}
                 onClick={() => openSection("reminders")}
                 active={!isMobile && active === "reminders"}
@@ -602,7 +610,7 @@ const Profile = () => {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-title font-semibold text-foreground">Enable reminders</p>
-                <p className="text-meta text-muted-foreground">Get notified before each cleaning</p>
+                <p className="text-meta text-muted-foreground">Before every visit, delivery, booking or car pickup</p>
               </div>
               <Switch checked={draftPrefs.reminder_enabled} onCheckedChange={(v) => setDraftPrefs((p) => ({ ...p, reminder_enabled: v }))} />
             </div>
@@ -617,6 +625,31 @@ const Profile = () => {
                     onChange={(v) => setDraftPrefs((p) => ({ ...p, reminder_minutes_before: v as number }))}
                   />
                 </div>
+                {/* Which services — every one by default; someone with a meal
+                    delivered three times a day may want those off. */}
+                {archetypes.length > 1 && (
+                  <div>
+                    <p className="mb-2 px-1 text-meta text-muted-foreground">Remind me about</p>
+                    <div className="flex flex-wrap gap-2">
+                      {archetypes.map((a) => {
+                        const on = !draftPrefs.reminder_services || draftPrefs.reminder_services.includes(a.key);
+                        return (
+                          <button key={a.key} type="button" aria-pressed={on}
+                            onClick={() => setDraftPrefs((p) => {
+                              const all = archetypes.map((x) => x.key);
+                              const cur = p.reminder_services ?? all;
+                              const next = on ? cur.filter((k) => k !== a.key) : [...cur, a.key];
+                              return { ...p, reminder_services: next.length === all.length ? null : next };
+                            })}
+                            className={cn("flex h-10 items-center gap-1.5 rounded-full px-4 text-body font-semibold transition-colors",
+                              on ? "bg-foreground text-background" : "bg-inset text-muted-foreground hover:text-foreground")}>
+                            <a.Icon className="h-4 w-4" /> {a.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
                 <div>
                   <p className="mb-2 px-1 text-meta text-muted-foreground">Notify via</p>
                   <PillSelector

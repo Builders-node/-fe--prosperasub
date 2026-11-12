@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { accountApi, supabaseDb } from "@/integrations/supabase/client";
+import { supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserUuid } from "./useUserUuid";
 
@@ -71,15 +71,15 @@ export function useNotifications(opts: { category?: string; unreadOnly?: boolean
   });
 }
 
-/** Trigger reminder processing on app load (replaces need for cron on Hobby plan) */
+/**
+ * Retired: reminders for every service now run on a clock (pg_cron → Edge
+ * /cron/reminders, migration 20261125120000). This used to make whoever opened
+ * the app send the CLEANING reminders, and only then. Kept as a no-op so the
+ * call site stays readable; delete with it.
+ */
 function useTriggerReminders(isAuthenticated: boolean, userUuid: string | null) {
   useEffect(() => {
-    if (!isAuthenticated || !userUuid) return;
-    // Fire once per session, silently in the background
-    const key = `reminders_triggered_${new Date().toDateString()}`;
-    if (sessionStorage.getItem(key)) return;
-    sessionStorage.setItem(key, "1");
-    accountApi("/reminders/process", { method: "GET" }).catch(() => {/* silent */});
+    void isAuthenticated; void userUuid;
   }, [isAuthenticated, userUuid]);
 }
 

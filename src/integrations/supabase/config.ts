@@ -96,6 +96,8 @@ const EDGE_ROUTES: RegExp[] = [
   // Delivery zones, deliveries and couriers (Edge routes/delivery.ts).
   /^\/admin\/(delivery\/zones(\/[^/]+)?|deliveries(\/[^/]+)?|couriers(\/[^/]+)?)$/,
   /^\/courier\/deliveries(\/[^/]+)?$/,
+  // Reminder settings for every service (Edge routes/reminders.ts).
+  /^\/account\/preferences\/(reminders|cleaning)$/,
   // The wallet: balance, top-ups, auto-renew from the balance (Edge routes/wallet.ts).
   /^\/account\/wallet(\/topups(\/confirm)?)?$/,
   /^\/account\/subscriptions\/[^/]+\/auto-renew$/,
