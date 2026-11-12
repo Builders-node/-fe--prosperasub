@@ -28,6 +28,10 @@ import { prefetchRoute } from "@/lib/routeChunks";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/patterns/Skeleton";
 import { FeaturedRail } from "@/components/discovery/FeaturedRail";
+import { CollectionsSection } from "@/components/discovery/CollectionsSection";
+import { BusinessesRail } from "@/components/discovery/BusinessesRail";
+import { ForYouSection } from "@/components/discovery/ForYouSection";
+import { useHomePlans } from "@/components/discovery/homePlans";
 
 // "My Subs" tile isn't a category, but sits alongside category tiles.
 const MY_SUBS_TILE = {
@@ -95,9 +99,18 @@ const Discovery = () => {
   }, [allArchetypes]);
   const [family, setFamily] = useTabParam(families, { key: "family" });
   const showFamilies = families.length > 1;
-  const archetypes = showFamilies
+  // A service with nothing on sale is a tile to an empty page (Healthcare,
+  // before its clinic listed anything). Hidden here only — its own address
+  // still works — and only once the plans are known, so a slow or failed
+  // lookup never empties the grid.
+  const { data: homePlans = [] } = useHomePlans();
+  const selling = useMemo(() => new Set(homePlans.map((p) => p.provider?.archetype_key)), [homePlans]);
+  const familyArchetypes = showFamilies
     ? allArchetypes.filter((a) => a.family === family)
     : allArchetypes;
+  const archetypes = homePlans.length
+    ? familyArchetypes.filter((a) => selling.has(a.key))
+    : familyArchetypes;
 
   /** Set when the open tab is a unit with its own section (vehicles). */
   const storefront = showFamilies ? familyStorefront(family) : null;
@@ -248,7 +261,10 @@ const Discovery = () => {
         ) : (
           /* ─── Services ─────────────────────────────────────────────── */
           <>
+          <ForYouSection />
           <FeaturedRail placement="home" />
+          <CollectionsSection />
+          <BusinessesRail />
           <section className="space-y-3">
             <h2 className="text-heading font-semibold text-foreground">
               {t("discovery.services")}

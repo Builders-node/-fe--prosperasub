@@ -1,7 +1,7 @@
 /**
  * Admin Panel navigation — one word per thing, the same word on the page:
  *   Today · Businesses (the list) · Vehicles · Reviews · Orders · Customers ·
- *   Support · Finance · Analytics · Banners · Announcements · Promo codes ·
+ *   Support · Finance · Analytics · Banners · Collections · Announcements · Promo codes ·
  *   Services (the service tree: categories + businesses per service) ·
  *   Locations · Team · Audit log · Diagnostics.
  * A URL takes the permission of the nav item that covers it (permissionsForPath).
@@ -10,7 +10,7 @@
 import {
   BarChart3, CalendarDays, DollarSign,
   BellRing, FileText, Layers, LayoutDashboard, MapPin, Megaphone, Sparkles, TicketPercent,
-  LifeBuoy, ShieldCheck, Users, Building2, CarFront, Star, Wrench, } from "lucide-react";
+  LifeBuoy, ShieldCheck, Users, Building2, CarFront, Star, Wrench, LayoutGrid, } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { adminRoutes } from "./adminRoutes";
 
@@ -113,6 +113,8 @@ export const GROWTH_SECTION: NavSection = {
   title: "Marketing",
   items: [
     { label: "Banners", path: adminRoutes.superAdminAds, icon: Megaphone,
+      permissions: ["admin_settings.read"] },
+    { label: "Collections", path: adminRoutes.superAdminCollections, icon: LayoutGrid,
       permissions: ["admin_settings.read"] },
     { label: "Announcements", path: adminRoutes.superAdminAnnouncements, icon: BellRing,
       permissions: ["users.read"] },

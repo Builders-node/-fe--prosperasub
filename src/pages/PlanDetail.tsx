@@ -6,6 +6,7 @@ import { gaItem, trackEvent } from "@/lib/analytics/ga";
 import { Photo } from "@/components/patterns/Photo";
 import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
+import { recordPlanView } from "@/lib/recentlyViewed";
 import { useGoBack } from "@/hooks/useGoBack";
 import { useQuery } from "@tanstack/react-query";
 import { HomeHeader } from "@/components/layout/HomeHeader";
@@ -268,6 +269,9 @@ const PlanDetail = () => {
   });
 
   const plan = planQ.data ?? null;
+
+  // The home page's "Recently viewed" shelf.
+  useEffect(() => { if (plan && planId) recordPlanView(planId); }, [plan, planId]);
 
 
   const providerQ = useQuery({

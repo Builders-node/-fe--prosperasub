@@ -111,9 +111,16 @@ export function CategoryCarousel({ family }: {
   family?: string;
 } = {}) {
   const { highlights: allHighlights, isLoading } = useCategoryHighlights();
-  const highlights = family
+  const inFamily = family
     ? allHighlights.filter((h) => h.archetype?.family === family)
     : allHighlights;
+  // A category with nothing on sale is a banner to an empty listing — the
+  // Healthcare slide said "Healthcare" and nothing else. Hide it until it has
+  // a price; if no price loaded at all (a failed lookup), keep everything
+  // rather than blank the banner.
+  const highlights = inFamily.some((h) => h.fromCents !== null)
+    ? inFamily.filter((h) => h.fromCents !== null)
+    : inFamily;
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
 

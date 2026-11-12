@@ -1,0 +1,165 @@
+import type { ReactNode } from "react";
+import { Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { supabaseDb } from "@/integrations/supabase/client";
+import { formatUSD } from "@/lib/pricing";
+import { periodNoun } from "@/lib/services/planPeriod";
+import { planHref } from "@/lib/services/serviceUrls";
+import { PhotoSlider } from "@/components/patterns/PhotoSlider";
+import { Skeleton } from "@/components/patterns/Skeleton";
+import { cn } from "@/lib/utils";
+
+/**
+ * The plans the home page shows, fetched ONCE and shared by every shelf on it
+ * — collections, "Saved", "Recently viewed" and "All plans" all pick from the
+ * same list, so a shelf costs no query of its own.
+ *
+ * It is exactly what a provider's public page lists — `provider_plans`,
+ * active, public, offers only (a variant is chosen inside its offer) — for
+ * every live business at once.
+ */
+
+export interface HomePlan {
+  id: string;
+  name: string;
+  price_cents: number | null;
+  period: string | null;
+  pricing_mode: string | null;
+  source_plan_id: string | null;
+  gallery_urls: unknown;
+  provider: {
+    id: string;
+    name: string;
+    archetype_key: string | null;
+    gallery_urls: unknown;
+    banner_url: string | null;
+  } | null;
+}
+
+/** Every usable photo URL in a jsonb list. */
+const urls = (list: unknown): string[] =>
+  Array.isArray(list) ? list.filter((u): u is string => typeof u === "string" && !!u.trim()) : [];
+
+export function useHomePlans() {
+  return useQuery({
+    queryKey: ["home-all-plans"],
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const { data, error } = await supabaseDb
+        .from("provider_plans")
+        .select(
+          "id, name, price_cents, period, pricing_mode, source_plan_id, gallery_urls, sort_order, " +
+          "provider:providers!inner(id, name, archetype_key, gallery_urls, banner_url, status)",
+        )
+        .eq("status", "active")
+        .eq("visibility", "public")
+        .is("parent_plan_id", null)
+        .eq("provider.status", "active")
+        .order("sort_order", { ascending: true });
+      if (error) throw error;
+      // A plan of a business with no service to live under has no page to open.
+      return ((data ?? []) as unknown as HomePlan[]).filter((p) => p.provider?.archetype_key);
+    },
+  });
+}
+
+/**
+ * Looks a plan up by whichever id a screen had in hand — the universal id or
+ * the legacy one a cleaning package / meal plan / beach plan is known by.
+ */
+export function planIndex(plans: HomePlan[]) {
+  const m = new Map<string, HomePlan>();
+  for (const p of plans) {
+    m.set(p.id, p);
+    if (p.source_plan_id) m.set(String(p.source_plan_id), p);
+  }
+  return m;
+}
+
+/**
+ * One business after another rather than each business's whole list in a
+ * block: with nine dive courses and one meal plan, sorting by the business's
+ * own order made the bottom of the home page a dive shop's catalogue.
+ */
+export function interleaveByProvider(plans: HomePlan[]): HomePlan[] {
+  const queues = new Map<string, HomePlan[]>();
+  for (const p of plans) {
+    const k = p.provider?.id ?? "";
+    if (!queues.has(k)) queues.set(k, []);
+    queues.get(k)!.push(p);
+  }
+  const out: HomePlan[] = [];
+  const lists = [...queues.values()];
+  for (let round = 0; out.length < plans.length; round++) {
+    for (const list of lists) if (list[round]) out.push(list[round]);
+  }
+  return out;
+}
+
+export function PlanTile({ plan, className }: { plan: HomePlan; className?: string }) {
+  const provider = plan.provider!;
+  // The plan's own photograph first; the business's only as a fallback.
+  const own = urls(plan.gallery_urls);
+  const images = own.length ? own : [...urls(provider.gallery_urls), provider.banner_url].filter((u): u is string => !!u);
+  const noun = periodNoun(plan.period);
+  const hasPrice = typeof plan.price_cents === "number" && plan.price_cents > 0;
+  // Same link the provider's own list uses: the original id where the row
+  // mirrors a legacy plan, so there is one address per product.
+  const href = planHref(provider.archetype_key!, plan.source_plan_id ? String(plan.source_plan_id) : plan.id);
+
+  return (
+    <Link
+      to={href}
+      className={cn(
+        "flex flex-col overflow-hidden rounded-radius-md bg-card shadow-figma transition-colors active:scale-[0.98] hover:bg-muted/40",
+        className,
+      )}
+    >
+      {/* The frame owns the size: the photo is pinned inside it and cropped,
+          so a tall picture can never stretch its card past the others. */}
+      <PhotoSlider photos={images} className="aspect-[4/3] w-full shrink-0 bg-muted" />
+      <div className="flex flex-1 flex-col gap-1 p-3 tracking-[-0.02em]">
+        <p className="line-clamp-2 text-[15px] font-semibold leading-[20px] text-foreground">{plan.name}</p>
+        <p className="line-clamp-1 text-[13px] leading-[18px] text-muted-foreground">{provider.name}</p>
+        {hasPrice && (
+          <p className="mt-auto pt-1 text-[14px] font-semibold leading-[20px] text-foreground">
+            {formatUSD(plan.price_cents!)}
+            {noun && (
+              <span className="font-normal text-muted-foreground">
+                {plan.pricing_mode === "per_person" ? ` / person · ${noun}` : ` / ${noun}`}
+              </span>
+            )}
+          </p>
+        )}
+      </div>
+    </Link>
+  );
+}
+
+/** A shelf's heading: title, an optional line under it, an optional link right. */
+export function ShelfHeader({ title, subtitle, action }: { title: string; subtitle?: string | null; action?: ReactNode }) {
+  return (
+    <div className="flex items-end justify-between gap-3">
+      <div className="min-w-0">
+        <h2 className="truncate text-heading font-semibold text-foreground">{title}</h2>
+        {subtitle && <p className="mt-0.5 line-clamp-1 text-meta text-muted-foreground">{subtitle}</p>}
+      </div>
+      {action}
+    </div>
+  );
+}
+
+/**
+ * A row of plan cards: swipes sideways on a phone (two and a bit visible, so
+ * it reads as "there is more"), four across on a laptop.
+ */
+export function PlanRail({ plans, loading = false }: { plans: HomePlan[]; loading?: boolean }) {
+  const tile = "w-[44%] shrink-0 snap-start sm:w-[30%] md:w-auto";
+  return (
+    <div className="-mx-space-4 flex snap-x snap-mandatory gap-2 overflow-x-auto px-space-4 pb-1 [scrollbar-width:none] md:mx-0 md:grid md:grid-cols-4 md:overflow-visible md:px-0 [&::-webkit-scrollbar]:hidden">
+      {loading
+        ? [0, 1, 2, 3].map((i) => <Skeleton key={i} className={cn("h-[220px]", tile)} />)
+        : plans.map((p) => <PlanTile key={p.id} plan={p} className={tile} />)}
+    </div>
+  );
+}
