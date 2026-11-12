@@ -304,7 +304,8 @@ const AdminDashboard = () => {
             label: `${nameOf(r)} — ${view.label}`,
             detail: r.paid ? formatUSD(Number(r.price_cents) || 0) : "Awaiting payment",
             date: r.created_at,
-            href: "/admin/marketplace/subscriptions",
+            // This sale, opened — not the whole list.
+            href: `/admin/marketplace/subscriptions?order=${encodeURIComponent(r.id)}`,
           };
         });
     },

@@ -44,6 +44,7 @@ import { logAuditEvent } from "@/lib/auditLog";
 import { cn } from "@/lib/utils";
 import { fetchUsersByIds } from "@/lib/admin/customerNames";
 import { formatUSD } from "@/lib/pricing";
+import { PaymentMethodBadge, PaymentReference } from "@/components/admin/PaymentMethodBadge";
 
 interface Provider { id: string; name: string; archetype_key: string | null; }
 interface UserRow { id: string; name: string | null; display_name: string | null; email: string | null; }
@@ -103,6 +104,9 @@ const MarketplaceSubscriptions = () => {
   const [refundAmount, setRefundAmount] = useState("");
   const [refundReason, setRefundReason] = useState("");
   const [deleteRow, setDeleteRow] = useState<SaleRow | null>(null);
+  // `?order=<id>` — one sale, opened as a sheet. Today's "Recent activity"
+  // links here so a tap shows THAT payment, not the whole list.
+  const [orderId, setOrderId] = useUrlState<string>("order", "");
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["marketplace-sales"] });
@@ -289,6 +293,13 @@ const MarketplaceSubscriptions = () => {
     // Deliberately no `user_id.slice(0, 8)` fallback: a truncated uuid is not a
     // name, it just looks like one and sent admins hunting for "e869d031".
     return u?.display_name || u?.name || s.customer_name || u?.email || "—";
+  };
+
+  const detail = orderId ? rows.find((r) => r.id === orderId) ?? null : null;
+  const openRefund = (row: SaleRow) => {
+    setRefundRow(row);
+    setRefundAmount(((row.price_cents ?? 0) / 100).toFixed(2));
+    setRefundReason("");
   };
 
   const visible = useMemo(() => {
@@ -520,7 +531,15 @@ const MarketplaceSubscriptions = () => {
                   const AIcon = arche?.Icon ?? Building2;
                   const stage = subscriptionStage(s);
                   return (
-                    <TableRow key={s.id} className="border-b border-border/60 last:border-0 hover:bg-muted/30">
+                    <TableRow
+                      key={s.id}
+                      // The row opens the sale; its links, checkbox and menu keep their own job.
+                      onClick={(e) => {
+                        if ((e.target as HTMLElement).closest("a,button,[role=checkbox],[role=menuitem],input")) return;
+                        setOrderId(s.id);
+                      }}
+                      className="cursor-pointer border-b border-border/60 last:border-0 hover:bg-muted/30"
+                    >
                       <TableCell className="px-2 py-3">
                         <Checkbox
                           aria-label={`Select ${customerLabel(s)}`}
@@ -644,6 +663,76 @@ const MarketplaceSubscriptions = () => {
       </div>
 
       {/* Edit sheet — mutates the row's own table (SALE_SOURCES), not the view. */}
+      {/* One sale, read-only, with its actions — what Today links to. */}
+      <Sheet open={!!orderId} onOpenChange={(o) => !o && setOrderId("")}>
+        <SheetContent side="right" className="w-full max-w-md overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>{detail ? (detail.plan_name ?? "Order") : isLoading ? "Loading…" : "Order not found"}</SheetTitle>
+            <SheetDescription>
+              {detail
+                ? `${detail.kind === "booking" ? "Booking" : "Subscription"} · ${new Date(detail.created_at).toLocaleString()}`
+                : !isLoading && "It may have been deleted, or the link is old."}
+            </SheetDescription>
+          </SheetHeader>
+          {detail && (() => {
+            const prov = providerById.get(detail.provider_id);
+            const arche = prov ? archetypes.find((a) => a.key === prov.archetype_key) : undefined;
+            const Row = ({ k, children }: { k: string; children: React.ReactNode }) => (
+              <div className="flex items-start justify-between gap-4 py-2.5">
+                <span className="shrink-0 text-meta text-muted-foreground">{k}</span>
+                <span className="min-w-0 text-right text-body text-foreground">{children}</span>
+              </div>
+            );
+            return (
+              <div className="mt-4 space-y-4">
+                <div className="rounded-radius-md bg-muted/40 p-4">
+                  <p className="text-meta text-muted-foreground">Amount</p>
+                  <p className="text-[28px] font-semibold tabular-nums text-foreground">
+                    {typeof detail.price_cents === "number" ? formatUSD(detail.price_cents) : "—"}
+                  </p>
+                  <div className="mt-1"><StatusPill status={subscriptionStage(detail)} /></div>
+                </div>
+                <div className="divide-y divide-border/50">
+                  <Row k="Customer">
+                    {detail.user_id
+                      ? <Link to={`/admin/customers/${encodeURIComponent(detail.user_id)}`} className="font-semibold text-primary hover:underline">{customerLabel(detail)}</Link>
+                      : customerLabel(detail)}
+                  </Row>
+                  <Row k="Business">
+                    {prov
+                      ? <Link to={`/admin/marketplace/providers/${encodeURIComponent(prov.id)}`} className="font-semibold text-primary hover:underline">{prov.name}</Link>
+                      : "—"}
+                  </Row>
+                  <Row k="Service">{arche?.label ?? "—"}</Row>
+                  <Row k="Plan">{detail.plan_name ?? "—"}</Row>
+                  <Row k="Period">
+                    {detail.time_label
+                      ? `${detail.start_date} · ${detail.time_label}`
+                      : detail.start_date ? `${detail.start_date}${detail.end_date ? " → " + detail.end_date : ""}` : "—"}
+                  </Row>
+                  <Row k="Payment">{detail.payment_method ? <PaymentMethodBadge method={detail.payment_method} /> : "—"}</Row>
+                  <Row k="Payment status">{detail.payment_status || "—"}</Row>
+                  {detail.payment_reference && (
+                    <Row k="Reference"><PaymentReference method={detail.payment_method} reference={detail.payment_reference} /></Row>
+                  )}
+                  <Row k="Order id"><span className="font-mono text-meta">{detail.id}</span></Row>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" variant="secondary" onClick={() => { setEditRow(detail); setOrderId(""); }}>
+                    <Pencil className="h-4 w-4" /> Edit
+                  </Button>
+                  {detail.payment_status === "paid" && !backing(detail).apiManaged && (
+                    <Button size="sm" variant="secondary" onClick={() => { openRefund(detail); setOrderId(""); }}>
+                      <Undo2 className="h-4 w-4" /> Refund…
+                    </Button>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+        </SheetContent>
+      </Sheet>
+
       <Sheet open={!!editRow} onOpenChange={(o) => !o && setEditRow(null)}>
         <SheetContent side="right" className="w-full max-w-md overflow-y-auto">
           <SheetHeader>
