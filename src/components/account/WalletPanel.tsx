@@ -229,31 +229,39 @@ function TopUp({ suggestedCents, minCents, onDone }: { suggestedCents: number | 
       <h2 className="text-[20px] font-semibold text-foreground">Top up</h2>
       {!paying ? (
         <>
-          <div className="flex flex-wrap gap-2">
-            {[...new Set([...(suggestedCents ? [suggestedCents] : []), ...PRESETS])].map((c) => (
+          {/* The usual amounts as one even row; any other amount gets a
+              full-width field of its own rather than a pill squeezed in. */}
+          <div className="grid grid-cols-3 gap-2">
+            {[...new Set([...(suggestedCents ? [suggestedCents] : []), ...PRESETS])].slice(0, 3).map((c) => (
               <button
                 key={c}
                 type="button"
                 onClick={() => { setAmount(c); setCustom(""); }}
                 className={cn(
-                  "h-10 rounded-full px-4 text-[14px] font-semibold tabular-nums transition-colors",
+                  "h-12 rounded-full px-2 text-[15px] font-semibold tabular-nums transition-colors",
                   !custom && amount === c ? "bg-primary text-primary-foreground" : "bg-muted text-foreground hover:bg-muted/70",
                 )}
               >
                 {formatUSD(c)}
               </button>
             ))}
+          </div>
+          <label className={cn(
+            "flex h-12 items-center gap-2 rounded-full bg-muted px-4 transition-colors",
+            custom && "outline outline-2 -outline-offset-2 outline-primary",
+          )}>
+            <span className="text-[16px] font-semibold text-muted-foreground">$</span>
             <input
               type="number"
               inputMode="decimal"
               min={minCents / 100}
-              placeholder="Other"
+              placeholder={`Other amount — from ${formatUSD(minCents)}`}
               aria-label="Other amount in dollars"
               value={custom}
               onChange={(e) => setCustom(e.target.value)}
-              className="h-10 w-28 rounded-full bg-muted px-4 text-[14px] text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-primary/50"
+              className="h-full min-w-0 flex-1 bg-transparent text-[16px] text-foreground outline-none placeholder:text-muted-foreground"
             />
-          </div>
+          </label>
           <PaymentMethodTiles value={method} onChange={setMethod} available={methods} />
           <Button className="w-full" disabled={!valid || !methods.length} loading={busy} onClick={() => void start()}>
             Top up {formatUSD(base)}{total > base ? ` · pay ${formatUSD(total)} incl. ${surchargePercent(method)}% fee` : ""}
