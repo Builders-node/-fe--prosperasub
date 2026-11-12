@@ -19,7 +19,6 @@ import { readEntitlements, serializeEntitlements, type Entitlement } from "@/lib
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { TagPicker } from "@/components/provider/plans/TagPicker";
-import { FOOD_DIET_KEYS } from "@/lib/tags";
 
 /**
  * One plan, with its prices inside it.
@@ -173,31 +172,10 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
             .in("group_id", groupIds).order("sort_order", { ascending: true })
         : { data: [] as any[] };
 
-      // Attributes live on the LEGACY row for every service that has one, and
-      // that is where the storefront reads them. Seeding the editor from the
-      // universal mirror instead would show an empty list and then save it
-      // over the real one — the beach club's six amenities would have gone on
-      // the first save.
-      const legacyAttrs = new Map<string, { features: unknown; excludes: unknown; tags: string[] }>();
-      const twinned = rows.filter((r) => r.source_plan_id);
-      for (const row of twinned) {
-        const id = row.source_plan_id!;
-        if (row.source_service_key === "food") {
-          const { data } = await supabaseDb.from("food_meal_plans")
-            .select("highlights, dietary_tags").eq("id", id).maybeSingle();
-          legacyAttrs.set(row.id, { features: data?.highlights ?? [], excludes: [], tags: data?.dietary_tags ?? [] });
-        } else if (row.source_service_key === "cleaning") {
-          const { data } = await supabaseDb.from("cleaning_packages")
-            .select("features, not_included").eq("id", id).maybeSingle();
-          legacyAttrs.set(row.id, { features: data?.features ?? [], excludes: data?.not_included ?? [], tags: [] });
-        } else if (row.source_service_key === "beach") {
-          const { data } = await supabaseDb.from("beach_club_plans")
-            .select("amenities").eq("id", id).maybeSingle();
-          legacyAttrs.set(row.id, { features: data?.amenities ?? [], excludes: [], tags: [] });
-        }
-      }
-
-      return { rows, groups: groups ?? [], options: options ?? [], legacyAttrs };
+      // Everything is read from provider_plans: it is the plan's one home now
+      // (migration 20261123120000_plans_universal_source) and the legacy row
+      // is a copy kept for old readers.
+      return { rows, groups: groups ?? [], options: options ?? [] };
     },
   });
 
@@ -354,11 +332,10 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
     // line, a deep clean, a session — is written back exactly as found, so
     // saving here never quietly drops what another screen said.
     setOtherEntitlements(lines.filter((e) => e.unit !== HOUR_UNIT));
-    const attrs = data.legacyAttrs?.get(offer.id);
-    const tagList = attrs ? attrs.tags : (offer.tags ?? []);
+    const tagList = offer.tags ?? [];
     setIncludes({
-      features: asLines(attrs ? attrs.features : offer.features),
-      excludes: asLines(attrs ? attrs.excludes : offer.excludes),
+      features: asLines(offer.features),
+      excludes: asLines(offer.excludes),
       tags: tagList.join(", "),
     });
     // Open the fold for a plan that already uses a non-default — customized
@@ -450,13 +427,12 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
       }
       if (!o) throw new Error("Nothing to save yet.");
 
-      // 1. The plan's own fields, written wherever that plan actually lives.
-      await writePlanFields(o, name.trim(), description.trim() || null, sourceKey);
+      // 1. The plan's own fields — on provider_plans, like everything else.
+      await writePlanFields(o, name.trim(), description.trim() || null);
 
       // 1b. The switches. These live only on `provider_plans` — no legacy
-      //     table has a column for "how is this sold" — except the two
-      //     attribute lists, which the storefront still reads from the legacy
-      //     row, so those are written there as well (see writeAttributes).
+      //     table has a column for "how is this sold". The attribute lists go
+      //     here too; the trigger copies them to the legacy row.
       const { error: switchErr } = await supabaseDb.from("provider_plans").update({
         period: sold.period,
         included_unit: sold.unit.trim() || null,
@@ -496,22 +472,13 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
       }).eq("id", o.id);
       if (switchErr) throw switchErr;
 
-      await writeAttributes(o, sourceKey, fromLines(includes.features), fromLines(includes.excludes), fromLines(includes.tags.replace(/,/g, "\n")));
+      // No second write: a food / cleaning / beach plan's legacy row is kept
+      // in step by the provider_plans_mirror_to_legacy trigger — attributes,
+      // the beach's two derived halves, status and price alike.
 
-      // A derived price is two numbers the customer never sees separately.
-      // The beach club has held them on its own row since before any of this,
-      // and its checkout still reads them there.
-      if (sourceKey === "beach" && o.source_plan_id && (sold.providerPrice || sold.markup)) {
-        const { error } = await supabaseDb.from("beach_club_plans").update({
-          provider_price_per_person_cents: cents(sold.providerPrice),
-          extra_per_person_cents: cents(sold.markup),
-          updated_at: new Date().toISOString(),
-        }).eq("id", o.source_plan_id);
-        if (error) throw error;
-      }
       // A plan is created as a draft so a nameless $0 row never reaches the
       // storefront. Pricing it is what puts it on sale.
-      if (publish && o.status !== "active") await writeStatus(o, "active", sourceKey);
+      if (publish && o.status !== "active") await writeStatus(o, "active");
 
       // 2. Axes, rewritten wholesale. The set is small and a diff would have to
       //    reason about a renamed key that priced rows still point at.
@@ -555,7 +522,7 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
 
         if (variant) {
           if (amount > 0) {
-            await writePrice(variant, amount, sourceKey);
+            await writePrice(variant, amount);
             // Keep the binding current — an axis renamed above would otherwise
             // leave this row answering for a combination that no longer exists.
             // Except when the row IS the plan: a plan with no choices prices
@@ -569,7 +536,7 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
           } else if (variant.id !== o.id) {
             // Cleared, not deleted: somebody may be subscribed to it. Off sale
             // is a status, and the row keeps answering for their subscription.
-            await writeStatus(variant, "inactive", sourceKey);
+            await writeStatus(variant, "inactive");
           }
           continue;
         }
@@ -589,7 +556,7 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
       const live = new Set(combos.map((c) => comboKey(draftGroups, c)));
       for (const v of variants) {
         const fingerprint = comboKey(draftGroups, (v.option_keys ?? {}) as Record<string, string>);
-        if (!live.has(fingerprint) && v.status === "active") await writeStatus(v, "inactive", sourceKey);
+        if (!live.has(fingerprint) && v.status === "active") await writeStatus(v, "inactive");
       }
     },
     onSuccess: (_d, publish) => {
@@ -632,7 +599,7 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
   const archive = useMutation({
     mutationFn: async (status: "active" | "inactive") => {
       if (!offer) return;
-      await writeStatus(offer, status, sourceKey);
+      await writeStatus(offer, status);
     },
     onSuccess: (_d, status) => {
       toast.success(status === "active" ? "Back on sale" : "Taken off sale");
@@ -1119,86 +1086,26 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
  * way, so a universal-side edit would be overwritten by the next legacy write
  * and would never reach the storefront, which still reads the legacy row.
  */
-async function writePlanFields(offer: PlanRow, name: string, description: string | null, sourceKey: string) {
-  if (offer.source_plan_id && sourceKey === "food") {
-    const { error } = await supabaseDb.from("food_meal_plans")
-      .update({ name, description, updated_at: new Date().toISOString() })
-      .eq("id", offer.source_plan_id);
-    if (error) throw error;
-    return;
-  }
-  if (offer.source_plan_id && sourceKey === "cleaning") {
-    const { error } = await supabaseDb.from("cleaning_packages")
-      .update({ name, description, updated_at: new Date().toISOString() })
-      .eq("id", offer.source_plan_id);
-    if (error) throw error;
-    return;
-  }
-  if (offer.source_plan_id && sourceKey === "beach") {
-    // The beach club calls a plan's description its tagline.
-    const { error } = await supabaseDb.from("beach_club_plans")
-      .update({ name, tagline: description, updated_at: new Date().toISOString() })
-      .eq("id", offer.source_plan_id);
-    if (error) throw error;
-    return;
-  }
+/**
+ * The writers. ONE table: provider_plans. A food / cleaning / beach plan also
+ * has a legacy row, and the provider_plans_mirror_to_legacy trigger copies each
+ * changed field there (price into weekly / monthly / per-cleaning / per-person,
+ * status into the legacy flags, description into the beach's tagline) — so this
+ * file no longer needs to know which of four tables a plan came from.
+ */
+async function writePlanFields(offer: PlanRow, name: string, description: string | null) {
   const { error } = await supabaseDb.from("provider_plans")
     .update({ name, description, updated_at: new Date().toISOString() })
     .eq("id", offer.id);
   if (error) throw error;
 }
-// One writer per number: where a legacy row exists it owns the price, and the
-// mirror trigger carries it into `provider_plans`. Writing both would be two
-// sources of truth for the same figure.
 
-async function writePrice(variant: PlanRow, amount: number, sourceKey: string) {
-  if (variant.source_plan_id && sourceKey === "food") {
-    const { error } = await supabaseDb.from("food_meal_plans")
-      .update({ weekly_price_cents: amount, updated_at: new Date().toISOString() })
-      .eq("id", variant.source_plan_id);
-    if (error) throw error;
-    return;
-  }
-  if (variant.source_plan_id && sourceKey === "cleaning") {
-    // Cleaning prices either monthly or per cleaning; write whichever column
-    // that package is actually priced by, or the monthly one by default.
-    const { data: pkg } = await supabaseDb.from("cleaning_packages")
-      .select("pricing_mode, cleanings_per_month").eq("id", variant.source_plan_id).maybeSingle();
-    const perCleaning = pkg?.pricing_mode === "price_per_cleaning";
-    const per = Math.max(1, Number(pkg?.cleanings_per_month ?? 1));
-    const patch = perCleaning
-      ? { price_per_cleaning_cents: Math.round(amount / per) }
-      : { monthly_price_cents: amount };
-    const { error } = await supabaseDb.from("cleaning_packages")
-      .update({ ...patch, updated_at: new Date().toISOString() }).eq("id", variant.source_plan_id);
-    if (error) throw error;
-    return;
-  }
-  if (variant.source_plan_id && sourceKey === "beach") {
-    // Per person, per month. Where the plan is `derived`, this is the total
-    // the customer pays; the two halves it is made of are written beside it
-    // by the switches, so the row can never say one thing and mean another.
-    const { error } = await supabaseDb.from("beach_club_plans")
-      .update({ price_per_person_cents: amount, updated_at: new Date().toISOString() })
-      .eq("id", variant.source_plan_id);
-    if (error) throw error;
-    return;
-  }
+async function writePrice(variant: PlanRow, amount: number) {
   const { error } = await supabaseDb.from("provider_plans")
     .update({ price_cents: amount, updated_at: new Date().toISOString() }).eq("id", variant.id);
   if (error) throw error;
 }
 
-/**
- * A sellable row that did not exist before — a new plan, or a new combination
- * of an existing one. Both are the same act: for a legacy-backed service the
- * row must exist in the legacy table, because that is the id a subscription
- * will carry. The mirror trigger then writes the universal row, which this
- * returns so the caller can name or bind it.
- *
- * A `draft` is created off sale. A plan the provider has not priced yet must
- * not appear on the storefront at $0 while they are still typing.
- */
 async function createPlanRow(input: {
   providerId: string;
   sourceKey: string;
@@ -1312,65 +1219,8 @@ async function createVariant(input: {
   });
 }
 
-/**
- * "What you get" and "what you do not", written where the storefront reads it.
- *
- * The plan page takes `features` from `cleaning_packages`, `amenities` from
- * `beach_club_plans` and `provider_plans.features` for a universal plan — so
- * writing only the universal row would mean a provider types a list and no
- * customer ever sees it. Food's `highlights` was the odd one out: the column
- * existed and the plan page ignored it, which is fixed alongside this.
- */
-async function writeAttributes(
-  plan: PlanRow, sourceKey: string, features: string[], excludes: string[], tags: string[],
-) {
-  if (plan.source_plan_id && sourceKey === "food") {
-    const { error } = await supabaseDb.from("food_meal_plans")
-      // dietary_tags has a CHECK of known diets; anything else lives only on
-      // the universal row (provider_plans.tags), written by the caller.
-      .update({ highlights: features, dietary_tags: tags.filter((t) => FOOD_DIET_KEYS.has(t)), updated_at: new Date().toISOString() })
-      .eq("id", plan.source_plan_id);
-    if (error) throw error;
-    return;
-  }
-  if (plan.source_plan_id && sourceKey === "cleaning") {
-    const { error } = await supabaseDb.from("cleaning_packages")
-      .update({ features, not_included: excludes, updated_at: new Date().toISOString() })
-      .eq("id", plan.source_plan_id);
-    if (error) throw error;
-    return;
-  }
-  if (plan.source_plan_id && sourceKey === "beach") {
-    const { error } = await supabaseDb.from("beach_club_plans")
-      .update({ amenities: features, updated_at: new Date().toISOString() })
-      .eq("id", plan.source_plan_id);
-    if (error) throw error;
-  }
-  // A universal plan already had them written to `provider_plans` above.
-}
-
-/** Status goes where the plan lives — the mirror carries a legacy change back. */
-async function writeStatus(plan: PlanRow, status: "active" | "inactive", sourceKey: string) {
-  if (plan.source_plan_id && sourceKey === "food") {
-    const { error } = await supabaseDb.from("food_meal_plans")
-      .update({ status, updated_at: new Date().toISOString() }).eq("id", plan.source_plan_id);
-    if (error) throw error;
-    return;
-  }
-  if (plan.source_plan_id && sourceKey === "cleaning") {
-    const { error } = await supabaseDb.from("cleaning_packages")
-      .update({ status, updated_at: new Date().toISOString() }).eq("id", plan.source_plan_id);
-    if (error) throw error;
-    return;
-  }
-  if (plan.source_plan_id && sourceKey === "beach") {
-    // Beach has no `status` column — being on sale is a boolean there.
-    const { error } = await supabaseDb.from("beach_club_plans")
-      .update({ is_active: status === "active", updated_at: new Date().toISOString() })
-      .eq("id", plan.source_plan_id);
-    if (error) throw error;
-    return;
-  }
+/** On sale or not — provider_plans; the trigger carries it to the legacy flags. */
+async function writeStatus(plan: PlanRow, status: "active" | "inactive") {
   const { error } = await supabaseDb.from("provider_plans")
     .update({ status, updated_at: new Date().toISOString() }).eq("id", plan.id);
   if (error) throw error;
