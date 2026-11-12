@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 /**
  * "Featured" — the paid placements (Edge routes/promotions.ts).
  *
- * Every card says "Ad": a customer is owed knowing which places were bought
+ * Every card says "Featured": a customer is owed knowing which places were bought
  * (and the Terms say so). Renders nothing when nothing is promoted, so a
  * quiet week leaves the page exactly as it was.
  */
@@ -68,7 +68,7 @@ function PromoCard({ p, wide = false }: { p: ActivePromotion; wide?: boolean }) 
       <div className="relative h-28 bg-muted">
         <Photo src={p.provider.bannerUrl} icon={Store} alt="" />
         <span className="absolute left-3 top-3 rounded-full bg-black/55 px-2 py-0.5 text-meta font-semibold text-white backdrop-blur">
-          Ad
+          Featured
         </span>
       </div>
       <div className="flex items-center gap-3 p-3">

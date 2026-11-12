@@ -208,7 +208,7 @@ const TOOLS: Array<{ title: string; text: string; pos: string; mock: ReactNode }
     mock: (
       <Glass className="w-[86%] p-3">
         <div className="flex items-center gap-3">
-          <span className="rounded-full bg-black/40 px-2 py-0.5 text-meta font-semibold">Ad</span>
+          <span className="rounded-full bg-black/40 px-2 py-0.5 text-meta font-semibold">Featured</span>
           <span className="truncate text-body font-semibold">Featured on the home screen</span>
         </div>
         <div className="mt-3 grid grid-cols-3 gap-2 text-center">
