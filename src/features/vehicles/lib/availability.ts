@@ -57,9 +57,14 @@ export async function fetchHeldRanges(vehicleId: string): Promise<HeldRange[]> {
   if (error) throw error;
 
   const now = Date.now();
-  return ((data ?? []) as BookingRow[])
+  const held = ((data ?? []) as BookingRow[])
     .filter((b) => stillHolds(b, now))
     .map((b) => ({ start: b.start_date, end: b.end_date }));
+  // Days the fleet blocked (service, repair). Missing before the operations
+  // migration — then simply none.
+  const { data: blocks } = await supabaseDb.from("rental_blocks")
+    .select("start_date,end_date").eq("vehicle_id", vehicleId);
+  return [...held, ...((blocks ?? []) as Array<{ start_date: string; end_date: string }>).map((b) => ({ start: b.start_date, end: b.end_date }))];
 }
 
 /** Inclusive overlap between a YYYY-MM-DD span and any held range. */

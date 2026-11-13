@@ -85,7 +85,8 @@ const EDGE_ROUTES: RegExp[] = [
   // Favourites: list, save, unsave, and a guest's saves merged at sign-in.
   /^\/account\/favorites(\/(merge|(plan|provider|vehicle)\/[^/]+))?$/,
   /^\/rentals\/bookings(\/[^/]+\/(confirm|reference|cancel))?$/,
-  /^\/admin\/rentals\/bookings\/[^/]+$/,
+  // Fleet operations: bookings taken by hand, edits, handover/return, blocks.
+  /^\/admin\/rentals\/(bookings|blocks)(\/[^/]+)?$/,
   /^\/account\/rental-fleet$/,
   // Paid placements (Edge routes/promotions.ts).
   /^\/promotions\/(active|events)$/,

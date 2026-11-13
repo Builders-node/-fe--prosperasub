@@ -23,6 +23,12 @@ export { VehicleCard } from "./components/VehicleCard";
 export { useVehicleTypes, VEHICLE_TYPES_KEY, type VehicleType } from "./hooks/useVehicleTypes";
 export { VehicleTypesPanel } from "./components/VehicleTypesPanel";
 export { useVehicles } from "./hooks/useVehicles";
+/** Running the fleet — the admin's and the rental company's screens. */
+export { useFleet, FLEET_KEY } from "./admin/fleetData";
+export { FleetOverview } from "./admin/FleetOverview";
+export { FleetCalendar } from "./admin/FleetCalendar";
+export { RentalBookingSheet } from "./admin/RentalBookingSheet";
+export { NewRentalDialog, type NewRentalSeed } from "./admin/NewRentalDialog";
 /** Every write to the fleet and its terms goes through the API. */
 export { fleetWrite } from "./lib/fleetWrite";
 

@@ -6,7 +6,7 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import { ArrowUpRight, Car, MoreVertical, Pencil, Plus } from "lucide-react";
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { AdminListShell } from "@/components/admin/AdminListShell";
@@ -23,7 +23,10 @@ import { fetchUsersByIds, customerNameFrom } from "@/lib/admin/customerNames";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { StatusPill, statusLabel } from "@/components/patterns/StatusPill";
-import { VehicleTypesPanel, useVehicleTypes } from "@/features/vehicles";
+import { VehicleTypesPanel, useVehicleTypes, RentalTermsTab } from "@/features/vehicles";
+import {
+  FleetCalendar, FleetOverview, NewRentalDialog, RentalBookingSheet, useFleet, FLEET_KEY, type NewRentalSeed,
+} from "@/features/vehicles";
 import { useTabParam } from "@/hooks/useTabParam";
 import { VEHICLES_UNIT } from "@/lib/services/vehiclesUnit";
 
@@ -64,11 +67,26 @@ export default function CarRentals({ embedded = false, providerId }: {
   // In the URL, like every other drill-down: a reload or a Back used to drop
   // the admin back on Bookings from whatever tab they were working in.
   const [tab, setTab] = useTabParam(
-    embedded ? (["bookings", "fleet"] as const) : (["bookings", "fleet", "types", "providers"] as const),
+    embedded
+      ? (["overview", "calendar", "bookings", "fleet", "terms"] as const)
+      : (["overview", "calendar", "bookings", "fleet", "terms", "types", "providers"] as const),
   );
+  /** Everything the operations screens read, in one query (features/vehicles/admin). */
+  const fleetQ = useFleet(providerId);
+  const fleet = fleetQ.data;
+  const [openBookingId, setOpenBookingId] = useState<string | null>(null);
+  const openBooking = fleet?.bookings.find((b) => b.id === openBookingId) ?? null;
+  const [newSeed, setNewSeed] = useState<NewRentalSeed | null>(null);
+  const [termsProvider, setTermsProvider] = useState<string>(providerId ?? "");
+  const removeBlock = async (id: string, label: string) => {
+    if (!window.confirm(`Unblock ${label}? Customers can book those days again.`)) return;
+    const { error } = await adminApi(`/admin/rentals/blocks/${id}`, { method: "DELETE" });
+    if (error) { toast.error(error.message); return; }
+    toast.success("Unblocked");
+    void qc.invalidateQueries({ queryKey: [FLEET_KEY] });
+  };
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<string>("all");
-  const [busy, setBusy] = useState<string | null>(null);
   // Which car the editor is open on: a row to edit, "new" to add, null closed.
   const [editing, setEditing] = useState<RentalVehicle | "new" | null>(null);
 
@@ -119,7 +137,7 @@ export default function CarRentals({ embedded = false, providerId }: {
 
   const companiesQ = useQuery({
     queryKey: ["transport-providers"],
-    enabled: tab === "providers" && !providerId,
+    enabled: (tab === "providers" || tab === "terms") && !providerId,
     queryFn: async () => {
       const { data, error } = await supabaseDb
         .from("providers")
@@ -156,45 +174,6 @@ export default function CarRentals({ embedded = false, providerId }: {
     };
   }, [filtered]);
 
-  /** Money that arrived outside the checkout (cash, transfer) — recorded with a reason. */
-  const markPaid = async (id: string) => {
-    const note = window.prompt("How was it paid? (cash, bank transfer…)")?.trim();
-    if (!note) return;
-    setBusy(id);
-    try {
-      const { error } = await adminApi(`/admin/rentals/bookings/${id}`, {
-        method: "PATCH", body: JSON.stringify({ markPaid: { note, method: "manual" } }),
-      });
-      if (error) throw error;
-      await qc.invalidateQueries({ queryKey: ["admin-rental-bookings"] });
-      toast.success("Marked paid");
-    } catch (e) {
-      toast.error((e as Error).message || "Could not mark it paid");
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const setStage = async (id: string, next: string) => {
-    setBusy(id);
-    try {
-      // The lifecycle only. A status never says money arrived (that is "Mark
-      // paid", with a reason), and cancelling a paid booking keeps the payment
-      // on record and flags a refund — the server decides both.
-      const { data, error } = await adminApi(`/admin/rentals/bookings/${id}`, {
-        method: "PATCH", body: JSON.stringify({ fields: { status: next } }),
-      });
-      if (error) throw error;
-      await qc.invalidateQueries({ queryKey: ["admin-rental-bookings"] });
-      if ((data as { refundNeeded?: boolean } | null)?.refundNeeded) toast.warning("Cancelled — it was paid, so refund the customer from Orders.");
-      else toast.success(`Booking marked ${next}`);
-    } catch (e) {
-      toast.error((e as Error).message || "Could not update the booking");
-    } finally {
-      setBusy(null);
-    }
-  };
-
   const toggleVehicle = async (v: any) => {
     const next = v.status === "public" ? "private" : "public";
     // Through the API: the browser lost write access to rental_* tables
@@ -212,15 +191,53 @@ export default function CarRentals({ embedded = false, providerId }: {
       <TabPills
         className="mb-4"
         tabs={(embedded
-          ? ([["bookings", "Bookings"], ["fleet", "Vehicles"]] as const)
+          ? ([["overview", "Overview"], ["calendar", "Calendar"], ["bookings", "Bookings"], ["fleet", "Vehicles"], ["terms", "Insurance & extras"]] as const)
           : ([
-              ["bookings", "Bookings"], ["fleet", "Vehicles"], ["types", "Types"],
-              ["providers", "Providers"],
+              ["overview", "Overview"], ["calendar", "Calendar"], ["bookings", "Bookings"], ["fleet", "Vehicles"],
+              ["terms", "Insurance & extras"], ["types", "Types"], ["providers", "Providers"],
             ] as const)
         ).map(([value, label]) => ({ value, label }))}
         value={tab}
         onChange={setTab}
       />
+
+      {/* The two things a fleet does by hand, wherever it is looking. */}
+      {(tab === "overview" || tab === "calendar" || tab === "bookings") && (
+        <div className="flex flex-wrap gap-2">
+          <Button className="gap-2" onClick={() => setNewSeed({ mode: "booking" })} disabled={!fleet?.vehicles.length}>
+            <Plus className="h-4 w-4" /> New booking
+          </Button>
+          <Button variant="secondary" onClick={() => setNewSeed({ mode: "block" })} disabled={!fleet?.vehicles.length}>
+            Block days
+          </Button>
+        </div>
+      )}
+
+      {(tab === "overview" || tab === "calendar") && (
+        fleetQ.isLoading ? <div className="h-64 animate-pulse rounded-radius-lg bg-card" />
+        : fleetQ.isError ? <p className="rounded-radius-lg bg-card p-4 text-body text-negative">Couldn't load the fleet: {(fleetQ.error as Error)?.message}</p>
+        : tab === "overview"
+          ? <FleetOverview vehicles={fleet!.vehicles} bookings={fleet!.bookings} blocks={fleet!.blocks} onOpenBooking={(b) => setOpenBookingId(b.id)} />
+          : <FleetCalendar vehicles={fleet!.vehicles} bookings={fleet!.bookings} blocks={fleet!.blocks}
+              onOpenBooking={(b) => setOpenBookingId(b.id)}
+              onOpenBlock={(k) => void removeBlock(k.id, `${k.start_date} → ${k.end_date}${k.reason ? ` (${k.reason})` : ""}`)}
+              onNew={(vehicleId, date) => setNewSeed({ vehicleId, date, mode: "booking" })} />
+      )}
+
+      {tab === "terms" && (
+        <div className="space-y-3">
+          {!providerId && (
+            <select value={termsProvider} onChange={(e) => setTermsProvider(e.target.value)} aria-label="Rental company"
+              className="h-11 w-full max-w-sm rounded-radius-md bg-card px-3 text-body text-foreground">
+              <option value="">Choose a rental company…</option>
+              {(companiesQ.data ?? []).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          )}
+          {termsProvider
+            ? <RentalTermsTab providerId={termsProvider} canManage />
+            : <p className="rounded-radius-lg bg-card p-4 text-body text-muted-foreground">Each rental company has its own insurance, extras and delivery zones — choose one.</p>}
+        </div>
+      )}
 
       {tab === "bookings" ? (
         <>
@@ -268,7 +285,8 @@ export default function CarRentals({ embedded = false, providerId }: {
                 nothing wraps under the card on a phone. */}
             <div className="space-y-0.5 rounded-radius-lg bg-card p-1.5">
               {filtered.map((b) => (
-                <div key={b.id} className="flex items-start gap-3 rounded-radius-md p-2.5">
+                <button type="button" key={b.id} onClick={() => setOpenBookingId(b.id)}
+                  className="flex w-full items-start gap-3 rounded-radius-md p-2.5 text-left transition-colors hover:bg-inset">
                   <div className="h-12 w-12 shrink-0 overflow-hidden rounded-radius-md bg-muted sm:w-16">
                     <Photo src={b.rental_vehicles?.image_url} icon={Car} />
                   </div>
@@ -288,28 +306,7 @@ export default function CarRentals({ embedded = false, providerId }: {
                     <p className="text-title font-semibold tabular-nums text-foreground">{formatUSD(b.total_cents)}</p>
                     <p className="text-meta text-muted-foreground">{b.payment_method ?? "—"}</p>
                   </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button size="icon" variant="ghost" className="shrink-0" disabled={busy === b.id} aria-label="Booking actions">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      {b.payment_status !== "paid" && b.status !== "cancelled" && (
-                        <>
-                          <DropdownMenuItem onSelect={() => void markPaid(b.id)}>Mark paid…</DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                        </>
-                      )}
-                      {STAGES.filter((st) => st !== b.status).map((st) => (
-                        <DropdownMenuItem key={st} onSelect={() => void setStage(b.id, st)}
-                          className={st === "cancelled" ? "text-negative focus:text-negative" : undefined}>
-                          {st === "cancelled" ? "Cancel booking" : `Move to ${statusLabel(st).toLowerCase()}`}
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
+                </button>
               ))}
             </div>
           </AdminListShell>
@@ -407,6 +404,13 @@ export default function CarRentals({ embedded = false, providerId }: {
         </AdminListShell>
       )}
 
+      <RentalBookingSheet
+        booking={openBooking}
+        vehicle={fleet?.vehicles.find((v) => v.id === openBooking?.vehicle_id) ?? null}
+        onClose={() => setOpenBookingId(null)}
+      />
+      <NewRentalDialog open={!!newSeed} seed={newSeed} vehicles={fleet?.vehicles ?? []} onClose={() => setNewSeed(null)} />
+
       <VehicleEditDialog
         vehicle={editing}
         lockedProviderId={providerId}
@@ -423,7 +427,7 @@ export default function CarRentals({ embedded = false, providerId }: {
   if (embedded) return body;
 
   return (
-    <SuperAdminLayout title="Vehicles" subtitle="Rentals: bookings, the fleet, vehicle types and rental companies">
+    <SuperAdminLayout title="Vehicles" subtitle="Run the fleet: today's handovers, the calendar, bookings, cars, insurance and rental companies">
       {body}
     </SuperAdminLayout>
   );
