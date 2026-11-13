@@ -48,6 +48,7 @@ import { DeliveryRow, useOfferDelivery } from "@/components/delivery/DeliveryRow
 import { useSeo, offerJsonLd } from "@/hooks/useSeo";
 import { PhotoCarousel } from "@/components/patterns/PhotoCarousel";
 import { ProductGallery } from "@/components/patterns/ProductGallery";
+import { SiteFooter } from "@/components/layout/SiteFooter";
 
 /**
  * The plan, before the till.
@@ -940,6 +941,11 @@ const PlanDetail = () => {
           {!notOnSale && <div className="mt-1">{cartButton}</div>}
         </div>
       </DecisionBar>
+
+      {/* The site footer, as on every browsing page (it shows from md up). This
+          page draws its own header, so the layout that brings the footer is
+          not around it. */}
+      <SiteFooter />
     </div>
   );
 };

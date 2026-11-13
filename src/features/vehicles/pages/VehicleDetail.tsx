@@ -26,6 +26,7 @@ import { formatUSD } from "@/lib/pricing";
 import { carPath, carProviderPath } from "../lib/routes";
 import { addDays } from "date-fns";
 import { useSeo, offerJsonLd } from "@/hooks/useSeo";
+import { SiteFooter } from "@/components/layout/SiteFooter";
 
 export default function VehicleDetail() {
   const { id } = useParams<{ id: string }>();
@@ -287,6 +288,11 @@ export default function VehicleDetail() {
       <DecisionBar className="p-4 shadow-figma md:hidden">
         {bookButton}
       </DecisionBar>
+
+      {/* The site footer, as on every browsing page (it shows from md up). This
+          page draws its own header, so the layout that brings the footer is
+          not around it. */}
+      <SiteFooter />
     </div>
   );
 }
