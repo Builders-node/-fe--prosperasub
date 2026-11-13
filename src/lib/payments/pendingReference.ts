@@ -4,7 +4,7 @@
  *
  * Every checkout reserves a `pending` row before payment so a closed tab does
  * not lose the order. But the reference (Lightning hash, on-chain address,
- * PayPal order, SimpleFi payment id) was only written by the success handler.
+ * PayPal order) was only written by the success handler.
  * Close the tab in between and the row is stranded: the reconcile cron scans
  * `payment_reference=not.is.null`, so a row without one is invisible to it
  * forever and can only be fixed by hand.
