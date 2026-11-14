@@ -37,6 +37,8 @@ interface HomeHeaderProps {
    * else. A plan puts Share there instead.
    */
   rightAction?: React.ReactNode;
+  /** Drop the location row — a page that asks for its own address (the cart, a checkout). */
+  noLocation?: boolean;
 }
 
 export function HomeHeader(props: HomeHeaderProps) {
@@ -52,7 +54,7 @@ export function HomeHeader(props: HomeHeaderProps) {
       onBack={props.onBack ?? (() => navigate(-1))}
       onSearch={() => navigate("/search")}
       onLogin={() => openAuthModal("login")}
-      location={<LocationSelector variant="row" className={props.variant === "brand" ? undefined : "py-2"} />}
+      location={props.noLocation ? undefined : <LocationSelector variant="row" className={props.variant === "brand" ? undefined : "py-2"} />}
     />
   );
 }
@@ -65,9 +67,9 @@ export function HomeHeader(props: HomeHeaderProps) {
  *   brand  — home: bag · search · account        (64px, then the location row)
  *   title  — subpage: back · TITLE · account     (56px, then the location row)
  *
- * The right-hand slot follows the desktop rule exactly: the bell (with its
- * unread count) when signed in, "Log in" when not, a placeholder while the
- * session loads. It used to be a bell that opened the login on home, a "Log
+ * The right-hand slot: on home, the bell (with its unread count) when signed
+ * in, "Log in" when not, a placeholder while the session loads. On a subpage,
+ * only "Log in" for a visitor, or the page's own action. It used to be a bell that opened the login on home, a "Log
  * in" text on subpages, and a bell with no count anywhere on a phone.
  */
 export function HomeHeaderView({
@@ -149,7 +151,12 @@ export function HomeHeaderView({
         </div>
 
         <div className="flex h-10 min-w-10 shrink-0 items-center justify-end">
-          {rightAction ?? account}
+          {/* The bell lives on the home screen only. On every subpage it was a
+              second, unrelated way out sitting opposite Back — the cart, a
+              checkout, a listing — and read as noise on a phone. A signed-out
+              visitor still gets "Log in"; a page with its own action (Share,
+              Edit) passes it in. */}
+          {rightAction ?? (session.status === "signedOut" ? <HeaderLoginButton onClick={onLogin} /> : null)}
         </div>
       </div>
 

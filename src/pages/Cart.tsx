@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Photo } from "@/components/patterns/Photo";
 import { cn } from "@/lib/utils";
+import { HEADER_ACTION_CLASS } from "@/components/layout/headerAction";
 import { Spinner } from "@/components/ui/spinner";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -548,21 +549,34 @@ export default function Cart() {
     // The Decision frame every checkout uses (UserLayout without the tab bar),
     // instead of the two headers composed by hand over a guessed pb-28. Guests
     // may look at their basket; the pay step asks them to sign in.
-    <UserLayout title={atCheckout ? "Checkout" : "Cart"} showBackButton backTo="/discovery" breadcrumb="Cart" allowGuest showBottomNav={false}>
+    <UserLayout
+      title={atCheckout ? "Checkout" : "Cart"} showBackButton backTo="/discovery" breadcrumb="Cart" allowGuest showBottomNav={false}
+      // The basket asks for its own address, so the header's location row was
+      // a second, different address above it. Clear sits where the title bar
+      // keeps a page's one action, instead of a pill as big as the heading.
+      noLocation
+      headerAction={showBasketOnly && items.length > 0 ? (
+        <button type="button" aria-label="Clear cart" className={HEADER_ACTION_CLASS}
+          onClick={() => { if (window.confirm("Remove everything from your cart?")) clear(); }}>
+          <Trash2 className="h-5 w-5" strokeWidth={1.75} />
+        </button>
+      ) : undefined}
+    >
       <div className={atCheckout
         ? "mx-auto max-w-xl pt-1 pb-[calc(var(--checkout-footer-h,180px)+16px)] md:max-w-5xl md:px-4 md:py-space-6"
-        : "app-container space-y-5 py-space-4 md:py-space-6"}>
+        // The sticky Pay bar covered the end of the Total card.
+        : cn("app-container space-y-5 py-space-4 md:py-space-6", showStickyCheckout && "pb-[calc(var(--checkout-footer-h,120px)+16px)] md:pb-space-6")}>
         {step === "success" ? (
           <CheckoutSuccessPanel
-            icon={UtensilsCrossed}
+            icon={ShoppingCart}
             eyebrow="Payment received"
             amount={<>−{formatUSD(effectiveTotalCents)}</>}
             subtitle={
               <>
-                {count} portion{count > 1 ? "s" : ""} confirmed. Track them in My Subscriptions.
+                {count} item{count > 1 ? "s" : ""} confirmed. Find {count > 1 ? "them" : "it"} in My subscriptions.
               </>
             }
-            ctaLabel="Great"
+            ctaLabel="Go to My subscriptions"
             onCta={() => navigate("/my-subscriptions")}
             secondary={{ label: "Order more", onClick: () => navigate("/discovery") }}
           />
@@ -593,7 +607,8 @@ export default function Cart() {
                 in view. The checkout step keeps its own compact list. */}
             {!atCheckout && (
               <>
-                <div className="flex items-end justify-between gap-4">
+                {/* A laptop has no title bar; on a phone the header already says Cart. */}
+                <div className="hidden items-end justify-between gap-4 md:flex">
                   <h1 className="text-3xl font-semibold tracking-tight md:text-5xl">Your cart</h1>
                   <Button
                     variant="secondary" size="sm" className="gap-1.5"
@@ -618,13 +633,14 @@ export default function Cart() {
                             icon={Icon}
                             className="h-14 w-14 shrink-0 rounded-radius-md object-cover md:h-20 md:w-20"
                           />
-                          <div className="min-w-0 flex-1 space-y-2">
+                          <div className="min-w-0 flex-1 space-y-3">
                             <div className="flex items-start justify-between gap-3">
                               <div className="min-w-0">
                                 <p className="line-clamp-2 text-title font-semibold leading-tight text-foreground">{item.planName}</p>
-                                <p className="mt-0.5 line-clamp-2 text-body text-muted-foreground">
-                                  <span className="font-semibold text-foreground">{formatUSD(item.unitPriceCents)}</span>
-                                  {per ? ` / ${per}` : ""}{shape.quantity ? ` per ${shape.quantity.noun}` : ""} · {item.providerName}
+                                <p className="mt-0.5 truncate text-meta text-muted-foreground">{item.providerName}</p>
+                                <p className="mt-0.5 text-body text-muted-foreground">
+                                  <span className="font-semibold tabular-nums text-foreground">{formatUSD(item.unitPriceCents)}</span>
+                                  {per ? ` / ${per}` : ""}{shape.quantity ? ` per ${shape.quantity.noun}` : ""}
                                 </p>
                               </div>
                               {shape.quantity ? (
@@ -634,15 +650,19 @@ export default function Cart() {
                                   type="button"
                                   onClick={() => removeItem(item.key)}
                                   aria-label="Remove"
-                                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-inset text-muted-foreground transition-colors hover:text-foreground"
+                                  className="-mr-2 -mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-inset hover:text-foreground"
                                 >
-                                  <X className="h-4 w-4" />
+                                  <X className="h-5 w-5" />
                                 </button>
                               )}
                             </div>
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <TermPills options={shape.termOptions} value={item.periods} noun={per} onChange={(n) => setPeriods(item.key, n)} />
-                              <span className="ml-auto text-title font-semibold tabular-nums text-foreground">{formatUSD(cartLineTotal(item))}</span>
+                            <TermPills options={shape.termOptions} value={item.periods} noun={per} onChange={(n) => setPeriods(item.key, n)} />
+                            <div className="flex items-baseline justify-between gap-2">
+                              <span className="text-meta text-muted-foreground">
+                                {per ? `${item.periods} ${per}${item.periods === 1 ? "" : "s"}` : "Total"}
+                                {item.qty > 1 && shape.quantity ? ` · ${item.qty} ${shape.quantity.noun === "person" ? "people" : `${shape.quantity.noun}s`}` : ""}
+                              </span>
+                              <span className="text-title font-semibold tabular-nums text-foreground">{formatUSD(cartLineTotal(item))}</span>
                             </div>
                           </div>
                         </div>

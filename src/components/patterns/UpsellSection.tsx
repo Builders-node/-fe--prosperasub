@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { LayoutGrid, Plus } from "lucide-react";
+import { ChevronRight, LayoutGrid, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Photo } from "@/components/patterns/Photo";
@@ -79,21 +79,23 @@ export function UpsellSection({
                 <Photo src={u.photo} icon={LayoutGrid} className="absolute inset-0" iconClassName="h-6 w-6 min-h-6 min-w-6" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-body font-semibold text-foreground">{u.name}</p>
+                <p className="line-clamp-2 text-body font-semibold leading-tight text-foreground">{u.name}</p>
                 <p className="truncate text-meta text-muted-foreground">{u.providerName}</p>
                 <p className="truncate text-meta tabular-nums text-foreground">
                   {u.from ? "From " : ""}{formatUSD(u.priceCents)}{noun ? ` / ${noun}` : ""}
                 </p>
               </div>
               {u.quickAdd ? (
-                <Button size="sm" variant="secondary" className="shrink-0 gap-1"
+                // Round icon buttons: the worded ones took a third of a phone's
+                // width and cut every name to "Apartme…".
+                <Button size="icon" variant="secondary" className="shrink-0 rounded-full" aria-label={`Add ${u.name} to cart`}
                   onClick={(e) => { e.stopPropagation(); add(u); }}>
-                  <Plus className="h-4 w-4" /> Add
+                  <Plus className="h-5 w-5" />
                 </Button>
               ) : (
-                <Button size="sm" variant="secondary" className="shrink-0"
+                <Button size="icon" variant="secondary" className="shrink-0 rounded-full" aria-label={`Choose options for ${u.name}`}
                   onClick={(e) => { e.stopPropagation(); open(u); }}>
-                  Choose
+                  <ChevronRight className="h-5 w-5" />
                 </Button>
               )}
             </article>

@@ -119,22 +119,30 @@ export function QtyStepper({ value, onChange, noun, max = 20 }: { value: number;
 /** Terms as small pills — the cart row's version of "How long". */
 export function TermPills({ options, value, onChange, noun }: { options: number[]; value: number; onChange: (n: number) => void; noun: string }) {
   if (options.length <= 1) return null;
+  // One row, however many terms: four pills wrapped onto two lines in a phone
+  // card and looked like two separate choices. The noun is said once, beside
+  // the numbers, not inside every pill.
   return (
-    <div className="flex flex-wrap gap-1.5">
-      {options.map((n) => (
-        <button
-          key={n}
-          type="button"
-          aria-pressed={n === value}
-          onClick={() => onChange(n)}
-          className={cn(
-            "h-8 rounded-full px-3 text-meta font-semibold transition-colors",
-            n === value ? "bg-foreground text-background" : "bg-inset text-muted-foreground hover:text-foreground",
-          )}
-        >
-          {n} {noun}{n === 1 ? "" : "s"}
-        </button>
-      ))}
+    <div className="flex w-full items-center gap-2">
+      <span className="shrink-0 text-meta text-muted-foreground">{noun ? `${noun[0].toUpperCase()}${noun.slice(1)}s` : "Term"}</span>
+      <div role="radiogroup" aria-label={noun ? `Number of ${noun}s` : "Term"} className="flex min-w-0 flex-1 rounded-full bg-inset p-0.5">
+        {options.map((n) => (
+          <button
+            key={n}
+            type="button"
+            role="radio"
+            aria-checked={n === value}
+            aria-label={`${n} ${noun}${n === 1 ? "" : "s"}`}
+            onClick={() => onChange(n)}
+            className={cn(
+              "h-8 min-w-0 flex-1 rounded-full text-meta font-semibold tabular-nums transition-colors",
+              n === value ? "bg-segment text-foreground" : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {n}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
