@@ -88,12 +88,12 @@ export function UpsellSection({
               {u.quickAdd ? (
                 // Round icon buttons: the worded ones took a third of a phone's
                 // width and cut every name to "Apartme…".
-                <Button size="icon" variant="secondary" className="shrink-0 rounded-full" aria-label={`Add ${u.name} to cart`}
+                <Button size="icon" variant="secondary" className="shrink-0" aria-label={`Add ${u.name} to cart`}
                   onClick={(e) => { e.stopPropagation(); add(u); }}>
                   <Plus className="h-5 w-5" />
                 </Button>
               ) : (
-                <Button size="icon" variant="secondary" className="shrink-0 rounded-full" aria-label={`Choose options for ${u.name}`}
+                <Button size="icon" variant="secondary" className="shrink-0" aria-label={`Choose options for ${u.name}`}
                   onClick={(e) => { e.stopPropagation(); open(u); }}>
                   <ChevronRight className="h-5 w-5" />
                 </Button>
