@@ -2,6 +2,9 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { gaItem, trackEvent } from "@/lib/analytics/ga";
 import { supabase, accountApi } from '@/integrations/supabase/client';
 
+/** Where to return after Google sign-in (see loginWithGoogle). */
+export const OAUTH_RETURN_KEY = "prospera_oauth_return";
+
 type User = {
   id: string;
   email?: string;
@@ -61,7 +64,8 @@ interface AuthContextType {
   signUp: (email: string, password: string, name: string) => Promise<{ error: Error | null }>;
   requestPasswordReset: (email: string) => Promise<{ data: any; error: Error | null }>;
   confirmPasswordReset: (token: string, password: string) => Promise<{ error: Error | null }>;
-  loginWithGoogle: () => Promise<{ error: Error | null }>;
+  /** `returnTo` — where to land after Google sends the user back. */
+  loginWithGoogle: (returnTo?: string) => Promise<{ error: Error | null }>;
   loginWithLightning: (pubkey: string) => void;
   logout: () => Promise<void>;
   refreshUserData: () => Promise<void>;
@@ -344,7 +348,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return { error: error as Error | null };
   };
 
-  const loginWithGoogle = async () => {
+  const loginWithGoogle = async (returnTo?: string) => {
+    // The redirect URI is registered with Google exactly as /auth, so the
+    // return path cannot ride on it as a query parameter. It waits here and
+    // OAuthCallback picks it up — otherwise a buyer who signed in from a
+    // checkout landed on the home page with their order gone.
+    try {
+      if (returnTo && returnTo.startsWith("/") && !returnTo.startsWith("//")) localStorage.setItem(OAUTH_RETURN_KEY, returnTo);
+      else localStorage.removeItem(OAUTH_RETURN_KEY);
+    } catch { /* storage blocked — falls back to home */ }
     const redirectUrl = `${window.location.origin}/auth`;
     
     const { error } = await supabase.auth.signInWithOAuth({

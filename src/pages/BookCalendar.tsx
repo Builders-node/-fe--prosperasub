@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { providerHref } from "@/lib/services/serviceUrls";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, X } from "lucide-react";
@@ -67,7 +67,7 @@ const startKeyOf = (b: EngineBooking): string => {
 
 export default function BookCalendar() {
   const { providerId = "" } = useParams<{ providerId: string }>();
-  const goBack = useGoBack("/discovery");
+  const goBack = useGoBack("/my-subscriptions");
   const qc = useQueryClient();
   const { userData, isAuthenticated } = useAuth();
   const { openAuthModal } = useAuthModal();
@@ -77,8 +77,14 @@ export default function BookCalendar() {
     [userUuid, userData?.id],
   );
 
-  const [calendarId, setCalendarId] = useState("");
-  const [date, setDate] = useState(todayHN());
+  // ?calendar=&date= — so a booking listed elsewhere (My subscriptions →
+  // Next up) opens on its own court and day, where it can be cancelled.
+  const [searchParams] = useSearchParams();
+  const [calendarId, setCalendarId] = useState(searchParams.get("calendar") ?? "");
+  const [date, setDate] = useState(() => {
+    const d = searchParams.get("date");
+    return d && /^\d{4}-\d{2}-\d{2}$/.test(d) && d >= todayHN() ? d : todayHN();
+  });
 
   const { data: provider } = useQuery({
     queryKey: ["book-provider", providerId],

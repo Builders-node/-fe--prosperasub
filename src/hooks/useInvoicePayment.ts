@@ -102,7 +102,10 @@ export function useInvoicePayment({
     }, ms);
   };
 
-  const start = async ({ method, amountCents, amountSats, description, context, externalId, meta }: StartArgs) => {
+  /** Resolves true once the invoice/address is on screen, false when it could
+   *  not be created — so a checkout can put its method picker back instead of
+   *  leaving the customer in front of an empty payment step. */
+  const start = async ({ method, amountCents, amountSats, description, context, externalId, meta }: StartArgs): Promise<boolean> => {
     setState({ ...INITIAL, isGenerating: true, sats: amountSats });
     paidRef.current = false;
 
@@ -119,6 +122,7 @@ export function useInvoicePayment({
         onInvoiceReady?.(data.address, "onchain");
         startOnchainPolling(data.address, amountSats);
         armTimeout(onchainTimeoutMs);
+        return true;
       } else {
         const { data, error } = await supabase.functions.invoke("create-invoice", {
           body: {
@@ -136,10 +140,15 @@ export function useInvoicePayment({
         onInvoiceReady?.(data.payment_hash, "lightning");
         startLightningPolling(data.payment_hash);
         armTimeout(lightningTimeoutMs);
+        return true;
       }
     } catch (e: any) {
-      setState((s) => ({ ...s, isGenerating: false }));
-      toast.error(e?.message || "Failed to generate invoice");
+      console.error("Invoice creation failed:", e);
+      setState(INITIAL);
+      // The raw text is an edge-function status line ("non-2xx…"), which
+      // tells a customer nothing they can act on.
+      toast.error("We couldn't create the payment. Try again, or pick another method.");
+      return false;
     }
   };
 

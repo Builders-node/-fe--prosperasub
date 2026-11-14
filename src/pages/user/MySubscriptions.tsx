@@ -59,6 +59,7 @@ import {
 import { RateProviderButton } from "@/components/reviews/RateProviderButton";
 import { YdEmptyState } from "@/components/yd/YdPrimitives";
 import { ReviewPromptCard } from "@/components/reviews/ReviewPromptCard";
+import { NextUpStrip, type NextUpItem } from "@/components/subscriptions/NextUpStrip";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { to12h as format12h } from "@/lib/booking/bookingSettings";
@@ -459,6 +460,18 @@ const MySubscriptions = () => {
 
   // ── View / reschedule a single cleaning session ───────────────────────────
   const [viewBooking, setViewBooking] = useState<any | null>(null);
+  /** Second tap of "Cancel this visit" — a cancel is not undone by a stray tap. */
+  const [confirmVisitCancel, setConfirmVisitCancel] = useState(false);
+  /**
+   * Hours until a visit starts, in Roatán time. Inside a day the cleaner's
+   * route is set, so the customer is sent to the business instead.
+   */
+  const hoursUntilVisit = (b: any): number => {
+    const slot = b?.cleaning_available_slots;
+    if (!slot?.date) return -1;
+    const start = Date.parse(`${slot.date}T${String(slot.start_time ?? "00:00:00").slice(0, 8)}-06:00`);
+    return (start - Date.now()) / 3_600_000;
+  };
   const [rescheduleBooking, setRescheduleBooking] = useState<any | null>(null);
   const [rescheduleDate, setRescheduleDate] = useState("");
   const [rescheduleSlotId, setRescheduleSlotId] = useState("");
@@ -583,6 +596,11 @@ const MySubscriptions = () => {
    * so the confirm dialog is not stacked behind it.
    */
   const cancelSheetAction = (service: string, sub: any, planName: string) => {
+    // Over is over: the server refuses to cancel an ended plan, so offering it
+    // only produced an error toast on the Past list.
+    const st = String(sub?.status ?? sub?.subscription_status ?? "").toLowerCase();
+    const end = String(sub?.end_date ?? sub?.service_end_date ?? "").slice(0, 10);
+    if (ENDED_STATUSES.includes(st) || (end && end < todayHN())) return undefined;
     const cancelled = Boolean(sub?.cancel_at_period_end);
     if (cancelled) {
       return {
@@ -603,6 +621,17 @@ const MySubscriptions = () => {
     };
   };
 
+
+  /**
+   * A cancelled subscription keeps running to its end date — and used to look
+   * exactly like one that renews. This says so on the card itself.
+   */
+  const endsBadge = (sub: any, endIso: string | null | undefined) => {
+    if (!sub?.cancel_at_period_end || !endIso) return null;
+    const end = String(endIso).slice(0, 10);
+    if (end < todayHN()) return null;
+    return <StatusPill status="expiring_soon" label={`Ends ${format(new Date(`${end}T00:00:00`), "MMM d")}`} />;
+  };
 
   const payMutation = useMutation({
     mutationFn: async (subscriptionId: string) => {
@@ -790,12 +819,103 @@ const MySubscriptions = () => {
       const slot = b.cleaning_available_slots;
       return slot?.start_time ? `${format12h(slot.start_time)} – ${format12h(slot.end_time ?? "")}` : null;
     };
-    const toItem = (b: any) => ({ id: String(b.id), date: dateOf(b), time: timeOf(b), status: String(b.status) });
+    // A visit opens its own dialog — reschedule, cancel, rate. The dialog and
+    // the endpoints existed all along with nothing that could open them.
+    const toItem = (b: any) => ({
+      id: String(b.id), date: dateOf(b), time: timeOf(b), status: String(b.status),
+      onClick: () => { setDetail(null); setViewBooking(b); },
+    });
     return [
       { label: "Upcoming", items: mine.filter((b: any) => upcomingBookingIds.has(b.id)).map(toItem) },
       { label: "History", items: mine.filter((b: any) => !upcomingBookingIds.has(b.id)).map(toItem) },
     ];
   };
+
+  // ── Next up ──────────────────────────────────────────────────────────────
+  // Court bookings live in the engine's table, which only the API reads.
+  const { data: courtBookings = [] } = useQuery({
+    queryKey: ["my-court-bookings-upcoming", userData?.id],
+    enabled: isAuthenticated,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await accountApi(`/booking/mine?from=${todayHN()}`);
+      if (error) return [];
+      return (Array.isArray(data) ? data : []) as Array<{
+        id: string; resource_id: string; resource_name: string | null; provider_id: string | null;
+        start_at: string; status: string;
+      }>;
+    },
+  });
+  const hnDate = (iso: string) => new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Tegucigalpa", year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(new Date(iso));
+  const hnTime = (iso: string) => new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Tegucigalpa", hour: "numeric", minute: "2-digit",
+  }).format(new Date(iso));
+  const soonLimit = addDaysISO(todayHN(), 3);
+
+  const nextUp: NextUpItem[] = [];
+  for (const b of upcomingCleaningBookings as any[]) {
+    const slot = b.cleaning_available_slots;
+    if (!slot?.date) continue;
+    nextUp.push({
+      key: `clean:${b.id}`, at: `${slot.date}T${String(slot.start_time ?? "00:00").slice(0, 5)}`,
+      time: slot.start_time ? format12h(slot.start_time) : null,
+      title: "Cleaning", detail: planNameForBooking(b) ?? "Tap to reschedule",
+      icon: SparklesIcon, onClick: () => setViewBooking(b),
+    });
+  }
+  for (const b of courtBookings) {
+    if (!["held", "confirmed"].includes(String(b.status)) || Date.parse(b.start_at) < Date.now()) continue;
+    const day = hnDate(b.start_at);
+    nextUp.push({
+      key: `court:${b.id}`, at: `${day}T${new Intl.DateTimeFormat("en-GB", { timeZone: "America/Tegucigalpa", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date(b.start_at))}`,
+      time: hnTime(b.start_at), title: b.resource_name ?? "Court booking", detail: "Tap to see or cancel",
+      icon: CalendarDays,
+      onClick: () => b.provider_id && navigate(`/providers/${b.provider_id}/book?calendar=${b.resource_id}&date=${day}`),
+    });
+  }
+  for (const r of rentalBookings as any[]) {
+    if (String(r.status) === "cancelled") continue;
+    const name = r.rental_vehicles?.name ?? "Your car";
+    const open = () => navigate(carPath(`booking/${r.id}`));
+    if (r.status === "active" && String(r.end_date) >= todayHN()) {
+      nextUp.push({ key: `car-back:${r.id}`, at: String(r.end_date), time: "Return", title: name, detail: "Due back", icon: Car, onClick: open });
+    } else if (String(r.start_date) >= todayHN() && r.status !== "completed") {
+      const unpaid = r.payment_status !== "paid";
+      nextUp.push({
+        key: `car-out:${r.id}`, at: String(r.start_date), time: "Pickup", title: name,
+        detail: unpaid ? "Payment not finished" : r.delivery_address ? `Delivered to ${r.delivery_address}` : "Pick up at the office",
+        icon: Car, attention: unpaid, onClick: open,
+      });
+    }
+  }
+  // Plans that end within three days and will not renew by themselves — the
+  // moment a renewal is easiest, and the one most customers have let pass.
+  const endingSoon = (sub: any, end: string | null | undefined, title: string, renewTo: string | null) => {
+    const e = String(end ?? "").slice(0, 10);
+    if (!e || e < todayHN() || e > soonLimit || !renewTo) return;
+    if (sub?.cancel_at_period_end || sub?.auto_renew) return;
+    nextUp.push({
+      key: `ends:${sub.id}`, at: e, time: "Ends", title, detail: "Tap to renew",
+      icon: RefreshCw, attention: true, onClick: () => navigate(renewTo),
+    });
+  };
+  for (const f of foodSubscriptions as any[]) {
+    if (String(f.status) !== "active") continue;
+    endingSoon(f, foodEnd(f).toISOString().slice(0, 10), f.food_meal_plans?.name ?? "Meal plan",
+      f.meal_plan_id ? `/checkout/${f.meal_plan_id}?renew=${f.id}` : null);
+  }
+  for (const u of [...(universalSubs as any[]), ...(beachSubs as any[])]) {
+    if (String(u.status) !== "active") continue;
+    endingSoon(u, u.end_date, u.provider_plans?.name ?? u.plan_name ?? "Subscription",
+      u.plan_id ? `/checkout/${u.plan_id}?renew=${u.id}` : null);
+  }
+  for (const c of cleaningSubscriptions ?? []) {
+    if ((c as any).payment_status !== "paid" || effectiveCleaningStatus(c as any) !== "active") continue;
+    endingSoon(c, (c as any).end_date, (c as any).cleaning_packages?.name ?? "Cleaning plan",
+      (c as any).package_id ? `/checkout/${(c as any).package_id}?renew=${(c as any).id}` : null);
+  }
 
   // ── One list, no tabs ────────────────────────────────────────────────────
   // The page shows every service's subscriptions together now. These roll up
@@ -896,6 +1016,8 @@ const MySubscriptions = () => {
         {/* Page title lives in the mobile header — no inline H1 needed. */}
         <div className="mb-5">{scopeTabs}</div>
 
+        {scope === "active" && !query && <NextUpStrip items={nextUp} />}
+
         {/* Above the list on purpose: it is about a job that happened, not
             about one of the services below, and it disappears once answered. */}
         <div className="mb-5">
@@ -969,10 +1091,13 @@ const MySubscriptions = () => {
                       subtitle={s.started_at
                         ? formatRangeHN(s.started_at, foodEnd(s))
                         : undefined}
-                      statusBadge={<StatusPill status={effectiveFoodStatus(s)} />}
+                      statusBadge={endsBadge(s, foodEnd(s).toISOString().slice(0, 10)) ?? <StatusPill status={effectiveFoodStatus(s)} />}
                       metadata={<span className="tabular-nums">{formatUSD((s.weekly_price_cents || 0) * (s.commitment_weeks || 1))}</span>}
                       onClick={() => setDetail({
                         accessId: s.id,
+                        noAccessQr: true,
+                        paymentStatus: s.payment_status ?? null,
+                        endsOn: s.cancel_at_period_end ? foodEnd(s).toISOString().slice(0, 10) : null,
                         title: s.food_meal_plans?.name ?? "Meal plan",
                         provider: s.food_providers?.name ?? null,
                         status: effectiveFoodStatus(s),
@@ -995,9 +1120,9 @@ const MySubscriptions = () => {
                           ownerUserId: s.user_id ?? null,
                           current: s.delivery_address ?? null,
                         },
-                        action: (s.provider_id && s.meal_plan_id)
-                          ? { label: "View plan", onClick: () => navigate(`/services/food/${s.provider_id}/plans/${s.meal_plan_id}`) }
-                          : undefined,
+                        // The subscription's own page — this week's menu and
+                        // which meals you get — not the storefront you bought from.
+                        action: { label: "Menu & my meals", onClick: () => navigate(`/services/food/subscription/${s.id}`) },
                       })}
                       actions={[
                         ...(foodCanRenew(s) ? [
@@ -1076,6 +1201,8 @@ const MySubscriptions = () => {
                         metadata={<span className="tabular-nums">{formatUSD(s.total_cents || 0)}</span>}
                         onClick={() => setDetail({
                           accessId: s.access_id,
+                          paymentStatus: s.payment_status ?? null,
+                          endsOn: s.cancel_at_period_end ? s.end_date : null,
                           title: s.plan_name || "Beach Club Membership",
                           provider: "Beach Club",
                           status: label,
@@ -1091,9 +1218,7 @@ const MySubscriptions = () => {
                           tip: { service: "beach", subscriptionRef: String(s.id), providerId: s.provider_id ?? null, providerName: "Beach Club", customerName: userData?.name ?? null },
                           review: { service: "beach", itemId: s.plan_id, subscriptionId: String(s.id), customerName: userData?.name ?? null },
                         })}
-                        statusBadge={
-                          <StatusPill status={label} />
-                        }
+                        statusBadge={endsBadge(s, s.end_date) ?? <StatusPill status={label} />}
                         actions={[
                           // Booking a court is something this membership lets
                           // you do — it was a page-wide button that appeared
@@ -1149,6 +1274,8 @@ const MySubscriptions = () => {
                       metadata={<span className="tabular-nums">{formatUSD(s.price_cents || 0)}</span>}
                       onClick={() => setDetail({
                         accessId: s.id,
+                        paymentStatus: s.payment_status ?? null,
+                        endsOn: s.cancel_at_period_end ? s.end_date : null,
                         title: planName,
                         provider: providerName,
                         status: label,
@@ -1170,7 +1297,7 @@ const MySubscriptions = () => {
                           current: s.service_address ?? null,
                         },
                       })}
-                      statusBadge={<StatusPill status={label} />}
+                      statusBadge={endsBadge(s, s.end_date) ?? <StatusPill status={label} />}
                       actions={st === "cancelled" ? [] : [
                         ...(s.plan_id ? [{
                           key: "renew",
@@ -1365,6 +1492,8 @@ const MySubscriptions = () => {
                             : `${sub.cleanings_remaining ?? 0} cleanings remaining`}
                           onClick={() => setDetail({
                             accessId: sub.id,
+                            noAccessQr: true,
+                            endsOn: (sub as any).cancel_at_period_end ? (sub as any).end_date : null,
                             title: (sub as any).cleaning_packages?.name ?? "Cleaning plan",
                             status: effectiveCleaningStatus(sub),
                             amountCents: sub.total_price_cents
@@ -1390,9 +1519,9 @@ const MySubscriptions = () => {
                             action: sub.package_id ? { label: "View plan", onClick: () => navigate(`/services/cleaning/plans/${encodeURIComponent(sub.package_id)}`) } : undefined,
                             sessions: bookingSessions(sub.id),
                           })}
-                          statusBadge={(sub as any).payment_method
+                          statusBadge={endsBadge(sub, (sub as any).end_date) ?? ((sub as any).payment_method
                             ? <PaymentMethodBadge method={(sub as any).payment_method} />
-                            : undefined}
+                            : undefined)}
                           actions={actions}
                         />
                       );
@@ -1549,7 +1678,7 @@ const MySubscriptions = () => {
       {/* ── View cleaning session ── */}
       <ResponsiveDialog
         open={!!viewBooking}
-        onOpenChange={(open) => !open && setViewBooking(null)}
+        onOpenChange={(open) => { if (!open) { setViewBooking(null); setConfirmVisitCancel(false); } }}
         title={<span className="flex items-center gap-2"><CalendarDays className="h-5 w-5 text-primary" />Cleaning session</span>}
       >
         {viewBooking && (
@@ -1588,6 +1717,27 @@ const MySubscriptions = () => {
                 <CalendarClock className="h-4 w-4" />
                 Reschedule this cleaning
               </Button>
+            )}
+            {viewBooking.status === "booked" && hoursUntilVisit(viewBooking) > 0 && (
+              hoursUntilVisit(viewBooking) >= 24 ? (
+                <Button
+                  variant="ghost"
+                  className="w-full text-destructive hover:text-destructive"
+                  loading={cancelCleaningMutation.isPending}
+                  onClick={() => {
+                    if (!confirmVisitCancel) { setConfirmVisitCancel(true); return; }
+                    cancelCleaningMutation.mutate(viewBooking.id, {
+                      onSuccess: () => { setViewBooking(null); setConfirmVisitCancel(false); },
+                    });
+                  }}
+                >
+                  {confirmVisitCancel ? "Tap again to cancel — the cleaning goes back to your plan" : "Cancel this visit"}
+                </Button>
+              ) : (
+                <p className="text-center text-meta text-muted-foreground">
+                  Less than a day to go — to change it now, message the business.
+                </p>
+              )
             )}
             {viewBooking.status === "completed" && (
               <CleaningRateAndTip

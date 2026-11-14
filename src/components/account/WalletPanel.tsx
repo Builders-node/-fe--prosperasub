@@ -67,12 +67,33 @@ export function WalletPanel() {
     onError: (e: Error) => toast.error(e.message || "Couldn't change that"),
   });
 
+  /**
+   * PayPal renewals can now be switched off here. The endpoint existed; the
+   * switch was greyed out with "renews through PayPal", so the only way to
+   * stop the charges was inside PayPal itself.
+   */
+  const [confirmPayPalOff, setConfirmPayPalOff] = useState<string | null>(null);
+  const stopPayPal = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await accountApi(`/account/subscriptions/${id}/auto-renew/cancel`, { method: "POST" });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("PayPal won't charge again. Your plan runs to the end of this term.");
+      setConfirmPayPalOff(null);
+      void qc.invalidateQueries({ queryKey: KEY });
+    },
+    onError: () => toast.error("We couldn't reach PayPal. Try again in a minute."),
+  });
+
   if (q.isLoading) return <div className="flex justify-center py-12"><Spinner /></div>;
   if (q.isError || !q.data) {
+    // A network blip is not a missing feature — say which one this is.
     return (
       <section className="rounded-radius-md bg-card p-6 text-center shadow-figma">
-        <p className="text-title font-semibold text-foreground">The wallet is coming soon</p>
-        <p className="mt-1 text-meta text-muted-foreground">Top up once and let your subscriptions renew on their own.</p>
+        <p className="text-title font-semibold text-foreground">Couldn't load your wallet</p>
+        <p className="mt-1 text-meta text-muted-foreground">Check your connection and try again.</p>
+        <Button variant="secondary" className="mt-3" onClick={() => void q.refetch()}>Try again</Button>
       </section>
     );
   }
@@ -110,7 +131,8 @@ export function WalletPanel() {
         ) : (
           <div className="rounded-radius-md bg-card p-1.5 shadow-figma">
             {w.subscriptions.map((s) => (
-              <div key={s.id} className="flex items-center gap-3 rounded-radius-md p-3">
+              <div key={s.id}>
+              <div className="flex items-center gap-3 rounded-radius-md p-3">
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[16px] font-semibold text-foreground">{s.planName}</p>
                   <p className="truncate text-meta text-muted-foreground">
@@ -119,11 +141,27 @@ export function WalletPanel() {
                   </p>
                 </div>
                 <Switch
-                  checked={s.autoRenew && !s.viaPayPal}
-                  disabled={s.viaPayPal || toggle.isPending}
-                  aria-label={`Auto-renew ${s.planName} from balance`}
-                  onCheckedChange={(v) => toggle.mutate({ id: s.id, enabled: v })}
+                  checked={s.autoRenew}
+                  disabled={toggle.isPending || stopPayPal.isPending}
+                  aria-label={s.viaPayPal ? `Auto-renew ${s.planName} through PayPal` : `Auto-renew ${s.planName} from balance`}
+                  onCheckedChange={(v) => {
+                    if (s.viaPayPal && !v) { setConfirmPayPalOff(s.id); return; }
+                    toggle.mutate({ id: s.id, enabled: v });
+                  }}
                 />
+              </div>
+              {confirmPayPalOff === s.id && (
+                <div className="mx-3 mb-3 rounded-radius-md bg-inset p-3">
+                  <p className="text-[14px] text-foreground">
+                    PayPal stops charging {formatUSD(s.priceCents)}. {s.planName} keeps running
+                    {s.endDate ? ` until ${formatDateHN(s.endDate)}` : " to the end of this term"}.
+                  </p>
+                  <div className="mt-2 flex gap-2">
+                    <Button size="sm" variant="secondary" loading={stopPayPal.isPending} onClick={() => stopPayPal.mutate(s.id)}>Turn off</Button>
+                    <Button size="sm" variant="ghost" onClick={() => setConfirmPayPalOff(null)}>Keep it</Button>
+                  </div>
+                </div>
+              )}
               </div>
             ))}
           </div>
@@ -211,7 +249,7 @@ function TopUp({ suggestedCents, minCents, onDone }: { suggestedCents: number | 
         client_name: userData?.name ?? userData?.display_name ?? undefined,
         client_email: userData?.email ?? undefined,
       };
-      await inv.start({
+      const ok = await inv.start({
         method: method === "onchain" ? "onchain" : "lightning",
         amountCents: total,
         amountSats: sats,
@@ -219,6 +257,8 @@ function TopUp({ suggestedCents, minCents, onDone }: { suggestedCents: number | 
         context: "wallet_topup",
         meta,
       });
+      // No invoice: back to the amounts, not a spinner that never stops.
+      if (!ok) setPaying(false);
     } finally {
       setBusy(false);
     }

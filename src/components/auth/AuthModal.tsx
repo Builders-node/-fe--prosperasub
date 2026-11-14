@@ -155,7 +155,7 @@ function AuthForm({
 
   const handleGoogle = async () => {
     setIsLoading(true);
-    const { error } = await loginWithGoogle();
+    const { error } = await loginWithGoogle(redirectTo);
     if (error) {
       setIsLoading(false);
       toast.error(error.message || "Google login failed.");

@@ -12,13 +12,13 @@ import { ResponsiveDialog } from "@/components/patterns/ResponsiveDialog";
 import { Badge } from "@/components/ui/badge";
 import { MealSelectionPicker, defaultMealsForCount, formatMeals, type MealKey } from "@/components/food/MealSelectionPicker";
 import { getMealTypesForPlan, formatWeekLabel } from "@/lib/foodUtils";
-import { useProviderItemsByLegacy } from "@/lib/services/providerItems";
+import { itemLabel, itemRank, useProviderItemsByLegacy } from "@/lib/services/providerItems";
 import { formatUSD } from "@/lib/pricing";
 import { RateAndTip } from "@/components/food/RateAndTip";
 import { RenewPreviewDialog } from "@/components/subscriptions/RenewPreviewDialog";
 import { toast } from "sonner";
 import type { FoodMenuMeal } from "@/types/food";
-import { formatDateHN } from "@/lib/timezone";
+import { addDaysISO, formatDateHN, todayHN } from "@/lib/timezone";
 
 type EffStatus = "active" | "expiring_soon" | "expired" | "paused" | "cancelled" | "pending";
 
@@ -79,6 +79,9 @@ export default function FoodSubscriptionDetail() {
   const [renewChecking, setRenewChecking] = useState(false);
   const [renewPreviewOpen, setRenewPreviewOpen] = useState(false);
   const [mealsSheetOpen, setMealsSheetOpen] = useState(false);
+  /** Which day of the week's menu is on screen — today's, to start with. */
+  const [menuDay, setMenuDay] = useState<string>(() =>
+    new Intl.DateTimeFormat("en-US", { weekday: "long", timeZone: "America/Tegucigalpa" }).format(new Date()).toLowerCase());
   const [draftMeals, setDraftMeals] = useState<MealKey[]>([]);
 
   // Load the subscription's stored meal selection separately — the account
@@ -155,7 +158,7 @@ export default function FoodSubscriptionDetail() {
 
   if (isLoading) {
     return (
-      <UserLayout title="Subscription" showBackButton backTo="/my-subscriptions?tab=food">
+      <UserLayout title="Subscription" showBackButton backTo="/my-subscriptions">
         <div className="mx-auto max-w-xl space-y-4 px-4 py-6">
           <div className="h-24 animate-pulse rounded-radius-lg bg-muted" />
           <div className="h-72 animate-pulse rounded-radius-lg bg-muted" />
@@ -166,11 +169,11 @@ export default function FoodSubscriptionDetail() {
 
   if (isError || !data) {
     return (
-      <UserLayout title="Subscription" showBackButton backTo="/my-subscriptions?tab=food">
+      <UserLayout title="Subscription" showBackButton backTo="/my-subscriptions">
         <div className="flex flex-col items-center justify-center px-4 py-20 text-center">
           <ChefHat className="mb-3 h-12 w-12 text-muted-foreground/40" />
           <p className="font-semibold text-foreground">Subscription not found</p>
-          <Button className="mt-4" onClick={() => navigate("/my-subscriptions?tab=food")}>
+          <Button className="mt-4" onClick={() => navigate("/my-subscriptions")}>
             Back to my bookings
           </Button>
         </div>
@@ -186,19 +189,21 @@ export default function FoodSubscriptionDetail() {
   // Client-side preview of the continuous period the server will assign after
   // renewal. Mirrors backend logic: next_start = max(today, prev_end+1); the
   // server is still authoritative — this is display-only.
+  // In Roatán dates, not the browser's: toISOString on a local midnight moved
+  // the preview a day for anyone east of UTC. And with no end date on the row
+  // it used to return null, which left Renew a button that did nothing.
   const renewPreview = (() => {
-    if (!sub.end_date) return null;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const prevEnd = new Date(`${sub.end_date}T00:00:00`);
-    const prevEndPlus1 = new Date(prevEnd);
-    prevEndPlus1.setDate(prevEndPlus1.getDate() + 1);
-    const newStart = prevEndPlus1 > today ? prevEndPlus1 : today;
-    const newEnd = new Date(newStart);
-    newEnd.setDate(newEnd.getDate() + (sub.commitment_weeks || 1) * 7);
-    const iso = (d: Date) => d.toISOString().slice(0, 10);
-    return { newStart: iso(newStart), newEnd: iso(newEnd) };
+    const today = todayHN();
+    const afterEnd = sub.end_date ? addDaysISO(String(sub.end_date).slice(0, 10), 1) : today;
+    const newStart = afterEnd > today ? afterEnd : today;
+    return { newStart, newEnd: addDaysISO(newStart, (sub.commitment_weeks || 1) * 7) };
   })();
+  const WEEK = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+  const menuDays = WEEK.filter((d) => (menu?.meals ?? []).some((m) => m.day_of_week === d));
+  const shownDay = menuDays.includes(menuDay) ? menuDay : menuDays[0];
+  const dayMeals = (menu?.meals ?? [])
+    .filter((m) => m.day_of_week === shownDay)
+    .sort((a, b) => itemRank(a.meal_type, providerItems) - itemRank(b.meal_type, providerItems) || a.sort_order - b.sort_order);
 
   const RenewButton = ({ block }: { block?: boolean }) => (
     <Button
@@ -213,7 +218,7 @@ export default function FoodSubscriptionDetail() {
   );
 
   return (
-    <UserLayout title="Subscription" showBackButton backTo="/my-subscriptions?tab=food">
+    <UserLayout title="Subscription" showBackButton backTo="/my-subscriptions">
       <div className="mx-auto max-w-xl space-y-4 px-4 py-4 md:py-8">
         {/* Header — mobile-first: icon + stacked title/plan/status, external
             link is an icon-only pill so the title never has to wrap around it. */}
@@ -359,7 +364,7 @@ export default function FoodSubscriptionDetail() {
 
         {/* Confirmation dialog — shown when the user taps Renew. Confirms
             dates + amount before we start the checkout flow. */}
-        {renewPreview && (
+        {(
           <RenewPreviewDialog
             open={renewPreviewOpen}
             onOpenChange={setRenewPreviewOpen}
@@ -385,6 +390,38 @@ export default function FoodSubscriptionDetail() {
                 </Badge>
               )}
             </div>
+            {/* The week's menu, a day at a time. It was fetched and never drawn. */}
+            {!menu || menuDays.length === 0 ? (
+              <p className="rounded-radius-lg bg-card p-5 text-sm text-muted-foreground">
+                This week's menu isn't published yet. The restaurant usually posts it before the week starts.
+              </p>
+            ) : (
+              <>
+                <div className="-mx-4 mb-3 flex gap-1.5 overflow-x-auto px-4 pb-1">
+                  {menuDays.map((d) => (
+                    <button key={d} type="button" onClick={() => setMenuDay(d)}
+                      className={`h-9 shrink-0 rounded-full px-4 text-sm font-semibold capitalize transition-colors ${d === shownDay ? "bg-foreground text-background" : "bg-card text-muted-foreground hover:text-foreground"}`}>
+                      {d.slice(0, 3)}
+                    </button>
+                  ))}
+                </div>
+                <div className="space-y-2">
+                  {dayMeals.map((m) => (
+                    <div key={m.id} className="flex gap-3 rounded-radius-lg bg-card p-3">
+                      {m.image_url
+                        ? <img src={m.image_url} alt="" loading="lazy" className="h-20 w-20 shrink-0 rounded-radius-md object-cover" />
+                        : <span className="flex h-20 w-20 shrink-0 items-center justify-center rounded-radius-md bg-inset"><UtensilsCrossed className="h-6 w-6 text-muted-foreground" /></span>}
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-primary">{itemLabel(m.meal_type, providerItems)}</p>
+                        <p className="text-base font-semibold text-foreground">{m.meal_name}</p>
+                        {m.meal_description && <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">{m.meal_description}</p>}
+                        {m.calories ? <span className="mt-1 inline-block rounded-full bg-inset px-2 py-0.5 text-xs text-muted-foreground">{m.calories} kcal</span> : null}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>

@@ -258,6 +258,33 @@ export default function Cart() {
   const newBatchId = () =>
     (crypto as any).randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
 
+  /**
+   * Every line's plan, checked to be on sale and buyable from a basket.
+   *
+   * Run BEFORE an invoice exists. It used to run only inside createRecords —
+   * first at invoice time, where a refusal was swallowed, then again after the
+   * money landed, where it threw: the customer paid and was told no.
+   */
+  const plansRef = useRef<Map<string, CheckoutPlan> | null>(null);
+  const resolveCartPlans = async (): Promise<Map<string, CheckoutPlan>> => {
+    const plans = new Map<string, CheckoutPlan>();
+    for (const item of items) {
+      if (plans.has(item.planId)) continue;
+      const resolved = await resolveCheckoutPlan(item.planId);
+      if (!resolved || resolved.status !== "active" || !resolved.providerActive) {
+        throw new Error(`"${item.planName}" is no longer on sale — remove it from the cart to continue.`);
+      }
+      // The cart has no address step: a delivery-only offer is bought from its
+      // own page, where the pin and the zone's price are chosen. ("Pickup or
+      // delivery" offers go through the cart as pickup.)
+      if (resolved.delivery.mode === "delivery") {
+        throw new Error(`"${item.planName}" is delivered — buy it from its own page so we know where to bring it.`);
+      }
+      plans.set(item.planId, resolved);
+    }
+    return plans;
+  };
+
   const createRecords = async (paymentRef: string, pending = false) => {
     const today = todayHN();
     const batchId = batchIdRef.current ?? newBatchId();
@@ -271,21 +298,7 @@ export default function Cart() {
     // Resolve every line's plan first: the row builder needs what the plan
     // says about itself (how many visits a period includes, what the customer
     // picked inside it) and that is a query, not a lookup.
-    const plans = new Map<string, CheckoutPlan>();
-    for (const item of items) {
-      if (plans.has(item.planId)) continue;
-      const resolved = await resolveCheckoutPlan(item.planId);
-      if (!resolved || resolved.status !== "active" || !resolved.providerActive) {
-        throw new Error(`"${item.planName}" is no longer on sale.`);
-      }
-      // The cart has no address step: a delivery-only offer is bought from its
-      // own page, where the pin and the zone's price are chosen. ("Pickup or
-      // delivery" offers go through the cart as pickup.)
-      if (resolved.delivery.mode === "delivery") {
-        throw new Error(`"${item.planName}" is delivered — buy it from its own page so we know where to bring it.`);
-      }
-      plans.set(item.planId, resolved);
-    }
+    const plans = plansRef.current ?? await resolveCartPlans();
 
     const byTable = new Map<string, any[]>();
     items.forEach((item, index) => {
@@ -335,7 +348,20 @@ export default function Cart() {
    * fall back to the old insert-after-payment path in `onPaidComplete`.
    */
   const reserveRecords = async (paymentRef: string) => {
-    if (pendingBatchRef.current || createdRef.current) return;
+    if (createdRef.current) return;
+    // Already reserved (a second invoice after the first expired): point the
+    // rows at the new reference, or the reconcile cron keeps checking the
+    // dead one.
+    if (pendingBatchRef.current) {
+      if (!paymentRef) return;
+      const services = Array.from(new Set(items.map((i) => i.service)));
+      for (const service of services) {
+        await supabaseDb.from(CART_TABLES[service])
+          .update({ payment_reference: paymentRef, payment_method: paymentMethod })
+          .eq("batch_id", pendingBatchRef.current);
+      }
+      return;
+    }
     try {
       pendingBatchRef.current = await createRecords(paymentRef, true);
     } catch (e) {
@@ -409,8 +435,19 @@ export default function Cart() {
   const startCheckout = async () => {
     if (!isAuthenticated) { openAuthModal("login", "/cart"); return; }
     if (!formValid || items.length === 0) return;
+    setIsGenerating(true);
+    try {
+      plansRef.current = await resolveCartPlans();
+    } catch (e: any) {
+      toast.error(e?.message || "Something in your cart can't be bought right now.");
+      return;
+    } finally {
+      setIsGenerating(false);
+    }
     createdRef.current = false;
-    batchIdRef.current = newBatchId();
+    // One batch per basket attempt: a retried invoice reuses the rows already
+    // reserved instead of writing a second pending set.
+    if (!pendingBatchRef.current) batchIdRef.current = newBatchId();
     const description = `${[...new Set(items.map((i) => CART_SERVICES[i.service]?.label ?? i.service))].join(" + ")} — ${count} item${count > 1 ? "s" : ""} — ${formatUSD(totalCents)}`;
 
     if (paymentMethod === "paypal") {
@@ -436,15 +473,16 @@ export default function Cart() {
     setIsGenerating(true);
     setStep("pay");
     try {
-      await inv.start({
+      const ok = await inv.start({
         method: paymentMethod === "onchain" ? "onchain" : "lightning",
         amountCents: effectiveTotalCents,
         amountSats: sats,
         description,
         context: "cart",
-        externalId: `cart-${batchIdRef.current}`.slice(0, 100),
+        externalId: `cart-${batchIdRef.current}-${Date.now()}`.slice(0, 100),
         meta: basketMeta(),
       });
+      if (!ok) setStep("cart");
     } finally {
       setIsGenerating(false);
     }
@@ -813,13 +851,13 @@ export default function Cart() {
                 totalCents={effectiveTotalCents}
                 isPaid={isPaid}
                 isExpired={inv.state.isExpired}
-                onRetry={() => inv.reset()}
+                onRetry={() => { inv.reset(); void startCheckout(); }}
                 successLabel="Creating your orders…"
               />
             )}
 
-            {step === "pay" && (paymentMethod === "lightning" || paymentMethod === "onchain") && (
-              <Button variant="ghost" className="w-full" onClick={backToCart}>Cancel payment</Button>
+            {step === "pay" && !isPaid && (
+              <Button variant="ghost" className="w-full" onClick={backToCart}>Change payment method</Button>
             )}
               </div>
 

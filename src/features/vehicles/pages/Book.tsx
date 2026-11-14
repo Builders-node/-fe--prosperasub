@@ -21,6 +21,8 @@ import { PayPalPanel } from "@/components/payment/PayPalPanel";
 import { useInvoicePayment } from "@/hooks/useInvoicePayment";
 import { usePaymentMethods } from "@/hooks/usePaymentMethods";
 import { useBtcPrice } from "@/hooks/useBtcPrice";
+import { usePhonePrefill } from "@/hooks/useAccountPhone";
+import { phoneError } from "@/components/patterns/CustomerPhone";
 import { useAddons } from "../hooks/useAddons";
 import { accountApi } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -66,10 +68,14 @@ export default function Book() {
   }, [fromISO, toISOParam, v]);
 
   const { enabled: methods, addSurchargeCents } = usePaymentMethods();
-  const { convertToSats } = useBtcPrice();
+  const { convertToSats, btcPrice } = useBtcPrice();
   const [method, setMethod] = useState<PaymentMethod>("lightning");
   const [name, setName] = useState(userData?.name ?? "");
   const [whatsapp, setWhatsapp] = useState("");
+  usePhonePrefill(whatsapp, setWhatsapp);
+  /** Set when the money landed but the server could not confirm it yet — the
+   *  done screen must not then say "confirmed". */
+  const [confirmIssue, setConfirmIssue] = useState<string | null>(null);
   const [address, setAddress] = useState("");
   const [notes, setNotes] = useState("");
   const [step, setStep] = useState<"form" | "pay" | "done">("form");
@@ -129,9 +135,9 @@ export default function Book() {
         body: JSON.stringify({ payment_reference: ref, payment_method: m }),
       });
       if (error) {
-        toast.error(error.message === "payment_not_confirmed"
-          ? "We haven't seen the payment confirmed yet — your booking will update by itself once it lands."
-          : "We couldn't confirm the payment right now. If you paid, it will be matched automatically — or write to support.");
+        setConfirmIssue(error.message === "payment_not_confirmed"
+          ? "We haven't seen the payment settle yet. Your booking confirms by itself as soon as it does — nothing to do."
+          : "We couldn't confirm the payment just now. If you paid, it is matched automatically within minutes; if not, write to support.");
       }
     }
     setStep("done");
@@ -195,10 +201,58 @@ export default function Book() {
     return null;
   };
 
+  /** Raise (or raise again) the Bitcoin invoice for the reserved booking. */
+  const raiseInvoice = async (bookingId: string, payTotal: number) => {
+    if (!pricing) return false;
+    if (!btcPrice) { toast.error("The Bitcoin price is still loading — try again in a second."); return false; }
+    const sats = convertToSats(centsToDollars(payTotal));
+    if (sats <= 0) { toast.error("We couldn't work out the amount in sats."); return false; }
+    return inv.start({
+      method: method === "onchain" ? "onchain" : "lightning",
+      amountCents: payTotal,
+      amountSats: sats,
+      description: `${v?.name} · ${fromISO}→${toISOParam}`,
+      // Recorded on the checkout session at invoice time, which is what the
+      // team's email and Telegram message read from. Without it a car
+      // booking arrived as an unnamed "EverySub payment".
+      meta: {
+        service_name: "EverySub Cars — rental",
+        plan_name: v?.name,
+        client_name: name.trim() || userData?.name || undefined,
+        client_email: userData?.email || undefined,
+        client_phone: whatsapp.trim() || undefined,
+        duration: `${pricing.rentalDays} day${pricing.rentalDays > 1 ? "s" : ""}`,
+        selected_date_time: `${fromISO} → ${toISOParam}`,
+        booking_id: bookingId,
+      },
+    });
+  };
+
+  /**
+   * Back to the form from the payment step. The hold is released (it was
+   * priced for the method just abandoned, surcharge included), so the next
+   * Pay reserves afresh instead of colliding with our own pending row.
+   */
+  const backToForm = async () => {
+    inv.reset();
+    const id = pendingIdRef.current;
+    pendingIdRef.current = null;
+    setServerCharged(null);
+    setStep("form");
+    if (id) await accountApi(`/rentals/bookings/${id}/cancel`, { method: "POST" });
+  };
+
   const startPay = async () => {
     if (!isAuthenticated) { toast.error("Please sign in to book."); return; }
     if (!pricing) return;
     if (!name.trim()) { toast.error("Add your name."); return; }
+    // The company has to reach the driver to hand the car over.
+    if (!whatsapp.trim() || phoneError(whatsapp)) { toast.error("Add a WhatsApp number we can reach you on."); return; }
+    if (zoneId && !address.trim()) { toast.error("Where should we bring the car?"); return; }
+    if ((method === "lightning" || method === "onchain") && !btcPrice) {
+      toast.error("The Bitcoin price is still loading — try again in a second.");
+      return;
+    }
     setReserving(true);
     try {
       const reserved = await reserve();
@@ -212,25 +266,8 @@ export default function Book() {
       setServerCharged(reserved.charged);
       setStep("pay");
       if (method === "lightning" || method === "onchain") {
-        inv.start({
-          method,
-          amountCents: payTotal,
-          amountSats: convertToSats(centsToDollars(payTotal)),
-          description: `${v?.name} · ${fromISO}→${toISOParam}`,
-          // Recorded on the checkout session at invoice time, which is what the
-          // team's email and Telegram message read from. Without it a car
-          // booking arrived as an unnamed "EverySub payment".
-          meta: {
-            service_name: "EverySub Cars — rental",
-            plan_name: v?.name,
-            client_name: name.trim() || userData?.name || undefined,
-            client_email: userData?.email || undefined,
-            client_phone: whatsapp.trim() || undefined,
-            duration: `${pricing.rentalDays} day${pricing.rentalDays > 1 ? "s" : ""}`,
-            selected_date_time: `${fromISO} → ${toISOParam}`,
-            booking_id: reserved.id,
-          },
-        });
+        const ok = await raiseInvoice(reserved.id, payTotal);
+        if (!ok) await backToForm();
       }
     } finally { setReserving(false); }
   };
@@ -256,8 +293,11 @@ export default function Book() {
         // What was actually charged — the payment fee included, as on the
         // invoice. The base alone under-stated a PayPal or on-chain payment.
         amount={formatUSD(serverCharged ?? effectiveTotal)}
-        eyebrow="Booking confirmed"
-        subtitle={`${v.name} · ${format(new Date(fromISO + "T00:00:00"), "MMM d")} → ${format(new Date(toISOParam + "T00:00:00"), "MMM d")}`}
+        eyebrow={confirmIssue ? "Payment received — confirming" : "Booking confirmed"}
+        subtitle={<>
+          {`${v.name} · ${format(new Date(fromISO + "T00:00:00"), "MMM d")} → ${format(new Date(toISOParam + "T00:00:00"), "MMM d")}`}
+          {confirmIssue && <span className="mt-2 block text-meta text-muted-foreground">{confirmIssue}</span>}
+        </>}
         ctaLabel="View my bookings"
         onCta={() => navigate(carPath("my-bookings"))}
         secondary={{ label: "Browse vehicles", onClick: () => navigate(carPath()) }}
@@ -285,7 +325,7 @@ export default function Book() {
               <div className="space-y-3 rounded-radius-lg bg-card p-4">
                 <h2 className="text-title font-semibold text-foreground">Your details</h2>
                 <div className="space-y-1.5"><Label>Full name</Label><Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" /></div>
-                <div className="space-y-1.5"><Label>WhatsApp</Label><Input type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} placeholder="+504 …" /></div>
+                <div className="space-y-1.5"><Label>WhatsApp *</Label><Input type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} placeholder="+504 …" /></div>
                 <div className="space-y-1.5"><Label>Notes (optional)</Label><Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} /></div>
               </div>
 
@@ -383,8 +423,17 @@ export default function Book() {
                   invoice={inv.state.invoice} address={inv.state.address} uri={inv.state.uri}
                   sats={inv.state.sats ?? 0} totalCents={serverCharged ?? effectiveTotal}
                   isPaid={inv.state.isPaid} isExpired={inv.state.isExpired}
-                  onRetry={() => inv.reset()} successLabel="Confirming your booking…"
+                  onRetry={() => {
+                    inv.reset();
+                    if (pendingIdRef.current) void raiseInvoice(pendingIdRef.current, serverCharged ?? effectiveTotal);
+                  }}
+                  successLabel="Confirming your booking…"
                 />
+              )}
+              {!inv.state.isPaid && (
+                <Button variant="ghost" className="mt-2 w-full" onClick={() => void backToForm()}>
+                  Change payment method
+                </Button>
               )}
             </div>
           )}

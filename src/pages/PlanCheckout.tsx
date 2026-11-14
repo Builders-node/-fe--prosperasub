@@ -35,6 +35,7 @@ import { usePaymentMethods } from "@/hooks/usePaymentMethods";
 import { PayPalPanel } from "@/components/payment/PayPalPanel";
 import { PayPalSubscriptionPanel } from "@/components/payment/PayPalSubscriptionPanel";
 import { InvoiceQrPanel } from "@/components/payment/InvoiceQrPanel";
+import { Spinner } from "@/components/ui/spinner";
 import { CryptoGatewayPanel } from "@/components/payment/CryptoGatewayPanel";
 import { attachPaymentReference } from "@/lib/payments/pendingReference";
 import { useInvoicePayment } from "@/hooks/useInvoicePayment";
@@ -598,6 +599,15 @@ const UniversalPlanCheckout = () => {
     if (!plan) return;
     if (totalCents <= 0) { toast.error("This plan has no price yet."); return; }
     if (!startDate) { toast.error("Choose a start date."); return; }
+    // The card says WhatsApp is required; this is where that becomes true.
+    // A business with no way to reach the customer cannot confirm, reschedule
+    // or find the door.
+    if (!phone.trim()) {
+      setPhoneErr("We need a WhatsApp number to reach you about this order.");
+      setDetailsOpen(true);
+      toast.error("Add your WhatsApp number.");
+      return;
+    }
     if (wantsDelivery) {
       if (!point) { toast.error("Where should we deliver it?"); setMapOpen(true); return; }
       if (!quoteOk) { toast.error(quote ? quoteLine(quote) : "Choose where to deliver it."); setMapOpen(true); return; }
@@ -636,7 +646,7 @@ const UniversalPlanCheckout = () => {
 
       mutationCalledRef.current = false;
       setShowPayment(true);
-      await inv.start({
+      const ok = await inv.start({
         method: paymentMethod === "onchain" ? "onchain" : "lightning",
         amountCents: effectiveTotalCents,
         amountSats: sats,
@@ -645,9 +655,21 @@ const UniversalPlanCheckout = () => {
         externalId: `sub-${plan.universalId}-${Date.now()}`.replace(/[^a-zA-Z0-9_-]/g, "-").slice(0, 100),
         meta: paymentMeta(),
       });
+      // No invoice — put the method picker back rather than an empty step.
+      if (!ok) setShowPayment(false);
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  /**
+   * Out of the payment step, back to the choice of method. The reserved row
+   * stays and is reused by the next Pay (reservePending updates it), so this
+   * never leaves a second pending order behind.
+   */
+  const backToMethods = () => {
+    inv.reset();
+    setShowPayment(false);
   };
 
   const onExternalPaid = (ref: string, method: "crypto_gateway" | "paypal") => {
@@ -1053,7 +1075,7 @@ const UniversalPlanCheckout = () => {
             customer can put one in, so it sits with the money rather than
             hidden behind a link. */}
         {/* Single orders only — see discountCents. */}
-        <section className={cn("rounded-radius-md bg-card p-4", multi && "hidden")}>
+        <section className={cn("rounded-radius-md bg-card p-4", (multi || showPayment) && "hidden")}>
           <Label htmlFor="promo">Promo code</Label>
           <div className="mt-1 flex gap-2">
             <Input
@@ -1090,7 +1112,9 @@ const UniversalPlanCheckout = () => {
 
         {/* Bonus. Only when there is some — an empty balance is a row that
             teaches the customer nothing and takes up the same space. */}
-        {balanceCents > 0 && afterPromoCents > 0 && (
+        {/* Hidden once the invoice exists: its amount is fixed, and a total
+            that moved under it would no longer be what the QR charges. */}
+        {balanceCents > 0 && afterPromoCents > 0 && !showPayment && (
           <section className="flex items-center gap-3 rounded-radius-md bg-card p-4">
             <Gift className="h-5 w-5 shrink-0 text-primary" />
             <div className="min-w-0 flex-1">
@@ -1151,6 +1175,9 @@ const UniversalPlanCheckout = () => {
                     key="paypal-once"
                     totalCents={effectiveTotalCents}
                     onPaid={(id: string) => onExternalPaid(id, "paypal")}
+                    // On the reserved row before approval, so the reconcile
+                    // cron can still find a capture whose tab died.
+                    onOrderCreated={(id: string) => { if (!renewSubId) attachAll(id, "paypal"); }}
                     orderMeta={{ description: orderDescription, ...paymentMeta() }}
                   />
                 )}
@@ -1181,7 +1208,7 @@ const UniversalPlanCheckout = () => {
             totalCents={effectiveTotalCents}
             isPaid={isPaid}
             isExpired={inv.state.isExpired}
-            onRetry={() => inv.reset()}
+            onRetry={() => { inv.reset(); void startPayment(); }}
             successLabel="Activating subscription…"
           />
         ) : !showPayment ? (
@@ -1236,7 +1263,18 @@ const UniversalPlanCheckout = () => {
               </p>
             )}
           </CheckoutCard>
-        ) : null}
+        ) : (
+          // Paying, but nothing to show yet: the invoice is still being made.
+          <div className="flex items-center justify-center rounded-radius-md bg-card p-8">
+            <Spinner size="md" />
+          </div>
+        )}
+
+        {showPayment && !isPaid && (
+          <Button variant="ghost" className="w-full" onClick={backToMethods}>
+            Change payment method
+          </Button>
+        )}
       </div>
 
       {/* The total and the button, held in view while the form scrolls. */}

@@ -75,6 +75,9 @@ function Notice({ children }: { children: React.ReactNode }) {
 
 export function PayPalPanel({ totalCents, onPaid, onOrderCreated, orderMeta }: Props) {
   const [status, setStatus] = useState<"loading" | "ready" | "unconfigured" | "error">("loading");
+  /** A payment PayPal started and did not finish. Said on screen: the console
+   *  is not somewhere a customer looks to find out whether they were charged. */
+  const [failure, setFailure] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const onPaidRef = useRef(onPaid);
   onPaidRef.current = onPaid;
@@ -102,6 +105,7 @@ export function PayPalPanel({ totalCents, onPaid, onOrderCreated, orderMeta }: P
           .Buttons({
             style: { layout: "vertical", color: "blue", shape: "pill", label: "pay" },
             createOrder: async () => {
+              setFailure(null);
               const d = await fetch(`${API_URL}/payments/paypal/order`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -133,7 +137,11 @@ export function PayPalPanel({ totalCents, onPaid, onOrderCreated, orderMeta }: P
               throw lastErr ?? new Error("PayPal payment was not completed");
             },
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            onError: (err: any) => console.error("PayPal error:", err),
+            onError: (err: any) => {
+              console.error("PayPal error:", err);
+              setFailure("PayPal didn't finish the payment. If money left your account we'll match it to your order automatically — otherwise try again or choose another method.");
+            },
+            onCancel: () => setFailure(null),
           })
           .render(containerRef.current);
 
@@ -156,6 +164,7 @@ export function PayPalPanel({ totalCents, onPaid, onOrderCreated, orderMeta }: P
           <Spinner size="md" className="text-[#0070ba]" />
         </div>
       )}
+      {failure && <div className="mb-3"><Notice>{failure}</Notice></div>}
       <div ref={containerRef} />
     </div>
   );

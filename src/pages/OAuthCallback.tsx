@@ -7,7 +7,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { PageLoader } from "@/components/ui/spinner";
-import { useAuth } from "@/contexts/AuthContext";
+import { OAUTH_RETURN_KEY, useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -24,7 +24,13 @@ const OAuthCallback = () => {
   const [searchParams] = useSearchParams();
   const [done, setDone]= useState(false);
 
-  const redirectTo  = getSafeRedirect(searchParams.get("redirect"));
+  // ?redirect= first; otherwise the path loginWithGoogle parked before
+  // leaving for Google (read once, so a later sign-in doesn't inherit it).
+  const [redirectTo] = useState(() => {
+    let parked: string | null = null;
+    try { parked = localStorage.getItem(OAUTH_RETURN_KEY); localStorage.removeItem(OAUTH_RETURN_KEY); } catch { /* ignore */ }
+    return getSafeRedirect(searchParams.get("redirect") ?? parked);
+  });
   const googleCode  = searchParams.get("code");
   const googleState = searchParams.get("state");
   const googleError = searchParams.get("error");

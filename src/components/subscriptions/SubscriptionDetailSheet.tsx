@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { ArrowRight, MapPin } from "lucide-react";
+import { ArrowRight, ChevronRight, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DeliveryDialog } from "@/components/account/DeliveryDialog";
 import { subscriberSourceFor } from "@/services/subscribers";
@@ -36,7 +36,13 @@ export interface PurchaseDetail {
   /** Tariff facts — "2 guests", "3 meals a day", "4 weeks". */
   facts?: { label: string; value: ReactNode }[];
   /** Booked sessions to show inside the purchase — cleaning visits, grouped. */
-  sessions?: { label: string; items: { id: string; date: string; time?: string | null; status: string }[] }[];
+  sessions?: { label: string; items: { id: string; date: string; time?: string | null; status: string; onClick?: () => void }[] }[];
+  /** The row's payment_status. Anything but "paid" is not called "Paid". */
+  paymentStatus?: string | null;
+  /** A door QR makes no sense for a meal delivery or a cleaner coming to you. */
+  noAccessQr?: boolean;
+  /** Set when the customer cancelled: it runs to this date and stops. */
+  endsOn?: string | null;
   /** Optional link out, e.g. food's weekly menu. */
   action?: { label: string; onClick: () => void };
   /** Cancel (or Resume) the subscription — the quiet action, at the very bottom. */
@@ -76,7 +82,9 @@ function Row({ label, value }: { label: string; value: ReactNode }) {
 }
 
 /** The statuses the access check says yes to — a QR on anything else would only be refused. */
-const GRANTS_ACCESS = ["active", "pending_schedule"];
+// Only "active": the server's check (routes/verify.ts) refuses everything else,
+// so a QR on "awaiting schedule" was a code the door would turn away.
+const GRANTS_ACCESS = ["active"];
 
 export function SubscriptionDetailSheet({
   detail, onClose, onDeliverySaved,
@@ -126,16 +134,28 @@ export function SubscriptionDetailSheet({
             </div>
             {detail.amountCents != null && (
               <div className="rounded-radius-md bg-inset p-4">
-                <p className="text-meta text-muted-foreground">Paid</p>
+                <p className="text-meta text-muted-foreground">
+                  {!detail.paymentStatus || detail.paymentStatus === "paid" ? "Paid" : "Awaiting payment"}
+                </p>
                 <p className="mt-0.5 text-2xl font-semibold leading-[29px] tabular-nums text-foreground">
                   {formatUSD(detail.amountCents)}
                 </p>
+                {detail.paymentStatus && detail.paymentStatus !== "paid" && (
+                  <p className="mt-1 text-meta text-muted-foreground">
+                    If you've paid, it confirms by itself within a few minutes.
+                  </p>
+                )}
               </div>
+            )}
+            {detail.endsOn && (
+              <p className="rounded-radius-md bg-attention/10 px-3 py-2.5 text-body text-foreground">
+                Cancelled — it runs until <span className="font-semibold">{formatDateHN(detail.endsOn)}</span> and won't renew.
+              </p>
             )}
           </DialogBlock>
 
           {/* First after the summary, because at the door this is what the sheet is opened for. */}
-          {detail.accessId && GRANTS_ACCESS.includes(detail.status.toLowerCase()) && (
+          {detail.accessId && !detail.noAccessQr && GRANTS_ACCESS.includes(detail.status.toLowerCase()) && (
             <DialogBlock title="Access">
               <AccessQrCode subscriptionId={detail.accessId} />
             </DialogBlock>
@@ -160,15 +180,29 @@ export function SubscriptionDetailSheet({
           {detail.sessions?.filter((g) => g.items.length).map((group) => (
             <DialogBlock key={group.label} title={<>{group.label} · <span className="tabular-nums">{group.items.length}</span></>}>
               <div className="space-y-2">
-                {group.items.map((it) => (
-                  <div key={it.id} className="flex items-center justify-between gap-3 rounded-radius-md bg-inset px-3 py-2.5">
-                    <div className="min-w-0">
-                      <p className="text-title font-semibold text-foreground">{it.date}</p>
-                      {it.time && <p className="text-meta text-muted-foreground">{it.time}</p>}
-                    </div>
-                    <StatusPill status={it.status} />
-                  </div>
-                ))}
+                {group.items.map((it) => {
+                  const body = (
+                    <>
+                      <div className="min-w-0">
+                        <p className="text-title font-semibold text-foreground">{it.date}</p>
+                        {it.time && <p className="text-meta text-muted-foreground">{it.time}</p>}
+                      </div>
+                      <span className="flex shrink-0 items-center gap-1.5">
+                        <StatusPill status={it.status} />
+                        {it.onClick && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                      </span>
+                    </>
+                  );
+                  // A visit opens its own dialog: reschedule, cancel, rate.
+                  return it.onClick ? (
+                    <button key={it.id} type="button" onClick={it.onClick}
+                      className="flex w-full items-center justify-between gap-3 rounded-radius-md bg-inset px-3 py-2.5 text-left transition-colors hover:bg-muted">
+                      {body}
+                    </button>
+                  ) : (
+                    <div key={it.id} className="flex items-center justify-between gap-3 rounded-radius-md bg-inset px-3 py-2.5">{body}</div>
+                  );
+                })}
               </div>
             </DialogBlock>
           ))}
