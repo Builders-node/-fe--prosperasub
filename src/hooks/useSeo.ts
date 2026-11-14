@@ -136,6 +136,8 @@ export function offerJsonLd(input: {
 export function businessJsonLd(input: {
   name: string; description?: string | null; image?: string | null;
   url: string; phone?: string | null; email?: string | null; address?: string | null;
+  /** Visible reviews only. Stars in search results come from this. */
+  rating?: { avg: number; count: number } | null;
 }): Record<string, unknown> {
   return {
     "@context": "https://schema.org",
@@ -147,5 +149,13 @@ export function businessJsonLd(input: {
     ...(input.phone ? { telephone: input.phone } : {}),
     ...(input.email ? { email: input.email } : {}),
     ...(input.address ? { address: { "@type": "PostalAddress", streetAddress: input.address } } : {}),
+    ...(input.rating && input.rating.count > 0 ? {
+      aggregateRating: {
+        "@type": "AggregateRating",
+        ratingValue: Number(input.rating.avg.toFixed(1)),
+        reviewCount: input.rating.count,
+        bestRating: 5, worstRating: 1,
+      },
+    } : {}),
   };
 }

@@ -218,7 +218,10 @@ const ProviderDetail = () => {
   // "Plans" for a service, "Vehicles" for a fleet — the same three tabs, named
   // after what the business sells (SERVICE_META.offeringsHeading).
   // The bell on the banner goes where the app's bell always goes.
-  const { archetypeKey: serviceSegment, providerId } = useParams<{ archetypeKey: string; providerId: string }>();
+  // The segment is the business's slug (/providers/scuba-shop) or, from older
+  // links, its uuid. Everything below is keyed by the resolved uuid.
+  const { archetypeKey: serviceSegment, providerId: providerParam } = useParams<{ archetypeKey: string; providerId: string }>();
+  const paramIsId = !!providerParam && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(providerParam);
   /**
    * Which vertical this page is showing.
    *
@@ -241,19 +244,30 @@ const ProviderDetail = () => {
     : undefined;
 
   const providerQ = useQuery({
-    queryKey: ["provider-detail", providerId],
+    queryKey: ["provider-detail", providerParam],
     queryFn: async () => {
       const { data, error } = await supabaseDb
         .from("providers")
         // source_provider_id is needed to hand food off to its legacy page — see the
         // redirect below.
-        .select("id, name, description, avatar_url, banner_url, location, working_hours, contact_phone, contact_email, archetype_key, unit, source_provider_id, source_service_key, gallery_urls, admin_user_id, status")
-        .eq("id", providerId!).single();
+        .select("*") // includes `slug` once the provider_slugs migration is applied
+        .eq(paramIsId ? "id" : "slug", providerParam!).single();
       if (error) throw error;
       return data as Provider;
     },
-    enabled: !!providerId,
+    enabled: !!providerParam,
   });
+  /** The business's uuid — what every other query on this page is keyed by. */
+  const providerId: string | undefined = (providerQ.data as { id?: string } | undefined)?.id ?? (paramIsId ? providerParam : undefined);
+  const providerSlug = (providerQ.data as { slug?: string | null } | undefined)?.slug ?? null;
+  // An old uuid link lands on the words, without a history step.
+  useEffect(() => {
+    if (providerSlug && providerParam && providerParam !== providerSlug) {
+      const here = window.location.pathname;
+      const next = here.replace(new RegExp(`/providers/${providerParam}(?=/|$)`), `/providers/${providerSlug}`);
+      if (next !== here) navigate(`${next}${window.location.search}${window.location.hash}`, { replace: true });
+    }
+  }, [providerSlug, providerParam]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Inside the unit there is no slug in the URL, and a transport provider has
   // no archetype to derive one from — it names its own vertical instead.
@@ -391,8 +405,8 @@ const ProviderDetail = () => {
   const seoProvider = providerQ.data;
   const seoPath = seoProvider
     ? (isVehicles
-        ? carProviderPath(seoProvider.id)
-        : `/services/${serviceSegment ?? ""}/providers/${seoProvider.id}`)
+        ? carProviderPath(providerSlug ?? seoProvider.id)
+        : `/services/${serviceSegment ?? ""}/providers/${providerSlug ?? seoProvider.id}`)
     : null;
   useSeo({
     title: seoProvider?.name ?? null,
@@ -411,6 +425,7 @@ const ProviderDetail = () => {
           phone: seoProvider.contact_phone,
           email: seoProvider.contact_email,
           address: seoProvider.location,
+          rating: ratingSummaryQ.data ?? null,
         })
       : null,
   });

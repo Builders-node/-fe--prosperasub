@@ -22,6 +22,8 @@
  *
  * `?_og=1` forces the robot page, for checking it from a browser.
  */
+import { faqJsonLd, serviceSeo } from "./src/lib/seo/serviceSeo";
+
 export const config = {
   matcher: ["/", "/services/:path*", "/vehicles/:path*", "/discovery", "/for-business", "/become-a-provider", "/how-it-works", "/pay-with-bitcoin", "/about"],
 };
@@ -68,8 +70,12 @@ const priceLine = (cents: number | null, period: string | null) => {
 };
 /** The URL segment a service uses (src/lib/services/serviceUrls.ts KEY_TO_SLUG). */
 const slugOf = (key: string) => (key === "entertainment" ? "beach-club" : key);
-const providerPath = (p: { id: string; unit?: string | null; archetype_key?: string | null }) =>
-  p.unit === "vehicles" ? `/vehicles/providers/${p.id}` : p.archetype_key ? `/services/${slugOf(p.archetype_key)}/providers/${p.id}` : null;
+/** A business's address: its slug (words) when it has one, else its uuid. */
+const providerPath = (p: { id: string; slug?: string | null; unit?: string | null; archetype_key?: string | null }) => {
+  const seg = p.slug || p.id;
+  return p.unit === "vehicles" ? `/vehicles/providers/${seg}` : p.archetype_key ? `/services/${slugOf(p.archetype_key)}/providers/${seg}` : null;
+};
+const SLUG = /^[a-z0-9][a-z0-9-]{0,79}$/;
 const planPath = (plan: { id: string; source_plan_id?: string | null }, archetype: string) =>
   `/services/${slugOf(archetype)}/plans/${plan.source_plan_id || plan.id}`;
 
@@ -86,6 +92,10 @@ interface Page {
   lists?: Array<{ heading: string; links: Link[] }>;
   crumbs?: Link[];
   jsonLd?: Record<string, unknown>[];
+  /** Questions and answers, drawn on the page — the FAQPage JSON-LD repeats them. */
+  faq?: Array<{ q: string; a: string }>;
+  /** Answer with a 301 to this path instead (an old uuid address of a business). */
+  redirect?: string;
 }
 
 const PLAN_COLS = "id,name,description,price_cents,period,source_plan_id,gallery_urls,provider_id";
@@ -116,10 +126,17 @@ async function pageFor(path: string): Promise<Page | null> {
 
   // ── A business: /services/:slug/providers/:id · /vehicles/providers/:id ──
   const provIdx = parts.indexOf("providers");
-  if (provIdx >= 0 && UUID.test(parts[provIdx + 1] ?? "")) {
-    const [p] = await rows(`providers?id=eq.${parts[provIdx + 1]}&select=id,name,description,banner_url,avatar_url,location,unit,archetype_key,contact_phone,status`);
+  const provSeg = parts[provIdx + 1] ?? "";
+  if (provIdx >= 0 && (UUID.test(provSeg) || SLUG.test(provSeg))) {
+    // select=* — `slug` arrives with the provider_slugs migration; naming it
+    // before then would fail the whole query.
+    const [p] = await rows(`providers?${UUID.test(provSeg) ? "id" : "slug"}=eq.${provSeg}&select=*`);
     if (!p || (p.status !== "active" && p.status !== "approved")) return null;
     const self = providerPath(p) ?? path;
+    if (UUID.test(provSeg) && p.slug && self !== path) return { ...DEFAULT, type: "website", redirect: self };
+    const reviews = await rows(`provider_reviews?provider_id=eq.${p.id}&hidden_at=is.null&select=rating`);
+    const ratingCount = reviews.length;
+    const ratingAvg = ratingCount ? reviews.reduce((s2, r) => s2 + (Number(r.rating) || 0), 0) / ratingCount : 0;
     let offers: Link[] = [];
     const ldOffers: Record<string, unknown>[] = [];
     if (p.unit === "vehicles") {
@@ -136,7 +153,11 @@ async function pageFor(path: string): Promise<Page | null> {
     const description = clip(p.description) || `${p.name} on EverySub${p.location ? ` — ${p.location}` : ", Roatán"}.`;
     return {
       title: `${p.name} · EverySub`, description, image: p.banner_url || p.avatar_url || DEFAULT.image, type: "business.business",
-      h1: p.name, text: [description, p.location ? `Location: ${p.location}, Roatán.` : "Roatán, Honduras."],
+      h1: p.name, text: [
+        description,
+        p.location ? `Location: ${p.location}, Roatán.` : "Roatán, Honduras.",
+        ratingCount ? `Rated ${ratingAvg.toFixed(1)} out of 5 from ${ratingCount} review${ratingCount === 1 ? "" : "s"}.` : "",
+      ],
       lists: offers.length ? [{ heading: p.unit === "vehicles" ? "Vehicles" : "Plans and offers", links: offers }] : [],
       crumbs,
       jsonLd: [{
@@ -144,6 +165,7 @@ async function pageFor(path: string): Promise<Page | null> {
         image: p.banner_url || p.avatar_url || undefined,
         address: { "@type": "PostalAddress", addressLocality: p.location || "Roatán", addressRegion: "Islas de la Bahía", addressCountry: "HN" },
         ...(ldOffers.length ? { makesOffer: ldOffers } : {}),
+        ...(ratingCount ? { aggregateRating: { "@type": "AggregateRating", ratingValue: Number(ratingAvg.toFixed(1)), reviewCount: ratingCount, bestRating: 5, worstRating: 1 } } : {}),
       }, breadcrumbLd(crumbs)],
     };
   }
@@ -160,7 +182,7 @@ async function pageFor(path: string): Promise<Page | null> {
       const [parent] = await rows(`provider_plans?id=eq.${plan.parent_plan_id}&select=${PLAN_COLS},status,parent_plan_id&limit=1`);
       if (parent && parent.status === "active") plan = parent;
     }
-    const [prov] = plan.provider_id ? await rows(`providers?id=eq.${plan.provider_id}&select=id,name,banner_url,unit,archetype_key`) : [];
+    const [prov] = plan.provider_id ? await rows(`providers?id=eq.${plan.provider_id}&select=*`) : [];
     const price = priceLine(plan.price_cents, plan.period);
     const description = [price, clip(plan.description, 160)].filter(Boolean).join(" — ") || `${plan.name} on EverySub.`;
     const self = prov?.archetype_key ? planPath(plan, prov.archetype_key) : path;
@@ -188,12 +210,12 @@ async function pageFor(path: string): Promise<Page | null> {
   if (parts[0] === "vehicles" && parts[1] === "vehicle" && UUID.test(parts[2] ?? "")) {
     const [v] = await rows(`rental_vehicles?id=eq.${parts[2]}&select=id,name,description,daily_price_cents,weekly_price_cents,image_url,gallery_urls,provider_id,status`);
     if (!v || v.status !== "public") return null;
-    const [prov] = v.provider_id ? await rows(`providers?id=eq.${v.provider_id}&select=id,name,unit`) : [];
+    const [prov] = v.provider_id ? await rows(`providers?id=eq.${v.provider_id}&select=*`) : [];
     const price = usd(v.daily_price_cents);
     const description = [price ? `From ${price} / day` : null, clip(v.description, 160)].filter(Boolean).join(" — ") || "Rent a car on Roatán with EverySub.";
     const image = v.image_url || v.gallery_urls?.[0] || DEFAULT.image;
     const crumbs: Link[] = [{ href: "/discovery", label: "EverySub" }, { href: "/vehicles", label: "Car rental" }];
-    if (prov) crumbs.push({ href: `/vehicles/providers/${prov.id}`, label: prov.name });
+    if (prov) crumbs.push({ href: `/vehicles/providers/${prov.slug || prov.id}`, label: prov.name });
     crumbs.push({ href: `/vehicles/vehicle/${v.id}`, label: v.name });
     return {
       title: `${v.name} · Car rental in Roatán`, description, image, type: "product",
@@ -211,13 +233,17 @@ async function pageFor(path: string): Promise<Page | null> {
   // ── The fleet: /vehicles ──
   if (parts[0] === "vehicles" && parts.length === 1) {
     const cars = await rows(`rental_vehicles?status=eq.public&select=id,name,daily_price_cents&order=daily_price_cents`);
-    const description = "Cars, jeeps and scooters from local rental companies on Roatán — by the day, week or month, delivered or picked up.";
+    const copy = serviceSeo("vehicles")!;
     return {
-      title: "Car rental in Roatán · EverySub", description, image: DEFAULT.image, type: "website",
-      h1: "Car rental in Roatán", text: [description],
+      title: `${copy.title} · EverySub`, description: copy.description, image: DEFAULT.image, type: "website",
+      h1: copy.h1, text: [copy.description],
       lists: [{ heading: "Vehicles", links: cars.map((v) => ({ href: `/vehicles/vehicle/${v.id}`, label: v.name, note: usd(v.daily_price_cents) ? `from ${usd(v.daily_price_cents)} / day` : null })) }],
+      faq: copy.faq,
       crumbs: [{ href: "/discovery", label: "EverySub" }, { href: "/vehicles", label: "Car rental" }],
-      jsonLd: [{ "@context": "https://schema.org", "@type": "ItemList", itemListElement: cars.map((v, i) => ({ "@type": "ListItem", position: i + 1, url: `${SITE}/vehicles/vehicle/${v.id}`, name: v.name })) }],
+      jsonLd: [
+        { "@context": "https://schema.org", "@type": "ItemList", itemListElement: cars.map((v, i) => ({ "@type": "ListItem", position: i + 1, url: `${SITE}/vehicles/vehicle/${v.id}`, name: v.name })) },
+        faqJsonLd(copy.faq),
+      ],
     };
   }
 
@@ -227,25 +253,30 @@ async function pageFor(path: string): Promise<Page | null> {
     if (!/^[a-z0-9_-]{1,40}$/.test(key)) return null;
     const [a] = await rows(`service_archetypes?key=eq.${key}&is_active=eq.true&select=label,description`);
     if (!a) return null;
-    const provs = await rows(`providers?archetype_key=eq.${key}&status=eq.active&select=id,name,unit,archetype_key,description`);
+    const provs = await rows(`providers?archetype_key=eq.${key}&status=eq.active&select=*`);
     const ids = provs.map((p) => p.id);
     const plans = ids.length ? await rows(`provider_plans?provider_id=in.(${ids.join(",")})&${PUBLIC_PLANS}&select=${PLAN_COLS}&order=price_cents`) : [];
-    const description = clip(a.description) || `${a.label} from local businesses on Roatán — compare plans and subscribe on EverySub.`;
+    const copy = serviceSeo(key);
+    const description = copy?.description ?? (clip(a.description) || `${a.label} from local businesses on Roatán — compare plans and subscribe on EverySub.`);
     return {
-      title: `${a.label} in Roatán · EverySub`, description, image: DEFAULT.image, type: "website",
-      h1: `${a.label} in Roatán`, text: [description],
+      title: `${copy?.title ?? `${a.label} in Roatán`} · EverySub`, description, image: DEFAULT.image, type: "website",
+      h1: copy?.h1 ?? `${a.label} in Roatán`, text: [description],
+      faq: copy?.faq,
       lists: [
         { heading: "Businesses", links: provs.map((p) => ({ href: providerPath(p)!, label: p.name, note: clip(p.description, 120) || null })) },
         { heading: "Plans", links: plans.map((pl) => ({ href: planPath(pl, key), label: pl.name, note: priceLine(pl.price_cents, pl.period) })) },
       ].filter((l) => l.links.length),
       crumbs: [{ href: "/discovery", label: "EverySub" }, { href: `/services/${parts[1]}`, label: a.label }],
-      jsonLd: [{ "@context": "https://schema.org", "@type": "ItemList", itemListElement: plans.map((pl, i) => ({ "@type": "ListItem", position: i + 1, url: `${SITE}${planPath(pl, key)}`, name: pl.name })) }],
+      jsonLd: [
+        { "@context": "https://schema.org", "@type": "ItemList", itemListElement: plans.map((pl, i) => ({ "@type": "ListItem", position: i + 1, url: `${SITE}${planPath(pl, key)}`, name: pl.name })) },
+        ...(copy ? [faqJsonLd(copy.faq)] : []),
+      ],
     };
   }
 
   // ── Home ──
   if (parts[0] === "discovery") {
-    const provs = await rows(`providers?status=eq.active&select=id,name,unit,archetype_key&order=name`);
+    const provs = await rows(`providers?status=eq.active&select=*&order=name`);
     return {
       ...DEFAULT, type: "website",
       h1: "Subscriptions and services in Roatán",
@@ -283,7 +314,7 @@ async function pageFor(path: string): Promise<Page | null> {
   }
 
   if (parts[0] === "pay-with-bitcoin") {
-    const provs = await rows(`providers?status=eq.active&select=id,name,unit,archetype_key,location&order=name`);
+    const provs = await rows(`providers?status=eq.active&select=*&order=name`);
     const description = "Pay Roatán businesses with Bitcoin: Lightning in seconds, on-chain Bitcoin, or card and PayPal. Every business on EverySub accepts all of them.";
     return {
       title: "Pay with Bitcoin in Roatán — Lightning, on-chain, card", description, image: `${SITE}/for-business/hero.jpg`, type: "website",
@@ -324,7 +355,8 @@ function html(url: string, p: Page) {
   const a = (l: Link) => `<a href="${esc(SITE + l.href)}">${esc(l.label)}</a>${l.note ? ` — ${esc(l.note)}` : ""}`;
   const crumbs = p.crumbs?.length ? `<nav aria-label="Breadcrumb">${p.crumbs.map(a).join(" › ")}</nav>` : "";
   const text = (p.text ?? []).filter(Boolean).map((x) => `<p>${esc(x)}</p>`).join("");
-  const lists = (p.lists ?? []).map((l) => `<h2>${esc(l.heading)}</h2><ul>${l.links.map((x) => `<li>${a(x)}</li>`).join("")}</ul>`).join("");
+  const lists = (p.lists ?? []).map((l) => `<h2>${esc(l.heading)}</h2><ul>${l.links.map((x) => `<li>${a(x)}</li>`).join("")}</ul>`).join("")
+    + (p.faq?.length ? `<h2>Questions</h2>${p.faq.map((f) => `<h3>${esc(f.q)}</h3><p>${esc(f.a)}</p>`).join("")}` : "");
   const ld = (p.jsonLd ?? []).map((j) => `<script type="application/ld+json">${JSON.stringify(j).replace(/</g, "\\u003c")}</script>`).join("");
   return `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -361,6 +393,7 @@ export default async function middleware(request: Request) {
   try {
     const page = await pageFor(url.pathname);
     if (!page) return pass();
+    if (page.redirect) return Response.redirect(`${SITE}${page.redirect}`, 301);
     return new Response(html(`${SITE}${url.pathname}`, page), {
       headers: { "content-type": "text/html; charset=utf-8", "cache-control": "public, max-age=600", vary: "user-agent" },
     });

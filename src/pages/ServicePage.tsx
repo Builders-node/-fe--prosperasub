@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
 import { useSeo } from "@/hooks/useSeo";
+import { faqJsonLd, serviceSeo } from "@/lib/seo/serviceSeo";
+import { ServiceFaq } from "@/components/listing/ServiceFaq";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useGoBack } from "@/hooks/useGoBack";
 import { useQuery } from "@tanstack/react-query";
@@ -72,13 +74,18 @@ const ServicePage = () => {
 
   const archetype = archetypes.find((a) => a.key === archetypeKey);
   // Hooks before any early return (Rules of Hooks, see CLAUDE.md).
+  // The words people search for, and the answers drawn at the foot of the
+  // page — see lib/seo/serviceSeo. A service with no copy there keeps its label.
+  const seoCopy = serviceSeo(archetype?.key);
   useSeo({
-    title: archetype ? `${archetype.label} in Roatán` : null,
+    title: archetype ? (seoCopy?.title ?? `${archetype.label} in Roatán`) : null,
     description: archetype
-      ? (archetype as { description?: string | null }).description
-        || `${archetype.label} from local businesses on Roatán — compare plans and subscribe on EverySub.`
+      ? seoCopy?.description
+        ?? ((archetype as { description?: string | null }).description
+        || `${archetype.label} from local businesses on Roatán — compare plans and subscribe on EverySub.`)
       : null,
     path: archetypeKey ? `/services/${archetypeKey}` : null,
+    jsonLd: seoCopy ? faqJsonLd(seoCopy.faq) : null,
   });
 
   const providersQ = useQuery({
@@ -318,7 +325,9 @@ const ServicePage = () => {
   const openPlan = (planId: string) => navigate(`/services/${archetype.key}/plans/${planId}${keep}`);
 
   return (
-    <BrowseLayout>
+    <BrowseLayout beforeFooter={seoCopy ? (
+      <div className="app-container pb-space-6"><ServiceFaq faq={seoCopy.faq} /></div>
+    ) : undefined}>
       {/* The archetype's own label — the same word the tile used and the same
           one the admin typed. */}
       <ListingHeader

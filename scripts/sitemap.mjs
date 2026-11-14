@@ -66,12 +66,15 @@ const main = async () => {
   // Businesses. A provider page is the richest public page the platform has —
   // and only car rentals used to be listed, so Google had no address for any
   // restaurant, cleaner or club.
-  const providers = await rows("providers?select=id,unit,archetype_key,source_service_key,source_provider_id,updated_at&status=eq.active");
+  // select=* so `slug` is read once the provider_slugs migration exists.
+  const providers = await rows("providers?select=*&status=eq.active");
   const providerById = new Map(providers.map((p) => [p.id, p]));
   for (const p of providers) {
     let path = null;
-    if (p.unit === "vehicles") path = `/vehicles/providers/${p.id}`;
-    else if (p.archetype_key) path = `/services/${slugOf(p.archetype_key)}/providers/${p.id}`;
+    // The address in words when the business has one (see the provider_slugs migration).
+    const seg = p.slug || p.id;
+    if (p.unit === "vehicles") path = `/vehicles/providers/${seg}`;
+    else if (p.archetype_key) path = `/services/${slugOf(p.archetype_key)}/providers/${seg}`;
     if (path) entries.push(url(path, { lastmod: p.updated_at, priority: 0.8 }));
   }
 

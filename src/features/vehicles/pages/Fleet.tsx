@@ -18,6 +18,11 @@ import { useCategoryParam } from "@/hooks/useCategoryParam";
 import { useSearchParams } from "react-router-dom";
 import { DesktopListing, FilterGroup, useDesktopFilters, type ListingPlan } from "@/components/listing/DesktopListing";
 import { carPath as vehicleHref } from "../lib/routes";
+import { useSeo } from "@/hooks/useSeo";
+import { faqJsonLd, serviceSeo } from "@/lib/seo/serviceSeo";
+import { ServiceFaq } from "@/components/listing/ServiceFaq";
+
+const SEO_COPY = serviceSeo("vehicles")!;
 import { cn } from "@/lib/utils";
 
 /**
@@ -36,6 +41,8 @@ import { cn } from "@/lib/utils";
 export default function Fleet() {
   const navigate = useNavigate();
   const goBack = useGoBack("/discovery");
+  // The fleet is the page people land on from "car rental Roatan".
+  useSeo({ title: SEO_COPY.title, description: SEO_COPY.description, path: "/vehicles", jsonLd: faqJsonLd(SEO_COPY.faq) });
   const { data: vehicles = [], isLoading, isError, error, refetch } = useVehicles();
   const [providerId, setProviderId] = useState<string | null>(null);
 
@@ -148,7 +155,9 @@ export default function Fleet() {
     // This page used to be a bare <div> that mounted DesktopHeader itself and
     // took its tab bar from the section shell: the same screen, assembled by
     // hand, and therefore free to drift.
-    <BrowseLayout header={<ListingHeader
+    <BrowseLayout
+      beforeFooter={<AppContainer className="pb-space-6"><ServiceFaq faq={SEO_COPY.faq} /></AppContainer>}
+      header={<ListingHeader
         title="Vehicles"
         onBack={goBack}
         query={search.query}
