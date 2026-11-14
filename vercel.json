@@ -43,6 +43,17 @@
   ],
   "redirects": [
     {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.everysub.net"
+        }
+      ],
+      "destination": "https://everysub.net/:path*",
+      "permanent": true
+    },
+    {
       "source": "/",
       "has": [
         {
