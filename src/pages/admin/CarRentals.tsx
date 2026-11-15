@@ -57,20 +57,29 @@ const day = (iso?: string | null) => (iso ? format(new Date(`${iso}T00:00:00`), 
  * exactly the duplication the rest of the admin already removed by turning
  * per-service pages into workspace tabs.
  */
-export default function CarRentals({ embedded = false, providerId }: {
+export type FleetSection = "overview" | "calendar" | "bookings" | "fleet";
+
+export default function CarRentals({ embedded = false, providerId, section }: {
   /** Skip the admin chrome: something else is already providing it. */
   embedded?: boolean;
   /** Limit everything to one business, and lock the editor to it. */
   providerId?: string;
+  /**
+   * One screen only, with no tab strip of its own — for the rental company's
+   * workspace, whose own tabs ARE these screens. Nesting this page's tabs
+   * inside that strip put two rows of tabs on top of each other.
+   */
+  section?: FleetSection;
 } = {}) {
   const qc = useQueryClient();
   // In the URL, like every other drill-down: a reload or a Back used to drop
   // the admin back on Bookings from whatever tab they were working in.
-  const [tab, setTab] = useTabParam(
+  const [tabParam, setTab] = useTabParam(
     embedded
       ? (["overview", "calendar", "bookings", "fleet", "terms"] as const)
       : (["overview", "calendar", "bookings", "fleet", "terms", "types", "providers"] as const),
   );
+  const tab = section ?? tabParam;
   /** Everything the operations screens read, in one query (features/vehicles/admin). */
   const fleetQ = useFleet(providerId);
   const fleet = fleetQ.data;
@@ -188,7 +197,7 @@ export default function CarRentals({ embedded = false, providerId }: {
     <div className="space-y-space-4">
       {/* Same drill-down shape as a Marketplace service: the unit's own nouns
           (Vehicles, Bookings) beside the shared lists, mounted embedded. */}
-      <TabPills
+      {!section && <TabPills
         className="mb-4"
         tabs={(embedded
           ? ([["overview", "Overview"], ["calendar", "Calendar"], ["bookings", "Bookings"], ["fleet", "Vehicles"], ["terms", "Insurance & extras"]] as const)
@@ -199,7 +208,7 @@ export default function CarRentals({ embedded = false, providerId }: {
         ).map(([value, label]) => ({ value, label }))}
         value={tab}
         onChange={setTab}
-      />
+      />}
 
       {/* The two things a fleet does by hand, wherever it is looking. */}
       {(tab === "overview" || tab === "calendar" || tab === "bookings") && (
@@ -327,6 +336,49 @@ export default function CarRentals({ embedded = false, providerId }: {
             </Button>
           }
         >
+          {providerId ? (
+            // One company's own cars: cards, the photo first — a fleet is
+            // recognised by its cars, and a full-width row per car on a laptop
+            // was a line of text with a kebab 1,500px away.
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+              {(vehiclesQ.data ?? []).map((v) => (
+                <div key={v.id} className="overflow-hidden rounded-radius-lg bg-card">
+                  <button type="button" onClick={() => setEditing(v)} className="block w-full text-left">
+                    <span className={cn("relative block aspect-[16/10] w-full overflow-hidden bg-muted", v.status !== "public" && "opacity-50")}>
+                      <Photo src={v.image_url} icon={Car} />
+                    </span>
+                  </button>
+                  <div className="flex items-start gap-2 p-3">
+                    <button type="button" onClick={() => setEditing(v)} className="min-w-0 flex-1 text-left">
+                      <span className="flex items-center gap-2">
+                        <span className="truncate text-title font-semibold text-foreground">{v.name}</span>
+                        {v.status !== "public" && <StatusPill status="private" label="Hidden" />}
+                      </span>
+                      <span className="mt-0.5 block truncate text-meta text-muted-foreground">
+                        {[typeLabel(v.category_key), `${v.seats} seats`].filter(Boolean).join(" · ")}
+                      </span>
+                      <span className="mt-1 block text-body font-semibold tabular-nums text-foreground">
+                        {formatUSD(v.daily_price_cents)}<span className="font-normal text-muted-foreground"> / day</span>
+                      </span>
+                    </button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button size="icon" variant="ghost" className="shrink-0" aria-label={`Actions for ${v.name}`}>
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onSelect={() => setEditing(v)}><Pencil className="mr-2 h-3.5 w-3.5" /> Edit</DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => toggleVehicle(v)}>
+                          {v.status === "public" ? "Hide from the storefront" : "Show in the storefront"}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
           <div className="space-y-0.5 rounded-radius-lg bg-card p-1.5">
             {(vehiclesQ.data ?? []).map((v) => (
               <div key={v.id} className={cn("flex items-center gap-3 rounded-radius-md p-2.5 transition-colors hover:bg-inset", v.status !== "public" && "opacity-60")}>
@@ -361,6 +413,7 @@ export default function CarRentals({ embedded = false, providerId }: {
               </div>
             ))}
           </div>
+          )}
         </AdminListShell>
       ) : null}
 

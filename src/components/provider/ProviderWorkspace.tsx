@@ -259,6 +259,7 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
     icon: INFO_TAB_META.icon,
     render: () => (
       <div className="space-y-1">
+        {custom.overviewTop?.(workspaceCtx)}
         {/* What is still missing from the public profile, first — every
             provider on the platform went live without contacts, and two
             without hours or an address. Renders nothing once it is complete. */}
@@ -365,7 +366,13 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
    * plans editor and Schedule is the occurrence list, both keyed by the
    * universal id whatever sells them. Only the beach's courts are its own.
    */
-  const tabs: PortalTab<unknown>[] = [
+  const tabs: PortalTab<unknown>[] = custom.coreTabs ? [
+    overviewTab,
+    ...custom.coreTabs(workspaceCtx),
+    promoteTab,
+    moneyTab,
+    teamTab,
+  ] : [
     overviewTab,
     {
       value: "offerings",

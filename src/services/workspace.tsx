@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { CarFront } from "lucide-react";
+import { CalendarDays, CarFront, ClipboardList, ShieldCheck } from "lucide-react";
 import type { PortalTab } from "@/components/provider/portalTab";
 import { ProviderItemsPanel } from "@/components/provider/ProviderItemsPanel";
 import { ServiceLocationsSection } from "@/components/food/admin/ServiceLocationsSection";
@@ -41,6 +41,14 @@ export interface WorkspaceCustomisation {
   infoExtra?: (ctx: WorkspaceContext) => ReactNode;
   /** Screens the standard set does not have. */
   extraTabs?: (ctx: WorkspaceContext) => PortalTab<unknown>[];
+  /**
+   * Replaces Offerings, Schedule and Calendars with the vertical's own
+   * screens — for one whose day is not plans and occurrences at all.
+   * Overview, Promote, Money and Team stay the platform's.
+   */
+  coreTabs?: (ctx: WorkspaceContext) => PortalTab<unknown>[];
+  /** Above everything else on Overview — what the business looks at first. */
+  overviewTop?: (ctx: WorkspaceContext) => ReactNode;
 }
 
 const NONE: WorkspaceCustomisation = {};
@@ -53,21 +61,22 @@ const WORKSPACE: Record<string, WorkspaceCustomisation> = {
     // plans. A plan is a price for a period sold over and over; a car is one
     // object for a stretch of days. Showing the plans editor here only invited
     // someone to create a row nothing would ever read.
-    offerings: ({ providerId, isOwner }) => (
-      <RentalTermsTab providerId={providerId} canManage={isOwner} />
-    ),
+    //
     // A fleet is not a plan and never will be: availability is per-unit and
     // continuous, and the thing booked is one physical object. So a rental
-    // business gets its own tab while remaining an ordinary `providers` row —
-    // same Overview, Money and Team as every other business.
-    extraTabs: ({ providerId }) => [{
-      value: "fleet",
-      label: "Vehicles",
-      icon: CarFront,
-      // The admin's own car screen, scoped to this business. One place where
-      // cars are managed, whoever is looking at it.
-      render: () => <CarRentals embedded providerId={providerId} />,
-    } as PortalTab<unknown>],
+    // business runs on the fleet's own screens — the admin's car page, one
+    // section per tab — while remaining an ordinary `providers` row with the
+    // same Overview, Promote, Money and Team as every other business. It used
+    // to be ONE "Vehicles" tab holding that page whole, its own five tabs
+    // nested under the workspace's eight, beside a Schedule and a Calendars
+    // that cars never use.
+    overviewTop: ({ providerId }) => <CarRentals embedded providerId={providerId} section="overview" />,
+    coreTabs: ({ providerId, isOwner }) => [
+      { value: "fleet-calendar", label: "Calendar", icon: CalendarDays, render: () => <CarRentals embedded providerId={providerId} section="calendar" /> },
+      { value: "fleet-bookings", label: "Bookings", icon: ClipboardList, render: () => <CarRentals embedded providerId={providerId} section="bookings" /> },
+      { value: "fleet", label: "Vehicles", icon: CarFront, render: () => <CarRentals embedded providerId={providerId} section="fleet" /> },
+      { value: "offerings", label: "Insurance & extras", icon: ShieldCheck, render: () => <RentalTermsTab providerId={providerId} canManage={isOwner} /> },
+    ] as PortalTab<unknown>[],
   },
 
   food: {
