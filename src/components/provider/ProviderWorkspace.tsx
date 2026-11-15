@@ -408,7 +408,9 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
             It sits in the cards' column: edge to edge on a phone (the column
             has no gutter there), the column's width on a laptop — it used to
             run the full window while everything under it stopped at 1280. */}
-        <div className="relative h-[280px] w-full overflow-hidden rounded-b-radius-lg bg-muted md:mt-space-4 md:rounded-radius-lg">
+        {/* 280 on a phone, where it IS the header; on a laptop a strip —
+            at 380 tall it pushed the tabs below the fold of a 1080p screen. */}
+        <div className="relative h-[280px] w-full overflow-hidden rounded-b-radius-lg bg-muted md:mt-space-4 md:h-[180px] md:rounded-radius-lg">
           <Photo src={provider.banner_url} icon={Store} loading="eager" />
           <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/35 to-transparent" />
           <button
@@ -437,15 +439,18 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
         {/* Who this is: the avatar, the name and the description. The avatar is
             here so an owner sees the picture customers see — without it there
             was no way to tell from the workspace that one had been uploaded. */}
-        <section className="rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
+        {/* On a laptop who-it-is and how-it-is-doing share one row: two
+            full-width cards stacked left most of the screen empty. */}
+        <div className="space-y-1 md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] md:gap-1 md:space-y-0">
+        <section className="rounded-radius-lg bg-card p-4 tracking-[-0.02em] md:p-5">
           <div className="flex items-start gap-3">
-            <span className="h-14 w-14 shrink-0 overflow-hidden rounded-full">
+            <span className="h-14 w-14 shrink-0 overflow-hidden rounded-full md:h-16 md:w-16">
               <Photo src={provider.avatar_url} label={initialsOf(provider.name)} />
             </span>
             <div className="min-w-0 flex-1">
               <h1 className="text-[24px] font-semibold leading-[29px] text-foreground">{provider.name}</h1>
               {provider.description && (
-                <p className="mt-2 text-body text-muted-foreground">{provider.description}</p>
+                <p className="mt-2 line-clamp-3 text-body text-muted-foreground">{provider.description}</p>
               )}
             </div>
             <Button
@@ -470,20 +475,10 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
           )}
         </section>
 
-        {/* Draft → live, for the platform: the checklist and the switch on the
-            business itself, not in a list's row menu. */}
-        {/* The admin gets the switch; the owner gets the same checklist,
-            their own preview, and a way to say "ready". */}
-        <GoLivePanel
-          provider={provider}
-          ownerView={!isAdmin}
-          previewHref={`${resolvedPublicHref}${resolvedPublicHref.includes("?") ? "&" : "?"}preview=1`}
-        />
-
         {/* How it is doing. The four figures that used to be a strip of
             icon-plated cards under the tabs, in the design's tiles and above
             them — where a business looks before choosing where to go. */}
-        <section className="grid grid-cols-2 gap-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em] md:grid-cols-4">
+        <section className="grid grid-cols-2 content-center gap-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em] md:p-5 lg:grid-cols-4">
           {isOwner && (
             <WorkspaceStat
               label="Balance"
@@ -508,6 +503,17 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
             />
           </div>
         </section>
+        </div>
+
+        {/* Draft → live, for the platform: the checklist and the switch on the
+            business itself, not in a list's row menu. */}
+        {/* The admin gets the switch; the owner gets the same checklist,
+            their own preview, and a way to say "ready". */}
+        <GoLivePanel
+          provider={provider}
+          ownerView={!isAdmin}
+          previewHref={`${resolvedPublicHref}${resolvedPublicHref.includes("?") ? "&" : "?"}preview=1`}
+        />
 
         {/* One renderer too. The legacy wrapper is now only what its name
             says: it answers "may this person be here, and are they the owner",
