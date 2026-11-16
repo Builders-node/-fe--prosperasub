@@ -368,7 +368,6 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
       !!offer.provider_price_cents || !!offer.markup_cents ||
       (offer.periods_default ?? 1) !== 1 || (offer.periods_min ?? 1) !== 1 ||
       offer.periods_max != null ||
-      offer.lead_time_minutes != null || offer.window_minutes != null ||
       tagList.length > 0,
     );
     setSeedTick((t) => t + 1);
@@ -466,7 +465,9 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
         periods_min: sold.period === "one_time" ? 1 : numOrNull(sold.periodsMin) ?? 1,
         periods_max: sold.period === "one_time" ? 1 : numOrNull(sold.periodsMax),
         pricing_mode: sold.pricingMode,
-        fulfilment: sold.fulfilment,
+        // What happens after the sale follows from how it is received.
+        fulfilment: deliv.modes.includes("delivery") ? "deliveries"
+          : deliv.modes.includes("on_site") ? "visits" : sold.fulfilment,
         resource_ids: access.resourceIds,
         entitlements: serializeEntitlements([
           ...otherEntitlements,
@@ -497,7 +498,7 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
 
       // 1c. Delivery — its own write, so a database without the delivery
       //     migration still saves everything else.
-      if (!o.source_service_key) {
+      if (!o.source_service_key || o.source_service_key === "food") {
         const delivered = deliv.modes.includes("delivery");
         const { error: delivErr } = await supabaseDb.from("provider_plans").update({
           // The older switch, kept in step for readers that still use it.
@@ -693,9 +694,13 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
   const PER: Record<string, string> = { weekly: "week", monthly: "month", quarterly: "3 months", yearly: "year" };
   const oneTime = sold.period === "one_time";
   const live = !isNew && offer?.status === "active";
+  const legacyKey = offer ? offer.source_service_key : (sourceKey === "cleaning" || sourceKey === "beach" || sourceKey === "food" ? sourceKey : null);
+  const choosesWays = !legacyKey || legacyKey === "food";
+  // A restaurant brings its own food: no platform couriers to pick from.
+  const ownDelivery = legacyKey === "food";
   const moreSummary = [
     sold.pricingMode !== "flat" ? (sold.pricingMode === "per_person" ? "Per person" : "Per unit") : "Flat price",
-    { none: "nothing to schedule", visits: "visits", deliveries: "deliveries", resource_hours: "booked hours" }[sold.fulfilment] ?? sold.fulfilment,
+    "terms, rescheduling, tags",
   ].join(" · ");
 
   return (
@@ -792,6 +797,108 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
         key={`${offerId ?? "new"}:${seedTick}`}
       />
 
+      {/* How it reaches the customer — self-service, a visit, a delivery.
+          Out of the fold: for a restaurant or a cleaner it is the question,
+          not a detail. Universal offers and meal plans (cleaning and the beach
+          keep their own flows). */}
+      {choosesWays && (
+        <section className="space-y-4 rounded-radius-lg bg-card p-4">
+          <p className="text-title font-semibold text-foreground">How the customer gets it</p>
+          <div className="space-y-3">
+                <Field
+                  label="Ways to receive it"
+                  hint={deliv.modes.length === 0
+                    ? "None picked — the customer just buys it (a membership, an online service)."
+                    : deliv.modes.length > 1 ? "The customer picks one at checkout." : "Pick more than one to let the customer choose."}
+                >
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    {SERVICE_MODES.map((m) => {
+                      const on = deliv.modes.includes(m.key);
+                      // Before the migration only delivery can be stored.
+                      const locked = !deliv.modesColumn && m.key !== "delivery" && m.key !== "self_service";
+                      return (
+                        <button key={m.key} type="button" disabled={locked} aria-pressed={on}
+                          onClick={() => setDeliv((v) => ({
+                            ...v,
+                            modes: on ? v.modes.filter((k) => k !== m.key) : SERVICE_MODES.map((x) => x.key).filter((k) => k === m.key || v.modes.includes(k)),
+                          }))}
+                          className={cn("rounded-radius-md p-3 text-left transition-colors disabled:opacity-40",
+                            on ? "bg-foreground text-background" : "bg-inset text-foreground hover:bg-muted")}>
+                          <span className="block text-body font-semibold">{m.label}</span>
+                          <span className={cn("block text-meta", on ? "text-background/70" : "text-muted-foreground")}>{m.hint}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </Field>
+                {(deliv.modes.includes("on_site") || deliv.modes.includes("delivery")) && (
+                  <Field
+                    label="Where you go"
+                    hint={ownZones.length
+                      ? "Your own zones (workspace → Delivery). Their fees are yours."
+                      : ownDelivery
+                        ? "You haven't drawn zones, so you deliver anywhere with no fee. Draw them in the Delivery tab to charge by area."
+                      : deliv.modes.includes("delivery")
+                        ? "You haven't drawn zones, so EverySub's couriers deliver in the platform's zones (their fee is the platform's). A visit goes anywhere. Draw your own in the Delivery tab."
+                        : "You haven't drawn zones, so you go anywhere with no call-out fee. Draw them in the Delivery tab."}
+                  >
+                    {ownZones.length ? (
+                      <div className="flex flex-wrap gap-2">
+                        {ownZones.map((z) => (
+                          <span key={z.id} className="h-8 rounded-full bg-inset px-3 text-[13px] font-semibold leading-8 text-foreground">
+                            {z.name} · {z.fee_cents ? formatUSD(z.fee_cents) : "Free"}
+                          </span>
+                        ))}
+                      </div>
+                    ) : deliv.modes.includes("delivery") && !ownDelivery ? (
+                      <div className="flex flex-wrap gap-2">
+                        <button type="button" onClick={() => setDeliv((v) => ({ ...v, zoneIds: null }))}
+                          className={cn("h-8 rounded-full px-3 text-[13px] font-semibold transition-colors",
+                            deliv.zoneIds === null ? "bg-foreground text-background" : "bg-inset text-muted-foreground hover:text-foreground")}>
+                          All platform zones
+                        </button>
+                        {(zonesQ.data ?? []).map((z) => {
+                          const on = deliv.zoneIds?.includes(z.id) ?? false;
+                          return (
+                            <button key={z.id} type="button"
+                              title={[z.fee_cents ? formatUSD(z.fee_cents) : "Free", etaText(z.eta_min_minutes, z.eta_max_minutes)].filter(Boolean).join(" · ")}
+                              onClick={() => setDeliv((v) => {
+                                const cur = v.zoneIds ?? [];
+                                const next = on ? cur.filter((id) => id !== z.id) : [...cur, z.id];
+                                return { ...v, zoneIds: next.length ? next : null };
+                              })}
+                              className={cn("h-8 rounded-full px-3 text-[13px] font-semibold transition-colors",
+                                on ? "bg-foreground text-background" : "bg-inset text-muted-foreground hover:text-foreground")}>
+                              {z.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : null}
+                  </Field>
+                )}
+                {(deliv.modes.includes("on_site") || deliv.modes.includes("delivery")) && (
+                  <Field label="Fee for this offer ($)" hint="Empty = each zone's own price. Use it for something heavy, bulky or far.">
+                    <Input inputSize="sm" inputMode="decimal" value={deliv.fee} placeholder="Zone price"
+                      onChange={(e) => setDeliv((v) => ({ ...v, fee: e.target.value }))} />
+                  </Field>
+                )}
+              </div>
+          {(deliv.modes.includes("delivery") || (!deliv.modes.length && sold.fulfilment === "deliveries")) && (
+            <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Earliest arrival" hint="When the first delivery window opens.">
+                  <Input inputSize="sm" type="time" value={minutesToTime(sold.leadMinutes)}
+                    onChange={(e) => setSold((v) => ({ ...v, leadMinutes: timeToMinutes(e.target.value) }))} />
+                </Field>
+                <Field label="Window width (minutes)" hint="120 = a two-hour promise.">
+                  <Input inputSize="sm" inputMode="numeric" value={sold.windowMinutes} placeholder="120"
+                    onChange={(e) => setSold((v) => ({ ...v, windowMinutes: e.target.value }))} />
+                </Field>
+              </div>
+          )}
+        </section>
+      )}
+
       {/* Only a business with something bookable is asked booking questions —
           the hours allowance used to render for everyone, so a restaurant was
           asked when its court hours reset. */}
@@ -848,24 +955,13 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
         {advancedOpen && (
           <div className="space-y-5 p-4 pt-0">
             {/* 1 — how the price is worked out and what happens after the sale. */}
-            <MoreGroup title="Price & what happens after the sale">
+            <MoreGroup title="Price">
               <Field label="Price is" hint={PRICING_HINT[sold.pricingMode] ?? ""}>
                 <select value={sold.pricingMode} onChange={(e) => setSold((v) => ({ ...v, pricingMode: e.target.value }))}
                   className={fieldClass}>
                   <option value="flat">Flat</option>
                   <option value="per_unit">Per unit</option>
                   <option value="per_person">Per person</option>
-                </select>
-              </Field>
-              {/* Checkout reads it to decide whether to ask for an address
-                  (`planCheckoutModel.needsAddress`). Defaulted from the service. */}
-              <Field label="After the sale" hint={FULFILMENT_HINT[sold.fulfilment] ?? ""}>
-                <select value={sold.fulfilment} onChange={(e) => setSold((v) => ({ ...v, fulfilment: e.target.value }))}
-                  className={fieldClass}>
-                  <option value="none">Nothing to schedule</option>
-                  <option value="visits">Visits</option>
-                  <option value="deliveries">Deliveries</option>
-                  <option value="resource_hours">Booked hours</option>
                 </select>
               </Field>
               {/* A per-person price can also be a marked-up one (the beach club).
@@ -920,101 +1016,6 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
               </MoreGroup>
             )}
 
-            {sold.fulfilment === "deliveries" && (
-              <MoreGroup title="Delivery window">
-                <Field label="Earliest arrival" hint="When the first delivery window opens.">
-                  <Input inputSize="sm" type="time" value={minutesToTime(sold.leadMinutes)}
-                    onChange={(e) => setSold((v) => ({ ...v, leadMinutes: timeToMinutes(e.target.value) }))} />
-                </Field>
-                <Field label="Window width (minutes)" hint="120 = a two-hour promise.">
-                  <Input inputSize="sm" inputMode="numeric" value={sold.windowMinutes} placeholder="120"
-                    onChange={(e) => setSold((v) => ({ ...v, windowMinutes: e.target.value }))} />
-                </Field>
-              </MoreGroup>
-            )}
-
-            {/* Self-service, a visit, a delivery — offers sold through the
-                universal checkout only (a food or cleaning plan has its own way). */}
-            {!offer?.source_service_key && (
-              <MoreGroup title="How the customer gets it">
-                <Field
-                  label="Ways to receive it"
-                  hint={deliv.modes.length === 0
-                    ? "None picked — the customer just buys it (a membership, an online service)."
-                    : deliv.modes.length > 1 ? "The customer picks one at checkout." : "Pick more than one to let the customer choose."}
-                >
-                  <div className="grid gap-2 sm:grid-cols-3">
-                    {SERVICE_MODES.map((m) => {
-                      const on = deliv.modes.includes(m.key);
-                      // Before the migration only delivery can be stored.
-                      const locked = !deliv.modesColumn && m.key !== "delivery" && m.key !== "self_service";
-                      return (
-                        <button key={m.key} type="button" disabled={locked} aria-pressed={on}
-                          onClick={() => setDeliv((v) => ({
-                            ...v,
-                            modes: on ? v.modes.filter((k) => k !== m.key) : SERVICE_MODES.map((x) => x.key).filter((k) => k === m.key || v.modes.includes(k)),
-                          }))}
-                          className={cn("rounded-radius-md p-3 text-left transition-colors disabled:opacity-40",
-                            on ? "bg-foreground text-background" : "bg-inset text-foreground hover:bg-muted")}>
-                          <span className="block text-body font-semibold">{m.label}</span>
-                          <span className={cn("block text-meta", on ? "text-background/70" : "text-muted-foreground")}>{m.hint}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </Field>
-                {(deliv.modes.includes("on_site") || deliv.modes.includes("delivery")) && (
-                  <Field
-                    label="Where you go"
-                    hint={ownZones.length
-                      ? "Your own zones (workspace → Delivery). Their fees are yours."
-                      : deliv.modes.includes("delivery")
-                        ? "You haven't drawn zones, so EverySub's couriers deliver in the platform's zones (their fee is the platform's). A visit goes anywhere. Draw your own in the Delivery tab."
-                        : "You haven't drawn zones, so you go anywhere with no call-out fee. Draw them in the Delivery tab."}
-                  >
-                    {ownZones.length ? (
-                      <div className="flex flex-wrap gap-2">
-                        {ownZones.map((z) => (
-                          <span key={z.id} className="h-8 rounded-full bg-inset px-3 text-[13px] font-semibold leading-8 text-foreground">
-                            {z.name} · {z.fee_cents ? formatUSD(z.fee_cents) : "Free"}
-                          </span>
-                        ))}
-                      </div>
-                    ) : deliv.modes.includes("delivery") ? (
-                      <div className="flex flex-wrap gap-2">
-                        <button type="button" onClick={() => setDeliv((v) => ({ ...v, zoneIds: null }))}
-                          className={cn("h-8 rounded-full px-3 text-[13px] font-semibold transition-colors",
-                            deliv.zoneIds === null ? "bg-foreground text-background" : "bg-inset text-muted-foreground hover:text-foreground")}>
-                          All platform zones
-                        </button>
-                        {(zonesQ.data ?? []).map((z) => {
-                          const on = deliv.zoneIds?.includes(z.id) ?? false;
-                          return (
-                            <button key={z.id} type="button"
-                              title={[z.fee_cents ? formatUSD(z.fee_cents) : "Free", etaText(z.eta_min_minutes, z.eta_max_minutes)].filter(Boolean).join(" · ")}
-                              onClick={() => setDeliv((v) => {
-                                const cur = v.zoneIds ?? [];
-                                const next = on ? cur.filter((id) => id !== z.id) : [...cur, z.id];
-                                return { ...v, zoneIds: next.length ? next : null };
-                              })}
-                              className={cn("h-8 rounded-full px-3 text-[13px] font-semibold transition-colors",
-                                on ? "bg-foreground text-background" : "bg-inset text-muted-foreground hover:text-foreground")}>
-                              {z.name}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    ) : null}
-                  </Field>
-                )}
-                {(deliv.modes.includes("on_site") || deliv.modes.includes("delivery")) && (
-                  <Field label="Fee for this offer ($)" hint="Empty = each zone's own price. Use it for something heavy, bulky or far.">
-                    <Input inputSize="sm" inputMode="decimal" value={deliv.fee} placeholder="Zone price"
-                      onChange={(e) => setDeliv((v) => ({ ...v, fee: e.target.value }))} />
-                  </Field>
-                )}
-              </MoreGroup>
-            )}
 
             {/* Moving an appointment — only for a plan that HAS appointments. The
                 provider can always move their own day from Operations; this
@@ -1145,13 +1146,6 @@ const DEFAULT_FULFILMENT: Record<string, string> = {
 
 /** The unit a court hour is counted in — the allowance this editor manages. */
 const HOUR_UNIT = "hour";
-
-const FULFILMENT_HINT: Record<string, string> = {
-  none: "Access or membership — nobody comes, nothing ships.",
-  visits: "Somebody comes to an address.",
-  deliveries: "Something ships to an address.",
-  resource_hours: "Hours on a calendar.",
-};
 
 const PRICING_HINT: Record<string, string> = {
   flat: "One price for the period.",

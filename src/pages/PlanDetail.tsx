@@ -364,7 +364,9 @@ const PlanDetail = () => {
 
 
   const { addItem: addToCart, has: inCart, count: cartCount } = useCart();
-  const offerDeliveryQ = useOfferDelivery(plan?.source === "universal" && !plan?.serviceKey ? plan.id : null);
+  // Universal offers and meal plans choose their ways; cleaning and the beach do not.
+  const choosesWays = !!plan && ((plan.source === "universal" && !plan.serviceKey) || plan.source === "food" || plan.serviceKey === "food");
+  const offerDeliveryQ = useOfferDelivery(choosesWays ? plan!.id : null);
 
   const [selection, setSelection] = useState<Record<string, string>>({});
 
@@ -848,9 +850,9 @@ const PlanDetail = () => {
             </p>
           )}
 
-          {/* Delivered by platform couriers: the price and time for the
-              visitor's own pin, before checkout. Universal offers only. */}
-          {plan.source === "universal" && !plan.serviceKey && (
+          {/* How it reaches them, priced for the visitor's own pin, before
+              checkout. Universal offers and meal plans. */}
+          {choosesWays && (
             <DeliveryRow planId={chosen?.id ?? plan.id} priceCents={priceCents ?? 0} />
           )}
         </section>

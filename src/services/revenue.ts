@@ -4,6 +4,9 @@ import { fetchAllRows } from "@/lib/supabasePaging";
 import { addDaysISO } from "@/lib/timezone";
 import type { recognizedCents } from "@/lib/revenueRecognition";
 
+/** A fee for a delivery or visit the business made itself, in its own zone, is its money. */
+const ownFee = (r: any): number => (r.delivered_by === "provider" ? Number(r.delivery_fee_cents) || 0 : 0);
+
 /**
  * Where a vertical's money is, said as data instead of as a branch.
  *
@@ -63,7 +66,7 @@ export const UNIVERSAL_REVENUE: RevenueSource = {
   toInput: (r) => ({
     // A fee in the business's OWN zone (its delivery, its call-out) is its
     // money; a platform zone's is the platform's.
-    totalCents: (r.price_cents || 0) + (r.delivered_by === "provider" ? Number(r.delivery_fee_cents) || 0 : 0),
+    totalCents: (r.price_cents || 0) + ownFee(r),
     serviceStart: r.start_date || r.created_at,
     serviceEnd: r.end_date,
     fallbackDays: 30,
@@ -97,7 +100,7 @@ export const REVENUE_SOURCES: Record<string, RevenueSource> = {
 
   food: {
     table: "food_subscriptions",
-    select: "weekly_price_cents, commitment_weeks, periods_paid, created_at, started_at, end_date, commission_pct",
+    select: "weekly_price_cents, commitment_weeks, periods_paid, delivery_fee_cents, delivered_by, created_at, started_at, end_date, commission_pct",
     scope: "legacy",
     where: (q) => q.in("status", ["active", "paused", "expired"]).eq("payment_status", "paid"),
     toInput: (r) => {
@@ -108,7 +111,7 @@ export const REVENUE_SOURCES: Record<string, RevenueSource> = {
       if (r.end_date) {
         const endDay = String(r.end_date).slice(0, 10);
         return {
-          totalCents: (r.weekly_price_cents || 0) * weeks,
+          totalCents: (r.weekly_price_cents || 0) * weeks + ownFee(r),
           serviceStart: addDaysISO(endDay, -weeks * 7),
           serviceEnd: endDay,
           fallbackDays: weeks * 7,
@@ -116,7 +119,7 @@ export const REVENUE_SOURCES: Record<string, RevenueSource> = {
       }
       const startDay = r.started_at || r.created_at;
       return {
-        totalCents: (r.weekly_price_cents || 0) * weeks,
+        totalCents: (r.weekly_price_cents || 0) * weeks + ownFee(r),
         serviceStart: startDay,
         serviceEnd: startDay ? addDaysISO(startDay, weeks * 7) : null,
         fallbackDays: weeks * 7,

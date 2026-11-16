@@ -23,7 +23,11 @@ export function useOfferDelivery(planId: string | null | undefined) {
     enabled: !!planId,
     staleTime: 5 * 60 * 1000,
     queryFn: async (): Promise<OfferDelivery> => {
-      const { data: row, error } = await supabaseDb.from("provider_plans").select("*").eq("id", planId!).maybeSingle();
+      // Either id-space: a meal plan's page holds the legacy food_meal_plans id.
+      const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(planId!);
+      const { data: rows, error } = await supabaseDb.from("provider_plans").select("*")
+        .or(uuid ? `id.eq.${planId},source_plan_id.eq.${planId}` : `source_plan_id.eq.${planId}`).limit(1);
+      const row = (rows ?? [])[0] as any;
       if (error || !row) return offerDeliveryOf(null);
       const own = offerDeliveryOf(row);
       if (own.modes.length || !row.parent_plan_id) return own;
@@ -48,7 +52,7 @@ export function DeliveryRow({ planId, priceCents, className }: { planId: string 
   const own = ownQ.data ?? [];
   const selfOnly = !pinMode;
   // A delivery with nowhere to deliver to says nothing rather than "not delivered".
-  if (pinMode === "delivery" && !own.length && !zones.length && offer.modes.length === 1) return null;
+  if (pinMode === "delivery" && !offer.ownDeliveryOnly && !own.length && !zones.length && offer.modes.length === 1) return null;
   const quote = pinMode && address ? quoteFor(pinMode, offer, zones, own, address, priceCents) : null;
   const Icon = selfOnly ? Footprints : pinMode === "on_site" ? Home : Truck;
   const ways = offer.modes.map((m) => (m === "self_service" ? "self-service" : m === "on_site" ? "visit" : "delivery"));

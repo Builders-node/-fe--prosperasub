@@ -66,13 +66,19 @@ export interface OfferDelivery {
   /** Whether service_modes exists on the row — i.e. the migration is in, so the order may carry service_mode. */
   modesColumn: boolean;
   providerId: string | null;
+  /**
+   * The business brings it itself, always — no platform couriers. Food: a
+   * restaurant has always delivered its own meals, so with no zones drawn a
+   * delivery goes anywhere, free, like a visit.
+   */
+  ownDeliveryOnly?: boolean;
 }
 
 const MODE_KEYS = new Set<ServiceMode>(["self_service", "on_site", "delivery"]);
 
 export const offerDeliveryOf = (row: {
   delivery_mode?: string | null; delivery_zone_ids?: string[] | null; delivery_fee_cents?: number | null;
-  service_modes?: string[] | null; provider_id?: string | null;
+  service_modes?: string[] | null; provider_id?: string | null; source_service_key?: string | null;
 } | null | undefined): OfferDelivery => {
   const mode: DeliveryMode = row?.delivery_mode === "delivery" || row?.delivery_mode === "both" ? row.delivery_mode : "off";
   const explicit = Array.isArray(row?.service_modes)
@@ -87,6 +93,7 @@ export const offerDeliveryOf = (row: {
     modes,
     modesColumn: !!row && "service_modes" in row,
     providerId: row?.provider_id ?? null,
+    ownDeliveryOnly: row?.source_service_key === "food",
   };
 };
 
@@ -181,7 +188,7 @@ export function quoteFor(
   const own = providerZones.filter((z) => z.is_active);
   let allowed: DeliveryZone[];
   if (own.length) allowed = own;
-  else if (mode === "delivery") allowed = platformZones.filter((z) => z.is_active && !z.provider_id && (!offer.zoneIds || offer.zoneIds.includes(z.id)));
+  else if (mode === "delivery" && !offer.ownDeliveryOnly) allowed = platformZones.filter((z) => z.is_active && !z.provider_id && (!offer.zoneIds || offer.zoneIds.includes(z.id)));
   else return { ok: true, zone: null, feeCents: 0, eta: null, freeFromCents: null, mode };
 
   // Smallest fee wins where zones overlap — the cheaper promise is the one we keep.

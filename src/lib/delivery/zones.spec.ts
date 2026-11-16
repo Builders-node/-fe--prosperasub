@@ -80,4 +80,12 @@ describe("service modes", () => {
   it("a mode the offer doesn't allow", () => {
     expect(quoteFor("on_site", offer, [square], [], inSquare, 2000).ok).toBe(false);
   });
+  it("a restaurant with no zones delivers anywhere, free — never platform couriers", () => {
+    const food = offerDeliveryOf({ service_modes: ["delivery"], source_service_key: "food" });
+    expect(food.ownDeliveryOnly).toBe(true);
+    const q = quoteFor("delivery", food, [square], [], { lat: 16, lng: -86 }, 2000);
+    expect(q.ok).toBe(true);
+    expect(quoteLine(q)).toBe("Free delivery");
+    expect(fee(quoteFor("delivery", food, [square], [own], inSquare, 2000))).toBe(700);
+  });
 });

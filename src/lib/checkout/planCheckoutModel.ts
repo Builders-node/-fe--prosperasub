@@ -175,7 +175,9 @@ export async function resolveCheckoutPlan(planId: string): Promise<CheckoutPlan 
     // page uses, so the cart and checkout show what the customer just saw.
     image: firstPhoto(row.gallery_urls) ?? firstPhoto(row.providers?.gallery_urls)
       ?? (typeof row.providers?.avatar_url === "string" && row.providers.avatar_url ? row.providers.avatar_url : null),
-    delivery: service === "universal" ? offerDeliveryOf(deliverySource) : offerDeliveryOf(null),
+    // Food chooses its ways too (migration 20261129120000); cleaning and the
+    // beach keep their own flows.
+    delivery: service === "universal" || service === "food" ? offerDeliveryOf(deliverySource) : offerDeliveryOf(null),
   };
 }
 

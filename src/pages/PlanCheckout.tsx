@@ -486,7 +486,8 @@ const UniversalPlanCheckout = () => {
       delivery_zone_id: quoteOk.zone?.id ?? null,
       // A claim — stamp_order_delivery recomputes it from the zone.
       delivery_fee_cents: quoteOk.feeCents,
-      service_address: [point.line, details].filter(Boolean).join(" — "),
+      // A meal plan keeps its address where the kitchen has always read it.
+      [isFoodPlan ? "delivery_address" : "service_address"]: [point.line, details].filter(Boolean).join(" — "),
     };
   };
   const buildRow = (method: string, i = 0) => ({ ...write(method, i).row, ...deliveryColumns() });
@@ -1047,7 +1048,7 @@ const UniversalPlanCheckout = () => {
             incomplete={missingDetails}
           >
             <FieldRows>
-              {plan.needsArea && (
+              {plan.needsArea && !serviceMode && (
                 <FieldRow icon={<MapPin className="h-4 w-4" />} label="Residence">
                   <input
                     id="pc-area"
