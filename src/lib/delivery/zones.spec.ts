@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { circleRing, etaText, quoteDelivery, quoteLine, zoneContains, type DeliveryZone } from "./zones";
+import { circleRing, etaText, offerDeliveryOf, quoteDelivery, quoteFor, quoteLine, zoneContains, type DeliveryZone, type OfferDelivery } from "./zones";
 
 const square: DeliveryZone = {
   id: "a", provider_id: null, name: "Square", shape: "polygon",
@@ -12,7 +12,7 @@ const circle: DeliveryZone = {
   ...square, id: "b", shape: "circle", polygon: null, center_lat: 16.35, center_lng: -86.6, radius_m: 2000,
   fee_cents: 300, free_from_cents: null, min_order_cents: null, eta_min_minutes: 1440, eta_max_minutes: 2880,
 };
-const offer = { mode: "delivery" as const, zoneIds: null, feeCents: null };
+const offer: OfferDelivery = { mode: "delivery", zoneIds: null, feeCents: null, modes: ["delivery"], modesColumn: true, providerId: "p1" };
 const fee = (q: ReturnType<typeof quoteDelivery>) => (q.ok ? (q as Extract<typeof q, { ok: true }>).feeCents : null);
 
 describe("zoneContains", () => {
@@ -49,5 +49,35 @@ describe("quoteDelivery", () => {
   it("refuses outside every zone", () => expect(quoteDelivery(offer, [square], { lat: 16, lng: -86 }, 2000).ok).toBe(false));
   it("only the offer's zones", () => expect(quoteDelivery({ ...offer, zoneIds: ["b"] }, [square, circle], inSquare, 2000).ok).toBe(false));
   it("the offer's own fee wins", () => expect(fee(quoteDelivery({ ...offer, feeCents: 900 }, [circle], { lat: 16.35, lng: -86.6 }, 2000))).toBe(900));
-  it("an offer that is not delivered", () => expect(quoteDelivery({ ...offer, mode: "off" }, [square], inSquare, 2000).ok).toBe(false));
+  it("an offer that is not delivered", () => expect(quoteDelivery({ ...offer, mode: "off", modes: [] }, [square], inSquare, 2000).ok).toBe(false));
+});
+
+describe("service modes", () => {
+  const inSquare = { lat: 16.35, lng: -86.45 };
+  const own: DeliveryZone = { ...circle, id: "own", provider_id: "p1", fee_cents: 700, center_lat: 16.35, center_lng: -86.45 };
+  const all: OfferDelivery = { ...offer, mode: "both", modes: ["self_service", "on_site", "delivery"] };
+
+  it("reads the old delivery_mode when service_modes is not set", () => {
+    expect(offerDeliveryOf({ delivery_mode: "both" }).modes).toEqual(["self_service", "delivery"]);
+    expect(offerDeliveryOf({ delivery_mode: "off" }).modes).toEqual([]);
+    expect(offerDeliveryOf({ delivery_mode: "off", service_modes: ["on_site"] }).modes).toEqual(["on_site"]);
+  });
+  it("a business's own zones win over the platform's", () => {
+    const q = quoteFor("delivery", all, [square], [own], inSquare, 2000);
+    expect(fee(q)).toBe(700);
+  });
+  it("a visit with no zones drawn goes anywhere, free", () => {
+    const q = quoteFor("on_site", all, [square], [], { lat: 16, lng: -86 }, 2000);
+    expect(q.ok).toBe(true);
+    expect(quoteLine(q)).toBe("They come to you · no call-out fee");
+  });
+  it("a visit never uses platform zones", () => {
+    expect(quoteFor("on_site", all, [square], [own], { lat: 16, lng: -86 }, 2000).ok).toBe(false);
+  });
+  it("a visit priced by the business's zone", () => {
+    expect(quoteLine(quoteFor("on_site", all, [square], [own], inSquare, 2000))).toBe("Call-out fee $7.00 · 1–2 days");
+  });
+  it("a mode the offer doesn't allow", () => {
+    expect(quoteFor("on_site", offer, [square], [], inSquare, 2000).ok).toBe(false);
+  });
 });

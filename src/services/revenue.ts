@@ -57,11 +57,13 @@ export interface RevenueSource {
  */
 export const UNIVERSAL_REVENUE: RevenueSource = {
   table: "provider_subscriptions",
-  select: "price_cents, metadata, created_at, start_date, end_date, commission_pct",
+  select: "price_cents, delivery_fee_cents, delivered_by, metadata, created_at, start_date, end_date, commission_pct",
   scope: "universal",
   where: (q) => q.eq("payment_status", "paid"),
   toInput: (r) => ({
-    totalCents: r.price_cents || 0,
+    // A fee in the business's OWN zone (its delivery, its call-out) is its
+    // money; a platform zone's is the platform's.
+    totalCents: (r.price_cents || 0) + (r.delivered_by === "provider" ? Number(r.delivery_fee_cents) || 0 : 0),
     serviceStart: r.start_date || r.created_at,
     serviceEnd: r.end_date,
     fallbackDays: 30,

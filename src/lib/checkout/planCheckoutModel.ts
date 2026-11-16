@@ -75,10 +75,12 @@ export interface CheckoutPlan {
   /** The plan's own photograph, for the line item at the till. */
   image: string | null;
   /**
-   * Delivery by platform couriers — the OFFER's switch (a variant inherits
-   * it). Always "off" outside the universal checkout.
+   * How it reaches the customer — self-service, a visit, a delivery — the
+   * OFFER's switch (a variant inherits it). Nothing outside the universal checkout.
    */
   delivery: OfferDelivery;
+  /** Where to come for self-service. */
+  providerLocation: string | null;
 }
 
 const asSelection = (value: unknown): SelectionGroup | null => {
@@ -112,7 +114,7 @@ function firstPhoto(list: unknown): string | null {
 export async function resolveCheckoutPlan(planId: string): Promise<CheckoutPlan | null> {
   const { data: rows } = await supabaseDb
     .from("provider_plans")
-    .select("*, providers(name, source_provider_id, status, gallery_urls, avatar_url)")
+    .select("*, providers(name, source_provider_id, status, gallery_urls, avatar_url, location)")
     .or(`id.eq.${planId},source_plan_id.eq.${planId}`)
     .limit(1);
 
@@ -121,7 +123,7 @@ export async function resolveCheckoutPlan(planId: string): Promise<CheckoutPlan 
 
   // Delivery is set on the offer; an order names one of its variants.
   let deliverySource = row;
-  if (row.parent_plan_id && (row.delivery_mode ?? "off") === "off") {
+  if (row.parent_plan_id && (row.delivery_mode ?? "off") === "off" && !Array.isArray(row.service_modes)) {
     const { data: parent } = await supabaseDb.from("provider_plans").select("*").eq("id", row.parent_plan_id).maybeSingle();
     if (parent) deliverySource = parent;
   }
@@ -154,6 +156,7 @@ export async function resolveCheckoutPlan(planId: string): Promise<CheckoutPlan 
     providerLegacyId: row.providers?.source_provider_id ? String(row.providers.source_provider_id) : null,
     name: String(row.name ?? "Plan"),
     providerName: row.providers?.name ? String(row.providers.name) : null,
+    providerLocation: row.providers?.location ? String(row.providers.location) : null,
     description: row.description ?? null,
     unitCents: Number(row.price_cents ?? 0),
     period: String(row.period ?? "monthly"),

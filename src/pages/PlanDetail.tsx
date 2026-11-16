@@ -684,8 +684,10 @@ const PlanDetail = () => {
     }
     toast.success("Saved to your cart", { action: { label: "View cart", onClick: () => navigate("/cart") } });
   };
-  // A delivery-only offer needs an address, which only its checkout asks for.
-  const deliveryOnly = offerDeliveryQ.data?.mode === "delivery";
+  // An offer received only by a visit or a delivery needs the customer's pin,
+  // which only its checkout asks for.
+  const pinModes = (offerDeliveryQ.data?.modes ?? []);
+  const deliveryOnly = pinModes.length > 0 && pinModes.every((m) => m === "on_site" || m === "delivery");
   const cartButton = deliveryOnly ? null : (
     <div className="space-y-1">
       <button

@@ -7,8 +7,9 @@ import type { GeoPoint } from "@/lib/geo/places";
  * Delivery zones — where things are brought, at what price, how fast.
  *
  * A zone is a drawn area or a circle (migration 20261124120000). The PLATFORM
- * owns them for now (provider_id NULL): platform couriers deliver and the fee
- * is the platform's, never part of the price a business is paid on.
+ * owns some (provider_id NULL): platform couriers deliver and the fee is the
+ * platform's. A business owns others (migration 20261128120000): where it
+ * delivers itself or comes to the customer, and that fee is the business's.
  *
  * This file answers the browser's questions — is this point covered, by which
  * zone, for how much. The database asks them again when the order lands
@@ -37,6 +38,19 @@ export interface DeliveryZone {
 
 export type DeliveryMode = "off" | "delivery" | "both";
 
+/**
+ * How a customer receives what they bought — chosen per offer
+ * (provider_plans.service_modes), picked by the customer at checkout
+ * (provider_subscriptions.service_mode).
+ */
+export type ServiceMode = "self_service" | "on_site" | "delivery";
+export const SERVICE_MODES: Array<{ key: ServiceMode; label: string; customer: string; hint: string }> = [
+  { key: "self_service", label: "Self-service", customer: "I'll come", hint: "The customer comes to you — a class, a gym, a pickup." },
+  { key: "on_site", label: "Visit", customer: "Come to me", hint: "You go to the customer — cleaning, repairs, a massage at home." },
+  { key: "delivery", label: "Delivery", customer: "Deliver it", hint: "It is brought to the customer — food, goods." },
+];
+export const serviceModeLabel = (m: ServiceMode) => SERVICE_MODES.find((x) => x.key === m)?.label ?? m;
+
 /** What an offer says about delivery (provider_plans columns). */
 export interface OfferDelivery {
   mode: DeliveryMode;
@@ -44,15 +58,42 @@ export interface OfferDelivery {
   zoneIds: string[] | null;
   /** This offer's own fee, instead of the zone's. */
   feeCents: number | null;
+  /**
+   * The ways it can be received. Empty = nothing to choose (the old
+   * behaviour). Read from service_modes, else from delivery_mode.
+   */
+  modes: ServiceMode[];
+  /** Whether service_modes exists on the row — i.e. the migration is in, so the order may carry service_mode. */
+  modesColumn: boolean;
+  providerId: string | null;
 }
+
+const MODE_KEYS = new Set<ServiceMode>(["self_service", "on_site", "delivery"]);
 
 export const offerDeliveryOf = (row: {
   delivery_mode?: string | null; delivery_zone_ids?: string[] | null; delivery_fee_cents?: number | null;
-} | null | undefined): OfferDelivery => ({
-  mode: row?.delivery_mode === "delivery" || row?.delivery_mode === "both" ? row.delivery_mode : "off",
-  zoneIds: row?.delivery_zone_ids ?? null,
-  feeCents: row?.delivery_fee_cents ?? null,
-});
+  service_modes?: string[] | null; provider_id?: string | null;
+} | null | undefined): OfferDelivery => {
+  const mode: DeliveryMode = row?.delivery_mode === "delivery" || row?.delivery_mode === "both" ? row.delivery_mode : "off";
+  const explicit = Array.isArray(row?.service_modes)
+    ? (row!.service_modes as string[]).filter((m): m is ServiceMode => MODE_KEYS.has(m as ServiceMode))
+    : null;
+  const modes: ServiceMode[] = explicit && explicit.length ? explicit
+    : mode === "delivery" ? ["delivery"] : mode === "both" ? ["self_service", "delivery"] : [];
+  return {
+    mode: modes.includes("delivery") ? (modes.length > 1 ? "both" : "delivery") : mode,
+    zoneIds: row?.delivery_zone_ids ?? null,
+    feeCents: row?.delivery_fee_cents ?? null,
+    modes,
+    modesColumn: !!row && "service_modes" in row,
+    providerId: row?.provider_id ?? null,
+  };
+};
+
+/** The order a mode is offered in at checkout: what the business listed, in the canonical order. */
+export const orderedModes = (modes: ServiceMode[]) => SERVICE_MODES.map((m) => m.key).filter((k) => modes.includes(k));
+/** Modes that need the customer's pin on the map. */
+export const needsPin = (m: ServiceMode | null | undefined) => m === "on_site" || m === "delivery";
 
 /** Zone colours, in order, for zones that have not chosen one. */
 export const ZONE_COLORS = ["#F5A623", "#3B82F6", "#10B981", "#EF4444", "#8B5CF6", "#EC4899", "#14B8A6", "#F97316"];
@@ -122,43 +163,67 @@ export function etaText(minM: number | null | undefined, maxM: number | null | u
 
 /** What delivering THIS offer to THIS point costs, or why it can't be. */
 export type DeliveryQuote =
-  | { ok: true; zone: DeliveryZone; feeCents: number; eta: string | null; freeFromCents: number | null }
-  | { ok: false; reason: "no_zone" | "below_minimum"; minOrderCents?: number };
+  | { ok: true; zone: DeliveryZone | null; feeCents: number; eta: string | null; freeFromCents: number | null; mode: ServiceMode }
+  | { ok: false; reason: "no_zone" | "below_minimum"; minOrderCents?: number; mode: ServiceMode };
 
-export function quoteDelivery(
-  offer: OfferDelivery, zones: DeliveryZone[], point: GeoPoint, orderCents: number,
+/**
+ * Which zones answer for a mode. A business that drew its own zones serves
+ * inside them — for a visit and for its own delivery. One that drew none:
+ * a delivery goes through the platform's couriers and zones; a visit goes
+ * anywhere, with no call-out fee. The database applies the same rule
+ * (stamp_order_delivery).
+ */
+export function quoteFor(
+  mode: ServiceMode, offer: OfferDelivery, platformZones: DeliveryZone[], providerZones: DeliveryZone[],
+  point: GeoPoint, orderCents: number,
 ): DeliveryQuote {
-  if (offer.mode === "off") return { ok: false, reason: "no_zone" };
-  const allowed = zones.filter((z) => z.is_active && !z.provider_id && (!offer.zoneIds || offer.zoneIds.includes(z.id)));
+  if (mode === "self_service" || !offer.modes.includes(mode)) return { ok: false, reason: "no_zone", mode };
+  const own = providerZones.filter((z) => z.is_active);
+  let allowed: DeliveryZone[];
+  if (own.length) allowed = own;
+  else if (mode === "delivery") allowed = platformZones.filter((z) => z.is_active && !z.provider_id && (!offer.zoneIds || offer.zoneIds.includes(z.id)));
+  else return { ok: true, zone: null, feeCents: 0, eta: null, freeFromCents: null, mode };
+
   // Smallest fee wins where zones overlap — the cheaper promise is the one we keep.
   const hits = allowed.filter((z) => zoneContains(z, point))
     .sort((a, b) => (offer.feeCents ?? a.fee_cents) - (offer.feeCents ?? b.fee_cents) || a.sort_order - b.sort_order);
   const zone = hits[0];
-  if (!zone) return { ok: false, reason: "no_zone" };
+  if (!zone) return { ok: false, reason: "no_zone", mode };
   if (zone.min_order_cents != null && orderCents < zone.min_order_cents) {
-    return { ok: false, reason: "below_minimum", minOrderCents: zone.min_order_cents };
+    return { ok: false, reason: "below_minimum", minOrderCents: zone.min_order_cents, mode };
   }
   const free = zone.free_from_cents != null && orderCents >= zone.free_from_cents;
   return {
-    ok: true, zone,
+    ok: true, zone, mode,
     feeCents: free ? 0 : offer.feeCents ?? zone.fee_cents,
     eta: etaText(zone.eta_min_minutes, zone.eta_max_minutes),
     freeFromCents: zone.free_from_cents,
   };
 }
 
-/** The quote as the one line a customer reads: "Delivery $5 · 30–60 min". */
+/** The delivery quote alone (platform or the business's own delivery). */
+export function quoteDelivery(
+  offer: OfferDelivery, zones: DeliveryZone[], point: GeoPoint, orderCents: number, providerZones: DeliveryZone[] = [],
+): DeliveryQuote {
+  return quoteFor("delivery", offer, zones, providerZones, point, orderCents);
+}
+
+/** The quote as the one line a customer reads: "Delivery $5 · 30–60 min", "Visit · free". */
 export function quoteLine(q: DeliveryQuote): string {
+  const visit = q.mode === "on_site";
   if (!q.ok) {
     // An explicit narrowing: the app compiles without strictNullChecks, where
     // a boolean discriminant does not narrow the union by itself.
     const no = q as Extract<DeliveryQuote, { ok: false }>;
-    return no.reason === "below_minimum" && no.minOrderCents
-      ? `Delivery from ${formatUSD(no.minOrderCents)} orders`
-      : "Not delivered to this address";
+    if (no.reason === "below_minimum" && no.minOrderCents) {
+      return `${visit ? "Visits" : "Delivery"} from ${formatUSD(no.minOrderCents)} orders`;
+    }
+    return visit ? "They don't come to this address" : "Not delivered to this address";
   }
   const yes = q as Extract<DeliveryQuote, { ok: true }>;
-  const fee = yes.feeCents === 0 ? "Free delivery" : `Delivery ${formatUSD(yes.feeCents)}`;
+  const fee = visit
+    ? (yes.feeCents === 0 ? "They come to you · no call-out fee" : `Call-out fee ${formatUSD(yes.feeCents)}`)
+    : (yes.feeCents === 0 ? "Free delivery" : `Delivery ${formatUSD(yes.feeCents)}`);
   return yes.eta ? `${fee} · ${yes.eta}` : fee;
 }
 
@@ -178,11 +243,26 @@ export function useDeliveryZones(enabled = true) {
   });
 }
 
+/** A business's own active zones — where it delivers itself or comes to the customer. */
+export function useProviderZones(providerId: string | null | undefined, enabled = true) {
+  return useQuery({
+    queryKey: ["provider-zones", providerId],
+    enabled: enabled && !!providerId,
+    staleTime: 5 * 60 * 1000,
+    queryFn: async (): Promise<DeliveryZone[]> => {
+      const { data, error } = await supabaseDb.from("delivery_zones").select("*")
+        .eq("is_active", true).eq("provider_id", providerId!).order("sort_order");
+      if (error) return [];
+      return (data ?? []) as DeliveryZone[];
+    },
+  });
+}
+
 /** The database's refusals, in words. */
 export const DELIVERY_REFUSALS: Record<string, string> = {
   delivery_zone_unavailable: "That delivery zone is no longer served — choose the address again.",
-  offer_not_delivered: "This offer isn't delivered any more — choose pickup.",
+  offer_not_delivered: "This offer can't be received that way any more — choose another option.",
   zone_not_offered: "This offer isn't delivered to that area.",
-  address_outside_zone: "That address is outside the delivery area — move the pin.",
+  address_outside_zone: "That address is outside the area they serve — move the pin.",
   below_minimum_order: "The order is below the minimum for delivery to that area.",
 };

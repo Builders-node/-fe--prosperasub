@@ -6,12 +6,13 @@ import { Button } from "@/components/ui/button";
 import { CheckoutStickyFooter } from "@/components/patterns/CheckoutStickyFooter";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CheckCircle2, Gift, RefreshCw, Wallet, CalendarDays, Sparkles, MapPin, MessageCircle, Truck, ChevronRight } from "lucide-react";
+import { CheckCircle2, Gift, RefreshCw, Wallet, CalendarDays, Sparkles, MapPin, MessageCircle, Footprints, ChevronRight } from "lucide-react";
 import { AddressMapDialog } from "@/components/location/AddressMapDialog";
 import { useLocationControl } from "@/contexts/LocationContext";
 import type { DeliveryAddress } from "@/lib/geo/places";
 import {
-  DELIVERY_REFUSALS, quoteDelivery, quoteLine, useDeliveryZones, type DeliveryQuote,
+  DELIVERY_REFUSALS, SERVICE_MODES, needsPin, orderedModes, quoteFor, quoteLine, useDeliveryZones, useProviderZones,
+  type DeliveryQuote, type ServiceMode,
 } from "@/lib/delivery/zones";
 import { CheckoutSuccessPanel } from "@/components/patterns/CheckoutSuccessPanel";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -260,15 +261,23 @@ const UniversalPlanCheckout = () => {
   const termOptions = shape?.termOptions ?? [];
 
   /**
-   * Delivery by platform couriers (lib/delivery/zones). The offer says whether
-   * it is delivered; the customer's pin says which zone, and the zone says the
-   * price and the time. The database prices it again when the row lands
-   * (stamp_order_delivery) and refuses a pin outside the zone.
+   * How it reaches them (lib/delivery/zones): self-service, a visit, or a
+   * delivery — whichever the offer allows, the customer picks one. A visit or
+   * a delivery needs the pin; the business's own zones (else, for a delivery,
+   * the platform's) say whether that spot is served, the fee and the time.
+   * The database prices it again when the row lands (stamp_order_delivery)
+   * and refuses a pin outside the zone.
    */
-  const deliveryMode = plan?.delivery.mode ?? "off";
-  const [fulfilChoice, setFulfilChoice] = useState<"delivery" | "pickup">("delivery");
-  const wantsDelivery = !renewSubId && deliveryMode !== "off" && (deliveryMode === "delivery" || fulfilChoice === "delivery");
-  const zonesQ = useDeliveryZones(deliveryMode !== "off");
+  const offerModes: ServiceMode[] = renewSubId ? [] : orderedModes(plan?.delivery.modes ?? []);
+  const [modeChoice, setModeChoice] = useState<ServiceMode | null>(null);
+  const serviceMode: ServiceMode | null = offerModes.length
+    ? (modeChoice && offerModes.includes(modeChoice) ? modeChoice : offerModes[0])
+    : null;
+  const visit = serviceMode === "on_site";
+  // "wantsDelivery" = the order needs the customer's pin (a delivery or a visit).
+  const wantsDelivery = needsPin(serviceMode);
+  const zonesQ = useDeliveryZones(offerModes.includes("delivery"));
+  const ownZonesQ = useProviderZones(plan?.providerUniversalId, offerModes.some(needsPin));
   const { address: savedAddress, setAddress: saveAddress } = useLocationControl();
   const [dropOff, setDropOff] = useState<DeliveryAddress | null>(null);
   const point = dropOff ?? savedAddress;
@@ -278,14 +287,18 @@ const UniversalPlanCheckout = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [savedAddress?.details]);
   const [mapOpen, setMapOpen] = useState(false);
-  const quote: DeliveryQuote | null = wantsDelivery && point && plan
-    ? quoteDelivery(plan.delivery, zonesQ.data ?? [], point, totalCents)
-    : null;
+  const quoteAt = (pt: { lat: number; lng: number }): DeliveryQuote | null =>
+    plan && serviceMode && wantsDelivery
+      ? quoteFor(serviceMode, plan.delivery, zonesQ.data ?? [], ownZonesQ.data ?? [], pt, totalCents)
+      : null;
+  const quote: DeliveryQuote | null = point ? quoteAt(point) : null;
   const quoteOk = quote?.ok ? (quote as Extract<DeliveryQuote, { ok: true }>) : null;
   const deliveryFeeCents = quoteOk?.feeCents ?? 0;
 
   // A delivered order's address is the pin, asked for in its own card.
-  const missingDetails = !phone.trim() || (!!plan?.needsAddress && !wantsDelivery && !address.trim());
+  // An offer that names its ways asks for the pin (or nothing), not the text address.
+  const needsTextAddress = !!plan?.needsAddress && !serviceMode;
+  const missingDetails = !phone.trim() || (needsTextAddress && !address.trim());
   useEffect(() => { if (missingDetails) setDetailsOpen(true); }, [missingDetails]);
 
   /**
@@ -457,13 +470,20 @@ const UniversalPlanCheckout = () => {
     promoDiscountCents: discountCents,
     creditAppliedCents: bonusCents,
   });
-  /** Where it goes — written only when it is delivered (the columns arrive with the delivery migration). */
+  /**
+   * How it reaches them. service_mode only once the offer carries the column
+   * (the service_modes migration); the pin and zone only for a visit or a
+   * delivery (the columns arrive with the delivery migration).
+   */
   const deliveryColumns = (): Record<string, unknown> => {
-    if (!wantsDelivery || !point || !quoteOk) return {};
+    const modeCols = plan?.delivery.modesColumn && serviceMode ? { service_mode: serviceMode } : {};
+    if (!wantsDelivery || !point || !quoteOk) return modeCols;
     const details = doorDetails.trim();
     return {
+      ...modeCols,
       delivery_point: { lat: point.lat, lng: point.lng, line: point.line, details: details || null },
-      delivery_zone_id: quoteOk.zone.id,
+      // No zone = a visit by a business that goes anywhere.
+      delivery_zone_id: quoteOk.zone?.id ?? null,
       // A claim — stamp_order_delivery recomputes it from the zone.
       delivery_fee_cents: quoteOk.feeCents,
       service_address: [point.line, details].filter(Boolean).join(" — "),
@@ -609,10 +629,11 @@ const UniversalPlanCheckout = () => {
       return;
     }
     if (wantsDelivery) {
-      if (!point) { toast.error("Where should we deliver it?"); setMapOpen(true); return; }
-      if (!quoteOk) { toast.error(quote ? quoteLine(quote) : "Choose where to deliver it."); setMapOpen(true); return; }
+      const where = visit ? "Where should they come?" : "Where should we deliver it?";
+      if (!point) { toast.error(where); setMapOpen(true); return; }
+      if (!quoteOk) { toast.error(quote ? quoteLine(quote) : where); setMapOpen(true); return; }
     }
-    if (plan.needsAddress && !wantsDelivery && !address.trim()) {
+    if (needsTextAddress && !address.trim()) {
       toast.error(plan.fulfilment === "deliveries" ? "Where should it be delivered?" : "Where should we come?");
       return;
     }
@@ -773,7 +794,7 @@ const UniversalPlanCheckout = () => {
                 ? [{ label: "Bonus", value: `−${formatUSD(bonusCents)}` }]
                 : []),
               ...(wantsDelivery && quoteOk
-                ? [{ label: "Delivery", value: quoteOk.feeCents === 0 ? "Free" : formatUSD(quoteOk.feeCents) }]
+                ? [{ label: visit ? "Call-out" : "Delivery", value: quoteOk.feeCents === 0 ? "Free" : formatUSD(quoteOk.feeCents) }]
                 : []),
               ...(includedLabel(plan.unitQuantity, plan.unitLabel, plan.period)
                 ? [{ label: "Included", value: includedLabel(plan.unitQuantity, plan.unitLabel, plan.period)! }]
@@ -943,18 +964,19 @@ const UniversalPlanCheckout = () => {
           </CheckoutCard>
         )}
 
-        {/* 2b — how it reaches them: the pin on the map, its zone's price and
-            time, and what the courier needs at the door. */}
-        {!showPayment && deliveryMode !== "off" && !renewSubId && (
-          <CheckoutCard title="Delivery">
+        {/* 2b — how it reaches them: which way (when there is a choice), then
+            the pin on the map with its zone's price and time, or where to
+            come for self-service. */}
+        {!showPayment && offerModes.length > 0 && serviceMode && (
+          <CheckoutCard title={offerModes.length > 1 ? "How you get it" : SERVICE_MODES.find((m) => m.key === serviceMode)?.label ?? "Delivery"}>
             <div className="space-y-3">
-              {deliveryMode === "both" && (
+              {offerModes.length > 1 && (
                 <div className="flex rounded-full bg-inset p-0.5">
-                  {([["delivery", "Delivery"], ["pickup", "Pickup"]] as const).map(([v, label]) => (
-                    <button key={v} type="button" onClick={() => setFulfilChoice(v)}
-                      className={cn("h-10 flex-1 rounded-full text-[15px] font-semibold transition-colors",
-                        fulfilChoice === v ? "bg-segment text-foreground" : "text-muted-foreground hover:text-foreground")}>
-                      {label}
+                  {offerModes.map((m) => (
+                    <button key={m} type="button" onClick={() => setModeChoice(m)} aria-pressed={serviceMode === m}
+                      className={cn("h-10 flex-1 rounded-full px-2 text-[15px] font-semibold transition-colors",
+                        serviceMode === m ? "bg-segment text-foreground" : "text-muted-foreground hover:text-foreground")}>
+                      {SERVICE_MODES.find((x) => x.key === m)?.customer ?? m}
                     </button>
                   ))}
                 </div>
@@ -981,29 +1003,33 @@ const UniversalPlanCheckout = () => {
                       value={doorDetails}
                       onChange={(e) => setDoorDetails(e.target.value.slice(0, 200))}
                       placeholder="Apartment, gate code, how to find you"
-                      aria-label="Details for the courier"
+                      aria-label={visit ? "How to find you" : "Details for the courier"}
                       className="h-12 w-full rounded-radius-md bg-inset px-3 text-body text-foreground outline-none placeholder:text-muted-foreground"
                     />
                   )}
                   {quoteOk?.freeFromCents != null && quoteOk.feeCents > 0 && (
-                    <p className="text-meta text-muted-foreground">Free delivery from {formatUSD(quoteOk.freeFromCents)}.</p>
+                    <p className="text-meta text-muted-foreground">Free {visit ? "call-out" : "delivery"} from {formatUSD(quoteOk.freeFromCents)}.</p>
                   )}
                 </>
               ) : (
                 <p className="flex items-start gap-2 text-body text-muted-foreground">
-                  <Truck className="mt-0.5 h-4 w-4 shrink-0" />
-                  You collect it from {plan.providerName ?? "the business"} — they'll message you on WhatsApp when it's ready.
+                  <Footprints className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>
+                    You go to {plan.providerName ?? "the business"}
+                    {plan.providerLocation ? <> — <span className="text-foreground">{plan.providerLocation}</span></> : null}.
+                    {" "}They'll message you on WhatsApp.
+                  </span>
                 </p>
               )}
             </div>
             <AddressMapDialog
               open={mapOpen}
               onOpenChange={setMapOpen}
-              title="Where should we deliver it?"
+              title={visit ? "Where should they come?" : "Where should we deliver it?"}
               description="Move the map until the pin sits on your door."
               coverage={(pt) => {
-                const q = quoteDelivery(plan.delivery, zonesQ.data ?? [], pt, totalCents);
-                return { ok: q.ok, text: quoteLine(q) };
+                const q = quoteAt(pt);
+                return q ? { ok: q.ok, text: quoteLine(q) } : { ok: false, text: "" };
               }}
               onConfirm={(a) => { setDropOff(a); saveAddress(a); }}
             />
@@ -1033,7 +1059,7 @@ const UniversalPlanCheckout = () => {
                 </FieldRow>
               )}
 
-              {plan.needsAddress && !wantsDelivery && (
+              {needsTextAddress && (
                 <FieldRow
                   icon={<MapPin className="h-4 w-4" />}
                   label={plan.fulfilment === "deliveries" ? "Delivery address" : "Where the visit happens"}

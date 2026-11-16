@@ -1,6 +1,7 @@
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Photo, initialsOf } from "@/components/patterns/Photo";
-import { CalendarClock, CarFront, Edit, ExternalLink, LandPlot, Megaphone, Package, Store, Users, Wallet } from "lucide-react";
+import { CalendarClock, CarFront, Edit, ExternalLink, LandPlot, Megaphone, Package, Store, Truck, Users, Wallet } from "lucide-react";
+import { ProviderDeliveryTab } from "@/components/provider/ProviderDeliveryTab";
 import { useQuery } from "@tanstack/react-query";
 import { StatusPill } from "@/components/patterns/StatusPill";
 import { Button } from "@/components/ui/button";
@@ -398,6 +399,13 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
       label: "Calendars",
       icon: LandPlot,
       render: () => <CalendarsTab providerId={provider.id} />,
+    },
+    // Where the business goes — its own zones for a visit or its own delivery.
+    {
+      value: "delivery",
+      label: "Delivery",
+      icon: Truck,
+      render: () => <ProviderDeliveryTab providerId={provider.id} />,
     },
     promoteTab,
     moneyTab,

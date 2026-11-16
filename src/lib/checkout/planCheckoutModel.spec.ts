@@ -12,13 +12,13 @@ import { totalFor, type CheckoutPlan } from "./planCheckoutModel";
 const plan = (over: Partial<CheckoutPlan> = {}): CheckoutPlan => ({
   service: "universal", status: "active", providerActive: true, universalId: "u1", subjectPlanId: "p1",
   providerUniversalId: "pr1", providerLegacyId: null,
-  name: "Plan", providerName: null, description: null,
+  name: "Plan", providerName: null, providerLocation: null, description: null,
   unitCents: 7900, period: "monthly",
   periodsMin: 1, periodsMax: 12, periodsDefault: 1,
   pricingMode: "flat", fulfilment: "none", oneTime: false,
   selection: null, needsAddress: false, needsArea: false,
   unitLabel: null, unitQuantity: null, image: null,
-  delivery: { mode: "off", zoneIds: null, feeCents: null },
+  delivery: { mode: "off", zoneIds: null, feeCents: null, modes: [], modesColumn: false, providerId: null },
   ...over,
 });
 
