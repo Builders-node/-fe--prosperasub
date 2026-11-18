@@ -176,8 +176,16 @@ async function fetchCleaning(providerId: string, from: string, to: string): Prom
 }
 
 async function fetchFood(providerId: string, from: string, to: string): Promise<UnifiedBookingRow[]> {
-  // Food subs are date-range products (started_at → end_date) — treat as
-  // "active in the window" so they show up on the calendar for their duration.
+  /**
+   * A meal subscription is drawn on every day it was PAID for.
+   *
+   * The row alone cannot say that: a renewal moves `started_at` to the new
+   * week, so a customer who renewed on Tuesday vanished from Monday, and a
+   * week that ended yesterday (status `expired`) vanished from the whole week
+   * it was delivered in. Every paid period is in `subscription_periods`
+   * (written by the food row's own trigger), so the days come from there; the
+   * row's own dates are the fallback for one that predates that log.
+   */
   const { data: plans } = await supabaseDb
     .from("food_meal_plans")
     .select("id,name")
@@ -188,33 +196,77 @@ async function fetchFood(providerId: string, from: string, to: string): Promise<
     .from("food_subscriptions")
     .select("id,meal_plan_id,customer_name,customer_whatsapp,started_at,end_date,status,payment_status,payment_reference,weekly_price_cents,commitment_weeks,delivery_address")
     .eq("provider_id", providerId)
-    .lte("started_at", to)
-    .gte("end_date", from)
-    // Only surface subs that actually generate deliveries in this window.
-    // Cancelled/paused subs would otherwise occupy a calendar row on every
-    // day they overlap even though nothing gets delivered.
-    .in("status", ["active"])
+    // Delivered, or being delivered. Cancelled and paused subs deliver nothing
+    // — a past week of an expired one did.
+    .in("status", ["active", "expired"])
     .eq("payment_status", "paid")
     .order("started_at", { ascending: true });
+  const subs = (data ?? []) as any[];
+  if (!subs.length) return [];
 
-  return (data ?? []).map((row: any) => ({
-    id: row.id,
-    sourceTable: "food_subscriptions" as const,
-    customerName: row.customer_name ?? null,
-    planName: row.meal_plan_id ? planMap.get(row.meal_plan_id) ?? null : null,
-    startAt: new Date(`${row.started_at}T00:00:00`),
-    endAt: row.end_date ? new Date(`${row.end_date}T23:59:59`) : null,
-    status: row.status ?? "unknown",
-    paymentStatus: row.payment_status ?? null,
-    priceCents: Number(row.weekly_price_cents || 0) * Number(row.commitment_weeks || 1) || null,
-    meta: {
-      delivery_address: row.delivery_address,
-      phone: pickPhone(row.customer_whatsapp),
-      // Food has no `source` column — a partner-provisioned subscription is
-      // identified by its payment reference, same as on the subscription list.
-      payment_reference: row.payment_reference ?? null,
-    },
-  }));
+  const { data: periodRows } = await supabaseDb
+    .from("subscription_periods")
+    .select("subscription_id,started_at,end_date")
+    .eq("service", "food")
+    .eq("payment_status", "paid")
+    .in("subscription_id", subs.map((r) => String(r.id)))
+    .lte("started_at", to)
+    .gte("end_date", from);
+  const spansBySub = new Map<string, Array<[string, string]>>();
+  for (const pr of (periodRows ?? []) as any[]) {
+    if (!pr.started_at || !pr.end_date) continue;
+    const list = spansBySub.get(String(pr.subscription_id)) ?? [];
+    list.push([String(pr.started_at).slice(0, 10), String(pr.end_date).slice(0, 10)]);
+    spansBySub.set(String(pr.subscription_id), list);
+  }
+
+  const out: UnifiedBookingRow[] = [];
+  for (const row of subs) {
+    const own: [string, string] | null = row.started_at && row.end_date
+      ? [String(row.started_at).slice(0, 10), String(row.end_date).slice(0, 10)] : null;
+    const spans = mergeSpans([...(spansBySub.get(String(row.id)) ?? []), ...(own ? [own] : [])])
+      .filter(([s, e]) => s <= to && e >= from);
+    for (const [start, end] of spans) {
+      out.push({
+        id: row.id,
+        sourceTable: "food_subscriptions" as const,
+        customerName: row.customer_name ?? null,
+        planName: row.meal_plan_id ? planMap.get(row.meal_plan_id) ?? null : null,
+        startAt: new Date(`${start}T00:00:00`),
+        endAt: new Date(`${end}T23:59:59`),
+        status: row.status ?? "unknown",
+        paymentStatus: row.payment_status ?? null,
+        priceCents: Number(row.weekly_price_cents || 0) * Number(row.commitment_weeks || 1) || null,
+        meta: {
+          delivery_address: row.delivery_address,
+          phone: pickPhone(row.customer_whatsapp),
+          // Food has no `source` column — a partner-provisioned subscription is
+          // identified by its payment reference, same as on the subscription list.
+          payment_reference: row.payment_reference ?? null,
+        },
+      });
+    }
+  }
+  return out;
+}
+
+/** Date spans (YYYY-MM-DD, inclusive) joined where they touch or overlap, so one sub is one row a day. */
+export function mergeSpans(spans: Array<[string, string]>): Array<[string, string]> {
+  const sorted = [...spans].sort((a, b) => a[0].localeCompare(b[0]));
+  const out: Array<[string, string]> = [];
+  for (const [s, e] of sorted) {
+    const last = out[out.length - 1];
+    if (last && s <= nextDay(last[1])) {
+      if (e > last[1]) last[1] = e;
+    } else out.push([s, e]);
+  }
+  return out;
+}
+
+function nextDay(day: string): string {
+  const d = new Date(`${day}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
 }
 
 /**
