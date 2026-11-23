@@ -91,7 +91,25 @@ export function ServiceArchetypeDialog({
     mutationFn: async () => {
       const key = form.key.trim().toLowerCase().replace(/[^a-z0-9_]+/g, "_");
       if (!key || !form.label.trim()) throw new Error("Key and label are required");
-      const payload = { ...form, key, label: form.label.trim() };
+      // Only the table's own columns. The row a caller hands in is often the
+      // HOOK's shape (useServiceArchetypes adds a resolved `Icon` component,
+      // counts, …), and spreading it made PostgREST refuse the whole write.
+      const payload = {
+        key,
+        label: form.label.trim(),
+        description: form.description,
+        icon: form.icon,
+        accent: form.accent,
+        sort_order: form.sort_order,
+        is_active: form.is_active,
+        default_capabilities: form.default_capabilities,
+        default_resource_type: form.default_resource_type,
+        default_booking_model: form.default_booking_model,
+        ...(form.family !== undefined ? { family: form.family } : {}),
+        ...(form.source_service_key !== undefined ? { source_service_key: form.source_service_key } : {}),
+        ...(form.category_key !== undefined ? { category_key: form.category_key } : {}),
+        ...(form.default_booking_settings !== undefined ? { default_booking_settings: form.default_booking_settings } : {}),
+      };
       if (isNew) {
         const { error } = await supabaseDb.from(TABLE).insert(payload);
         if (error) throw error;
