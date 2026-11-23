@@ -9,6 +9,7 @@ import { accountApi, supabaseDb } from "@/integrations/supabase/client";
 import { fetchUsersByIds, isUserUuid } from "@/lib/admin/customerNames";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -85,7 +86,7 @@ export function UniversalStaffTab({
   canManage = true,
 }: UniversalStaffTabProps) {
   const qc = useQueryClient();
-  const { userData } = useAuth();
+  const { userData, isSuperAdmin } = useAuth();
 
   const [ownerDialog, setOwnerDialog] = useState(false);
   const [managerDialog, setManagerDialog] = useState(false);
@@ -190,39 +191,36 @@ export function UniversalStaffTab({
     setOwnerMutation.mutate();
   };
 
+  const managerEmail = managerForm.user_email.trim().toLowerCase();
+  const managerEmailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(managerEmail);
+
   const addManagerMutation = useMutation({
     mutationFn: async () => {
+      // Always by email. The server decides: someone with an account joins at
+      // once and is emailed that they now have access; anyone else gets an
+      // invite link and joins when they sign up and accept (Edge
+      // provider-growth). A business never sees the platform's user list.
       const payload = {
-        userId: managerForm.user_id.trim() || null,
-        userEmail: managerForm.user_email.trim() || null,
-        userName: hasUserNameColumn ? managerForm.user_name.trim() || null : null,
+        email: managerEmail,
+        name: hasUserNameColumn ? managerForm.user_name.trim() || null : null,
       };
-      // A membership is what lets someone see this business's day — addresses
-      // included — so the server resolves the person and checks the caller
-      // owns the business before writing the row.
-      // By email: someone with an account joins at once; anyone else gets an
-      // invite link by email and joins when they accept (Edge provider-growth).
-      const { data, error } = payload.userEmail
-        ? await accountApi(`/account/providers/${providerId}/team-invites`, {
-            method: "POST",
-            body: JSON.stringify({ email: payload.userEmail, name: payload.userName }),
-          })
-        : await accountApi(`/account/providers/${providerId}/members`, {
-            method: "POST",
-            body: JSON.stringify(payload),
-          });
+      const { data, error } = await accountApi(`/account/providers/${providerId}/team-invites`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
       if (error) throw error;
-      await logAuditEvent(userData!.id, "create", auditEntityManager, String((data as any)?.id ?? providerId), payload);
-      return data as { invited?: boolean; emailed?: boolean } | null;
+      await logAuditEvent(userData!.id, "create", auditEntityManager, providerId, payload);
+      return data as { added?: boolean; already?: boolean; invited?: boolean; emailed?: boolean } | null;
     },
     onSuccess: (r) => {
-      if (r?.invited) toast.success(r.emailed ? "Invite sent — they join when they accept it" : "Invite created, but the email didn't go out");
-      else toast.success("Manager added");
+      if (r?.already) toast.info("They're already on the team");
+      else if (r?.invited) toast.success(r.emailed ? "Invite sent — they join once they sign up and accept" : "Invite created, but the email didn't go out");
+      else toast.success(r?.emailed ? "Manager added — we've emailed them" : "Manager added");
       qc.invalidateQueries({ queryKey: MANAGERS_QK });
       setManagerForm({ user_email: "", user_name: "", user_id: "" });
       setManagerDialog(false);
     },
-    onError: (e) => toast.error(String(e)),
+    onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
   });
 
   const removeManagerMutation = useMutation({
@@ -435,35 +433,50 @@ export function UniversalStaffTab({
       {/* Add Manager dialog */}
       <Dialog open={managerDialog} onOpenChange={(o) => { if (!o) setManagerDialog(false); }}>
         <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle>Add Manager</DialogTitle></DialogHeader>
-          <div className="space-y-3">
+          <DialogHeader><DialogTitle>Add a manager</DialogTitle></DialogHeader>
+          <form
+            className="space-y-3"
+            onSubmit={(e) => { e.preventDefault(); if (managerEmailOk) addManagerMutation.mutate(); }}
+          >
             <div>
-              <Label>User *</Label>
-              <UserPicker
-                value={managerForm.user_id}
-                onSelect={(u) => setManagerForm({
-                  user_id: u?.id ?? "",
-                  user_email: u?.email ?? "",
-                  user_name: (u?.display_name || u?.name || u?.email) ?? "",
-                })}
-                placeholder="Select a platform user…"
+              <Label htmlFor="manager-email">Email</Label>
+              <Input
+                id="manager-email"
+                type="email"
+                inputMode="email"
+                autoComplete="off"
+                autoFocus
+                placeholder="name@example.com"
+                value={managerForm.user_email}
+                onChange={(e) => setManagerForm((f) => ({ ...f, user_email: e.target.value, user_id: "" }))}
               />
               <p className="mt-1 text-xs text-muted-foreground">
-                Pick the platform user to grant manager access to this {entityLabel}.
+                We'll email them. If they already have an EverySub account they get access straight away;
+                if not, they sign up from the email and get access then.
               </p>
             </div>
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setManagerDialog(false)}>Cancel</Button>
-            <Button
-              onClick={() => addManagerMutation.mutate()}
-              disabled={!managerForm.user_id.trim() || addManagerMutation.isPending}
-            >
-              {addManagerMutation.isPending && <Spinner size="sm" className="mr-2" />}
-              <Plus className="mr-1 h-4 w-4" />
-              Add
-            </Button>
-          </DialogFooter>
+            {isSuperAdmin && (
+              <div>
+                <Label>Or pick a platform user</Label>
+                <UserPicker
+                  value={managerForm.user_id}
+                  onSelect={(u) => setManagerForm({
+                    user_id: u?.id ?? "",
+                    user_email: u?.email ?? "",
+                    user_name: (u?.display_name || u?.name) ?? "",
+                  })}
+                  placeholder="Select a platform user…"
+                />
+              </div>
+            )}
+            <DialogFooter>
+              <Button type="button" variant="ghost" onClick={() => setManagerDialog(false)}>Cancel</Button>
+              <Button type="submit" disabled={!managerEmailOk || addManagerMutation.isPending}>
+                {addManagerMutation.isPending ? <Spinner size="sm" className="mr-2" /> : <Plus className="mr-1 h-4 w-4" />}
+                Send
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 
