@@ -440,6 +440,7 @@ export function UniversalStaffTab({
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>Add a manager</DialogTitle></DialogHeader>
           <form
+            id="add-manager-form"
             className="space-y-3"
             onSubmit={(e) => { e.preventDefault(); if (canAddManager) addManagerMutation.mutate(); }}
           >
@@ -474,14 +475,14 @@ export function UniversalStaffTab({
                 />
               </div>
             )}
-            <DialogFooter>
-              <Button type="button" variant="ghost" onClick={() => setManagerDialog(false)}>Cancel</Button>
-              <Button type="submit" disabled={!canAddManager || addManagerMutation.isPending}>
-                {addManagerMutation.isPending ? <Spinner size="sm" className="mr-2" /> : <Plus className="mr-1 h-4 w-4" />}
-                {isSuperAdmin && managerForm.user_id ? "Add" : "Send"}
-              </Button>
-            </DialogFooter>
           </form>
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={() => setManagerDialog(false)}>Cancel</Button>
+            <Button type="submit" form="add-manager-form" disabled={!canAddManager || addManagerMutation.isPending}>
+              {addManagerMutation.isPending ? <Spinner size="sm" className="mr-2" /> : <Plus className="mr-1 h-4 w-4" />}
+              {isSuperAdmin && managerForm.user_id ? "Add" : "Send"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
