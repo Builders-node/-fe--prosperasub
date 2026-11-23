@@ -174,8 +174,8 @@ function SettingsCard({ initial }: { initial: Settings }) {
         <Input inputSize="sm" label="Home, $ / week" type="number" min={0} value={f.home} onChange={set("home")} />
         <Input inputSize="sm" label="Service, $ / week" type="number" min={0} value={f.service} onChange={set("service")} />
         <Input inputSize="sm" label="Boost, extra %" type="number" min={0} max={50} value={f.boost} onChange={set("boost")} />
-        <Input inputSize="sm" label="Home slots" type="number" min={0} max={12} value={f.slotsHome} onChange={set("slotsHome")} />
-        <Input inputSize="sm" label="Slots per service" type="number" min={0} max={12} value={f.slotsService} onChange={set("slotsService")} />
+        <Input inputSize="sm" label="Home slots (for sale)" type="number" min={0} max={12} value={f.slotsHome} onChange={set("slotsHome")} />
+        <Input inputSize="sm" label="Slots per service (for sale)" type="number" min={0} max={12} value={f.slotsService} onChange={set("slotsService")} />
       </div>
       <div className="flex justify-end">
         <Button size="sm" loading={save.isPending} onClick={() => save.mutate()}>Save prices</Button>
@@ -186,8 +186,9 @@ function SettingsCard({ initial }: { initial: Settings }) {
 
 /**
  * Give a business a featured slot, free — for a launch, a partner, a test.
- * The same slot a purchase makes (price $0, no money moves), so the rails, the
- * slot limits, the stats and End treat it alike (Edge POST /admin/promotions/grant).
+ * The same row a purchase makes (price $0, no money moves), so the rails, the
+ * stats and End treat it alike — but it takes NO slot: the slot count limits
+ * what businesses can buy (Edge POST /admin/promotions/grant).
  */
 function GrantCard() {
   const qc = useQueryClient();
@@ -230,7 +231,7 @@ function GrantCard() {
     <section className="mb-4 space-y-3 rounded-radius-lg bg-card p-4">
       <div>
         <h2 className="text-title font-semibold text-foreground">Feature for free</h2>
-        <p className="text-meta text-muted-foreground">Put a business or one of its offers in a featured slot at no cost. Its owner is told.</p>
+        <p className="text-meta text-muted-foreground">Put a business or one of its offers in a featured slot at no cost. Its owner is told. Free placements don’t use up the slots businesses can buy.</p>
       </div>
       <div className="grid gap-3 md:grid-cols-2">
         <select className={fieldClass} value={providerId} onChange={(e) => setProviderId(e.target.value)} aria-label="Business">
