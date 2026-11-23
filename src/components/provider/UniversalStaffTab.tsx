@@ -193,7 +193,7 @@ export function UniversalStaffTab({
 
   const managerEmail = managerForm.user_email.trim().toLowerCase();
   const managerEmailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(managerEmail);
-  const canAddManager = isSuperAdmin ? !!managerForm.user_id.trim() : managerEmailOk;
+  const canAddManager = (isSuperAdmin && !!managerForm.user_id.trim()) || managerEmailOk;
 
   const addManagerMutation = useMutation({
     mutationFn: async () => {
@@ -203,11 +203,14 @@ export function UniversalStaffTab({
       // provider-growth). A business never sees the platform's user list.
       const name = hasUserNameColumn ? managerForm.user_name.trim() || null : null;
       // A platform admin picks the person from the user list, as before.
-      const payload = isSuperAdmin
+      // Picked from the list (admins only) → added directly; typed email → the
+      // invite path, which also tells an existing account it has access.
+      const picked = isSuperAdmin && !!managerForm.user_id.trim();
+      const payload = picked
         ? { userId: managerForm.user_id.trim() || null, userEmail: managerForm.user_email.trim() || null, userName: name }
         : { email: managerEmail, name };
       const { data, error } = await accountApi(
-        `/account/providers/${providerId}/${isSuperAdmin ? "members" : "team-invites"}`,
+        `/account/providers/${providerId}/${picked ? "members" : "team-invites"}`,
         { method: "POST", body: JSON.stringify(payload) },
       );
       if (error) throw error;
@@ -435,28 +438,11 @@ export function UniversalStaffTab({
       {/* Add Manager dialog */}
       <Dialog open={managerDialog} onOpenChange={(o) => { if (!o) setManagerDialog(false); }}>
         <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle>{isSuperAdmin ? "Add Manager" : "Add a manager"}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Add a manager</DialogTitle></DialogHeader>
           <form
             className="space-y-3"
             onSubmit={(e) => { e.preventDefault(); if (canAddManager) addManagerMutation.mutate(); }}
           >
-            {isSuperAdmin ? (
-              <div>
-                <Label>User *</Label>
-                <UserPicker
-                  value={managerForm.user_id}
-                  onSelect={(u) => setManagerForm({
-                    user_id: u?.id ?? "",
-                    user_email: u?.email ?? "",
-                    user_name: (u?.display_name || u?.name || u?.email) ?? "",
-                  })}
-                  placeholder="Select a platform user…"
-                />
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Pick the platform user to grant manager access to this {entityLabel}.
-                </p>
-              </div>
-            ) : (
               <div>
                 <Label htmlFor="manager-email">Email</Label>
                 <Input
@@ -474,12 +460,25 @@ export function UniversalStaffTab({
                   if not, they sign up from the email and get access then.
                 </p>
               </div>
+            {isSuperAdmin && (
+              <div>
+                <Label>Or pick a platform user</Label>
+                <UserPicker
+                  value={managerForm.user_id}
+                  onSelect={(u) => setManagerForm({
+                    user_id: u?.id ?? "",
+                    user_email: u?.email ?? "",
+                    user_name: (u?.display_name || u?.name || u?.email) ?? "",
+                  })}
+                  placeholder="Select a platform user…"
+                />
+              </div>
             )}
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={() => setManagerDialog(false)}>Cancel</Button>
               <Button type="submit" disabled={!canAddManager || addManagerMutation.isPending}>
                 {addManagerMutation.isPending ? <Spinner size="sm" className="mr-2" /> : <Plus className="mr-1 h-4 w-4" />}
-                {isSuperAdmin ? "Add" : "Send"}
+                {isSuperAdmin && managerForm.user_id ? "Add" : "Send"}
               </Button>
             </DialogFooter>
           </form>
