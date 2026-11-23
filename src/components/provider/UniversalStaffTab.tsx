@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, UserPlus, Mail, UserRound, Users } from "lucide-react";
+import { Plus, Trash2, UserPlus, Mail, UserRound, Users, X } from "lucide-react";
 import { WorkspaceSection } from "@/components/provider/WorkspaceUI";
 import { QueryError } from "@/components/patterns/QueryError";
 import { YdEmptyState } from "@/components/yd/YdPrimitives";
@@ -64,6 +64,39 @@ export interface UniversalStaffTabProps {
    * a refusal.
    */
   canManage?: boolean;
+}
+
+interface TeamInvite {
+  id: string;
+  email: string | null;
+  sentAt: string;
+  expiresAt: string;
+  openedAt: string | null;
+  acceptedAt: string | null;
+  cancelledAt: string | null;
+  state: "sent" | "opened" | "accepted" | "expired" | "cancelled";
+}
+
+const INVITE_STATE: Record<TeamInvite["state"], { label: string; className: string }> = {
+  sent: { label: "Sent", className: "bg-muted text-muted-foreground" },
+  opened: { label: "Opened", className: "bg-primary/15 text-primary" },
+  accepted: { label: "Accepted", className: "bg-success/15 text-success" },
+  expired: { label: "Expired", className: "bg-muted text-muted-foreground" },
+  cancelled: { label: "Cancelled", className: "bg-muted text-muted-foreground" },
+};
+
+const shortDate = (iso: string | null) =>
+  iso ? new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" }) : "";
+
+/** What happened to an invite, in one line under the address. */
+function inviteLine(i: TeamInvite): string {
+  switch (i.state) {
+    case "accepted": return `Accepted ${shortDate(i.acceptedAt)} · sent ${shortDate(i.sentAt)}`;
+    case "cancelled": return `Cancelled ${shortDate(i.cancelledAt)} · sent ${shortDate(i.sentAt)}`;
+    case "expired": return `Expired ${shortDate(i.expiresAt)} · never accepted`;
+    case "opened": return `Sent ${shortDate(i.sentAt)} · opened ${shortDate(i.openedAt)}, not accepted yet`;
+    default: return `Sent ${shortDate(i.sentAt)} · not opened yet · valid until ${shortDate(i.expiresAt)}`;
+  }
 }
 
 interface Manager {
@@ -134,6 +167,31 @@ export function UniversalStaffTab({
       if (error) throw error;
       return (data ?? []) as Manager[];
     },
+  });
+
+  // Invites this business sent by email — who has them, who accepted. Owner
+  // (and admin) only, like the endpoint.
+  const INVITES_QK = ["staff-invites", providerId] as const;
+  const { data: invites = [] } = useQuery({
+    queryKey: INVITES_QK,
+    enabled: canManage,
+    queryFn: async () => {
+      const { data, error } = await accountApi(`/account/providers/${providerId}/team-invites`);
+      if (error) throw error;
+      return ((data as { invites?: TeamInvite[] } | null)?.invites ?? []);
+    },
+  });
+
+  const cancelInviteMutation = useMutation({
+    mutationFn: async (i: TeamInvite) => {
+      const { error } = await accountApi(`/account/providers/${providerId}/team-invites/${i.id}`, { method: "DELETE" });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Invite cancelled — the link no longer works");
+      qc.invalidateQueries({ queryKey: INVITES_QK });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : String(e)),
   });
 
   // Enrich managers with their user profile so we can render display_name even
@@ -222,6 +280,7 @@ export function UniversalStaffTab({
       else if (r?.invited) toast.success(r.emailed ? "Invite sent — they join once they sign up and accept" : "Invite created, but the email didn't go out");
       else toast.success(r?.emailed ? "Manager added — we've emailed them" : "Manager added");
       qc.invalidateQueries({ queryKey: MANAGERS_QK });
+      qc.invalidateQueries({ queryKey: ["staff-invites", providerId] });
       setManagerForm({ user_email: "", user_name: "", user_id: "" });
       setManagerDialog(false);
     },
@@ -368,6 +427,45 @@ export function UniversalStaffTab({
           </div>
         )}
       </WorkspaceSection>
+
+      {/* Invites sent by email */}
+      {canManage && invites.length > 0 && (
+        <WorkspaceSection
+          title="Invites"
+          subtitle="Who you invited by email, and who has accepted."
+        >
+          <div className="space-y-2">
+            {invites.map((i) => {
+              const st = INVITE_STATE[i.state];
+              const open = i.state === "sent" || i.state === "opened";
+              return (
+                <div key={i.id} className={`flex items-center gap-3 rounded-radius-md bg-inset p-3 ${open || i.state === "accepted" ? "" : "opacity-60"}`}>
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-radius-md bg-muted text-muted-foreground">
+                    <Mail className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[16px] font-semibold leading-[22px] text-foreground">{i.email ?? "—"}</p>
+                    <p className="truncate text-[14px] leading-[18px] text-muted-foreground">{inviteLine(i)}</p>
+                  </div>
+                  <Badge className={`shrink-0 rounded-full ${st.className}`}>{st.label}</Badge>
+                  {open && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 w-8 shrink-0 p-0 text-muted-foreground hover:text-destructive"
+                      onClick={() => cancelInviteMutation.mutate(i)}
+                      disabled={cancelInviteMutation.isPending}
+                      aria-label={`Cancel the invite to ${i.email ?? "this address"}`}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </WorkspaceSection>
+      )}
 
       {/* Permissions note — same wording across services keeps ops training simple. */}
       <section className="rounded-radius-lg bg-card p-4 text-[14px] leading-[18px] tracking-[-0.02em]">

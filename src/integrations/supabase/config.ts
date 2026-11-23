@@ -80,7 +80,7 @@ const EDGE_ROUTES: RegExp[] = [
   /^\/account\/providers\/[^/]+\/reviews\/[^/]+\/reply$/,
   // Owner promo codes and team invites (Edge routes/provider-growth.ts).
   /^\/account\/providers\/[^/]+\/promo-codes(\/[^/]+)?$/,
-  /^\/account\/providers\/[^/]+\/team-invites$/,
+  /^\/account\/providers\/[^/]+\/team-invites(\/[^/]+)?$/,
   // Car rentals: every write is server-side now (Edge routes/rentals.ts).
   // Favourites: list, save, unsave, and a guest's saves merged at sign-in.
   /^\/account\/favorites(\/(merge|(plan|provider|vehicle)\/[^/]+))?$/,
