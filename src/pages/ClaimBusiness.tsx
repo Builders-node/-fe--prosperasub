@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Building2 } from "lucide-react";
@@ -62,6 +63,20 @@ export default function ClaimBusiness() {
   });
 
   const info = infoQ.data;
+
+  // A team invite needs no second click: whoever arrives through the link and
+  // is signed in — typically someone who has just created their account from
+  // it — joins at once. The link is the proof they own the address, so this
+  // is still the token's decision, never an email match. Owner hand-overs keep
+  // the explicit button: taking over a business is a choice to make on purpose.
+  const autoClaimed = useRef(false);
+  useEffect(() => {
+    if (autoClaimed.current || !user || authLoading) return;
+    if (info?.kind !== "member" || info.state !== "open") return;
+    autoClaimed.current = true;
+    claim.mutate();
+  }, [user, authLoading, info, claim]);
+
   const here = `/claim-business?token=${encodeURIComponent(token)}`;
 
   let body: React.ReactNode;
@@ -93,13 +108,22 @@ export default function ClaimBusiness() {
         <p className="text-body text-muted-foreground">
           {info.kind === "member"
             ? "As a manager you see its schedule, customers and plans and help run the day. The owner keeps the money."
-            : "As the owner you manage its plans, schedule and team, see its money and withdraw it."}
+            : "As the owner you manage its plans, schedule and team, see its money and withdraw it."}{" "}
           The link works once, until {formatDateHN(info.expiresAt)}.
         </p>
         {user ? (
           <Button size="lg" className="w-full" loading={claim.isPending} onClick={() => claim.mutate()}>
             {info.kind === "member" ? "Accept and join the team" : "Accept and open my business"}
           </Button>
+        ) : info.kind === "member" ? (
+          <div className="space-y-2">
+            <Button size="lg" className="w-full" onClick={() => openAuthModal("signup", here)}>
+              Create an account and join
+            </Button>
+            <Button size="lg" variant="ghost" className="w-full" onClick={() => openAuthModal("login", here)}>
+              I already have an account
+            </Button>
+          </div>
         ) : (
           <Button size="lg" className="w-full" onClick={() => openAuthModal("login", here)}>
             Sign in to accept
