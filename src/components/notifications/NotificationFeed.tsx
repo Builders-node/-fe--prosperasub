@@ -66,7 +66,7 @@ export function FilterPills({ value, onChange, unreadCount, hasBusiness, size = 
           onClick={() => onChange(t.key)}
           className={cn(
             "flex shrink-0 items-center gap-1.5 rounded-full font-semibold transition-colors",
-            size === "sm" ? "h-8 px-3 text-[13px]" : "h-9 px-4 text-[14px]",
+            size === "sm" ? "h-8 px-3 text-sm" : "h-9 px-4 text-[14px]",
             value === t.key ? "bg-foreground text-background" : "bg-inset text-muted-foreground hover:text-foreground",
           )}
         >
@@ -94,7 +94,7 @@ export function NotificationList({ groups, filter, onRead, onArchive, onNavigate
     <div className="space-y-4">
       {days.map(({ day, items }) => (
         <section key={day} aria-label={day}>
-          <h2 className={cn("mb-1.5 text-[13px] font-semibold text-muted-foreground", compact ? "px-3" : "px-1")}>{day}</h2>
+          <h2 className={cn("mb-1.5 text-sm font-semibold text-muted-foreground", compact ? "px-3" : "px-1")}>{day}</h2>
           <div className="space-y-1">
             {items.map((g) => (
               <NotificationCard

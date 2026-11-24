@@ -139,7 +139,7 @@ export function NotificationCard({
 
         <div className="relative min-w-0 flex-1">
           {showBusinessTag && p.isBusiness && (
-            <p className="mb-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Your business</p>
+            <p className="mb-0.5 text-meta font-semibold uppercase text-muted-foreground">Your business</p>
           )}
           <div className="flex items-start gap-3">
             <p className={cn("min-w-0 flex-1 text-title text-foreground", isRead ? "font-medium" : "font-semibold")}>
@@ -179,7 +179,7 @@ export function NotificationCard({
                   type="button"
                   onClick={(e) => { e.stopPropagation(); go(p.action!.url); }}
                   className={cn(
-                    "inline-flex h-8 items-center rounded-full px-3.5 text-[13px] font-semibold transition-opacity hover:opacity-90",
+                    "inline-flex h-8 items-center rounded-full px-3.5 text-sm font-semibold transition-opacity hover:opacity-90",
                     p.action.primary ? "bg-primary text-primary-foreground" : "bg-inset text-foreground hover:bg-muted",
                   )}
                 >
@@ -191,7 +191,7 @@ export function NotificationCard({
                   type="button"
                   aria-expanded={open}
                   onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
-                  className="inline-flex h-8 items-center gap-1 rounded-full px-2 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+                  className="inline-flex h-8 items-center gap-1 rounded-full px-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
                 >
                   {earlier.length} earlier {earlier.length === 1 ? "update" : "updates"}
                   <ChevronDown className={cn("h-4 w-4 transition-transform", open && "rotate-180")} />
@@ -203,7 +203,7 @@ export function NotificationCard({
           {open && earlier.length > 0 && (
             <ol className="mt-2 space-y-1.5 border-l-2 border-muted pl-3">
               {earlier.map((e) => (
-                <li key={e.id} className="flex items-baseline justify-between gap-3 text-[13px]">
+                <li key={e.id} className="flex items-baseline justify-between gap-3 text-sm">
                   <span className="text-foreground/80">{stepLabel(e)}</span>
                   <span className="shrink-0 text-meta tabular-nums text-muted-foreground">{shortTime(e.createdAt, now)}</span>
                 </li>
