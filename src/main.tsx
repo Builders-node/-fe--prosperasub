@@ -2,6 +2,7 @@ import { tryAutoRecover } from "@/lib/staleChunk";
 import React from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
+import "@fontsource-variable/inter/opsz.css";
 import "./index.css";
 import { captureAttribution } from "./lib/attribution";
 import { installTranslatedDomGuard } from "./lib/translatedDomGuard";
