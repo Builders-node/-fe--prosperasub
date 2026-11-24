@@ -178,7 +178,7 @@ export function GoLivePanel({ provider, previewHref, ownerView = false }: {
               <p className="text-meta text-attention">
                 {service.label} is switched off, so customers can't see this business yet.{" "}
                 {isSuperAdmin && (
-                  <a href={`/admin/marketplace/service/${service.key}`} className="font-semibold underline underline-offset-2">
+                  <a href={`/admin/marketplace?service=${service.key}`} className="font-semibold underline underline-offset-2">
                     Turn the service on
                   </a>
                 )}
