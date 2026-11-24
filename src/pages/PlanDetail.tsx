@@ -706,35 +706,17 @@ const PlanDetail = () => {
 
 
   /**
-   * Provider › Service › Category, as the design draws it — three ways back
-   * out of a plan into the thing that contains it. Each crumb is dropped when
-   * there is nothing behind it to click, rather than rendered dead.
+   * The visible trail is the same one search engines get — Home › service ›
+   * category › business › plan — printed as a quiet line above the content.
+   * The last step is this page, so it is text, not a link; a step that
+   * repeats the one before it ("Beach Club › Beach Club") is dropped.
    */
-  // The beach has no listing of its own any more — it is one business in the
-  // service it is filed under, so the crumb goes to that service.
-  const listing = publicListingHref(
-    plan.source === "cleaning" ? "cleaning" : plan.source === "food" ? "food" : null,
-    plan.source === "beach" ? (providerArchetype ?? archetypeKey) : archetypeKey,
-  );
-  const category = categoryQ.data as { key: string; label: string } | null | undefined;
-  const seenCrumbs = new Set<string>();
-  const breadcrumbs = ([
-    providerName && plan.providerId
-      // The business's own face beside its name — a small avatar, so the
-      // crumb reads as "who sells this" and not as one more category.
-      ? { label: providerName, href: providerHref(canonicalKey, (providerQ.data as { slug?: string | null } | undefined)?.slug || plan.providerId), avatar: ((providerQ.data as any)?.avatar_url as string | null) ?? null }
-      : null,
-    listing ? { label: serviceLabel, href: listing } : null,
-    category && listing
-      ? { label: category.label, href: `${listing}?category=${encodeURIComponent(category.key)}` }
-      : null,
-  ].filter(Boolean) as Array<{ label: string; href: string; avatar?: string | null }>)
-    .filter((c) => {
-      const key = c.label.trim().toLowerCase();
-      if (seenCrumbs.has(key)) return false;
-      seenCrumbs.add(key);
-      return true;
-    });
+  const breadcrumbs = trail
+    .map((c, i) => ({
+      label: i === 0 ? "Home" : c.label,
+      href: i === trail.length - 1 ? undefined : c.href,
+    }))
+    .filter((c, i, all) => i === 0 || c.label.trim().toLowerCase() !== all[i - 1].label.trim().toLowerCase());
   // An offer's own price is the cheapest combination; once options are picked
   // the figure below is exact, so "From" only belongs on the unpicked case.
   const showFrom = !!offer && !chosen;
@@ -875,13 +857,19 @@ const PlanDetail = () => {
         separation. The page container comes back on a desktop, where a
         1280px-wide card would be unreadable.
       */}
-      <main className="pt-1 md:mx-auto md:grid md:max-w-[1280px] md:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] md:items-start md:gap-8 md:px-6 md:py-space-8">
+      {/* Laptop: the trail runs above both columns, like a shop's product page. */}
+      {breadcrumbs.length > 1 && (
+        <div className="hidden md:mx-auto md:block md:max-w-[1280px] md:px-6 md:pt-space-6">
+          <Breadcrumbs items={breadcrumbs} />
+        </div>
+      )}
+      <main className="pt-1 md:mx-auto md:grid md:max-w-[1280px] md:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] md:items-start md:gap-8 md:px-6 md:pb-space-8 md:pt-space-4">
         {/* Laptop: every photo on the left, held in view while the details scroll. */}
         <ProductGallery photos={gallery} alt={title} className="hidden md:sticky md:top-24 md:block" />
 
         <div className="flex flex-col gap-1 md:gap-4">
         <section className="space-y-3 rounded-radius-lg bg-card p-4 shadow-figma">
-          {breadcrumbs.length > 0 && <Breadcrumbs items={breadcrumbs} className="-mx-4 px-4" />}
+          {breadcrumbs.length > 1 && <Breadcrumbs items={breadcrumbs} className="md:hidden" />}
 
           <div className="space-y-2">
             <h1 className="text-[24px] font-semibold leading-tight tracking-[-0.48px] text-foreground">{title}</h1>

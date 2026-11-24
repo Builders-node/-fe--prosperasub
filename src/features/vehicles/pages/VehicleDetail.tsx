@@ -141,10 +141,12 @@ export default function VehicleDetail() {
 
   // Wider first: the section, then the company that rents this car.
   const breadcrumbs = [
+    { label: "Home", href: "/discovery" },
     { label: "Vehicles", href: carPath() },
     ...(v.provider?.name && v.provider.id
       ? [{ label: v.provider.name, href: carProviderPath(v.provider.slug || v.provider.id) }]
       : []),
+    { label: v.name },
   ];
 
   const bookButton = (
@@ -199,12 +201,15 @@ export default function VehicleDetail() {
 
       {/* Laptop: every photo on the left (held in view), the car and its dates
           on the right — the same frame as a plan page. */}
-      <main className="pt-1 md:mx-auto md:grid md:max-w-[1280px] md:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] md:items-start md:gap-8 md:px-6 md:py-space-8">
+      <div className="hidden md:mx-auto md:block md:max-w-[1280px] md:px-6 md:pt-space-6">
+        <Breadcrumbs items={breadcrumbs} />
+      </div>
+      <main className="pt-1 md:mx-auto md:grid md:max-w-[1280px] md:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] md:items-start md:gap-8 md:px-6 md:pb-space-8 md:pt-space-4">
         <ProductGallery photos={shots} alt={v.name} className="hidden md:sticky md:top-24 md:block" />
 
         <div className="flex flex-col gap-1 md:gap-4">
         <section className="space-y-3 rounded-radius-lg bg-card p-4 shadow-figma">
-          <Breadcrumbs items={breadcrumbs} className="-mx-4 px-4" />
+          <Breadcrumbs items={breadcrumbs} className="md:hidden" />
 
           <div className="space-y-2">
             <h1 className="text-3xl font-semibold leading-tight tracking-tight text-foreground">{v.name}</h1>
