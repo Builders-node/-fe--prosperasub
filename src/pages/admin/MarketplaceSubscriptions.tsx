@@ -112,6 +112,8 @@ const MarketplaceSubscriptions = () => {
   // is running, what ended"), so it is the row of tabs. Raw `status` and
   // `payment` are still read from old links, shown as a removable chip.
   const [stage, setStage] = useUrlState<string>("stage", "all");
+  // `?business=<id>` — one business's orders (its admin page links here).
+  const [business, setBusiness] = useUrlState<string>("business", "");
   const [kind, setKind] = useUrlState<"all" | "subscription" | "booking">("kind", "all");
   const [origin, setOrigin] = useUrlState<"all" | "builders_node" | "platform">("origin", "all");
   const [search, setSearch] = useUrlState<string>("q", "");
@@ -139,7 +141,7 @@ const MarketplaceSubscriptions = () => {
   // A selection belongs to the view it was made in. Changing a filter used to
   // keep hidden rows selected, and the bulk action then touched rows the admin
   // could no longer see.
-  useEffect(() => { setSelected(new Set()); }, [service, stage, status, payment, kind, origin, search, ending]);
+  useEffect(() => { setSelected(new Set()); }, [service, stage, business, status, payment, kind, origin, search, ending]);
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["marketplace-sales"] });
@@ -368,6 +370,7 @@ const MarketplaceSubscriptions = () => {
       const prov = providerById.get(s.provider_id);
       if (service !== "all" && prov?.archetype_key !== service) return false;
       if (stage !== "all" && !stageMatches(s, stage)) return false;
+      if (business && s.provider_id !== business) return false;
       if (status   !== "all" && s.status         !== status)     return false;
       if (payment  !== "all" && s.payment_status !== payment)    return false;
       if (kind     !== "all" && s.kind           !== kind)       return false;
@@ -390,7 +393,7 @@ const MarketplaceSubscriptions = () => {
       }
       return true;
     });
-  }, [rows, service, stage, status, payment, kind, origin, search, endingDays, providerById, userById]);
+  }, [rows, service, stage, business, status, payment, kind, origin, search, endingDays, providerById, userById]);
 
   const stageCount = (k: string) => rows.filter((r) => stageMatches(r, k)).length;
 
@@ -528,8 +531,13 @@ const MarketplaceSubscriptions = () => {
           isEmpty={rows.length === 0}
           isNoResults={rows.length > 0 && visible.length === 0} count={visible.length}
           emptyTitle="No sales yet" emptySubtitle="Subscriptions and bookings will appear here."
-          onClearFilters={() => { setSearch(""); setService("all"); setStage("all"); setStatus("all"); setPayment("all"); setKind("all"); setOrigin("all"); setEnding(""); }}
+          onClearFilters={() => { setSearch(""); setService("all"); setStage("all"); setBusiness(""); setStatus("all"); setPayment("all"); setKind("all"); setOrigin("all"); setEnding(""); }}
           actions={<>
+            {business && (
+              <Button variant="secondary" size="sm" onClick={() => setBusiness("")} aria-label="Show every business">
+                {providerById.get(business)?.name ?? "One business"} ×
+              </Button>
+            )}
             {(status !== "all" || payment !== "all") && (
               <Button variant="secondary" size="sm" onClick={() => { setStatus("all"); setPayment("all"); }} aria-label="Remove the status filter">
                 {[status !== "all" && `Status: ${status}`, payment !== "all" && `Payment: ${payment}`].filter(Boolean).join(" · ")} ×
