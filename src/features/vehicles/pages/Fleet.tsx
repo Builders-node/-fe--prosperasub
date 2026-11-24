@@ -265,7 +265,7 @@ export default function Fleet() {
         ) : (
           // Two columns on a laptop — one full-width row per car left half
           // the screen empty.
-          <div className="grid gap-2 md:grid-cols-2">
+          <div className="grid grid-cols-2 gap-x-2 gap-y-5 md:grid-cols-3 lg:grid-cols-4">
             {shown.map((v) => <VehicleCard key={v.id} v={v} showProvider={manyProviders} />)}
           </div>
         )}
