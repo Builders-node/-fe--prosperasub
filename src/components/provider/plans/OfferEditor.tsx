@@ -385,7 +385,9 @@ export function OfferEditor({ providerId, sourceKey, planId, onSaved, onDelete, 
   }, [isNew, !!data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Unsaved changes = anything typed since the last seed.
-  const snapshot = JSON.stringify({ name, description, draftGroups, prices, sold, includes, gallery, access });
+  // `deliv` (ways to receive it, zones, fee) counts too — without it, picking
+  // "Visit" on a live plan never showed Save.
+  const snapshot = JSON.stringify({ name, description, draftGroups, prices, sold, includes, gallery, access, deliv });
   const [baseline, setBaseline] = useState<string | null>(null);
   useEffect(() => { if (seedTick) setBaseline(snapshot); }, [seedTick]); // eslint-disable-line react-hooks/exhaustive-deps
   const dirty = baseline !== null && snapshot !== baseline;
