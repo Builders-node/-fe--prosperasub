@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider, QueryCache } from "@tanstack/react-qu
 import { toast } from "sonner";
 import { errorMessage } from "@/lib/errorMessage";
 import { BrowserRouter, Navigate, Routes, Route, useLocation } from "react-router-dom";
+import { VersionWatcher } from "@/components/VersionWatcher";
 import { ThemeProvider } from "next-themes";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { AuthModalProvider } from "@/contexts/AuthModalContext";
@@ -220,6 +221,8 @@ const App = () => {
                 <ReferralCapture />
                 {/* noindex on private routes + GA4 page views (after consent). */}
                 <RouteEffects />
+                {/* Moves an open tab onto a newer build at the next navigation. */}
+                <VersionWatcher />
                 <ConsentBanner />
                 <Suspense fallback={<PageFallback />}>
                 <Routes>
