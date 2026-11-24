@@ -6,6 +6,7 @@ import { Ban, Building2, CheckCircle2, Download, MoreVertical, Pencil, Trash2, U
 import { toast } from "sonner";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { AdminListShell } from "@/components/admin/AdminListShell";
+import { TabPills } from "@/components/admin/TabPills";
 import { usePagination, TablePagination } from "@/components/ui/table-pagination";
 import { useTableSort } from "@/lib/table/useTableSort";
 import { SortHeader } from "@/components/ui/sort-header";
@@ -67,6 +68,21 @@ function subscriptionStage(s: SaleRow): string {
   return "active";
 }
 
+const STAGE_TABS = [
+  { value: "all", label: "All" },
+  { value: "pending_payment", label: "Awaiting payment" },
+  { value: "active", label: "Active" },
+  { value: "paused", label: "Paused" },
+  { value: "ended", label: "Ended" },
+  { value: "refunded", label: "Refunded" },
+] as const;
+
+function stageMatches(s: SaleRow, k: string): boolean {
+  const st = subscriptionStage(s);
+  if (k === "ended") return st === "cancelled" || st === "expired";
+  return st === k;
+}
+
 /** Stage order for sorting: what needs attention first, then running, then done. */
 const STAGE_RANK: Record<string, number> = {
   pending_payment: 0, active: 1, paused: 2, expired: 3, cancelled: 4, refunded: 5,
@@ -92,6 +108,10 @@ const MarketplaceSubscriptions = () => {
   const [service, setService] = useUrlState<string>("service", "all");
   const [status, setStatus] = useUrlState<string>("status", "all");
   const [payment, setPayment] = useUrlState<string>("payment", "all");
+  // The stage is the one question the list answers ("what needs money, what
+  // is running, what ended"), so it is the row of tabs. Raw `status` and
+  // `payment` are still read from old links, shown as a removable chip.
+  const [stage, setStage] = useUrlState<string>("stage", "all");
   const [kind, setKind] = useUrlState<"all" | "subscription" | "booking">("kind", "all");
   const [origin, setOrigin] = useUrlState<"all" | "builders_node" | "platform">("origin", "all");
   const [search, setSearch] = useUrlState<string>("q", "");
@@ -119,7 +139,7 @@ const MarketplaceSubscriptions = () => {
   // A selection belongs to the view it was made in. Changing a filter used to
   // keep hidden rows selected, and the bulk action then touched rows the admin
   // could no longer see.
-  useEffect(() => { setSelected(new Set()); }, [service, status, payment, kind, origin, search, ending]);
+  useEffect(() => { setSelected(new Set()); }, [service, stage, status, payment, kind, origin, search, ending]);
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["marketplace-sales"] });
@@ -347,6 +367,7 @@ const MarketplaceSubscriptions = () => {
     return rows.filter((s) => {
       const prov = providerById.get(s.provider_id);
       if (service !== "all" && prov?.archetype_key !== service) return false;
+      if (stage !== "all" && !stageMatches(s, stage)) return false;
       if (status   !== "all" && s.status         !== status)     return false;
       if (payment  !== "all" && s.payment_status !== payment)    return false;
       if (kind     !== "all" && s.kind           !== kind)       return false;
@@ -369,7 +390,9 @@ const MarketplaceSubscriptions = () => {
       }
       return true;
     });
-  }, [rows, service, status, payment, kind, origin, search, endingDays, providerById, userById]);
+  }, [rows, service, stage, status, payment, kind, origin, search, endingDays, providerById, userById]);
+
+  const stageCount = (k: string) => rows.filter((r) => stageMatches(r, k)).length;
 
   // Every row is already in hand (see the paging note below), so every column
   // sorts here. The choice lives in `?sort=` like the filters; the keys `name`,
@@ -432,6 +455,15 @@ const MarketplaceSubscriptions = () => {
   return (
     <SuperAdminLayout title="Orders" subtitle="Every subscription, booking and booked hour across all services">
       <div className="space-y-5">
+        <TabPills
+          value={stage}
+          onChange={setStage}
+          tabs={STAGE_TABS.map((t) => ({
+            value: t.value,
+            label: t.label,
+            badge: t.value === "pending_payment" ? stageCount("pending_payment") : undefined,
+          }))}
+        />
         <div className="flex flex-wrap items-end gap-3">
           <FilterBlock label="Service">
             <Select value={service} onValueChange={setService}>
@@ -439,31 +471,6 @@ const MarketplaceSubscriptions = () => {
               <SelectContent>
                 <SelectItem value="all">All services</SelectItem>
                 {archetypes.map((a) => <SelectItem key={a.key} value={a.key}>{a.label}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </FilterBlock>
-          <FilterBlock label="Status">
-            <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="paused">Paused</SelectItem>
-                <SelectItem value="cancelled">Cancelled</SelectItem>
-                <SelectItem value="expired">Expired</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-              </SelectContent>
-            </Select>
-          </FilterBlock>
-          <FilterBlock label="Payment">
-            <Select value={payment} onValueChange={setPayment}>
-              <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="paid">Paid</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="failed">Failed</SelectItem>
-                <SelectItem value="refunded">Refunded</SelectItem>
               </SelectContent>
             </Select>
           </FilterBlock>
@@ -521,8 +528,13 @@ const MarketplaceSubscriptions = () => {
           isEmpty={rows.length === 0}
           isNoResults={rows.length > 0 && visible.length === 0} count={visible.length}
           emptyTitle="No sales yet" emptySubtitle="Subscriptions and bookings will appear here."
-          onClearFilters={() => { setSearch(""); setService("all"); setStatus("all"); setPayment("all"); setKind("all"); setOrigin("all"); setEnding(""); }}
+          onClearFilters={() => { setSearch(""); setService("all"); setStage("all"); setStatus("all"); setPayment("all"); setKind("all"); setOrigin("all"); setEnding(""); }}
           actions={<>
+            {(status !== "all" || payment !== "all") && (
+              <Button variant="secondary" size="sm" onClick={() => { setStatus("all"); setPayment("all"); }} aria-label="Remove the status filter">
+                {[status !== "all" && `Status: ${status}`, payment !== "all" && `Payment: ${payment}`].filter(Boolean).join(" · ")} ×
+              </Button>
+            )}
             {endingDays != null && (
               <Button variant="secondary" size="sm" onClick={() => setEnding("")} aria-label="Remove the ending filter">
                 Ending in {endingDays} day{endingDays === 1 ? "" : "s"} ×

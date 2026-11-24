@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Photo, initialsOf } from "@/components/patterns/Photo";
 import { useNavigate, Link } from "react-router-dom";
+import { fetchAllRows } from "@/lib/supabasePaging";
 import { useUrlState } from "@/hooks/useUrlState";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronRight, ShieldCheck, Plus } from "lucide-react";
@@ -52,6 +53,9 @@ interface ProviderRow {
 
 const QUERY_KEY = ["marketplace-providers"] as const;
 const AUDIT_ENTITY = "provider";
+/** The owner asked for review and the business is not live yet. */
+const isReady = (p: { status: string; review_requested_at?: string | null }) =>
+  !!p.review_requested_at && p.status !== "active" && p.status !== "approved";
 
 /**
  * Universal admin list for the `providers` table. Table layout matches Plans /
@@ -87,17 +91,14 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
   const { data: providers = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: QUERY_KEY,
     queryFn: async () => {
-      // Hard cap at 200 — pre-cap `.select("*")` returned unbounded, which
-       // rendered every row and pinned the browser on large tenants. Real
-       // pagination is on the roadmap; this is the safety floor until then.
+      // Every business, paged by the server: the old 200-row cap silently hid
+      // the rest, and the counts and search then lied about the platform.
       // select("*") — the completeness score reads description, media, hours
       // and contacts, and they are all on this row already.
-      const { data, error } = await supabaseDb.from("providers").select("*")
+      return fetchAllRows<ProviderRow>((): any => supabaseDb.from("providers").select("*")
         .order("sort_order", { ascending: true })
         .order("name", { ascending: true })
-        .range(0, 199);
-      if (error) throw error;
-      return (data ?? []) as ProviderRow[];
+        .order("id", { ascending: true }), { maxRows: 5000 });
     },
   });
 
@@ -141,7 +142,8 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
     return providers.filter((p) => {
       if (service === "unassigned") { if (p.archetype_key) return false; }
       else if (service !== "all" && p.archetype_key !== service) return false;
-      if (status  !== "all" && p.status        !== status)  return false;
+      if (status === "ready") { if (!isReady(p)) return false; }
+      else if (status !== "all" && p.status !== status) return false;
       if (q && !(
         p.name.toLowerCase().includes(q) ||
         (p.description ?? "").toLowerCase().includes(q) ||
@@ -217,7 +219,7 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
   // the list then doesn't show.
   const inService = inScope.filter((p) => archetypeKey || service === "all" || p.archetype_key === service);
   const statusCount = (k: string) =>
-    inService.filter((p) => k === "all" || p.status === k || (k === "active" && p.status === "approved")).length;
+    inService.filter((p) => k === "all" || (k === "ready" ? isReady(p) : p.status === k || (k === "active" && p.status === "approved"))).length;
 
   const body = (
     <>
@@ -249,10 +251,12 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
         <div className="-mx-1 overflow-x-auto px-1 [scrollbar-width:none]">
           <TabPills
             className="flex-nowrap whitespace-nowrap"
-            value={status as "all" | "active" | "draft" | "inactive"}
+            value={status as "all" | "ready" | "active" | "draft" | "inactive"}
             onChange={setStatus}
             tabs={[
               { value: "all", label: `All ${statusCount("all")}` },
+              // Owners who pressed "Ready for review" — the queue to put live.
+              { value: "ready", label: "Ready for review", badge: statusCount("ready") },
               { value: "active", label: `Live ${statusCount("active")}` },
               { value: "draft", label: `Draft ${statusCount("draft")}` },
               { value: "inactive", label: `Hidden ${statusCount("inactive")}` },
