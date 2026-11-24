@@ -1,4 +1,4 @@
-import { supabaseDb } from "@/integrations/supabase/client";
+import { accountApi, supabaseDb } from "@/integrations/supabase/client";
 
 /**
  * Resolving customer display names, safely.
@@ -39,11 +39,16 @@ export interface UserLite {
 export async function fetchUsersByIds(ids: Array<string | null | undefined>): Promise<Map<string, UserLite>> {
   const unique = Array.from(new Set(ids.filter(isUserUuid)));
   if (unique.length === 0) return new Map();
-  const { data } = await supabaseDb
-    .from("users")
-    .select("id, name, display_name, email")
-    .in("id", unique);
-  return new Map((data ?? []).map((u: any) => [String(u.id), u as UserLite]));
+  // Through the API, never the `users` table: it is closed to the public key.
+  // The server answers an admin with everyone asked for and a business with
+  // its own customers and team; anyone else stays unknown, and the caller
+  // falls back to the name written on the order.
+  const { data } = await accountApi("/account/people/lookup", {
+    method: "POST",
+    body: JSON.stringify({ ids: unique }),
+  });
+  const people = ((data as { people?: UserLite[] } | null)?.people ?? []);
+  return new Map(people.map((u) => [String(u.id), u]));
 }
 
 /** Company/household names for client-backed rows, which have no user at all. */

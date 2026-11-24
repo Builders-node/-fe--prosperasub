@@ -44,8 +44,10 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 async function resolveOwnerUuid(userId: string | null, email: string | null): Promise<string | null> {
   if (userId && UUID_RE.test(userId)) return userId;
   if (email) {
-    const { data } = await supabaseDb.from("users").select("id").eq("email", email).maybeSingle();
-    if (data?.id) return data.id as string;
+    // Through the API — `users` is closed to the browser; email lookups are admin-only there.
+    const { data } = await accountApi("/account/people/lookup", { method: "POST", body: JSON.stringify({ emails: [email] }) });
+    const hit = ((data as { people?: Array<{ id: string }> } | null)?.people ?? [])[0];
+    if (hit?.id) return hit.id;
   }
   return null;
 }

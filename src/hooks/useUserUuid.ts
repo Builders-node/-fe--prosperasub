@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabaseDb } from "@/integrations/supabase/client";
+import { fetchMyUuid } from "@/lib/account/myUuid";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -16,13 +16,9 @@ export function useUserUuid() {
     queryKey: ["user-uuid", userData?.email],
     queryFn: async () => {
       if (!userData?.email) return null;
-      // Always resolve via DB email lookup — the JWT id may be a Google-format id
-      const { data } = await supabaseDb
-        .from("users")
-        .select("id")
-        .eq("email", userData.email)
-        .maybeSingle();
-      if (data?.id) return data.id as string;
+      // The server resolves it — the JWT id may be a Google-format id.
+      const id = await fetchMyUuid();
+      if (id) return id;
       // Last resort: only use userData.id if it looks like a real UUID
       if (userData?.id && UUID_RE.test(userData.id)) return userData.id;
       return null;

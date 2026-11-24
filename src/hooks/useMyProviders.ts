@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import type { ServiceConfig, ProviderConfig } from "@/lib/services/registry";
+import { fetchMyUuid } from "@/lib/account/myUuid";
 
 export type MyProviderRole = "owner" | "manager";
 
@@ -45,9 +46,8 @@ export function useMyProviders<TRow extends MyProviderRow = MyProviderRow>(
       // UUID, so resolve the canonical UUID by email before matching ownership.
       let dbUserId = userId!;
       if (!UUID_RE.test(dbUserId) && email) {
-        const { data } = await supabaseDb
-          .from("users").select("id").eq("email", email).maybeSingle();
-        if (data?.id) dbUserId = data.id;
+        const id = await fetchMyUuid();
+        if (id) dbUserId = id;
       }
 
       // Owner query — every marketplace *_providers row has admin_user_id.

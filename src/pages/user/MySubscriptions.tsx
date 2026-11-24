@@ -65,6 +65,7 @@ import { cn } from "@/lib/utils";
 import { to12h as format12h } from "@/lib/booking/bookingSettings";
 import { carPath } from "@/features/vehicles";
 import { useBeachClubHome } from "@/legacy/beach";
+import { fetchMyUuid } from "@/lib/account/myUuid";
 
 /**
  * Compute what the server-side renewal will land on: continuous period,
@@ -286,11 +287,8 @@ const MySubscriptions = () => {
       // Fallback: if no subs found by user_id, try matching via users.email
       // (handles cases where the subscription was created with a different user_id format)
       if (!subs?.length && userData?.email) {
-        const { data: userRow } = await supabaseDb
-          .from("users")
-          .select("id")
-          .eq("email", userData.email)
-          .maybeSingle();
+        const myId = await fetchMyUuid();
+        const userRow = myId ? { id: myId } : null;
         if (userRow?.id && userRow.id !== userUuid) {
           const { data: fallbackSubs } = await supabaseDb
             .from("cleaning_subscriptions")

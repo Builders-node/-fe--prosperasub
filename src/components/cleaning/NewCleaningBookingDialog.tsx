@@ -11,7 +11,7 @@ import { QtyStepper } from "@/components/checkout/OrderSize";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { adminApi, ensureCleaningSlot, supabaseDb } from "@/integrations/supabase/client";
+import { accountApi, adminApi, ensureCleaningSlot, supabaseDb } from "@/integrations/supabase/client";
 import { useUniversalIdForLegacy } from "@/lib/services/providerBridge";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAuditEvent } from "@/lib/auditLog";
@@ -233,11 +233,11 @@ export function NewCleaningBookingDialog({ providerId, trigger, defaultSubscript
     queryKey: ["admin-new-booking-users"],
     enabled: open && mode === "user",
     queryFn: async () => {
-      const { data } = await supabaseDb
-        .from("users")
-        .select("id,name,display_name,email")
-        .order("display_name", { ascending: true, nullsFirst: false });
-      return (data ?? []).map((u: any) => ({
+      // The server's list: everyone for an admin, nobody for anyone else.
+      const { data: res } = await accountApi("/account/people");
+      const data = ((res as { people?: any[] } | null)?.people ?? [])
+        .sort((a, b) => String(a.display_name || a.name || a.email || "").localeCompare(String(b.display_name || b.name || b.email || "")));
+      return data.map((u: any) => ({
         id: u.id,
         label: u.display_name || u.name || u.email || String(u.id).slice(0, 8),
         email: u.email ?? null,

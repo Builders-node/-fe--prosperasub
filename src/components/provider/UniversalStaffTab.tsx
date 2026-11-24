@@ -144,15 +144,10 @@ export function UniversalStaffTab({
       // Same reason as the batch below: `users.id` is a uuid column, and an
       // owner recorded under a Google-sub id 400s rather than simply missing.
       if (!isUserUuid(ownerUserId)) return null;
-      const { data, error } = await supabaseDb
-        .from("users")
-        .select("id, email, name, display_name")
-        .eq("id", ownerUserId)
-        .maybeSingle();
-      // A failed read is not "no owner" — surface it rather than tell the
-      // business it belongs to nobody.
-      if (error) throw error;
-      return data;
+      // Through the API (the `users` table is closed to the browser); the
+      // team of a business may know its owner.
+      const map = await fetchUsersByIds([ownerUserId]);
+      return map.get(ownerUserId) ?? { id: ownerUserId, email: null, name: null, display_name: null };
     },
   });
 
