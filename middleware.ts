@@ -25,7 +25,7 @@
 import { faqJsonLd, serviceSeo } from "./src/lib/seo/serviceSeo";
 
 export const config = {
-  matcher: ["/", "/services/:path*", "/vehicles/:path*", "/discovery", "/for-business", "/become-a-provider", "/how-it-works", "/pay-with-bitcoin", "/about"],
+  matcher: ["/", "/services/:path*", "/plans/:path*", "/cars/:path*", "/vehicles/:path*", "/discovery", "/for-business", "/become-a-provider", "/how-it-works", "/pay-with-bitcoin", "/about"],
 };
 
 const PREVIEW_BOT = /facebookexternalhit|Facebot|WhatsApp|Twitterbot|Slackbot|TelegramBot|LinkedInBot|Discordbot|Pinterest|SkypeUriPreview|vkShare|redditbot|Embedly|Iframely|bitlybot|Applebot/i;
@@ -90,9 +90,14 @@ const providerPath = (p: { id: string; slug?: string | null; unit?: string | nul
 };
 const SLUG = /^[a-z0-9][a-z0-9-]{0,79}$/;
 type Worded = { slug?: string | null; public_no?: number | string | null };
-const planPath = (plan: { id: string; source_plan_id?: string | null } & Worded, archetype: string) =>
-  `/services/${slugOf(archetype)}/plans/${wordsOf(plan) ?? (plan.source_plan_id || plan.id)}`;
-const carHref = (v: { id: string } & Worded) => `/vehicles/vehicle/${wordsOf(v) ?? v.id}`;
+/**
+ * Flat addresses, like a shop's product page: /plans/<words>-<number>,
+ * /cars/<words>-<number>. The service is not in them (the breadcrumbs say
+ * where a plan sits), so moving a business to another service moves nothing.
+ */
+const planPath = (plan: { id: string; source_plan_id?: string | null } & Worded, _archetype?: string) =>
+  `/plans/${wordsOf(plan) ?? (plan.source_plan_id || plan.id)}`;
+const carHref = (v: { id: string } & Worded) => `/cars/${wordsOf(v) ?? v.id}`;
 
 interface Link { href: string; label: string; note?: string | null }
 interface Page {
@@ -189,7 +194,8 @@ async function pageFor(path: string): Promise<Page | null> {
 
   // ── An offer: /services/:slug/plans/:id (the id may be the legacy one) ──
   const planIdx = parts.indexOf("plans");
-  if (parts[0] === "services" && planIdx >= 0 && SAFE_ID.test(parts[planIdx + 1] ?? "")) {
+  // /plans/:id now; /services/:slug/plans/:id is the old address (301 below).
+  if ((parts[0] === "plans" || parts[0] === "services") && planIdx >= 0 && SAFE_ID.test(parts[planIdx + 1] ?? "")) {
     const id = parts[planIdx + 1];
     const no = publicNoOf(id);
     let [plan] = no ? await rows(`provider_plans?public_no=eq.${no}&select=${PLAN_COLS}&limit=1`) : [];
@@ -206,7 +212,7 @@ async function pageFor(path: string): Promise<Page | null> {
     const [prov] = plan.provider_id ? await rows(`providers?id=eq.${plan.provider_id}&select=*`) : [];
     const price = priceLine(plan.price_cents, plan.period);
     const description = [price, clip(plan.description, 160)].filter(Boolean).join(" — ") || `${plan.name} on EverySub.`;
-    const self = prov?.archetype_key ? planPath(plan, prov.archetype_key) : path;
+    const self = planPath(plan);
     // A uuid, a legacy id or yesterday's words: one 301 to today's address.
     if (self !== path) return { ...DEFAULT, type: "website", redirect: self };
     const provHref = prov ? providerPath(prov) : null;
@@ -229,10 +235,12 @@ async function pageFor(path: string): Promise<Page | null> {
     };
   }
 
-  // ── A car: /vehicles/vehicle/:id ──
-  if (parts[0] === "vehicles" && parts[1] === "vehicle" && (UUID.test(parts[2] ?? "") || publicNoOf(parts[2] ?? ""))) {
-    const no = publicNoOf(parts[2]);
-    const [v] = await rows(`rental_vehicles?${no ? `public_no=eq.${no}` : `id=eq.${parts[2]}`}&select=*`);
+  // ── A car: /cars/:id (the old /vehicles/vehicle/:id answers with a 301) ──
+  const carSeg = parts[0] === "cars" && parts.length === 2 ? parts[1]
+    : parts[0] === "vehicles" && parts[1] === "vehicle" ? (parts[2] ?? "") : null;
+  if (carSeg !== null && (UUID.test(carSeg) || publicNoOf(carSeg))) {
+    const no = publicNoOf(carSeg);
+    const [v] = await rows(`rental_vehicles?${no ? `public_no=eq.${no}` : `id=eq.${carSeg}`}&select=*`);
     if (!v || v.status !== "public") return null;
     const self = carHref(v);
     if (self !== path) return { ...DEFAULT, type: "website", redirect: self };

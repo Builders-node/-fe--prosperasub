@@ -41,10 +41,10 @@ export interface SearchHit {
 /** One legacy plan row's own page, by the service it belongs to. */
 function legacyPlanHref(provider: any, legacyPlanId: string): string {
   switch (provider?.source_service_key) {
-    case "food":     return `/services/food/plans/${legacyPlanId}`;
-    case "cleaning": return `/services/cleaning/plans/${legacyPlanId}`;
+    case "food":     return `/plans/${legacyPlanId}`;
+    case "cleaning": return `/plans/${legacyPlanId}`;
     // The club lives in whichever service it is filed under.
-    case "beach":    return `/services/${provider?.archetype_key ?? "entertainment"}/plans/${legacyPlanId}`;
+    case "beach":    return `/plans/${legacyPlanId}`;
     default:         return "/discovery";
   }
 }
@@ -184,17 +184,17 @@ export function useGlobalSearch(query: string) {
       const monthly = p.monthly_price_cents
         ?? (p.price_per_cleaning_cents ?? 0) * (p.cleanings_per_month ?? 1);
       push(String(p.id), p.name, providerName.get(String(p.owner_provider_id)) ?? "Cleaning",
-           `/services/cleaning/plans/${p.id}`, monthly || null, "/ month", [p.description]);
+           `/plans/${p.id}`, monthly || null, "/ month", [p.description]);
     });
     data.food.forEach((p: any) => {
       if (variantSourceIds.has(String(p.id))) return;
       push(String(p.id), p.name, legacyProviderName.get(String(p.provider_id)) ?? "Food",
-           `/services/food/plans/${p.id}`, p.weekly_price_cents ?? null, "/ week",
+           `/plans/${p.id}`, p.weekly_price_cents ?? null, "/ week",
            [p.description]);
     });
     data.beach.forEach((p: any) => {
       push(String(p.id), p.name, "Beach Club",
-           `/services/${providerRows.get(String(p.owner_provider_id))?.archetype_key ?? "entertainment"}/plans/${p.id}`, p.price_per_person_cents ?? null,
+           `/plans/${p.id}`, p.price_per_person_cents ?? null,
            "/ person · month", [p.tagline]);
     });
     // Cars, by make and model — "hyundai", "tucson", "2024" all find one.

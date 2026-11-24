@@ -38,6 +38,7 @@ import NotFound from "./pages/NotFound";
 // Car rental — a whole storefront of its own, mounted at /vehicles. One lazy
 // chunk, so a visitor who never opens it never downloads it.
 const VehiclesApp = lazy(() => import("@/features/vehicles/pages/VehiclesApp"));
+const CarDetailPage = lazy(() => import("@/features/vehicles/pages/VehiclesApp").then((m) => ({ default: m.CarDetailPage })));
 
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 
@@ -236,6 +237,9 @@ const App = () => {
                 everything under /vehicles to its own router.
               */}
               <Route path="/vehicles/*" element={<VehiclesApp />} />
+              {/* A car's own page: /cars/<words>-<number>, flat like /plans/…
+                  (/vehicles/vehicle/:id still opens and is replaced). */}
+              <Route path="/cars/:id" element={<CarDetailPage />} />
 
               {/* Auth */}
               <Route path="/oauth/callback" element={<OAuthCallback />} />
@@ -290,6 +294,9 @@ const App = () => {
                   longer route above is more specific and still matches first,
                   but it only forwards here (or to the checkout for a renewal),
                   so a food plan is read on this page like every other. */}
+              <Route path="/plans/:planId" element={<PlanDetail />} />
+              {/* The old address, with the service in it: still opens, and the
+                  page replaces it with /plans/… */}
               <Route path="/services/:archetypeKey/plans/:planId" element={<PlanDetail />} />
 
               {/* ── The checkout ────────────────────────────────────────────

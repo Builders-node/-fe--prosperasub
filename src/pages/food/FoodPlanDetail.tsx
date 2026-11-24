@@ -18,7 +18,7 @@ const FoodPlanDetailRoute = () => {
   const { planId } = useParams<{ planId: string }>();
   const renew = sp.get("renew");
   if (renew && planId) return <Navigate to={`/checkout/${planId}?renew=${renew}`} replace />;
-  return <Navigate to={`/services/food/plans/${planId}`} replace />;
+  return <Navigate to={`/plans/${planId}`} replace />;
 };
 
 export default FoodPlanDetailRoute;

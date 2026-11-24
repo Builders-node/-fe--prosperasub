@@ -11,7 +11,7 @@ describe("addresses made of words", () => {
 
   it("links a plan by its words, else by its original id, else its own", () => {
     expect(planHref("clubs", planSegment({ id: "u-1", slug: "beach-club-membership", public_no: 1042 })))
-      .toBe("/services/clubs/plans/beach-club-membership-1042");
+      .toBe("/plans/beach-club-membership-1042");
     expect(planSegment({ id: "6d258149-6cf5-43d8-a0ce-fa60fcc8dfa0", source_plan_id: "legacy-7" })).toBe("legacy-7");
     expect(planSegment({ id: "6d258149-6cf5-43d8-a0ce-fa60fcc8dfa0" })).toBe("6d258149-6cf5-43d8-a0ce-fa60fcc8dfa0");
   });

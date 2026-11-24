@@ -59,7 +59,7 @@ import { SiteFooter } from "@/components/layout/SiteFooter";
  * in between — what you get, what it costs, what the options are — and this is
  * that page for the other three.
  *
- * One route serves all of them (`/services/:archetypeKey/plans/:planId`)
+ * One route serves all of them (`/plans/:planId`)
  * because the id tells us the table: a universal plan is a `provider_plans`
  * row, a beach plan a `beach_club_plans` row, a cleaning plan a
  * `cleaning_packages` row whose id is text rather than a uuid.
@@ -115,7 +115,9 @@ const asStringList = (value: unknown): string[] =>
 
 
 const PlanDetail = () => {
-  const { archetypeKey = "", planId = "" } = useParams<{ archetypeKey: string; planId: string }>();
+  // /plans/:planId is the address; /services/:archetypeKey/plans/:planId is
+  // the old one, still served so its links open (and are then replaced).
+  const { archetypeKey: urlArchetype = "", planId = "" } = useParams<{ archetypeKey: string; planId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
   const goBack = useGoBack("/discovery");
@@ -123,7 +125,7 @@ const PlanDetail = () => {
   const { openAuthModal } = useAuthModal();
 
   const planQ = useQuery({
-    queryKey: ["plan-detail", archetypeKey, planId],
+    queryKey: ["plan-detail", planId],
     enabled: !!planId,
     queryFn: async (): Promise<ResolvedPlan | null> => {
       // A cleaning package id is text, so it must never be handed to a uuid
@@ -307,6 +309,15 @@ const PlanDetail = () => {
       return data;
     },
   });
+
+  /**
+   * Which service sells the plan. The address no longer says (/plans/…), so
+   * the business's row does; an old address's segment is the fallback while
+   * it loads.
+   */
+  const archetypeKey: string =
+    (providerQ.data as { archetype_key?: string | null } | null | undefined)?.archetype_key
+    ?? (urlArchetype || (plan?.source === "cleaning" ? "cleaning" : plan?.source === "food" ? "food" : ""));
 
   // The business's sales funnel (lib/funnel).
   useTrackFunnel("plan_view", plan?.providerId, plan?.id);

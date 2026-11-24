@@ -71,10 +71,7 @@ async function resolveRows(items: FavoriteItem[]): Promise<Map<string, Row>> {
     for (const p of (data ?? []) as any[]) {
       const prov = p.providers ?? {};
       const archetype = String(prov.archetype_key ?? "");
-      // Food keeps its own richer page, addressed by its legacy ids.
-      const href = archetype === "food" && prov.source_provider_id && p.source_plan_id
-        ? `/services/food/${prov.source_provider_id}/plans/${p.source_plan_id}`
-        : archetype ? planHref(archetype, planSegment(p)) : null;
+      const href = archetype ? planHref(archetype, planSegment(p)) : null;
       const noun = normPeriod(p.period) === "one_time" ? "" : periodNoun(p.period);
       const row: Row = {
         kind: "plan",

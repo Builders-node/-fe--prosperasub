@@ -69,14 +69,19 @@ export const providerHref = (keyOrSlug: string, providerId: string) =>
   `/services/${serviceSlug(keyOrSlug)}/providers/${providerId}`;
 
 /**
- * The one address a plan has.
+ * The one address a plan has: /plans/<words>-<number>.
+ *
+ * Flat, the way big shops address a product — the service is NOT in it. A
+ * plan whose business moves to another service keeps its address, and the
+ * links are short enough to read in a chat. Where it sits (service ›
+ * category › business) is said by the breadcrumbs and their JSON-LD.
+ * The old /services/<service>/plans/<id> still opens and is replaced.
  *
  * Pass `planSegment(row)` — the words and number where the row has them
  * (beach-club-membership-1042). A bare id still works: the plan page finds the
  * plan by any of its ids and replaces the address with the words.
  */
-export const planHref = (keyOrSlug: string, planId: string) =>
-  `/services/${serviceSlug(keyOrSlug)}/plans/${planId}`;
+export const planHref = (_keyOrSlug: string | null | undefined, planId: string) => `/plans/${planId}`;
 
 // ─── Addresses made of words ─────────────────────────────────────────────────
 //

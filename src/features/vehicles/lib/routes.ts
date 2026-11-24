@@ -20,13 +20,13 @@ export const carPath = (sub = ""): string => {
 };
 
 /**
- * A car's own page: its name in words and its number
- * (/vehicles/vehicle/jeep-wrangler-4x4-1007), or its uuid until the backend
+ * A car's own page, flat like a plan's: its name in words and its number
+ * (/cars/jeep-wrangler-4x4-1007), or its uuid until the backend
  * migration gives it those. The page finds the car either way and replaces an
- * old address with the current one.
+ * old address (/vehicles/vehicle/<uuid> too) with the current one.
  */
 export const vehiclePath = (v: { id: string; slug?: string | null; public_no?: number | string | null }): string =>
-  carPath(`vehicle/${wordsAddress(v) ?? v.id}`);
+  `/cars/${wordsAddress(v) ?? v.id}`;
 
 /**
  * One rental business's own page, inside the unit.

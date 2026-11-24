@@ -167,3 +167,16 @@ export default function VehiclesApp() {
     </VehiclesLayout>
   );
 }
+
+/**
+ * A car's own page at its flat address, /cars/<words>-<number> — in the car
+ * section's frame, outside its /vehicles/* routes. The tab title is the car's
+ * (VehicleDetail sets it), so nothing here touches document.title.
+ */
+export function CarDetailPage() {
+  return (
+    <VehiclesLayout>
+      <VehicleDetail />
+    </VehiclesLayout>
+  );
+}

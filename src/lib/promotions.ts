@@ -46,10 +46,6 @@ export function promotionHref(p: ActivePromotion): string {
   if (prov.unit === "vehicles" || prov.archetypeKey === "vehicles") return carProviderPath(prov.id);
   const key = prov.archetypeKey ?? prov.sourceServiceKey ?? "";
   if (p.plan) {
-    // Food keeps its own plan page, keyed by the legacy ids.
-    if (prov.sourceServiceKey === "food" && prov.sourceProviderId && p.plan.sourcePlanId) {
-      return `/services/food/${prov.sourceProviderId}/plans/${p.plan.sourcePlanId}`;
-    }
     return planHref(key, p.plan.sourcePlanId ?? p.plan.id);
   }
   return providerHref(key, prov.id);

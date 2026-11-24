@@ -92,7 +92,7 @@ const main = async () => {
     if (!p || !p.archetype_key || p.unit === "vehicles") continue;
     const id = wordsOf(plan) ?? (plan.source_plan_id || plan.id);
     // Food's old provider-scoped plan URL only forwards here.
-    const path = `/services/${slugOf(p.archetype_key)}/plans/${id}`;
+    const path = `/plans/${id}`;
     entries.push(url(path, { lastmod: plan.updated_at, priority: 0.7 }));
   }
 
@@ -111,7 +111,7 @@ const main = async () => {
   // Every car on the fleet.
   const vehicles = await rows("rental_vehicles?select=*&status=eq.public");
   for (const v of vehicles) {
-    entries.push(url(`/vehicles/vehicle/${wordsOf(v) ?? v.id}`, { lastmod: v.updated_at, priority: 0.7 }));
+    entries.push(url(`/cars/${wordsOf(v) ?? v.id}`, { lastmod: v.updated_at, priority: 0.7 }));
   }
 
   const xml =
