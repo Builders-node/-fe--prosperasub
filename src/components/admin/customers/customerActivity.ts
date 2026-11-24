@@ -9,6 +9,7 @@ import {
 import { supabaseDb } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/lib/supabasePaging";
 import { pickPhone } from "@/components/patterns/CustomerPhone";
+import { fetchAllProfiles } from "@/lib/account/profiles";
 
 /**
  * What a customer has bought, across EVERY source.
@@ -100,10 +101,8 @@ export function useCustomerContacts() {
     staleTime: 60_000,
     queryFn: async () => {
       const [profiles, rentals] = await Promise.all([
-        fetchAllRows<any>(() => supabaseDb
-          .from("user_profiles")
-          .select("id,user_id,phone_number,whatsapp,address_street,address_house,address_apartment,address_area,default_delivery_address")
-          .order("id")),
+        // Through the API (admin only there): phones are closed to the browser.
+        fetchAllProfiles(),
         fetchAllRows<any>(() => supabaseDb
           .from("rental_bookings")
           .select("id,user_id,customer_whatsapp,delivery_address,created_at")

@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabaseDb, accountApi } from "@/integrations/supabase/client";
 import { pickPhone } from "@/components/patterns/CustomerPhone";
 import { fetchUsersByIds } from "@/lib/admin/customerNames";
+import { fetchProfiles } from "@/lib/account/profiles";
 
 /**
  * Normalized booking row shared by every service. Adapters map their legacy
@@ -113,7 +114,8 @@ async function fetchCleaning(providerId: string, from: string, to: string): Prom
       ? fetchUsersByIds(userIds).then((m) => ({ data: [...m.values()] }))
       : Promise.resolve({ data: [] as any[] }),
     userIds.length
-      ? supabaseDb.from("user_profiles").select("user_id,phone_number,whatsapp").in("user_id", userIds)
+      // Through the API: the server gives a business its own customers' phones.
+      ? fetchProfiles(userIds).then((data) => ({ data }))
       : Promise.resolve({ data: [] as any[] }),
     clientIds.length
       ? supabaseDb.from("cleaning_clients").select("id,company_name,contact_person,phone").in("id", clientIds)

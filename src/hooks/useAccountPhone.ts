@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { normalizePhone } from "@/components/patterns/CustomerPhone";
+import { fetchMyProfile } from "@/lib/account/profiles";
 
 /**
  * The phone number we already know for the signed-in customer.
@@ -24,12 +25,8 @@ export function useAccountPhone(): string | null {
     // costs a round trip.
     staleTime: 5 * 60_000,
     queryFn: async () => {
-      const { data } = await supabaseDb
-        .from("user_profiles")
-        .select("user_id,phone_number,whatsapp")
-        .eq("user_id", userData!.id)
-        .maybeSingle();
-      return data as { phone_number?: string | null; whatsapp?: string | null } | null;
+      // Through the API: the phone columns are closed to the browser.
+      return await fetchMyProfile().catch(() => null);
     },
   });
 

@@ -538,9 +538,11 @@ class OwnedQueryBuilder {
         const { data, error } = await db
           .from("user_profiles")
           .upsert(row, { onConflict: "user_id" })
-          .select()
+          // Only the ids come back — the contact columns are not readable
+          // with this key; what was written is what the caller already has.
+          .select("id,user_id")
           .single();
-        return { data: data ?? null, error: error ?? null };
+        return { data: data ? { ...row, ...data } : null, error: error ?? null };
       }
 
       if (action === "update") {
@@ -548,9 +550,9 @@ class OwnedQueryBuilder {
         const { data, error } = await db
           .from("user_profiles")
           .upsert({ ...values, user_id: userId }, { onConflict: "user_id" })
-          .select()
+          .select("id,user_id")
           .single();
-        return { data: data ?? null, error: error ?? null };
+        return { data: data ? { ...values, user_id: userId, ...data } : null, error: error ?? null };
       }
     }
 
@@ -910,11 +912,12 @@ class OwnedQueryBuilder {
     if (this.table === "user_profiles") {
       const user = ownedUserFromSession();
       if (!user) return { data: [], error: null };
-      let q = db.from("user_profiles").select("*").eq("user_id", user.id);
-      q = applyDbFilters(q, this.filters);
-      const { data, error } = await q;
+      // Through the API, not the table: its contact columns are closed to the
+      // public key. Only the caller's own row ever came back here anyway.
+      const { data, error } = await accountApi("/account/profile");
       if (error) return { data: [], error };
-      return { data: data ?? [], error: null };
+      const row = (data as { profile?: unknown } | null)?.profile;
+      return { data: row ? [row] : [], error: null };
     }
 
     return { data: [], error: null, count: 0 };

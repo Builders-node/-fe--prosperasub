@@ -30,6 +30,7 @@ import { useUserUuid } from "@/hooks/useUserUuid";
 import { formatUSD } from "@/lib/pricing";
 import { ResponsiveDialog } from "@/components/patterns/ResponsiveDialog";
 import { cn } from "@/lib/utils";
+import { fetchMyProfile } from "@/lib/account/profiles";
 
 /**
  * The profile, as a page.
@@ -353,9 +354,8 @@ const Profile = () => {
     queryKey: ["user-profile", userData?.id],
     queryFn: async () => {
       if (!userData?.id) return null;
-      const { data, error } = await supabase.from("user_profiles").select("*").eq("user_id", userData.id).maybeSingle();
-      if (error) throw error;
-      return data;
+      // Through the API: the profile's contact columns are closed to the browser.
+      return await fetchMyProfile();
     },
     enabled: !!userData?.id,
   });

@@ -35,6 +35,7 @@ import { useTableSort } from "@/lib/table/useTableSort";
 import { SortHeader } from "@/components/ui/sort-header";
 import { useResidences } from "@/hooks/useResidences";
 import { addressFromProfile, addressPayload, EMPTY_ADDRESS } from "@/lib/address";
+import { fetchProfiles } from "@/lib/account/profiles";
 
 type Filter = "all" | "user" | "admin" | "blocked";
 const formatRole = (role: string) => role.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
@@ -455,13 +456,9 @@ export function EditUserForm({ user, auditLogs, onSave, onSoftDelete, saving, de
     queryKey: ["admin-user-profile", user.id],
     enabled: !!user.id,
     queryFn: async () => {
-      const { data, error } = await supabaseDb
-        .from("user_profiles")
-        .select("user_id, address_street, address_house, address_apartment, address_area, address_notes, default_delivery_address")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      if (error) throw error;
-      return data as Record<string, any> | null;
+      // Through the API: addresses are closed to the browser.
+      const rows = await fetchProfiles([user.id]);
+      return (rows[0] ?? null) as Record<string, any> | null;
     },
   });
 
