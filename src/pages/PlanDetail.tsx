@@ -49,6 +49,7 @@ import { useSeo, offerJsonLd, breadcrumbJsonLd } from "@/hooks/useSeo";
 import { PhotoCarousel } from "@/components/patterns/PhotoCarousel";
 import { ProductGallery } from "@/components/patterns/ProductGallery";
 import { SiteFooter } from "@/components/layout/SiteFooter";
+import { PaymentTermsNote } from "@/components/plans/PaymentTermsNote";
 
 /**
  * The plan, before the till.
@@ -925,6 +926,15 @@ const PlanDetail = () => {
                 </button>
               )}
             </div>
+          )}
+
+          {/* The fee each way to pay adds, here rather than on the last step. */}
+          {!notOnSale && !!priceCents && (
+            <PaymentTermsNote
+              priceCents={priceCents}
+              oneTime={oneTime}
+              pausable={plan.source === "beach" || (plan.source === "universal" && (!plan.serviceKey || plan.serviceKey === "beach"))}
+            />
           )}
 
           {isFood && mealsPerDay > 0 && (
