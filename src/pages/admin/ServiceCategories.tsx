@@ -263,7 +263,7 @@ export default function ServiceCategories({ embedded = false, archetypeKey }: Se
           isEmpty={inScope.length === 0}
           isNoResults={inScope.length > 0 && filtered.length === 0} count={filtered.length}
           emptyTitle="No categories yet"
-          emptySubtitle="Categories group providers inside a service. Create one to split e.g. Cleaning into Apartment Cleaning and Car Wash."
+          emptySubtitle="Categories group businesses inside a service. Create one to split e.g. Cleaning into Apartment Cleaning and Car Wash."
           onClearFilters={() => { setSearch(""); setArchetypeFilterState("all"); }}
         >
           <div className="space-y-6">
@@ -448,7 +448,7 @@ export default function ServiceCategories({ embedded = false, archetypeKey }: Se
             <AlertDialogDescription>
               {(() => {
                 const n = deleteTarget ? providerCounts[deleteTarget.key] ?? 0 : 0;
-                if (n === 0) return "No providers are in this category — safe to delete.";
+                if (n === 0) return "No businesses are in this category — safe to delete.";
                 return `${n} ${n === 1 ? "provider is" : "providers are"} in this category. Deleting leaves them uncategorised: they'll show under "Other" on the public service page until you reassign them.`;
               })()}
             </AlertDialogDescription>
@@ -469,7 +469,7 @@ export default function ServiceCategories({ embedded = false, archetypeKey }: Se
 
   if (embedded) return body;
   return (
-    <SuperAdminLayout title="Categories" subtitle="Groups of providers inside a service — Cleaning → Apartment Cleaning · Car Wash">
+    <SuperAdminLayout title="Categories" subtitle="Groups of businesses inside a service — Cleaning → Apartment Cleaning · Car Wash">
       {body}
     </SuperAdminLayout>
   );

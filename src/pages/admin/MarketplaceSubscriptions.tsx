@@ -163,7 +163,7 @@ const MarketplaceSubscriptions = () => {
       // that also frees the slot and lets the waitlist move.
       if (b.apiManaged) {
         if (patch.status !== "cancelled") {
-          throw new Error("A booked hour can only be cancelled from here — change its time on the provider's calendar.");
+          throw new Error("A booked hour can only be cancelled from here — change its time on the business's calendar.");
         }
         await cancelCourtBooking(row.id);
         if (userData?.id) await logAuditEvent(userData.id, "edit", "bookings", row.id, { status: "cancelled" });
@@ -522,7 +522,7 @@ const MarketplaceSubscriptions = () => {
         )}
 
         <AdminListShell
-          search={search} onSearch={setSearch} searchPlaceholder="Search by provider, plan, user, payment ref…"
+          search={search} onSearch={setSearch} searchPlaceholder="Search by business, plan, customer, payment ref…"
           isLoading={isLoading} isError={isError} error={subsErrObj}
           onRetry={() => { refetchSubs(); }}
           isEmpty={rows.length === 0}
@@ -566,7 +566,7 @@ const MarketplaceSubscriptions = () => {
                   </TableHead>
                   <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("name")}><SortHeader {...sort.headerProps("name")}>Customer</SortHeader></TableHead>
                   <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("plan")}><SortHeader {...sort.headerProps("plan")}>Plan</SortHeader></TableHead>
-                  <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("provider")}><SortHeader {...sort.headerProps("provider")}>Provider</SortHeader></TableHead>
+                  <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("provider")}><SortHeader {...sort.headerProps("provider")}>Business</SortHeader></TableHead>
                   <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("service")}><SortHeader {...sort.headerProps("service")}>Service</SortHeader></TableHead>
                   <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("kind")}><SortHeader {...sort.headerProps("kind")}>Type</SortHeader></TableHead>
                   <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("date")}><SortHeader {...sort.headerProps("date")}>Period</SortHeader></TableHead>

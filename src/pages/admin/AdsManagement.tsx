@@ -186,7 +186,7 @@ const AdsManagement = () => {
   const canSave = form.title.trim() && form.label.trim() && form.link_url.trim();
 
   return (
-    <SuperAdminLayout title="Ads" subtitle="Home-page promo banners shown to users">
+    <SuperAdminLayout title="Banners" subtitle="Promo banners on the customer home page">
       <div className="max-w-3xl space-y-space-5">
         <p className="text-sm text-muted-foreground">Promotional banners shown across the site. Only the highest-priority active ad per placement is displayed.</p>
 
@@ -202,7 +202,7 @@ const AdsManagement = () => {
           count={ads.length}
           emptyTitle="No ads yet"
           emptySubtitle="Create one to show a banner."
-          actions={<Button onClick={openNew}><Plus className="mr-2 h-4 w-4" /> Add Ad</Button>}
+          actions={<Button onClick={openNew}><Plus className="mr-2 h-4 w-4" /> New banner</Button>}
         >
           <div className="space-y-3">
             {ads.map((a) => (
@@ -237,7 +237,7 @@ const AdsManagement = () => {
 
       <Dialog open={isNew || !!editItem} onOpenChange={(o) => !o && close()}>
         <DialogContent className="sm:max-w-lg">
-          <DialogHeader><DialogTitle>{isNew ? "Add Ad" : "Edit Ad"}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{isNew ? "New banner" : "Edit banner"}</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
             {/* Live preview */}
             <div className="space-y-1.5">

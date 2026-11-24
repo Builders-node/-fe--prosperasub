@@ -28,6 +28,8 @@ import { usePagination, TablePagination } from "@/components/ui/table-pagination
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { formatUSD } from "@/lib/pricing";
 import { StatusPill, statusLabel } from "@/components/patterns/StatusPill";
+import { TabPills } from "@/components/admin/TabPills";
+import { useUrlState } from "@/hooks/useUrlState";
 import { pickPhone } from "@/components/patterns/CustomerPhone";
 import { formatDateHN } from "@/lib/timezone";
 import { cn } from "@/lib/utils";
@@ -73,11 +75,12 @@ const AdminUsers = () => {
   const queryClient = useQueryClient();
   const [params] = useSearchParams();
 
-  const [filter, setFilter] = useState<Filter>("all");
+  // Filters live in the URL, so a reload or a shared link keeps the view.
+  const [filter, setFilter] = useUrlState<Filter>("type", "all");
   const [blockTarget, setBlockTarget] = useState<{ id: string; name: string } | null>(null);
-  const [serviceFilter, setServiceFilter] = useState<"all" | CustomerService>("all");
+  const [serviceFilter, setServiceFilter] = useUrlState<"all" | CustomerService>("service", "all");
   const { order: SERVICE_ORDER, metaOf: serviceMeta } = useCustomerServices();
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useUrlState<string>("q", "");
 
   // ── One customer is a page now (/admin/customers/:id) ──────────────────
   // `?userId=` is what older links (Subscriptions, Support, bookmarks) carry;
@@ -233,20 +236,11 @@ const AdminUsers = () => {
         onClearFilters={() => { setSearch(""); setFilter("all"); setServiceFilter("all"); }}
         filters={
           <>
-            {FILTERS.map((f) => (
-              <button key={f.value} type="button" onClick={() => setFilter(f.value)}
-                aria-pressed={filter === f.value}
-                className={cn("group flex h-10 items-center gap-1.5 rounded-full px-4 text-body font-semibold transition-colors",
-                  filter === f.value ? "bg-foreground text-background" : "bg-muted text-muted-foreground hover:text-foreground"
-                )}>
-                {f.label}
-                {typeof f.count === "number" && (
-                  <span className={cn("rounded-full px-1.5 text-xs tabular-nums",
-                    filter === f.value ? "bg-background/20 text-background" : "bg-muted-foreground/15 text-muted-foreground"
-                  )}>{f.count}</span>
-                )}
-              </button>
-            ))}
+            <TabPills
+              value={filter}
+              onChange={setFilter}
+              tabs={FILTERS.map((f) => ({ value: f.value, label: typeof f.count === "number" ? `${f.label} ${f.count}` : f.label }))}
+            />
             <Select value={serviceFilter} onValueChange={(v) => setServiceFilter(v as any)}>
               <SelectTrigger className="w-40 rounded-full" inputSize="sm"><SelectValue placeholder="All services" /></SelectTrigger>
               <SelectContent>
@@ -324,11 +318,9 @@ const AdminUsers = () => {
                     </div>
                   );
 
-                  const statusChip = p.isBlocked
-                    ? <Badge variant="destructive" className="text-meta">Blocked</Badge>
-                    : svcArr.length ? <Badge variant="default" className="text-meta">Active</Badge>
-                    : p.lapsed ? <Badge variant="secondary" className="text-meta">Lapsed</Badge>
-                    : <Badge variant="outline" className="text-meta">Idle</Badge>;
+                  const statusChip = (
+                    <StatusPill context="customer" status={p.isBlocked ? "blocked" : svcArr.length ? "active" : p.lapsed ? "lapsed" : "idle"} />
+                  );
 
                   const contact = (
                     <ContactActions name={p.name} phone={p.phone} whatsapp={p.whatsapp} email={p.email} />
@@ -582,7 +574,7 @@ export function EditUserForm({ user, auditLogs, onSave, onSoftDelete, saving, de
           <Input value={name} onChange={(e) => setName(e.target.value)} />
         </div>
         <div>
-          <Label>Display Name</Label>
+          <Label>Display name</Label>
           <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
         </div>
         <div>
@@ -592,16 +584,16 @@ export function EditUserForm({ user, auditLogs, onSave, onSoftDelete, saving, de
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <Label>Auth Provider</Label>
+            <Label>Sign-in method</Label>
             <Input value={user.auth_provider || "email"} disabled className="opacity-60" />
           </div>
           <div>
-            <Label>Active Subs</Label>
+            <Label>Active subs</Label>
             <Input value={`${activeSubsCount} active`} disabled className="opacity-60" />
           </div>
         </div>
         <div>
-          <Label>Last Login</Label>
+          <Label>Last login</Label>
           <Input
             value={user.last_login_at ? format(new Date(user.last_login_at), "MMM d, yyyy · h:mm a") : "Never"}
             disabled
@@ -678,7 +670,7 @@ export function EditUserForm({ user, auditLogs, onSave, onSoftDelete, saving, de
 
         {/* Linked Client Profiles */}
         <div>
-          <Label>Linked Client Profiles</Label>
+          <Label>Linked client profiles</Label>
           {userLinkedClients(user).length > 0 ? (
             <div className="mt-2 space-y-2">
               {userLinkedClients(user).map((c: any) => (
@@ -737,7 +729,7 @@ export function EditUserForm({ user, auditLogs, onSave, onSoftDelete, saving, de
         )}
 
         <div>
-          <Label>Subscription Period History</Label>
+          <Label>Subscription period history</Label>
           {(periodHistory as any[]).length > 0 ? (
             <div className="mt-2 max-h-64 overflow-y-auto space-y-1">
               {(periodHistory as any[]).map((p) => (
@@ -764,7 +756,7 @@ export function EditUserForm({ user, auditLogs, onSave, onSoftDelete, saving, de
         </div>
 
         <div>
-          <Label>Role History</Label>
+          <Label>Role history</Label>
           {(roleHistory as any[]).length > 0 ? (
             <div className="mt-2 max-h-40 overflow-y-auto space-y-1">
               {(roleHistory as any[]).map((entry: any) => (
@@ -786,7 +778,7 @@ export function EditUserForm({ user, auditLogs, onSave, onSoftDelete, saving, de
 
         {/* Activity Log */}
         <div>
-          <Label>Recent Admin Activity</Label>
+          <Label>Recent admin activity</Label>
           {auditLogs.length > 0 ? (
             <div className="mt-2 max-h-32 overflow-y-auto space-y-1">
               {auditLogs.map((log: any) => (
@@ -807,7 +799,7 @@ export function EditUserForm({ user, auditLogs, onSave, onSoftDelete, saving, de
       {/* ── SETTINGS ─────────────────────────────────────────────── */}
       <TabsContent value="settings" className="mt-4 space-y-5">
         <div>
-          <Label>Database Roles</Label>
+          <Label>Database roles</Label>
           <div className="mt-2 grid gap-2">
             {(roles as any[]).map((role: any) => {
               const selected = selectedRoleIds.includes(role.id);

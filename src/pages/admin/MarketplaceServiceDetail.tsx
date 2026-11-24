@@ -162,7 +162,7 @@ export default function MarketplaceServiceDetail() {
   const title = isUnassigned ? "Unassigned" : (archetype?.label ?? key);
   const subtitle = isUnassigned
     ? "Providers and plans not attached to any service"
-    : archetype?.description || "Categories, providers and plans in this service";
+    : archetype?.description || "Categories, businesses and plans in this service";
 
   return (
     <SuperAdminLayout
@@ -243,7 +243,7 @@ export default function MarketplaceServiceDetail() {
               <AlertDialogTitle>Delete "{title}"?</AlertDialogTitle>
               <AlertDialogDescription>
                 {providerCount === 0
-                  ? "No providers link to this service — safe to delete."
+                  ? "No businesses are in this service — safe to delete."
                   : `${providerCount} ${providerCount === 1 ? "provider currently links" : "providers currently link"} to this service. They won't be deleted — they'll show as Unassigned in Businesses.`}
               </AlertDialogDescription>
             </AlertDialogHeader>

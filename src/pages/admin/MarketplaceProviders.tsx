@@ -201,7 +201,7 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
       // Straight into the business, where the setup checklist is.
       if (data?.id) navigate(`/admin/marketplace/providers/${data.id}`);
     },
-    onError: (e: any) => toast.error(e?.message || "Could not create provider"),
+    onError: (e: any) => toast.error(e?.message || "Could not create the business"),
   });
 
 
@@ -341,7 +341,7 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
       <Sheet open={creating} onOpenChange={setCreating}>
         <SheetContent side="right" className="w-full max-w-md overflow-y-auto">
           <SheetHeader>
-            <SheetTitle>New provider</SheetTitle>
+            <SheetTitle>New business</SheetTitle>
             <SheetDescription>Create a platform-owned business on any archetype.</SheetDescription>
           </SheetHeader>
           <CreateProviderForm
@@ -549,7 +549,7 @@ function CreateProviderForm({
           <p className="text-xs text-muted-foreground">{missing}</p>
         )}
         <Button onClick={submit} disabled={!canSubmit} loading={saving} loadingText="Creating…">
-          Create provider
+          Create draft
         </Button>
       </SheetFooter>
     </div>

@@ -130,7 +130,7 @@ const AuditLogs = () => {
             <SelectItem value="all">All entities</SelectItem>
             {uniqueEntities.map((e: string) => (
               <SelectItem key={e} value={e}>
-                {e}
+                {entityLabel(e).replace(/^./, (c) => c.toUpperCase())}
               </SelectItem>
             ))}
           </SelectContent>
@@ -143,7 +143,7 @@ const AuditLogs = () => {
             <SelectItem value="all">All actions</SelectItem>
             {uniqueActions.map((a: string) => (
               <SelectItem key={a} value={a}>
-                {a}
+                {verbOf(a).replace(/^./, (c) => c.toUpperCase())}
               </SelectItem>
             ))}
           </SelectContent>

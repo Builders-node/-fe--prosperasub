@@ -432,8 +432,8 @@ export default function CarRentals({ embedded = false, providerId, section }: {
           onRetry={() => companiesQ.refetch()}
           isEmpty={!companiesQ.isLoading && (companiesQ.data ?? []).length === 0}
           count={(companiesQ.data ?? []).length}
-          emptyTitle="No rental providers yet"
-          emptySubtitle="Approve an application, or add one from Marketplace → All providers."
+          emptyTitle="No rental companies yet"
+          emptySubtitle="Approve an application, or add one from Businesses → New business."
         >
           <div className="space-y-space-2">
             {(companiesQ.data ?? []).map((c) => (

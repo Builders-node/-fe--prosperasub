@@ -32,6 +32,7 @@ const PAYMENT_METHOD_META = [
 /** Off until switched on — mirrors usePaymentMethods, so the toggle shows what the till does. */
 const OFF_UNLESS_ENABLED = new Set<string>(["crypto_gateway"]);
 
+const methodLabel = (m: string | null) => PAYMENT_METHOD_META.find((x) => x.method === m)?.label ?? m ?? "";
 const FINANCE_TABS = ["payments", "profit", "payouts"] as const;
 
 const AdminPayments = () => {
@@ -91,7 +92,7 @@ const AdminPayments = () => {
     onSuccess: (r) => {
       queryClient.invalidateQueries({ queryKey: ["payment-method-settings"] });
       // Explicit confirmation — flipping a live payment method silently is scary.
-      toast.success(`${r.method} ${r.enabled ? "enabled" : "disabled"}`);
+      toast.success(`${methodLabel(r.method)} ${r.enabled ? "turned on" : "turned off"}`);
     },
     onError: (e: Error) => toast.error(e.message || "Failed to update payment method"),
   });
@@ -259,9 +260,9 @@ const AdminPayments = () => {
       <AlertDialog open={!!confirmDisable} onOpenChange={(o) => !o && setConfirmDisable(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Disable {confirmDisable}?</AlertDialogTitle>
+            <AlertDialogTitle>Turn off {methodLabel(confirmDisable)}?</AlertDialogTitle>
             <AlertDialogDescription>
-              Customers won't be able to pay with {confirmDisable} once this is off.
+              Customers won't be able to pay with {methodLabel(confirmDisable)} once this is off.
               In-flight checkouts on this method will fail. You can turn it back
               on at any time.
             </AlertDialogDescription>
@@ -336,7 +337,8 @@ function SurchargeInput({
     const n = Number(value);
     const clamped = Number.isFinite(n) ? Math.max(0, Math.min(100, n)) : 0;
     setValue(String(clamped));
-    onCommit(clamped);
+    // Leaving the field without changing it is not an edit — no save, no toast.
+    if (clamped !== Number(initial ?? 0)) onCommit(clamped);
   };
   return (
     <div className="relative">

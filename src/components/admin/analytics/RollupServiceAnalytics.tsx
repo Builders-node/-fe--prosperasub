@@ -46,9 +46,9 @@ export function RollupServiceAnalytics({ serviceKey }: { serviceKey: RollupServi
         emptyMessage: "Nothing has earned anything yet.",
       }}
       group={{
-        title: "Revenue by Provider",
+        title: "Revenue by business",
         rows: rankedByRevenue(groupRevenue(rows, (r) => r.providerKey, (k) => names?.providers.get(k))),
-        emptyMessage: "No provider has earned anything yet.",
+        emptyMessage: "No business has earned anything yet.",
       }}
     />
   );

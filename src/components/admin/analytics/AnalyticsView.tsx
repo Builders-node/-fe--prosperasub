@@ -95,9 +95,9 @@ export function AnalyticsView({
           </>
         ) : (
           <>
-            <KpiCard icon={TrendingUp} label="Total Revenue" value={formatUSD(figures.revenueCents)} accent="text-positive" />
+            <KpiCard icon={TrendingUp} label="Total revenue" value={formatUSD(figures.revenueCents)} accent="text-positive" />
             <KpiCard icon={TrendingUp} label={`Revenue — ${monthLabel}`} value={formatUSD(figures.monthRevenueCents)} accent="text-blue-400" />
-            <KpiCard icon={Layers} label="Active Subscriptions" value={String(figures.active)} accent="text-attention" />
+            <KpiCard icon={Layers} label="Active subscriptions" value={String(figures.active)} accent="text-attention" />
             <KpiCard icon={Users} label="Customers" value={String(figures.customers)} accent="text-purple-400" />
           </>
         )}
@@ -108,7 +108,7 @@ export function AnalyticsView({
         <Card title="Monthly Revenue (last 6 months)" icon={BarChart3}>
           <StackedRevenueChart months={months} series={series} formatValue={formatUSD} />
         </Card>
-        <Card title="Subscription Status" icon={Layers}>
+        <Card title="Subscription status" icon={Layers}>
           <div className="space-y-3">
             <StatusBar label="Active" count={figures.active} total={figures.subs} color="bg-positive" textColor="text-positive" />
             <StatusBar label="Expired" count={figures.expired} total={figures.subs} color="bg-negative" textColor="text-negative" />

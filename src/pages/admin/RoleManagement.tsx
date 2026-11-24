@@ -144,7 +144,7 @@ export default function RoleManagement() {
         count={roles.length}
         emptyTitle="No roles yet"
         emptySubtitle="Create a role to grant admin access."
-        actions={<Button onClick={() => setCreating(true)}><Plus className="h-4 w-4" />New Role</Button>}
+        actions={<Button onClick={() => setCreating(true)}><Plus className="h-4 w-4" />New role</Button>}
       >
       <div className="grid gap-space-3 xl:grid-cols-[minmax(0,1fr)_360px]">
         <section className="rounded-radius-md bg-card">
@@ -277,7 +277,7 @@ function RoleSheet({
     <Sheet open={open} onOpenChange={(next) => !next && onClose()}>
       <SheetContent side="right" className="w-full max-w-xl overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>{form.id ? "Edit Role" : "New Role"}</SheetTitle>
+          <SheetTitle>{form.id ? "Edit role" : "New role"}</SheetTitle>
           <SheetDescription>Roles and permissions are stored in the database and enforced by the backend.</SheetDescription>
         </SheetHeader>
 

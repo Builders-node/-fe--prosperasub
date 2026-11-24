@@ -185,9 +185,9 @@ const MarketplacePlans = ({ embedded = false, archetypeKey }: MarketplacePlansPr
         </Select>
       )}
       <Select value={providerId} onValueChange={setProviderId}>
-        <SelectTrigger inputSize="sm" className="w-44 rounded-full"><SelectValue placeholder="All providers" /></SelectTrigger>
+        <SelectTrigger inputSize="sm" className="w-44 rounded-full"><SelectValue placeholder="All businesses" /></SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All providers</SelectItem>
+          <SelectItem value="all">All businesses</SelectItem>
           {providersInService.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
         </SelectContent>
       </Select>
@@ -329,19 +329,19 @@ const MarketplacePlans = ({ embedded = false, archetypeKey }: MarketplacePlansPr
 
   const body = (
       <AdminListShell
-        search={search} onSearch={setSearch} searchPlaceholder="Search plans, providers…"
+        search={search} onSearch={setSearch} searchPlaceholder="Search plans, businesses…"
         filters={filters}
         isLoading={isLoading} isError={isError} error={error} onRetry={refetch}
         isEmpty={inScope.length === 0}
         isNoResults={inScope.length > 0 && visible.length === 0} count={visible.length}
-        emptyTitle="No plans yet" emptySubtitle="Providers can create plans in their portal."
+        emptyTitle="No plans yet" emptySubtitle="Businesses create plans in their workspace."
         onClearFilters={() => { setSearch(""); setServiceFilter("all"); setProviderId("all"); setStatus("all"); }}
       >
         <div className="overflow-hidden rounded-radius-md bg-card">
           {/* Desktop header row */}
           <div className="hidden grid-cols-[minmax(0,3fr)_minmax(0,2fr)_120px_minmax(0,1fr)_80px_80px] items-center gap-4 border-b border-border/40 px-space-5 py-space-3 text-meta font-semibold text-muted-foreground md:grid">
             <div aria-sort={sort.ariaSort("plan")}><SortHeader {...sort.headerProps("plan")}>Plan</SortHeader></div>
-            <div aria-sort={sort.ariaSort("provider")}><SortHeader {...sort.headerProps("provider")}>Provider</SortHeader></div>
+            <div aria-sort={sort.ariaSort("provider")}><SortHeader {...sort.headerProps("provider")}>Business</SortHeader></div>
             <div aria-sort={sort.ariaSort("service")}><SortHeader {...sort.headerProps("service")}>Service</SortHeader></div>
             <div className="flex justify-end" aria-sort={sort.ariaSort("price")}><SortHeader {...sort.headerProps("price")} align="right">Price</SortHeader></div>
             <div aria-sort={sort.ariaSort("status")}><SortHeader {...sort.headerProps("status")}>Status</SortHeader></div>
@@ -366,7 +366,7 @@ const MarketplacePlans = ({ embedded = false, archetypeKey }: MarketplacePlansPr
 
   if (embedded) return body;
   return (
-    <SuperAdminLayout title="Plans" subtitle="Every subscription plan offered by every provider">
+    <SuperAdminLayout title="Plans" subtitle="Every plan offered by every business">
       {body}
     </SuperAdminLayout>
   );

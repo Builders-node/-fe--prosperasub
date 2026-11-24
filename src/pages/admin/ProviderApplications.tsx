@@ -318,7 +318,7 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
           ? "The applicant was emailed: their business is waiting in My business."
           : "The applicant was emailed a link to take the business over.");
         if (r.calendar && !r.calendar.calendarId) {
-          toast.warning("No Google calendar was created — provision it from the provider's Overview tab.");
+          toast.warning("No Google calendar was created — provision it from the business's Overview tab.");
         }
       }
       qc.invalidateQueries({ queryKey: ["admin-provider-applications"] });
@@ -380,7 +380,7 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
           isLoading={isLoading} isError={isError} error={error} onRetry={refetch}
           isEmpty={inScope.length === 0}
           isNoResults={inScope.length > 0 && visible.length === 0} count={visible.length}
-          emptyTitle="No applications yet" emptySubtitle="Provider applications will appear here."
+          emptyTitle="No applications yet" emptySubtitle="Businesses that apply to join appear here."
           onClearFilters={() => { setSearch(""); setFilter("all"); }}
         >
           <div className="grid gap-3 md:grid-cols-2">
