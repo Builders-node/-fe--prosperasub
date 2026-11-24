@@ -184,7 +184,7 @@ const Discovery = () => {
         screen read as one block instead of three stacked cards.
       */}
       {/* Laptop: the catalogue holds the left column while the page scrolls. */}
-      <div className="lg:mx-auto lg:flex lg:max-w-[1280px] lg:gap-6 lg:px-4 lg:pt-space-6">
+      <div className="lg:app-container lg:flex lg:gap-2 lg:pt-space-6">
       <aside className="hidden w-[240px] shrink-0 lg:block">
         <DesktopCatalog className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto pb-6" />
       </aside>
