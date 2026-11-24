@@ -1,1 +1,0 @@
-async function a(c,{pageSize:r=1e3,maxRows:e=5e4}={}){const n=[];for(let t=0;t<e;t+=r){const{data:s,error:o}=await c().range(t,t+r-1);if(o)throw o;const l=s??[];if(n.push(...l),l.length<r)return n}return console.warn(`[fetchAllRows] hit the ${e}-row ceiling; result is truncated`),n}export{a as f};

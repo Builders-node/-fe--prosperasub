@@ -1,1 +1,0 @@
-import{bx as o,bL as n,j as t,a5 as s}from"./vendor-B9GJ1coB.js";const c=()=>{const[r]=o(),{planId:e}=n(),a=r.get("renew");return a&&e?t.jsx(s,{to:`/checkout/${e}?renew=${a}`,replace:!0}):t.jsx(s,{to:`/plans/${e}`,replace:!0})};export{c as default};

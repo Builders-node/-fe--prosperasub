@@ -1,1 +1,0 @@
-const o=[{key:"moved",label:"I'm leaving the island"},{key:"price",label:"Too expensive"},{key:"quality",label:"Wasn't happy with it"},{key:"forgot",label:"Forgot to renew"},{key:"other",label:"Something else"}],l=e=>o.some(a=>a.key===e),t=["food","cleaning","beach","plan"];export{t as F,o as L,l as i};

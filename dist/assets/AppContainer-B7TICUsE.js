@@ -1,1 +1,0 @@
-import{j as s}from"./vendor-B9GJ1coB.js";import{d as p}from"./index-Dt-AuRxb.js";function m({as:n,className:o,children:r,...t}){const a=n??"div";return s.jsx(a,{className:p("app-container",o),...t,children:r})}export{m as A};

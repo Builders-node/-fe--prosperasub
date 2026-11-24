@@ -1,1 +1,0 @@
-import{a0 as e,w as a}from"./vendor-B9GJ1coB.js";const r={delivery:{key:"delivery",label:"Delivery",description:"Ships items to the customer's address",icon:e,tabValue:"delivery",tabLabel:"Delivery"}},t={tabValue:"info",tabLabel:"Overview",tabMobileLabel:"Overview",icon:a};export{r as C,t as I};
