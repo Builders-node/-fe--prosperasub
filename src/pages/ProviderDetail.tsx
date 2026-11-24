@@ -584,9 +584,9 @@ const ProviderDetail = () => {
       {/* The same header as the plan and car pages — one component, so the
           three detail pages cannot drift apart again (this page had its own,
           the only one of its kind). On a phone it floats on the banner and
-          turns solid once the photo has scrolled under it; on a laptop it is
-          the ordinary title bar under the site header. The bar names the
-          business; the card below says where it sits. */}
+          turns solid once the photo has scrolled under it. A laptop has no bar:
+          the breadcrumb is the way back, and favourite and share sit beside
+          the business's name in the card. */}
       <DetailHeader
         title={p.name}
         centreLabel={serviceLabel}
@@ -643,7 +643,15 @@ const ProviderDetail = () => {
                 label={initialsOf(p.name)}
                 className="h-14 w-14 shrink-0 rounded-full object-cover"
               />
-              <h1 className="min-w-0 text-[24px] font-semibold leading-tight text-foreground">{p.name}</h1>
+              <h1 className="min-w-0 flex-1 text-[24px] font-semibold leading-tight text-foreground">{p.name}</h1>
+              <div className="-mr-2 hidden shrink-0 items-center md:flex">
+                <FavoriteButton kind="provider" id={p.id} name={p.name} className="text-foreground hover:bg-muted" />
+                <ShareButton
+                  title={p.name}
+                  text={[serviceLabel, p.name].filter(Boolean).join(" · ")}
+                  className="text-foreground hover:bg-muted"
+                />
+              </div>
             </div>
             {p.description && (
               <p className="text-[16px] leading-[22px] text-muted-foreground">

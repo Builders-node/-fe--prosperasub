@@ -19,6 +19,8 @@ interface UserLayoutProps {
   children: ReactNode;
   title?: string;
   showBackButton?: boolean;
+  /** Back on the desktop row too (default: same as showBackButton). */
+  desktopBack?: boolean;
   backTo?: string;
   /** Breadcrumb/context text shown on the right of the second nav row (desktop) */
   breadcrumb?: string;
@@ -42,6 +44,7 @@ export function UserLayout({
   children, 
   title, 
   showBackButton = false,
+  desktopBack,
   backTo,
   breadcrumb,
   allowGuest = false,
@@ -96,7 +99,7 @@ export function UserLayout({
       {/* Desktop Header */}
       {!isMobile && (
         <DesktopHeader 
-          showBackButton={showBackButton}
+          showBackButton={desktopBack ?? showBackButton}
           onBack={handleBack}
           breadcrumb={breadcrumb}
         />
