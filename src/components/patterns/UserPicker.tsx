@@ -1,5 +1,6 @@
 import { fieldClass } from "@/components/ui/input";
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useQuery } from "@tanstack/react-query";
 import { Check, ChevronsUpDown, Search, X } from "lucide-react";
 import { accountApi } from "@/integrations/supabase/client";
@@ -41,7 +42,6 @@ export function UserPicker({
 }: Props) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const containerRef = useRef<HTMLDivElement>(null);
 
   // Never the `users` table straight from the browser: that handed every
   // account on the platform, with its email, to whoever opened this. The
@@ -66,20 +66,15 @@ export function UserPicker({
       )
     : users;
 
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [open]);
-
+  // In a layer of its own (a portal), not inside the field: a dialog's body
+  // scrolls, and a list drawn inside it was cut off at the dialog's edge.
   return (
-    <div ref={containerRef} className="relative">
+    // modal: a dialog locks scrolling to itself, and a list portalled out of it
+    // would not scroll with the wheel unless it takes the lock in turn.
+    <Popover modal open={open} onOpenChange={(o) => { setOpen(o); if (!o) setSearch(""); }}>
+      <PopoverTrigger asChild>
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
         className={cn(fieldClass, "flex items-center justify-between text-left")}
       >
         <span className={cn("truncate", !selected && "text-muted-foreground")}>
@@ -87,9 +82,13 @@ export function UserPicker({
         </span>
         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
       </button>
+      </PopoverTrigger>
 
-      {open && (
-        <div className="absolute z-50 mt-1 w-full overflow-hidden rounded-radius-md bg-popover text-popover-foreground shadow-figma">
+      <PopoverContent
+        align="start"
+        sideOffset={4}
+        className="w-[var(--radix-popover-trigger-width)] overflow-hidden rounded-radius-md bg-popover p-0 text-popover-foreground shadow-figma"
+      >
           <div className="flex items-center gap-2 bg-muted px-3 py-2">
             <Search className="h-4 w-4 shrink-0 opacity-50" />
             <input
@@ -129,8 +128,7 @@ export function UserPicker({
               </button>
             ))}
           </div>
-        </div>
-      )}
-    </div>
+      </PopoverContent>
+    </Popover>
   );
 }
