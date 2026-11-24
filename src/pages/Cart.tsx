@@ -89,7 +89,16 @@ function endDateFor(startISO: string, weeks: number): string {
 export default function Cart() {
   useSeo({ title: "Cart" });
   const navigate = useNavigate();
-  const { items, totalCents, count, setQty, setPeriods, removeItem, clear } = useCart();
+  const { items, totalCents, count, setQty, setPeriods, removeItem, clear, restore } = useCart();
+  /**
+   * Clearing is instant and undoable, not asked about first: the browser's own
+   * confirm box was the one screen in the app that looked like someone else's.
+   */
+  const clearWithUndo = () => {
+    const saved = items;
+    clear();
+    toast("Cart cleared", { action: { label: "Undo", onClick: () => restore(saved) } });
+  };
 
   /**
    * Each line's plan — so "how long" and "how many" follow THE rule
@@ -600,7 +609,7 @@ export default function Cart() {
       noLocation
       headerAction={showBasketOnly && items.length > 0 ? (
         <button type="button" aria-label="Clear cart" className={HEADER_ACTION_CLASS}
-          onClick={() => { if (window.confirm("Remove everything from your cart?")) clear(); }}>
+          onClick={clearWithUndo}>
           <Trash2 className="h-5 w-5" strokeWidth={1.75} />
         </button>
       ) : undefined}
@@ -655,7 +664,7 @@ export default function Cart() {
                   <h1 className="text-3xl font-semibold tracking-tight md:text-5xl">Your cart</h1>
                   <Button
                     variant="secondary" size="sm" className="gap-1.5"
-                    onClick={() => { if (window.confirm("Remove everything from your cart?")) clear(); }}
+                    onClick={clearWithUndo}
                   >
                     <Trash2 className="h-4 w-4" /> Clear cart
                   </Button>

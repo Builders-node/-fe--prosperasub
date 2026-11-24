@@ -18,6 +18,7 @@ import { AllowanceStrip, type Allowance } from "@/components/booking/AllowanceSt
 import { bookingErrorMessage } from "@/lib/booking/errors";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/patterns/Skeleton";
+import { formatTime } from "@/lib/formatTime";
 
 /**
  * Book a time on one of a provider's calendars — any provider.
@@ -46,12 +47,8 @@ interface EngineBooking {
   start_at: string; end_at: string; slot_key: string; status: string;
 }
 
-const timeLabel = (hhmm: string): string => {
-  const [h, m] = hhmm.split(":").map(Number);
-  const period = h >= 12 ? "PM" : "AM";
-  const h12 = h % 12 === 0 ? 12 : h % 12;
-  return m === 0 ? `${h12}${period}` : `${h12}:${String(m).padStart(2, "0")}${period}`;
-};
+// The one clock (lib/formatTime) — this screen had its own "2PM" spelling.
+const timeLabel = (hhmm: string): string => formatTime(hhmm);
 
 /** The wall-clock start the engine assigned, however the row records it. */
 const startKeyOf = (b: EngineBooking): string => {

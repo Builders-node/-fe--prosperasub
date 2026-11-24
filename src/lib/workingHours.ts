@@ -1,3 +1,4 @@
+import { formatTime } from "@/lib/formatTime";
 /** Structured working-hours format stored as JSON in the DB TEXT column. */
 
 export type DayCode = "MO" | "TU" | "WE" | "TH" | "FR" | "SA" | "SU";
@@ -55,7 +56,7 @@ export function formatWorkingHours(raw: unknown): string {
   return schedules
     .map((s) => {
       const dayStr = compressDays(s.days);
-      return `${dayStr}  ${s.open}–${s.close}`;
+      return `${dayStr}  ${formatTime(s.open)}–${formatTime(s.close)}`;
     })
     .join("  ·  ");
 }

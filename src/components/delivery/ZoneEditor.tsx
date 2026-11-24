@@ -15,6 +15,7 @@ import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { ZONE_COLORS, etaText, zoneColor, type DeliveryZone } from "@/lib/delivery/zones";
 import type { ZoneDraft } from "@/components/delivery/ZoneMap";
+import { useConfirm } from "@/components/patterns/ConfirmDialog";
 
 const ZoneMap = lazy(() => import("@/components/delivery/ZoneMap"));
 
@@ -161,6 +162,7 @@ export function ZoneEditor({ basePath, call, queryKey, emptyText, timeLabel = "D
   const geometryOk = !!draft && (draft.shape === "circle" ? !!draft.center : draft.points.length >= 3);
   const canSave = !!form?.name.trim() && geometryOk && !save.isPending;
 
+  const [confirm, confirmDialog] = useConfirm();
   if (q.isLoading) return <Skeleton className="h-[560px]" />;
   if (q.isError) return <QueryError title="Couldn't load the zones" error={q.error as Error} onRetry={() => void q.refetch()} />;
   if (q.data && !q.data.enabled) {
@@ -173,6 +175,7 @@ export function ZoneEditor({ basePath, call, queryKey, emptyText, timeLabel = "D
 
   return (
     <div className="grid gap-4 lg:grid-cols-[380px_minmax(0,1fr)]">
+      {confirmDialog}
       <div className="space-y-3">
         {form && draft ? (
           <section className="space-y-4 rounded-radius-lg bg-card p-4">
@@ -284,7 +287,7 @@ export function ZoneEditor({ basePath, call, queryKey, emptyText, timeLabel = "D
               </Button>
               {form.id && (
                 <Button variant="secondary" disabled={remove.isPending} aria-label="Delete zone"
-                  onClick={() => { if (window.confirm(`Delete “${form.name}”?`)) remove.mutate(form.id!); }}>
+                  onClick={async () => { if (await confirm({ title: `Delete “${form.name}”?`, confirmLabel: "Delete" })) remove.mutate(form.id!); }}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
               )}

@@ -120,8 +120,8 @@ export function AdBanner({ placement }: { placement: string }) {
             >
               <span
                 className={cn(
-                  "block h-1.5 rounded-full bg-white/45 transition-all",
-                  i === index ? "w-4 bg-white/90" : "w-1.5 group-hover:bg-white/70",
+                  "block h-1.5 rounded-full bg-muted-foreground/40 transition-all",
+                  i === index ? "w-4 bg-foreground/80" : "w-1.5 group-hover:bg-muted-foreground/70",
                 )}
               />
             </button>
@@ -148,9 +148,14 @@ export function AdBanner({ placement }: { placement: string }) {
 // /for-business is a pitch with its own header: a promo strip above it reads as someone else's ad.
 const AD_FREE_PREFIXES = ["/admin", "/verify", "/oauth", "/auth", "/reset-password", "/for-business", "/how-it-works", "/pay-with-bitcoin", "/about", "/dev"];
 
+// Decision pages — a plan, the cart, a checkout, a booking — are where the
+// customer is about to pay; an ad there pulls them away at the worst moment.
+const DECISION_PATTERN = /\/(plans|cart|checkout|book)(\/|$)/;
+
 export function SiteAdBanner() {
   const { pathname } = useLocation();
   if (AD_FREE_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`))) return null;
+  if (DECISION_PATTERN.test(pathname)) return null;
   return (
     <div className="hidden md:block">
       <AdBanner placement="home_top" />
@@ -158,6 +163,11 @@ export function SiteAdBanner() {
   );
 }
 
+/**
+ * One slide, in the product's own colours. The admin-picked gradient made the
+ * strip read as a second brand above ours (and broke "no gradients"); now it
+ * is a card-coloured line and the accent is spent on one thing, the badge.
+ */
 function AdSlide({ ad, onClickCapture }: { ad: Ad; onClickCapture?: (e: React.MouseEvent) => void }) {
   return (
     <a
@@ -166,41 +176,21 @@ function AdSlide({ ad, onClickCapture }: { ad: Ad; onClickCapture?: (e: React.Mo
       rel="noopener noreferrer"
       aria-label={`${ad.label} (advertisement)`}
       onClickCapture={onClickCapture}
-      className="relative block w-full shrink-0 overflow-hidden"
-      style={{
-        background: `linear-gradient(90deg, ${ad.gradient_from} 0%, ${ad.gradient_via} 45%, ${ad.gradient_to} 100%)`,
-      }}
+      className="relative block w-full shrink-0 overflow-hidden border-b border-border bg-card"
     >
-      {/* Ad label */}
-      <span
-        className="pointer-events-none absolute left-3 top-1/2 hidden -translate-y-1/2 text-[9px] font-medium uppercase tracking-wider sm:block"
-        style={{ color: ad.text_color, opacity: 0.45 }}
-      >
+      <span className="pointer-events-none absolute left-3 top-1/2 hidden -translate-y-1/2 text-meta text-muted-foreground sm:block">
         Ad
       </span>
 
-      <div className="mx-auto flex max-w-[1440px] items-center justify-center gap-2.5 px-12 py-2.5 sm:gap-3">
-        <span
-          className="text-sm font-black uppercase tracking-wide sm:text-base"
-          style={{ color: ad.text_color }}
-        >
-          {ad.label}
-        </span>
+      <div className="mx-auto flex max-w-[1440px] items-center justify-center gap-2.5 px-12 py-2 sm:gap-3">
+        <span className="text-body font-semibold text-foreground">{ad.label}</span>
         {ad.badge_text && (
-          <span
-            className="rounded-full px-2.5 py-0.5 text-[11px] font-extrabold"
-            style={{ background: ad.badge_bg, color: ad.badge_text_color }}
-          >
+          <span className="rounded-full bg-primary px-2.5 py-0.5 text-meta font-semibold text-primary-foreground">
             {ad.badge_text}
           </span>
         )}
         {ad.cta_text && (
-          <span
-            className="hidden text-xs font-medium md:inline"
-            style={{ color: ad.text_color, opacity: 0.85 }}
-          >
-            {ad.cta_text}
-          </span>
+          <span className="hidden text-meta text-muted-foreground md:inline">{ad.cta_text}</span>
         )}
       </div>
     </a>

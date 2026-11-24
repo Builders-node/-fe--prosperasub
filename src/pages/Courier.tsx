@@ -11,6 +11,7 @@ import { QueryError } from "@/components/patterns/QueryError";
 import { YdEmptyState } from "@/components/yd/YdPrimitives";
 import { accountApi } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { useConfirm } from "@/components/patterns/ConfirmDialog";
 
 /**
  * /courier — a platform courier's day, on their phone.
@@ -107,8 +108,10 @@ export default function Courier() {
 function JobCard({ job, busy, onMove }: { job: Job; busy: boolean; onMove: (status: string) => void }) {
   const p = job.delivery_point;
   const onTheWay = job.delivery_status === "on_the_way";
+  const [confirm, confirmDialog] = useConfirm();
   return (
     <section className="space-y-3 rounded-radius-lg bg-card p-4">
+      {confirmDialog}
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-title font-semibold text-foreground">{job.metadata?.plan_name ?? "Order"}</p>
@@ -171,7 +174,7 @@ function JobCard({ job, busy, onMove }: { job: Job; busy: boolean; onMove: (stat
               {busy && <Spinner size="sm" className="mr-2" />}Delivered
             </Button>
             <Button size="lg" variant="secondary" disabled={busy}
-              onClick={() => { if (window.confirm("Mark it as not delivered?")) onMove("failed"); }}>
+              onClick={async () => { if (await confirm({ title: "Mark it as not delivered?", confirmLabel: "Not delivered" })) onMove("failed"); }}>
               Couldn't deliver
             </Button>
           </>

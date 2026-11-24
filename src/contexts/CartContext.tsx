@@ -18,13 +18,15 @@ interface CartContextValue {
   setPeriods: (key: string, periods: number) => void;
   removeItem: (key: string) => void;
   clear: () => void;
+  /** Puts back a cart taken by `clear` — the Undo on its toast. */
+  restore: (items: CartItem[]) => void;
   /** Is this exact plan already in the cart? Used to say "In your cart". */
   has: (planId: string) => boolean;
 }
 
 const CartContext = createContext<CartContextValue>({
   items: [], count: 0, totalCents: 0,
-  addItem: () => {}, setQty: () => {}, setPeriods: () => {}, removeItem: () => {}, clear: () => {},
+  addItem: () => {}, setQty: () => {}, setPeriods: () => {}, removeItem: () => {}, clear: () => {}, restore: () => {},
   has: () => false,
 });
 
@@ -99,6 +101,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const removeItem = (key: string) => setItems((prev) => prev.filter((i) => i.key !== key));
   const clear = () => setItems([]);
+  const restore = (saved: CartItem[]) => setItems(saved);
   const has = (planId: string) => items.some((i) => i.planId === planId);
 
   const count = items.length;
@@ -106,7 +109,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   return (
     <CartContext.Provider
-      value={{ items, count, totalCents, addItem, setQty, setPeriods, removeItem, clear, has }}
+      value={{ items, count, totalCents, addItem, setQty, setPeriods, removeItem, clear, restore, has }}
     >
       {children}
     </CartContext.Provider>

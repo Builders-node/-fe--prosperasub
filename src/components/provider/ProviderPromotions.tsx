@@ -11,6 +11,7 @@ import { accountApi, adminApi, supabaseDb } from "@/integrations/supabase/client
 import { useAuth } from "@/contexts/AuthContext";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
+import { useConfirm } from "@/components/patterns/ConfirmDialog";
 
 /**
  * Promote — paid placements for a business (Edge routes/promotions.ts).
@@ -100,6 +101,7 @@ export function ProviderPromotions({ providerId }: { providerId: string }) {
     onError: (e: Error) => toast.error(e.message || "Could not end it"),
   });
 
+  const [confirm, confirmDialog] = useConfirm();
   if (isLoading || isError || !data) return null;
 
   const s = data.settings;
@@ -110,6 +112,7 @@ export function ProviderPromotions({ providerId }: { providerId: string }) {
 
   return (
     <div className="space-y-1">
+      {confirmDialog}
       <WorkspaceSection
         title="Boost"
         subtitle={`Show up under Featured on the home screen and in your service. Nothing up front — you pay ${data.boost && boostOn ? data.boost.extra_commission_pct : s.boostPct}% extra commission only on orders that came from it.`}
@@ -163,7 +166,7 @@ export function ProviderPromotions({ providerId }: { providerId: string }) {
                     </span>
                     {live && isAdmin && (
                       <Button size="sm" variant="secondary" disabled={end.isPending}
-                        onClick={() => { if (window.confirm("End this ad now?")) end.mutate(p.id); }}>
+                        onClick={async () => { if (await confirm({ title: "End this ad now?", description: "It stops showing straight away.", confirmLabel: "End ad" })) end.mutate(p.id); }}>
                         End
                       </Button>
                     )}
