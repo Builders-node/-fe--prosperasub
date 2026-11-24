@@ -201,7 +201,7 @@ export default function VehicleDetail() {
 
       {/* Laptop: every photo on the left (held in view), the car and its dates
           on the right — the same frame as a plan page. */}
-      <div className="hidden md:mx-auto md:block md:max-w-[1280px] md:px-6 md:pt-space-6">
+      <div className="hidden md:app-container md:block md:pt-space-6">
         <Breadcrumbs items={breadcrumbs} />
       </div>
       <main className="pt-1 md:mx-auto md:grid md:max-w-[1280px] md:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] md:items-start md:gap-8 md:px-6 md:pb-space-8 md:pt-space-4">

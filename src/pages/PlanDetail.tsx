@@ -859,7 +859,7 @@ const PlanDetail = () => {
       */}
       {/* Laptop: the trail runs above both columns, like a shop's product page. */}
       {breadcrumbs.length > 1 && (
-        <div className="hidden md:mx-auto md:block md:max-w-[1280px] md:px-6 md:pt-space-6">
+        <div className="hidden md:app-container md:block md:pt-space-6">
           <Breadcrumbs items={breadcrumbs} />
         </div>
       )}
