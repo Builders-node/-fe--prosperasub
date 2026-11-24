@@ -127,7 +127,10 @@ export default function Redeem() {
                       {i.note ?? (i.remaining != null && i.total != null && i.total > 1 ? `${i.remaining} of ${i.total} left` : "Ready to collect")}
                     </span>
                   </span>
-                  {i.key !== "none" && (
+                  {i.key !== "none" && !i.available && i.note === "Collected" ? (
+                    // Already taken today: a tick, not a dead button.
+                    <CheckCircle2 className="h-6 w-6 shrink-0 text-positive" aria-label="Collected" />
+                  ) : i.key !== "none" && (
                     <Button
                       className="shrink-0"
                       disabled={!i.available || get.isPending}

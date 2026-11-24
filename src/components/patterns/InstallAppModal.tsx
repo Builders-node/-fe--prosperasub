@@ -14,7 +14,9 @@ const DISMISS_SESSION_KEY = "prospera_install_prompt_session";
  * landing pages people arrive at from a QR code, an email link, or an OAuth
  * hand-off — asking them to install the app there is jarring and off-context.
  */
-const SUPPRESS_ON_PATHS = ["/verify", "/reset-password", "/oauth/callback", "/auth"];
+// /redeem: a customer scanning the till QR is standing at the counter — an
+// install sheet over the "Get" buttons is the last thing they need.
+const SUPPRESS_ON_PATHS = ["/verify", "/reset-password", "/oauth/callback", "/auth", "/redeem"];
 
 type Platform = "ios" | "android" | "other";
 
