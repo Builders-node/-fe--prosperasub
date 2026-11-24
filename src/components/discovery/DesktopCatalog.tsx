@@ -4,13 +4,17 @@ import type { LucideIcon } from "lucide-react";
 import { useCategoryHighlights } from "@/hooks/useCategoryHighlights";
 import { Photo } from "@/components/patterns/Photo";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
+import { useAuthModal } from "@/contexts/AuthModalContext";
 
 /**
  * The catalogue as a column on a laptop, beside the home page — the way the
  * big grocery-delivery sites hold it: a large "Catalog" heading, then one row
  * per department with a round picture and its name, every department one
  * click away while the shelves scroll. The same list for a guest and a
- * signed-in customer; a guest's personal rows open the log-in screen.
+ * signed-in customer. A guest's personal rows open the log-in window in
+ * place and only go to the page once they have signed in, so the home page
+ * never swaps for an empty "log in to see this page" screen.
  *
  * Departments are the categories that have something on sale, each with a
  * real photo of what it sells (the same picture its home tile uses).
@@ -21,6 +25,8 @@ export function DesktopCatalog({ className }: { className?: string }) {
   const { highlights, isLoading } = useCategoryHighlights();
   const { pathname, search } = useLocation();
   const here = pathname + search;
+  const { isAuthenticated } = useAuth();
+  const { openAuthModal } = useAuthModal();
 
   const personal: Row[] = [
     { key: "subs", label: "My subscriptions", to: "/my-subscriptions", Icon: Layers, tint: true },
@@ -36,10 +42,14 @@ export function DesktopCatalog({ className }: { className?: string }) {
 
   const Item = ({ label, to, Icon, imageUrl, tint }: Row) => {
     const active = here === to;
+    // Personal rows (tint) need an account: a guest gets the log-in window
+    // over the home page, then lands on the page after signing in.
+    const gated = tint && !isAuthenticated;
     return (
       <li>
         <Link
           to={to}
+          onClick={gated ? (e) => { e.preventDefault(); openAuthModal("login", to); } : undefined}
           className={cn(
             "flex items-center gap-4 rounded-radius-md px-2 py-2 transition-colors hover:bg-muted/60",
             active && "bg-muted/60",
