@@ -104,7 +104,7 @@ const Discovery = () => {
   // before its clinic listed anything). Hidden here only — its own address
   // still works — and only once the plans are known, so a slow or failed
   // lookup never empties the grid.
-  const { data: homePlans = [] } = useHomePlans();
+  const { data: homePlans = [], isLoading: plansLoading } = useHomePlans();
   const selling = useMemo(() => new Set(homePlans.map((p) => p.provider?.archetype_key)), [homePlans]);
   const familyArchetypes = showFamilies
     ? allArchetypes.filter((a) => a.family === family)
@@ -272,14 +272,17 @@ const Discovery = () => {
             <h2 className="text-heading font-semibold text-foreground">
               {t("discovery.services")}
             </h2>
-            {archetypesLoading ? (
+            {/* Wait for the plans too: the grid drops services with nothing
+                on sale, and drawing all of them first made it shrink a moment
+                later and yank everything under it up the screen. */}
+            {archetypesLoading || plansLoading ? (
               <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
                 {[0, 1, 2, 3].map((i) => (
                   <Skeleton key={i} className="h-[120px]" />
                 ))}
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+              <div className="stagger grid grid-cols-2 gap-2 md:grid-cols-4">
                 {archetypes.map((a) => (
                   <ArchetypeTile key={a.key} archetype={a} categories={categoriesByArchetype.get(a.key) ?? []} />
                 ))}
@@ -334,7 +337,7 @@ function ArchetypeTile({
       aria-label={archetype.label}
       onPointerDown={() => prefetchRoute(href)}
       onMouseEnter={() => prefetchRoute(href)}
-      className="flex h-[120px] flex-col justify-between rounded-radius-md bg-card p-4 shadow-figma transition-colors active:scale-[0.98] hover:bg-muted/40"
+      className="press flex h-[120px] flex-col justify-between rounded-radius-md bg-card p-4 shadow-figma hover:bg-muted/40"
     >
       <p className="line-clamp-2 text-title font-semibold text-foreground">
         {archetype.label}

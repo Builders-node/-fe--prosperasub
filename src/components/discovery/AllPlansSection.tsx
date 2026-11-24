@@ -1,3 +1,4 @@
+import { cn } from "@/lib/utils";
 import { useMemo, useState } from "react";
 import { Skeleton } from "@/components/patterns/Skeleton";
 import { useI18n } from "@/i18n";
@@ -29,7 +30,7 @@ export function AllPlansSection() {
       <h2 className="text-heading font-semibold text-foreground">
         {t("discovery.allPlans")}
       </h2>
-      <div className="grid grid-cols-2 gap-x-2 gap-y-5 md:grid-cols-4">
+      <div className={cn("grid grid-cols-2 gap-x-2 gap-y-5 md:grid-cols-4", !isLoading && "stagger")}>
         {isLoading
           ? [0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-[220px]" />)
           : shown.map((plan) => <PlanTile key={plan.id} plan={plan} />)}

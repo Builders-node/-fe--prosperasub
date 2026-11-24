@@ -1,0 +1,1 @@
+import{t as n}from"./vendor-B9GJ1coB.js";import{K as t,s as u}from"./index-Dt-AuRxb.js";function c(){const e=t(),a=n({queryKey:["bonus-balance",e],enabled:!!e,staleTime:3e4,queryFn:async()=>{const{data:s,error:r}=await u.rpc("credit_balance_of",{p_user_id:e});if(r)throw r;return Number(s)||0}});return{balanceCents:a.data??0,isLoading:a.isLoading,refetch:a.refetch}}export{c as u};

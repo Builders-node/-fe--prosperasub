@@ -1,0 +1,1 @@
+import{l as r,r as a}from"./vendor-B9GJ1coB.js";function c(t="/discovery"){const e=r();return a.useCallback(()=>{var s;(((s=window.history.state)==null?void 0:s.idx)??0)>0?e(-1):e(t,{replace:!0})},[e,t])}export{c as u};

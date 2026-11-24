@@ -18,7 +18,7 @@ export function ProductGallery({ photos, alt = "", className }: { photos: string
     <div className={cn("space-y-2", className)}>
       <div className="group relative aspect-[4/3] overflow-hidden rounded-radius-lg bg-muted">
         {shots.length ? (
-          <Photo key={shots[i]} src={shots[i]} alt={alt} loading="eager" className="absolute inset-0" />
+          <Photo key={shots[i]} src={shots[i]} alt={alt} priority={i === 0} loading="eager" className="absolute inset-0" />
         ) : (
           <Photo src={undefined} icon={ImageIcon} className="absolute inset-0" />
         )}
@@ -53,7 +53,7 @@ export function ProductGallery({ photos, alt = "", className }: { photos: string
                 n === i ? "ring-2 ring-primary" : "opacity-70 hover:opacity-100",
               )}
             >
-              <Photo src={src} loading="eager" className="absolute inset-0" />
+              <Photo src={src} className="absolute inset-0" />
             </button>
           ))}
         </div>

@@ -1,0 +1,1 @@
+import{s as n}from"./index-Dt-AuRxb.js";async function o(t,i,a,s,e){try{await n.from("admin_audit_logs").insert({admin_user_id:t,action:i,entity_type:a,entity_id:s,details:e||{}})}catch{}}export{o as l};

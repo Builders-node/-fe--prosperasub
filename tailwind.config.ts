@@ -211,6 +211,23 @@ export default {
         "18": "4.5rem",
         "22": "5.5rem",
       },
+      /* ─── Motion tokens ───────────────────────────────────────────────
+         Four speeds and three curves for the whole app, so everything moves
+         alike. instant: a press, a colour; fast: hover, menus; base: things
+         arriving (photos, cards, toasts); slow: sheets, dialogs, pages.
+         Things that arrive use out-expo, things that leave in-quick (and
+         faster), and only a reward — a like, an added item — gets the spring. */
+      transitionDuration: {
+        instant: "100ms",
+        fast: "160ms",
+        base: "240ms",
+        slow: "360ms",
+      },
+      transitionTimingFunction: {
+        "out-expo": "cubic-bezier(0.16, 1, 0.3, 1)",
+        "in-quick": "cubic-bezier(0.4, 0, 1, 1)",
+        spring: "cubic-bezier(0.34, 1.56, 0.64, 1)",
+      },
       keyframes: {
         "accordion-down": {
           from: { height: "0" },
@@ -231,6 +248,22 @@ export default {
         "fade-in-up": {
           "0%": { opacity: "0", transform: "translateY(20px)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        /* Motion system — see "Motion" in src/index.css. Content arriving:
+           a short rise and a fade, never a bounce. */
+        /* Not "enter": tailwindcss-animate owns that name (animate-in). */
+        rise: {
+          "0%": { opacity: "0", transform: "translateY(6px)" },
+          "100%": { opacity: "1", transform: "none" },
+        },
+        "fade": {
+          "0%": { opacity: "0" },
+          "100%": { opacity: "1" },
+        },
+        pop: {
+          "0%": { transform: "scale(1)" },
+          "40%": { transform: "scale(1.22)" },
+          "100%": { transform: "scale(1)" },
         },
         "slide-in-right": {
           "0%": { opacity: "0", transform: "translateX(20px)" },
@@ -255,6 +288,9 @@ export default {
         shimmer: "shimmer 3s ease-in-out infinite",
         "fade-in": "fade-in 0.3s ease-out",
         "fade-in-up": "fade-in-up 0.4s ease-out",
+        rise: "rise 280ms cubic-bezier(0.16, 1, 0.3, 1) backwards",
+        "fade": "fade 240ms cubic-bezier(0.16, 1, 0.3, 1) backwards",
+        pop: "pop 360ms cubic-bezier(0.34, 1.56, 0.64, 1)",
         "slide-in-right": "slide-in-right 0.3s ease-out",
         "scale-in": "scale-in 0.2s ease-out",
         pulse: "pulse 2s ease-in-out infinite",

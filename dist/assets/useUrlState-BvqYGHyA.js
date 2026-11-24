@@ -1,0 +1,1 @@
+import{bx as m,r as p}from"./vendor-B9GJ1coB.js";function l(e,r){const[o,a]=m(),u=o.get(e)??r,c=p.useCallback(s=>{a(n=>{const t=new URLSearchParams(n);return!s||s===r?t.delete(e):t.set(e,s),t},{replace:!0})},[e,r,a]);return[u,c]}export{l as u};

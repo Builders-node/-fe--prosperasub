@@ -9,6 +9,10 @@ export default defineConfig(() => ({
     port: 8080,
   },
   plugins: [react()],
+  define: {
+    // Busts the saved query cache (lib/queryPersist) on every deploy.
+    __BUILD_ID__: JSON.stringify(process.env.VERCEL_GIT_COMMIT_SHA || String(Date.now())),
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

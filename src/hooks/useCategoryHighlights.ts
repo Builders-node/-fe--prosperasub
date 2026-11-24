@@ -51,26 +51,19 @@ export function useCategoryHighlights() {
       prices: Record<string, { cents: number; unit: string }>;
       photos: Record<string, string>;
     }> => {
-      // Providers carry the category; the offers hang off providers, half of
-      // them by the universal id and half by the legacy one (see
-      // lib/services/providerBridge). Build both lookups once.
-      const { data: providerRows } = await supabaseDb
-        .from("providers")
-        .select("id, category_key, source_provider_id")
-        .eq("status", "active");
-
-      const byUniversal = new Map<string, string>();
-      const byLegacy = new Map<string, string>();
-      (providerRows ?? []).forEach((p: any) => {
-        if (!p.category_key) return;
-        byUniversal.set(String(p.id), p.category_key);
-        if (p.source_provider_id) byLegacy.set(String(p.source_provider_id), p.category_key);
-      });
-
-      const providerIds = [...byUniversal.keys()];
-      const legacyIds = [...byLegacy.keys()];
-
-      const [cleaning, food, vehicles, beach, universal, menus, vehicleImages, media] = await Promise.all([
+      // ONE round of requests, all at once. This used to be three in a row —
+      // providers first, then the offers and photos filtered by their ids,
+      // then the dishes of the menus found — and each round is a full trip to
+      // Supabase, so the category strip (and the home page under it) waited
+      // for the slowest of three. Nothing here needs another query's answer to
+      // be asked: the rows are matched to categories below, in memory.
+      const [providersRes, cleaning, food, beach, universal, menus, meals] = await Promise.all([
+        // Providers carry the category; the offers hang off providers, half of
+        // them by the universal id and half by the legacy one (see
+        // lib/services/providerBridge). Their photos ride along.
+        supabaseDb.from("providers")
+          .select("id, category_key, source_provider_id, gallery_urls, banner_url")
+          .eq("status", "active"),
         supabaseDb.from("cleaning_packages")
           .select("owner_provider_id, pricing_mode, monthly_price_cents, price_per_cleaning_cents, cleanings_per_month, frequency_count, frequency_unit")
           // The listing's three-flag rule (see CleaningPackages): a private or
@@ -79,10 +72,6 @@ export function useCategoryHighlights() {
           .eq("status", "active").eq("is_active", true).eq("visibility", "public").is("deleted_at", null),
         supabaseDb.from("food_meal_plans")
           .select("provider_id, weekly_price_cents").eq("status", "active"),
-        // Vehicles say "public", not "active" — the same value the car
-        // listing filters on. Asking for "active" here quietly returned
-        // nothing and every car read "Coming soon" next to a full fleet.
-        Promise.resolve({ data: [] } as any),
         supabaseDb.from("beach_club_plans")
           .select("owner_provider_id, price_per_person_cents").eq("is_active", true),
         supabaseDb.from("provider_plans")
@@ -93,16 +82,23 @@ export function useCategoryHighlights() {
 
         // ── Photos ──
         // The banner is photo-first, so every category needs one real picture.
-        // Menus and vehicle galleries are where the platform's actual
-        // photography lives today; provider media is the fallback for the rest.
-        legacyIds.length
-          ? supabaseDb.from("food_weekly_menus").select("id, provider_id").in("provider_id", legacyIds)
-          : Promise.resolve({ data: [] } as any),
-        Promise.resolve({ data: [] } as any),
-        providerIds.length
-          ? supabaseDb.from("providers").select("id, gallery_urls, banner_url, avatar_url").in("id", providerIds)
-          : Promise.resolve({ data: [] } as any),
+        // Menus are where the platform's actual food photography lives today;
+        // provider media is the fallback for the rest.
+        supabaseDb.from("food_weekly_menus").select("id, provider_id"),
+        supabaseDb.from("food_menu_meals")
+          .select("menu_id, image_url")
+          .not("image_url", "is", null)
+          .limit(1000),
       ]);
+      const providerRows = providersRes.data;
+
+      const byUniversal = new Map<string, string>();
+      const byLegacy = new Map<string, string>();
+      (providerRows ?? []).forEach((p: any) => {
+        if (!p.category_key) return;
+        byUniversal.set(String(p.id), p.category_key);
+        if (p.source_provider_id) byLegacy.set(String(p.source_provider_id), p.category_key);
+      });
 
       const out: Record<string, { cents: number; unit: string }> = {};
       const offer = (categoryKey: string | undefined, cents: number | null, unit: string) => {
@@ -116,10 +112,6 @@ export function useCategoryHighlights() {
 
       (food.data ?? []).forEach((p: any) =>
         offer(byLegacy.get(String(p.provider_id)), num(p.weekly_price_cents), "/ week"));
-
-      (vehicles.data ?? []).forEach((v: any) =>
-        offer(byUniversal.get(String(v.owner_provider_id)) ?? byLegacy.get(String(v.provider_id)),
-              num(v.daily_price_cents), "/ day"));
 
       (beach.data ?? []).forEach((p: any) =>
         offer(byUniversal.get(String(p.owner_provider_id)), num(p.price_per_person_cents), "/ person · month"));
@@ -140,30 +132,14 @@ export function useCategoryHighlights() {
       // Food: a dish from this restaurant's own menus.
       const menuProvider = new Map<string, string>();
       ((menus as any).data ?? []).forEach((m: any) => menuProvider.set(String(m.id), String(m.provider_id)));
-      if (menuProvider.size) {
-        const { data: meals } = await supabaseDb
-          .from("food_menu_meals")
-          .select("menu_id, image_url")
-          .in("menu_id", [...menuProvider.keys()])
-          .not("image_url", "is", null);
-        (meals ?? []).forEach((meal: any) =>
-          photo(byLegacy.get(menuProvider.get(String(meal.menu_id)) ?? ""), meal.image_url));
-      }
-
-      // Rental: the first photo of one of this fleet's cars.
-      const vehicleCategory = new Map<string, string>();
-      ((vehicles as any).data ?? []).forEach((v: any) => {
-        const cat = byUniversal.get(String(v.owner_provider_id)) ?? byLegacy.get(String(v.provider_id));
-        if (cat) vehicleCategory.set(String(v.id), cat);
-      });
-      ((vehicleImages as any).data ?? []).forEach((img: any) =>
-        photo(vehicleCategory.get(String(img.vehicle_id)), img.url));
+      ((meals as any).data ?? []).forEach((meal: any) =>
+        photo(byLegacy.get(menuProvider.get(String(meal.menu_id)) ?? ""), meal.image_url));
 
       // Everything else: whatever the business itself uploaded. The avatar is
       // deliberately NOT a candidate — it is a logo, and a logo blown up to a
       // 140px banner is what made some slides look randomly illustrated. A
       // category with no real photo gets the designed imageless card instead.
-      ((media as any).data ?? []).forEach((p: any) => {
+      (providerRows ?? []).forEach((p: any) => {
         const cat = byUniversal.get(String(p.id));
         const gallery = Array.isArray(p.gallery_urls) ? p.gallery_urls : [];
         photo(cat, p.banner_url);

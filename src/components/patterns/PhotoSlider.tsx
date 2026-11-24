@@ -52,7 +52,7 @@ export function PhotoSlider({ photos, className, icon }: {
       >
         {shots.map((src, i) => (
           <div key={i} className="relative h-full w-full shrink-0 snap-center">
-            <Photo src={src} loading={i === 0 ? "eager" : "lazy"} className="absolute inset-0" />
+            <Photo src={src} className="absolute inset-0" />
           </div>
         ))}
       </div>
