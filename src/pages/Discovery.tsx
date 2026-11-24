@@ -191,6 +191,10 @@ const Discovery = () => {
       <div className="min-w-0 flex-1">
       <section className="bg-card pb-4 shadow-figma rounded-b-radius-lg md:rounded-b-none lg:rounded-radius-lg">
         <div className="app-container space-y-4 pt-4">
+          {/* Hold the tabs' place while the services load — they only
+              appear once there are two families, and arriving late pushed
+              the carousel and everything under it down. */}
+          {archetypesLoading && <Skeleton className="h-[42px] md:max-w-sm" />}
           {showFamilies && (
             <div className="flex rounded-radius-md bg-inset p-0.5 md:max-w-sm">
               {families.map((f) => (
