@@ -185,7 +185,7 @@ const Discovery = () => {
       */}
       {/* Laptop: the catalogue holds the left column while the page scrolls. */}
       <div className="lg:app-container lg:flex lg:gap-2 lg:pt-space-6">
-      <aside className="hidden w-[240px] shrink-0 lg:block">
+      <aside className="hidden w-[260px] shrink-0 lg:block">
         <DesktopCatalog className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto pb-6" />
       </aside>
       <div className="min-w-0 flex-1">
