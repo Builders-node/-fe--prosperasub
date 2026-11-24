@@ -15,8 +15,8 @@ import { supabaseDb } from "@/integrations/supabase/client";
 import { useFavorites, type FavoriteItem, type FavoriteKind } from "@/lib/favorites/useFavorites";
 import { formatUSD } from "@/lib/pricing";
 import { normPeriod, periodNoun } from "@/lib/services/planPeriod";
-import { planHref, planSegment, providerHref } from "@/lib/services/serviceUrls";
-import { carPath, carProviderPath, vehiclePath } from "@/features/vehicles";
+import { businessHref, planHref, planSegment } from "@/lib/services/serviceUrls";
+import { carPath, vehiclePath } from "@/features/vehicles";
 import { cn } from "@/lib/utils";
 
 /**
@@ -92,7 +92,7 @@ async function resolveRows(items: FavoriteItem[]): Promise<Map<string, Row>> {
   if (providerIds.length) {
     const { data } = await supabaseDb
       .from("providers")
-      .select("id, name, description, avatar_url, banner_url, gallery_urls, archetype_key, status")
+      .select("id, name, description, avatar_url, banner_url, gallery_urls, archetype_key, status, slug, unit")
       .in("id", providerIds);
     for (const p of (data ?? []) as any[]) {
       const archetype = String(p.archetype_key ?? "");
@@ -103,7 +103,7 @@ async function resolveRows(items: FavoriteItem[]): Promise<Map<string, Row>> {
         subtitle: p.description ? String(p.description).split("\n")[0] : null,
         price: null,
         photo: p.avatar_url ?? first(p.gallery_urls) ?? p.banner_url ?? null,
-        href: archetype === "vehicles" ? carProviderPath(String(p.id)) : archetype ? providerHref(archetype, String(p.id)) : null,
+        href: archetype || p.unit ? businessHref(String(p.slug || p.id)) : null,
         available: ["active", "approved"].includes(String(p.status ?? "active")),
       });
     }

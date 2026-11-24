@@ -1,6 +1,7 @@
 import { fieldClass } from "@/components/ui/input";
 import { LEAVE_REASONS, type LeaveReason } from "@/lib/subscriptions/leaveReasons";
 import { useState, useMemo } from "react";
+import { useAddresses } from "@/lib/services/useAddresses";
 import { useNavigate } from "react-router-dom";
 import { effectiveCleaningStatus, effectiveFoodStatus } from "@/lib/subscriptionLifecycle";
 import { useTabParam } from "@/hooks/useTabParam";
@@ -765,6 +766,15 @@ const MySubscriptions = () => {
   const visibleBeach  = inScope(beachSubs as any[], isLiveBeach);
   const isLiveUniversal = isNotOver;
   const visibleUniversal = inScope(universalSubs as any[], isLiveUniversal);
+  // "View plan" opens the plan at its address in words, not at its id.
+  const addr = useAddresses({
+    planIds: [
+      ...((beachSubs ?? []) as any[]).map((s) => s.plan_id),
+      ...((universalSubs ?? []) as any[]).map((s) => s.plan_id),
+      ...((linkedClientSubscriptions ?? []) as any[]).map((s) => s.package_id),
+      ...((cleaningSubscriptions ?? []) as any[]).map((s) => s.package_id),
+    ],
+  });
   /**
    * A rental counts as live until the day it is due back — an unpaid one
    * included, because that is precisely the booking still asking to be acted on.
@@ -904,7 +914,7 @@ const MySubscriptions = () => {
     endingSoon(f, foodEnd(f).toISOString().slice(0, 10), f.food_meal_plans?.name ?? "Meal plan",
       f.meal_plan_id ? `/checkout/${f.meal_plan_id}?renew=${f.id}` : null);
   }
-  for (const u of [...(universalSubs as any[]), ...(beachSubs as any[])]) {
+  for (const u of [...((universalSubs ?? []) as any[]), ...((beachSubs ?? []) as any[])]) {
     if (String(u.status) !== "active") continue;
     endingSoon(u, u.end_date, u.provider_plans?.name ?? u.plan_name ?? "Subscription",
       u.plan_id ? `/checkout/${u.plan_id}?renew=${u.id}` : null);
@@ -1211,7 +1221,7 @@ const MySubscriptions = () => {
                           paymentReference: s.payment_reference,
                           purchasedAt: s.created_at,
                           facts: [{ label: "Guests", value: `${s.people || 1} ${(s.people || 1) === 1 ? "person" : "people"}` }],
-                          action: s.plan_id ? { label: "View plan", onClick: () => navigate(`/plans/${s.plan_id}`) } : undefined,
+                          action: s.plan_id ? { label: "View plan", onClick: () => navigate(addr.planHref(String(s.plan_id))) } : undefined,
                           cancel: cancelSheetAction("beach", s, s.plan_name ?? "membership"),
                           tip: { service: "beach", subscriptionRef: String(s.id), providerId: s.provider_id ?? null, providerName: "Beach Club", customerName: userData?.name ?? null },
                           review: { service: "beach", itemId: s.plan_id, subscriptionId: String(s.id), customerName: userData?.name ?? null },
@@ -1284,7 +1294,7 @@ const MySubscriptions = () => {
                         paymentReference: s.payment_reference,
                         purchasedAt: s.created_at,
                         facts: s.provider_plans?.period ? [{ label: "Billing", value: String(s.provider_plans.period) }] : [],
-                        action: s.plan_id ? { label: "View plan", onClick: () => navigate(`/plans/${s.plan_id}`) } : undefined,
+                        action: s.plan_id ? { label: "View plan", onClick: () => navigate(addr.planHref(String(s.plan_id))) } : undefined,
                         cancel: cancelSheetAction("plan", s, s.provider_plans?.name ?? "subscription"),
                         tip: { service: "plan", subscriptionRef: String(s.id), providerId: s.provider_id ?? s.providers?.id ?? null, providerName: providerName, customerName: userData?.name ?? null },
                         review: { service: "plan", subscriptionId: String(s.id), providerId: s.provider_id ?? s.providers?.id ?? null, customerName: userData?.name ?? null },
@@ -1514,7 +1524,7 @@ const MySubscriptions = () => {
                               ownerUserId: sub.user_id ?? null,
                               current: sub.apartment_note ?? null,
                             },
-                            action: sub.package_id ? { label: "View plan", onClick: () => navigate(`/plans/${encodeURIComponent(sub.package_id)}`) } : undefined,
+                            action: sub.package_id ? { label: "View plan", onClick: () => navigate(addr.planHref(String(sub.package_id))) } : undefined,
                             sessions: bookingSessions(sub.id),
                           })}
                           statusBadge={endsBadge(sub, (sub as any).end_date) ?? ((sub as any).payment_method
@@ -1608,7 +1618,7 @@ const MySubscriptions = () => {
                             facts: sub.billing_period_months
                               ? [{ label: "Billing", value: `${sub.billing_period_months} month${sub.billing_period_months > 1 ? "s" : ""}` }]
                               : [],
-                            action: sub.package_id ? { label: "View plan", onClick: () => navigate(`/plans/${encodeURIComponent(sub.package_id)}`) } : undefined,
+                            action: sub.package_id ? { label: "View plan", onClick: () => navigate(addr.planHref(String(sub.package_id))) } : undefined,
                             tip: { service: "cleaning", subscriptionRef: String(sub.id), providerId: null, providerName: (sub as any).cleaning_packages?.name ?? null, customerName: userData?.name ?? null },
                             review: { service: "cleaning", itemId: sub.package_id, subscriptionId: String(sub.id), customerName: userData?.name ?? null },
                             delivery: {

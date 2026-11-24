@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
+import { useAddresses } from "@/lib/services/useAddresses";
 import { promotionHref, trackPromotion, useActivePromotions, type ActivePromotion, type PromoPlacement } from "@/lib/promotions";
 import { cn } from "@/lib/utils";
 import {
@@ -20,6 +21,7 @@ export function FeaturedRail({ placement, archetypeKey, className }: {
   const { data: promos = [] } = useActivePromotions(placement, archetypeKey);
   const { data: plans = [] } = useHomePlans();
   const index = useMemo(() => planIndex(plans), [plans]);
+  const addr = useAddresses({ providerIds: promos.map((p) => p.provider.id), planIds: promos.map((p) => p.plan?.id) });
   if (promos.length === 0) return null;
 
   return (
@@ -29,14 +31,14 @@ export function FeaturedRail({ placement, archetypeKey, className }: {
           just paid to stand first — told apart only by the badge. */}
       <Rail>
         {promos.map((p) => (
-          <PromoCard key={p.id} p={p} plan={p.plan ? index.get(p.plan.id) ?? (p.plan.sourcePlanId ? index.get(p.plan.sourcePlanId) : undefined) ?? null : null} />
+          <PromoCard key={p.id} p={p} href={promotionHref(p, addr)} plan={p.plan ? index.get(p.plan.id) ?? (p.plan.sourcePlanId ? index.get(p.plan.sourcePlanId) : undefined) ?? null : null} />
         ))}
       </Rail>
     </section>
   );
 }
 
-function PromoCard({ p, plan }: { p: ActivePromotion; plan: HomePlan | null }) {
+function PromoCard({ p, plan, href }: { p: ActivePromotion; plan: HomePlan | null; href: string }) {
   const ref = useRef<HTMLAnchorElement>(null);
 
   // Counted as seen when half of it is on screen — not merely rendered.
@@ -54,7 +56,7 @@ function PromoCard({ p, plan }: { p: ActivePromotion; plan: HomePlan | null }) {
   return (
     <OfferCard
       ref={ref}
-      href={promotionHref(p)}
+      href={href}
       onClick={() => trackPromotion(p.id, "click")}
       badge="Featured"
       photos={photos}

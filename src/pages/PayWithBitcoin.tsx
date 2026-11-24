@@ -10,8 +10,7 @@ import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
 import { usePaymentMethods } from "@/hooks/usePaymentMethods";
 import { useSeo } from "@/hooks/useSeo";
 import { supabaseDb } from "@/integrations/supabase/client";
-import { providerHref } from "@/lib/services/serviceUrls";
-import { carProviderPath } from "@/features/vehicles";
+import { businessHref } from "@/lib/services/serviceUrls";
 
 /**
  * /pay-with-bitcoin — how paying works, and the directory of Roatán
@@ -23,7 +22,7 @@ import { carProviderPath } from "@/features/vehicles";
 const IMG = "/for-business";
 const PATH = "/pay-with-bitcoin";
 
-interface Biz { id: string; name: string; avatar_url: string | null; archetype_key: string | null; unit: string | null; location: string | null }
+interface Biz { id: string; name: string; avatar_url: string | null; archetype_key: string | null; unit: string | null; location: string | null; slug: string | null }
 
 function useBusinesses() {
   return useQuery({
@@ -31,7 +30,7 @@ function useBusinesses() {
     staleTime: 10 * 60_000,
     queryFn: async () => {
       const { data } = await supabaseDb.from("providers")
-        .select("id,name,avatar_url,archetype_key,unit,location")
+        .select("id,name,avatar_url,archetype_key,unit,location,slug")
         .eq("status", "active").order("name");
       return (data ?? []) as Biz[];
     },
@@ -45,7 +44,7 @@ export default function PayWithBitcoin() {
   const { data: businesses = [] } = useBusinesses();
   const { archetypes } = useServiceArchetypes(true);
   const labelOf = (b: Biz) => b.unit === "vehicles" ? "Car rental" : archetypes.find((a) => a.key === b.archetype_key)?.label ?? "Services";
-  const hrefOf = (b: Biz) => b.unit === "vehicles" ? carProviderPath(b.id) : b.archetype_key ? providerHref(b.archetype_key, b.id) : "/discovery";
+  const hrefOf = (b: Biz) => b.unit === "vehicles" || b.archetype_key ? businessHref(b.slug || b.id) : "/discovery";
 
   const ln = surchargePercent("lightning");
   const oc = surchargePercent("onchain");

@@ -93,14 +93,11 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
   });
 
   /**
-   * The provider's own public page. `providerHref` builds
-   * /services/<slug>/providers/<universal id>, which resolves for every
-   * service — the shared provider page hands off to a legacy one where a
-   * bespoke page exists (food redirects to /services/food/<legacy id>).
+   * The provider's own public page: /businesses/<slug>, its one address.
    */
   const resolvedPublicHref =
     publicHref
-    ?? (provider?.archetype_key ? providerHref(provider.archetype_key, provider.id) : "/discovery");
+    ?? (provider ? providerHref(provider.archetype_key, (provider as { slug?: string | null }).slug || provider.id) : "/discovery");
 
   /**
    * Whose business this is. The two numbers below are the owner's — a manager

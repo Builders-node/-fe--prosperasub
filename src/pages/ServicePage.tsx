@@ -51,6 +51,7 @@ import { cn } from "@/lib/utils";
  * matched by static routes, which React Router prefers over this dynamic one.
  */
 interface ProviderRow {
+  slug?: string | null;
   id: string;
   name: string;
   source_provider_id: string | null;
@@ -93,7 +94,7 @@ const ServicePage = () => {
     queryFn: async () => {
       let q = supabaseDb
         .from("providers")
-        .select("id, name, category_key, avatar_url, gallery_urls, source_provider_id, source_service_key")
+        .select("id, name, category_key, avatar_url, gallery_urls, source_provider_id, source_service_key, slug")
         .eq("archetype_key", archetypeKey!);
       if (!preview) q = q.eq("status", "active");
       const { data, error } = await q.order("sort_order", { ascending: true });
@@ -322,7 +323,11 @@ const ServicePage = () => {
   }
 
   const keep = preview ? "?preview=1" : "";
-  const openProvider = (providerId: string) => navigate(providerHref(archetype.key, providerId) + keep);
+  const openProvider = (providerId: string) => {
+    // The rail hands over an id; the address is the business's slug.
+    const slug = (providersQ.data ?? []).find((p) => p.id === providerId)?.slug;
+    navigate(providerHref(archetype.key, slug || providerId) + keep);
+  };
   const openPlan = (planId: string) => {
     // The card hands over an id; the address is the plan's words where it has them.
     const row = (plansQ.data ?? []).find((p: any) => String(p.id) === planId);

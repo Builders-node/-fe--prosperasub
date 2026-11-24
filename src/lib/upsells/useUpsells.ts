@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 import { useUserUuid } from "@/hooks/useUserUuid";
 import { supabaseDb } from "@/integrations/supabase/client";
-import { planHref } from "@/lib/services/serviceUrls";
+import { planHref, planSegment } from "@/lib/services/serviceUrls";
 
 /**
  * What to suggest next — the one rule, for the cart and the bottom of a product.
@@ -61,7 +61,7 @@ export function useUpsells({ exclude = [], excludeProviderId, limit = 3 }: {
     queryFn: async () => {
       const { data, error } = await supabaseDb
         .from("provider_plans")
-        .select("id, source_plan_id, parent_plan_id, name, price_cents, period, visibility, gallery_urls, source_service_key, provider_id, providers(id, name, archetype_key, status, gallery_urls, avatar_url)")
+        .select("id, source_plan_id, parent_plan_id, slug, public_no, name, price_cents, period, visibility, gallery_urls, source_service_key, provider_id, providers(id, name, archetype_key, status, gallery_urls, avatar_url)")
         .eq("status", "active");
       if (error) throw error;
       return (data ?? []) as any[];
@@ -159,7 +159,7 @@ export function useUpsells({ exclude = [], excludeProviderId, limit = 3 }: {
           period: p.period ?? null,
           from: variants > 0,
           photo: first(p.gallery_urls) ?? first(p.providers.gallery_urls) ?? p.providers.avatar_url ?? null,
-          href: planHref(p.providers.archetype_key, id),
+          href: planHref(p.providers.archetype_key, planSegment(p)),
           quickAdd: variants === 0 && p.source_service_key !== "food",
         };
       });

@@ -14,6 +14,7 @@ import { MealSelectionPicker, defaultMealsForCount, formatMeals, type MealKey } 
 import { getMealTypesForPlan, formatWeekLabel } from "@/lib/foodUtils";
 import { itemLabel, itemRank, useProviderItemsByLegacy } from "@/lib/services/providerItems";
 import { formatUSD } from "@/lib/pricing";
+import { businessHref } from "@/lib/services/serviceUrls";
 import { RateAndTip } from "@/components/food/RateAndTip";
 import { RenewPreviewDialog } from "@/components/subscriptions/RenewPreviewDialog";
 import { toast } from "sonner";
@@ -109,6 +110,25 @@ export default function FoodSubscriptionDetail() {
   // `data.subscription.provider_id` is the LEGACY food id; the dictionary is
   // keyed by the universal one, so useProviderItemsByLegacy hops the bridge.
   const { items: providerItems } = useProviderItemsByLegacy("food", data?.subscription?.provider_id);
+  // The restaurant's page in words (/businesses/<slug>), found by its legacy id,
+  // so the link does not go through the old /services/food/<id> forward.
+  const legacyProviderId = data?.subscription?.provider_id ?? null;
+  const { data: restaurantSlug } = useQuery({
+    queryKey: ["food-provider-slug", legacyProviderId],
+    enabled: !!legacyProviderId,
+    staleTime: 10 * 60_000,
+    queryFn: async () => {
+      const { data: row } = await supabaseDb
+        .from("providers")
+        .select("id, slug")
+        .eq("source_service_key", "food")
+        .eq("source_provider_id", legacyProviderId!)
+        .maybeSingle();
+      return (row?.slug as string | null) || (row?.id as string | undefined) || null;
+    },
+  });
+  const restaurantHref = (legacyId: string) =>
+    restaurantSlug ? businessHref(restaurantSlug) : `/services/food/${legacyId}`;
 
   const saveMeals = useMutation({
     mutationFn: async (next: MealKey[]) => {
@@ -143,7 +163,7 @@ export default function FoodSubscriptionDetail() {
       if (error) throw error;
       if (!plan || plan.is_active === false) {
         toast.error("This plan is no longer offered. Browse other plans to continue.");
-        navigate(`/services/food/${sub.provider_id}`);
+        navigate(restaurantHref(sub.provider_id));
         return;
       }
       navigate(`/checkout/${sub.meal_plan_id}?renew=${sub.id}`);
@@ -242,7 +262,7 @@ export default function FoodSubscriptionDetail() {
               type="button"
               aria-label="Open restaurant page"
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted/50 text-foreground transition-colors hover:bg-muted"
-              onClick={() => window.open(`/services/food/${provider.id}`, "_blank")}
+              onClick={() => window.open(restaurantHref(provider.id), "_blank")}
             >
               <ExternalLink className="h-4 w-4" />
             </button>
