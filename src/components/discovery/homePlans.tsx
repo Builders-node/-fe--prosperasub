@@ -10,6 +10,7 @@ import { PhotoSlider } from "@/components/patterns/PhotoSlider";
 import { FavoriteButton } from "@/components/patterns/FavoriteButton";
 import { Skeleton } from "@/components/patterns/Skeleton";
 import { cn } from "@/lib/utils";
+import { Plus } from "lucide-react";
 import { useTagDictionary } from "@/lib/tags";
 
 /**
@@ -119,9 +120,9 @@ export function PriceLine({ cents, period, perPerson = false }: { cents: number 
   if (typeof cents !== "number" || cents <= 0) return null;
   const unit = priceUnit({ period, perPerson });
   return (
-    <p className="text-[14px] font-semibold leading-[20px] text-foreground">
+    <p className="text-[20px] font-bold leading-tight tracking-tight text-foreground">
       {formatUSD(cents)}
-      {unit && <span className="font-normal text-muted-foreground"> {unit}</span>}
+      {unit && <span className="text-meta font-medium tracking-normal text-muted-foreground"> {unit}</span>}
     </p>
   );
 }
@@ -152,33 +153,39 @@ export const OfferCard = forwardRef<HTMLAnchorElement, {
       ref={ref}
       to={href}
       onClick={onClick}
-      className={cn(
-        "flex flex-col overflow-hidden rounded-radius-md bg-card shadow-figma transition-colors active:scale-[0.98] hover:bg-muted/40",
-        className,
-      )}
+      className={cn("group flex flex-col gap-2 transition-transform active:scale-[0.98]", className)}
     >
-      {/* The frame owns the size: the photo is pinned inside it and cropped,
-          so a tall picture can never stretch its card past the others. */}
-      <div className="relative aspect-[4/3] w-full shrink-0">
-        <PhotoSlider photos={photos} className="h-full w-full bg-muted" />
-        {badge && (
-          <span className="absolute left-2 top-2 rounded-full bg-black/55 px-2 py-0.5 text-meta font-semibold text-white backdrop-blur">
-            {badge}
-          </span>
-        )}
+      {/* The photo is the card, as in a grocery shelf: a square picture with
+          round corners, its labels on the bottom-left, a round "+" on the
+          bottom-right, and the price and the name under it, without a box.
+          The frame owns the size, so a tall picture can never stretch its
+          card past the others. */}
+      <div className="relative aspect-square w-full shrink-0 overflow-hidden rounded-radius-lg bg-muted">
+        <PhotoSlider photos={photos} className="h-full w-full bg-muted transition-transform duration-300 group-hover:scale-[1.03]" />
         {corner && <div className="absolute right-2 top-2">{corner}</div>}
-      </div>
-      <div className="flex flex-1 flex-col gap-1 p-3 tracking-[-0.02em]">
-        <p className="line-clamp-2 text-[15px] font-semibold leading-[20px] text-foreground">{title}</p>
-        {subtitle && <p className="line-clamp-1 text-[13px] leading-[18px] text-muted-foreground">{subtitle}</p>}
-        {chips && chips.length > 0 && (
-          <div className="flex flex-wrap gap-1 pt-0.5">
-            {chips.slice(0, 2).map((c) => (
-              <span key={c} className="rounded-full bg-muted px-2 py-0.5 text-[12px] font-semibold leading-[16px] text-foreground/80">{c}</span>
+        {(badge || (chips && chips.length > 0)) && (
+          <div className="pointer-events-none absolute bottom-2 left-2 flex max-w-[calc(100%-4rem)] flex-col items-start gap-1">
+            {chips?.slice(0, 2).map((c) => (
+              <span key={c} className="max-w-full truncate rounded-full bg-primary px-2.5 py-0.5 text-meta font-bold text-primary-foreground">{c}</span>
             ))}
+            {badge && (
+              <span className="rounded-full bg-black/60 px-2.5 py-0.5 text-meta font-bold text-white backdrop-blur">{badge}</span>
+            )}
           </div>
         )}
-        {footer && <div className="mt-auto pt-1">{footer}</div>}
+        <span
+          aria-hidden
+          className="absolute bottom-2 right-2 flex h-11 w-11 items-center justify-center rounded-full bg-card text-foreground shadow-figma transition-colors group-hover:bg-primary group-hover:text-primary-foreground"
+        >
+          <Plus className="h-6 w-6" strokeWidth={2} />
+        </span>
+      </div>
+      <div className="flex flex-1 flex-col gap-0.5 px-1">
+        {footer}
+        <p className="line-clamp-2 text-body leading-snug text-foreground">
+          {title}
+          {subtitle && <span className="text-muted-foreground"> {subtitle}</span>}
+        </p>
       </div>
     </Link>
   );

@@ -328,8 +328,8 @@ function ListingCard({ plan }: { plan: ListingPlan }) {
       footer={
         <div className="space-y-0.5">
           {plan.unit && typeof plan.priceCents === "number" && plan.priceCents > 0 ? (
-            <p className="text-[14px] font-semibold leading-[20px] text-foreground">
-              {formatUSD(plan.priceCents)}<span className="font-normal text-muted-foreground"> / {plan.unit}</span>
+            <p className="text-[20px] font-bold leading-tight tracking-tight text-foreground">
+              {formatUSD(plan.priceCents)}<span className="text-meta font-medium tracking-normal text-muted-foreground"> / {plan.unit}</span>
             </p>
           ) : (
             <PriceLine cents={plan.priceCents} period={plan.period} perPerson={plan.perPerson} />
