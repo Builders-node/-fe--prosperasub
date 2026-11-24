@@ -58,7 +58,9 @@ export function useMyProviders<TRow extends MyProviderRow = MyProviderRow>(
       const mgrP = managerTable
         ? supabaseDb.from(managerTable)
             .select("provider_id")
-            .or(email ? `user_id.eq.${dbUserId},user_email.eq.${email}` : `user_id.eq.${dbUserId}`)
+            // By account id only — the email column is closed to the browser,
+            // and every manager row carries its user_id.
+            .eq("user_id", dbUserId)
         : Promise.resolve({ data: [] as { provider_id: string }[], error: null });
 
       const [ownedRes, mgrRes] = await Promise.all([ownedP, mgrP]);

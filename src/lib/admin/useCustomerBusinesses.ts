@@ -26,7 +26,10 @@ export function useCustomerBusinesses(userId: string, email?: string | null) {
     enabled: !!userId,
     staleTime: 60_000,
     queryFn: async (): Promise<CustomerBusiness[]> => {
-      const who = mail ? `user_id.eq.${userId},user_email.eq.${mail}` : `user_id.eq.${userId}`;
+      // By account id only: the manager tables' email column is closed to the
+      // browser (it was a list of people's addresses for anyone to read), and
+      // every manager row carries its user_id.
+      const who = `user_id.eq.${userId}`;
       const legacy = PROVIDER_SERVICES.map((s) => ({ key: s.key, table: s.providers.table, managerTable: s.providers.managerTable }));
 
       const [providersRes, membersRes, ...legacyRes] = await Promise.all([
