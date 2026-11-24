@@ -1018,7 +1018,7 @@ const PlanDetail = () => {
         return (
           <section className="mt-1 space-y-3 rounded-radius-lg bg-card p-4 shadow-figma md:mx-auto md:mt-4 md:max-w-[1280px] md:bg-transparent md:px-6 md:shadow-none">
             <h2 className="text-heading font-semibold text-foreground">More from {providerName}</h2>
-            <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-2 gap-x-2 gap-y-5 md:grid-cols-3 lg:grid-cols-4">
               {others.map((p) => (
                 <UniversalPlanCard
                   key={p.id}

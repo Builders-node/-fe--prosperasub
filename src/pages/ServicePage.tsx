@@ -454,7 +454,7 @@ const ServicePage = () => {
               {search.results.length === 0 ? (
                 <YdEmptyState icon={SearchX} title="No plans match" subtitle="Try a different word, or clear the search." />
               ) : (
-                <div className="grid gap-2 md:grid-cols-2">
+                <div className="grid grid-cols-2 gap-x-2 gap-y-5 md:grid-cols-3">
                   {ordered.map((plan: any) => (
                     <UniversalPlanCard
                       key={plan.id}
