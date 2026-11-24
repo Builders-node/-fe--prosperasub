@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { useAddresses } from "@/lib/services/useAddresses";
 import { promotionHref, trackPromotion, useActivePromotions, type ActivePromotion, type PromoPlacement } from "@/lib/promotions";
 import { cn } from "@/lib/utils";
+import { planHref, planSegment, wordsAddress } from "@/lib/services/serviceUrls";
 import { FavoriteButton } from "@/components/patterns/FavoriteButton";
 import {
   OfferCard, PriceLine, RAIL_TILE, Rail, ShelfHeader, planIndex, planPhotos, useHomePlans, type HomePlan,
@@ -31,9 +32,15 @@ export function FeaturedRail({ placement, archetypeKey, className }: {
       {/* The same cards as every other shelf — a featured plan is a plan, it
           just paid to stand first — told apart only by the badge. */}
       <Rail>
-        {promos.map((p) => (
-          <PromoCard key={p.id} p={p} href={promotionHref(p, addr)} plan={p.plan ? index.get(p.plan.id) ?? (p.plan.sourcePlanId ? index.get(p.plan.sourcePlanId) : undefined) ?? null : null} />
-        ))}
+        {promos.map((p) => {
+          const plan = p.plan ? index.get(p.plan.id) ?? (p.plan.sourcePlanId ? index.get(p.plan.sourcePlanId) : undefined) ?? null : null;
+          // The home page already holds this plan's row, words and all: link
+          // by it from the first paint. Waiting for the address lookup left
+          // the id in the link on a first visit, and the page then swapped it.
+          const vehicles = p.provider.unit === "vehicles" || p.provider.archetypeKey === "vehicles";
+          const href = plan && !vehicles && wordsAddress(plan) ? planHref(null, planSegment(plan)) : promotionHref(p, addr);
+          return <PromoCard key={p.id} p={p} href={href} plan={plan} />;
+        })}
       </Rail>
     </section>
   );
