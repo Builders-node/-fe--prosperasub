@@ -590,7 +590,7 @@ export default function Cart() {
     // instead of the two headers composed by hand over a guessed pb-28. Guests
     // may look at their basket; the pay step asks them to sign in.
     <UserLayout
-      title={atCheckout ? "Checkout" : "Cart"} showBackButton backTo="/discovery" breadcrumb="Cart" allowGuest showBottomNav={false}
+      title={atCheckout ? "Checkout" : "Cart"} showBackButton desktopBack={false} backTo="/discovery" allowGuest showBottomNav={false}
       // The basket asks for its own address, so the header's location row was
       // a second, different address above it. Clear sits where the title bar
       // keeps a page's one action, instead of a pill as big as the heading.

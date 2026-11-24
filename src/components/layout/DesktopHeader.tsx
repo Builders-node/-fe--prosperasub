@@ -32,7 +32,8 @@ interface DesktopHeaderProps {
  *
  * One white panel (`--card`), like the phone's header, and no border: the
  * panel against the page is the separation (DESIGN.md — borderless). The
- * optional second row (back · breadcrumb) is part of the same panel.
+ * optional second row (Back) is part of the same panel; a breadcrumb is
+ * drawn below the panel, above the page content.
  */
 export function DesktopHeader({ showBackButton = false, onBack, breadcrumb }: DesktopHeaderProps) {
   const session = useHeaderSession();
@@ -56,22 +57,31 @@ export function DesktopHeader({ showBackButton = false, onBack, breadcrumb }: De
     };
   }, []);
 
+  // A page with a breadcrumb gets it the way the product pages do: a quiet
+  // line of text above the content, outside the header panel, and no Back
+  // button — the trail is the way back. A page with only Back keeps the row.
   return (
-    <DesktopHeaderView
-      ref={headerRef}
-      session={session}
-      location={<LocationSelector always />}
-      search={<HeaderSearch />}
-      account={<AccountMenu />}
-      onLogin={() => openAuthModal("login")}
-      subRow={showBackButton || breadcrumb ? (
-        <DesktopSubRow
-          onBack={showBackButton ? (onBack ?? (() => window.history.back())) : undefined}
-          backLabel={t("common.back")}
-          crumbs={breadcrumb ? [{ label: t("common.home"), href: "/" }, { label: breadcrumb }] : undefined}
-        />
-      ) : null}
-    />
+    <>
+      <DesktopHeaderView
+        ref={headerRef}
+        session={session}
+        location={<LocationSelector always />}
+        search={<HeaderSearch />}
+        account={<AccountMenu />}
+        onLogin={() => openAuthModal("login")}
+        subRow={showBackButton && !breadcrumb ? (
+          <DesktopSubRow
+            onBack={onBack ?? (() => window.history.back())}
+            backLabel={t("common.back")}
+          />
+        ) : null}
+      />
+      {breadcrumb && (
+        <div className="hidden md:app-container md:block md:pt-space-6">
+          <Breadcrumbs items={[{ label: t("common.home"), href: "/" }, { label: breadcrumb }]} />
+        </div>
+      )}
+    </>
   );
 }
 
