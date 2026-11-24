@@ -39,6 +39,8 @@ import {
   LayoutGrid,
   Search,
   CarFront,
+  PauseCircle,
+  PlayCircle,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -105,6 +107,16 @@ interface PendingRenewal {
 
 const SCOPES = ["active", "past"] as const;
 const SCOPE_LABELS = { active: "Current", past: "Past" } as const;
+
+/** A membership the pause endpoints can act on. */
+interface PauseTarget { service: "beach" | "plan"; id: string; name: string; endsOn: string | null }
+
+/** The lengths the server accepts (AccountPauseService.PAUSE_OPTIONS_DAYS). */
+const PAUSE_OPTIONS = [
+  { days: 14, label: "2 weeks" },
+  { days: 30, label: "1 month" },
+  { days: 60, label: "2 months" },
+];
 
 const ENDED_STATUSES = ["expired", "cancelled", "canceled", "completed", "failed", "refunded"];
 
@@ -532,7 +544,7 @@ const MySubscriptions = () => {
   // the card keeps a Resume button afterwards. Four services, one endpoint —
   // the slug is what the backend maps to a table.
   const [cancelTarget, setCancelTarget] = useState<
-    { service: string; id: string; name: string; endsOn: string | null } | null
+    { service: string; id: string; name: string; endsOn: string | null; pause?: PauseTarget | null } | null
   >(null);
   /** Why — optional, one tap, asked in the cancel dialog. */
   const [cancelReason, setCancelReason] = useState<LeaveReason | null>(null);
@@ -559,6 +571,87 @@ const MySubscriptions = () => {
     },
     onError: (e: Error) => toast.error(e.message || "Could not update the subscription."),
   });
+
+  // ── Pause ──────────────────────────────────────────────────────────────────
+  // A break instead of a cancellation, for memberships (beach + universal
+  // plans). Access stops today and the paid period ends that many days later;
+  // nothing is charged or refunded. The server enforces every rule — these
+  // checks only decide whether to offer the button.
+  const [pauseTarget, setPauseTarget] = useState<PauseTarget | null>(null);
+  const [pauseDays, setPauseDays] = useState<number>(30);
+
+  /** The row id the pause endpoints take — beach cards carry a legacy id in `id`. */
+  const pauseRef = (service: "beach" | "plan", sub: any, name: string): PauseTarget => ({
+    service,
+    id: String(sub?.access_id ?? sub?.id),
+    name,
+    endsOn: sub?.end_date ?? null,
+  });
+
+  const canPause = (sub: any): boolean => {
+    const st = String(sub?.status ?? "").toLowerCase();
+    const today = todayHN();
+    const end = String(sub?.end_date ?? "").slice(0, 10);
+    const start = String(sub?.start_date ?? "").slice(0, 10);
+    return st === "active"
+      && String(sub?.payment_status ?? "").toLowerCase() === "paid"
+      && !sub?.auto_renew
+      && !sub?.cancel_at_period_end
+      && !!end && end >= today
+      && (!start || start <= today);
+  };
+
+  /** The customer's own pause, when there is one. A business-set pause has none. */
+  const ownPause = (sub: any): { from: string; until: string; days: number } | null =>
+    String(sub?.status ?? "").toLowerCase() === "paused" && sub?.metadata?.pause?.until ? sub.metadata.pause : null;
+
+  const pauseMutation = useMutation({
+    mutationFn: async ({ target, days, unpause }: { target: PauseTarget; days?: number; unpause?: boolean }) => {
+      const { data, error } = await accountApi(
+        `/account/${target.service}/subscriptions/${target.id}/${unpause ? "unpause" : "pause"}`,
+        { method: "POST", ...(!unpause ? { body: JSON.stringify({ days }) } : {}) },
+      );
+      if (error) throw error;
+      return data as { endsOn?: string | null; pause?: { until: string } | null };
+    },
+    onSuccess: (data, vars) => {
+      toast.success(vars.unpause
+        ? "Welcome back! Your subscription is active again."
+        : `Paused until ${data?.pause?.until ? formatDateHN(data.pause.until) : "later"}.`);
+      setPauseTarget(null);
+      queryClient.invalidateQueries({ queryKey: ["my-beach-subs"] });
+      queryClient.invalidateQueries({ queryKey: ["my-universal-subscriptions"] });
+    },
+    onError: (e: Error) => toast.error(e.message || "Could not update the subscription."),
+  });
+
+  /** Card actions for a membership: Pause when it can be, Resume when it is. */
+  const pauseActions = (service: "beach" | "plan", sub: any, name: string) => {
+    if (ownPause(sub)) {
+      return [{
+        key: "unpause",
+        label: "Resume now",
+        icon: PlayCircle,
+        variant: "secondary" as const,
+        onClick: () => pauseMutation.mutate({ target: pauseRef(service, sub, name), unpause: true }),
+      }];
+    }
+    if (!canPause(sub)) return [];
+    return [{
+      key: "pause",
+      label: "Pause",
+      icon: PauseCircle,
+      variant: "ghost" as const,
+      onClick: () => { setPauseDays(30); setPauseTarget(pauseRef(service, sub, name)); },
+    }];
+  };
+
+  /** "Paused until Jan 9" on the card, in place of the plain status. */
+  const pausedBadge = (sub: any) => {
+    const p = ownPause(sub);
+    if (!p) return null;
+    return <StatusPill status="paused" label={`Paused until ${format(new Date(`${p.until}T00:00:00`), "MMM d")}`} />;
+  };
 
   /**
    * The Cancel (or Resume) button for one subscription, as a card action.
@@ -617,6 +710,10 @@ const MySubscriptions = () => {
         setCancelTarget({
           service, id: sub.id, name: planName,
           endsOn: sub.end_date ?? sub.service_end_date ?? null,
+          // Memberships can take a break instead — offered inside the dialog.
+          pause: (service === "beach" || service === "plan") && canPause(sub)
+            ? pauseRef(service, sub, planName)
+            : null,
         });
       },
     };
@@ -1228,7 +1325,7 @@ const MySubscriptions = () => {
                           tip: { service: "beach", subscriptionRef: String(s.id), providerId: s.provider_id ?? null, providerName: "Beach Club", customerName: userData?.name ?? null },
                           review: { service: "beach", itemId: s.plan_id, subscriptionId: String(s.id), customerName: userData?.name ?? null },
                         })}
-                        statusBadge={endsBadge(s, s.end_date) ?? <StatusPill status={label} />}
+                        statusBadge={pausedBadge(s) ?? endsBadge(s, s.end_date) ?? <StatusPill status={label} />}
                         actions={[
                           // Booking a court is something this membership lets
                           // you do — it was a page-wide button that appeared
@@ -1240,6 +1337,7 @@ const MySubscriptions = () => {
                           ...(canRenew ? [
                             { key: "renew", label: scope === "past" ? "Order again" : "Renew", icon: RefreshCw, onClick: openRenewDialog, variant: "secondary" as const },
                           ] : []),
+                          ...(scope === "active" ? pauseActions("beach", s, s.plan_name ?? "membership") : []),
                         ]}
                       />
                     );
@@ -1307,7 +1405,7 @@ const MySubscriptions = () => {
                           current: s.service_address ?? null,
                         },
                       })}
-                      statusBadge={endsBadge(s, s.end_date) ?? <StatusPill status={label} />}
+                      statusBadge={pausedBadge(s) ?? endsBadge(s, s.end_date) ?? <StatusPill status={label} />}
                       actions={st === "cancelled" ? [] : [
                         ...(s.plan_id ? [{
                           key: "renew",
@@ -1316,6 +1414,7 @@ const MySubscriptions = () => {
                           variant: "secondary" as const,
                           onClick: () => navigate(`/checkout/${s.plan_id}?renew=${s.id}`),
                         }] : []),
+                        ...(scope === "active" ? pauseActions("plan", s, planName) : []),
                       ]}
                     />
                   );
@@ -1794,6 +1893,29 @@ const MySubscriptions = () => {
           <p className="text-sm text-muted-foreground">
             Nothing is charged again and nothing is refunded — this simply stops the next period.
           </p>
+          {/* A break is what many people who press Cancel actually want. */}
+          {cancelTarget?.pause && (
+            <div className="rounded-xl bg-muted p-3 space-y-2">
+              <p className="text-label text-foreground">Need a break instead?</p>
+              <p className="text-sm text-muted-foreground">
+                Pause for 2 weeks to 2 months. Your paid days wait for you, and nothing is charged.
+              </p>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  const target = cancelTarget.pause!;
+                  setCancelTarget(null);
+                  setCancelReason(null);
+                  setPauseDays(30);
+                  setPauseTarget(target);
+                }}
+              >
+                <PauseCircle className="mr-2 h-4 w-4" />
+                Pause instead
+              </Button>
+            </div>
+          )}
           {/* One optional question. It never blocks the cancel button. */}
           <div className="space-y-2">
             <p className="text-label text-foreground">Mind telling us why? <span className="text-muted-foreground">Optional</span></p>
@@ -1817,6 +1939,59 @@ const MySubscriptions = () => {
         </div>
       </ResponsiveDialog>
 
+
+      {/* ── Pause a membership ──
+          The new end date is the point: "pause" reads as "lose my days"
+          unless we show that they move, not vanish. */}
+      <ResponsiveDialog
+        open={!!pauseTarget}
+        onOpenChange={(open) => { if (!open) setPauseTarget(null); }}
+        title={<span className="flex items-center gap-2"><PauseCircle className="h-5 w-5 text-primary" />Pause {pauseTarget?.name}?</span>}
+        description="Access stops today and comes back on its own. Nothing is charged or refunded."
+        footer={
+          <div className="flex w-full gap-2">
+            <Button variant="ghost" className="flex-1" onClick={() => setPauseTarget(null)}>
+              Not now
+            </Button>
+            <Button
+              className="flex-1"
+              disabled={pauseMutation.isPending}
+              onClick={() => pauseTarget && pauseMutation.mutate({ target: pauseTarget, days: pauseDays })}
+            >
+              {pauseMutation.isPending && <Spinner size="sm" className="mr-2" />}
+              Pause
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-3">
+          <div className="flex flex-wrap gap-2">
+            {PAUSE_OPTIONS.map((o) => (
+              <button
+                key={o.days}
+                type="button"
+                aria-pressed={pauseDays === o.days}
+                onClick={() => setPauseDays(o.days)}
+                className={cn(
+                  "h-10 rounded-full px-4 text-body font-medium transition-colors",
+                  pauseDays === o.days ? "bg-foreground text-background" : "bg-muted text-foreground hover:bg-muted/80",
+                )}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Back on <span className="font-medium text-foreground">{formatDateHN(addDaysISO(todayHN(), pauseDays))}</span>
+            {pauseTarget?.endsOn && (
+              <> · your plan then runs until{" "}
+                <span className="font-medium text-foreground">{formatDateHN(addDaysISO(String(pauseTarget.endsOn).slice(0, 10), pauseDays))}</span>
+              </>
+            )}
+            . You can resume earlier at any time.
+          </p>
+        </div>
+      </ResponsiveDialog>
 
       {/* ── Reschedule cleaning session ── */}
       <ResponsiveDialog
