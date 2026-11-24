@@ -66,6 +66,9 @@ export async function fetchEarned(
     revenue += cents;
     units += source.units ? source.units(r) : 1;
     parts.push({ cents, pct: r.commission_pct == null ? null : Number(r.commission_pct) });
+    // VAT is recognised in step with the price and is the business's in full.
+    const vat = input.vatCents && input.totalCents ? Math.round((cents * input.vatCents) / input.totalCents) : 0;
+    if (vat > 0) { revenue += vat; parts.push({ cents: vat, pct: 0 }); }
   });
   return { revenue, units, parts };
 }

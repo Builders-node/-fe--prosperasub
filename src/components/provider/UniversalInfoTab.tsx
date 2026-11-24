@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { MapPin, Clock, Phone, Mail, Truck, CalendarCheck } from "lucide-react";
+import { MapPin, Clock, Phone, Mail, Truck, CalendarCheck, Percent } from "lucide-react";
 import { supabaseDb, adminApi } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAuditEvent } from "@/lib/auditLog";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { ProviderEditDialog, type ProviderEditFields } from "@/components/provider/ProviderEditDialog";
 import { WorkspaceRow } from "@/components/provider/WorkspaceUI";
 import { WorkingHoursEditor } from "@/components/provider/WorkingHoursEditor";
@@ -45,6 +46,8 @@ export interface UniversalProviderRow {
   delivery_info?: string | null;
   /** Platform-owned Google calendar. Provisioned at approval, never by hand. */
   google_calendar_id?: string | null;
+  /** VAT this business adds on top of its prices, in percent. NULL / 0 = none. */
+  vat_pct?: number | string | null;
 }
 
 /**
@@ -78,6 +81,11 @@ export function ProviderDetailsRows({ provider }: { provider: UniversalProviderR
               contactEmail={provider.contact_email ?? null}
             />
           : <ProvisionCalendar providerId={provider.id} />}
+      </Row>
+      <Row icon={<Percent className="h-4 w-4 text-muted-foreground" />} label="VAT">
+        {Number(provider.vat_pct) > 0
+          ? `${Number(provider.vat_pct)}% — added on top of every price at checkout`
+          : <em className="text-muted-foreground/70">None</em>}
       </Row>
       {delivers && (
         <Row icon={<Truck className="h-4 w-4 text-muted-foreground" />} label="Delivery">
@@ -114,6 +122,11 @@ export function ProviderProfileEditor({ provider, open, onOpenChange }: {
   const [hours, setHours] = useState<HoursSchedule[]>(() => parseWorkingHours(provider.working_hours));
   const [delivery, setDelivery] = useState(provider.delivery_info ?? "");
   const delivers = (provider.capabilities ?? []).includes("delivery");
+  const vatText = (p: UniversalProviderRow) => (Number(p.vat_pct) > 0 ? String(Number(p.vat_pct)) : "");
+  const [vat, setVat] = useState(() => vatText(provider));
+  const vatValue = vat.trim() === "" ? null : Number(vat.replace(",", "."));
+  const vatProblem = vatValue != null && (!Number.isFinite(vatValue) || vatValue < 0 || vatValue > 50)
+    ? "Between 0 and 50 %." : null;
 
   // Every opening starts from what is saved, not from a half-typed earlier try.
   useEffect(() => {
@@ -121,6 +134,7 @@ export function ProviderProfileEditor({ provider, open, onOpenChange }: {
     setForm(hydrate(provider));
     setHours(parseWorkingHours(provider.working_hours));
     setDelivery(provider.delivery_info ?? "");
+    setVat(vatText(provider));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
@@ -143,6 +157,8 @@ export function ProviderProfileEditor({ provider, open, onOpenChange }: {
         ...(isAdmin ? { sort_order: form.sort_order ?? 0 } : {}),
         gallery_urls: form.gallery_urls ?? [],
         ...(delivers ? { delivery_info: delivery.trim() || null } : {}),
+        // On the BUSINESS, not the offer: every order stamps it at checkout.
+        vat_pct: vatValue && vatValue > 0 ? Math.round(vatValue * 100) / 100 : null,
         // Bookings that follow the working hours move with them — the engine
         // reads booking_settings.weekly, so it is rewritten here too.
         ...(followsWorkingHours(provider.booking_settings)
@@ -151,6 +167,7 @@ export function ProviderProfileEditor({ provider, open, onOpenChange }: {
         updated_at: new Date().toISOString(),
       };
       if (!payload.name) throw new Error("Name is required");
+      if (vatProblem) throw new Error(`VAT: ${vatProblem}`);
       const { error } = await supabaseDb.from("providers").update(payload).eq("id", provider.id);
       if (error) throw error;
       if (userData?.id) await logAuditEvent(userData.id, "edit", "provider", provider.id, payload);
@@ -179,6 +196,19 @@ export function ProviderProfileEditor({ provider, open, onOpenChange }: {
           <div className="space-y-2">
             <p className="text-body text-muted-foreground">Working hours</p>
             <WorkingHoursEditor value={hours} onChange={setHours} />
+          </div>
+          <div className="space-y-2">
+            <p className="text-body text-muted-foreground">VAT, %</p>
+            <Input
+              inputMode="decimal"
+              value={vat}
+              onChange={(e) => setVat(e.target.value)}
+              placeholder="0"
+              className={vatProblem ? "border-destructive" : undefined}
+            />
+            <p className="text-xs text-muted-foreground">
+              {vatProblem ?? "Added on top of every price at checkout and shown to the customer as a separate line. It is yours in full — no commission is taken on it. Leave empty for none."}
+            </p>
           </div>
           {delivers && (
             <div className="space-y-2">

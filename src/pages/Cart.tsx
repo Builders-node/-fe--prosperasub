@@ -55,8 +55,9 @@ import type { CartService } from "@/lib/cart/cartItem";
 import { Sparkles, Waves, Package } from "lucide-react";
 import { QtyStepper, TermPills } from "@/components/checkout/OrderSize";
 import { orderShape, type OrderShape } from "@/lib/checkout/orderShape";
-import { useQueries } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import { publicSiteUrl } from "@/integrations/supabase/config";
+import { vatCentsFor, vatLabel } from "@/lib/checkout/vat";
 
 /** A line reads as its service at a glance, not as food-with-a-different-name. */
 const SERVICE_ICON: Record<CartService, typeof UtensilsCrossed> = {
@@ -222,7 +223,30 @@ export default function Cart() {
   /** Ids of the rows reserved before payment — the PayPal subscription pays for exactly one. */
   const reservedIdsRef = useRef<string[]>([]);
 
-  const effectiveTotalCents = addSurchargeCents(totalCents, paymentMethod);
+  /**
+   * VAT per line — each business's own rate (providers.vat_pct), read with the
+   * plan the line buys. Added on top of the goods, before the payment fee.
+   */
+  const cartPlanIds = [...new Set(items.map((i) => i.planId))].sort();
+  const vatRatesQ = useQuery({
+    queryKey: ["cart-vat-rates", cartPlanIds],
+    enabled: cartPlanIds.length > 0,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const rates: Record<string, number> = {};
+      await Promise.all(cartPlanIds.map(async (id) => {
+        const p = await resolveCheckoutPlan(id);
+        rates[id] = p?.vatPct ?? 0;
+      }));
+      return rates;
+    },
+  });
+  const lineVatCents = (item: (typeof items)[number]) => vatCentsFor(cartLineTotal(item), vatRatesQ.data?.[item.planId] ?? 0);
+  const vatTotalCents = items.reduce((sum, item) => sum + lineVatCents(item), 0);
+  /** What a rate would show as, when every taxed line shares one. */
+  const vatRates = [...new Set(items.map((i) => vatRatesQ.data?.[i.planId] ?? 0).filter((r) => r > 0))];
+  const payableCents = totalCents + vatTotalCents;
+  const effectiveTotalCents = addSurchargeCents(payableCents, paymentMethod);
   const feePct = surchargePercent(paymentMethod);
   const totalUsd = centsToDollars(effectiveTotalCents);
   const estimatedSats = convertToSats(totalUsd);
@@ -294,7 +318,7 @@ export default function Cart() {
     // The fee is charged once on the cart total but stored per row, so spread
     // it in proportion to each line's price and put the rounding remainder on
     // the last line — the rows then sum to the fee actually charged.
-    const totalSurchargeCents = effectiveTotalCents - totalCents;
+    const totalSurchargeCents = effectiveTotalCents - payableCents;
     let surchargeAssigned = 0;
 
     // Resolve every line's plan first: the row builder needs what the plan
@@ -325,6 +349,7 @@ export default function Cart() {
         address: form.delivery_address.trim() || null,
         notes: form.notes.trim() || null,
         surchargeCents: lineSurcharge,
+        vatCents: lineVatCents(item),
       });
 
       const table = CART_TABLES[item.service];
@@ -440,6 +465,15 @@ export default function Cart() {
     setIsGenerating(true);
     try {
       plansRef.current = await resolveCartPlans();
+      // The total on screen must be the one charged: VAT shown from a rate
+      // that has not loaded, or has since changed, would charge one figure and
+      // stamp another on the order.
+      const stale = [...plansRef.current].some(([id, p]) => (vatRatesQ.data?.[id] ?? -1) !== (p.vatPct ?? 0));
+      if (stale) {
+        await vatRatesQ.refetch();
+        toast.error("Prices were just updated — check the total and try again.");
+        return;
+      }
     } catch (e: any) {
       toast.error(e?.message || "Something in your cart can't be bought right now.");
       return;
@@ -500,10 +534,15 @@ export default function Cart() {
   const resume = (
     <ResumeCard
                   goodsCents={totalCents}
-                  feeCents={Math.max(0, effectiveTotalCents - totalCents)}
+                  feeCents={Math.max(0, effectiveTotalCents - payableCents)}
                   feeLabel={feePct > 0 ? `Fee · ${feePct}%` : "Fee"}
                   totalCents={effectiveTotalCents}
-                  extra={[{ label: "Items", value: String(count) }]}
+                  extra={[
+                    { label: "Items", value: String(count) },
+                    ...(vatTotalCents > 0
+                      ? [{ label: vatRates.length === 1 ? vatLabel(vatRates[0]) : "VAT", value: formatUSD(vatTotalCents) }]
+                      : []),
+                  ]}
                 />
   );
   const payBlock = (
@@ -689,6 +728,12 @@ export default function Cart() {
                           <span className="shrink-0 tabular-nums">{formatUSD(cartLineTotal(item))}</span>
                         </div>
                       ))}
+                      {vatTotalCents > 0 && (
+                        <div className="flex justify-between text-muted-foreground">
+                          <span>{vatRates.length === 1 ? vatLabel(vatRates[0]) : "VAT"}</span>
+                          <span className="shrink-0 tabular-nums">{formatUSD(vatTotalCents)}</span>
+                        </div>
+                      )}
                       <div className="flex justify-between text-muted-foreground">
                         <span>Payment fee</span>
                         <span className="shrink-0">depends on method</span>
@@ -696,7 +741,7 @@ export default function Cart() {
                     </div>
                     <div className="flex items-baseline justify-between border-t border-border/60 pt-4">
                       <span className="text-title font-semibold text-foreground">To pay</span>
-                      <span className="text-3xl font-semibold tabular-nums tracking-tight text-foreground">{formatUSD(totalCents)}</span>
+                      <span className="text-3xl font-semibold tabular-nums tracking-tight text-foreground">{formatUSD(payableCents)}</span>
                     </div>
                     <Button size="lg" className="hidden w-full font-semibold md:flex"
                       onClick={() => isAuthenticated ? navigate("/cart/checkout") : openAuthModal("login", "/cart/checkout")}>
@@ -905,7 +950,7 @@ export default function Cart() {
           {showBasketOnly ? (
             <Button size="lg" className="w-full rounded-radius-md font-semibold tracking-[-0.02em]"
               onClick={() => isAuthenticated ? navigate("/cart/checkout") : openAuthModal("login", "/cart/checkout")}>
-              {isAuthenticated ? `Continue to checkout · ${formatUSD(totalCents)}` : "Log in to checkout"}
+              {isAuthenticated ? `Continue to checkout · ${formatUSD(payableCents)}` : "Log in to checkout"}
             </Button>
           ) : payBlock}
         </CheckoutStickyFooter>

@@ -36,6 +36,8 @@ export interface RowContext {
   notes: string | null;
   /** This line's share of the payment-method fee, in cents. */
   surchargeCents: number;
+  /** VAT charged on this line (the business's rate, lib/checkout/vat). */
+  vatCents?: number;
 }
 
 /**
@@ -101,14 +103,15 @@ export function buildRows(item: CartItem, plan: CheckoutPlan, ctx: RowContext): 
     ...(ctx.paid ? paidPatch(item.service, ctx.paymentReference ?? "") : {}),
   };
 
-  const answers = (surcharge: number, selections: string[]): CheckoutAnswers => ({
+  const answers = (surcharge: number, selections: string[], vat = ctx.vatCents ?? 0): CheckoutAnswers => ({
     userId: ctx.userId,
     userUuid: isUuid(ctx.userId) ? ctx.userId : null,
     startDate: ctx.today,
     periods: item.periods,
     people: item.qty,
     totalCents: lineTotalCents(item),
-    chargedCents: lineTotalCents(item) + surcharge,
+    chargedCents: lineTotalCents(item) + surcharge + vat,
+    vatCents: vat,
     paymentMethod: ctx.paymentMethod,
     phone: ctx.customerWhatsapp,
     notes: ctx.notes ?? "",
@@ -131,7 +134,9 @@ export function buildRows(item: CartItem, plan: CheckoutPlan, ctx: RowContext): 
       // The remainder rides on the first portion so the rows sum to the fee
       // that was actually charged.
       const surcharge = index === 0 ? ctx.surchargeCents - per * (item.qty - 1) : per;
-      return buildSubscriptionWrite(plan, { ...answers(surcharge, meals), people: 1 }, paidBits).row;
+      const vatPer = Math.round((ctx.vatCents ?? 0) / Math.max(1, item.qty));
+      const vat = index === 0 ? (ctx.vatCents ?? 0) - vatPer * (item.qty - 1) : vatPer;
+      return buildSubscriptionWrite(plan, { ...answers(surcharge, meals, vat), people: 1 }, paidBits).row;
     });
   }
 

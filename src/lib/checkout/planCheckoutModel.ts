@@ -81,6 +81,12 @@ export interface CheckoutPlan {
   delivery: OfferDelivery;
   /** Where to come for self-service. */
   providerLocation: string | null;
+  /**
+   * The business's VAT, in percent (0 = none) — `providers.vat_pct`. Added on
+   * top of the goods after a promo; the order row stamps the same rate itself
+   * (trigger stamp_order_vat), so this is what the customer is SHOWN and charged.
+   */
+  vatPct: number;
 }
 
 const asSelection = (value: unknown): SelectionGroup | null => {
@@ -114,7 +120,7 @@ function firstPhoto(list: unknown): string | null {
 export async function resolveCheckoutPlan(planId: string): Promise<CheckoutPlan | null> {
   const { data: rows } = await supabaseDb
     .from("provider_plans")
-    .select("*, providers(name, source_provider_id, status, gallery_urls, avatar_url, location)")
+    .select("*, providers(name, source_provider_id, status, gallery_urls, avatar_url, location, vat_pct)")
     .or(`id.eq.${planId},source_plan_id.eq.${planId}`)
     .limit(1);
 
@@ -157,6 +163,7 @@ export async function resolveCheckoutPlan(planId: string): Promise<CheckoutPlan 
     name: String(row.name ?? "Plan"),
     providerName: row.providers?.name ? String(row.providers.name) : null,
     providerLocation: row.providers?.location ? String(row.providers.location) : null,
+    vatPct: Math.max(0, Number(row.providers?.vat_pct) || 0),
     description: row.description ?? null,
     unitCents: Number(row.price_cents ?? 0),
     period: String(row.period ?? "monthly"),

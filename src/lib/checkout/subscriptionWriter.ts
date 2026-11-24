@@ -32,6 +32,8 @@ export interface CheckoutAnswers {
   totalCents: number;
   /** What the customer is actually charged. */
   chargedCents: number;
+  /** VAT charged on top for this row — the business's, so not part of the surcharge. */
+  vatCents?: number;
   paymentMethod: string;
   phone: string;
   notes: string;
@@ -88,7 +90,7 @@ export function buildSubscriptionWrite(
   const discount = Math.max(0, Math.min(a.promoDiscountCents ?? 0, a.totalCents));
   // The fee is charged on what actually moves, so it is measured against the
   // discounted figure rather than the list price.
-  const surcharge = Math.max(0, a.chargedCents - (a.totalCents - discount));
+  const surcharge = Math.max(0, a.chargedCents - (a.totalCents - discount) - Math.max(0, a.vatCents ?? 0));
   const promo = a.promoCode
     ? { promo_code: a.promoCode.toUpperCase(), promo_discount_cents: discount }
     : {};

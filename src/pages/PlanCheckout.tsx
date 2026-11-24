@@ -56,6 +56,7 @@ import { fetchRenewalSubject, renewalEndpoint, renewalWindow } from "@/lib/check
 import { accountApi } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/patterns/Skeleton";
 import { publicSiteUrl } from "@/integrations/supabase/config";
+import { vatCentsFor, vatLabel } from "@/lib/checkout/vat";
 
 /**
  * Checkout for a plan in the universal `provider_plans` table.
@@ -375,8 +376,12 @@ const UniversalPlanCheckout = () => {
   const afterPromoCents = Math.max(0, totalCents - discountCents);
   const bonusCents = useBonus && !multi ? Math.min(balanceCents, afterPromoCents) : 0;
 
-  // The delivery fee rides on top: a promo or a bonus takes off the goods, not the courier.
-  const payableCents = Math.max(0, afterPromoCents - bonusCents) + deliveryFeeCents;
+  // VAT, the business's own rate, on the goods after the promo (lib/checkout/vat).
+  const vatPct = plan?.vatPct ?? 0;
+  const vatCents = vatCentsFor(afterPromoCents, vatPct);
+
+  // The delivery fee and VAT ride on top: a promo or a bonus takes off the goods, not the courier or the tax.
+  const payableCents = Math.max(0, afterPromoCents - bonusCents) + vatCents + deliveryFeeCents;
   const effectiveTotalCents = addSurchargeCents(payableCents, paymentMethod);
 
   /**
@@ -470,6 +475,7 @@ const UniversalPlanCheckout = () => {
     promoCode: promo?.code ?? null,
     promoDiscountCents: discountCents,
     creditAppliedCents: bonusCents,
+    vatCents: multi ? (i === 0 ? vatCents - Math.round(vatCents / portions) * (portions - 1) : Math.round(vatCents / portions)) : vatCents,
   });
   /**
    * How it reaches them. service_mode only once the offer carries the column
@@ -552,7 +558,8 @@ const UniversalPlanCheckout = () => {
             payment_method: o.method,
             payment_reference: o.paymentRef,
             amount_cents: totalCents,
-            surcharge_cents: Math.max(0, effectiveTotalCents - totalCents),
+            // VAT is not a fee: it is the business's, recomputed from the order's own rate.
+            surcharge_cents: Math.max(0, effectiveTotalCents - totalCents - vatCents),
             idempotency_key: idempotencyKey,
           }),
         });
@@ -794,6 +801,9 @@ const UniversalPlanCheckout = () => {
                 : []),
               ...(bonusCents > 0
                 ? [{ label: "Bonus", value: `−${formatUSD(bonusCents)}` }]
+                : []),
+              ...(vatCents > 0
+                ? [{ label: vatLabel(vatPct), value: formatUSD(vatCents) }]
                 : []),
               ...(wantsDelivery && quoteOk
                 ? [{ label: visit ? "Call-out" : "Delivery", value: quoteOk.feeCents === 0 ? "Free" : formatUSD(quoteOk.feeCents) }]

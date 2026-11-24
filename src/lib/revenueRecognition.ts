@@ -31,6 +31,8 @@ export interface RecognitionInput {
   serviceEnd?: Date | string | null;
   /** Span in days to use when `serviceEnd` is missing or not after the start (e.g. a one-off). */
   fallbackDays?: number;
+  /** VAT charged on top of totalCents — the business's, recognised alongside it, never commissioned. */
+  vatCents?: number;
 }
 
 /** Whole days of overlap between the service interval and the reporting window. */
