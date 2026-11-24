@@ -65,8 +65,17 @@ export function serviceSlug(keyOrSlug: string | undefined | null): string {
 
 export const serviceListingHref = (keyOrSlug: string) => `/services/${serviceSlug(keyOrSlug)}`;
 
-export const providerHref = (keyOrSlug: string, providerId: string) =>
-  `/services/${serviceSlug(keyOrSlug)}/providers/${providerId}`;
+/**
+ * A business's one address: /businesses/<slug> (or its uuid, which the page
+ * replaces with the slug). Flat like /plans/… — the service is not in it, so
+ * a business filed under another service keeps its links. The old
+ * /services/<service>/providers/<slug> and /vehicles/providers/<id> still open
+ * and are replaced.
+ */
+export const businessHref = (slugOrId: string) => `/businesses/${slugOrId}`;
+
+/** Kept for its callers; the service no longer goes in the address. */
+export const providerHref = (_keyOrSlug: string | null | undefined, providerId: string) => businessHref(providerId);
 
 /**
  * The one address a plan has: /plans/<words>-<number>.

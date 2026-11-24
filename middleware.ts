@@ -25,7 +25,7 @@
 import { faqJsonLd, serviceSeo } from "./src/lib/seo/serviceSeo";
 
 export const config = {
-  matcher: ["/", "/services/:path*", "/plans/:path*", "/cars/:path*", "/vehicles/:path*", "/discovery", "/for-business", "/become-a-provider", "/how-it-works", "/pay-with-bitcoin", "/about"],
+  matcher: ["/", "/services/:path*", "/businesses/:path*", "/plans/:path*", "/cars/:path*", "/vehicles/:path*", "/discovery", "/for-business", "/become-a-provider", "/how-it-works", "/pay-with-bitcoin", "/about"],
 };
 
 const PREVIEW_BOT = /facebookexternalhit|Facebot|WhatsApp|Twitterbot|Slackbot|TelegramBot|LinkedInBot|Discordbot|Pinterest|SkypeUriPreview|vkShare|redditbot|Embedly|Iframely|bitlybot|Applebot/i;
@@ -84,10 +84,9 @@ const priceLine = (cents: number | null, period: string | null) => {
  */
 const slugOf = (key: string) => key;
 /** A business's address: its slug (words) when it has one, else its uuid. */
-const providerPath = (p: { id: string; slug?: string | null; unit?: string | null; archetype_key?: string | null }) => {
-  const seg = p.slug || p.id;
-  return p.unit === "vehicles" ? `/vehicles/providers/${seg}` : p.archetype_key ? `/services/${slugOf(p.archetype_key)}/providers/${seg}` : null;
-};
+/** A business's one address, flat: /businesses/<slug> (rental companies too). */
+const providerPath = (p: { id: string; slug?: string | null; unit?: string | null; archetype_key?: string | null }) =>
+  p.unit === "vehicles" || p.archetype_key ? `/businesses/${p.slug || p.id}` : null;
 const SLUG = /^[a-z0-9][a-z0-9-]{0,79}$/;
 type Worded = { slug?: string | null; public_no?: number | string | null };
 /**
@@ -146,8 +145,8 @@ async function servicesList(): Promise<Link[]> {
 async function pageFor(path: string): Promise<Page | null> {
   const parts = path.split("/").filter(Boolean);
 
-  // ── A business: /services/:slug/providers/:id · /vehicles/providers/:id ──
-  const provIdx = parts.indexOf("providers");
+  // ── A business: /businesses/:slug (old: /services/:s/providers/:id, /vehicles/providers/:id) ──
+  const provIdx = parts[0] === "businesses" ? 0 : parts.indexOf("providers");
   const provSeg = parts[provIdx + 1] ?? "";
   if (provIdx >= 0 && (UUID.test(provSeg) || SLUG.test(provSeg))) {
     // select=* — `slug` arrives with the provider_slugs migration; naming it
@@ -155,7 +154,8 @@ async function pageFor(path: string): Promise<Page | null> {
     const [p] = await rows(`providers?${UUID.test(provSeg) ? "id" : "slug"}=eq.${provSeg}&select=*`);
     if (!p || (p.status !== "active" && p.status !== "approved")) return null;
     const self = providerPath(p) ?? path;
-    if (UUID.test(provSeg) && p.slug && self !== path) return { ...DEFAULT, type: "website", redirect: self };
+    // A uuid or an old address with the service in it: one 301 to /businesses/<slug>.
+    if (self !== path) return { ...DEFAULT, type: "website", redirect: self };
     const reviews = await rows(`provider_reviews?provider_id=eq.${p.id}&hidden_at=is.null&select=rating`);
     const ratingCount = reviews.length;
     const ratingAvg = ratingCount ? reviews.reduce((s2, r) => s2 + (Number(r.rating) || 0), 0) / ratingCount : 0;
@@ -249,7 +249,7 @@ async function pageFor(path: string): Promise<Page | null> {
     const description = [price ? `From ${price} / day` : null, clip(v.description, 160)].filter(Boolean).join(" — ") || "Rent a car on Roatán with EverySub.";
     const image = v.image_url || v.gallery_urls?.[0] || DEFAULT.image;
     const crumbs: Link[] = [{ href: "/discovery", label: "EverySub" }, { href: "/vehicles", label: "Car rental" }];
-    if (prov) crumbs.push({ href: `/vehicles/providers/${prov.slug || prov.id}`, label: prov.name });
+    if (prov) crumbs.push({ href: `/businesses/${prov.slug || prov.id}`, label: prov.name });
     crumbs.push({ href: self, label: v.name });
     return {
       title: `${v.name} · Car rental in Roatán`, description, image, type: "product",

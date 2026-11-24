@@ -8,9 +8,9 @@ import { Photo, initialsOf } from "@/components/patterns/Photo";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { formatWorkingHours } from "@/lib/workingHours";
-import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useGoBack } from "@/hooks/useGoBack";
-import { archetypeFromSlug, planHref, planSegment, serviceMetaFromSlug, serviceSlug, type Addressable } from "@/lib/services/serviceUrls";
+import { archetypeFromSlug, businessHref, planHref, planSegment, serviceMetaFromSlug, serviceSlug, type Addressable } from "@/lib/services/serviceUrls";
 import { Button } from "@/components/ui/button";
 import {
   SparklesIcon, Waves, Car,
@@ -219,31 +219,11 @@ const ProviderDetail = () => {
   // "Plans" for a service, "Vehicles" for a fleet — the same three tabs, named
   // after what the business sells (SERVICE_META.offeringsHeading).
   // The bell on the banner goes where the app's bell always goes.
-  // The segment is the business's slug (/providers/scuba-shop) or, from older
+  // The segment is the business's slug (/businesses/scuba-shop) or, from older
   // links, its uuid. Everything below is keyed by the resolved uuid.
-  const { archetypeKey: serviceSegment, providerId: providerParam } = useParams<{ archetypeKey: string; providerId: string }>();
+  const { archetypeKey: urlSegment, providerId: providerParam } = useParams<{ archetypeKey: string; providerId: string }>();
   const paramIsId = !!providerParam && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(providerParam);
-  /**
-   * Which vertical this page is showing.
-   *
-   * Normally the URL says so (/services/<slug>/providers/<id>). The transport
-   * unit owns its own address (/vehicles/providers/<id>) and carries no slug,
-   * so an absent segment is not a wrong URL there — the provider row decides.
-   */
-  const archetypeKey = serviceSegment ? archetypeFromSlug(serviceSegment) : "rental";
-  /**
-   * A service created in the admin (healthcare, pantry…) has no entry in the
-   * static slug map above — that map only knows the four legacy verticals —
-   * so its key in `service_archetypes` is what makes the segment valid. Every
-   * archetype, not only active ones: an admin previews a draft service's
-   * provider before it launches. Without this, every universal provider's
-   * public page answered "No such service".
-   */
-  const { archetypes: allArchetypes, isLoading: archetypesLoading } = useServiceArchetypes(false);
-  const dbArchetype = serviceSegment
-    ? allArchetypes.find((a) => a.key === serviceSegment.trim().toLowerCase())
-    : undefined;
-
+  const location = useLocation();
   const providerQ = useQuery({
     queryKey: ["provider-detail", providerParam],
     queryFn: async () => {
@@ -261,14 +241,37 @@ const ProviderDetail = () => {
   /** The business's uuid — what every other query on this page is keyed by. */
   const providerId: string | undefined = (providerQ.data as { id?: string } | undefined)?.id ?? (paramIsId ? providerParam : undefined);
   const providerSlug = (providerQ.data as { slug?: string | null } | undefined)?.slug ?? null;
-  // An old uuid link lands on the words, without a history step.
-  useEffect(() => {
-    if (providerSlug && providerParam && providerParam !== providerSlug) {
-      const here = window.location.pathname;
-      const next = here.replace(new RegExp(`/providers/${providerParam}(?=/|$)`), `/providers/${providerSlug}`);
-      if (next !== here) navigate(`${next}${window.location.search}${window.location.hash}`, { replace: true });
-    }
-  }, [providerSlug, providerParam]); // eslint-disable-line react-hooks/exhaustive-deps
+  /**
+   * Which service the business sells in. The address no longer says
+   * (/businesses/scuba-shop), so the business's own row does; an old address
+   * (/services/<service>/providers/<slug>) still carries it while it loads.
+   * A rental company has no service — its vertical is the transport unit.
+   */
+  const serviceSegment: string | undefined = urlSegment
+    ?? (providerQ.data && !isVehiclesProvider(providerQ.data)
+      ? ((providerQ.data as { archetype_key?: string | null }).archetype_key ?? undefined)
+      : undefined);
+  /**
+   * Which vertical this page is showing.
+   *
+   * The business's row says so (an old address's segment, while it loads). A
+   * rental company has no service, so an absent segment is not a wrong URL —
+   * it is the transport unit.
+   */
+  const archetypeKey = serviceSegment ? archetypeFromSlug(serviceSegment) : "rental";
+  /**
+   * A service created in the admin (healthcare, pantry…) has no entry in the
+   * static slug map above — that map only knows the four legacy verticals —
+   * so its key in `service_archetypes` is what makes the segment valid. Every
+   * archetype, not only active ones: an admin previews a draft service's
+   * provider before it launches. Without this, every universal provider's
+   * public page answered "No such service".
+   */
+  const { archetypes: allArchetypes, isLoading: archetypesLoading } = useServiceArchetypes(false);
+  const dbArchetype = serviceSegment
+    ? allArchetypes.find((a) => a.key === serviceSegment.trim().toLowerCase())
+    : undefined;
+
 
   // Inside the unit there is no slug in the URL, and a transport provider has
   // no archetype to derive one from — it names its own vertical instead.
@@ -319,15 +322,13 @@ const ProviderDetail = () => {
    */
   const isVehicles = isVehiclesProvider(providerQ.data);
   /**
-   * The canonical address of a rental business is inside its own unit
-   * (/vehicles/providers/<id>). THIS component renders both — one design for
-   * every provider on the platform — so the redirect fires only when we were
-   * reached through the marketplace's URL shape, which is what
-   * `serviceSegment` being present means. Without that guard the unit's route
-   * would redirect to itself.
+   * One business, one address: /businesses/<slug>. A uuid link, the old
+   * /services/<service>/providers/<slug> and the old /vehicles/providers/<id>
+   * all land here, replaced so Back still leaves the page.
    */
-  const transportHome = isVehicles && serviceSegment && providerQ.data?.id
-    ? carProviderPath(providerQ.data.id)
+  const canonicalPath = providerQ.data?.id ? businessHref(providerSlug ?? providerQ.data.id) : null;
+  const transportHome = canonicalPath && canonicalPath !== location.pathname.replace(/\/+$/, "")
+    ? `${canonicalPath}${location.search}${location.hash}`
     : null;
   const vehiclesQ = useVehicles({ providerId, enabled: !!providerId && isVehicles });
   // Type labels for the fleet shelf — one business can rent cars AND
@@ -404,11 +405,7 @@ const ProviderDetail = () => {
    * loading pass too and simply says nothing until the business arrives.
    */
   const seoProvider = providerQ.data;
-  const seoPath = seoProvider
-    ? (isVehicles
-        ? carProviderPath(providerSlug ?? seoProvider.id)
-        : `/services/${serviceSegment ?? ""}/providers/${providerSlug ?? seoProvider.id}`)
-    : null;
+  const seoPath = seoProvider ? businessHref(providerSlug ?? seoProvider.id) : null;
   useSeo({
     title: seoProvider?.name ?? null,
     description: seoProvider
@@ -430,6 +427,9 @@ const ProviderDetail = () => {
         })
       : null,
   });
+
+  // Any old address of this business is replaced by its one address.
+  if (transportHome) return <Navigate to={transportHome} replace />;
 
   if (serviceSegment && !archetypeKey && !dbArchetype && archetypesLoading) {
     return (
@@ -463,10 +463,7 @@ const ProviderDetail = () => {
     );
   }
 
-  // Transport keeps its businesses in its own section — one page per company,
-  // not one here and one there.
 
-  if (transportHome) return <Navigate to={transportHome} replace />;
 
   if (providerQ.isLoading) {
     return (

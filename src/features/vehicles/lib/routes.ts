@@ -1,4 +1,4 @@
-import { wordsAddress } from "@/lib/services/serviceUrls";
+import { businessHref, wordsAddress } from "@/lib/services/serviceUrls";
 
 /**
  * Where the car storefront lives inside the app.
@@ -31,11 +31,10 @@ export const vehiclePath = (v: { id: string; slug?: string | null; public_no?: n
 /**
  * One rental business's own page, inside the unit.
  *
- * A transport provider is not a marketplace service's provider — it has no
- * archetype and no service slug — so its page lives here rather than at
- * /services/<slug>/providers/<id>, where every other vertical's does.
+ * Every business now lives at /businesses/<slug>, rental companies included;
+ * this name stays for its callers.
  */
-export const carProviderPath = (providerId: string): string => carPath(`providers/${providerId}`);
+export const carProviderPath = (providerId: string): string => businessHref(providerId);
 
 /**
  * A path with its trailing slash removed, so "/vehicles/" and "/vehicles"

@@ -35,7 +35,7 @@ const FoodProviderDetail = () => {
   });
 
   if (isLoading) return <PageLoader />;
-  return <Navigate to={data ? `/services/food/providers/${data}` : "/services/food"} replace />;
+  return <Navigate to={data ? `/businesses/${data}` : "/services/food"} replace />;
 };
 
 export default FoodProviderDetail;
