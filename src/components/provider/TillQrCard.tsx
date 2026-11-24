@@ -55,18 +55,18 @@ export function TillQrCard({ providerId, name, embedded = false }: { providerId:
   return (
     <section className={embedded ? "tracking-[-0.02em]" : "rounded-radius-lg bg-card p-4 tracking-[-0.02em]"}>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-        <div ref={holder} className="w-fit shrink-0 rounded-radius-md bg-white p-3">
-          <QRCodeSVG value={url} size={140} level="M" />
+        <div ref={holder} className="w-fit shrink-0 rounded-radius-md bg-white p-2.5">
+          <QRCodeSVG value={url} size={120} level="M" />
         </div>
         <div className="min-w-0">
           {!embedded && <h2 className="text-heading font-semibold text-foreground">Till QR</h2>}
           <p className={embedded ? "text-body text-muted-foreground" : "mt-1 text-body text-muted-foreground"}>
-            Put it at the till. A subscriber scans it, sees what their plan includes today and presses Get —
-            you see it at once on Schedule → Today. Or staff scan the customer's own code and enter the PIN below.
+            Put it at the till. A subscriber scans it and presses Get to collect today's visit — it shows up at
+            once in Bookings → Today. Or staff take the customer's PIN below.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <Button size="sm" variant="secondary" className="gap-1.5" onClick={print}><Printer className="h-4 w-4" /> Print</Button>
-            <Button size="sm" variant="ghost" className="gap-1.5" onClick={copy}><Copy className="h-4 w-4" /> Copy link</Button>
+            <Button size="sm" className="gap-1.5" onClick={print}><Printer className="h-4 w-4" /> Print</Button>
+            <Button size="sm" variant="secondary" className="gap-1.5" onClick={copy}><Copy className="h-4 w-4" /> Copy link</Button>
           </div>
         </div>
       </div>

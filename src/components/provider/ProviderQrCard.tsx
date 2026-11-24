@@ -1,10 +1,13 @@
 import { useRef } from "react";
 import { QRCodeSVG } from "qrcode.react";
-import { Copy, Download, MessageCircle, Printer } from "lucide-react";
+import { ChevronDown, Copy, Download, MessageCircle, Printer, Share2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { accountApi } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 /**
  * The business's own QR, for a counter, a flyer or a door: it opens the public
@@ -122,49 +125,66 @@ export function ProviderQrCard({ name, publicHref, isPublic, clientCode, provide
     document.body.appendChild(frame);
   };
 
+  /**
+   * One thing to do with the code, and one place for the rest.
+   *
+   * There used to be four equal buttons — Print, Download PNG, Copy link,
+   * WhatsApp — which wrapped onto a second line beside the code and gave no
+   * hint which mattered. Print is the job this card exists for (a counter, a
+   * flyer); the other three are all "send it somewhere", so they live in one
+   * Share menu.
+   */
   return (
     <section className={embedded ? "tracking-[-0.02em]" : "rounded-radius-lg bg-card p-4 tracking-[-0.02em]"}>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-        <div ref={holder} className="w-fit shrink-0 rounded-radius-md bg-white p-3">
-          <QRCodeSVG value={url} size={140} level="M" />
+        <div ref={holder} className="w-fit shrink-0 rounded-radius-md bg-white p-2.5">
+          <QRCodeSVG value={url} size={120} level="M" />
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           {!embedded && <h2 className="text-heading font-semibold text-foreground">Your QR code</h2>}
           <p className={embedded ? "text-body text-muted-foreground" : "mt-1 text-body text-muted-foreground"}>
             {isPublic
-              ? "Print it for a counter or a flyer. Customers scan it and see all your plans."
-              : "Customers will see your plans here once your page is live. Until then the code opens nothing."}
+              ? "Put it on a counter or a flyer. A scan opens your page with all your plans."
+              : "It starts working once your page is live. Until then the code opens nothing."}
           </p>
-          {clientCode && (
-            <div className="mt-3 rounded-radius-md bg-inset p-3">
-              <p className="text-body font-semibold text-foreground">
-                0% commission on clients you bring
-              </p>
-              <p className="mt-0.5 text-meta text-muted-foreground">
-                Anyone who opens this QR or link (code <span className="font-semibold text-foreground">{clientCode}</span>) and
-                signs up becomes your client — EverySub keeps nothing on what they buy from you.
-              </p>
-              {clients && (
-                <p className="mt-2 text-meta text-foreground">
-                  {clients.count === 0
-                    ? "No clients through your code yet — share it with the customers you already have."
-                    : `${clients.count} client${clients.count === 1 ? "" : "s"} came through your code${clients.clients[0] ? ` · latest: ${clients.clients[0].name}` : ""}.`}
-                </p>
-              )}
-            </div>
-          )}
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Button size="sm" onClick={print}><Printer className="h-4 w-4" />Print</Button>
-            <Button size="sm" variant="secondary" onClick={download}><Download className="h-4 w-4" />Download PNG</Button>
-            <Button size="sm" variant="secondary" onClick={copy}><Copy className="h-4 w-4" />Copy link</Button>
-            <Button size="sm" variant="secondary" asChild>
-              <a href={`https://wa.me/?text=${encodeURIComponent(shareText)}`} target="_blank" rel="noreferrer">
-                <MessageCircle className="h-4 w-4" />WhatsApp
-              </a>
-            </Button>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <Button size="sm" onClick={print} className="gap-1.5"><Printer className="h-4 w-4" />Print</Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="secondary" className="gap-1.5">
+                  <Share2 className="h-4 w-4" />Share<ChevronDown className="h-3.5 w-3.5 opacity-60" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-48">
+                <DropdownMenuItem onSelect={copy}><Copy className="h-4 w-4" />Copy link</DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <a href={`https://wa.me/?text=${encodeURIComponent(shareText)}`} target="_blank" rel="noreferrer">
+                    <MessageCircle className="h-4 w-4" />Send on WhatsApp
+                  </a>
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={download}><Download className="h-4 w-4" />Download image</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </div>
+      {/* Why sharing it pays — under the code and its actions rather than
+          between them, in two short lines instead of a paragraph. */}
+      {clientCode && (
+        <div className="mt-4 rounded-radius-md bg-inset px-3 py-2.5">
+          <p className="text-meta text-foreground">
+            <span className="font-semibold">0% commission</span> on anyone who signs up through this code
+            (<span className="font-semibold">{clientCode}</span>).
+          </p>
+          {clients && (
+            <p className="mt-0.5 text-meta text-muted-foreground">
+              {clients.count === 0
+                ? "No clients through it yet."
+                : `${clients.count} client${clients.count === 1 ? "" : "s"} so far${clients.clients[0] ? ` · latest: ${clients.clients[0].name}` : ""}.`}
+            </p>
+          )}
+        </div>
+      )}
     </section>
   );
 }
