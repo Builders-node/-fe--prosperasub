@@ -25,6 +25,22 @@ const resolveApiUrl = () => {
 
 export const API_URL = resolveApiUrl();
 
+/**
+ * The address put into anything that leaves the browser — emails, admin
+ * notifications, shared links, the access QR. Always the live site, even when
+ * the action was taken on dev.everysub.net: a real person must never be sent
+ * to the test copy. Only a local dev server keeps its own origin, so links can
+ * be tried on a laptop. Sign-in redirects do NOT use this — they must come
+ * back to the site the person is on.
+ */
+export const PUBLIC_SITE_URL = "https://everysub.net";
+export function publicSiteUrl(): string {
+  if (typeof window !== "undefined" && ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname)) {
+    return window.location.origin;
+  }
+  return PUBLIC_SITE_URL;
+}
+
 export const SUPABASE_URL =
   (import.meta.env.VITE_SUPABASE_URL as string) ||
   "https://igbytraidldkhhamsfdo.supabase.co";

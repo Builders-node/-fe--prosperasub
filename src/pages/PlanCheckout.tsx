@@ -55,6 +55,7 @@ import { PaymentMethodTiles } from "@/components/payment/PaymentMethodTiles";
 import { fetchRenewalSubject, renewalEndpoint, renewalWindow } from "@/lib/checkout/renewal";
 import { accountApi } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/patterns/Skeleton";
+import { publicSiteUrl } from "@/integrations/supabase/config";
 
 /**
  * Checkout for a plan in the universal `provider_plans` table.
@@ -612,7 +613,7 @@ const UniversalPlanCheckout = () => {
     plan_name: plan?.name,
     duration: termLabelFor(plan?.period ?? null, periods),
     booking_id: planId,
-    admin_url: `${window.location.origin}/admin/marketplace/plans`,
+    admin_url: `${publicSiteUrl()}/admin/marketplace/plans`,
     selected_date_time: startDate,
   });
 

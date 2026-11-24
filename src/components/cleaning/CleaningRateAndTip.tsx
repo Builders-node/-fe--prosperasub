@@ -10,6 +10,7 @@ import { TipPayment } from "@/components/payment/TipPayment";
 import { RateProviderButton } from "@/components/reviews/RateProviderButton";
 import { useUserUuid } from "@/hooks/useUserUuid";
 import { toast } from "sonner";
+import { publicSiteUrl } from "@/integrations/supabase/config";
 
 interface Props {
   /** The subscription this visit belongs to, recorded with the review. */
@@ -57,7 +58,7 @@ export function CleaningRateAndTip({ bookingId, subscriptionId, customerName }: 
         serviceName="Cleaning Tip"
         context="cleaning_tip"
         externalIdPrefix={`cleaning-tip-${bookingId}`}
-        adminUrl={`${window.location.origin}/admin/marketplace/subscriptions`}
+        adminUrl={`${publicSiteUrl()}/admin/marketplace/subscriptions`}
         customerName={customerName}
         tippedCents={tippedCents}
         heading="Tip the cleaner"

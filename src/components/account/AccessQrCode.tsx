@@ -4,6 +4,7 @@ import { ShieldCheck } from "lucide-react";
 import { accountApi } from "@/integrations/supabase/client";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
+import { publicSiteUrl } from "@/integrations/supabase/config";
 
 /**
  * The access QR of one subscription. The token is short-lived and signed by the
@@ -34,7 +35,7 @@ export function AccessQrCode({ subscriptionId, className }: { subscriptionId: st
 
       setError(false);
       setLoading(false);
-      setUrl(`${window.location.origin}/verify?token=${encodeURIComponent(data.token)}`);
+      setUrl(`${publicSiteUrl()}/verify?token=${encodeURIComponent(data.token)}`);
 
       // Refresh ~15s before expiry so the displayed QR is always valid.
       const refreshInMs = Math.max(((data.expires_in ?? 300) - 15) * 1000, 30_000);

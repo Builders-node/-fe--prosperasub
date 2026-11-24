@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { accountApi, supabaseDb } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUserUuid } from "./useUserUuid";
+import { publicSiteUrl } from "@/integrations/supabase/config";
 
 /**
  * Bring a neighbour.
@@ -184,4 +185,4 @@ export function useClaimReferral() {
 }
 
 export const referralLinkFor = (code: string) =>
-  `${window.location.origin}/?ref=${encodeURIComponent(code)}`;
+  `${publicSiteUrl()}/?ref=${encodeURIComponent(code)}`;

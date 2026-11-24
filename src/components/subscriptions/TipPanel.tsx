@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { TipPayment } from "@/components/payment/TipPayment";
 import { useUserUuid } from "@/hooks/useUserUuid";
+import { publicSiteUrl } from "@/integrations/supabase/config";
 
 /**
  * The one tip panel, identical on every service.
@@ -46,7 +47,7 @@ export function TipPanel({
       serviceName={providerName ? `Tip · ${providerName}` : "Tip"}
       context="provider_tip"
       externalIdPrefix={`tip-${subscriptionRef}`}
-      adminUrl={`${window.location.origin}/admin/marketplace/subscriptions`}
+      adminUrl={`${publicSiteUrl()}/admin/marketplace/subscriptions`}
       customerName={customerName}
       tippedCents={tippedCents}
       onRecord={async ({ amountCents, method, paymentRef, pending }) => {

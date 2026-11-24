@@ -56,6 +56,7 @@ import { Sparkles, Waves, Package } from "lucide-react";
 import { QtyStepper, TermPills } from "@/components/checkout/OrderSize";
 import { orderShape, type OrderShape } from "@/lib/checkout/orderShape";
 import { useQueries } from "@tanstack/react-query";
+import { publicSiteUrl } from "@/integrations/supabase/config";
 
 /** A line reads as its service at a glance, not as food-with-a-different-name. */
 const SERVICE_ICON: Record<CartService, typeof UtensilsCrossed> = {
@@ -429,7 +430,7 @@ export default function Cart() {
       duration: durations.join(" · "),
       booking_id: batchIdRef.current ?? undefined,
       selected_date_time: todayHN(),
-      admin_url: `${window.location.origin}/admin/marketplace/subscriptions`,
+      admin_url: `${publicSiteUrl()}/admin/marketplace/subscriptions`,
     };
   };
 

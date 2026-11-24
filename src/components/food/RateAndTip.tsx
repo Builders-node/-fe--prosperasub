@@ -10,6 +10,7 @@ import { RateProviderButton } from "@/components/reviews/RateProviderButton";
 import { useUserUuid } from "@/hooks/useUserUuid";
 import { SectionOverline } from "@/components/subscriptions/MySubsPrimitives";
 import { toast } from "sonner";
+import { publicSiteUrl } from "@/integrations/supabase/config";
 
 interface Props {
   providerId: string;
@@ -65,7 +66,7 @@ export function RateAndTip({ providerId, subscriptionId, customerName }: Props) 
           serviceName="Food Tip"
           context="food_tip"
           externalIdPrefix={`food-tip-${subscriptionId}`}
-          adminUrl={`${window.location.origin}/admin/marketplace/subscriptions`}
+          adminUrl={`${publicSiteUrl()}/admin/marketplace/subscriptions`}
           customerName={customerName}
           tippedCents={tippedCents}
           onRecord={async ({ amountCents, method, paymentRef, pending }) => {

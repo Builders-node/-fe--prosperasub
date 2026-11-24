@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { gaItem, trackEvent } from "@/lib/analytics/ga";
 import { supabase, accountApi } from '@/integrations/supabase/client';
+import { publicSiteUrl } from "@/integrations/supabase/config";
 
 /** Where to return after Google sign-in (see loginWithGoogle). */
 export const OAUTH_RETURN_KEY = "prospera_oauth_return";
@@ -311,7 +312,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signUp = async (email: string, password: string, name: string) => {
-    const redirectUrl = `${window.location.origin}/`;
+    const redirectUrl = `${publicSiteUrl()}/`;
     
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -338,7 +339,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const requestPasswordReset = async (email: string) => {
-    const redirectUrl = `${window.location.origin}/reset-password`;
+    const redirectUrl = `${publicSiteUrl()}/reset-password`;
     const { data, error } = await (supabase.auth as any).requestPasswordReset(email, redirectUrl);
     return { data, error: error as Error | null };
   };
