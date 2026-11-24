@@ -115,18 +115,25 @@ export function useMarkAsRead() {
   const qc = useQueryClient();
   const userUuid = useUserUuid();
   return useMutation({
-    mutationFn: async (id: string) => {
+    // One id, or every id of a folded chain (see lib/notifications/present).
+    mutationFn: async (idOrIds: string | string[]) => {
+      const ids = Array.isArray(idOrIds) ? idOrIds : [idOrIds];
+      let newlyRead = 0;
       // Optimistically update local cache immediately
       qc.setQueriesData({ queryKey: ["account-notifications"] }, (old: any) =>
-        Array.isArray(old) ? old.map((n: UserNotification) => n.id === id ? { ...n, isRead: true } : n) : old,
+        Array.isArray(old) ? old.map((n: UserNotification) => {
+          if (!ids.includes(n.id)) return n;
+          if (!n.isRead) newlyRead += 1;
+          return { ...n, isRead: true };
+        }) : old,
       );
       qc.setQueryData(["account-notifications-unread-count", userUuid], (old: any) =>
-        typeof old === "number" ? Math.max(0, old - 1) : old,
+        typeof old === "number" ? Math.max(0, old - Math.max(1, newlyRead)) : old,
       );
       await supabaseDb
         .from("user_notifications")
         .update({ is_read: true, updated_at: new Date().toISOString() })
-        .eq("id", id)
+        .in("id", ids)
         .eq("recipient_user_id", userUuid ?? "");
     },
     onSettled: () => {
@@ -164,15 +171,35 @@ export function useArchiveNotification() {
   const qc = useQueryClient();
   const userUuid = useUserUuid();
   return useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async (idOrIds: string | string[]) => {
+      const ids = Array.isArray(idOrIds) ? idOrIds : [idOrIds];
       // Optimistic remove from list
       qc.setQueriesData({ queryKey: ["account-notifications"] }, (old: any) =>
-        Array.isArray(old) ? old.filter((n: UserNotification) => n.id !== id) : old,
+        Array.isArray(old) ? old.filter((n: UserNotification) => !ids.includes(n.id)) : old,
       );
       await supabaseDb
         .from("user_notifications")
         .update({ is_archived: true, updated_at: new Date().toISOString() })
-        .eq("id", id)
+        .in("id", ids)
+        .eq("recipient_user_id", userUuid ?? "");
+    },
+    onSettled: () => {
+      qc.invalidateQueries({ queryKey: ["account-notifications"] });
+      qc.invalidateQueries({ queryKey: ["account-notifications-unread-count"] });
+    },
+  });
+}
+
+/** Undo for an archive — a swipe is easy to do by accident. */
+export function useUnarchiveNotification() {
+  const qc = useQueryClient();
+  const userUuid = useUserUuid();
+  return useMutation({
+    mutationFn: async (ids: string[]) => {
+      await supabaseDb
+        .from("user_notifications")
+        .update({ is_archived: false, updated_at: new Date().toISOString() })
+        .in("id", ids)
         .eq("recipient_user_id", userUuid ?? "");
     },
     onSettled: () => {
