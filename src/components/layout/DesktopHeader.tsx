@@ -32,10 +32,9 @@ interface DesktopHeaderProps {
  *
  * One white panel (`--card`), like the phone's header, and no border: the
  * panel against the page is the separation (DESIGN.md — borderless). The
- * optional second row (Back) is part of the same panel; a breadcrumb is
- * drawn below the panel, above the page content.
+ * optional breadcrumb is drawn below the panel, above the page content.
  */
-export function DesktopHeader({ showBackButton = false, onBack, breadcrumb }: DesktopHeaderProps) {
+export function DesktopHeader({ breadcrumb }: DesktopHeaderProps) {
   const session = useHeaderSession();
   const { openAuthModal } = useAuthModal();
   const { t } = useI18n();
@@ -57,9 +56,11 @@ export function DesktopHeader({ showBackButton = false, onBack, breadcrumb }: De
     };
   }, []);
 
-  // A page with a breadcrumb gets it the way the product pages do: a quiet
-  // line of text above the content, outside the header panel, and no Back
-  // button — the trail is the way back. A page with only Back keeps the row.
+  // No Back row on a desktop: the browser's own back, the logo and the
+  // breadcrumb do that job, and the extra band under the bar only pushed the
+  // page down. A page with a breadcrumb gets it as a quiet line of text above
+  // the content, outside the header panel. (showBackButton/onBack still drive
+  // the phone header.)
   return (
     <>
       <DesktopHeaderView
@@ -69,12 +70,6 @@ export function DesktopHeader({ showBackButton = false, onBack, breadcrumb }: De
         search={<HeaderSearch />}
         account={<AccountMenu />}
         onLogin={() => openAuthModal("login")}
-        subRow={showBackButton && !breadcrumb ? (
-          <DesktopSubRow
-            onBack={onBack ?? (() => window.history.back())}
-            backLabel={t("common.back")}
-          />
-        ) : null}
       />
       {breadcrumb && (
         <div className="hidden md:app-container md:block md:pt-space-6">
