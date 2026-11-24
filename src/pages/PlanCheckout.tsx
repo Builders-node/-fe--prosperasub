@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useSeo } from "@/hooks/useSeo";
 import { useTrackFunnel } from "@/lib/funnel";
 import { gaItem, trackEvent } from "@/lib/analytics/ga";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
@@ -96,6 +97,7 @@ const PROMO_REFUSALS: Record<string, string> = {
 };
 
 const UniversalPlanCheckout = () => {
+  useSeo({ title: "Checkout" });
   const { archetypeKey: serviceSegment, planId } = useParams<{ archetypeKey: string; planId: string }>();
   const [searchParams] = useSearchParams();
   /**

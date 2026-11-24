@@ -119,7 +119,7 @@ export const DesktopHeaderView = forwardRef<HTMLElement, DesktopHeaderViewProps>
         {location}
 
         <div className="flex shrink-0 items-center gap-1">
-          <HeaderIconLink to="/favorites" label="Favourites" icon={FavoriteIcon} count={session.favorites} />
+          <HeaderIconLink to="/favorites" label="Favorites" icon={FavoriteIcon} count={session.favorites} />
           <HeaderIconLink to="/cart" label="Cart" icon={ShoppingBagIcon} count={session.cart} />
           {session.status === "signedIn" && (
             <HeaderIconLink to="/notifications" label="Notifications" icon={NotificationsIcon} count={session.unread} />

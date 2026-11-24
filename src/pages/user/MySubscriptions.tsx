@@ -1,4 +1,5 @@
 import { fieldClass } from "@/components/ui/input";
+import { useSeo } from "@/hooks/useSeo";
 import { LEAVE_REASONS, type LeaveReason } from "@/lib/subscriptions/leaveReasons";
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
@@ -137,6 +138,7 @@ const isUuid = (v: unknown): v is string =>
   typeof v === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
 
 const MySubscriptions = () => {
+  useSeo({ title: "My subscriptions" });
   const { isAuthenticated, isLoading: authLoading, userData } = useAuth();
   const [paymentDialog, setPaymentDialog] = useState<any>(null);
   // One shared preview dialog for all three services' Renew buttons — click a
@@ -935,7 +937,7 @@ const MySubscriptions = () => {
 
   if (authLoading) {
     return (
-      <UserLayout title="My Subs">
+      <UserLayout title="My subscriptions">
         <PageLoader />
       </UserLayout>
     );
@@ -943,13 +945,13 @@ const MySubscriptions = () => {
 
   if (!isAuthenticated) {
     return (
-      <UserLayout title="My Subs">
+      <UserLayout title="My subscriptions">
         <div className="app-container pt-5">
           <YdEmptyState
             icon={CalendarDays}
-            title="Sign in to view bookings"
+            title="Log in to see your bookings"
             subtitle="Track your subscriptions, bookings and payments."
-            action={<Button onClick={() => openAuthModal("login", "/my-subscriptions")}>Sign In</Button>}
+            action={<Button onClick={() => openAuthModal("login", "/my-subscriptions")}>Log in</Button>}
           />
         </div>
       </UserLayout>
@@ -969,7 +971,7 @@ const MySubscriptions = () => {
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search Subs"
+          placeholder="Search subscriptions"
           className="min-w-0 flex-1 bg-transparent text-title text-foreground placeholder:text-muted-foreground focus:outline-none"
         />
         {query && (
@@ -1001,7 +1003,7 @@ const MySubscriptions = () => {
   );
 
   return (
-    <UserLayout title="My Subs" headerExtra={searchBar}>
+    <UserLayout title="My subscriptions" headerExtra={searchBar}>
       <PullToRefresh onRefresh={async () => {
         try {
           const API_URL = (import.meta.env.VITE_API_URL as string) || "https://api.prosperasub.com";

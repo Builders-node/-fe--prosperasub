@@ -208,7 +208,7 @@ export default function BecomeProvider() {
 
             <div className="space-y-2 px-4 pt-3 md:px-0">
               <Button className="w-full" size="lg" disabled={!valid} loading={submit.isPending} onClick={onSubmit}>
-                {userData ? "Send application" : "Sign in and send"}
+                {userData ? "Send application" : "Log in and send"}
               </Button>
               {!valid && (
                 <p className="text-center text-meta text-muted-foreground">

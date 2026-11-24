@@ -7,7 +7,7 @@ import { PlanRail, ShelfHeader, planIndex, useHomePlans, type HomePlan } from "@
  *
  * Drawn only when there is something on it, so a first visit sees nothing and
  * the page is exactly the shop window it was. (Running subscriptions and saved
- * plans have their own pages — My subscriptions and Favourites — and were
+ * plans have their own pages — My subscriptions and Favorites — and were
  * taken off the home page on purpose.)
  */
 export function ForYouSection() {

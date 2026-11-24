@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useSeo } from "@/hooks/useSeo";
 import { UpsellSection } from "@/components/patterns/UpsellSection";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useGoBack } from "@/hooks/useGoBack";
@@ -86,6 +87,7 @@ function endDateFor(startISO: string, weeks: number): string {
 }
 
 export default function Cart() {
+  useSeo({ title: "Cart" });
   const navigate = useNavigate();
   const { items, totalCents, count, setQty, setPeriods, removeItem, clear } = useCart();
 

@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useSeo } from "@/hooks/useSeo";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Building2, CarFront, Heart, LayoutGrid } from "lucide-react";
@@ -134,10 +135,11 @@ async function resolveRows(items: FavoriteItem[]): Promise<Map<string, Row>> {
 const ICON: Record<FavoriteKind, typeof Heart> = { plan: LayoutGrid, provider: Building2, vehicle: CarFront };
 
 export default function Favorites() {
+  useSeo({ title: "Favorites" });
   return (
-    <UserLayout title="Favourites" allowGuest>
+    <UserLayout title="Favorites" allowGuest>
       <div className="app-container space-y-4 py-space-4 md:py-space-6">
-        <h1 className="hidden text-3xl font-semibold tracking-tight md:block md:text-5xl">Favourites</h1>
+        <h1 className="hidden text-3xl font-semibold tracking-tight md:block md:text-5xl">Favorites</h1>
         <FavoritesPanel />
       </div>
     </UserLayout>
@@ -145,7 +147,7 @@ export default function Favorites() {
 }
 
 /**
- * The saved list itself — the /favorites page, and the Favourites panel of
+ * The saved list itself — the /favorites page, and the Favorites panel of
  * the profile on a laptop (pages/user/Profile.tsx), which opens it in place.
  */
 export function FavoritesPanel() {
@@ -176,7 +178,7 @@ export function FavoritesPanel() {
         {!isAuthenticated && items.length > 0 && (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-radius-lg bg-card p-4">
             <p className="text-body text-muted-foreground">Saved on this device. Sign in to keep them on your phone and laptop alike.</p>
-            <Button size="sm" onClick={() => openAuthModal("login", "/favorites")}>Sign in</Button>
+            <Button size="sm" onClick={() => openAuthModal("login", "/favorites")}>Log in</Button>
           </div>
         )}
 

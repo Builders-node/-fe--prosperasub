@@ -115,7 +115,7 @@ function RequireAuth({ children, title }: { children: ReactNode; title: string }
       <CarPage title={title}>
         <AppContainer className="py-6">
           <section className="mx-auto max-w-[480px] space-y-4 rounded-radius-lg bg-card p-6 text-center">
-            <p className="text-title font-semibold text-foreground">Sign in to continue</p>
+            <p className="text-title font-semibold text-foreground">Log in to continue</p>
             <p className="text-body text-muted-foreground">
               Your bookings are kept with your account, so we need to know it's you.
             </p>

@@ -6,6 +6,8 @@ import { useAuthModal } from "@/contexts/AuthModalContext";
 import { useAdminPermissions } from "@/hooks/useAdminPermissions";
 import { PageLoader } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
+import { ChevronRight } from "lucide-react";
+import { BottomNav } from "@/components/layout/BottomNav";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -155,20 +157,50 @@ function UnauthenticatedGate({ redirectTo }: { redirectTo: string }) {
     return () => clearTimeout(timer);
   }, [openAuthModal, redirectTo]);
 
+  const isAccount = redirectTo.startsWith("/account");
+  const title = isAccount ? "Your account" : "Log in to see this page";
+  const subtitle = isAccount
+    ? "Log in to see your subscriptions, payments and settings."
+    : "It shows your own subscriptions, bookings and payments.";
+
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background px-6 text-center">
-      <div>
-        <p className="text-heading font-semibold text-foreground">Sign in to continue</p>
-        <p className="mt-1 text-meta text-muted-foreground">
-          This page is yours — it needs an account to know which one.
-        </p>
+    <div className="min-h-screen bg-background pb-space-24 md:pb-space-8">
+      <div className="app-container flex min-h-[70vh] flex-col items-center justify-center gap-4 text-center">
+        <div>
+          <p className="text-heading font-semibold text-foreground">{title}</p>
+          <p className="mt-1 text-meta text-muted-foreground">{subtitle}</p>
+        </div>
+        <div className="flex w-full max-w-[280px] flex-col gap-2">
+          <Button className="w-full" onClick={() => openAuthModal("login", redirectTo)}>Log in</Button>
+          <Button variant="secondary" className="w-full" onClick={() => openAuthModal("signup", redirectTo)}>
+            Create account
+          </Button>
+        </div>
+        {isAccount && (
+          // What a visitor can still do here without an account.
+          <nav className="mt-4 w-full max-w-md overflow-hidden rounded-radius-md bg-card text-left divide-y divide-border/60">
+            {[
+              { to: "/how-it-works", label: "How it works" },
+              { to: "/support", label: "Support" },
+              { to: "/for-business", label: "EverySub for business" },
+              { to: "/terms", label: "Terms of Service" },
+              { to: "/privacy", label: "Privacy Policy" },
+            ].map((l) => (
+              <button
+                key={l.to}
+                type="button"
+                onClick={() => navigate(l.to)}
+                className="flex w-full items-center justify-between p-4 text-title font-semibold text-foreground transition-colors hover:bg-inset"
+              >
+                {l.label}
+                <ChevronRight className="h-5 w-5 text-muted-foreground" />
+              </button>
+            ))}
+          </nav>
+        )}
       </div>
-      <div className="flex w-full max-w-[280px] flex-col gap-2">
-        <Button className="w-full" onClick={() => openAuthModal("login", redirectTo)}>Log in</Button>
-        <Button variant="secondary" className="w-full" onClick={() => navigate("/discovery")}>
-          Back to home
-        </Button>
-      </div>
+      {/* The tab bar stays: without it a visitor who tapped Account had no way back. */}
+      <BottomNav />
     </div>
   );
 }
