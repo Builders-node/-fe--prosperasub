@@ -74,9 +74,9 @@ export default function Redeem() {
     body = (
       <section className="space-y-4 rounded-radius-lg bg-card p-4 text-center">
         <Store className="mx-auto h-8 w-8 text-muted-foreground" />
-        <p className="text-title font-semibold text-foreground">Sign in to collect</p>
+        <p className="text-title font-semibold text-foreground">Log in to collect</p>
         <p className="text-body text-muted-foreground">We'll show what your subscription here includes today.</p>
-        <Button size="lg" className="w-full" onClick={() => openAuthModal("login", here)}>Sign in</Button>
+        <Button size="lg" className="w-full" onClick={() => openAuthModal("login", here)}>Log in</Button>
       </section>
     );
   } else if (infoQ.isLoading) {

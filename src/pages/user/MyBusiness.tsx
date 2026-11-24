@@ -51,11 +51,12 @@ export default function MyBusiness() {
   const { archetypes } = useServiceArchetypes(false);
 
   return (
-    <UserLayout title="My Business">
+    <UserLayout title="My business">
       <div className="app-container space-y-1 py-6">
         <section className="rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
-          <h1 className="text-[24px] font-semibold leading-[29px] text-foreground">My Business</h1>
-          <p className="mt-1 text-[16px] leading-[22px] text-muted-foreground">
+          {/* The phone's title bar already says it; a laptop has no title bar. */}
+          <h1 className="mb-1 hidden text-[24px] font-semibold leading-[29px] text-foreground md:block">My business</h1>
+          <p className="text-[16px] leading-[22px] text-muted-foreground">
             The businesses you own or help run.
           </p>
         </section>

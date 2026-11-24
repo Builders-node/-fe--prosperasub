@@ -1,6 +1,6 @@
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Photo, initialsOf } from "@/components/patterns/Photo";
-import { CalendarClock, CarFront, Edit, ExternalLink, LandPlot, Megaphone, Package, Store, Truck, Users, Wallet } from "lucide-react";
+import { CalendarClock, CarFront, Edit, ExternalLink, Megaphone, Package, Store, Truck, Users, Wallet } from "lucide-react";
 import { ProviderDeliveryTab } from "@/components/provider/ProviderDeliveryTab";
 import { useQuery } from "@tanstack/react-query";
 import { StatusPill } from "@/components/patterns/StatusPill";
@@ -93,14 +93,11 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
   });
 
   /**
-   * The provider's own public page. `providerHref` builds
-   * /services/<slug>/providers/<universal id>, which resolves for every
-   * service — the shared provider page hands off to a legacy one where a
-   * bespoke page exists (food redirects to /services/food/<legacy id>).
+   * The provider's own public page: /businesses/<slug>, its one address.
    */
   const resolvedPublicHref =
     publicHref
-    ?? (provider?.archetype_key ? providerHref(provider.archetype_key, provider.id) : "/discovery");
+    ?? (provider ? providerHref(provider.archetype_key, (provider as { slug?: string | null }).slug || provider.id) : "/discovery");
 
   /**
    * Whose business this is. The two numbers below are the owner's — a manager
@@ -229,9 +226,12 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
 
   const scheduleTab: PortalTab<unknown> = {
     value: "bookings",
-    label: "Schedule",
+    // "Bookings": the day's work and what can be booked, in one place. Schedule
+    // and Calendars were two tabs about the same thing.
+    label: "Bookings",
     icon: CalendarClock,
     render: () => (
+      <div className="space-y-1">
       <BookingsTab
         providerId={legacyId}
         // `bookable_resources` is keyed by the universal id, and for a
@@ -241,6 +241,9 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
         byCustomer={byCustomer}
         today={<OperationsTab providerId={provider.id} />}
       />
+      {/* What can be booked — a resource's kind, hours, slot length. */}
+      <CalendarsTab providerId={provider.id} />
+      </div>
     ),
   };
 
@@ -393,16 +396,6 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
     },
     scheduleTab,
     ...(custom.extraTabs?.(workspaceCtx) ?? []),
-    // What can be booked here, for everybody. A calendar is a bookable
-    // resource — its kind, its hours, its slot length — which is a different
-    // job from running the day's work, and it was a beach-only screen for no
-    // reason: the engine has always taken bookings against any resource.
-    {
-      value: "resources",
-      label: "Calendars",
-      icon: LandPlot,
-      render: () => <CalendarsTab providerId={provider.id} />,
-    },
     // Where the business goes — its own zones for a visit or its own delivery.
     {
       value: "delivery",

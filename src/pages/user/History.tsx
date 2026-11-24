@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useSeo } from "@/hooks/useSeo";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -158,6 +159,7 @@ function useUserHistory() {
 // Page
 // ═══════════════════════════════════════════════════════════════════════════
 const History = () => {
+  useSeo({ title: "History" });
   const navigate = useNavigate();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { openAuthModal } = useAuthModal();
@@ -187,9 +189,9 @@ const History = () => {
         <div className="app-container pt-5">
           <YdEmptyState
             icon={Receipt}
-            title="Sign in to view history"
+            title="Log in to see your history"
             subtitle="Your subscriptions, bookings and payments will appear here."
-            action={<Button onClick={() => openAuthModal("login", "/history")}>Sign In</Button>}
+            action={<Button onClick={() => openAuthModal("login", "/history")}>Log in</Button>}
           />
         </div>
       </UserLayout>

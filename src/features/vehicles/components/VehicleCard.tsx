@@ -1,52 +1,45 @@
-import { useNavigate } from "react-router-dom";
-import { Users, Fuel, Gauge, Snowflake, Building2 } from "lucide-react";
-import { PlanCard } from "@/components/patterns/PlanCard";
+import { OfferCard } from "@/components/discovery/homePlans";
+import { FavoriteButton } from "@/components/patterns/FavoriteButton";
+import { formatUSD } from "@/lib/pricing";
 import { FUEL_LABEL, type RentalVehicle } from "../types/carRental";
-import { carPath, vehiclePath } from "../lib/routes";
+import { vehiclePath } from "../lib/routes";
 
 /**
- * A car in the fleet, drawn as the platform's listing row.
+ * A car in the fleet, drawn as the same card as every plan on the platform:
+ * a square photo with its labels and a round "+" on it, the day rate large
+ * under it, then the car's name with the business (or the spec) in grey.
  *
- * It used to be a card of its own invention — a full-width 16:10 photo on
- * top, the details beneath, and a Book button on every card. Three departures
- * from every other list in the app, and the last one is the one PlanCard
- * argues against in its own source: on a list of eight, eight buttons all mean
- * "open this" and one of them is always the wrong one to press. The row is the
- * target here too.
- *
- * A car has no rating yet and no "from" price — it has a day rate — so those
- * slots simply go unused rather than being filled with a placeholder.
+ * The whole card is the target — no Book button on each one: on a list of
+ * eight, eight buttons all mean "open this".
  */
 export function VehicleCard({ v, showProvider = false }: {
   v: RentalVehicle;
   /**
-   * Name the business above the title. Off by default: with one rental
-   * company, stamping its name on every row is noise. The fleet turns it on
+   * Name the business after the car. Off by default: with one rental
+   * company, stamping its name on every card is noise. The fleet turns it on
    * once a second company has cars listed.
    */
   showProvider?: boolean;
 }) {
-  const navigate = useNavigate();
-  const open = () => navigate(vehiclePath(v));
-
+  const specs = [
+    `${v.seats} seats`,
+    v.transmission === "automatic" ? "Auto" : "Manual",
+    FUEL_LABEL[v.fuel_type],
+  ].filter(Boolean).join(" · ");
   return (
-    <PlanCard
+    <OfferCard
+      href={vehiclePath(v)}
+      photos={[v.image_url ?? "", ...(v.gallery_urls ?? [])].filter(Boolean)}
       title={v.name}
-      eyebrow={showProvider && v.provider?.name ? { icon: Building2, text: v.provider.name } : undefined}
-      description={vehicleSpecLine(v)}
-      photos={[v.image_url ?? "", ...(v.gallery_urls ?? [])]}
-      chips={[
-        // "5" on its own is a number in search of a noun.
-        { icon: Users, label: `${v.seats} seats` },
-        { icon: Gauge, label: v.transmission === "automatic" ? "Auto" : "Manual" },
-        { icon: Fuel, label: FUEL_LABEL[v.fuel_type] },
-        ...(v.air_conditioning ? [{ icon: Snowflake, label: "A/C" }] : []),
-      ]}
-      // "/ day", matching how every other card on the platform writes a unit.
-      price={{ cents: v.daily_price_cents, unit: "/ day" }}
-      cta={{ label: "Book", onClick: open }}
-      onOpen={open}
-      favorite={{ kind: "vehicle", id: v.id }}
+      subtitle={showProvider && v.provider?.name ? v.provider.name : specs}
+      chips={[...(v.air_conditioning ? ["A/C"] : [])]}
+      corner={<FavoriteButton kind="vehicle" id={v.id} name={v.name} variant="overlay" />}
+      footer={typeof v.daily_price_cents === "number" && v.daily_price_cents > 0 ? (
+        <p className="text-[20px] font-bold leading-tight tracking-tight text-foreground">
+          {formatUSD(v.daily_price_cents)}
+          <span className="text-meta font-medium tracking-normal text-muted-foreground"> / day</span>
+        </p>
+      ) : null}
     />
   );
 }

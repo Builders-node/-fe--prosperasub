@@ -45,7 +45,7 @@ function ProviderAvatar({ p, className }: { p: RailProvider; className?: string 
 }
 
 export function ProviderRail({
-  providers, onOpen, label = "Providers",
+  providers, onOpen, label = "Businesses",
 }: {
   providers: RailProvider[];
   /** Kept for the callers that pass one; the design's tile is text only. */

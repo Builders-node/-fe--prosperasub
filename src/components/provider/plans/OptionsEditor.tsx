@@ -8,6 +8,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
+import { useConfirm } from "@/components/patterns/ConfirmDialog";
 
 /**
  * Options & prices — what a customer can choose inside one plan, and what
@@ -77,6 +78,7 @@ export function OptionsEditor({ groups, setGroups, prices, setPrices, combos, pe
   perLabel: string | null;
 }) {
   const [opened, setOpened] = useState(groups.length > 0);
+  const [confirm, confirmDialog] = useConfirm();
   const [fill, setFill] = useState("");
   /** The answer being dragged (desktop reorder; the chip menu does it on a phone). */
   const [drag, setDrag] = useState<{ gi: number; oi: number } | null>(null);
@@ -148,6 +150,7 @@ export function OptionsEditor({ groups, setGroups, prices, setPrices, combos, pe
 
   return (
     <section className="space-y-4 rounded-radius-lg bg-card p-4">
+      {confirmDialog}
       <div>
         <p className="text-title font-semibold text-foreground">Options & prices</p>
         <p className="mt-0.5 text-body text-muted-foreground">
@@ -346,7 +349,7 @@ export function OptionsEditor({ groups, setGroups, prices, setPrices, combos, pe
       {groups.length > 0 && (
         <button
           type="button"
-          onClick={() => { if (window.confirm("Remove all options? The plan goes back to one price.")) { setGroups(() => []); setOpened(false); } }}
+          onClick={async () => { if (await confirm({ title: "Remove all options?", description: "The plan goes back to one price.", confirmLabel: "Remove" })) { setGroups(() => []); setOpened(false); } }}
           className="text-meta font-semibold text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
         >
           Remove all options — back to one price

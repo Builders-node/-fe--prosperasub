@@ -1,3 +1,4 @@
+import { formatTime } from "@/lib/formatTime";
 
 /** How far ahead the calendar reaches. Fixed — providers no longer cap it. */
 export const BOOKING_HORIZON_DAYS = 365;
@@ -160,14 +161,9 @@ export function toHHMM(mins: number): string {
 }
 
 /** 12-hour display for a "HH:MM" string. */
+/** The customer's clock — see lib/formatTime. The name is historical. */
 export function to12h(hhmm: string): string {
-  const mins = toMinutes(hhmm);
-  if (Number.isNaN(mins)) return hhmm;
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
-  const suffix = h >= 12 ? "PM" : "AM";
-  const hour = h === 0 ? 12 : h > 12 ? h - 12 : h;
-  return `${hour}:${String(m).padStart(2, "0")} ${suffix}`;
+  return formatTime(hhmm);
 }
 
 /** JS Date.getDay() (0=Sun) → our Monday-first index (0=Mon). */

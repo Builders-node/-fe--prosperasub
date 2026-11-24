@@ -18,15 +18,15 @@ export function useBeachClubHome(): string {
     queryFn: async () => {
       const { data, error } = await supabaseDb
         .from("providers")
-        .select("id, archetype_key")
+        .select("id, archetype_key, slug")
         .eq("source_service_key", "beach")
         .eq("status", "active")
         .order("created_at", { ascending: true })
         .limit(1)
         .maybeSingle();
       if (error) throw error;
-      const row = data as { id: string; archetype_key: string | null } | null;
-      return row?.archetype_key ? providerHref(row.archetype_key, row.id) : null;
+      const row = data as { id: string; archetype_key: string | null; slug: string | null } | null;
+      return row ? providerHref(row.archetype_key, row.slug || row.id) : null;
     },
   });
   return data ?? "/discovery";

@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useSeo } from "@/hooks/useSeo";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Building2, CarFront, Heart, LayoutGrid } from "lucide-react";
@@ -15,8 +16,8 @@ import { supabaseDb } from "@/integrations/supabase/client";
 import { useFavorites, type FavoriteItem, type FavoriteKind } from "@/lib/favorites/useFavorites";
 import { formatUSD } from "@/lib/pricing";
 import { normPeriod, periodNoun } from "@/lib/services/planPeriod";
-import { planHref, planSegment, providerHref } from "@/lib/services/serviceUrls";
-import { carPath, carProviderPath, vehiclePath } from "@/features/vehicles";
+import { businessHref, planHref, planSegment } from "@/lib/services/serviceUrls";
+import { carPath, vehiclePath } from "@/features/vehicles";
 import { cn } from "@/lib/utils";
 
 /**
@@ -92,7 +93,7 @@ async function resolveRows(items: FavoriteItem[]): Promise<Map<string, Row>> {
   if (providerIds.length) {
     const { data } = await supabaseDb
       .from("providers")
-      .select("id, name, description, avatar_url, banner_url, gallery_urls, archetype_key, status")
+      .select("id, name, description, avatar_url, banner_url, gallery_urls, archetype_key, status, slug, unit")
       .in("id", providerIds);
     for (const p of (data ?? []) as any[]) {
       const archetype = String(p.archetype_key ?? "");
@@ -103,7 +104,7 @@ async function resolveRows(items: FavoriteItem[]): Promise<Map<string, Row>> {
         subtitle: p.description ? String(p.description).split("\n")[0] : null,
         price: null,
         photo: p.avatar_url ?? first(p.gallery_urls) ?? p.banner_url ?? null,
-        href: archetype === "vehicles" ? carProviderPath(String(p.id)) : archetype ? providerHref(archetype, String(p.id)) : null,
+        href: archetype || p.unit ? businessHref(String(p.slug || p.id)) : null,
         available: ["active", "approved"].includes(String(p.status ?? "active")),
       });
     }
@@ -134,10 +135,11 @@ async function resolveRows(items: FavoriteItem[]): Promise<Map<string, Row>> {
 const ICON: Record<FavoriteKind, typeof Heart> = { plan: LayoutGrid, provider: Building2, vehicle: CarFront };
 
 export default function Favorites() {
+  useSeo({ title: "Favorites" });
   return (
-    <UserLayout title="Favourites" allowGuest>
+    <UserLayout title="Favorites" allowGuest>
       <div className="app-container space-y-4 py-space-4 md:py-space-6">
-        <h1 className="hidden text-3xl font-semibold tracking-tight md:block md:text-5xl">Favourites</h1>
+        <h1 className="hidden text-3xl font-semibold tracking-tight md:block md:text-5xl">Favorites</h1>
         <FavoritesPanel />
       </div>
     </UserLayout>
@@ -145,7 +147,7 @@ export default function Favorites() {
 }
 
 /**
- * The saved list itself — the /favorites page, and the Favourites panel of
+ * The saved list itself — the /favorites page, and the Favorites panel of
  * the profile on a laptop (pages/user/Profile.tsx), which opens it in place.
  */
 export function FavoritesPanel() {
@@ -176,7 +178,7 @@ export function FavoritesPanel() {
         {!isAuthenticated && items.length > 0 && (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-radius-lg bg-card p-4">
             <p className="text-body text-muted-foreground">Saved on this device. Sign in to keep them on your phone and laptop alike.</p>
-            <Button size="sm" onClick={() => openAuthModal("login", "/favorites")}>Sign in</Button>
+            <Button size="sm" onClick={() => openAuthModal("login", "/favorites")}>Log in</Button>
           </div>
         )}
 

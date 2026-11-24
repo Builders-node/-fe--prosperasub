@@ -221,8 +221,8 @@ const AdsManagement = () => {
                   {!a.is_active && <Badge className="bg-muted text-muted-foreground text-xs">Hidden</Badge>}
                   <div className="flex items-center gap-0.5">
                     <Switch checked={a.is_active} onCheckedChange={(c) => toggleMutation.mutate({ id: a.id, is_active: c })} />
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(a)}><Edit className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => setDeleteTarget(a)}><Trash2 className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Edit ad" onClick={() => openEdit(a)}><Edit className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="icon" aria-label="Delete ad" className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => setDeleteTarget(a)}><Trash2 className="h-4 w-4" /></Button>
                   </div>
                 </div>
                 {/* Mini preview */}

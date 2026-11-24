@@ -1,4 +1,5 @@
 import { fieldClass } from "@/components/ui/input";
+import { useSeo } from "@/hooks/useSeo";
 import { useEffect, useRef, useState, type ComponentType, type SVGProps } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Bell, BellOff, Eye, EyeOff, FileText, Gift, Heart, KeyRound, Lock, LogOut, MapPin, Pencil, Shield, Wallet } from "lucide-react";
@@ -48,7 +49,7 @@ type Section = "view" | "edit" | "password" | "locations" | "reminders" | "refer
 
 const SECTION_TITLES: Record<Section, string> = {
   view: "Profile",
-  favorites: "Favourites",
+  favorites: "Favorites",
   edit: "Edit Profile",
   password: "Change Password",
   locations: "Saved Locations",
@@ -244,6 +245,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 }
 
 const Profile = () => {
+  useSeo({ title: "Account" });
   const navigate = useNavigate();
   const favorites = useFavorites();
   const [params, setParams] = useSearchParams();
@@ -283,7 +285,7 @@ const Profile = () => {
   /**
    * A phone walks into a section and back out (one screen at a time). A laptop
    * keeps the menu on the left and opens the section beside it, on this page —
-   * Favourites when nothing is chosen.
+   * Favorites when nothing is chosen.
    */
   const isMobile = useIsMobile();
   /**
@@ -524,7 +526,7 @@ const Profile = () => {
             <section className="rounded-radius-md bg-card p-1.5 shadow-figma">
               <Row
                 icon={Heart}
-                label="Favourites"
+                label="Favorites"
                 value={favorites.count ? `${favorites.count} saved` : "Tap the heart on anything you like"}
                 onClick={() => openSection("favorites")}
                 active={!isMobile && active === "favorites"}

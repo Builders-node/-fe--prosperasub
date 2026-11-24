@@ -1,6 +1,7 @@
+import { normalizeUnit } from "@/lib/checkout/ctaLabel";
 import type { LucideIcon } from "lucide-react";
 import { FavoriteButton } from "@/components/patterns/FavoriteButton";
-import { Star } from "lucide-react";
+import { Plus, Star } from "lucide-react";
 import type { ReactNode } from "react";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
@@ -94,25 +95,16 @@ export function PlanCard({
   favorite,
 }: PlanCardProps) {
   const hasPrice = typeof price.cents === "number" && price.cents > 0;
-  // An empty string in the gallery is still a gallery entry, and it drew a
-  // grey square where a photo should be.
-
-  /**
-   * The secondary line. A 120px row has one slot for grey 12px text, and the
-   * services fill it with different things — who sells it, cleaning's "3
-   * cleanings a month", food's meal tags, a plain description. They queue up
-   * in that one slot instead of each inventing a row of its own, which is what
-   * cost the description its second line.
-   */
-  const meta = [eyebrow?.text, description, ...chips.map((c) => c.label)]
-    .filter(Boolean).join(" · ");
   const open = onOpen ?? (cta.disabled ? undefined : cta.onClick);
+  // The grey words after the name — who sells it, or what it is.
+  const meta = eyebrow?.text || description || null;
+  const labels = chips.map((c) => c.label).filter(Boolean).slice(0, 2);
 
   return (
-    // 120px tall, 8px around the picture, 16px of air to the text — the
-    // design's row. The whole row is the target; the card no longer carries a
-    // Subscribe button, because on a list of eight plans eight buttons all
-    // meant "open this plan" and one of them was always the wrong one to hit.
+    // The shelf card, the same as every other card on the platform (see
+    // OfferCard): a square photo with round corners, labels on its bottom-left
+    // and a round "+" on its bottom-right, then the price large and the name
+    // under it, without a box. The whole card is the target.
     <article
       role={open ? "button" : undefined}
       tabIndex={open ? 0 : undefined}
@@ -125,81 +117,57 @@ export function PlanCard({
           : undefined
       }
       className={cn(
-        "flex h-[120px] min-w-0 gap-4 rounded-radius-md py-2 pl-2 pr-4 shadow-figma transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-        featured ? "bg-primary/10 hover:bg-primary/15" : "bg-card hover:bg-muted/40",
+        "group flex min-w-0 flex-col gap-2 rounded-radius-lg transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary active:scale-[0.98]",
         open && "cursor-pointer",
         className,
       )}
     >
-      {/* Square, the height of the card — the photo, or the standard
-          placeholder, so every card in a list keeps the same shape. */}
-      <div className="relative aspect-square h-full shrink-0">
-        <PhotoSlider photos={photos} className="h-full w-full rounded-[8px]" />
-        {/* A PAID place must say so on the card itself (Terms) — the tint
-            alone reads as "popular". Only when a caller names the label. */}
-        {featured && featuredLabel && (
-          <span className="absolute bottom-1 left-1 rounded-full bg-black/55 px-1.5 py-0.5 text-[11px] font-semibold text-white backdrop-blur">
-            {featuredLabel}
-          </span>
-        )}
+      <div className="relative aspect-square w-full shrink-0 overflow-hidden rounded-radius-lg bg-muted">
+        <PhotoSlider photos={photos} className="h-full w-full bg-muted transition-transform duration-300 group-hover:scale-[1.03]" />
         {favorite && (
-          <FavoriteButton kind={favorite.kind} id={favorite.id} name={title} variant="overlay" className="absolute right-1 top-1" />
+          <FavoriteButton kind={favorite.kind} id={favorite.id} name={title} variant="overlay" className="absolute right-2 top-2" />
         )}
-      </div>
-
-      {/* `overflow-hidden` is what keeps the row 120px tall: without it a long
-          description pushes the price out through the bottom of the card. */}
-      <div className="flex min-w-0 flex-1 flex-col gap-1 overflow-hidden py-2">
-        {/* The "Most Popular" pill used to sit here and took two thirds of the
-            width, leaving "Toyota Rai…". The tinted background says the same
-            thing and costs no room. */}
-        <h3 className="truncate text-title font-semibold text-foreground" title={featured ? `${title} — ${featuredLabel ?? "Most Popular"}` : title}>
-          {title}
-        </h3>
-
-        {/* `flex-1` rather than a natural height: the description takes
-            whatever the row has left over after the title and the price, so a
-            long one is clamped instead of shoving the price off the card. */}
-        {meta && (
-          // The wrapper is not decoration: a flex item has its display
-          // blockified, which turns `-webkit-box` into `flow-root` and makes
-          // line-clamp a no-op. Clamping only works one level in.
-          <div className="min-h-0 flex-1 overflow-hidden">
-            <p className="line-clamp-2 text-meta leading-[1.35] text-muted-foreground">
-              {meta}
-            </p>
-          </div>
-        )}
-
-        {badges && <div className="flex shrink-0 flex-wrap gap-1 overflow-hidden">{badges}</div>}
-
-        {/* Price pinned to the bottom right, so a column of rows lines its
-            prices up instead of stair-stepping with the text above them. */}
-        <div className="mt-auto flex shrink-0 items-end justify-between gap-2">
-          <RatingLine rating={rating} className="shrink-0" />
-          {/* Wraps between its pieces rather than inside them, so a long unit
-              ("/ person · month") on a narrow phone column moves to the next
-              line instead of pushing the card past the gutter. */}
-          <div className="ml-auto flex min-w-0 flex-wrap items-end justify-end gap-x-1 whitespace-nowrap">
-            {hasPrice ? (
-              <>
-                {price.from && (
-                  <span className="pb-px text-meta text-muted-foreground">From</span>
-                )}
-                <span className="text-title font-semibold tabular-nums text-foreground">
-                  {formatUSD(price.cents!)}
-                </span>
-                {price.unit && (
-                  <span className="pb-px text-meta text-muted-foreground">{price.unit}</span>
-                )}
-              </>
-            ) : (
-              // A plan with no price is a half-finished admin entry. Saying so
-              // beats rendering "$0.00".
-              <span className="text-[12px] font-semibold text-muted-foreground">Price on request</span>
+        {(labels.length > 0 || (featured && featuredLabel)) && (
+          <div className="pointer-events-none absolute bottom-2 left-2 flex max-w-[calc(100%-4rem)] flex-col items-start gap-1">
+            {labels.map((l) => (
+              <span key={l} className="max-w-full truncate rounded-full bg-primary px-2.5 py-0.5 text-meta font-bold text-primary-foreground">{l}</span>
+            ))}
+            {/* A PAID place must say so on the card itself (Terms). */}
+            {featured && featuredLabel && (
+              <span className="rounded-full bg-black/60 px-2.5 py-0.5 text-meta font-bold text-white backdrop-blur">{featuredLabel}</span>
             )}
           </div>
-        </div>
+        )}
+        <span
+          aria-hidden
+          className="absolute bottom-2 right-2 flex h-11 w-11 items-center justify-center rounded-full bg-card text-foreground shadow-figma transition-colors group-hover:bg-primary group-hover:text-primary-foreground"
+        >
+          <Plus className="h-6 w-6" strokeWidth={2} />
+        </span>
+      </div>
+
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5 px-1">
+        {hasPrice ? (
+          <p className="text-[20px] font-bold leading-tight tracking-tight tabular-nums text-foreground">
+            {price.from && <span className="text-meta font-medium tracking-normal text-muted-foreground">From </span>}
+            {formatUSD(price.cents!)}
+            {price.unit && (
+              <span className="text-meta font-medium tracking-normal text-muted-foreground">
+                {" "}{price.unit.trim().startsWith("/") ? normalizeUnit(price.unit) : price.unit}
+              </span>
+            )}
+          </p>
+        ) : (
+          // A plan with no price is a half-finished admin entry. Saying so
+          // beats rendering "$0.00".
+          <p className="text-meta font-semibold text-muted-foreground">Price on request</p>
+        )}
+        <h3 className="line-clamp-2 text-body font-normal leading-snug text-foreground">
+          {title}
+          {meta && <span className="text-muted-foreground"> {meta}</span>}
+        </h3>
+        {badges && <div className="flex flex-wrap gap-1 overflow-hidden pt-0.5">{badges}</div>}
+        <RatingLine rating={rating} className="pt-0.5" />
       </div>
     </article>
   );

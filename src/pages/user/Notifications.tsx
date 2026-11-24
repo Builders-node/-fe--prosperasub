@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSeo } from "@/hooks/useSeo";
 import { useNavigate } from "react-router-dom";
 import {
   Archive,
@@ -143,6 +144,7 @@ function Skeleton() {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 const Notifications = () => {
+  useSeo({ title: "Notifications" });
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { openAuthModal } = useAuthModal();
   const [activeTab, setActiveTab] = useState<TabKey>("all");
@@ -196,9 +198,9 @@ const Notifications = () => {
         <div className="app-container pt-5">
           <YdEmptyState
             icon={Bell}
-            title="Sign in to view notifications"
+            title="Log in to see your notifications"
             subtitle="Stay updated on your bookings, payments, and plan activity."
-            action={<Button onClick={() => openAuthModal("login", "/notifications")}>Sign in</Button>}
+            action={<Button onClick={() => openAuthModal("login", "/notifications")}>Log in</Button>}
           />
         </div>
       </UserLayout>

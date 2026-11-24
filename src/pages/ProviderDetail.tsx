@@ -345,13 +345,15 @@ const ProviderDetail = () => {
     enabled: !!providerId,
     staleTime: 60_000,
     queryFn: async () => {
-      const { count, error } = await supabaseDb
+      // Names, not a count: "1 calendar" was the admin's word for it; the
+      // customer books the dive boat, not a calendar.
+      const { data, error } = await supabaseDb
         .from("bookable_resources")
-        .select("id", { count: "exact", head: true })
+        .select("name")
         .eq("provider_id", providerId!)
         .eq("status", "active");
       if (error) throw error;
-      return count ?? 0;
+      return ((data ?? []) as Array<{ name: string | null }>).map((r) => r.name?.trim()).filter(Boolean) as string[];
     },
   });
 
@@ -662,7 +664,7 @@ const ProviderDetail = () => {
             {hours && <p className="text-[16px] leading-[22px] text-muted-foreground">{hours}</p>}
           </div>
 
-          {(bookableQ.data ?? 0) > 0 && (
+          {(bookableQ.data?.length ?? 0) > 0 && (
             <button
               type="button"
               onClick={() => navigate(`/providers/${providerId}/book`)}
@@ -670,7 +672,7 @@ const ProviderDetail = () => {
             >
               <span className="text-[16px] font-semibold leading-[22px] text-foreground">Book a time</span>
               <span className="text-[14px] leading-[18px] text-muted-foreground">
-                {bookableQ.data === 1 ? "1 calendar" : `${bookableQ.data} calendars`}
+                {bookableQ.data!.length === 1 ? bookableQ.data![0] : `${bookableQ.data![0]} +${bookableQ.data!.length - 1} more`}
               </span>
             </button>
           )}
@@ -714,7 +716,7 @@ const ProviderDetail = () => {
             });
             if (grouped.size <= 1) {
               return (
-                <div className="grid gap-2 md:grid-cols-2">
+                <div className="grid grid-cols-2 gap-x-2 gap-y-5 sm:grid-cols-3 lg:grid-cols-4">
                   {fleet.map((v) => <VehicleCard key={v.id} v={v} />)}
                 </div>
               );
@@ -729,7 +731,7 @@ const ProviderDetail = () => {
                 {keys.map((k) => (
                   <div key={k || "other"}>
                     <YdSectionHeading title={labelOf.get(k) ?? "Other"} count={grouped.get(k)!.length} />
-                    <div className="grid gap-2 md:grid-cols-2">
+                    <div className="grid grid-cols-2 gap-x-2 gap-y-5 sm:grid-cols-3 lg:grid-cols-4">
                       {grouped.get(k)!.map((v) => <VehicleCard key={v.id} v={v} />)}
                     </div>
                   </div>
@@ -752,7 +754,7 @@ const ProviderDetail = () => {
             // Cards, like every other shelf of plans on the site — a photo
             // you can see, the price under it. The long rows showed a 104px
             // thumbnail at the end of a 1280px stripe.
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-x-2 gap-y-5 sm:grid-cols-3 lg:grid-cols-4">
               {(plansQ.data ?? []).map((plan) => {
                 const own = Array.isArray((plan as any).gallery_urls) ? ((plan as any).gallery_urls as unknown[]).filter((u): u is string => typeof u === "string" && !!u) : [];
                 const linkId = planSegment(plan as Addressable);
@@ -797,7 +799,7 @@ const ProviderDetail = () => {
               {/* Two across on a phone; on a laptop two columns made each photo
                   ~800px square — a wall, not a gallery. Four at 1280 keeps a
                   tile near the size of a card. */}
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+              <div className="grid grid-cols-2 gap-x-2 gap-y-5 sm:grid-cols-3 lg:grid-cols-4">
                 {gallery.map((src) => (
                   <div key={src} className="aspect-square w-full overflow-hidden rounded-radius-md">
                     <Photo src={src} />

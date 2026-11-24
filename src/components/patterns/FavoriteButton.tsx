@@ -32,6 +32,7 @@ export function FavoriteButton({
     <button
       type="button"
       aria-pressed={saved}
+      data-tooltip={saved ? "Remove from favorites" : "Save to favorites"}
       aria-label={saved ? `Remove ${name ?? "this"} from favourites` : `Save ${name ?? "this"} to favourites`}
       onClick={(e) => {
         e.preventDefault();

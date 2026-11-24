@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef } from "react";
+import { useAddresses } from "@/lib/services/useAddresses";
 import { promotionHref, trackPromotion, useActivePromotions, type ActivePromotion, type PromoPlacement } from "@/lib/promotions";
 import { cn } from "@/lib/utils";
+import { planHref, planSegment, wordsAddress } from "@/lib/services/serviceUrls";
+import { FavoriteButton } from "@/components/patterns/FavoriteButton";
 import {
   OfferCard, PriceLine, RAIL_TILE, Rail, ShelfHeader, planIndex, planPhotos, useHomePlans, type HomePlan,
 } from "@/components/discovery/homePlans";
@@ -8,7 +11,7 @@ import {
 /**
  * "Featured" — the paid placements (Edge routes/promotions.ts).
  *
- * Every card says "Featured": a customer is owed knowing which places were
+ * Every card says "Sponsored": a customer is owed knowing which places were
  * bought (and the Terms say so). Renders nothing when nothing is promoted, so
  * a quiet week leaves the page exactly as it was.
  */
@@ -20,6 +23,7 @@ export function FeaturedRail({ placement, archetypeKey, className }: {
   const { data: promos = [] } = useActivePromotions(placement, archetypeKey);
   const { data: plans = [] } = useHomePlans();
   const index = useMemo(() => planIndex(plans), [plans]);
+  const addr = useAddresses({ providerIds: promos.map((p) => p.provider.id), planIds: promos.map((p) => p.plan?.id) });
   if (promos.length === 0) return null;
 
   return (
@@ -28,15 +32,21 @@ export function FeaturedRail({ placement, archetypeKey, className }: {
       {/* The same cards as every other shelf — a featured plan is a plan, it
           just paid to stand first — told apart only by the badge. */}
       <Rail>
-        {promos.map((p) => (
-          <PromoCard key={p.id} p={p} plan={p.plan ? index.get(p.plan.id) ?? (p.plan.sourcePlanId ? index.get(p.plan.sourcePlanId) : undefined) ?? null : null} />
-        ))}
+        {promos.map((p) => {
+          const plan = p.plan ? index.get(p.plan.id) ?? (p.plan.sourcePlanId ? index.get(p.plan.sourcePlanId) : undefined) ?? null : null;
+          // The home page already holds this plan's row, words and all: link
+          // by it from the first paint. Waiting for the address lookup left
+          // the id in the link on a first visit, and the page then swapped it.
+          const vehicles = p.provider.unit === "vehicles" || p.provider.archetypeKey === "vehicles";
+          const href = plan && !vehicles && wordsAddress(plan) ? planHref(null, planSegment(plan)) : promotionHref(p, addr);
+          return <PromoCard key={p.id} p={p} href={href} plan={plan} />;
+        })}
       </Rail>
     </section>
   );
 }
 
-function PromoCard({ p, plan }: { p: ActivePromotion; plan: HomePlan | null }) {
+function PromoCard({ p, plan, href }: { p: ActivePromotion; plan: HomePlan | null; href: string }) {
   const ref = useRef<HTMLAnchorElement>(null);
 
   // Counted as seen when half of it is on screen — not merely rendered.
@@ -54,9 +64,12 @@ function PromoCard({ p, plan }: { p: ActivePromotion; plan: HomePlan | null }) {
   return (
     <OfferCard
       ref={ref}
-      href={promotionHref(p)}
+      href={href}
       onClick={() => trackPromotion(p.id, "click")}
-      badge="Featured"
+      // The shelf is called Featured; the card says what that means. Two
+      // "Featured" on one card and its heading said the word twice.
+      badge="Sponsored"
+      corner={p.plan ? <FavoriteButton kind="plan" id={p.plan.id} name={p.plan.name} variant="overlay" /> : undefined}
       photos={photos}
       title={p.plan?.name ?? p.provider.name}
       subtitle={p.plan ? p.provider.name : p.provider.description}

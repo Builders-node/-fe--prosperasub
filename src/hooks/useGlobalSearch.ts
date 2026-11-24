@@ -1,11 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { publicListingHref } from "@/lib/services/providerBridge";
-import { planHref, planSegment, providerHref } from "@/lib/services/serviceUrls";
+import { businessHref, planHref, planSegment } from "@/lib/services/serviceUrls";
 import { VEHICLES_UNIT } from "@/lib/services/vehiclesUnit";
-import { carPath, carProviderPath, vehiclePath } from "@/features/vehicles";
+import { carPath, vehiclePath } from "@/features/vehicles";
 import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
 import { useTagDictionary } from "@/lib/tags";
+import { priceUnit } from "@/lib/checkout/ctaLabel";
 
 /**
  * "Search on Everysub" — one field over the whole catalogue.
@@ -21,7 +22,7 @@ import { useTagDictionary } from "@/lib/tags";
  * would put a query behind every letter someone types.
  */
 
-export type SearchKind = "service" | "category" | "provider" | "plan";
+export type SearchKind = "service" | "category" | "provider" | "plan" | "vehicle";
 
 export interface SearchHit {
   kind: SearchKind;
@@ -38,17 +39,6 @@ export interface SearchHit {
   haystack: string;
 }
 
-/** One legacy plan row's own page, by the service it belongs to. */
-function legacyPlanHref(provider: any, legacyPlanId: string): string {
-  switch (provider?.source_service_key) {
-    case "food":     return `/plans/${legacyPlanId}`;
-    case "cleaning": return `/plans/${legacyPlanId}`;
-    // The club lives in whichever service it is filed under.
-    case "beach":    return `/plans/${legacyPlanId}`;
-    default:         return "/discovery";
-  }
-}
-
 const norm = (s: string) => s.toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "");
 
 export function useGlobalSearch(query: string) {
@@ -63,7 +53,7 @@ export function useGlobalSearch(query: string) {
         supabaseDb.from("service_categories")
           .select("key, label, archetype_key").eq("is_active", true),
         supabaseDb.from("providers")
-          .select("id, name, description, archetype_key, category_key, source_service_key, source_provider_id, unit")
+          .select("id, name, description, archetype_key, category_key, source_service_key, source_provider_id, unit, slug")
           .eq("status", "active"),
         // Offers AND variants: the variants are what tells us which legacy
         // rows have collapsed into one offer, and which of them a hit on the
@@ -142,7 +132,7 @@ export function useGlobalSearch(query: string) {
       hits.push({
         kind: "provider", id: String(p.id), title: p.name,
         subtitle: isVehicles ? "Vehicles" : a?.label ?? null,
-        href: isVehicles ? carProviderPath(String(p.id)) : providerHref(p.archetype_key ?? "", String(p.id)),
+        href: businessHref(String(p.slug || p.id)),
         priceCents: null, priceUnit: null,
         haystack: [p.name, p.description, isVehicles ? "vehicles cars" : a?.label].filter(Boolean).join(" "),
       });
@@ -156,6 +146,13 @@ export function useGlobalSearch(query: string) {
      * its offer, so only the offer is a result — and clicking it opens the
      * cheapest combination, which is the same door the listing card uses.
      */
+    // A legacy plan opens at its mirror's address in words, not at its id.
+    const legacyAddress = new Map<string, string>();
+    data.plans.forEach((v: any) => {
+      if (v.source_plan_id) legacyAddress.set(String(v.source_plan_id), planSegment(v));
+    });
+    const legacyHref = (id: unknown) => `/plans/${legacyAddress.get(String(id)) ?? id}`;
+
     const variantSourceIds = new Set<string>();
     const offerCheapestSource = new Map<string, { sourceId: string; cents: number }>();
     data.plans.forEach((v: any) => {
@@ -173,9 +170,9 @@ export function useGlobalSearch(query: string) {
     const push = (
       id: string, title: string, subtitle: string | null, href: string,
       priceCents: number | null, priceUnit: string | null, extra: unknown[] = [],
-      priceFrom = false,
+      priceFrom = false, kind: SearchKind = "plan",
     ) => hits.push({
-      kind: "plan", id, title, subtitle, href, priceCents, priceUnit, priceFrom,
+      kind, id, title, subtitle, href, priceCents, priceUnit, priceFrom,
       haystack: [title, subtitle, ...extra].filter(Boolean).join(" "),
     });
 
@@ -184,24 +181,24 @@ export function useGlobalSearch(query: string) {
       const monthly = p.monthly_price_cents
         ?? (p.price_per_cleaning_cents ?? 0) * (p.cleanings_per_month ?? 1);
       push(String(p.id), p.name, providerName.get(String(p.owner_provider_id)) ?? "Cleaning",
-           `/plans/${p.id}`, monthly || null, "/ month", [p.description]);
+           legacyHref(p.id), monthly || null, "/ month", [p.description]);
     });
     data.food.forEach((p: any) => {
       if (variantSourceIds.has(String(p.id))) return;
       push(String(p.id), p.name, legacyProviderName.get(String(p.provider_id)) ?? "Food",
-           `/plans/${p.id}`, p.weekly_price_cents ?? null, "/ week",
+           legacyHref(p.id), p.weekly_price_cents ?? null, "/ week",
            [p.description]);
     });
     data.beach.forEach((p: any) => {
       push(String(p.id), p.name, "Beach Club",
-           `/plans/${p.id}`, p.price_per_person_cents ?? null,
-           "/ person · month", [p.tagline]);
+           legacyHref(p.id), p.price_per_person_cents ?? null,
+           "/ person / month", [p.tagline]);
     });
     // Cars, by make and model — "hyundai", "tucson", "2024" all find one.
     data.vehicles.forEach((v: any) => {
       push(String(v.id), v.name, providerName.get(String(v.provider_id)) ?? "Vehicles",
            vehiclePath(v), v.daily_price_cents ?? null,
-           "/ day", [v.brand, v.model, v.year ? String(v.year) : null]);
+           "/ day", [v.brand, v.model, v.year ? String(v.year) : null], false, "vehicle");
     });
     data.plans.forEach((p: any) => {
       // A variant is represented by its offer; a mirror of a standalone legacy
@@ -217,7 +214,7 @@ export function useGlobalSearch(query: string) {
       const href = `${planHref(segment, planSegment(p))}${cheapest ? `?v=${cheapest.sourceId}` : ""}`;
 
       push(String(p.id), p.name, providerName.get(String(p.provider_id)) ?? null, href,
-           p.price_cents ?? null, p.period === "weekly" ? "/ week" : "/ month",
+           p.price_cents ?? null, priceUnit({ period: p.period ?? "monthly", perPerson: p.pricing_mode === "per_person" }) || null,
            // Its tags, by key and by label — "kids" finds the after-school programme.
            [p.description, ...(Array.isArray(p.tags) ? p.tags : []), ...labelsOf(p.tags)],
            !!cheapest);
@@ -241,4 +238,5 @@ export const SEARCH_GROUPS: Array<{ kind: SearchKind; label: string }> = [
   { kind: "service", label: "Services" },
   { kind: "provider", label: "Businesses" },
   { kind: "plan", label: "Plans" },
+  { kind: "vehicle", label: "Vehicles" },
 ];

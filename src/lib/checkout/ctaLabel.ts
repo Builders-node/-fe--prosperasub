@@ -46,6 +46,17 @@ export function unitSuffix(opts?: { perPerson?: boolean; period?: string | null 
 }
 
 /**
+ * THE unit a price is followed by, on every card, page and cart line:
+ * "/ person / month", "/ week", and "one-time" for a one-off, so a $130
+ * course never sits in a list of subscriptions looking like one.
+ */
+export function priceUnit(opts?: { perPerson?: boolean; period?: string | null }): string {
+  const suffix = unitSuffix(opts);
+  if (opts?.period && !periodNoun(opts.period)) return opts.perPerson ? "/ person · one-time" : "one-time";
+  return suffix;
+}
+
+/**
  * The same suffix, from a unit string a page already formatted.
  *
  * Pages built these by hand and disagreed: "/ month", "/ person · month",

@@ -146,7 +146,6 @@ export default function VehicleDetail() {
     ...(v.provider?.name && v.provider.id
       ? [{ label: v.provider.name, href: carProviderPath(v.provider.slug || v.provider.id) }]
       : []),
-    { label: v.name },
   ];
 
   const bookButton = (
@@ -310,7 +309,7 @@ export default function VehicleDetail() {
       </main>
 
       <UpsellSection
-        title="Also for your stay"
+        title="You may also need"
         placement="vehicle"
         className="app-container mt-1 py-3 md:mt-4"
         gridClassName="md:grid-cols-2 lg:grid-cols-3"

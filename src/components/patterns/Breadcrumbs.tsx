@@ -1,4 +1,3 @@
-import { useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -16,29 +15,19 @@ export interface Crumb {
  * ink and medium weight. No pills, no fills: the trail is wayfinding, not a
  * row of buttons competing with the page's real actions.
  *
- * One row at every width. On a narrow screen a long crumb truncates and the
- * row scrolls sideways; it opens scrolled to the end so the current page,
- * the part you care about, is the part you see.
+ * On a narrow screen the trail wraps onto a second line rather than scrolling
+ * sideways: a row that hid its own start behind the screen edge read as cut
+ * off. A long crumb still truncates so one name cannot take the whole line.
  */
 export function Breadcrumbs({ items, className }: { items: Crumb[]; className?: string }) {
-  const ref = useRef<HTMLOListElement>(null);
-  const key = items.map((c) => c.label).join("\u0000");
-  useEffect(() => {
-    const el = ref.current;
-    if (el) el.scrollLeft = el.scrollWidth;
-  }, [key]);
-
   if (!items.length) return null;
   return (
     <nav aria-label="Breadcrumb" className={cn("min-w-0", className)}>
-      <ol
-        ref={ref}
-        className="flex min-w-0 items-center gap-1.5 overflow-x-auto whitespace-nowrap text-[13px] leading-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-      >
+      <ol className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[13px] leading-5">
         {items.map((c, i) => {
           const last = i === items.length - 1;
           return (
-            <li key={`${i}-${c.label}`} className="flex min-w-0 shrink-0 items-center gap-1.5">
+            <li key={`${i}-${c.label}`} className="flex min-w-0 max-w-full items-center gap-1.5 whitespace-nowrap">
               {c.href && !last ? (
                 <Link
                   to={c.href}

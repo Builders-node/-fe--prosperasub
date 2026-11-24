@@ -107,6 +107,7 @@ export function ShareButton({
   return (
     <button
       type="button"
+      data-tooltip="Share"
       aria-label={`Share ${title}`}
       onClick={share}
       className={cn(

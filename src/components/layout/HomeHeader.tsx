@@ -6,7 +6,7 @@ import { useI18n } from "@/i18n";
 import { prefetchRoute } from "@/lib/routeChunks";
 import { cn } from "@/lib/utils";
 import {
-  KeyboardArrowLeftIcon, NotificationsIcon, SearchIcon, ShoppingBagIcon,
+  KeyboardArrowLeftIcon, NotificationsIcon, SearchIcon, FavoriteIcon,
 } from "@/components/icons/FigmaIcons";
 import {
   HeaderAccountSkeleton, HeaderIconLink, HeaderLoginButton, useHeaderSession, type HeaderSession,
@@ -100,15 +100,15 @@ export function HomeHeaderView({
     return (
       <header className={cn("bg-card md:hidden", sticky && "sticky top-0 z-40", className)}>
         <div className="flex h-16 items-center gap-2 px-2">
-          {/* The bag is the brand mark in the design — orange, top-left — and
-              the way to the basket, with the same count the tab bar shows. */}
+          {/* Orange, top-left, where the design puts the brand mark. It used
+              to be a second door to the cart, which the tab bar already is;
+              favorites had no door on a phone at all, so this is it. */}
           <HeaderIconLink
-            to="/cart"
-            label="Cart"
-            icon={ShoppingBagIcon}
-            count={session.cart}
+            to="/favorites"
+            label="Favorites"
+            icon={FavoriteIcon}
             tone="brand"
-            onPointerDown={() => prefetchRoute("/cart")}
+            onPointerDown={() => prefetchRoute("/favorites")}
           />
 
           {/* A button, not an input: typing happens on the search screen, and a

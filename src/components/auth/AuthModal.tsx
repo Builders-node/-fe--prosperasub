@@ -253,12 +253,12 @@ function AuthForm({
       {/* Header */}
       <div className="mb-6">
         <h2 className="text-heading font-semibold text-foreground">
-          {view === "login" ? "Welcome back" : "Create account"}
+          {view === "login" ? "Log in" : "Create account"}
         </h2>
         <p className="mt-1 text-meta text-muted-foreground">
           {view === "login"
-            ? "Sign in to your EverySub account"
-            : "Join EverySub — Convenience Subscriptions to Próspera"}
+            ? "With your email or Google account"
+            : "Subscriptions and services in Roatán, in one place"}
         </p>
       </div>
 
@@ -284,7 +284,7 @@ function AuthForm({
             view === "signup" ? "bg-segment text-foreground" : "text-muted-foreground hover:text-foreground",
           )}
         >
-          Register
+          Create account
         </button>
       </div>
 
@@ -416,7 +416,7 @@ export function AuthModal({ open, onClose, defaultView = "login", redirectTo = "
         onEscapeKeyDown={(e) => e.preventDefault()}
       >
         <DialogTitle className="sr-only">
-          {defaultView === "forgot_password" ? "Reset your password" : defaultView === "login" ? "Log in to EverySub" : "Create a EverySub account"}
+          {defaultView === "forgot_password" ? "Reset your password" : defaultView === "login" ? "Log in to EverySub" : "Create an EverySub account"}
         </DialogTitle>
         <DialogDescription className="sr-only">
           Enter your credentials to continue.

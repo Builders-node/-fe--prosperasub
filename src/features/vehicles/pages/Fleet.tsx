@@ -63,12 +63,12 @@ export default function Fleet() {
    * does not appear as a rail tile leading to nothing.
    */
   const providers = useMemo(() => {
-    const seen = new Map<string, { id: string; name: string; avatarUrl: string | null; count: number }>();
+    const seen = new Map<string, { id: string; name: string; avatarUrl: string | null; slug: string | null; count: number }>();
     vehicles.forEach((v) => {
       if (!v.provider?.id || !v.provider.name) return;
       const hit = seen.get(v.provider.id);
       if (hit) hit.count += 1;
-      else seen.set(v.provider.id, { id: v.provider.id, name: v.provider.name, avatarUrl: v.provider.avatar_url ?? null, count: 1 });
+      else seen.set(v.provider.id, { id: v.provider.id, name: v.provider.name, avatarUrl: v.provider.avatar_url ?? null, slug: v.provider.slug ?? null, count: 1 });
     });
     return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
   }, [vehicles]);
@@ -238,11 +238,11 @@ export default function Fleet() {
                 meta: `${p.count} vehicle${p.count === 1 ? "" : "s"}`,
               }))}
               icon={Building2}
-              label="Rental companies"
+              label="Businesses"
               // The rail is a DOOR, as on every other listing — it opens the
               // business's own page (fleet shelf, reviews, gallery). Narrowing
               // the grid is the chips' job, not the rail's.
-              onOpen={(id) => navigate(carProviderPath(id))}
+              onOpen={(id) => navigate(carProviderPath(providers.find((p) => p.id === id)?.slug || id))}
             />
           </div>
         )}
@@ -265,7 +265,7 @@ export default function Fleet() {
         ) : (
           // Two columns on a laptop — one full-width row per car left half
           // the screen empty.
-          <div className="grid gap-2 md:grid-cols-2">
+          <div className="grid grid-cols-2 gap-x-2 gap-y-5 md:grid-cols-3 lg:grid-cols-4">
             {shown.map((v) => <VehicleCard key={v.id} v={v} showProvider={manyProviders} />)}
           </div>
         )}

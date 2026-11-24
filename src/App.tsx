@@ -3,6 +3,7 @@ import { RouteEffects } from "@/components/seo/RouteEffects";
 import { ConsentBanner } from "@/components/seo/ConsentBanner";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { IconTooltips } from "@/components/patterns/IconTooltips";
 import { QueryClient, QueryClientProvider, QueryCache } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { errorMessage } from "@/lib/errorMessage";
@@ -200,6 +201,7 @@ const App = () => {
           <AuthProvider>
             <TooltipProvider>
               <Toaster />
+              <IconTooltips />
               {/*
                 `v7_startTransition` is what stops a route change from blanking
                 the screen. Without it, navigating to a page whose chunk is not

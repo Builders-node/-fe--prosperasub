@@ -18,6 +18,7 @@ import { AllowanceStrip, type Allowance } from "@/components/booking/AllowanceSt
 import { bookingErrorMessage } from "@/lib/booking/errors";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/patterns/Skeleton";
+import { formatTime } from "@/lib/formatTime";
 
 /**
  * Book a time on one of a provider's calendars — any provider.
@@ -46,12 +47,8 @@ interface EngineBooking {
   start_at: string; end_at: string; slot_key: string; status: string;
 }
 
-const timeLabel = (hhmm: string): string => {
-  const [h, m] = hhmm.split(":").map(Number);
-  const period = h >= 12 ? "PM" : "AM";
-  const h12 = h % 12 === 0 ? 12 : h % 12;
-  return m === 0 ? `${h12}${period}` : `${h12}:${String(m).padStart(2, "0")}${period}`;
-};
+// The one clock (lib/formatTime) — this screen had its own "2PM" spelling.
+const timeLabel = (hhmm: string): string => formatTime(hhmm);
 
 /** The wall-clock start the engine assigned, however the row records it. */
 const startKeyOf = (b: EngineBooking): string => {
@@ -91,9 +88,9 @@ export default function BookCalendar() {
     enabled: !!providerId,
     queryFn: async () => {
       const { data, error } = await supabaseDb
-        .from("providers").select("id, name, archetype_key").eq("id", providerId).maybeSingle();
+        .from("providers").select("id, name, archetype_key, slug").eq("id", providerId).maybeSingle();
       if (error) throw error;
-      return data as { id: string; name: string; archetype_key: string | null } | null;
+      return data as { id: string; name: string; archetype_key: string | null; slug: string | null } | null;
     },
   });
 
@@ -260,7 +257,7 @@ export default function BookCalendar() {
             </p>
             {provider?.archetype_key && (
               <Button asChild className="mt-4">
-                <Link to={providerHref(provider.archetype_key, provider.id)}>See plans</Link>
+                <Link to={providerHref(provider.archetype_key, provider.slug || provider.id)}>See plans</Link>
               </Button>
             )}
           </section>

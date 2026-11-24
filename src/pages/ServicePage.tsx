@@ -16,7 +16,7 @@ import { BrowseLayout } from "@/components/layout/BrowseLayout";
 import { HomeHeader } from "@/components/layout/HomeHeader";
 import { DesktopHeader } from "@/components/layout/DesktopHeader";
 import { BottomNav } from "@/components/layout/BottomNav";
-import { YdEmptyState } from "@/components/yd/YdPrimitives";
+import { YdEmptyState, YdSectionHeading } from "@/components/yd/YdPrimitives";
 import { QueryError } from "@/components/patterns/QueryError";
 import { UniversalPlanCard } from "@/components/patterns/UniversalPlanCard";
 import { supabaseDb } from "@/integrations/supabase/client";
@@ -25,7 +25,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
 import { PageLoader } from "@/components/ui/spinner";
-import { SearchX } from "lucide-react";
+import { Check, SearchX } from "lucide-react";
 import { useDraftPreview } from "@/hooks/useDraftPreview";
 import { DraftPreviewBanner } from "@/components/patterns/DraftPreviewBanner";
 import { DesktopListing, FilterGroup, featuredFirst, useDesktopFilters, usePromotionLookup, type ListingPlan } from "@/components/listing/DesktopListing";
@@ -51,6 +51,7 @@ import { cn } from "@/lib/utils";
  * matched by static routes, which React Router prefers over this dynamic one.
  */
 interface ProviderRow {
+  slug?: string | null;
   id: string;
   name: string;
   source_provider_id: string | null;
@@ -93,7 +94,7 @@ const ServicePage = () => {
     queryFn: async () => {
       let q = supabaseDb
         .from("providers")
-        .select("id, name, category_key, avatar_url, gallery_urls, source_provider_id, source_service_key")
+        .select("id, name, category_key, avatar_url, gallery_urls, source_provider_id, source_service_key, slug")
         .eq("archetype_key", archetypeKey!);
       if (!preview) q = q.eq("status", "active");
       const { data, error } = await q.order("sort_order", { ascending: true });
@@ -246,10 +247,12 @@ const ServicePage = () => {
         className={cn(
           "inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 font-semibold transition-colors",
           size === "md" ? "h-10 text-[14px]" : "h-8 text-[13px]",
-          on ? "bg-primary text-primary-foreground" : "bg-muted text-foreground hover:bg-muted/70",
+          // Filters, not categories: an outline that gains a check when on,
+          // so the row never reads as a second set of category tabs.
+          on ? "bg-segment text-foreground ring-1 ring-foreground/30" : "bg-transparent text-foreground ring-1 ring-border hover:bg-muted/50",
         )}
       >
-        {TagIcon && <TagIcon className="h-4 w-4" />}
+        {on ? <Check className="h-4 w-4" /> : TagIcon && <TagIcon className="h-4 w-4" />}
         {t.label}
       </button>
     );
@@ -322,7 +325,11 @@ const ServicePage = () => {
   }
 
   const keep = preview ? "?preview=1" : "";
-  const openProvider = (providerId: string) => navigate(providerHref(archetype.key, providerId) + keep);
+  const openProvider = (providerId: string) => {
+    // The rail hands over an id; the address is the business's slug.
+    const slug = (providersQ.data ?? []).find((p) => p.id === providerId)?.slug;
+    navigate(providerHref(archetype.key, slug || providerId) + keep);
+  };
   const openPlan = (planId: string) => {
     // The card hands over an id; the address is the plan's words where it has them.
     const row = (plansQ.data ?? []).find((p: any) => String(p.id) === planId);
@@ -393,7 +400,7 @@ const ServicePage = () => {
           </div>
         ) : providersQ.isError ? (
           <QueryError
-            title="Couldn't load providers"
+            title="Couldn't load businesses"
             error={providersQ.error instanceof Error ? providersQ.error.message : undefined}
             onRetry={() => providersQ.refetch()}
             retrying={providersQ.isFetching}
@@ -401,7 +408,7 @@ const ServicePage = () => {
         ) : providerGroups.length === 0 ? (
           <YdEmptyState
             icon={Icon}
-            title="No providers yet"
+            title="No businesses yet"
             subtitle="We're setting things up. Check back soon."
           />
         ) : (
@@ -409,15 +416,24 @@ const ServicePage = () => {
             {chips.length > 1 && (
               <CategoryChips categories={chips} value={activeCategory} onChange={setActiveCategory} />
             )}
-            <ProviderRail providers={rail} icon={Icon!} label="Providers" onOpen={openProvider} />
+            <ProviderRail providers={rail} icon={Icon!} label="Businesses" onOpen={openProvider} />
           </div>
         )}
 
         <section id="plans" className="mt-space-6 scroll-mt-4">
-          <h2 className="mb-3 text-heading font-semibold text-foreground">Plans</h2>
+          <YdSectionHeading title="Plans" count={plansQ.isLoading || plansQ.isError ? null : search.results.length} />
           {tagGroups.length > 0 && (
             <div className="-mx-space-4 mb-3 flex gap-2 overflow-x-auto px-space-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               {tagChips(tagGroups.flatMap((g) => g.tags), "sm")}
+              {chosenTags.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setParams((prev) => { const out = new URLSearchParams(prev); out.delete("tags"); return out; }, { replace: true })}
+                  className="inline-flex h-8 shrink-0 items-center rounded-full px-3 text-[13px] font-semibold text-muted-foreground hover:text-foreground"
+                >
+                  Clear
+                </button>
+              )}
             </div>
           )}
           {hiddenNotice && <div className="mb-3">{hiddenNotice}</div>}
@@ -438,7 +454,7 @@ const ServicePage = () => {
               {search.results.length === 0 ? (
                 <YdEmptyState icon={SearchX} title="No plans match" subtitle="Try a different word, or clear the search." />
               ) : (
-                <div className="grid gap-2 md:grid-cols-2">
+                <div className="grid grid-cols-2 gap-x-2 gap-y-5 md:grid-cols-3">
                   {ordered.map((plan: any) => (
                     <UniversalPlanCard
                       key={plan.id}

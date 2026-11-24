@@ -39,7 +39,8 @@ const USER_NAV: NavItem[] = [
     icon: HomeIcon,
     label: "common.home",
     path: "/discovery",
-    activePatterns: ["/discovery", "/services"],
+    // Every browsing page lives under Home, so the tab bar always says where you are.
+    activePatterns: ["/discovery", "/services", "/vehicles", "/businesses", "/plans", "/cars", "/search"],
   },
   {
     icon: Inventory2Icon,
