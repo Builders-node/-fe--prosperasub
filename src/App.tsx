@@ -312,6 +312,8 @@ const App = () => {
 
               {/* Public provider profile — cleaning / entertainment. Food has
                   its own /services/food/:id route above. */}
+              <Route path="/businesses/:providerId" element={<ProviderDetail />} />
+              {/* The old address, with the service in it: opens, then replaced. */}
               <Route path="/services/:archetypeKey/providers/:providerId" element={<ProviderDetail />} />
 
               {/* ─── Legacy short-URL redirects (kept so old bookmarks / emails

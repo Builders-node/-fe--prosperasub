@@ -76,8 +76,7 @@ const main = async () => {
     let path = null;
     // The address in words when the business has one (see the provider_slugs migration).
     const seg = p.slug || p.id;
-    if (p.unit === "vehicles") path = `/vehicles/providers/${seg}`;
-    else if (p.archetype_key) path = `/services/${slugOf(p.archetype_key)}/providers/${seg}`;
+    if (p.unit === "vehicles" || p.archetype_key) path = `/businesses/${seg}`; // flat, like /plans/…
     if (path) entries.push(url(path, { lastmod: p.updated_at, priority: 0.8 }));
   }
 

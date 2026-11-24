@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { planHref, planSegment, publicNoOf, wordsAddress } from "./serviceUrls";
+import { businessHref, planHref, planSegment, providerHref, publicNoOf, wordsAddress } from "./serviceUrls";
 
 describe("addresses made of words", () => {
   it("joins the words and the number", () => {
@@ -29,5 +29,10 @@ describe("addresses made of words", () => {
     expect(publicNoOf("basic-cleaning")).toBeNull();
     expect(publicNoOf("")).toBeNull();
     expect(publicNoOf(null)).toBeNull();
+  });
+
+  it("addresses a business flat, without its service", () => {
+    expect(businessHref("scuba-shop")).toBe("/businesses/scuba-shop");
+    expect(providerHref("clubs", "scuba-shop")).toBe("/businesses/scuba-shop");
   });
 });
