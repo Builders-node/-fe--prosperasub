@@ -60,7 +60,7 @@ function Panel({ onClose }: { onClose: () => void }) {
             type="button"
             onClick={() => feed.markAllRead.mutate()}
             disabled={feed.markAllRead.isPending}
-            className="-mr-2 inline-flex h-8 items-center gap-1.5 rounded-full px-2.5 text-[13px] font-semibold text-muted-foreground transition-colors hover:bg-inset hover:text-foreground disabled:opacity-50"
+            className="-mr-2 inline-flex h-8 items-center gap-1.5 rounded-full px-2.5 text-sm font-semibold text-muted-foreground transition-colors hover:bg-inset hover:text-foreground disabled:opacity-50"
           >
             <CheckCheck className="h-4 w-4" /> Mark all read
           </button>
