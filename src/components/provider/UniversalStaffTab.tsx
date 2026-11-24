@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { logAuditEvent } from "@/lib/auditLog";
 import { UserPicker } from "@/components/patterns/UserPicker";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 /**
  * Staff tab: owner + managers.
@@ -126,6 +127,8 @@ export function UniversalStaffTab({
   const [ownerForm, setOwnerForm] = useState({ user_id: "" });
   const [managerForm, setManagerForm] = useState({ user_email: "", user_name: "", user_id: "" });
   const [deleteManager, setDeleteManager] = useState<Manager | null>(null);
+  /** Admins only: add by email, or pick an existing platform user. */
+  const [addBy, setAddBy] = useState<"email" | "user">("email");
 
   const OWNER_QK = ["staff-owner", providerTable, ownerUserId] as const;
   const MANAGERS_QK = ["staff-managers", managerTable, providerId] as const;
@@ -251,7 +254,8 @@ export function UniversalStaffTab({
 
   const managerEmail = managerForm.user_email.trim().toLowerCase();
   const managerEmailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(managerEmail);
-  const canAddManager = (isSuperAdmin && !!managerForm.user_id.trim()) || managerEmailOk;
+  const pickingUser = isSuperAdmin && addBy === "user";
+  const canAddManager = pickingUser ? !!managerForm.user_id.trim() : managerEmailOk;
 
   const addManagerMutation = useMutation({
     mutationFn: async () => {
@@ -263,7 +267,7 @@ export function UniversalStaffTab({
       // A platform admin picks the person from the user list, as before.
       // Picked from the list (admins only) → added directly; typed email → the
       // invite path, which also tells an existing account it has access.
-      const picked = isSuperAdmin && !!managerForm.user_id.trim();
+      const picked = pickingUser && !!managerForm.user_id.trim();
       const payload = picked
         ? { userId: managerForm.user_id.trim() || null, userEmail: managerForm.user_email.trim() || null, userName: name }
         : { email: managerEmail, name };
@@ -534,7 +538,7 @@ export function UniversalStaffTab({
       </AlertDialog>
 
       {/* Add Manager dialog */}
-      <Dialog open={managerDialog} onOpenChange={(o) => { if (!o) setManagerDialog(false); }}>
+      <Dialog open={managerDialog} onOpenChange={(o) => { if (!o) { setManagerDialog(false); setAddBy("email"); } }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>Add a manager</DialogTitle></DialogHeader>
           <form
@@ -542,6 +546,31 @@ export function UniversalStaffTab({
             className="space-y-3"
             onSubmit={(e) => { e.preventDefault(); if (canAddManager) addManagerMutation.mutate(); }}
           >
+            {isSuperAdmin && (
+              <Tabs value={addBy} onValueChange={(v) => { setAddBy(v as "email" | "user"); setManagerForm({ user_email: "", user_name: "", user_id: "" }); }}>
+                <TabsList variant="segment">
+                  <TabsTrigger value="email" variant="segment">By email</TabsTrigger>
+                  <TabsTrigger value="user" variant="segment">Platform user</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            )}
+            {pickingUser ? (
+              <div>
+                <Label>User</Label>
+                <UserPicker
+                  value={managerForm.user_id}
+                  onSelect={(u) => setManagerForm({
+                    user_id: u?.id ?? "",
+                    user_email: u?.email ?? "",
+                    user_name: (u?.display_name || u?.name || u?.email) ?? "",
+                  })}
+                  placeholder="Select a platform user…"
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  They get access straight away.
+                </p>
+              </div>
+            ) : (
               <div>
                 <Label htmlFor="manager-email">Email</Label>
                 <Input
@@ -559,26 +588,13 @@ export function UniversalStaffTab({
                   if not, they sign up from the email and get access then.
                 </p>
               </div>
-            {isSuperAdmin && (
-              <div>
-                <Label>Or pick a platform user</Label>
-                <UserPicker
-                  value={managerForm.user_id}
-                  onSelect={(u) => setManagerForm({
-                    user_id: u?.id ?? "",
-                    user_email: u?.email ?? "",
-                    user_name: (u?.display_name || u?.name || u?.email) ?? "",
-                  })}
-                  placeholder="Select a platform user…"
-                />
-              </div>
             )}
           </form>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => setManagerDialog(false)}>Cancel</Button>
             <Button type="submit" form="add-manager-form" disabled={!canAddManager || addManagerMutation.isPending}>
               {addManagerMutation.isPending ? <Spinner size="sm" className="mr-2" /> : <Plus className="mr-1 h-4 w-4" />}
-              {isSuperAdmin && managerForm.user_id ? "Add" : "Send"}
+              {pickingUser ? "Add" : "Send"}
             </Button>
           </DialogFooter>
         </DialogContent>
