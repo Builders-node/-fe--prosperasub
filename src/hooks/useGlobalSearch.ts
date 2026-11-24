@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { publicListingHref } from "@/lib/services/providerBridge";
-import { providerHref } from "@/lib/services/serviceUrls";
+import { planHref, planSegment, providerHref } from "@/lib/services/serviceUrls";
 import { VEHICLES_UNIT } from "@/lib/services/vehiclesUnit";
-import { carPath, carProviderPath } from "@/features/vehicles";
+import { carPath, carProviderPath, vehiclePath } from "@/features/vehicles";
 import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
 import { useTagDictionary } from "@/lib/tags";
 
@@ -69,7 +69,8 @@ export function useGlobalSearch(query: string) {
         // rows have collapsed into one offer, and which of them a hit on the
         // offer should open.
         supabaseDb.from("provider_plans")
-          .select("id, provider_id, name, description, price_cents, period, parent_plan_id, source_service_key, source_plan_id, tags")
+          // `*` for the address in words (slug, public_no) — see planSegment.
+          .select("*")
           // Private plans are unlisted, which includes being unsearchable.
           .eq("status", "active").eq("visibility", "public"),
         supabaseDb.from("cleaning_packages")
@@ -82,7 +83,7 @@ export function useGlobalSearch(query: string) {
         // The fleet: a car is an offer like any other, and searching its make
         // used to return nothing at all.
         supabaseDb.from("rental_vehicles")
-          .select("id, name, brand, model, year, daily_price_cents, provider_id")
+          .select("*") // `*` for the address in words (slug, public_no)
           .eq("status", "public"),
       ]);
       return {
@@ -199,7 +200,7 @@ export function useGlobalSearch(query: string) {
     // Cars, by make and model — "hyundai", "tucson", "2024" all find one.
     data.vehicles.forEach((v: any) => {
       push(String(v.id), v.name, providerName.get(String(v.provider_id)) ?? "Vehicles",
-           carPath(`vehicle/${v.id}`), v.daily_price_cents ?? null,
+           vehiclePath(v), v.daily_price_cents ?? null,
            "/ day", [v.brand, v.model, v.year ? String(v.year) : null]);
     });
     data.plans.forEach((p: any) => {
@@ -213,7 +214,7 @@ export function useGlobalSearch(query: string) {
       // An offer has one address — its own; `?v=` opens it on its cheapest
       // combination so the option chips arrive already chosen.
       const segment = provider?.archetype_key ?? provider?.source_service_key ?? "entertainment";
-      const href = `/services/${segment}/plans/${p.id}${cheapest ? `?v=${cheapest.sourceId}` : ""}`;
+      const href = `${planHref(segment, planSegment(p))}${cheapest ? `?v=${cheapest.sourceId}` : ""}`;
 
       push(String(p.id), p.name, providerName.get(String(p.provider_id)) ?? null, href,
            p.price_cents ?? null, p.period === "weekly" ? "/ week" : "/ month",

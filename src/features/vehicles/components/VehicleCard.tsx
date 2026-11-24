@@ -2,7 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { Users, Fuel, Gauge, Snowflake, Building2 } from "lucide-react";
 import { PlanCard } from "@/components/patterns/PlanCard";
 import { FUEL_LABEL, type RentalVehicle } from "../types/carRental";
-import { carPath } from "../lib/routes";
+import { carPath, vehiclePath } from "../lib/routes";
 
 /**
  * A car in the fleet, drawn as the platform's listing row.
@@ -27,7 +27,7 @@ export function VehicleCard({ v, showProvider = false }: {
   showProvider?: boolean;
 }) {
   const navigate = useNavigate();
-  const open = () => navigate(carPath(`vehicle/${v.id}`));
+  const open = () => navigate(vehiclePath(v));
 
   return (
     <PlanCard

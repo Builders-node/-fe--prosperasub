@@ -15,6 +15,9 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
+/** "beach-club-membership-1042" — src/lib/services/serviceUrls.ts wordsAddress. */
+const wordsOf = (row) =>
+  row.public_no === null || row.public_no === undefined ? null : row.slug ? `${row.slug}-${row.public_no}` : String(row.public_no);
 const SITE = process.env.SITE_URL?.replace(/\/+$/, "") || "https://everysub.net";
 const SUPABASE_URL = (process.env.VITE_SUPABASE_URL || "https://igbytraidldkhhamsfdo.supabase.co").replace(/\/+$/, "");
 const ANON = process.env.VITE_SUPABASE_ANON_KEY || readAnonFromSource();
@@ -81,11 +84,13 @@ const main = async () => {
   // Offers, by the id the storefront links them with — under their business's
   // service (the old code used the table's key, so universal plans pointed at
   // /services/plans/…, a page that does not exist).
-  const plans = await rows("provider_plans?select=id,provider_id,source_plan_id,updated_at&status=eq.active&visibility=eq.public&parent_plan_id=is.null");
+  // select=* so the address in words (slug, public_no) is read once the
+  // readable_plan_and_vehicle_urls migration exists; the old id until then.
+  const plans = await rows("provider_plans?select=*&status=eq.active&visibility=eq.public&parent_plan_id=is.null");
   for (const plan of plans) {
     const p = providerById.get(plan.provider_id);
     if (!p || !p.archetype_key || p.unit === "vehicles") continue;
-    const id = plan.source_plan_id || plan.id;
+    const id = wordsOf(plan) ?? (plan.source_plan_id || plan.id);
     // Food's old provider-scoped plan URL only forwards here.
     const path = `/services/${slugOf(p.archetype_key)}/plans/${id}`;
     entries.push(url(path, { lastmod: plan.updated_at, priority: 0.7 }));
@@ -104,9 +109,9 @@ const main = async () => {
   );
 
   // Every car on the fleet.
-  const vehicles = await rows("rental_vehicles?select=id,updated_at&status=eq.public");
+  const vehicles = await rows("rental_vehicles?select=*&status=eq.public");
   for (const v of vehicles) {
-    entries.push(url(`/vehicles/vehicle/${v.id}`, { lastmod: v.updated_at, priority: 0.7 }));
+    entries.push(url(`/vehicles/vehicle/${wordsOf(v) ?? v.id}`, { lastmod: v.updated_at, priority: 0.7 }));
   }
 
   const xml =

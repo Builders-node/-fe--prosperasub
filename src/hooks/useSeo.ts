@@ -159,3 +159,23 @@ export function businessJsonLd(input: {
     } : {}),
   };
 }
+
+/**
+ * Schema.org BreadcrumbList — where the page sits, from the top down.
+ *
+ * Search engines show this trail in place of the raw address
+ * ("everysub.net › Clubs & Sport › Beach Club"), the way big shops' results
+ * read. Order is the hierarchy, home first, the page itself last.
+ */
+export function breadcrumbJsonLd(crumbs: Array<{ label: string; href: string }>): Record<string, unknown> {
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: crumbs.map((c, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name: c.label,
+      item: c.href.startsWith("http") ? c.href : `${SITE}${c.href}`,
+    })),
+  };
+}

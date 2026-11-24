@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { formatUSD } from "@/lib/pricing";
 import { periodNoun } from "@/lib/services/planPeriod";
-import { planHref } from "@/lib/services/serviceUrls";
+import { planHref, planSegment } from "@/lib/services/serviceUrls";
 import { PhotoSlider } from "@/components/patterns/PhotoSlider";
 import { Skeleton } from "@/components/patterns/Skeleton";
 import { cn } from "@/lib/utils";
@@ -27,6 +27,9 @@ export interface HomePlan {
   period: string | null;
   pricing_mode: string | null;
   source_plan_id: string | null;
+  /** The address in words — after the backend migration (see planSegment). */
+  slug?: string | null;
+  public_no?: number | null;
   gallery_urls: unknown;
   /** Dictionary keys (lib/tags.ts) — and any old free-text words. */
   tags: string[] | null;
@@ -51,7 +54,9 @@ export function useHomePlans() {
       const { data, error } = await supabaseDb
         .from("provider_plans")
         .select(
-          "id, name, price_cents, period, pricing_mode, source_plan_id, gallery_urls, tags, sort_order, " +
+          // `*` carries the address in words (slug, public_no) once the backend
+          // migration adds them, and nothing breaks before it does.
+          "*, " +
           "provider:providers!inner(id, name, archetype_key, gallery_urls, banner_url, status)",
         )
         .eq("status", "active")
@@ -182,7 +187,7 @@ export function PlanTile({ plan, className }: { plan: HomePlan; className?: stri
   const { labelsOf } = useTagDictionary();
   // Same link the provider's own list uses: the original id where the row
   // mirrors a legacy plan, so there is one address per product.
-  const href = planHref(provider.archetype_key!, plan.source_plan_id ? String(plan.source_plan_id) : plan.id);
+  const href = planHref(provider.archetype_key!, planSegment(plan));
   return (
     <OfferCard
       href={href}

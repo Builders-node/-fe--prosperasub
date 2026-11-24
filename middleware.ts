@@ -44,7 +44,16 @@ const DEFAULT = {
 };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const SAFE_ID = /^[0-9a-zA-Z-]{1,64}$/;
+const SAFE_ID = /^[0-9a-zA-Z-]{1,90}$/;
+/**
+ * An address of words ends in the row's number: beach-club-membership-1042
+ * (src/lib/services/serviceUrls.ts publicNoOf). The number finds the row; the
+ * words are for people, so stale words after a rename are sent on with a 301.
+ */
+const WORDS = /^(?:[a-z0-9]+(?:-[a-z0-9]+)*-)?(\d{1,12})$/;
+const publicNoOf = (seg: string) => (UUID.test(seg) ? null : WORDS.exec(seg)?.[1] ?? null);
+const wordsOf = (row: { slug?: string | null; public_no?: number | string | null }) =>
+  row.public_no === null || row.public_no === undefined ? null : row.slug ? `${row.slug}-${row.public_no}` : String(row.public_no);
 
 const pass = () => new Response(null, { headers: { "x-middleware-next": "1" } });
 
@@ -68,16 +77,22 @@ const priceLine = (cents: number | null, period: string | null) => {
   const per = PERIOD[String(period ?? "")] ?? "";
   return p ? `${p}${per ? ` / ${per}` : ""}` : null;
 };
-/** The URL segment a service uses (src/lib/services/serviceUrls.ts KEY_TO_SLUG). */
-const slugOf = (key: string) => (key === "entertainment" ? "beach-club" : key);
+/**
+ * The URL segment a service uses — its key, as src/lib/services/serviceUrls.ts
+ * spells it. (The beach club's old /services/beach-club listing is gone; the
+ * club is one business in the service it is filed under.)
+ */
+const slugOf = (key: string) => key;
 /** A business's address: its slug (words) when it has one, else its uuid. */
 const providerPath = (p: { id: string; slug?: string | null; unit?: string | null; archetype_key?: string | null }) => {
   const seg = p.slug || p.id;
   return p.unit === "vehicles" ? `/vehicles/providers/${seg}` : p.archetype_key ? `/services/${slugOf(p.archetype_key)}/providers/${seg}` : null;
 };
 const SLUG = /^[a-z0-9][a-z0-9-]{0,79}$/;
-const planPath = (plan: { id: string; source_plan_id?: string | null }, archetype: string) =>
-  `/services/${slugOf(archetype)}/plans/${plan.source_plan_id || plan.id}`;
+type Worded = { slug?: string | null; public_no?: number | string | null };
+const planPath = (plan: { id: string; source_plan_id?: string | null } & Worded, archetype: string) =>
+  `/services/${slugOf(archetype)}/plans/${wordsOf(plan) ?? (plan.source_plan_id || plan.id)}`;
+const carHref = (v: { id: string } & Worded) => `/vehicles/vehicle/${wordsOf(v) ?? v.id}`;
 
 interface Link { href: string; label: string; note?: string | null }
 interface Page {
@@ -98,7 +113,9 @@ interface Page {
   redirect?: string;
 }
 
-const PLAN_COLS = "id,name,description,price_cents,period,source_plan_id,gallery_urls,provider_id";
+// `*`: the address in words (slug, public_no) arrives with a backend migration;
+// naming the columns before then would fail the whole query.
+const PLAN_COLS = "*";
 const PUBLIC_PLANS = "status=eq.active&visibility=eq.public&parent_plan_id=is.null";
 
 const ORG = {
@@ -140,9 +157,9 @@ async function pageFor(path: string): Promise<Page | null> {
     let offers: Link[] = [];
     const ldOffers: Record<string, unknown>[] = [];
     if (p.unit === "vehicles") {
-      const cars = await rows(`rental_vehicles?provider_id=eq.${p.id}&status=eq.public&select=id,name,daily_price_cents&order=daily_price_cents`);
-      offers = cars.map((v) => ({ href: `/vehicles/vehicle/${v.id}`, label: v.name, note: usd(v.daily_price_cents) ? `from ${usd(v.daily_price_cents)} / day` : null }));
-      cars.forEach((v) => v.daily_price_cents && ldOffers.push({ "@type": "Offer", name: v.name, price: (v.daily_price_cents / 100).toFixed(2), priceCurrency: "USD", url: `${SITE}/vehicles/vehicle/${v.id}` }));
+      const cars = await rows(`rental_vehicles?provider_id=eq.${p.id}&status=eq.public&select=*&order=daily_price_cents`);
+      offers = cars.map((v) => ({ href: carHref(v), label: v.name, note: usd(v.daily_price_cents) ? `from ${usd(v.daily_price_cents)} / day` : null }));
+      cars.forEach((v) => v.daily_price_cents && ldOffers.push({ "@type": "Offer", name: v.name, price: (v.daily_price_cents / 100).toFixed(2), priceCurrency: "USD", url: `${SITE}${carHref(v)}` }));
     } else if (p.archetype_key) {
       const plans = await rows(`provider_plans?provider_id=eq.${p.id}&${PUBLIC_PLANS}&select=${PLAN_COLS}&order=price_cents`);
       offers = plans.map((pl) => ({ href: planPath(pl, p.archetype_key), label: pl.name, note: priceLine(pl.price_cents, pl.period) }));
@@ -174,18 +191,24 @@ async function pageFor(path: string): Promise<Page | null> {
   const planIdx = parts.indexOf("plans");
   if (parts[0] === "services" && planIdx >= 0 && SAFE_ID.test(parts[planIdx + 1] ?? "")) {
     const id = parts[planIdx + 1];
-    const filter = UUID.test(id) ? `or=(id.eq.${id},source_plan_id.eq.${id})` : `source_plan_id=eq.${id}`;
-    let [plan] = await rows(`provider_plans?${filter}&select=${PLAN_COLS},status,parent_plan_id&limit=1`);
+    const no = publicNoOf(id);
+    let [plan] = no ? await rows(`provider_plans?public_no=eq.${no}&select=${PLAN_COLS}&limit=1`) : [];
+    if (!plan) {
+      const filter = UUID.test(id) ? `or=(id.eq.${id},source_plan_id.eq.${id})` : `source_plan_id=eq.${id}`;
+      [plan] = await rows(`provider_plans?${filter}&select=${PLAN_COLS}&limit=1`);
+    }
     if (!plan || plan.status !== "active") return null;
     // A combination of an offer is the offer: same page, same canonical address.
     if (plan.parent_plan_id) {
-      const [parent] = await rows(`provider_plans?id=eq.${plan.parent_plan_id}&select=${PLAN_COLS},status,parent_plan_id&limit=1`);
+      const [parent] = await rows(`provider_plans?id=eq.${plan.parent_plan_id}&select=${PLAN_COLS}&limit=1`);
       if (parent && parent.status === "active") plan = parent;
     }
     const [prov] = plan.provider_id ? await rows(`providers?id=eq.${plan.provider_id}&select=*`) : [];
     const price = priceLine(plan.price_cents, plan.period);
     const description = [price, clip(plan.description, 160)].filter(Boolean).join(" — ") || `${plan.name} on EverySub.`;
     const self = prov?.archetype_key ? planPath(plan, prov.archetype_key) : path;
+    // A uuid, a legacy id or yesterday's words: one 301 to today's address.
+    if (self !== path) return { ...DEFAULT, type: "website", redirect: self };
     const provHref = prov ? providerPath(prov) : null;
     const crumbs: Link[] = [{ href: "/discovery", label: "EverySub" }];
     if (prov?.archetype_key) crumbs.push({ href: `/services/${slugOf(prov.archetype_key)}`, label: "Services" });
@@ -207,16 +230,19 @@ async function pageFor(path: string): Promise<Page | null> {
   }
 
   // ── A car: /vehicles/vehicle/:id ──
-  if (parts[0] === "vehicles" && parts[1] === "vehicle" && UUID.test(parts[2] ?? "")) {
-    const [v] = await rows(`rental_vehicles?id=eq.${parts[2]}&select=id,name,description,daily_price_cents,weekly_price_cents,image_url,gallery_urls,provider_id,status`);
+  if (parts[0] === "vehicles" && parts[1] === "vehicle" && (UUID.test(parts[2] ?? "") || publicNoOf(parts[2] ?? ""))) {
+    const no = publicNoOf(parts[2]);
+    const [v] = await rows(`rental_vehicles?${no ? `public_no=eq.${no}` : `id=eq.${parts[2]}`}&select=*`);
     if (!v || v.status !== "public") return null;
+    const self = carHref(v);
+    if (self !== path) return { ...DEFAULT, type: "website", redirect: self };
     const [prov] = v.provider_id ? await rows(`providers?id=eq.${v.provider_id}&select=*`) : [];
     const price = usd(v.daily_price_cents);
     const description = [price ? `From ${price} / day` : null, clip(v.description, 160)].filter(Boolean).join(" — ") || "Rent a car on Roatán with EverySub.";
     const image = v.image_url || v.gallery_urls?.[0] || DEFAULT.image;
     const crumbs: Link[] = [{ href: "/discovery", label: "EverySub" }, { href: "/vehicles", label: "Car rental" }];
     if (prov) crumbs.push({ href: `/vehicles/providers/${prov.slug || prov.id}`, label: prov.name });
-    crumbs.push({ href: `/vehicles/vehicle/${v.id}`, label: v.name });
+    crumbs.push({ href: self, label: v.name });
     return {
       title: `${v.name} · Car rental in Roatán`, description, image, type: "product",
       h1: `${v.name} — car rental in Roatán`,
@@ -225,23 +251,23 @@ async function pageFor(path: string): Promise<Page | null> {
       jsonLd: [{
         "@context": "https://schema.org", "@type": "Product", name: v.name, description: clip(v.description, 500) || v.name, image,
         ...(prov ? { brand: { "@type": "Brand", name: prov.name } } : {}),
-        ...(v.daily_price_cents ? { offers: { "@type": "Offer", price: (v.daily_price_cents / 100).toFixed(2), priceCurrency: "USD", availability: "https://schema.org/InStock", url: `${SITE}/vehicles/vehicle/${v.id}` } } : {}),
+        ...(v.daily_price_cents ? { offers: { "@type": "Offer", price: (v.daily_price_cents / 100).toFixed(2), priceCurrency: "USD", availability: "https://schema.org/InStock", url: `${SITE}${self}` } } : {}),
       }, breadcrumbLd(crumbs)],
     };
   }
 
   // ── The fleet: /vehicles ──
   if (parts[0] === "vehicles" && parts.length === 1) {
-    const cars = await rows(`rental_vehicles?status=eq.public&select=id,name,daily_price_cents&order=daily_price_cents`);
+    const cars = await rows(`rental_vehicles?status=eq.public&select=*&order=daily_price_cents`);
     const copy = serviceSeo("vehicles")!;
     return {
       title: `${copy.title} · EverySub`, description: copy.description, image: DEFAULT.image, type: "website",
       h1: copy.h1, text: [copy.description],
-      lists: [{ heading: "Vehicles", links: cars.map((v) => ({ href: `/vehicles/vehicle/${v.id}`, label: v.name, note: usd(v.daily_price_cents) ? `from ${usd(v.daily_price_cents)} / day` : null })) }],
+      lists: [{ heading: "Vehicles", links: cars.map((v) => ({ href: carHref(v), label: v.name, note: usd(v.daily_price_cents) ? `from ${usd(v.daily_price_cents)} / day` : null })) }],
       faq: copy.faq,
       crumbs: [{ href: "/discovery", label: "EverySub" }, { href: "/vehicles", label: "Car rental" }],
       jsonLd: [
-        { "@context": "https://schema.org", "@type": "ItemList", itemListElement: cars.map((v, i) => ({ "@type": "ListItem", position: i + 1, url: `${SITE}/vehicles/vehicle/${v.id}`, name: v.name })) },
+        { "@context": "https://schema.org", "@type": "ItemList", itemListElement: cars.map((v, i) => ({ "@type": "ListItem", position: i + 1, url: `${SITE}${carHref(v)}`, name: v.name })) },
         faqJsonLd(copy.faq),
       ],
     };

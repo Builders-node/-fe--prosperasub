@@ -1,3 +1,5 @@
+import { wordsAddress } from "@/lib/services/serviceUrls";
+
 /**
  * Where the car storefront lives inside the app.
  *
@@ -16,6 +18,15 @@ export const carPath = (sub = ""): string => {
   const tail = sub.replace(/^\/+/, "");
   return tail ? `${VEHICLES_BASE}/${tail}` : VEHICLES_BASE;
 };
+
+/**
+ * A car's own page: its name in words and its number
+ * (/vehicles/vehicle/jeep-wrangler-4x4-1007), or its uuid until the backend
+ * migration gives it those. The page finds the car either way and replaces an
+ * old address with the current one.
+ */
+export const vehiclePath = (v: { id: string; slug?: string | null; public_no?: number | string | null }): string =>
+  carPath(`vehicle/${wordsAddress(v) ?? v.id}`);
 
 /**
  * One rental business's own page, inside the unit.

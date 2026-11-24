@@ -10,7 +10,7 @@ import { useQuery } from "@tanstack/react-query";
 import { formatWorkingHours } from "@/lib/workingHours";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { useGoBack } from "@/hooks/useGoBack";
-import { archetypeFromSlug, planHref, serviceMetaFromSlug, serviceSlug } from "@/lib/services/serviceUrls";
+import { archetypeFromSlug, planHref, planSegment, serviceMetaFromSlug, serviceSlug, type Addressable } from "@/lib/services/serviceUrls";
 import { Button } from "@/components/ui/button";
 import {
   SparklesIcon, Waves, Car,
@@ -146,7 +146,8 @@ function useUniversalPlans(providerId: string | undefined, enabled: boolean, pre
     queryFn: async () => {
       let q = supabaseDb
         .from("provider_plans")
-        .select("id, name, description, price_cents, currency, period, pricing_mode, tags, features, included_quantity, included_unit, source_plan_id, gallery_urls")
+        // `*` carries the address in words (slug, public_no) — see planSegment.
+        .select("*")
         .eq("provider_id", providerId!);
       // ?preview=1 (admin): a draft provider's plans before they go live.
       if (!preview) q = q.eq("status", "active");
@@ -747,8 +748,7 @@ const ProviderDetail = () => {
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
               {(plansQ.data ?? []).map((plan) => {
                 const own = Array.isArray((plan as any).gallery_urls) ? ((plan as any).gallery_urls as unknown[]).filter((u): u is string => typeof u === "string" && !!u) : [];
-                const src = (plan as { source_plan_id?: string | null }).source_plan_id;
-                const linkId = src ? String(src) : plan.id;
+                const linkId = planSegment(plan as Addressable);
                 return (
                   <OfferCard
                     key={plan.id}

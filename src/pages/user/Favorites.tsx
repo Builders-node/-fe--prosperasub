@@ -15,8 +15,8 @@ import { supabaseDb } from "@/integrations/supabase/client";
 import { useFavorites, type FavoriteItem, type FavoriteKind } from "@/lib/favorites/useFavorites";
 import { formatUSD } from "@/lib/pricing";
 import { normPeriod, periodNoun } from "@/lib/services/planPeriod";
-import { planHref, providerHref } from "@/lib/services/serviceUrls";
-import { carPath, carProviderPath } from "@/features/vehicles";
+import { planHref, planSegment, providerHref } from "@/lib/services/serviceUrls";
+import { carPath, carProviderPath, vehiclePath } from "@/features/vehicles";
 import { cn } from "@/lib/utils";
 
 /**
@@ -65,7 +65,8 @@ async function resolveRows(items: FavoriteItem[]): Promise<Map<string, Row>> {
     const quoted = planIds.map((i) => `"${i}"`).join(",");
     const { data } = await supabaseDb
       .from("provider_plans")
-      .select("id, source_plan_id, name, price_cents, period, status, gallery_urls, providers(id, name, archetype_key, source_provider_id, status, gallery_urls, avatar_url)")
+      // `*` for the address in words (slug, public_no) — see planSegment.
+      .select("*, providers(id, name, archetype_key, source_provider_id, status, gallery_urls, avatar_url)")
       .or(uuids.length ? `id.in.(${uuids.join(",")}),source_plan_id.in.(${quoted})` : `source_plan_id.in.(${quoted})`);
     for (const p of (data ?? []) as any[]) {
       const prov = p.providers ?? {};
@@ -73,7 +74,7 @@ async function resolveRows(items: FavoriteItem[]): Promise<Map<string, Row>> {
       // Food keeps its own richer page, addressed by its legacy ids.
       const href = archetype === "food" && prov.source_provider_id && p.source_plan_id
         ? `/services/food/${prov.source_provider_id}/plans/${p.source_plan_id}`
-        : archetype ? planHref(archetype, String(p.source_plan_id ?? p.id)) : null;
+        : archetype ? planHref(archetype, planSegment(p)) : null;
       const noun = normPeriod(p.period) === "one_time" ? "" : periodNoun(p.period);
       const row: Row = {
         kind: "plan",
@@ -115,7 +116,7 @@ async function resolveRows(items: FavoriteItem[]): Promise<Map<string, Row>> {
   if (vehicleIds.length) {
     const { data } = await supabaseDb
       .from("rental_vehicles")
-      .select("id, name, image_url, gallery_urls, daily_price_cents, status")
+      .select("*") // `*` for the address in words (slug, public_no)
       .in("id", vehicleIds);
     for (const v of (data ?? []) as any[]) {
       out.set(`vehicle:${v.id}`, {
@@ -125,7 +126,7 @@ async function resolveRows(items: FavoriteItem[]): Promise<Map<string, Row>> {
         subtitle: null,
         price: typeof v.daily_price_cents === "number" ? `${formatUSD(v.daily_price_cents)} / day` : null,
         photo: v.image_url ?? first(v.gallery_urls),
-        href: carPath(`vehicle/${v.id}`),
+        href: vehiclePath(v),
         available: v.status === "public",
       });
     }

@@ -31,7 +31,7 @@ import { ADD_TO_CART, decideLabel, normalizeUnit } from "@/lib/checkout/ctaLabel
 import { normPeriod } from "@/lib/services/planPeriod";
 import { useArchetypeLabel } from "@/hooks/useServiceArchetypes";
 import { publicListingHref } from "@/lib/services/providerBridge";
-import { planHref, providerHref } from "@/lib/services/serviceUrls";
+import { planHref, planSegment, providerHref, publicNoOf, wordsAddress } from "@/lib/services/serviceUrls";
 import { UniversalPlanCard, type UniversalPlan } from "@/components/patterns/UniversalPlanCard";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
@@ -45,7 +45,7 @@ import { Check, SearchX, ShoppingCart } from "lucide-react";
 import { LinkifiedText } from "@/components/patterns/LinkifiedText";
 import { DecisionBar } from "@/components/patterns/DecisionBar";
 import { DeliveryRow, useOfferDelivery } from "@/components/delivery/DeliveryRow";
-import { useSeo, offerJsonLd } from "@/hooks/useSeo";
+import { useSeo, offerJsonLd, breadcrumbJsonLd } from "@/hooks/useSeo";
 import { PhotoCarousel } from "@/components/patterns/PhotoCarousel";
 import { ProductGallery } from "@/components/patterns/ProductGallery";
 import { SiteFooter } from "@/components/layout/SiteFooter";
@@ -136,7 +136,18 @@ const PlanDetail = () => {
       // live only on the original — so which id a link happened to carry
       // decided which of two different pages the customer got for the same
       // product. A mirror now hands over to what it mirrors.
-      let subjectId = planId;
+      // An address of words (beach-club-membership-1042) names the plan by its
+      // number; everything below works on ids, so turn it into the row's uuid
+      // first. No row by that number — or no numbers yet, before the backend
+      // migration — and the segment is tried as an id, as it always was.
+      let lookupId = planId;
+      const publicNo = publicNoOf(planId);
+      if (publicNo !== null) {
+        const { data: byNo, error: noError } = await supabaseDb
+          .from("provider_plans").select("id").eq("public_no", publicNo).maybeSingle();
+        if (!noError && byNo?.id) lookupId = String(byNo.id);
+      }
+      let subjectId = lookupId;
       // Photographs live on the mirror for every service. Arriving by the
       // mirror's own id hands them over directly; arriving by the canonical
       // legacy id — which is what every link now carries — means asking for
@@ -144,11 +155,11 @@ const PlanDetail = () => {
       let mirrorGallery: string[] = [];
       let mirrorEntitlements: unknown = null;
 
-      if (isUuid(planId)) {
+      if (isUuid(lookupId)) {
         const { data: universal, error } = await supabaseDb
           .from("provider_plans")
           .select("id, provider_id, name, description, price_cents, period, features, gallery_urls, entitlements, source_service_key, source_plan_id")
-          .eq("id", planId)
+          .eq("id", lookupId)
           .maybeSingle();
         if (error) throw error;
         if (universal?.source_service_key && universal.source_plan_id) {
@@ -274,7 +285,12 @@ const PlanDetail = () => {
   const plan = planQ.data ?? null;
 
   // The home page's "Recently viewed" shelf.
-  useEffect(() => { if (plan && planId) recordPlanView(planId); }, [plan, planId]);
+  /**
+   * The plan's own id — what favourites, "recently viewed" and the funnel have
+   * always stored. Not the URL segment: that is words now.
+   */
+  const planKey = plan?.id ?? planId;
+  useEffect(() => { if (plan) recordPlanView(plan.id); }, [plan]);
 
 
   const providerQ = useQuery({
@@ -283,7 +299,8 @@ const PlanDetail = () => {
     queryFn: async () => {
       const { data, error } = await supabaseDb
         .from("providers")
-        .select("id, name, description, avatar_url, gallery_urls, category_key, archetype_key, status")
+        // `*` for `slug` — the business's address in words, for the links back.
+        .select("*")
         .eq("id", plan!.providerId!)
         .maybeSingle();
       if (error) throw error;
@@ -292,7 +309,7 @@ const PlanDetail = () => {
   });
 
   // The business's sales funnel (lib/funnel).
-  useTrackFunnel("plan_view", plan?.providerId, planId);
+  useTrackFunnel("plan_view", plan?.providerId, plan?.id);
 
   // Options come from the offer this plan belongs to — the same bridge the
   // listing card uses, so the chips here match the "from $x" there.
@@ -312,15 +329,16 @@ const PlanDetail = () => {
     queryFn: async () => {
       const { data } = await supabaseDb
         .from("provider_plans")
-        .select("id, name, description, price_cents, period, features, gallery_urls, included_quantity, included_unit, source_plan_id, sort_order")
+        // `*` for the address in words (slug, public_no) — see planSegment.
+        .select("*")
         .eq("provider_id", plan!.providerId!)
         .eq("status", "active").eq("visibility", "public").is("parent_plan_id", null)
         .order("sort_order", { ascending: true });
-      return (data ?? []) as unknown as Array<UniversalPlan & { source_plan_id: string | null }>;
+      return (data ?? []) as unknown as Array<UniversalPlan & { source_plan_id: string | null; slug?: string | null; public_no?: number | null }>;
     },
   });
 
-  const { offers, offerBySourcePlanId } = usePlanOffers(
+  const { offers, offerBySourcePlanId, isLoading: offersLoading } = usePlanOffers(
     plan?.providerId ? [plan.providerId] : [],
   );
 
@@ -330,9 +348,69 @@ const PlanDetail = () => {
     return offerBySourcePlanId.get(plan.id) ?? null;
   }, [plan, offers, offerBySourcePlanId]);
 
+  /**
+   * The words and number this page lives at (beach-club-membership-1042).
+   *
+   * They belong to the `provider_plans` row that IS the product: the offer
+   * when the plan is one combination of it, the plan itself when it is
+   * universal, and a legacy plan's mirror otherwise. `select("*")` because the
+   * two columns arrive with a backend migration; before it, the row has
+   * neither and the page keeps the id it has always used.
+   */
+  const onVariant = !!offer && !!plan && offer.id !== plan.id;
+  const addressTarget: { by: "id" | "source"; value: string; service?: string } | null = !plan ? null
+    : onVariant ? { by: "id", value: offer!.id }
+    : plan.source === "universal" ? { by: "id", value: plan.id }
+    : { by: "source", value: plan.id, service: plan.source };
+  const addressQ = useQuery({
+    queryKey: ["plan-address", addressTarget?.by, addressTarget?.value],
+    enabled: !!addressTarget,
+    staleTime: 10 * 60_000,
+    queryFn: async () => {
+      let q = supabaseDb.from("provider_plans").select("*");
+      q = addressTarget!.by === "id"
+        ? q.eq("id", addressTarget!.value)
+        : q.eq("source_service_key", addressTarget!.service!).eq("source_plan_id", addressTarget!.value);
+      const { data } = await q.limit(1).maybeSingle();
+      return wordsAddress(data as { slug?: string | null; public_no?: number | null } | null);
+    },
+  });
+  // Wait for the offers too: until they arrive a combination looks like a plan
+  // of its own, and the address would hop twice.
+  const addressReady = !offersLoading && (!addressTarget || addressQ.isFetched);
+  const planWords = addressQ.data ?? null;
+
+  /**
+   * The service segment the canonical address uses. The club's plans live
+   * wherever the club is filed (Clubs & Sport now, not Lifestyle). Until its
+   * row arrives, keep the URL as it is — guessing here bounced the visitor
+   * through an old address and back.
+   */
+  const canonicalKey =
+    plan?.source === "beach" ? (providerQ.data?.archetype_key ?? archetypeKey)
+    : plan?.source === "cleaning" ? "cleaning"
+    : plan?.source === "food" ? "food"
+    : (providerQ.data?.archetype_key ?? archetypeKey);
+  /**
+   * One product, one address.
+   *
+   * A combination of an offer ("Mon–Fri, 1 meal a day") used to be a page of
+   * its own: its legacy id opened the same product with different photos and
+   * a different line under the title, and search and the listings linked
+   * there while the home page linked to the offer. A variant's address now
+   * folds into the offer's, carrying the combination in `?v=` so it opens
+   * selected.
+   *
+   * And the address is words where the plan has them: a uuid, a legacy id or
+   * yesterday's words (the plan was renamed) all land on today's words.
+   */
+  const canonical = !plan ? null
+    : planHref(canonicalKey, planWords ?? (onVariant ? offer!.id : plan.id));
+
   // A shared plan link used to preview as the site's own front page; a search
-  // result for it said nothing about the plan. Both read the plan now.
-  const seoPath = plan ? `/services/${archetypeKey || "plans"}/plans/${plan.id}` : null;
+  // result for it said nothing about the plan. Both read the plan now — and
+  // name the one address search engines should keep (rel=canonical).
+  const seoPath = canonical;
   useEffect(() => {
     if (!plan) return;
     trackEvent("view_item", {
@@ -342,25 +420,6 @@ const PlanDetail = () => {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [plan?.id]);
-  useSeo({
-    // The offer's name, not the variant's: a tab reading "Mon-Fri: 1 Time"
-    // on a page headed "Meal Plan" named the wrong thing.
-    title: offer?.name ?? plan?.title ?? null,
-    description: plan?.description
-      ?? (plan ? `${offer?.name ?? plan.title} on EverySub.` : null),
-    path: seoPath,
-    image: plan?.gallery?.[0] ?? null,
-    type: "product",
-    jsonLd: plan && seoPath
-      ? offerJsonLd({
-          name: offer?.name ?? plan.title,
-          description: plan.description,
-          image: plan.gallery?.[0] ?? null,
-          priceCents: plan.priceCents,
-          url: seoPath,
-        })
-      : null,
-  });
 
 
   const { addItem: addToCart, has: inCart, count: cartCount } = useCart();
@@ -533,29 +592,56 @@ const PlanDetail = () => {
     return { variant: best.variant, cents: best.cents, savePct: Math.round((1 - best.cents / currentUnit.cents) * 100), label };
   })();
 
-  const canonicalKey =
-    // The club's plans live wherever the club is filed (Clubs & Sport now, not
-    // Lifestyle). Until its row arrives, keep the URL as it is — guessing here
-    // bounced the visitor through an old address and back.
-    plan?.source === "beach" ? (providerQ.data?.archetype_key ?? archetypeKey)
-    : plan?.source === "cleaning" ? "cleaning"
-    : plan?.source === "food" ? "food"
-    : (providerQ.data?.archetype_key ?? archetypeKey);
   /**
-   * One product, one address.
-   *
-   * A combination of an offer ("Mon–Fri, 1 meal a day") used to be a page of
-   * its own: its legacy id opened the same product with different photos and
-   * a different line under the title, and search and the listings linked
-   * there while the home page linked to the offer. A variant's address now
-   * folds into the offer's, carrying the combination in `?v=` so it opens
-   * selected.
+   * Where the plan sits, top down — EverySub › service › category › business ›
+   * plan — the trail big shops show above a product and search engines print
+   * in place of the address. Drawn as schema.org BreadcrumbList; the chips on
+   * the page keep their own order (business first) as the design draws them.
    */
-  const onVariant = !!offer && !!plan && offer.id !== plan.id;
-  const canonical = !plan ? null
-    : onVariant ? planHref(canonicalKey, offer!.id)
-    : planHref(canonicalKey, plan.id);
-  if (canonical && canonical !== location.pathname) {
+  const trail = useMemo(() => {
+    if (!plan || !canonical) return [] as Array<{ label: string; href: string }>;
+    const prov = providerQ.data as { name?: string; slug?: string | null } | null | undefined;
+    const listingHref = publicListingHref(
+      plan.source === "cleaning" ? "cleaning" : plan.source === "food" ? "food" : null,
+      plan.source === "beach" ? (providerArchetype ?? archetypeKey) : archetypeKey,
+    );
+    const cat = categoryQ.data as { key: string; label: string } | null | undefined;
+    const list: Array<{ label: string; href: string }> = [{ label: "EverySub", href: "/discovery" }];
+    if (listingHref && serviceLabel) list.push({ label: serviceLabel, href: listingHref });
+    if (listingHref && cat) list.push({ label: cat.label, href: `${listingHref}?category=${encodeURIComponent(cat.key)}` });
+    if (prov?.name && plan.providerId) list.push({ label: prov.name, href: providerHref(canonicalKey, prov.slug || plan.providerId) });
+    list.push({ label: offer?.name ?? plan.title, href: canonical });
+    return list;
+  }, [plan, canonical, providerQ.data, categoryQ.data, serviceLabel, providerArchetype, archetypeKey, canonicalKey, offer?.name]);
+
+  useSeo({
+    // The offer's name, not the variant's: a tab reading "Mon-Fri: 1 Time"
+    // on a page headed "Meal Plan" named the wrong thing.
+    title: offer?.name ?? plan?.title ?? null,
+    description: plan?.description
+      ?? (plan ? `${offer?.name ?? plan.title} on EverySub.` : null),
+    path: seoPath,
+    image: plan?.gallery?.[0] ?? null,
+    type: "product",
+    jsonLd: plan && seoPath
+      ? {
+          "@context": "https://schema.org",
+          "@graph": [
+            offerJsonLd({
+              name: offer?.name ?? plan.title,
+              description: plan.description,
+              image: plan.gallery?.[0] ?? null,
+              priceCents: plan.priceCents,
+              url: seoPath,
+              providerName: (providerQ.data as { name?: string } | undefined)?.name ?? null,
+            }),
+            breadcrumbJsonLd(trail),
+          ],
+        }
+      : null,
+  });
+
+  if (canonical && addressReady && canonical !== location.pathname) {
     const qs = new URLSearchParams(location.search);
     if (onVariant && !qs.get("v")) qs.set("v", plan!.id);
     const search = qs.toString();
@@ -625,7 +711,7 @@ const PlanDetail = () => {
     providerName && plan.providerId
       // The business's own face beside its name — a small avatar, so the
       // crumb reads as "who sells this" and not as one more category.
-      ? { label: providerName, href: providerHref(archetypeKey, plan.providerId), avatar: ((providerQ.data as any)?.avatar_url as string | null) ?? null }
+      ? { label: providerName, href: providerHref(canonicalKey, (providerQ.data as { slug?: string | null } | undefined)?.slug || plan.providerId), avatar: ((providerQ.data as any)?.avatar_url as string | null) ?? null }
       : null,
     listing ? { label: serviceLabel, href: listing } : null,
     category && listing
@@ -742,7 +828,7 @@ const PlanDetail = () => {
         overPhoto
         rightAction={
           <div className="flex items-center">
-            <FavoriteButton kind="plan" id={planId} name={title} className="hover:bg-black/10 md:text-foreground" />
+            <FavoriteButton kind="plan" id={planKey} name={title} className="hover:bg-black/10 md:text-foreground" />
             <ShareButton title={title} text={shareText} className="hover:bg-black/10 md:text-foreground" />
           </div>
         }
@@ -912,7 +998,7 @@ const PlanDetail = () => {
                 <UniversalPlanCard
                   key={p.id}
                   plan={p}
-                  onSubscribe={() => navigate(planHref(segment, p.source_plan_id ? String(p.source_plan_id) : p.id))}
+                  onSubscribe={() => navigate(planHref(segment, planSegment(p)))}
                 />
               ))}
             </div>
@@ -924,7 +1010,7 @@ const PlanDetail = () => {
       <UpsellSection
         title="Goes well with this"
         placement="plan"
-        exclude={[planId, plan.id, offer?.id]}
+        exclude={[planKey, plan.id, offer?.id]}
         excludeProviderId={plan.providerId}
         className="app-container mt-1 py-3 md:mt-4"
         gridClassName="md:grid-cols-2 lg:grid-cols-3"
