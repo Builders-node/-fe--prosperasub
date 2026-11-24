@@ -2,7 +2,7 @@ import { fieldClass } from "@/components/ui/input";
 import { useState, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Check, ChevronsUpDown, Search, X } from "lucide-react";
-import { supabaseDb } from "@/integrations/supabase/client";
+import { accountApi } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
 export interface PickerUser {
@@ -22,29 +22,37 @@ interface Props {
   /** Show a "clear selection" row (used for owner, where blank removes the owner). */
   allowClear?: boolean;
   clearLabel?: string;
+  /**
+   * The business this pick is for (universal `providers.id`). Everyone except
+   * a platform admin MUST pass it, and then sees only people who have bought
+   * from that business — the list comes from the server, which checks.
+   */
+  providerId?: string | null;
 }
 
-/** Searchable dropdown of platform users. No external popover dep — self-contained. */
+/** Searchable dropdown of people — everyone for an admin, a business's own customers otherwise. */
 export function UserPicker({
   value,
   onSelect,
   placeholder = "Select a user…",
   allowClear = false,
   clearLabel = "Clear selection",
+  providerId = null,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Never the `users` table straight from the browser: that handed every
+  // account on the platform, with its email, to whoever opened this. The
+  // server answers admins with everyone and a business with its own customers.
   const { data: users = [], isLoading } = useQuery({
-    queryKey: ["platform-users-picker"],
+    queryKey: ["people-picker", providerId ?? "all"],
     queryFn: async () => {
-      const { data, error } = await supabaseDb
-        .from("users")
-        .select("id, email, name, display_name")
-        .order("email", { ascending: true });
+      const path = providerId ? `/account/people?providerId=${encodeURIComponent(providerId)}` : "/account/people";
+      const { data, error } = await accountApi(path);
       if (error) throw error;
-      return (data ?? []) as PickerUser[];
+      return ((data as { people?: PickerUser[] } | null)?.people ?? []) as PickerUser[];
     },
     staleTime: 60_000,
   });

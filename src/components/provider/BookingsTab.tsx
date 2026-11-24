@@ -146,7 +146,7 @@ export function BookingsTab({
               just a visit — food and the beach always had this; cleaning
               did not. Saving it goes straight on to booking its visits. */}
           {isCleaning && (
-            <NewCleaningSubscriptionDialog providerId={providerId} onCreated={setScheduleFor} />
+            <NewCleaningSubscriptionDialog providerId={providerId} universalProviderId={universalProviderId ?? null} onCreated={setScheduleFor} />
           )}
           {isCleaning && scheduleFor && (
             <NewCleaningBookingDialog
@@ -160,6 +160,7 @@ export function BookingsTab({
           {isFood && (
             <NewFoodSubscriptionDialog
               providerId={providerId}
+              universalProviderId={universalProviderId ?? null}
               trigger={
                 <Button variant="secondary" className="gap-2">
                   <Plus className="h-4 w-4" /> New subscription

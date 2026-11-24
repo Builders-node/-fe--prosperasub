@@ -210,6 +210,7 @@ export function NewCalendarBookingDialog({
                 <Label>Customer</Label>
                 <div className="mt-1">
                   <UserPicker
+                    providerId={providerId}
                     value={userId ?? ""}
                     onSelect={(u) => {
                       setUserId(u?.id ?? null);

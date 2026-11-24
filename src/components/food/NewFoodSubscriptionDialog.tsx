@@ -34,6 +34,8 @@ import { useProviderItemsByLegacy, itemKeys } from "@/lib/services/providerItems
 interface Props {
   /** Legacy food_providers.id — scopes the meal-plan picker. */
   providerId: string;
+  /** Universal `providers.id` — scopes the customer picker to this business's own customers. */
+  universalProviderId?: string | null;
   /** Optional trigger to override the default "+ New subscription" button. */
   trigger?: React.ReactNode;
 }
@@ -77,7 +79,7 @@ function endDateFor(startISO: string, weeks: number): string {
   return addDaysISO(startISO, Math.max(weeks || 1, 1) * 7 - 1);
 }
 
-export function NewFoodSubscriptionDialog({ providerId, trigger }: Props) {
+export function NewFoodSubscriptionDialog({ providerId, universalProviderId, trigger }: Props) {
   const qc = useQueryClient();
   const { userData } = useAuth();
   const { data: residences = [] } = useResidences();
@@ -240,6 +242,7 @@ export function NewFoodSubscriptionDialog({ providerId, trigger }: Props) {
             <div>
               <Label>Customer *</Label>
               <UserPicker
+                providerId={universalProviderId ?? null}
                 value={userId}
                 onSelect={(u) => {
                   setUserId(u?.id ?? "");

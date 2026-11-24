@@ -36,10 +36,12 @@ import { format } from "date-fns";
  * this subscription already picked.
  */
 export function NewCleaningSubscriptionDialog({
-  providerId, onCreated, trigger,
+  providerId, universalProviderId, onCreated, trigger,
 }: {
   /** Legacy cleaning provider id — scopes the plan picker and is stamped on the row. */
   providerId: string;
+  /** Universal `providers.id` — scopes the customer picker to this business's own customers. */
+  universalProviderId?: string | null;
   /** The new subscription's id — used to go straight on to scheduling its visits. */
   onCreated?: (subscriptionId: string) => void;
   trigger?: React.ReactNode;
@@ -173,6 +175,7 @@ export function NewCleaningSubscriptionDialog({
           <div className="space-y-1.5">
             <Label>Customer</Label>
             <UserPicker
+              providerId={universalProviderId ?? null}
               value={userId}
               onSelect={(u) => {
                 setUserId(u?.id ?? "");

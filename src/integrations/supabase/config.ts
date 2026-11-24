@@ -93,6 +93,10 @@ const EDGE_ROUTES: RegExp[] = [
   // A business and its customers (Edge routes/provider-customers.ts).
   /^\/account\/providers\/[^/]+\/subscriptions\/[^/]+\/[^/]+\/cancel$/,
   /^\/account\/providers\/[^/]+\/(broadcast|clients)$/,
+  // Who a person picker may show (admin: everyone; a business: its customers).
+  /^\/account\/people$/,
+  // Who a person picker may show (admin: everyone; a business: its customers).
+  /^\/account\/people$/,
   /^\/account\/providers\/[^/]+\/reviews\/[^/]+\/reply$/,
   // Owner promo codes and team invites (Edge routes/provider-growth.ts).
   /^\/account\/providers\/[^/]+\/promo-codes(\/[^/]+)?$/,

@@ -179,6 +179,7 @@ export function NewBeachMembershipDialog({ providerUniversalId, trigger }: Props
             <div>
               <Label>Customer *</Label>
               <UserPicker
+                providerId={providerUniversalId ?? null}
                 value={userId}
                 onSelect={(u) => {
                   setUserId(u?.id ?? "");

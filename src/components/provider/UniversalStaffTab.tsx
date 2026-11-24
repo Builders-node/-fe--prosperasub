@@ -319,7 +319,9 @@ export function UniversalStaffTab({
         title="Owner"
         subtitle={`Who this ${entityLabel} belongs to.`}
         action={
-          canManage ? (
+          // Choosing an owner means choosing from every account on the
+          // platform — that list is the admin's alone.
+          canManage && isSuperAdmin ? (
             <Button size="sm" variant="outline" className="shrink-0 gap-2" onClick={openOwnerDialog}>
               {owner ? "Change" : "Set Owner"}
             </Button>
@@ -351,7 +353,7 @@ export function UniversalStaffTab({
             icon={UserRound}
             title="No owner assigned"
             subtitle={`Set one to grant ${entityLabel}-level access.`}
-            action={canManage ? (
+            action={canManage && isSuperAdmin ? (
               <Button size="sm" variant="outline" onClick={openOwnerDialog}>
                 Set owner
               </Button>
