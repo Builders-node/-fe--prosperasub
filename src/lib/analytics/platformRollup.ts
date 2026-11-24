@@ -253,21 +253,47 @@ export async function fetchPlatformRollup(): Promise<PlatformRollup> {
 // do not take a period; a page says so rather than pretending to slice them.
 // Rolling windows are measured from this instant, so they need no timezone.
 
-export type RollupPeriod = "7d" | "30d" | "90d" | "12m" | "all";
+/**
+ * One set of periods for Today, Analytics and Finance.
+ *
+ * Rolling windows (7 / 30 / 90 days, 12 months) answer "how is it trending";
+ * calendar months answer "what did we make in October" — the question Finance
+ * asks. They used to live in two separate pickers, so the revenue on Today and
+ * on Finance could never be compared. `month` / `last_month` are the same
+ * calendar windows Finance uses, and links between the pages carry them.
+ */
+export type RollupPeriod = "7d" | "30d" | "month" | "last_month" | "90d" | "12m" | "all";
 
 export const ROLLUP_PERIODS: { key: RollupPeriod; label: string; days: number | null }[] = [
   { key: "7d", label: "7 days", days: 7 },
   { key: "30d", label: "30 days", days: 30 },
+  { key: "month", label: "This month", days: null },
+  { key: "last_month", label: "Last month", days: null },
   { key: "90d", label: "90 days", days: 90 },
   { key: "12m", label: "12 months", days: 365 },
   { key: "all", label: "All time", days: null },
 ];
 
+/** The Finance range that shows the same window, when there is one. */
+export const financeRangeFor = (p: RollupPeriod): "month" | "last_month" | null =>
+  p === "month" || p === "last_month" ? p : null;
+
+/** [start, end) of a calendar month, `back` months before the current one. */
+function monthWindow(now: number, back: number): [number, number] {
+  const d = new Date(now);
+  const start = new Date(d.getFullYear(), d.getMonth() - back, 1).getTime();
+  const end = new Date(d.getFullYear(), d.getMonth() - back + 1, 1).getTime();
+  return [start, end];
+}
+
 export const parseRollupPeriod = (raw: string | null | undefined, fallback: RollupPeriod = "30d"): RollupPeriod =>
   ROLLUP_PERIODS.some((p) => p.key === raw) ? (raw as RollupPeriod) : fallback;
 
 export const periodLabel = (p: RollupPeriod) =>
-  p === "all" ? "all time" : `last ${ROLLUP_PERIODS.find((x) => x.key === p)!.label}`;
+  p === "all" ? "all time"
+    : p === "month" ? "this month"
+    : p === "last_month" ? "last month"
+    : `last ${ROLLUP_PERIODS.find((x) => x.key === p)!.label}`;
 
 export interface PeriodFigures {
   period: RollupPeriod;
@@ -287,6 +313,15 @@ const DAY_MS = 86_400_000;
 
 /** Rows sold inside the window — every row for "all time". */
 export function rowsInPeriod(rows: NormRow[], period: RollupPeriod, offsetWindows = 0, now = Date.now()): NormRow[] {
+  if (period === "month" || period === "last_month") {
+    // Calendar months; the "previous window" is the month before.
+    const [start, end] = monthWindow(now, (period === "last_month" ? 1 : 0) + offsetWindows);
+    return rows.filter((r) => {
+      if (!r.createdAt) return false;
+      const t = Date.parse(r.createdAt);
+      return t >= start && t < end;
+    });
+  }
   const days = ROLLUP_PERIODS.find((p) => p.key === period)?.days ?? null;
   if (days == null) return offsetWindows === 0 ? rows : [];
   const end = now - offsetWindows * days * DAY_MS;

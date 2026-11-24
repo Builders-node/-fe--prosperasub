@@ -3,7 +3,7 @@ import { ArrowUpRight, Car, CheckCircle2, Package } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { changeLabel, fetchPlatformRollup, periodFigures, type NormRow } from "@/lib/analytics/platformRollup";
+import { changeLabel, fetchPlatformRollup, financeRangeFor, periodFigures, type NormRow } from "@/lib/analytics/platformRollup";
 import { PeriodPicker } from "@/components/admin/analytics/PeriodPicker";
 import {
   getServiceIndex, serviceLabelOf, serviceOfSale, VEHICLES_KEY, type ServiceIndex,
@@ -340,7 +340,9 @@ const AdminDashboard = () => {
       )}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <MetricTile loading={statsLoading} label="Revenue" value={formatUSD(pf.revenueCents)}
-          href={`/admin/analytics?period=${period}`} accent change={period === "all" ? undefined : changeLabel(pf.revenueCents, pf.prevRevenueCents)} />
+          // A calendar month opens Finance on the same month, so the two
+          // numbers can be checked against each other.
+          href={financeRangeFor(period) ? `/admin/payments?range=${financeRangeFor(period)}` : `/admin/analytics?period=${period}`} accent change={period === "all" ? undefined : changeLabel(pf.revenueCents, pf.prevRevenueCents)} />
         <MetricTile loading={statsLoading} label="Sales" value={String(pf.sales)}
           href={`/admin/analytics?period=${period}`} change={period === "all" ? undefined : changeLabel(pf.sales, pf.prevSales)} />
         <MetricTile loading={statsLoading} label="Users" value={String(stats?.users ?? 0)} href="/admin/users" />
