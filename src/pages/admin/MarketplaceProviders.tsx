@@ -74,6 +74,13 @@ export interface MarketplaceProvidersProps {
   archetypeKey?: string;
 }
 
+/**
+ * A marketplace business whose service was deleted. Transport's rental
+ * companies carry no service by design, so they are not counted.
+ */
+const withoutService = (p: { archetype_key: string | null; unit?: string | null }) =>
+  !p.archetype_key && (p.unit == null || p.unit === "marketplace");
+
 const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplaceProvidersProps = {}) => {
   const qc = useQueryClient();
   const navigate = useNavigate();
@@ -85,6 +92,8 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
   const [serviceFilter, setServiceFilter] = useUrlState<string>("service", "all");
   const service = archetypeKey ?? serviceFilter;
   const [status, setStatus] = useUrlState<string>("status", "all");
+  // Set from a category's panel on the Services list ("12 businesses in this category").
+  const [categoryFilter, setCategoryFilter] = useUrlState<string>("category", "all");
   const [search, setSearch] = useUrlState<string>("q", "");
   const [creating, setCreating] = useState<boolean>(false);
 
@@ -140,8 +149,9 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
     return providers.filter((p) => {
-      if (service === "unassigned") { if (p.archetype_key) return false; }
+      if (service === "unassigned") { if (!withoutService(p)) return false; }
       else if (service !== "all" && p.archetype_key !== service) return false;
+      if (categoryFilter !== "all" && p.category_key !== categoryFilter) return false;
       if (status === "ready") { if (!isReady(p)) return false; }
       else if (status !== "all" && p.status !== status) return false;
       if (q && !(
@@ -151,7 +161,7 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
       )) return false;
       return true;
     });
-  }, [providers, service, status, search]);
+  }, [providers, service, status, search, categoryFilter]);
 
   // Client-side: the filters already have every row in hand.
   const pager = usePagination(visible, 25);
@@ -164,8 +174,16 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
       : providers
   ), [providers, archetypeKey]);
 
+  // Categories of the chosen service, with how many businesses each holds.
+  const serviceCategories = categories.filter((c) => c.archetype_key === service);
+  const perCategory = useMemo(() => providers.reduce<Record<string, number>>((acc, p) => {
+    if (p.category_key) acc[p.category_key] = (acc[p.category_key] ?? 0) + 1;
+    return acc;
+  }, {}), [providers]);
+
   const counts = useMemo(() => ({
     total: providers.length,
+    unassigned: providers.filter(withoutService).length,
     active: providers.filter((p) => p.status === "active").length,
     perArchetype: providers.reduce<Record<string, number>>((acc, p) => {
       if (p.archetype_key) acc[p.archetype_key] = (acc[p.archetype_key] ?? 0) + 1;
@@ -217,7 +235,9 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
 
   // Counts follow the service already chosen, so a tab never promises rows
   // the list then doesn't show.
-  const inService = inScope.filter((p) => archetypeKey || service === "all" || p.archetype_key === service);
+  const inService = inScope.filter((p) =>
+    (archetypeKey || service === "all" || (service === "unassigned" ? withoutService(p) : p.archetype_key === service))
+    && (categoryFilter === "all" || p.category_key === categoryFilter));
   const statusCount = (k: string) =>
     inService.filter((p) => k === "all" || (k === "ready" ? isReady(p) : p.status === k || (k === "active" && p.status === "approved"))).length;
 
@@ -267,15 +287,35 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
         <AdminListShell
           search={search} onSearch={setSearch} searchPlaceholder="Search businesses…"
           filters={!archetypeKey ? (
-            <Select value={service} onValueChange={setServiceFilter}>
-              <SelectTrigger inputSize="sm" className="w-44"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All services · {counts.total}</SelectItem>
-                {archetypes.filter((a) => (counts.perArchetype[a.key] ?? 0) > 0).map((a) => (
-                  <SelectItem key={a.key} value={a.key}>{a.label} · {counts.perArchetype[a.key]}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <>
+              <Select value={service} onValueChange={(v) => { setServiceFilter(v); setCategoryFilter("all"); }}>
+                <SelectTrigger inputSize="sm" className="w-44"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All services · {counts.total}</SelectItem>
+                  {archetypes.filter((a) => (counts.perArchetype[a.key] ?? 0) > 0).map((a) => (
+                    <SelectItem key={a.key} value={a.key}>{a.label} · {counts.perArchetype[a.key]}</SelectItem>
+                  ))}
+                  {/* A deleted service leaves its businesses here. */}
+                  {(counts.unassigned > 0 || service === "unassigned") && (
+                    <SelectItem value="unassigned">No service · {counts.unassigned}</SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+              {service !== "all" && service !== "unassigned" && (serviceCategories.length > 0 || categoryFilter !== "all") && (
+                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                  <SelectTrigger inputSize="sm" className="w-44"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All categories</SelectItem>
+                    {serviceCategories.map((c) => (
+                      <SelectItem key={c.key} value={c.key}>{c.label} · {perCategory[c.key] ?? 0}</SelectItem>
+                    ))}
+                    {categoryFilter !== "all" && !serviceCategories.some((c) => c.key === categoryFilter) && (
+                      <SelectItem value={categoryFilter}>{categoryFilter}</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+              )}
+            </>
           ) : undefined}
           actions={
             <Button size="sm" onClick={() => setCreating(true)}>
@@ -287,7 +327,7 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
           isNoResults={inScope.length > 0 && visible.length === 0} count={visible.length}
           emptyTitle="No businesses yet"
           emptySubtitle="Businesses appear here after they apply and are approved."
-          onClearFilters={() => { setSearch(""); setServiceFilter("all"); setStatus("all"); }}
+          onClearFilters={() => { setSearch(""); setServiceFilter("all"); setStatus("all"); setCategoryFilter("all"); }}
         >
           {/* One row shape at every width: who, where it is filed, how finished
               it is, its status. Everything else is one tap away on the

@@ -100,7 +100,6 @@ const PaymentSettings = lazy(() => import("./pages/admin/PaymentSettings"));
 const AdminUsers = lazy(() => import("./pages/admin/Users"));
 const AdminCustomer = lazy(() => import("./pages/admin/Customer"));
 const CarRentals = lazy(() => import("./pages/admin/CarRentals"));
-const ServiceCategories = lazy(() => import("./pages/admin/ServiceCategories"));
 const Diagnostics = lazy(() => import("./pages/admin/Diagnostics"));
 const MarketplaceProviders = lazy(() => import("./pages/admin/MarketplaceProviders"));
 const MarketplaceProviderDetail = lazy(() => import("./pages/admin/MarketplaceProviderDetail"));
@@ -111,7 +110,7 @@ const PromoCodes = lazy(() => import("./pages/admin/PromoCodes"));
 const Support = lazy(() => import("./pages/Support"));
 const AdminSupport = lazy(() => import("./pages/admin/Support"));
 const MarketplaceHub = lazy(() => import("./pages/admin/MarketplaceHub"));
-const MarketplaceServiceDetail = lazy(() => import("./pages/admin/MarketplaceServiceDetail"));
+const ServicePageRedirect = lazy(() => import("./pages/admin/ServicePageRedirect"));
 const MarketplaceSubscriptions = lazy(() => import("./pages/admin/MarketplaceSubscriptions"));
 const MyProvider = lazy(() => import("./pages/user/MyProvider"));
 const AuditLogs = lazy(() => import("./pages/admin/AuditLogs"));
@@ -403,21 +402,18 @@ const App = () => {
                   Offerings (OfferEditor writes cleaning_packages). */}
               <Route path="/admin/cleaning/plans" element={<Navigate to="/admin/marketplace/providers?service=cleaning" replace />} />
               <Route path="/admin/cleaning/providers" element={<Navigate to="/admin/marketplace/providers" replace />} />
-              {/* The flat Services + Categories CRUDs are retired: creating a
-                  service lives on the Marketplace hub, editing/hiding/deleting
-                  on the service's own drill-down, categories in its Categories
-                  tab. Old bookmarks land on the hub. */}
+              {/* Services and their categories are edited in one place: the
+                  Services list and its panels. Old bookmarks land there. */}
               <Route path="/admin/categories" element={<Navigate to="/admin/marketplace" replace />} />
               <Route path="/admin/services" element={<Navigate to="/admin/marketplace" replace />} />
               <Route path="/admin/services/categories" element={<Navigate to="/admin/marketplace" replace />} />
-              {/* Drill-down entry point: Marketplace → service → its lists. The flat
-                  lists below stay routable — they're linked from the hub and are the
-                  only way to reach providers whose archetype_key went null. */}
+              {/* Services & categories: one list, a panel per service and per
+                  category. Businesses and Plans are the flat lists below. */}
               <Route path="/admin/marketplace" element={
                 <ProtectedRoute allowedRoles={['super_admin']}><MarketplaceHub /></ProtectedRoute>
               } />
               <Route path="/admin/marketplace/service/:key" element={
-                <ProtectedRoute allowedRoles={['super_admin']}><MarketplaceServiceDetail /></ProtectedRoute>
+                <ProtectedRoute allowedRoles={['super_admin']}><ServicePageRedirect /></ProtectedRoute>
               } />
               <Route path="/admin/marketplace/providers" element={
                 <ProtectedRoute allowedRoles={['super_admin']}><MarketplaceProviders /></ProtectedRoute>
