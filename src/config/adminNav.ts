@@ -1,16 +1,18 @@
 /**
  * Admin Panel navigation — one word per thing, the same word on the page:
- *   Today · Businesses (the list) · Vehicles · Reviews · Orders · Customers ·
- *   Support · Finance · Analytics · Banners · Collections · Announcements · Promo codes ·
- *   Services (the service tree: categories + businesses per service) ·
- *   Locations · Tags · Team · Audit log · Diagnostics.
+ *   Work: Today · Orders · Applications · Support
+ *   Catalog: Businesses · Plans · Vehicles · Reviews · Services & categories
+ *   People & money: Customers · Finance · Analytics
+ *   Marketing: Banners · Collections · Promotions · Promo codes · Announcements
+ *   Settings: Payments · Locations · Delivery · Tags · Team · Audit log · Diagnostics
  * A URL takes the permission of the nav item that covers it (permissionsForPath).
  */
 
 import {
   BarChart3, CalendarDays, DollarSign,
   BellRing, FileText, Layers, LayoutDashboard, MapPin, Megaphone, Sparkles, TicketPercent,
-  LifeBuoy, ShieldCheck, Users, Building2, CarFront, Star, Wrench, LayoutGrid, Tag, Truck } from "lucide-react";
+  LifeBuoy, ShieldCheck, Users, Building2, CarFront, Star, Wrench, LayoutGrid, Tag, Truck,
+  Inbox, ListChecks, CreditCard } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { adminRoutes } from "./adminRoutes";
 
@@ -31,6 +33,8 @@ export interface NavItem {
    * may see. Owners hold "*" and always pass.
    */
   permissions?: string[];
+  /** A live count shown beside the label (see useAdminNavBadges). */
+  badge?: NavBadge;
 }
 
 export interface NavSection {
@@ -38,33 +42,39 @@ export interface NavSection {
   items: NavItem[];
 }
 
-// ─── OVERVIEW ───────────────────────────────────────────────────────────
 /**
- * Grouped by the job, not by the table.
+ * Grouped by why you go there, not by the table.
  *
- * The old groups were the data model — Overview / Marketplace / Vehicles /
- * People / Settings — so marketing lived in three places (Promo codes under
- * Marketplace, Announcements under People, Ads under Settings), Reviews had
- * no entry at all, and a whole section held one item. Now: what needs you,
- * the businesses you run, what they sold, who bought it, the money, growing
- * it, and the settings you rarely touch.
+ * Work is the daily queue (with counts on Applications and Support, so you do
+ * not have to open Today to learn whether there is anything to do). Catalog is
+ * what is on sale. People & money is who bought it and what it earned.
+ * Marketing grows it. Settings is what you rarely touch.
+ *
+ * Applications and Plans have their own items: they used to be reachable only
+ * through a banner on Businesses or a tab inside Services.
  */
-export const TODAY_SECTION: NavSection = {
-  title: "Today",
+export type NavBadge = "applications" | "support";
+
+export const WORK_SECTION: NavSection = {
+  title: "Work",
   items: [
     { label: "Today", path: adminRoutes.superAdminDashboard, icon: LayoutDashboard },
+    { label: "Orders", path: adminRoutes.superAdminMarketplaceSubscriptions, icon: CalendarDays,
+      permissions: ["subscriptions.read"] },
+    { label: "Applications", path: adminRoutes.superAdminProviderApplications, icon: Inbox,
+      badge: "applications",
+      permissions: ["admin_settings.read"] },
+    { label: "Support", path: adminRoutes.superAdminSupport, icon: LifeBuoy,
+      badge: "support",
+      permissions: ["users.read"] },
   ],
 };
 
-export const BUSINESSES_SECTION: NavSection = {
-  title: "Businesses",
+export const CATALOG_SECTION: NavSection = {
+  title: "Catalog",
   items: [
-    // The list itself, not a hub of services: with two dozen businesses the
-    // service cards were one more click on every visit. Services and their
-    // categories are configuration and live under Settings.
     { label: "Businesses", path: adminRoutes.superAdminMarketplaceProviders, icon: Building2,
       alsoActiveOn: [
-        adminRoutes.superAdminProviderApplications,
         // Per-service admin pages still reachable by URL (courts, cleaning
         // operations) — listed so they take this item's permission.
         "/admin/beach-club",
@@ -72,36 +82,28 @@ export const BUSINESSES_SECTION: NavSection = {
         "/admin/food",
       ],
       permissions: ["admin_settings.read"] },
+    { label: "Plans", path: adminRoutes.superAdminMarketplacePlans, icon: ListChecks,
+      permissions: ["admin_settings.read"] },
     { label: "Vehicles", path: adminRoutes.superAdminTransport, icon: CarFront,
       alsoActiveOn: [adminRoutes.superAdminCarRentals],
       permissions: ["subscriptions.read"] },
     { label: "Reviews", path: adminRoutes.superAdminMarketplaceReviews, icon: Star,
       permissions: ["admin_settings.read"] },
+    { label: "Services & categories", path: adminRoutes.superAdminMarketplace, icon: Layers,
+      alsoActiveOn: [
+        "/admin/marketplace/service",
+        adminRoutes.superAdminServices,
+      ],
+      permissions: ["admin_settings.read"] },
   ],
 };
 
-export const SALES_SECTION: NavSection = {
-  title: "Sales",
-  items: [
-    { label: "Orders", path: adminRoutes.superAdminMarketplaceSubscriptions, icon: CalendarDays,
-      permissions: ["subscriptions.read"] },
-  ],
-};
-
-export const CUSTOMERS_SECTION: NavSection = {
-  title: "Customers",
+export const PEOPLE_MONEY_SECTION: NavSection = {
+  title: "People & money",
   items: [
     { label: "Customers", path: adminRoutes.superAdminUsers, icon: Users,
       alsoActiveOn: ["/admin/customers"],
       permissions: ["users.read"] },
-    { label: "Support", path: adminRoutes.superAdminSupport, icon: LifeBuoy,
-      permissions: ["users.read"] },
-  ],
-};
-
-export const MONEY_SECTION: NavSection = {
-  title: "Money",
-  items: [
     { label: "Finance",   path: adminRoutes.superAdminPayments,  icon: DollarSign,
       permissions: ["payments.read"] },
     { label: "Analytics", path: adminRoutes.superAdminAnalytics, icon: BarChart3,
@@ -116,25 +118,20 @@ export const GROWTH_SECTION: NavSection = {
       permissions: ["admin_settings.read"] },
     { label: "Collections", path: adminRoutes.superAdminCollections, icon: LayoutGrid,
       permissions: ["admin_settings.read"] },
-    { label: "Announcements", path: adminRoutes.superAdminAnnouncements, icon: BellRing,
-      permissions: ["users.read"] },
-    { label: "Promo codes", path: adminRoutes.superAdminPromoCodes, icon: TicketPercent,
-      permissions: ["payments.read"] },
     { label: "Promotions", path: adminRoutes.superAdminPromotions, icon: Sparkles,
       permissions: ["payments.read"] },
+    { label: "Promo codes", path: adminRoutes.superAdminPromoCodes, icon: TicketPercent,
+      permissions: ["payments.read"] },
+    { label: "Announcements", path: adminRoutes.superAdminAnnouncements, icon: BellRing,
+      permissions: ["users.read"] },
   ],
 };
 
 export const SETTINGS_SECTION: NavSection = {
   title: "Settings",
   items: [
-    { label: "Services", path: adminRoutes.superAdminMarketplace, icon: Layers,
-      alsoActiveOn: [
-        "/admin/marketplace/service",
-        adminRoutes.superAdminServices,
-        adminRoutes.superAdminMarketplacePlans,
-      ],
-      permissions: ["admin_settings.read"] },
+    { label: "Payments", path: adminRoutes.superAdminPaymentSettings, icon: CreditCard,
+      permissions: ["payments.read"] },
     { label: "Locations",  path: adminRoutes.superAdminLocations, icon: MapPin,
       permissions: ["admin_settings.read"] },
     { label: "Delivery", path: adminRoutes.superAdminDelivery, icon: Truck,
@@ -151,11 +148,9 @@ export const SETTINGS_SECTION: NavSection = {
 };
 
 export const NAV_SECTIONS: NavSection[] = [
-  TODAY_SECTION,
-  BUSINESSES_SECTION,
-  SALES_SECTION,
-  CUSTOMERS_SECTION,
-  MONEY_SECTION,
+  WORK_SECTION,
+  CATALOG_SECTION,
+  PEOPLE_MONEY_SECTION,
   GROWTH_SECTION,
   SETTINGS_SECTION,
 ];

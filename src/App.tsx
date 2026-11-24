@@ -96,6 +96,7 @@ const FoodSubscriptionDetail = lazy(() => import("./pages/food/FoodSubscriptionD
 const AdminDashboard = lazy(() => import("./pages/admin/Dashboard"));
 const Analytics = lazy(() => import("./pages/admin/Analytics"));
 const AdminPayments = lazy(() => import("./pages/admin/Payments"));
+const PaymentSettings = lazy(() => import("./pages/admin/PaymentSettings"));
 const AdminUsers = lazy(() => import("./pages/admin/Users"));
 const AdminCustomer = lazy(() => import("./pages/admin/Customer"));
 const CarRentals = lazy(() => import("./pages/admin/CarRentals"));
@@ -508,6 +509,9 @@ const App = () => {
                   (NetProfitPanel); min/max subscription weeks were unused. Redirect
                   any stale bookmarks straight to Finance. */}
               <Route path="/admin/settings" element={<Navigate to="/admin/payments" replace />} />
+              <Route path="/admin/settings/payments" element={
+                <ProtectedRoute allowedRoles={['super_admin']} requiredPermissions={["payments.read"]}><PaymentSettings /></ProtectedRoute>
+              } />
               <Route path="/admin/locations" element={
                 <ProtectedRoute allowedRoles={['super_admin']} requiredPermissions={["admin_settings.read"]}><Locations /></ProtectedRoute>
               } />

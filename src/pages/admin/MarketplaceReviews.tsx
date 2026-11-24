@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useUrlState } from "@/hooks/useUrlState";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { EyeOff, Eye, MoreVertical, Star, Trash2 } from "lucide-react";
@@ -67,10 +68,11 @@ export interface MarketplaceReviewsProps {
 const MarketplaceReviews = ({ embedded = false, providerId: scopedProvider }: MarketplaceReviewsProps = {}) => {
   const qc = useQueryClient();
   const { userData } = useAuth();
-  const [search, setSearch] = useState("");
-  const [rating, setRating] = useState("all");
-  const [visibility, setVisibility] = useState<"all" | "visible" | "hidden">("all");
-  const [providerFilter, setProviderFilter] = useState("all");
+  const k = (name: string) => (embedded ? `review_${name}` : name);
+  const [search, setSearch] = useUrlState<string>(k("q"), "");
+  const [rating, setRating] = useUrlState<string>(k("rating"), "all");
+  const [visibility, setVisibility] = useUrlState<"all" | "visible" | "hidden">(k("visibility"), "all");
+  const [providerFilter, setProviderFilter] = useUrlState<string>(k("business"), "all");
   const [hideTarget, setHideTarget] = useState<ReviewRow | null>(null);
   const [hideReason, setHideReason] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<ReviewRow | null>(null);

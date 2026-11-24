@@ -28,7 +28,8 @@ export default function MarketplaceProviderDetail() {
 
   return (
     <SuperAdminLayout
-      title={provider?.name || "Provider"}
+      title={provider?.name || "Business"}
+      parent={{ label: "Businesses", href: "/admin/marketplace/providers" }}
       // The profile card right below opens with this name and description.
       hideHeading
     >

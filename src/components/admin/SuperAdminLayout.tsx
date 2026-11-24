@@ -9,7 +9,9 @@ import {
 } from "lucide-react";
 import { AdminAccountMenu } from "@/components/admin/AdminAccountMenu";
 import { AdminSearchButton } from "@/components/admin/AdminSearch";
-import { LocationSelector } from "@/components/patterns/LocationSelector";
+import { useQuery } from "@tanstack/react-query";
+import { supabaseDb } from "@/integrations/supabase/client";
+import { fetchApplications } from "@/lib/admin/providerApplications";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -57,15 +59,40 @@ const linkActive = "bg-[hsl(var(--app-control-muted))] text-foreground font-semi
 const linkIdle =
   "text-muted-foreground hover:bg-[hsl(var(--app-control-muted))] hover:text-foreground";
 
+// ─── Menu counts ──────────────────────────────────────────────────────────────
+/**
+ * The two queues that wait on a person, counted in the menu, so the admin
+ * does not have to open Today to find out whether there is work. A failed
+ * count shows nothing rather than a wrong number.
+ */
+function useNavBadges(): Partial<Record<string, number>> {
+  const { data } = useQuery({
+    queryKey: ["admin-nav-badges"],
+    staleTime: 60_000,
+    refetchInterval: 120_000,
+    queryFn: async () => {
+      const [applications, support] = await Promise.all([
+        fetchApplications({ status: "pending" }).then((r) => r.length).catch(() => 0),
+        supabaseDb.from("support_messages").select("id", { count: "exact", head: true }).eq("status", "new")
+          .then(({ count, error }) => (error ? 0 : count ?? 0)),
+      ]);
+      return { applications, support };
+    },
+  });
+  return data ?? {};
+}
+
 // ─── Flat link ────────────────────────────────────────────────────────────────
 function FlatLink({
   item,
   isActive,
   wrap,
+  count,
 }: {
   item: NavItem;
   isActive: boolean;
   wrap?: (el: React.ReactElement) => React.ReactElement;
+  count?: number;
 }) {
   const Icon = item.icon;
   const el = (
@@ -79,6 +106,9 @@ function FlatLink({
         aria-hidden
       />
       <span className="truncate">{item.label}</span>
+      {!!count && (
+        <span className="ml-auto rounded-full bg-primary/15 px-2 text-meta font-semibold tabular-nums text-primary">{count}</span>
+      )}
     </Link>
   );
   return wrap ? wrap(el) : el;
@@ -119,21 +149,23 @@ function SidebarNav({
     .filter(({ match }) => currentPath === match || currentPath.startsWith(`${match}/`))
     .sort((a, b) => b.match.length - a.match.length)[0]?.owner ?? null;
 
+  const badges = useNavBadges();
   return (
     <nav
       className="flex-1 space-y-space-5 overflow-y-auto px-space-3 py-space-4"
       aria-label="Admin navigation"
     >
       {visibleSections.map((section) => (
-        <NavSectionBlock key={section.title} section={section} activePath={activePath} wrap={wrap} />
+        <NavSectionBlock key={section.title} section={section} activePath={activePath} wrap={wrap} badges={badges} />
       ))}
     </nav>
   );
 }
 
 function NavSectionBlock({
-  section, activePath, wrap,
+  section, activePath, wrap, badges,
 }: {
+  badges: Partial<Record<string, number>>;
   section: NavSection;
   /** `path` of the single item that won the longest-match test, if any. */
   activePath: string | null;
@@ -146,7 +178,8 @@ function NavSectionBlock({
         {section.title}
       </h2>
       {section.items.map((item) => (
-        <FlatLink key={item.path} item={item} isActive={activePath === item.path} wrap={wrap} />
+        <FlatLink key={item.path} item={item} isActive={activePath === item.path} wrap={wrap}
+          count={item.badge ? badges[item.badge] : undefined} />
       ))}
     </section>
   );
@@ -261,7 +294,9 @@ const SuperAdminLayout = ({ children, title, subtitle, hideHeading, parent, acti
             {/* Actions */}
             <div className="flex items-center gap-space-3 px-space-5">
               <AdminSearchButton />
-              <LocationSelector />
+              {/* No delivery-address picker here: it changed nothing in the
+                  admin but read like a global "you are viewing one residence"
+                  filter. */}
               {/* LanguageMenu hidden until the app is translated — see the
                   note in DesktopHeader; a switcher over hardcoded English
                   promised a Spanish that wasn't there. */}

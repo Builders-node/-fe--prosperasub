@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useUrlState } from "@/hooks/useUrlState";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
@@ -31,14 +32,14 @@ const actionColor = (action: string) => {
 };
 
 const AuditLogs = () => {
-  const [entityFilter, setEntityFilter] = useState("all");
-  const [actionFilter, setActionFilter] = useState("all");
-  const [search, setSearch] = useState("");
+  const [entityFilter, setEntityFilter] = useUrlState<string>("entity", "all");
+  const [actionFilter, setActionFilter] = useUrlState<string>("action", "all");
+  const [search, setSearch] = useUrlState<string>("q", "");
   // Server-side date range. Without this the page hard-capped at the newest
   // 500 rows and filtered in the browser, so anything older simply wasn't
   // there — and searching for it returned "no results" rather than saying so.
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+  const [from, setFrom] = useUrlState<string>("from", "");
+  const [to, setTo] = useUrlState<string>("to", "");
   const [page, setPage] = useState(0);
   const [openLog, setOpenLog] = useState<any | null>(null);
   const PAGE_SIZE = 25;

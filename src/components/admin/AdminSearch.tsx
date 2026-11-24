@@ -27,7 +27,7 @@ import { cn } from "@/lib/utils";
 
 interface Hit {
   key: string;
-  group: "Pages" | "Customers" | "Businesses" | "Sales";
+  group: "Pages" | "Customers" | "Businesses" | "Orders";
   icon: LucideIcon;
   title: string;
   detail?: string;
@@ -163,7 +163,7 @@ function AdminSearchDialog({ open, onOpenChange }: { open: boolean; onOpenChange
     if (canSales) {
       for (const r of salesQ.data ?? []) {
         out.push({
-          key: `sale-${r.service}-${r.id}`, group: "Sales", icon: CreditCard,
+          key: `sale-${r.service}-${r.id}`, group: "Orders", icon: CreditCard,
           title: `${r.plan_name || r.service} · ${r.customer_name || "—"}`,
           detail: [r.price_cents != null ? formatUSD(Number(r.price_cents)) : null, r.payment_status, r.payment_reference]
             .filter(Boolean).join(" · "),
@@ -188,7 +188,7 @@ function AdminSearchDialog({ open, onOpenChange }: { open: boolean; onOpenChange
     navigate(h.href);
   };
 
-  const groups = (["Pages", "Customers", "Businesses", "Sales"] as const)
+  const groups = (["Pages", "Customers", "Businesses", "Orders"] as const)
     .map((g) => ({ g, items: hits.map((h, i) => ({ h, i })).filter(({ h }) => h.group === g) }))
     .filter((x) => x.items.length > 0);
 

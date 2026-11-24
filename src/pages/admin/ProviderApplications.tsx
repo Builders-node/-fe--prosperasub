@@ -543,7 +543,6 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
     <SuperAdminLayout
       title="Applications"
       subtitle="Businesses that want to join. Approving one creates its draft."
-      parent={{ label: "Businesses", href: "/admin/marketplace/providers" }}
     >
       {body}
     </SuperAdminLayout>

@@ -1,4 +1,5 @@
 import { Fragment, useMemo, useState } from "react";
+import { useUrlState } from "@/hooks/useUrlState";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { Building2, ChevronRight, ExternalLink } from "lucide-react";
@@ -50,11 +51,14 @@ const MarketplacePlans = ({ embedded = false, archetypeKey }: MarketplacePlansPr
   // When scoped by the parent route the archetype isn't the admin's to change,
   // so it's derived rather than state — otherwise navigating between two
   // services would keep showing the first one's plans.
-  const [serviceFilter, setServiceFilter] = useState("all");
+  // In the URL so Back and shared links keep the view. Embedded in a service
+  // page the keys are prefixed: that page owns plain `q` and `status`.
+  const k = (name: string) => (embedded ? `plan_${name}` : name);
+  const [serviceFilter, setServiceFilter] = useUrlState<string>(k("service"), "all");
   const service = archetypeKey ?? serviceFilter;
-  const [providerId, setProviderId] = useState("all");
-  const [status, setStatus] = useState("all");
-  const [search, setSearch] = useState("");
+  const [providerId, setProviderId] = useUrlState<string>(k("business"), "all");
+  const [status, setStatus] = useUrlState<string>(k("status"), "all");
+  const [search, setSearch] = useUrlState<string>(k("q"), "");
 
   const { data: providers = [] } = useQuery({
     queryKey: ["marketplace-providers-slim"],

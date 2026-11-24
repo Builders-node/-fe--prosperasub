@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useUrlState } from "@/hooks/useUrlState";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
@@ -39,8 +40,8 @@ interface SupportMessage {
 
 export default function AdminSupport() {
   const qc = useQueryClient();
-  const [status, setStatus] = useState<"new" | "handled" | "all">("new");
-  const [search, setSearch] = useState("");
+  const [status, setStatus] = useUrlState<"new" | "handled" | "all">("status", "new");
+  const [search, setSearch] = useUrlState<string>("q", "");
   const [expanded, setExpanded] = useState<string | null>(null);
 
   const { data: rows = [], isLoading, isError, error, refetch } = useQuery({
@@ -115,7 +116,7 @@ export default function AdminSupport() {
         isNoResults={rows.length > 0 && visible.length === 0} count={visible.length}
         emptyTitle="No messages yet"
         emptySubtitle="Customer messages from the Support page land here."
-        onClearFilters={() => { setSearch(""); setStatus("all"); }}
+        onClearFilters={() => { setSearch(""); setStatus("new"); }}
       >
         <div className="space-y-2">
           {visible.map((m) => {
