@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { MessageCircle } from "lucide-react";
 import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
+import { useCategoryHighlights } from "@/hooks/useCategoryHighlights";
 import { serviceListingHref } from "@/lib/services/serviceUrls";
 
 /**
@@ -47,9 +48,13 @@ function Column({ title, links }: { title: string; links: FooterLink[] }) {
 
 export function SiteFooter() {
   const { archetypes } = useServiceArchetypes(true);
+  const { highlights, isLoading } = useCategoryHighlights();
+  // A service with nothing on sale is a link to an empty page — "Healthcare"
+  // led there. Shown once something under it has a price.
+  const selling = new Set(highlights.filter((h) => h.fromCents !== null).map((h) => h.archetype?.key));
 
   const services: FooterLink[] = [
-    ...archetypes.map((a) => ({ label: a.label, to: serviceListingHref(a.key) })),
+    ...archetypes.filter((a) => isLoading || selling.has(a.key)).map((a) => ({ label: a.label, to: serviceListingHref(a.key) })),
     { label: "Vehicles", to: "/vehicles" },
   ];
 

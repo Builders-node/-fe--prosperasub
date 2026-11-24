@@ -238,7 +238,7 @@ export default function Fleet() {
                 meta: `${p.count} vehicle${p.count === 1 ? "" : "s"}`,
               }))}
               icon={Building2}
-              label="Rental companies"
+              label="Businesses"
               // The rail is a DOOR, as on every other listing — it opens the
               // business's own page (fleet shelf, reviews, gallery). Narrowing
               // the grid is the chips' job, not the rail's.

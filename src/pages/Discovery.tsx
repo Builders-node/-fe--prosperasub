@@ -185,7 +185,7 @@ const Discovery = () => {
       <section className="bg-card pb-4 shadow-figma rounded-b-radius-lg md:rounded-b-none">
         <div className="app-container space-y-4 pt-4">
           {showFamilies && (
-            <div className="flex rounded-radius-md bg-inset p-0.5">
+            <div className="flex rounded-radius-md bg-inset p-0.5 md:max-w-sm">
               {families.map((f) => (
                 <button
                   key={f}

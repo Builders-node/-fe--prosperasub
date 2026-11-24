@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { SEARCH_GROUPS, useGlobalSearch, type SearchHit } from "@/hooks/useGlobalSearch";
 
 const MAX_HITS = 8;
-const KIND_LABEL: Record<SearchHit["kind"], string> = { category: "Category", service: "Service", provider: "Business", plan: "Plan" };
+const KIND_LABEL: Record<SearchHit["kind"], string> = { category: "Category", service: "Service", provider: "Business", plan: "Plan", vehicle: "Vehicle" };
 
 /**
  * Search on EverySub, in the desktop header.

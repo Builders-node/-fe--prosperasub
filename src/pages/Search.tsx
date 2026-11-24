@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { gaItem, trackEvent } from "@/lib/analytics/ga";
 import { useSeo } from "@/hooks/useSeo";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, X } from "lucide-react";
+import { X } from "lucide-react";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { BrowseLayout } from "@/components/layout/BrowseLayout";
 import { Spinner } from "@/components/ui/spinner";
@@ -11,7 +11,7 @@ import { YdEmptyState } from "@/components/yd/YdPrimitives";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { SEARCH_GROUPS, useGlobalSearch, type SearchHit } from "@/hooks/useGlobalSearch";
-import { KeyboardArrowRightIcon, SearchIcon } from "@/components/icons/FigmaIcons";
+import { KeyboardArrowLeftIcon, KeyboardArrowRightIcon, SearchIcon } from "@/components/icons/FigmaIcons";
 import { useCategoryHighlights } from "@/hooks/useCategoryHighlights";
 
 /**
@@ -32,7 +32,10 @@ const SearchPage = () => {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const { results, isLoading, isError, error, refetch } = useGlobalSearch(query);
-  const { highlights } = useCategoryHighlights();
+  const { highlights: allHighlights } = useCategoryHighlights();
+  // Only categories with something on sale: one with no plans opened an
+  // empty listing from the very first tap.
+  const highlights = allHighlights.filter((h) => h.fromCents !== null);
 
   // GA4 "search" once the visitor stops typing.
   const qParam = params.get("q") ?? "";
@@ -70,7 +73,7 @@ const SearchPage = () => {
             onClick={() => navigate(-1)}
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-foreground transition-colors hover:bg-muted"
           >
-            <ArrowLeft className="h-6 w-6" />
+            <KeyboardArrowLeftIcon className="h-6 w-6" />
           </button>
 
           <div className="flex min-w-0 flex-1 items-center gap-2 rounded-radius-md bg-background px-3 py-2">
@@ -153,15 +156,30 @@ const SearchPage = () => {
           // Not "nothing matches" — we never got the catalogue to search.
           <QueryError title="Couldn't search right now" error={error} onRetry={() => void refetch()} />
         ) : grouped.length === 0 ? (
-          <YdEmptyState
-            icon={SearchIcon}
-            title={`Nothing matches "${query.trim()}"`}
-            subtitle="Try a shorter word — a service, a business or the name of a plan."
-          />
+          <div className="space-y-4">
+            <YdEmptyState
+              icon={SearchIcon}
+              title={`Nothing matches "${query.trim()}"`}
+              subtitle="Try a shorter word, or one of these."
+            />
+            {/* A dead end with a way out: what is actually on sale. */}
+            <div className="flex flex-wrap justify-center gap-2">
+              {highlights.slice(0, 8).map((h) => (
+                <button
+                  key={h.key}
+                  type="button"
+                  onClick={() => setQuery(h.label)}
+                  className="rounded-full bg-card px-3 py-1.5 text-body font-medium text-foreground transition-colors hover:bg-muted"
+                >
+                  {h.label}
+                </button>
+              ))}
+            </div>
+          </div>
         ) : (
           grouped.map((group) => (
             <section key={group.kind} className="space-y-2">
-              <h2 className="text-[12px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              <h2 className="text-heading font-semibold text-foreground">
                 {group.label}
               </h2>
               <div className="overflow-hidden rounded-radius-md bg-card">

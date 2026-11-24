@@ -90,7 +90,7 @@ const en = {
 
   // ── Listing
   "listing.searchIn": "Search {service}",
-  "listing.providers": "Providers",
+  "listing.providers": "Businesses",
   "listing.plans": "Plans",
   "listing.all": "All",
   "listing.sort": "Sort",

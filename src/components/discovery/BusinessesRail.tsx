@@ -26,7 +26,7 @@ function useHomeBusinesses() {
     queryFn: async (): Promise<Business[]> => {
       const { data, error } = await supabaseDb
         .from("providers")
-        .select("id, name, archetype_key, avatar_url")
+        .select("*") // `*` for the slug — the address in words, not the id
         .eq("status", "active")
         .not("archetype_key", "is", null)
         .order("name", { ascending: true });
@@ -60,7 +60,7 @@ export function BusinessesRail() {
           : selling.map((b) => (
             <Link
               key={b.id}
-              to={providerHref(b.archetype_key, b.id)}
+              to={providerHref(b.archetype_key, (b as { slug?: string | null }).slug || b.id)}
               className="flex w-[112px] shrink-0 flex-col items-center gap-2 rounded-radius-md bg-card px-2 py-4 text-center shadow-figma transition-colors active:scale-[0.98] hover:bg-muted/40 md:w-auto"
             >
               <span aria-hidden className="h-14 w-14 shrink-0 overflow-hidden rounded-full">

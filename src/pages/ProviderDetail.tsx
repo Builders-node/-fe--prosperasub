@@ -345,13 +345,15 @@ const ProviderDetail = () => {
     enabled: !!providerId,
     staleTime: 60_000,
     queryFn: async () => {
-      const { count, error } = await supabaseDb
+      // Names, not a count: "1 calendar" was the admin's word for it; the
+      // customer books the dive boat, not a calendar.
+      const { data, error } = await supabaseDb
         .from("bookable_resources")
-        .select("id", { count: "exact", head: true })
+        .select("name")
         .eq("provider_id", providerId!)
         .eq("status", "active");
       if (error) throw error;
-      return count ?? 0;
+      return ((data ?? []) as Array<{ name: string | null }>).map((r) => r.name?.trim()).filter(Boolean) as string[];
     },
   });
 
@@ -662,7 +664,7 @@ const ProviderDetail = () => {
             {hours && <p className="text-[16px] leading-[22px] text-muted-foreground">{hours}</p>}
           </div>
 
-          {(bookableQ.data ?? 0) > 0 && (
+          {(bookableQ.data?.length ?? 0) > 0 && (
             <button
               type="button"
               onClick={() => navigate(`/providers/${providerId}/book`)}
@@ -670,7 +672,7 @@ const ProviderDetail = () => {
             >
               <span className="text-[16px] font-semibold leading-[22px] text-foreground">Book a time</span>
               <span className="text-[14px] leading-[18px] text-muted-foreground">
-                {bookableQ.data === 1 ? "1 calendar" : `${bookableQ.data} calendars`}
+                {bookableQ.data!.length === 1 ? bookableQ.data![0] : `${bookableQ.data![0]} +${bookableQ.data!.length - 1} more`}
               </span>
             </button>
           )}
