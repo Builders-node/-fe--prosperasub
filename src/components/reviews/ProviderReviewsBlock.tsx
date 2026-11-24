@@ -114,7 +114,9 @@ export function ProviderReviewsBlock({ providerId, service, ownerUserId, placeho
         {
           provider_id: providerId,
           user_id: uid,
-          customer_name: userData?.name || userData?.display_name || userData?.email || null,
+          // Never the email: a review is public, and a name-less account used
+          // to publish its address on the business's page.
+          customer_name: userData?.name || userData?.display_name || null,
           rating,
           comment: comment.trim() || null,
           service,
@@ -234,7 +236,7 @@ export function ProviderReviewsBlock({ providerId, service, ownerUserId, placeho
               <div key={r.id} className="rounded-radius-md bg-inset px-4 py-3">
                 <div className="flex items-start gap-1">
                   <p className="min-w-0 flex-1 truncate text-title font-semibold leading-[22px] text-foreground">
-                    {r.customer_name ?? "Customer"}
+                    {r.customer_name && !r.customer_name.includes("@") ? r.customer_name : "Customer"}
                   </p>
                   <span className="flex shrink-0 items-center gap-1">
                     <StarIcon className="h-[18px] w-[18px] text-primary" />

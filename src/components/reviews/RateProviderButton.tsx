@@ -158,7 +158,8 @@ export function RateProviderButton({
         {
           provider_id: providerId,
           user_id: uid,
-          customer_name: customerName ?? userData?.name ?? userData?.display_name ?? userData?.email ?? null,
+          // Never the email — the review is public.
+          customer_name: [customerName, userData?.name, userData?.display_name].find((n) => n && !n.includes("@")) ?? null,
           rating,
           comment: comment.trim() || null,
           // The customer-facing service, not the entry point: a rating left
