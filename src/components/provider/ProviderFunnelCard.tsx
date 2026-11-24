@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { accountApi } from "@/integrations/supabase/client";
 import { WorkspaceSection } from "@/components/provider/WorkspaceUI";
@@ -22,8 +23,27 @@ interface Funnel { enabled: boolean; days: number; stages: Stage[]; plans: PlanR
 
 const PERIODS = [7, 30, 90] as const;
 
+/** One word each for a phone, where five steps share a 375px row. */
+const TINY: Record<string, string> = {
+  provider_view: "Page",
+  plan_view: "Plan",
+  checkout_start: "Order",
+  payment_chosen: "Paying",
+  paid: "Paid",
+};
+
+/** Short names for a wider screen. */
+const SHORT: Record<string, string> = {
+  provider_view: "Saw page",
+  plan_view: "Opened plan",
+  checkout_start: "Checkout",
+  payment_chosen: "Chose payment",
+  paid: "Paid",
+};
+
 export function ProviderFunnelCard({ providerId }: { providerId: string }) {
   const [days, setDays] = useState<(typeof PERIODS)[number]>(30);
+  const [byPlanOpen, setByPlanOpen] = useState(false);
   const q = useQuery({
     queryKey: ["provider-funnel", providerId, days],
     staleTime: 60_000,
@@ -44,7 +64,7 @@ export function ProviderFunnelCard({ providerId }: { providerId: string }) {
   return (
     <WorkspaceSection
       title="Sales funnel"
-      subtitle="How many people reach each step, and where they stop"
+      subtitle="Where visitors stop on the way to paying"
       action={
         <div className="flex rounded-full bg-inset p-0.5">
           {PERIODS.map((d) => (
@@ -64,55 +84,65 @@ export function ProviderFunnelCard({ providerId }: { providerId: string }) {
       }
     >
       {q.isLoading ? (
-        <div className="space-y-2">{[0, 1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-9" />)}</div>
+        <Skeleton className="h-[92px]" />
       ) : q.isError ? (
         <p className="text-[14px] text-muted-foreground">Couldn't load the funnel right now.</p>
       ) : (
-        <div className="space-y-4">
-          <div className="space-y-2">
+        <div className="space-y-3">
+          {/* One strip, left to right: how many reached each step and what
+              share of the step before got there. Was five full-width bars and
+              a table — the whole first screen of Overview. */}
+          <ol className="grid grid-cols-5 gap-1">
             {stages.map((s, i) => {
               const prev = i > 0 ? stages[i - 1].count : null;
-              const pct = prev ? Math.round((s.count / prev) * 100) : null;
+              const pct = prev ? Math.min(999, Math.round((s.count / prev) * 100)) : null;
               return (
-                <div key={s.key} className="space-y-1">
-                  <div className="flex items-baseline justify-between gap-3 text-[14px]">
-                    <span className="font-semibold text-foreground">{s.label}</span>
-                    <span className="tabular-nums text-muted-foreground">
-                      <span className="font-semibold text-foreground">{s.count}</span>
-                      {pct !== null && ` · ${pct}% of the step before`}
-                    </span>
+                <li key={s.key} className="min-w-0 rounded-radius-md bg-inset px-1.5 py-2.5 sm:px-2">
+                  <p className={cn("text-[22px] font-semibold leading-none tabular-nums",
+                    s.key === "paid" ? "text-positive" : "text-foreground")}>{s.count}</p>
+                  <p className="mt-1.5 truncate text-[11px] leading-[16px] text-muted-foreground sm:text-[12px]" title={s.label}>
+                    <span className="sm:hidden">{TINY[s.key] ?? s.label}</span>
+                    <span className="hidden sm:inline">{SHORT[s.key] ?? s.label}</span>
+                  </p>
+                  <div className="mt-2 h-1 overflow-hidden rounded-full bg-background/60">
+                    <div className={cn("h-full rounded-full", s.key === "paid" ? "bg-positive" : "bg-primary")}
+                      style={{ width: `${Math.max(s.count ? 6 : 0, (s.count / top) * 100)}%` }} />
                   </div>
-                  <div className="h-2.5 overflow-hidden rounded-full bg-inset">
-                    <div
-                      className={cn("h-full rounded-full", s.key === "paid" ? "bg-positive" : "bg-primary")}
-                      style={{ width: `${Math.max(s.count ? 3 : 0, (s.count / top) * 100)}%` }}
-                    />
-                  </div>
-                </div>
+                  <p className="mt-1.5 text-[11px] leading-[14px] tabular-nums text-muted-foreground">
+                    {pct === null ? "\u00a0" : (
+                      <>{pct}%<span className="hidden sm:inline"> of prev.</span></>
+                    )}
+                  </p>
+                </li>
               );
             })}
-          </div>
+          </ol>
 
-          {leak && (
-            <p className="rounded-radius-md bg-inset p-3 text-[14px] leading-[20px] text-foreground">{leak}</p>
-          )}
+          {leak && <p className="text-[13px] leading-[18px] text-muted-foreground">{leak}</p>}
 
           {(q.data?.plans.length ?? 0) > 0 && (
-            <div className="space-y-1">
-              <p className="text-[14px] font-semibold text-foreground">By plan</p>
-              <div className="divide-y divide-transparent">
-                <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 py-1 text-[12px] text-muted-foreground">
-                  <span>Plan</span><span className="text-right">Opened</span><span className="text-right">Checkout</span><span className="text-right">Paid</span>
-                </div>
-                {q.data!.plans.map((p) => (
-                  <div key={p.id} className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 py-1.5 text-[14px] tabular-nums">
-                    <span className="truncate text-foreground">{p.name}</span>
-                    <span className="text-right text-foreground">{p.views}</span>
-                    <span className="text-right text-foreground">{p.checkouts}</span>
-                    <span className="text-right font-semibold text-foreground">{p.paid}</span>
+            <div>
+              <button type="button" onClick={() => setByPlanOpen((o) => !o)}
+                className="flex items-center gap-1 text-[13px] font-semibold text-foreground"
+                aria-expanded={byPlanOpen}>
+                By plan · {q.data!.plans.length}
+                <ChevronDown className={cn("h-4 w-4 transition-transform", byPlanOpen && "rotate-180")} />
+              </button>
+              {byPlanOpen && (
+                <div className="mt-1">
+                  <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 py-1 text-[12px] text-muted-foreground">
+                    <span>Plan</span><span className="text-right">Opened</span><span className="text-right">Checkout</span><span className="text-right">Paid</span>
                   </div>
-                ))}
-              </div>
+                  {q.data!.plans.map((p) => (
+                    <div key={p.id} className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 py-1 text-[13px] tabular-nums">
+                      <span className="truncate text-foreground">{p.name}</span>
+                      <span className="text-right text-foreground">{p.views}</span>
+                      <span className="text-right text-foreground">{p.checkouts}</span>
+                      <span className="text-right font-semibold text-foreground">{p.paid}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
