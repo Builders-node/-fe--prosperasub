@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus, Pencil, Trash2, Eye, EyeOff, MoreHorizontal, Layers } from "lucide-react";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
@@ -169,6 +170,27 @@ export default function ServiceCategories({ embedded = false, archetypeKey }: Se
     });
   };
   const openEdit = (c: Category) => { setEditing(c); setForm({ ...c }); };
+
+  /**
+   * `?edit=<key>` / `?new=1` — the Services list links its category chips
+   * here, so a click on a chip lands in that category's editor, not on a list
+   * the admin has to search again. Consumed once, then dropped from the URL.
+   */
+  const [params, setParams] = useSearchParams();
+  const wantEdit = params.get("edit");
+  const wantNew = params.get("new");
+  useEffect(() => {
+    if (!wantEdit && !wantNew) return;
+    if (isLoading) return;
+    if (wantNew) openNew();
+    else {
+      const c = rows.find((r) => r.key === wantEdit);
+      if (c) openEdit(c);
+    }
+    const q = new URLSearchParams(params);
+    q.delete("edit"); q.delete("new");
+    setParams(q, { replace: true });
+  }, [wantEdit, wantNew, isLoading, rows, archetypes]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const save = useMutation({
     mutationFn: async () => {

@@ -21,7 +21,12 @@ import { FLEET_KEY, addDaysISO, todayHN, type FleetVehicle } from "./fleetData";
  * day, which is how the calendar opens it.
  */
 
-export interface NewRentalSeed { vehicleId?: string; date?: string; mode?: "booking" | "block" }
+export interface NewRentalSeed {
+  vehicleId?: string; date?: string;
+  /** Last day, inclusive — set when a range was dragged on the schedule. */
+  endDate?: string;
+  mode?: "booking" | "block";
+}
 
 export function NewRentalDialog({ open, seed, vehicles, onClose }: {
   open: boolean;
@@ -50,7 +55,7 @@ export function NewRentalDialog({ open, seed, vehicles, onClose }: {
     const d = seed?.date ?? todayHN();
     setMode(seed?.mode ?? "booking");
     setVehicleId(seed?.vehicleId ?? vehicles[0]?.id ?? "");
-    setStart(d); setEnd(addDaysISO(d, 2));
+    setStart(d); setEnd(seed?.endDate && seed.endDate >= d ? seed.endDate : addDaysISO(d, 2));
     setWho({ name: "", whatsapp: "", email: "" });
     setInsuranceId(""); setExtraIds([]); setZoneId(""); setAddress(""); setNotes("");
     setPaid(false); setMethod("cash"); setOverride(""); setReason("");

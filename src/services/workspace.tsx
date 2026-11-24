@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { CalendarDays, CarFront, ClipboardList, ShieldCheck } from "lucide-react";
+import { CarFront, ClipboardList, ShieldCheck } from "lucide-react";
 import type { PortalTab } from "@/components/provider/portalTab";
 import { ProviderItemsPanel } from "@/components/provider/ProviderItemsPanel";
 import { ServiceLocationsSection } from "@/components/food/admin/ServiceLocationsSection";
@@ -70,9 +70,8 @@ const WORKSPACE: Record<string, WorkspaceCustomisation> = {
     // to be ONE "Vehicles" tab holding that page whole, its own five tabs
     // nested under the workspace's eight, beside a Schedule and a Calendars
     // that cars never use.
-    overviewTop: ({ providerId }) => <CarRentals embedded providerId={providerId} section="overview" />,
+    overviewTop: ({ providerId }) => <CarRentals embedded providerId={providerId} section="schedule" />,
     coreTabs: ({ providerId, isOwner }) => [
-      { value: "fleet-calendar", label: "Calendar", icon: CalendarDays, render: () => <CarRentals embedded providerId={providerId} section="calendar" /> },
       { value: "fleet-bookings", label: "Bookings", icon: ClipboardList, render: () => <CarRentals embedded providerId={providerId} section="bookings" /> },
       { value: "fleet", label: "Vehicles", icon: CarFront, render: () => <CarRentals embedded providerId={providerId} section="fleet" /> },
       { value: "offerings", label: "Insurance & extras", icon: ShieldCheck, render: () => <RentalTermsTab providerId={providerId} canManage={isOwner} /> },

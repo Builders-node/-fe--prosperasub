@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Photo, initialsOf } from "@/components/patterns/Photo";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -25,7 +25,7 @@ import { cn } from "@/lib/utils";
 import { StatusPill, statusLabel } from "@/components/patterns/StatusPill";
 import { VehicleTypesPanel, useVehicleTypes, RentalTermsTab } from "@/features/vehicles";
 import {
-  FleetCalendar, FleetOverview, NewRentalDialog, RentalBookingSheet, useFleet, FLEET_KEY, type NewRentalSeed,
+  FleetCalendar, FleetPulse, NewRentalDialog, RentalBookingSheet, useFleet, FLEET_KEY, type NewRentalSeed,
 } from "@/features/vehicles";
 import { useTabParam } from "@/hooks/useTabParam";
 import { VEHICLES_UNIT } from "@/lib/services/vehiclesUnit";
@@ -58,7 +58,14 @@ const day = (iso?: string | null) => (iso ? format(new Date(`${iso}T00:00:00`), 
  * exactly the duplication the rest of the admin already removed by turning
  * per-service pages into workspace tabs.
  */
-export type FleetSection = "overview" | "calendar" | "bookings" | "fleet";
+export type FleetSection = "schedule" | "bookings" | "fleet"
+  /** Old names for "schedule", which merged the two. */
+  | "overview" | "calendar";
+
+/** Fleet's own parts: the cars, and the settings that shape them. */
+type FleetPart = "vehicles" | "types" | "terms" | "companies";
+/** Old top-level tabs that now live inside Fleet — bookmarks still land. */
+const LEGACY_PART: Record<string, FleetPart> = { types: "types", terms: "terms", providers: "companies" };
 
 export default function CarRentals({ embedded = false, providerId, section }: {
   /** Skip the admin chrome: something else is already providing it. */
@@ -75,12 +82,27 @@ export default function CarRentals({ embedded = false, providerId, section }: {
   const qc = useQueryClient();
   // In the URL, like every other drill-down: a reload or a Back used to drop
   // the admin back on Bookings from whatever tab they were working in.
-  const [tabParam, setTab] = useTabParam(
-    embedded
-      ? (["overview", "calendar", "bookings", "fleet", "terms"] as const)
-      : (["overview", "calendar", "bookings", "fleet", "terms", "types", "providers"] as const),
+  //
+  // Three tabs: the day-to-day work (Schedule, Bookings) and the fleet with
+  // its settings. There used to be seven — Overview and Calendar showed the
+  // same cars twice, and Types, Insurance and Providers sat between them as
+  // if they were daily work.
+  const [tabParam, setTab] = useTabParam(["schedule", "bookings", "fleet"] as const);
+  const [partParam, setPart] = useTabParam(
+    (providerId ? ["vehicles", "terms"] : ["vehicles", "types", "terms", "companies"]) as readonly FleetPart[],
+    { key: "part" },
   );
-  const tab = section ?? tabParam;
+  const [params, setParams] = useSearchParams();
+  const legacy = params.get("tab");
+  useEffect(() => {
+    if (section || !legacy || !LEGACY_PART[legacy]) return;
+    const q = new URLSearchParams(params);
+    q.set("tab", "fleet"); q.set("part", LEGACY_PART[legacy]);
+    setParams(q, { replace: true });
+  }, [legacy]); // eslint-disable-line react-hooks/exhaustive-deps
+  const tab: "schedule" | "bookings" | "fleet" =
+    section === "overview" || section === "calendar" ? "schedule" : section ?? tabParam;
+  const part: FleetPart = section ? "vehicles" : partParam;
   /** Everything the operations screens read, in one query (features/vehicles/admin). */
   const fleetQ = useFleet(providerId);
   const fleet = fleetQ.data;
@@ -129,7 +151,8 @@ export default function CarRentals({ embedded = false, providerId, section }: {
 
   const vehiclesQ = useQuery({
     queryKey: ["admin-rental-vehicles", providerId ?? "all"],
-    enabled: tab === "fleet",
+    // The schedule's per-car "Edit vehicle" opens the same editor.
+    enabled: tab === "fleet" || tab === "schedule",
     queryFn: async () => {
       let q = supabaseDb
         .from("rental_vehicles")
@@ -142,13 +165,13 @@ export default function CarRentals({ embedded = false, providerId, section }: {
   });
 
   /** Type labels for the fleet rows — the unit's own types. */
-  const typesQ = useVehicleTypes({ activeOnly: false, enabled: tab === "fleet" });
+  const typesQ = useVehicleTypes({ activeOnly: false, enabled: tab === "fleet" && part === "vehicles" });
   const typeLabel = (key: string | null | undefined) =>
     key ? typesQ.data?.find((t) => t.key === key)?.label ?? key : null;
 
   const companiesQ = useQuery({
     queryKey: ["transport-providers"],
-    enabled: (tab === "providers" || tab === "terms") && !providerId,
+    enabled: tab === "fleet" && (part === "companies" || part === "terms") && !providerId,
     queryFn: async () => {
       const { data, error } = await supabaseDb
         .from("providers")
@@ -192,51 +215,72 @@ export default function CarRentals({ embedded = false, providerId, section }: {
     const { error } = await fleetWrite("rental_vehicles", "update", { id: v.id, row: { status: next } });
     if (error) { toast.error(error.message); return; }
     await qc.invalidateQueries({ queryKey: ["admin-rental-vehicles"] });
+    void qc.invalidateQueries({ queryKey: [FLEET_KEY] });
     toast.success(next === "public" ? "Car is listed" : "Car is hidden");
   };
 
   const body = (
     <div className="space-y-space-4">
       {confirmDialog}
-      {/* Same drill-down shape as a Marketplace service: the unit's own nouns
-          (Vehicles, Bookings) beside the shared lists, mounted embedded. */}
-      {!section && <TabPills
-        className="mb-4"
-        tabs={(embedded
-          ? ([["overview", "Overview"], ["calendar", "Calendar"], ["bookings", "Bookings"], ["fleet", "Vehicles"], ["terms", "Insurance & extras"]] as const)
-          : ([
-              ["overview", "Overview"], ["calendar", "Calendar"], ["bookings", "Bookings"], ["fleet", "Vehicles"],
-              ["terms", "Insurance & extras"], ["types", "Types"], ["providers", "Providers"],
-            ] as const)
-        ).map(([value, label]) => ({ value, label }))}
-        value={tab}
-        onChange={setTab}
-      />}
+      <div className="flex items-center justify-between gap-2">
+        {!section && <div className="min-w-0"><TabPills
+          tabs={[
+            { value: "schedule", label: "Schedule" },
+            { value: "bookings", label: "Bookings" },
+            { value: "fleet", label: "Fleet" },
+          ]}
+          value={tab}
+          onChange={setTab}
+        /></div>}
+        {tab !== "fleet" && (
+          <>
+            {/* Icon-only on a phone, so the three tabs keep their line. */}
+            <Button size="icon" className="ml-auto shrink-0 sm:hidden" aria-label="New booking" onClick={() => setNewSeed({ mode: "booking" })} disabled={!fleet?.vehicles.length}>
+              <Plus />
+            </Button>
+            <Button className="ml-auto hidden shrink-0 gap-2 sm:inline-flex" onClick={() => setNewSeed({ mode: "booking" })} disabled={!fleet?.vehicles.length}>
+              <Plus className="h-4 w-4" /> New booking
+            </Button>
+          </>
+        )}
+      </div>
 
-      {/* The two things a fleet does by hand, wherever it is looking. */}
-      {(tab === "overview" || tab === "calendar" || tab === "bookings") && (
-        <div className="flex flex-wrap gap-2">
-          <Button className="gap-2" onClick={() => setNewSeed({ mode: "booking" })} disabled={!fleet?.vehicles.length}>
-            <Plus className="h-4 w-4" /> New booking
-          </Button>
-          <Button variant="secondary" onClick={() => setNewSeed({ mode: "block" })} disabled={!fleet?.vehicles.length}>
-            Block days
-          </Button>
+      {tab === "schedule" && (
+        fleetQ.isLoading ? <div className="h-64 animate-pulse rounded-radius-lg bg-card" />
+        : fleetQ.isError ? <p className="rounded-radius-lg bg-card p-4 text-body text-negative">Couldn't load the fleet: {(fleetQ.error as Error)?.message}</p>
+        : (
+          <>
+            <FleetPulse vehicles={fleet!.vehicles} bookings={fleet!.bookings} blocks={fleet!.blocks} onOpenBooking={(b) => setOpenBookingId(b.id)} />
+            <FleetCalendar vehicles={fleet!.vehicles} bookings={fleet!.bookings} blocks={fleet!.blocks}
+              onOpenBooking={(b) => setOpenBookingId(b.id)}
+              onOpenBlock={(k) => void removeBlock(k.id, `${k.start_date} → ${k.end_date}${k.reason ? ` (${k.reason})` : ""}`)}
+              onNew={(vehicleId, date, endDate, mode) => setNewSeed({ vehicleId, date, endDate, mode: mode ?? "booking" })}
+              onEditVehicle={(id) => { const v = vehiclesQ.data?.find((x) => x.id === id); if (v) setEditing(v); }}
+              onToggleVehicle={(id) => { const v = vehiclesQ.data?.find((x) => x.id === id) ?? fleet!.vehicles.find((x) => x.id === id); if (v) void toggleVehicle(v); }}
+            />
+          </>
+        )
+      )}
+
+      {/* Fleet: the cars first, then what shapes them. */}
+      {tab === "fleet" && !section && (
+        <div className="flex gap-1 overflow-x-auto [scrollbar-width:none]">
+          {([
+            ["vehicles", "Vehicles"],
+            ...(providerId ? [] : [["types", "Types"]]),
+            ["terms", "Insurance & extras"],
+            ...(providerId ? [] : [["companies", "Rental companies"]]),
+          ] as Array<[FleetPart, string]>).map(([value, label]) => (
+            <button key={value} type="button" onClick={() => setPart(value)} aria-pressed={part === value}
+              className={cn("h-8 shrink-0 rounded-full px-3 text-[13px] font-semibold transition-colors",
+                part === value ? "bg-inset text-foreground" : "text-muted-foreground hover:text-foreground")}>
+              {label}
+            </button>
+          ))}
         </div>
       )}
 
-      {(tab === "overview" || tab === "calendar") && (
-        fleetQ.isLoading ? <div className="h-64 animate-pulse rounded-radius-lg bg-card" />
-        : fleetQ.isError ? <p className="rounded-radius-lg bg-card p-4 text-body text-negative">Couldn't load the fleet: {(fleetQ.error as Error)?.message}</p>
-        : tab === "overview"
-          ? <FleetOverview vehicles={fleet!.vehicles} bookings={fleet!.bookings} blocks={fleet!.blocks} onOpenBooking={(b) => setOpenBookingId(b.id)} />
-          : <FleetCalendar vehicles={fleet!.vehicles} bookings={fleet!.bookings} blocks={fleet!.blocks}
-              onOpenBooking={(b) => setOpenBookingId(b.id)}
-              onOpenBlock={(k) => void removeBlock(k.id, `${k.start_date} → ${k.end_date}${k.reason ? ` (${k.reason})` : ""}`)}
-              onNew={(vehicleId, date) => setNewSeed({ vehicleId, date, mode: "booking" })} />
-      )}
-
-      {tab === "terms" && (
+      {tab === "fleet" && part === "terms" && (
         <div className="space-y-3">
           {!providerId && (
             <select value={termsProvider} onChange={(e) => setTermsProvider(e.target.value)} aria-label="Rental company"
@@ -323,7 +367,7 @@ export default function CarRentals({ embedded = false, providerId, section }: {
             </div>
           </AdminListShell>
         </>
-      ) : tab === "fleet" ? (
+      ) : tab === "fleet" && part === "vehicles" ? (
         <AdminListShell
           isLoading={vehiclesQ.isLoading}
           isError={vehiclesQ.isError}
@@ -422,9 +466,9 @@ export default function CarRentals({ embedded = false, providerId, section }: {
 
       {/* Transport's own type editor — a "Motorbikes" row typed here becomes a
           storefront chip and an option in the vehicle editor, no code. */}
-      {tab === "types" && <VehicleTypesPanel />}
+      {tab === "fleet" && part === "types" && <VehicleTypesPanel />}
 
-      {tab === "providers" && (
+      {tab === "fleet" && part === "companies" && (
         <AdminListShell
           isLoading={companiesQ.isLoading}
           isError={companiesQ.isError}
@@ -472,8 +516,9 @@ export default function CarRentals({ embedded = false, providerId, section }: {
         lockedProviderId={providerId}
         onClose={() => setEditing(null)}
         onSaved={() => {
-          // Both caches hold cars: this page's list and the storefront's own.
+          // Every cache holding cars: this page's list, the schedule, the storefront.
           void qc.invalidateQueries({ queryKey: ["admin-rental-vehicles"] });
+          void qc.invalidateQueries({ queryKey: [FLEET_KEY] });
           void qc.invalidateQueries({ queryKey: ["rental-vehicles"] });
         }}
       />
@@ -483,7 +528,7 @@ export default function CarRentals({ embedded = false, providerId, section }: {
   if (embedded) return body;
 
   return (
-    <SuperAdminLayout title="Vehicles" subtitle="Run the fleet: today's handovers, the calendar, bookings, cars, insurance and rental companies">
+    <SuperAdminLayout title="Vehicles" subtitle="Which car is free when, the bookings, and the fleet itself">
       {body}
     </SuperAdminLayout>
   );
