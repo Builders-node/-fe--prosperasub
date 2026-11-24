@@ -3,6 +3,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { Copy, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { TillPinForm } from "@/components/till/TillPinForm";
 
 /**
  * The till QR: customers scan it in the app, see what their subscription here
@@ -61,7 +62,7 @@ export function TillQrCard({ providerId, name, embedded = false }: { providerId:
           {!embedded && <h2 className="text-heading font-semibold text-foreground">Till QR</h2>}
           <p className={embedded ? "text-body text-muted-foreground" : "mt-1 text-body text-muted-foreground"}>
             Put it at the till. A subscriber scans it, sees what their plan includes today and presses Get —
-            you see it at once on Schedule → Today.
+            you see it at once on Schedule → Today. Or staff scan the customer's own code and enter the PIN below.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <Button size="sm" variant="secondary" className="gap-1.5" onClick={print}><Printer className="h-4 w-4" /> Print</Button>
@@ -69,6 +70,8 @@ export function TillQrCard({ providerId, name, embedded = false }: { providerId:
           </div>
         </div>
       </div>
+      {/* The other way to collect: staff scan the customer's code and type this. */}
+      <TillPinForm providerId={providerId} />
     </section>
   );
 }

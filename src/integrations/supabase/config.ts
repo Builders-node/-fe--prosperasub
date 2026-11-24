@@ -101,6 +101,8 @@ const EDGE_ROUTES: RegExp[] = [
   /^\/account\/profiles?(\/lookup)?$/,
   // Collect at the till: the customer's list + Get, the business's day (Edge routes/redeem.ts).
   /^\/redeem\/[^/]+$/,
+  /^\/till\/(lookup|redeem)$/,
+  /^\/account\/providers\/[^/]+\/till-pin$/,
   /^\/account\/providers\/[^/]+\/redemptions(\/[^/]+\/void)?$/,
   /^\/account\/providers\/[^/]+\/reviews\/[^/]+\/reply$/,
   // Owner promo codes and team invites (Edge routes/provider-growth.ts).

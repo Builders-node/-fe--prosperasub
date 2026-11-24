@@ -6,6 +6,7 @@ import { useI18n } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { formatDateHN, formatTimestampHN } from "@/lib/timezone";
 import { apiUrlFor } from "@/integrations/supabase/config";
+import { TillCollectCard } from "@/components/till/TillCollectCard";
 
 
 /**
@@ -144,6 +145,8 @@ export default function VerifyAccess() {
       {result.user && (
         <AccessCard subscriptions={granting} pendingCount={pendingCount} emptyLabel={t("verify.noActive")} />
       )}
+      {/* At a till: what this subscription includes today, Get + the business PIN. */}
+      {allowed && token && <TillCollectCard token={token} />}
     </Shell>
   );
 }
