@@ -146,7 +146,6 @@ export default function VehicleDetail() {
     ...(v.provider?.name && v.provider.id
       ? [{ label: v.provider.name, href: carProviderPath(v.provider.slug || v.provider.id) }]
       : []),
-    { label: v.name },
   ];
 
   const bookButton = (

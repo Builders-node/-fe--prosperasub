@@ -716,7 +716,14 @@ const PlanDetail = () => {
       label: i === 0 ? "Home" : c.label,
       href: i === trail.length - 1 ? undefined : c.href,
     }))
-    .filter((c, i, all) => i === 0 || c.label.trim().toLowerCase() !== all[i - 1].label.trim().toLowerCase());
+    .filter((c, i, all) => i === 0 || c.label.trim().toLowerCase() !== all[i - 1].label.trim().toLowerCase())
+    // The page's own name is the heading right under the trail; printing it
+    // twice only made the trail longer than a phone line.
+    .slice(0, -1);
+  /** Who sells it — named under the heading and linked to their page. */
+  const sellerHref = providerName
+    ? trail.find((c) => c.label === providerName && c.href !== canonical)?.href
+    : undefined;
   // An offer's own price is the cheapest combination; once options are picked
   // the figure below is exact, so "From" only belongs on the unpicked case.
   const showFrom = !!offer && !chosen;
@@ -858,7 +865,7 @@ const PlanDetail = () => {
         1280px-wide card would be unreadable.
       */}
       {/* Laptop: the trail runs above both columns, like a shop's product page. */}
-      {breadcrumbs.length > 1 && (
+      {breadcrumbs.length > 0 && (
         <div className="hidden md:app-container md:block md:pt-space-6">
           <Breadcrumbs items={breadcrumbs} />
         </div>
@@ -869,7 +876,7 @@ const PlanDetail = () => {
 
         <div className="flex flex-col gap-1 md:gap-4">
         <section className="space-y-3 rounded-radius-lg bg-card p-4 shadow-figma">
-          {breadcrumbs.length > 1 && <Breadcrumbs items={breadcrumbs} className="md:hidden" />}
+          {breadcrumbs.length > 0 && <Breadcrumbs items={breadcrumbs} className="md:hidden" />}
 
           <div className="space-y-2">
             {/* Laptop: favourite and share sit beside the name — there is no title bar above. */}
@@ -880,6 +887,18 @@ const PlanDetail = () => {
                 <ShareButton title={title} text={shareText} className="text-foreground hover:bg-muted" />
               </div>
             </div>
+            {providerName && (
+              <p className="text-meta leading-4 text-muted-foreground">
+                by{" "}
+                {sellerHref ? (
+                  <Link to={sellerHref} className="font-semibold text-foreground underline-offset-2 hover:underline">
+                    {providerName}
+                  </Link>
+                ) : (
+                  <span className="font-semibold text-foreground">{providerName}</span>
+                )}
+              </p>
+            )}
             {description && (
               <p className="text-title leading-[22px] text-muted-foreground">
                 <LinkifiedText text={description} />
