@@ -39,6 +39,7 @@ import { ProviderReviewsPanel } from "@/components/provider/ProviderReviewsPanel
 import { ProviderEarningsTab } from "@/components/provider/ProviderEarningsTab";
 import type { PortalTab } from "@/components/provider/portalTab";
 import { LEGACY_PORTAL_SOURCE_KEYS, legacyIdOf } from "@/lib/services/providerBridge";
+import { TillQrCard } from "@/components/provider/TillQrCard";
 
 /**
  * The single provider management view — banner + header + tab dispatch. Layout-
@@ -281,6 +282,8 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
             isPublic={provider.status === "active"}
           />
         )}
+        {/* The other code: subscribers scan it at the till to collect. */}
+        {provider.archetype_key && <TillQrCard providerId={provider.id} name={provider.name} />}
         {custom.infoExtra?.(workspaceCtx)}
         {/* How to reach the business, last on Overview: reference, not the
             first thing an owner opens the workspace for. No Edit of its own —

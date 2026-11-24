@@ -97,6 +97,9 @@ const EDGE_ROUTES: RegExp[] = [
   /^\/account\/people(\/lookup)?$/,
   // Names for ids the caller may know, and the caller's own id (same file).
   /^\/account\/me\/uuid$/,
+  // Collect at the till: the customer's list + Get, the business's day (Edge routes/redeem.ts).
+  /^\/redeem\/[^/]+$/,
+  /^\/account\/providers\/[^/]+\/redemptions(\/[^/]+\/void)?$/,
   /^\/account\/providers\/[^/]+\/reviews\/[^/]+\/reply$/,
   // Owner promo codes and team invites (Edge routes/provider-growth.ts).
   /^\/account\/providers\/[^/]+\/promo-codes(\/[^/]+)?$/,

@@ -12,6 +12,7 @@ import { accountApi } from "@/integrations/supabase/client";
 import { todayHN } from "@/lib/timezone";
 import { itemLabel, useProviderItems } from "@/lib/services/providerItems";
 import { cn } from "@/lib/utils";
+import { RedemptionsCard } from "@/components/provider/RedemptionsCard";
 
 /**
  * The provider's day — one screen, whatever they sell.
@@ -216,6 +217,8 @@ export function OperationsTab({ providerId }: { providerId: string }) {
           ))}
         </div>
       </WorkspaceCard>
+      {/* What subscribers collected at the till today (till QR → Get). */}
+      <RedemptionsCard providerId={providerId} day={day} />
 
       {isLoading ? (
         <div className="flex justify-center py-12"><Spinner /></div>
