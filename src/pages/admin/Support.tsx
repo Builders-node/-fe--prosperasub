@@ -189,7 +189,9 @@ export default function AdminSupport() {
                         size="sm"
                         variant={handled ? "ghost" : "primary"}
                         className="ml-auto"
-                        disabled={setHandled.isPending}
+                        // Only this message waits; the rest stay usable.
+                        disabled={setHandled.isPending && setHandled.variables?.id === m.id}
+                        loading={setHandled.isPending && setHandled.variables?.id === m.id}
                         onClick={() => setHandled.mutate({ id: m.id, handled: !handled })}
                       >
                         <Check className="mr-1.5 h-3.5 w-3.5" />

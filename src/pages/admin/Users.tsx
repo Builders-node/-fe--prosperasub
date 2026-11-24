@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { Ban, Pencil, Trash2, UserCheck } from "lucide-react";
+import { Ban, Trash2, UserCheck, UserRound } from "lucide-react";
 import { toast } from "sonner";
 
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
@@ -334,7 +334,7 @@ const AdminUsers = () => {
                       title={p.name}
                       className="h-10 w-10"
                       actions={[
-                        { label: "Open profile", icon: <Pencil className="h-4 w-4" />, onClick: () => openUser(p.id) },
+                        { label: "Open profile", icon: <UserRound className="h-4 w-4" />, onClick: () => openUser(p.id) },
                         p.isBlocked
                           ? { label: "Unblock", icon: <UserCheck className="h-4 w-4" />, onClick: () => blockMutation.mutate({ userId: p.id, block: false }) }
                           : { label: "Block…", icon: <Ban className="h-4 w-4" />, danger: true, onClick: () => setBlockTarget({ id: p.id, name: p.name }) },

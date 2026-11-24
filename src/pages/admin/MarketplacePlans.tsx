@@ -1,7 +1,7 @@
 import { Fragment, useMemo, useState } from "react";
 import { useUrlState } from "@/hooks/useUrlState";
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Building2, ChevronRight, ExternalLink } from "lucide-react";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { AdminListShell } from "@/components/admin/AdminListShell";
@@ -48,6 +48,7 @@ export interface MarketplacePlansProps {
  */
 const MarketplacePlans = ({ embedded = false, archetypeKey }: MarketplacePlansProps = {}) => {
   const { archetypes } = useServiceArchetypes(false);
+  const navigate = useNavigate();
   // When scoped by the parent route the archetype isn't the admin's to change,
   // so it's derived rather than state — otherwise navigating between two
   // services would keep showing the first one's plans.
@@ -273,9 +274,10 @@ const MarketplacePlans = ({ embedded = false, archetypeKey }: MarketplacePlansPr
       <div className="flex justify-end">
         <Link
           onClick={(e) => e.stopPropagation()}
-          to={`/admin/marketplace/providers/${prov.id}`}
+          to={`/admin/marketplace/providers/${prov.id}?tab=offerings`}
           className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          aria-label={`Open ${prov.name}`}
+          aria-label={`Edit in ${prov.name}`}
+          title="Edit in the business's Offerings"
         >
           <ExternalLink className="h-3.5 w-3.5" />
         </Link>
@@ -285,13 +287,19 @@ const MarketplacePlans = ({ embedded = false, archetypeKey }: MarketplacePlansPr
     return (
       <div
         key={p.id}
-        // An offer's whole row opens it; the arrow says so.
-        role={kids ? "button" : undefined}
-        tabIndex={kids ? 0 : undefined}
+        // An offer with options opens its options; any other plan opens where
+        // it is edited — the business's Offerings tab — instead of being a
+        // dead end that took four steps to reach the price.
+        role={kids || prov ? "button" : undefined}
+        tabIndex={kids || prov ? 0 : undefined}
         aria-expanded={kids ? open : undefined}
-        onClick={kids ? () => toggle(p.id) : undefined}
-        onKeyDown={kids ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(p.id); } } : undefined}
-        className={cn("group px-space-5 py-space-3 transition-colors hover:bg-muted/30", kids && "cursor-pointer", child && "bg-inset/40")}
+        onClick={kids ? () => toggle(p.id) : prov ? () => navigate(`/admin/marketplace/providers/${prov.id}?tab=offerings`) : undefined}
+        onKeyDown={kids || prov ? (e) => {
+          if (e.key !== "Enter" && e.key !== " ") return;
+          e.preventDefault();
+          if (kids) toggle(p.id); else if (prov) navigate(`/admin/marketplace/providers/${prov.id}?tab=offerings`);
+        } : undefined}
+        className={cn("group px-space-5 py-space-3 transition-colors hover:bg-muted/30", (kids || prov) && "cursor-pointer", child && "bg-inset/40")}
       >
         {/* Desktop grid row */}
         <div className="hidden grid-cols-[minmax(0,3fr)_minmax(0,2fr)_120px_minmax(0,1fr)_80px_80px] items-center gap-4 md:grid">

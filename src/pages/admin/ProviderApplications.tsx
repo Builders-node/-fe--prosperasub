@@ -461,7 +461,7 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
                     <div className="flex gap-2 pt-1">
                       <Button
                         size="sm"
-                        className="flex-1 gap-1.5 bg-positive text-white hover:bg-positive/90"
+                        className="flex-1 gap-1.5"
                         onClick={() => setApproveTarget(a)}
                         // Only THIS card shows progress; the others stay usable.
                         disabled={approve.isPending && approve.variables?.id === a.id}
@@ -472,8 +472,8 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
                       </Button>
                       <Button
                         size="sm"
-                        variant="outline"
-                        className="flex-1 gap-1.5 text-negative hover:text-negative"
+                        variant="secondary"
+                        className="flex-1 gap-1.5"
                         onClick={() => { setRejectTarget(a); setRejectNotes(""); }}
                         disabled={(reject.isPending && reject.variables?.app?.id === a.id) || (approve.isPending && approve.variables?.id === a.id)}
                       >

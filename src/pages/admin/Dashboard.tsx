@@ -342,7 +342,7 @@ const AdminDashboard = () => {
         <MetricTile loading={statsLoading} label="Revenue" value={formatUSD(pf.revenueCents)}
           // A calendar month opens Finance on the same month, so the two
           // numbers can be checked against each other.
-          href={financeRangeFor(period) ? `/admin/payments?range=${financeRangeFor(period)}` : `/admin/analytics?period=${period}`} accent change={period === "all" ? undefined : changeLabel(pf.revenueCents, pf.prevRevenueCents)} />
+          href={financeRangeFor(period) ? `/admin/payments?range=${financeRangeFor(period)}` : `/admin/analytics?period=${period}`} change={period === "all" ? undefined : changeLabel(pf.revenueCents, pf.prevRevenueCents)} />
         <MetricTile loading={statsLoading} label="Sales" value={String(pf.sales)}
           href={`/admin/analytics?period=${period}`} change={period === "all" ? undefined : changeLabel(pf.sales, pf.prevSales)} />
         <MetricTile loading={statsLoading} label="Users" value={String(stats?.users ?? 0)} href="/admin/users" />

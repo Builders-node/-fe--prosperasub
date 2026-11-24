@@ -70,7 +70,7 @@ export default function Promotions() {
       {confirmDialog}
       {data && !data.enabled && (
         <p className="mb-4 rounded-radius-md bg-card p-4 text-body text-muted-foreground">
-          Promotions need the database migration (20261114120000_provider_promotions) before businesses can buy them.
+          Promotions aren't available yet, so businesses can't buy them. Diagnostics shows what is missing.
         </p>
       )}
 

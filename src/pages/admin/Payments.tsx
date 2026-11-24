@@ -81,7 +81,7 @@ const AdminPayments = () => {
               <FinanceTile label="Awaiting payment" value={rollup ? String(rollup.totals.awaitingPayment) : "—"} hint="Right now · every service"
                 warning={(rollup?.totals.awaitingPayment ?? 0) > 0} className="col-span-1" />
               <FinanceTile label="Sold" value={rollup ? formatUSD(soldCents) : "—"}
-                hint="Full price of those sales. The breakdown below spreads each over its service period" accent className="col-span-2 md:col-span-1" />
+                hint="Full price of those sales. The breakdown below spreads each over its service period" className="col-span-2 md:col-span-1" />
             </section>
           )}
 
@@ -131,7 +131,7 @@ function FinanceTile({
       </span>
       <p
         className={
-          "text-2xl font-black tabular-nums tracking-tight md:text-3xl " +
+          "text-2xl font-semibold tabular-nums tracking-tight md:text-3xl " +
           (accent ? "text-primary" : warning ? "text-attention" : "text-foreground")
         }
       >

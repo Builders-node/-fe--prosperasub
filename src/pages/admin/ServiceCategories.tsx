@@ -72,11 +72,16 @@ export interface ServiceCategoriesProps {
   archetypeKey?: string;
 }
 
+/** "Car wash" → "car_wash": the stored id, made from the name. */
+const slugKey = (v: string) =>
+  v.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 48);
+
 export default function ServiceCategories({ embedded = false, archetypeKey }: ServiceCategoriesProps = {}) {
   const qc = useQueryClient();
   const { userData } = useAuth();
   const { archetypes } = useServiceArchetypes();
   const [editing, setEditing] = useState<Category | "new" | null>(null);
+  const [keyOpen, setKeyOpen] = useState(false);
   const [form, setForm] = useState<Category>({ ...EMPTY });
   const [deleteTarget, setDeleteTarget] = useState<Category | null>(null);
   const [search, setSearch] = useState("");
@@ -363,27 +368,35 @@ export default function ServiceCategories({ embedded = false, archetypeKey }: Se
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Key</Label>
-                <Input
-                  value={form.key}
-                  onChange={(e) => setForm({ ...form, key: e.target.value })}
-                  placeholder="car_wash"
-                  disabled={editing !== "new"}
-                />
+            <div>
+              <Label>Name</Label>
+              <Input
+                value={form.label}
+                // A new category's key follows its name until someone edits
+                // the key by hand: nobody should have to invent "car_wash".
+                onChange={(e) => {
+                  const label = e.target.value;
+                  const auto = editing === "new" && (form.key === "" || form.key === slugKey(form.label));
+                  setForm({ ...form, label, ...(auto ? { key: slugKey(label) } : {}) });
+                }}
+                placeholder="Car wash"
+              />
+              <p className="mt-1 text-meta text-muted-foreground">
+                Id <span className="font-mono">{form.key || "—"}</span>
                 {editing === "new" && (
-                  <p className="mt-1 text-xs text-muted-foreground">Lowercase, underscores. Can't change later.</p>
+                  <button type="button" className="ml-2 font-semibold text-primary hover:underline" onClick={() => setKeyOpen((v) => !v)}>
+                    {keyOpen ? "Done" : "Change"}
+                  </button>
                 )}
-              </div>
-              <div>
-                <Label>Label</Label>
+              </p>
+              {editing === "new" && keyOpen && (
                 <Input
-                  value={form.label}
-                  onChange={(e) => setForm({ ...form, label: e.target.value })}
-                  placeholder="Car Wash"
+                  className="mt-2"
+                  value={form.key}
+                  onChange={(e) => setForm({ ...form, key: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "_").slice(0, 48) })}
+                  placeholder="car_wash"
                 />
-              </div>
+              )}
             </div>
 
             <div>

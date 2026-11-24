@@ -72,7 +72,7 @@ export default function Collections() {
     <SuperAdminLayout title="Collections" subtitle="Shelves of offers on the home page, in this order">
       {data && !data.enabled && (
         <p className="mb-4 rounded-radius-md bg-card p-4 text-body text-muted-foreground">
-          Collections need the database migration (20261119120000_home_collections) before they can be created.
+          Collections aren't available yet. Diagnostics shows what is missing.
         </p>
       )}
 

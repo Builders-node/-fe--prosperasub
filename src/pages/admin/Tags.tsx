@@ -46,7 +46,7 @@ export default function Tags() {
     <SuperAdminLayout title="Tags" subtitle="The words businesses tag their plans with — and customers filter by">
       {!dict.isLoading && !dict.fromDb && (
         <p className="mb-4 rounded-radius-md bg-card p-4 text-body text-muted-foreground">
-          This is the built-in list. Apply the database migration (20261120120000_catalog_tags) to edit it here.
+          This is the built-in list and can't be edited yet. Diagnostics shows what is missing.
         </p>
       )}
 

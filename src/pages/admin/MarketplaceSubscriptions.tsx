@@ -14,7 +14,6 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { SaleOriginBadge, isFromBuildersNode } from "@/components/patterns/SaleOrigin";
-import { Badge } from "@/components/ui/badge";
 import { StatusPill } from "@/components/patterns/StatusPill";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -66,6 +65,15 @@ function subscriptionStage(s: SaleRow): string {
   if (s.status === "paused")           return "paused";
   if (s.payment_status !== "paid")     return "pending_payment";
   return "active";
+}
+
+/** "Sep 9", with the year only when it is not this year — one date style. */
+function shortDay(d: string | null | undefined): string {
+  if (!d) return "—";
+  const dt = new Date(`${d.slice(0, 10)}T00:00:00`);
+  if (Number.isNaN(dt.getTime())) return d;
+  const sameYear = dt.getFullYear() === new Date().getFullYear();
+  return dt.toLocaleDateString("en-US", sameYear ? { month: "short", day: "numeric" } : { month: "short", day: "numeric", year: "numeric" });
 }
 
 const STAGE_TABS = [
@@ -658,20 +666,20 @@ const MarketplaceSubscriptions = () => {
                         {/* A booked hour is one date and a time, not a range —
                             printing "2026-09-09 → 2026-09-09" says nothing. */}
                         {s.time_label
-                          ? `${s.start_date} · ${s.time_label}`
+                          ? `${shortDay(s.start_date)} · ${s.time_label}`
                           : s.start_date
-                            ? `${s.start_date}${s.end_date ? " → " + s.end_date : ""}`
+                            ? `${shortDay(s.start_date)}${s.end_date ? " → " + shortDay(s.end_date) : ""}`
                             : "—"}
                       </TableCell>
                       <TableCell className="px-4 py-3">
                         <div className="flex flex-wrap items-center gap-1.5">
                           <StatusPill status={stage} />
                           {s.payment_method && (
-                            <Badge variant="outline" className="rounded-full text-[10px] uppercase">{s.payment_method}</Badge>
+                            <PaymentMethodBadge method={s.payment_method} />
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="px-4 py-3 text-right font-black text-foreground whitespace-nowrap">
+                      <TableCell className="px-4 py-3 text-right font-semibold tabular-nums text-foreground whitespace-nowrap">
                         {typeof s.price_cents === "number" ? formatUSD(s.price_cents) : "—"}
                       </TableCell>
                       <TableCell className="px-2 py-3">
@@ -776,8 +784,8 @@ const MarketplaceSubscriptions = () => {
                   <Row k="Plan">{detail.plan_name ?? "—"}</Row>
                   <Row k="Period">
                     {detail.time_label
-                      ? `${detail.start_date} · ${detail.time_label}`
-                      : detail.start_date ? `${detail.start_date}${detail.end_date ? " → " + detail.end_date : ""}` : "—"}
+                      ? `${shortDay(detail.start_date)} · ${detail.time_label}`
+                      : detail.start_date ? `${shortDay(detail.start_date)}${detail.end_date ? " → " + shortDay(detail.end_date) : ""}` : "—"}
                   </Row>
                   <Row k="Payment">{detail.payment_method ? <PaymentMethodBadge method={detail.payment_method} /> : "—"}</Row>
                   <Row k="Payment status"><StatusPill status={detail.payment_status || "pending"} /></Row>

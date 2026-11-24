@@ -8,16 +8,12 @@ import { AdminListShell } from "@/components/admin/AdminListShell";
 import { Skeleton } from "@/components/patterns/Skeleton";
 import { YdEmptyState } from "@/components/yd/YdPrimitives";
 import { adminApi } from "@/integrations/supabase/client";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { StatusPill } from "@/components/patterns/StatusPill";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -163,9 +159,9 @@ export default function RoleManagement() {
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-space-2">
                       <p className="font-bold">{role.name}</p>
-                      <Badge variant={role.status === "active" ? "default" : "secondary"}>{role.status}</Badge>
-                      {role.isAdminRole && <Badge variant="outline">admin-level</Badge>}
-                      {role.isSystem && <Badge variant="secondary">system</Badge>}
+                      <StatusPill status={role.status} />
+                      {role.isAdminRole && <span className="text-meta text-muted-foreground">Admin access</span>}
+                      {role.isSystem && <span className="text-meta text-muted-foreground">Built in</span>}
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground">{role.description || "No description"}</p>
                     <p className="mt-1 text-xs text-muted-foreground">{role.permissions.length} permissions</p>
@@ -174,7 +170,7 @@ export default function RoleManagement() {
                     <Button variant="secondary" size="sm" onClick={() => setEditingRole(role)}>Edit</Button>
                     {!role.isSystem && (
                       <Button variant="ghost" size="sm" onClick={() => setArchiveTarget(role)}>
-                        <Archive className="h-4 w-4" />
+                        <Archive className="h-4 w-4" /> Archive
                       </Button>
                     )}
                   </div>
@@ -225,26 +221,26 @@ export default function RoleManagement() {
         onSave={(role) => saveRole.mutate(role)}
       />
 
-      <Dialog open={Boolean(archiveTarget)} onOpenChange={(open) => !open && setArchiveTarget(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Archive role?</DialogTitle>
-            <DialogDescription>
-              Users assigned to {archiveTarget?.name || "this role"} will lose that role when it becomes inactive.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="secondary" onClick={() => setArchiveTarget(null)}>Cancel</Button>
-            <Button
+      <AlertDialog open={Boolean(archiveTarget)} onOpenChange={(open) => !open && setArchiveTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive {archiveTarget?.name || "this role"}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Everyone who has this role loses the access it gives.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Back</AlertDialogCancel>
+            <AlertDialogAction
               variant="destructive"
-              loading={archiveRole.isPending}
-              onClick={() => archiveTarget && archiveRole.mutate(archiveTarget.id)}
+              disabled={archiveRole.isPending}
+              onClick={(e) => { e.preventDefault(); if (archiveTarget) archiveRole.mutate(archiveTarget.id); }}
             >
-              Archive
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+              {archiveRole.isPending ? "Archiving…" : "Archive role"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </SuperAdminLayout>
   );
 }
