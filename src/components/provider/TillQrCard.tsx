@@ -17,7 +17,7 @@ const PUBLIC_ORIGIN = "https://everysub.net";
 
 const escapeHtml = (text: string) => text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
-export function TillQrCard({ providerId, name }: { providerId: string; name: string }) {
+export function TillQrCard({ providerId, name, embedded = false }: { providerId: string; name: string; embedded?: boolean }) {
   const url = `${PUBLIC_ORIGIN}/redeem/${providerId}`;
   const holder = useRef<HTMLDivElement>(null);
 
@@ -52,14 +52,14 @@ export function TillQrCard({ providerId, name }: { providerId: string; name: str
   };
 
   return (
-    <section className="rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
+    <section className={embedded ? "tracking-[-0.02em]" : "rounded-radius-lg bg-card p-4 tracking-[-0.02em]"}>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
         <div ref={holder} className="w-fit shrink-0 rounded-radius-md bg-white p-3">
           <QRCodeSVG value={url} size={140} level="M" />
         </div>
         <div className="min-w-0">
-          <h2 className="text-heading font-semibold text-foreground">Till QR</h2>
-          <p className="mt-1 text-body text-muted-foreground">
+          {!embedded && <h2 className="text-heading font-semibold text-foreground">Till QR</h2>}
+          <p className={embedded ? "text-body text-muted-foreground" : "mt-1 text-body text-muted-foreground"}>
             Put it at the till. A subscriber scans it, sees what their plan includes today and presses Get —
             you see it at once on Schedule → Today.
           </p>

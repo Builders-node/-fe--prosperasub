@@ -29,7 +29,7 @@ const escapeHtml = (text: string) =>
 const fileSlug = (name: string) =>
   name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "provider";
 
-export function ProviderQrCard({ name, publicHref, isPublic, clientCode, providerId }: {
+export function ProviderQrCard({ name, publicHref, isPublic, clientCode, providerId, embedded = false }: {
   name: string;
   /** Universal id — for the count of clients who came through the code. */
   providerId?: string;
@@ -39,6 +39,8 @@ export function ProviderQrCard({ name, publicHref, isPublic, clientCode, provide
   publicHref: string;
   /** False while the page is hidden: the code works only once it goes live. */
   isPublic: boolean;
+  /** Inside QrCodesCard's tabs: no card of its own, and the tab names it. */
+  embedded?: boolean;
 }) {
   const url = `${PUBLIC_ORIGIN}${publicHref}` +
     (clientCode ? `${publicHref.includes("?") ? "&" : "?"}ref=${encodeURIComponent(clientCode)}` : "");
@@ -121,14 +123,14 @@ export function ProviderQrCard({ name, publicHref, isPublic, clientCode, provide
   };
 
   return (
-    <section className="rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
+    <section className={embedded ? "tracking-[-0.02em]" : "rounded-radius-lg bg-card p-4 tracking-[-0.02em]"}>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
         <div ref={holder} className="w-fit shrink-0 rounded-radius-md bg-white p-3">
           <QRCodeSVG value={url} size={140} level="M" />
         </div>
         <div className="min-w-0">
-          <h2 className="text-heading font-semibold text-foreground">Your QR code</h2>
-          <p className="mt-1 text-body text-muted-foreground">
+          {!embedded && <h2 className="text-heading font-semibold text-foreground">Your QR code</h2>}
+          <p className={embedded ? "text-body text-muted-foreground" : "mt-1 text-body text-muted-foreground"}>
             {isPublic
               ? "Print it for a counter or a flyer. Customers scan it and see all your plans."
               : "Customers will see your plans here once your page is live. Until then the code opens nothing."}

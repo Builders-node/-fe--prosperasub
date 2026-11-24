@@ -21,7 +21,6 @@ import { ProviderDetailsRows, ProviderProfileEditor, type UniversalProviderRow }
 import { ProfileCompletenessCard } from "@/components/provider/ProfileCompletenessCard";
 import { ProviderFunnelCard } from "@/components/provider/ProviderFunnelCard";
 import { GoLivePanel } from "@/components/provider/GoLivePanel";
-import { ProviderQrCard } from "@/components/provider/ProviderQrCard";
 import { ProviderPromoCodes } from "@/components/provider/ProviderPromoCodes";
 import { ProviderPromotions } from "@/components/provider/ProviderPromotions";
 import { PlansTab } from "@/components/provider/plans/PlansTab";
@@ -39,7 +38,7 @@ import { ProviderReviewsPanel } from "@/components/provider/ProviderReviewsPanel
 import { ProviderEarningsTab } from "@/components/provider/ProviderEarningsTab";
 import type { PortalTab } from "@/components/provider/portalTab";
 import { LEGACY_PORTAL_SOURCE_KEYS, legacyIdOf } from "@/lib/services/providerBridge";
-import { TillQrCard } from "@/components/provider/TillQrCard";
+import { QrCodesCard } from "@/components/provider/QrCodesCard";
 
 /**
  * The single provider management view — banner + header + tab dispatch. Layout-
@@ -274,16 +273,17 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
         <ProviderReviewsPanel providerId={provider.id} />
         {/* A vehicles business has no service, and its storefront is the section. */}
         {(provider.archetype_key || provider.unit === "vehicles") && (
-          <ProviderQrCard
+          // Both codes in one card, behind tabs: the one that sells and the
+          // one subscribers scan at the till to collect.
+          <QrCodesCard
             name={provider.name}
             clientCode={provider.client_code ?? null}
             providerId={provider.id}
             publicHref={provider.archetype_key ? resolvedPublicHref : "/vehicles"}
             isPublic={provider.status === "active"}
+            showTill={!!provider.archetype_key}
           />
         )}
-        {/* The other code: subscribers scan it at the till to collect. */}
-        {provider.archetype_key && <TillQrCard providerId={provider.id} name={provider.name} />}
         {custom.infoExtra?.(workspaceCtx)}
         {/* How to reach the business, last on Overview: reference, not the
             first thing an owner opens the workspace for. No Edit of its own —
