@@ -1211,7 +1211,7 @@ const MySubscriptions = () => {
                           paymentReference: s.payment_reference,
                           purchasedAt: s.created_at,
                           facts: [{ label: "Guests", value: `${s.people || 1} ${(s.people || 1) === 1 ? "person" : "people"}` }],
-                          action: s.plan_id ? { label: "View plan", onClick: () => navigate(`/services/entertainment/plans/${s.plan_id}`) } : undefined,
+                          action: s.plan_id ? { label: "View plan", onClick: () => navigate(`/plans/${s.plan_id}`) } : undefined,
                           cancel: cancelSheetAction("beach", s, s.plan_name ?? "membership"),
                           tip: { service: "beach", subscriptionRef: String(s.id), providerId: s.provider_id ?? null, providerName: "Beach Club", customerName: userData?.name ?? null },
                           review: { service: "beach", itemId: s.plan_id, subscriptionId: String(s.id), customerName: userData?.name ?? null },
@@ -1284,7 +1284,7 @@ const MySubscriptions = () => {
                         paymentReference: s.payment_reference,
                         purchasedAt: s.created_at,
                         facts: s.provider_plans?.period ? [{ label: "Billing", value: String(s.provider_plans.period) }] : [],
-                        action: s.plan_id ? { label: "View plan", onClick: () => navigate(`/services/${s.providers?.archetype_key ?? "services"}/plans/${s.plan_id}`) } : undefined,
+                        action: s.plan_id ? { label: "View plan", onClick: () => navigate(`/plans/${s.plan_id}`) } : undefined,
                         cancel: cancelSheetAction("plan", s, s.provider_plans?.name ?? "subscription"),
                         tip: { service: "plan", subscriptionRef: String(s.id), providerId: s.provider_id ?? s.providers?.id ?? null, providerName: providerName, customerName: userData?.name ?? null },
                         review: { service: "plan", subscriptionId: String(s.id), providerId: s.provider_id ?? s.providers?.id ?? null, customerName: userData?.name ?? null },
@@ -1514,7 +1514,7 @@ const MySubscriptions = () => {
                               ownerUserId: sub.user_id ?? null,
                               current: sub.apartment_note ?? null,
                             },
-                            action: sub.package_id ? { label: "View plan", onClick: () => navigate(`/services/cleaning/plans/${encodeURIComponent(sub.package_id)}`) } : undefined,
+                            action: sub.package_id ? { label: "View plan", onClick: () => navigate(`/plans/${encodeURIComponent(sub.package_id)}`) } : undefined,
                             sessions: bookingSessions(sub.id),
                           })}
                           statusBadge={endsBadge(sub, (sub as any).end_date) ?? ((sub as any).payment_method
@@ -1608,7 +1608,7 @@ const MySubscriptions = () => {
                             facts: sub.billing_period_months
                               ? [{ label: "Billing", value: `${sub.billing_period_months} month${sub.billing_period_months > 1 ? "s" : ""}` }]
                               : [],
-                            action: sub.package_id ? { label: "View plan", onClick: () => navigate(`/services/cleaning/plans/${encodeURIComponent(sub.package_id)}`) } : undefined,
+                            action: sub.package_id ? { label: "View plan", onClick: () => navigate(`/plans/${encodeURIComponent(sub.package_id)}`) } : undefined,
                             tip: { service: "cleaning", subscriptionRef: String(sub.id), providerId: null, providerName: (sub as any).cleaning_packages?.name ?? null, customerName: userData?.name ?? null },
                             review: { service: "cleaning", itemId: sub.package_id, subscriptionId: String(sub.id), customerName: userData?.name ?? null },
                             delivery: {

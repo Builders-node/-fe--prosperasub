@@ -69,15 +69,70 @@ export const providerHref = (keyOrSlug: string, providerId: string) =>
   `/services/${serviceSlug(keyOrSlug)}/providers/${providerId}`;
 
 /**
- * The one address a plan has.
+ * The one address a plan has: /plans/<words>-<number>.
  *
- * A legacy plan is also mirrored into `provider_plans`, so it has two ids and
- * could be linked two ways — and the same product then appeared at two URLs.
- * Pass the ORIGINAL id where one exists (`source_plan_id`), the universal id
- * otherwise, and every link lands on the same page.
+ * Flat, the way big shops address a product — the service is NOT in it. A
+ * plan whose business moves to another service keeps its address, and the
+ * links are short enough to read in a chat. Where it sits (service ›
+ * category › business) is said by the breadcrumbs and their JSON-LD.
+ * The old /services/<service>/plans/<id> still opens and is replaced.
+ *
+ * Pass `planSegment(row)` — the words and number where the row has them
+ * (beach-club-membership-1042). A bare id still works: the plan page finds the
+ * plan by any of its ids and replaces the address with the words.
  */
-export const planHref = (keyOrSlug: string, planId: string) =>
-  `/services/${serviceSlug(keyOrSlug)}/plans/${planId}`;
+export const planHref = (_keyOrSlug: string | null | undefined, planId: string) => `/plans/${planId}`;
+
+// ─── Addresses made of words ─────────────────────────────────────────────────
+//
+// A plan or a car is addressed the way big shops do it — the name in words,
+// then a short number: /services/clubs/plans/beach-club-membership-1042.
+// The number (`public_no`) is what the page looks the row up by; the words
+// (`slug`, made from the name by the database) are for people and search
+// engines. A rename changes the words, and old links still open: the page
+// finds the row by the number and replaces the address with the current one.
+// (Migration 20261207120000_readable_plan_and_vehicle_urls in the backend.)
+
+/** What a row needs to have an address of words. */
+export interface Addressable {
+  id: string | number;
+  slug?: string | null;
+  public_no?: number | string | null;
+  /** A legacy plan's own id — its address until the words exist. */
+  source_plan_id?: string | null;
+}
+
+/** "beach-club-membership-1042" — or null while the row has no number yet. */
+export function wordsAddress(row: Pick<Addressable, "slug" | "public_no"> | null | undefined): string | null {
+  const no = row?.public_no;
+  if (no === null || no === undefined || no === "") return null;
+  const words = (row?.slug ?? "").trim();
+  return words ? `${words}-${no}` : String(no);
+}
+
+/**
+ * The URL segment for a plan row: its words where it has them, else the
+ * original id (a legacy plan's), else its own uuid. Every old form keeps
+ * resolving and is sent on to the words by the page itself.
+ */
+export const planSegment = (row: Addressable): string =>
+  wordsAddress(row) ?? String(row.source_plan_id || row.id);
+
+const UUID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const WORDS_SHAPE = /^(?:[a-z0-9]+(?:-[a-z0-9]+)*-)?(\d{1,12})$/;
+
+/**
+ * The number at the end of an address of words, or null when the segment is
+ * something else (a uuid, a legacy text id). A legacy id can also end in
+ * digits, so a caller that finds no row by the number should still try the
+ * segment as an id.
+ */
+export function publicNoOf(segment: string | null | undefined): number | null {
+  const s = String(segment ?? "").trim().toLowerCase();
+  if (!s || UUID_SHAPE.test(s)) return null;
+  const m = WORDS_SHAPE.exec(s);
+  return m ? Number(m[1]) : null;
+}
 
 /** Per-service display metadata for the shared provider page. */
 export interface ServiceMeta {

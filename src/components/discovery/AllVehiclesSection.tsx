@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Car } from "lucide-react";
-import { carPath, useVehicles } from "@/features/vehicles";
+import { carPath, useVehicles, vehiclePath } from "@/features/vehicles";
 import { Photo } from "@/components/patterns/Photo";
 import { Skeleton } from "@/components/patterns/Skeleton";
 import { formatUSD } from "@/lib/pricing";
@@ -23,7 +23,7 @@ export function AllVehiclesSection() {
           : vehicles.map((v) => (
               <Link
                 key={v.id}
-                to={carPath(`vehicle/${v.id}`)}
+                to={vehiclePath(v)}
                 className="flex flex-col overflow-hidden rounded-radius-md bg-card shadow-figma transition-colors active:scale-[0.98] hover:bg-muted/40"
               >
                 <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden bg-muted">

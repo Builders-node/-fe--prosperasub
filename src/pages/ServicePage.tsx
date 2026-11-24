@@ -29,7 +29,7 @@ import { SearchX } from "lucide-react";
 import { useDraftPreview } from "@/hooks/useDraftPreview";
 import { DraftPreviewBanner } from "@/components/patterns/DraftPreviewBanner";
 import { DesktopListing, FilterGroup, featuredFirst, useDesktopFilters, usePromotionLookup, type ListingPlan } from "@/components/listing/DesktopListing";
-import { planHref } from "@/lib/services/serviceUrls";
+import { planHref, planSegment } from "@/lib/services/serviceUrls";
 import { useOfferFacts } from "@/lib/services/serviceAreas";
 import { useResidenceFilter } from "@/hooks/useResidenceFilter";
 import { tagIcon, useTagDictionary } from "@/lib/tags";
@@ -136,7 +136,8 @@ const ServicePage = () => {
     queryFn: async () => {
       let q = supabaseDb
         .from("provider_plans")
-        .select("id, provider_id, name, description, price_cents, currency, period, pricing_mode, tags, features, included_quantity, included_unit, gallery_urls, providers!inner(name, archetype_key, category_key)")
+        // `*` carries the address in words (slug, public_no) — see planSegment.
+        .select("*, providers!inner(name, archetype_key, category_key)")
         .eq("providers.archetype_key", archetypeKey!);
       if (!preview) q = q.eq("status", "active");
       const { data, error } = await q
@@ -287,7 +288,7 @@ const ServicePage = () => {
       period: plan.period ?? null,
       perPerson: plan.pricing_mode === "per_person",
       photos: own.length ? own : (providerMedia[plan.provider_id] ?? []),
-      href: planHref(archetypeKey ?? "", String(plan.id)) + (preview ? "?preview=1" : ""),
+      href: planHref(archetypeKey ?? "", planSegment(plan)) + (preview ? "?preview=1" : ""),
       rating: ratings[plan.provider_id] ?? null,
       promotionId: promotionOf(plan),
       tags: dict.labelsOf(tagsOf(plan), 2),
@@ -322,7 +323,11 @@ const ServicePage = () => {
 
   const keep = preview ? "?preview=1" : "";
   const openProvider = (providerId: string) => navigate(providerHref(archetype.key, providerId) + keep);
-  const openPlan = (planId: string) => navigate(`/services/${archetype.key}/plans/${planId}${keep}`);
+  const openPlan = (planId: string) => {
+    // The card hands over an id; the address is the plan's words where it has them.
+    const row = (plansQ.data ?? []).find((p: any) => String(p.id) === planId);
+    navigate(`${planHref(archetype.key, row ? planSegment(row as any) : planId)}${keep}`);
+  };
 
   return (
     <BrowseLayout beforeFooter={seoCopy ? (

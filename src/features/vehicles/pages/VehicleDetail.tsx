@@ -4,7 +4,7 @@ import { Breadcrumbs } from "@/components/patterns/Breadcrumbs";
 import { FavoriteButton } from "@/components/patterns/FavoriteButton";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate, useLocation, Link, Navigate } from "react-router-dom";
 import type { DateRange } from "react-day-picker";
 import { differenceInCalendarDays, format } from "date-fns";
 import { Users, Fuel, Gauge, Snowflake, Briefcase, Car } from "lucide-react";
@@ -23,14 +23,15 @@ import { useVehicle } from "../hooks/useVehicles";
 import { calcRentalPrice, FUEL_LABEL, QUICK_DURATIONS } from "../types/carRental";
 import { unitSuffix } from "@/lib/checkout/ctaLabel";
 import { formatUSD } from "@/lib/pricing";
-import { carPath, carProviderPath } from "../lib/routes";
+import { carPath, carProviderPath, vehiclePath } from "../lib/routes";
 import { addDays } from "date-fns";
-import { useSeo, offerJsonLd } from "@/hooks/useSeo";
+import { useSeo, offerJsonLd, breadcrumbJsonLd } from "@/hooks/useSeo";
 import { SiteFooter } from "@/components/layout/SiteFooter";
 
 export default function VehicleDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { data: v, isLoading } = useVehicle(id);
   const goBack = useGoBack(carPath());
   const [range, setRange] = useState<DateRange | undefined>();
@@ -55,20 +56,40 @@ export default function VehicleDetail() {
     description: v
       ? v.description ?? ([v.brand, v.model, v.year].filter(Boolean).join(" ") || v.name)
       : null,
-    path: v ? carPath(`vehicle/${v.id}`) : null,
+    path: v ? vehiclePath(v) : null,
     image: v?.image_url ?? v?.gallery_urls?.[0] ?? null,
     type: "product",
     jsonLd: v
-      ? offerJsonLd({
-          name: v.name,
-          description: v.description,
-          image: v.image_url ?? v.gallery_urls?.[0] ?? null,
-          priceCents: v.daily_price_cents,
-          url: carPath(`vehicle/${v.id}`),
-          providerName: v.provider?.name ?? null,
-        })
+      ? {
+          "@context": "https://schema.org",
+          "@graph": [
+            offerJsonLd({
+              name: v.name,
+              description: v.description,
+              image: v.image_url ?? v.gallery_urls?.[0] ?? null,
+              priceCents: v.daily_price_cents,
+              url: vehiclePath(v),
+              providerName: v.provider?.name ?? null,
+            }),
+            // Top down, the way search results print the trail.
+            breadcrumbJsonLd([
+              { label: "EverySub", href: "/discovery" },
+              { label: "Car rental", href: carPath() },
+              ...(v.provider?.name && v.provider.id
+                ? [{ label: v.provider.name, href: carProviderPath(v.provider.slug || v.provider.id) }]
+                : []),
+              { label: v.name, href: vehiclePath(v) },
+            ]),
+          ],
+        }
       : null,
   });
+
+  // One car, one address: a uuid link, or yesterday's words after a rename,
+  // lands on the current words — replaced, so Back still leaves the page.
+  if (v && vehiclePath(v) !== location.pathname.replace(/\/+$/, "")) {
+    return <Navigate to={`${vehiclePath(v)}${location.search}${location.hash}`} replace />;
+  }
 
   if (isLoading) return <AppContainer className="flex justify-center py-24"><Spinner /></AppContainer>;
   if (!v) return (
@@ -122,7 +143,7 @@ export default function VehicleDetail() {
   const breadcrumbs = [
     { label: "Vehicles", href: carPath() },
     ...(v.provider?.name && v.provider.id
-      ? [{ label: v.provider.name, href: carProviderPath(v.provider.id) }]
+      ? [{ label: v.provider.name, href: carProviderPath(v.provider.slug || v.provider.id) }]
       : []),
   ];
 

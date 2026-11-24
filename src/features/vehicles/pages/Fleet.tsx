@@ -17,7 +17,7 @@ import { useListingSearch } from "@/hooks/useListingSearch";
 import { useCategoryParam } from "@/hooks/useCategoryParam";
 import { useSearchParams } from "react-router-dom";
 import { DesktopListing, FilterGroup, useDesktopFilters, type ListingPlan } from "@/components/listing/DesktopListing";
-import { carPath as vehicleHref } from "../lib/routes";
+import { carPath as vehicleHref, vehiclePath } from "../lib/routes";
 import { useSeo } from "@/hooks/useSeo";
 import { faqJsonLd, serviceSeo } from "@/lib/seo/serviceSeo";
 import { ServiceFaq } from "@/components/listing/ServiceFaq";
@@ -132,7 +132,7 @@ export default function Fleet() {
         period: null,
         perPerson: false,
         photos: [v.image_url, ...(v.gallery_urls ?? [])].filter((u): u is string => !!u),
-        href: vehicleHref(`vehicle/${v.id}`),
+        href: vehiclePath(v),
         rating: null,
         promotionId: null,
         unit: "day",

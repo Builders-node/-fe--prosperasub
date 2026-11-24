@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabaseDb } from "@/integrations/supabase/client";
 import type { RentalVehicle } from "../types/carRental";
+import { publicNoOf } from "@/lib/services/serviceUrls";
+import { isUuid } from "@/lib/cart/checkoutRows";
 
 /**
  * A car and the business that rents it out.
@@ -9,7 +11,8 @@ import type { RentalVehicle } from "../types/carRental";
  * that shows a car also has to say whose it is — a fleet page listing three
  * companies' cars with no attribution is a worse page than one company's.
  */
-const VEHICLE_SELECT = "*, provider:providers(id, name, avatar_url)";
+// The business in full (`*`) for its `slug` — the words in its address.
+const VEHICLE_SELECT = "*, provider:providers(*)";
 
 /** Public fleet — everything not archived, publicly listable first.
  *  `providerId` narrows to one business's cars (the provider page's shelf);
@@ -36,6 +39,15 @@ export function useVehicle(id?: string) {
     queryKey: ["rental-vehicle", id],
     enabled: !!id,
     queryFn: async () => {
+      // An address of words ends in the car's number (jeep-wrangler-1007);
+      // an old link carries its uuid. Either finds the car.
+      const no = publicNoOf(id);
+      if (no !== null) {
+        const { data, error } = await supabaseDb.from("rental_vehicles").select(VEHICLE_SELECT).eq("public_no", no).maybeSingle();
+        // Before the backend migration there is no number column: fall through.
+        if (!error && data) return data as unknown as RentalVehicle;
+      }
+      if (!isUuid(id)) return null;
       const { data, error } = await supabaseDb.from("rental_vehicles").select(VEHICLE_SELECT).eq("id", id!).maybeSingle();
       if (error) throw error;
       return (data ?? null) as RentalVehicle | null;

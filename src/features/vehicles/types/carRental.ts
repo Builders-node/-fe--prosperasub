@@ -5,6 +5,9 @@ export type FuelType = "gasoline" | "diesel" | "electric" | "hybrid";
 export interface RentalVehicle {
   id: string;
   name: string;
+  /** The address in words (vehiclePath) — after the backend migration. */
+  slug?: string | null;
+  public_no?: number | null;
   brand: string;
   model: string;
   year: number;
@@ -31,7 +34,7 @@ export interface RentalVehicle {
    */
   category_key: string | null;
   /** Joined for display; not a column. */
-  provider?: { id: string; name: string; avatar_url: string | null } | null;
+  provider?: { id: string; name: string; avatar_url: string | null; slug?: string | null } | null;
   created_at?: string;
   updated_at?: string;
 }

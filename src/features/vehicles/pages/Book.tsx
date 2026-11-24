@@ -30,7 +30,7 @@ import { useVehicle } from "../hooks/useVehicles";
 import { calcRentalPrice, extraCost } from "../types/carRental";
 import { formatUSD, centsToDollars } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
-import { carPath } from "../lib/routes";
+import { carPath, vehiclePath } from "../lib/routes";
 import { todayHN } from "@/lib/timezone";
 
 export default function Book() {
@@ -278,7 +278,7 @@ export default function Book() {
       <p className="text-title font-semibold text-foreground">
         {problem ?? "Something's missing for this booking."}
       </p>
-      <Button variant="secondary" className="mt-3" onClick={() => navigate(v ? carPath(`vehicle/${v.id}`) : carPath())}>
+      <Button variant="secondary" className="mt-3" onClick={() => navigate(v ? vehiclePath(v) : carPath())}>
         {v ? "Choose dates" : "Back to vehicles"}
       </Button>
     </AppContainer>
