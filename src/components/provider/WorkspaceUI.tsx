@@ -16,6 +16,10 @@ import { cn } from "@/lib/utils";
  *   16/400  a label, a body line       — muted for labels
  *   14/400  a hint under a control
  * No uppercase, no black, no tracking games.
+ *
+ * A laptop steps the ramp down one notch (lg:): 18 / 14 for sections and
+ * body, 22 for figures. The phone sizes are thumb-and-glance sizes; at arm's
+ * length on a 1440 screen they made every tab read as a poster.
  */
 
 /** A surface: 24 of radius, 16 of padding, the card fill. */
@@ -49,11 +53,11 @@ export function WorkspaceSection({
           under both. Nesting the subtitle beside the button pushed the button
           onto a line of its own at 375, where it read as a third heading. */}
       <div className="flex items-center justify-between gap-3">
-        <h2 className="min-w-0 text-[20px] font-semibold leading-[26px] text-foreground">{title}</h2>
+        <h2 className="min-w-0 text-[20px] font-semibold leading-[26px] text-foreground lg:text-[18px] lg:leading-[24px]">{title}</h2>
         {action}
       </div>
       {subtitle && (
-        <p className="mt-1 text-[16px] leading-[22px] text-muted-foreground">{subtitle}</p>
+        <p className="mt-1 text-[16px] leading-[22px] text-muted-foreground lg:text-[14px] lg:leading-[20px]">{subtitle}</p>
       )}
       {children != null && <div className={cn("mt-4", bodyClassName)}>{children}</div>}
     </WorkspaceCard>
@@ -66,8 +70,8 @@ export function WorkspaceStat({ label, value, hint }: {
 }) {
   return (
     <div className="flex min-w-0 flex-1 flex-col rounded-radius-md bg-inset p-3">
-      <span className="truncate text-[16px] leading-[22px] text-muted-foreground">{label}</span>
-      <span className="mt-1 text-[24px] font-semibold leading-[29px] tabular-nums text-foreground">{value}</span>
+      <span className="truncate text-[16px] leading-[22px] text-muted-foreground lg:text-[13px] lg:leading-[18px]">{label}</span>
+      <span className="mt-1 text-[24px] font-semibold leading-[29px] tabular-nums text-foreground lg:text-[22px] lg:leading-[28px]">{value}</span>
       {hint && <span className="mt-1 text-[14px] leading-[18px] text-muted-foreground">{hint}</span>}
     </div>
   );
@@ -86,13 +90,13 @@ export function WorkspaceRow({ icon, label, children }: {
   return (
     <div className="flex items-start gap-3">
       {icon && (
-        <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-radius-md bg-inset text-muted-foreground">
+        <span className="mt-0.5 flex h-10 w-10 shrink-0 lg:h-9 lg:w-9 items-center justify-center rounded-radius-md bg-inset text-muted-foreground">
           {icon}
         </span>
       )}
       <div className="min-w-0 flex-1">
-        <p className="text-[16px] leading-[22px] text-muted-foreground">{label}</p>
-        <div className="mt-0.5 text-[16px] leading-[22px] text-foreground">{children}</div>
+        <p className="text-[16px] leading-[22px] text-muted-foreground lg:text-[13px] lg:leading-[18px]">{label}</p>
+        <div className="mt-0.5 text-[16px] leading-[22px] text-foreground lg:text-[14px] lg:leading-[20px]">{children}</div>
       </div>
     </div>
   );
@@ -100,5 +104,5 @@ export function WorkspaceRow({ icon, label, children }: {
 
 /** Nothing here yet, said in the same voice as everything else. */
 export function WorkspaceEmpty({ children }: { children: ReactNode }) {
-  return <p className="text-[16px] leading-[22px] text-muted-foreground">{children}</p>;
+  return <p className="text-[16px] leading-[22px] text-muted-foreground lg:text-[14px] lg:leading-[20px]">{children}</p>;
 }

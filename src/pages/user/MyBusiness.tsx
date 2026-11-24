@@ -25,7 +25,7 @@ function BusinessRow({ row, icon: Icon, onClick }: {
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center gap-3 rounded-radius-lg bg-card p-4 text-left tracking-[-0.02em] transition-colors hover:bg-muted/30"
+      className="flex h-full w-full items-center gap-3 rounded-radius-lg bg-card p-4 text-left tracking-[-0.02em] transition-colors hover:bg-muted/30 md:items-start"
     >
       <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-radius-md bg-inset">
         <Photo src={row.avatarUrl} icon={Icon} />
@@ -37,10 +37,10 @@ function BusinessRow({ row, icon: Icon, onClick }: {
           <Badge variant="secondary" className="rounded-full text-[12px] capitalize">{row.role}</Badge>
         </div>
         {row.description && (
-          <p className="mt-0.5 truncate text-[14px] leading-[18px] text-muted-foreground">{row.description}</p>
+          <p className="mt-0.5 truncate text-[14px] leading-[18px] text-muted-foreground md:mt-1 md:line-clamp-2 md:whitespace-normal md:leading-[20px]">{row.description}</p>
         )}
       </div>
-      <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground/50" />
+      <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground/50 md:mt-3" />
     </button>
   );
 }
@@ -52,20 +52,22 @@ export default function MyBusiness() {
 
   return (
     <UserLayout title="My business">
-      <div className="app-container space-y-1 py-6">
-        <section className="rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
+      <div className="app-container space-y-1 py-6 md:space-y-0">
+        {/* On a laptop the heading sits on the page, as on the admin's pages —
+            a full-width card holding one line of text was most of the screen. */}
+        <section className="rounded-radius-lg bg-card p-4 tracking-[-0.02em] md:bg-transparent md:px-0 md:pb-5 md:pt-2">
           {/* The phone's title bar already says it; a laptop has no title bar. */}
-          <h1 className="mb-1 hidden text-[24px] font-semibold leading-[29px] text-foreground md:block">My business</h1>
-          <p className="text-[16px] leading-[22px] text-muted-foreground">
+          <h1 className="mb-1 hidden text-[28px] font-semibold leading-[34px] tracking-[-0.6px] text-foreground md:block">My business</h1>
+          <p className="text-[16px] leading-[22px] text-muted-foreground md:text-[14px] md:leading-[20px]">
             The businesses you own or help run.
           </p>
         </section>
 
         {isLoading ? (
-          <>
+          <div className="space-y-1 md:grid md:grid-cols-2 md:gap-2 md:space-y-0 xl:grid-cols-3">
             <div className="h-20 animate-pulse rounded-radius-lg bg-card" />
             <div className="h-20 animate-pulse rounded-radius-lg bg-card" />
-          </>
+          </div>
         ) : !hasAny ? (
           <div className="flex flex-col items-center justify-center rounded-radius-lg bg-card px-4 py-16 text-center">
             <Store className="mb-3 h-12 w-12 text-muted-foreground/40" />
@@ -79,14 +81,18 @@ export default function MyBusiness() {
             </Button>
           </div>
         ) : (
-          businesses.map((row) => (
-            <BusinessRow
-              key={row.id}
-              row={row}
-              icon={archetypes.find((a) => a.key === row.archetypeKey)?.Icon ?? Store}
-              onClick={() => navigate(`/my-provider/${row.id}`)}
-            />
-          ))
+          // A list on a phone; cards on a laptop, where one 1,250-wide row per
+          // business left a name on the left and a chevron a screen away.
+          <div className="space-y-1 md:grid md:grid-cols-2 md:gap-2 md:space-y-0 xl:grid-cols-3">
+            {businesses.map((row) => (
+              <BusinessRow
+                key={row.id}
+                row={row}
+                icon={archetypes.find((a) => a.key === row.archetypeKey)?.Icon ?? Store}
+                onClick={() => navigate(`/my-provider/${row.id}`)}
+              />
+            ))}
+          </div>
         )}
       </div>
     </UserLayout>
