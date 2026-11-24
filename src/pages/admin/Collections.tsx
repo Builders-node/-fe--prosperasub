@@ -14,6 +14,7 @@ import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { planIndex, useHomePlans, type HomePlan } from "@/components/discovery/homePlans";
 import { useTagDictionary } from "@/lib/tags";
+import { useConfirm } from "@/components/patterns/ConfirmDialog";
 
 /**
  * Collections — the shelves on the home page ("Popular", "For beginners",
@@ -71,7 +72,7 @@ export default function Collections() {
     <SuperAdminLayout title="Collections" subtitle="Shelves of offers on the home page, in this order">
       {data && !data.enabled && (
         <p className="mb-4 rounded-radius-md bg-card p-4 text-body text-muted-foreground">
-          Collections need the database migration (20261119120000_home_collections) before they can be created.
+          Collections aren't available yet. Diagnostics shows what is missing.
         </p>
       )}
 
@@ -126,6 +127,7 @@ function ShelfCard({
   onMove: (dir: -1 | 1) => void; canUp: boolean; canDown: boolean; onChanged: () => void;
   tagsReady: boolean;
 }) {
+  const [confirm, confirmDialog] = useConfirm();
   const dict = useTagDictionary();
   const autoCount = shelf.tagKey
     ? plans.filter((p) => Array.isArray(p.tags) && p.tags.includes(shelf.tagKey!) && !shelf.planIds.includes(p.id)).length
@@ -161,6 +163,7 @@ function ShelfCard({
 
   return (
     <section className={cn("space-y-3 rounded-radius-lg bg-card p-4", !shelf.isActive && "opacity-70")}>
+      {confirmDialog}
       <div className="flex flex-wrap items-end gap-2">
         <div className="min-w-[180px] flex-1">
           <Input inputSize="sm" label="Title" value={title} maxLength={80} onChange={(e) => setTitle(e.target.value)} />
@@ -186,7 +189,9 @@ function ShelfCard({
         <Button size="sm" variant="secondary" disabled={!canUp} onClick={() => onMove(-1)} aria-label="Move up"><ArrowUp className="h-4 w-4" /></Button>
         <Button size="sm" variant="secondary" disabled={!canDown} onClick={() => onMove(1)} aria-label="Move down"><ArrowDown className="h-4 w-4" /></Button>
         <Button size="sm" variant="secondary" loading={remove.isPending} aria-label="Delete collection"
-          onClick={() => { if (window.confirm(`Delete “${shelf.title}”? The offers stay; only the shelf goes.`)) remove.mutate(); }}>
+          onClick={async () => {
+            if (await confirm({ title: `Delete “${shelf.title}”?`, description: "The offers stay; only this collection goes.", confirmLabel: "Delete collection" })) remove.mutate();
+          }}>
           <Trash2 className="h-4 w-4" />
         </Button>
       </div>

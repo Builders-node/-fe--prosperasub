@@ -2,6 +2,7 @@ import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { ProviderWorkspace } from "@/components/provider/ProviderWorkspace";
+import { AdminBusinessStrip } from "@/components/admin/AdminBusinessStrip";
 import { supabaseDb } from "@/integrations/supabase/client";
 
 /**
@@ -28,10 +29,12 @@ export default function MarketplaceProviderDetail() {
 
   return (
     <SuperAdminLayout
-      title={provider?.name || "Provider"}
+      title={provider?.name || "Business"}
+      parent={{ label: "Businesses", href: "/admin/marketplace/providers" }}
       // The profile card right below opens with this name and description.
       hideHeading
     >
+      <AdminBusinessStrip providerId={providerId ?? ""} />
       <ProviderWorkspace providerId={providerId ?? ""} backHref="/admin/marketplace/providers" />
     </SuperAdminLayout>
   );

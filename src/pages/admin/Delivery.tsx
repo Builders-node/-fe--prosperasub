@@ -17,6 +17,11 @@ import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { ZoneEditor } from "@/components/delivery/ZoneEditor";
 import { format } from "date-fns";
+import { useConfirm } from "@/components/patterns/ConfirmDialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 
 /**
@@ -180,6 +185,10 @@ function CouriersTab() {
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const refresh = () => void qc.invalidateQueries({ queryKey: ["admin-couriers"] });
+  const [confirm, confirmDialog] = useConfirm();
+  // In-product dialog instead of the browser's grey prompt box.
+  const [linkFor, setLinkFor] = useState<Courier | null>(null);
+  const [linkEmail, setLinkEmail] = useState("");
   const add = useMutation({
     mutationFn: () => call("/admin/couriers", "POST", { name, phone, email: email.trim() || undefined }),
     onSuccess: () => { setName(""); setPhone(""); setEmail(""); refresh(); toast.success("Courier added"); },
@@ -192,12 +201,31 @@ function CouriersTab() {
   /** Linking an account is what opens /courier for that person. */
   const link = useMutation({
     mutationFn: ({ id, email: e }: { id: string; email: string | null }) => call(`/admin/couriers/${id}`, "PATCH", { email: e }),
-    onSuccess: (_d, v) => { refresh(); toast.success(v.email ? "Account linked — they can open everysub.net/courier" : "Account unlinked"); },
+    onSuccess: (_d, v) => { refresh(); setLinkFor(null); toast.success(v.email ? "Account linked — they can open everysub.net/courier" : "Account unlinked"); },
     onError: (e: Error) => toast.error(e.message || "Could not link it"),
   });
   if (q.isLoading) return <Skeleton className="h-40" />;
   return (
     <div className="max-w-[720px] space-y-3">
+      {confirmDialog}
+      <AlertDialog open={!!linkFor} onOpenChange={(o) => { if (!o) setLinkFor(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Link {linkFor?.name}'s account</AlertDialogTitle>
+            <AlertDialogDescription>The email they sign in to EverySub with. Linking opens everysub.net/courier for them.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <Input type="email" autoFocus value={linkEmail} onChange={(e) => setLinkEmail(e.target.value)} placeholder="name@example.com" />
+          <AlertDialogFooter>
+            <AlertDialogCancel>Back</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={!linkEmail.trim() || link.isPending}
+              onClick={(e) => { e.preventDefault(); if (linkFor) link.mutate({ id: linkFor.id, email: linkEmail.trim() }); }}
+            >
+              {link.isPending ? "Linking…" : "Link account"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <p className="text-body text-muted-foreground">
         A courier with a linked account opens <span className="font-semibold text-foreground">everysub.net/courier</span> on their phone:
         their deliveries, directions, and the buttons that tell the customer it is on the way and delivered.
@@ -217,10 +245,12 @@ function CouriersTab() {
             </p>
           </div>
           <Button size="sm" variant="secondary" disabled={link.isPending}
-            onClick={() => {
-              if (c.user_id) { if (window.confirm(`Unlink ${c.name}'s account?`)) link.mutate({ id: c.id, email: null }); return; }
-              const e = window.prompt(`${c.name}'s EverySub account email`)?.trim();
-              if (e) link.mutate({ id: c.id, email: e });
+            onClick={async () => {
+              if (c.user_id) {
+                if (await confirm({ title: `Unlink ${c.name}'s account?`, description: "They lose access to the courier screen until linked again.", confirmLabel: "Unlink" })) link.mutate({ id: c.id, email: null });
+                return;
+              }
+              setLinkEmail(""); setLinkFor(c);
             }}>
             {c.user_id ? "Unlink" : "Link account"}
           </Button>

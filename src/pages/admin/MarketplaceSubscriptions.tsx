@@ -2,10 +2,11 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useUrlState } from "@/hooks/useUrlState";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Building2, Download, MoreVertical, Pencil, Trash2, Undo2 } from "lucide-react";
+import { Ban, Building2, CheckCircle2, Download, MoreVertical, Pencil, Trash2, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { AdminListShell } from "@/components/admin/AdminListShell";
+import { TabPills } from "@/components/admin/TabPills";
 import { usePagination, TablePagination } from "@/components/ui/table-pagination";
 import { useTableSort } from "@/lib/table/useTableSort";
 import { SortHeader } from "@/components/ui/sort-header";
@@ -13,7 +14,6 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { SaleOriginBadge, isFromBuildersNode } from "@/components/patterns/SaleOrigin";
-import { Badge } from "@/components/ui/badge";
 import { StatusPill } from "@/components/patterns/StatusPill";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,6 +45,7 @@ import { cn } from "@/lib/utils";
 import { fetchUsersByIds } from "@/lib/admin/customerNames";
 import { formatUSD } from "@/lib/pricing";
 import { PaymentMethodBadge, PaymentReference } from "@/components/admin/PaymentMethodBadge";
+import { approvePayment, PAYMENT_METHOD_OPTIONS } from "@/lib/subscriptionApprove";
 
 interface Provider { id: string; name: string; archetype_key: string | null; }
 interface UserRow { id: string; name: string | null; display_name: string | null; email: string | null; }
@@ -64,6 +65,30 @@ function subscriptionStage(s: SaleRow): string {
   if (s.status === "paused")           return "paused";
   if (s.payment_status !== "paid")     return "pending_payment";
   return "active";
+}
+
+/** "Sep 9", with the year only when it is not this year — one date style. */
+function shortDay(d: string | null | undefined): string {
+  if (!d) return "—";
+  const dt = new Date(`${d.slice(0, 10)}T00:00:00`);
+  if (Number.isNaN(dt.getTime())) return d;
+  const sameYear = dt.getFullYear() === new Date().getFullYear();
+  return dt.toLocaleDateString("en-US", sameYear ? { month: "short", day: "numeric" } : { month: "short", day: "numeric", year: "numeric" });
+}
+
+const STAGE_TABS = [
+  { value: "all", label: "All" },
+  { value: "pending_payment", label: "Awaiting payment" },
+  { value: "active", label: "Active" },
+  { value: "paused", label: "Paused" },
+  { value: "ended", label: "Ended" },
+  { value: "refunded", label: "Refunded" },
+] as const;
+
+function stageMatches(s: SaleRow, k: string): boolean {
+  const st = subscriptionStage(s);
+  if (k === "ended") return st === "cancelled" || st === "expired";
+  return st === k;
 }
 
 /** Stage order for sorting: what needs attention first, then running, then done. */
@@ -91,6 +116,12 @@ const MarketplaceSubscriptions = () => {
   const [service, setService] = useUrlState<string>("service", "all");
   const [status, setStatus] = useUrlState<string>("status", "all");
   const [payment, setPayment] = useUrlState<string>("payment", "all");
+  // The stage is the one question the list answers ("what needs money, what
+  // is running, what ended"), so it is the row of tabs. Raw `status` and
+  // `payment` are still read from old links, shown as a removable chip.
+  const [stage, setStage] = useUrlState<string>("stage", "all");
+  // `?business=<id>` — one business's orders (its admin page links here).
+  const [business, setBusiness] = useUrlState<string>("business", "");
   const [kind, setKind] = useUrlState<"all" | "subscription" | "booking">("kind", "all");
   const [origin, setOrigin] = useUrlState<"all" | "builders_node" | "platform">("origin", "all");
   const [search, setSearch] = useUrlState<string>("q", "");
@@ -104,9 +135,21 @@ const MarketplaceSubscriptions = () => {
   const [refundAmount, setRefundAmount] = useState("");
   const [refundReason, setRefundReason] = useState("");
   const [deleteRow, setDeleteRow] = useState<SaleRow | null>(null);
+  // Money in and "stop this" are their own confirmed actions, not fields in
+  // the edit form: a dropdown flip to "paid" moved revenue without a trace.
+  const [payRow, setPayRow] = useState<SaleRow | null>(null);
+  const [payMethod, setPayMethod] = useState("manual");
+  const [payReference, setPayReference] = useState("");
+  const [cancelRow, setCancelRow] = useState<SaleRow | null>(null);
+  const [detailEditing, setDetailEditing] = useState(false);
   // `?order=<id>` — one sale, opened as a sheet. Today's "Recent activity"
   // links here so a tap shows THAT payment, not the whole list.
   const [orderId, setOrderId] = useUrlState<string>("order", "");
+  useEffect(() => { setDetailEditing(false); }, [orderId]);
+  // A selection belongs to the view it was made in. Changing a filter used to
+  // keep hidden rows selected, and the bulk action then touched rows the admin
+  // could no longer see.
+  useEffect(() => { setSelected(new Set()); }, [service, stage, business, status, payment, kind, origin, search, ending]);
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["marketplace-sales"] });
@@ -130,7 +173,7 @@ const MarketplaceSubscriptions = () => {
       // that also frees the slot and lets the waitlist move.
       if (b.apiManaged) {
         if (patch.status !== "cancelled") {
-          throw new Error("A booked hour can only be cancelled from here — change its time on the provider's calendar.");
+          throw new Error("A booked hour can only be cancelled from here — change its time on the business's calendar.");
         }
         await cancelCourtBooking(row.id);
         if (userData?.id) await logAuditEvent(userData.id, "edit", "bookings", row.id, { status: "cancelled" });
@@ -139,8 +182,28 @@ const MarketplaceSubscriptions = () => {
       await updateSaleRow(b.table, row.id, patch, "Edited in Orders");
       if (userData?.id) await logAuditEvent(userData.id, "edit", backing(row).table, row.id, patch);
     },
-    onSuccess: () => { toast.success("Saved"); invalidate(); setEditRow(null); },
+    onSuccess: () => { toast.success("Saved"); invalidate(); setEditRow(null); setDetailEditing(false); setCancelRow(null); },
     onError: (e: any) => toast.error(e?.message || "Could not save"),
+  });
+
+  const openPay = (row: SaleRow) => {
+    setPayRow(row);
+    setPayMethod(row.payment_method || "manual");
+    setPayReference(row.payment_reference ?? "");
+  };
+
+  /** One order marked as paid — the same write Today's "Mark paid" makes. */
+  const payMutation = useMutation({
+    mutationFn: async (row: SaleRow) => {
+      if (backing(row).apiManaged) throw new Error("A booked hour is settled at the desk, not marked paid here.");
+      await approvePayment(row.source_service_key as Exclude<typeof row.source_service_key, "court">, row.id, {
+        adminUserId: userData?.id ?? null,
+        paymentMethod: payMethod,
+        paymentReference: payReference.trim() || null,
+      });
+    },
+    onSuccess: () => { toast.success("Marked as paid"); invalidate(); setPayRow(null); },
+    onError: (e: any) => toast.error(e?.message || "Could not mark as paid"),
   });
 
   const deleteMutation = useMutation({
@@ -168,7 +231,7 @@ const MarketplaceSubscriptions = () => {
    */
   const bulkMutation = useMutation({
     mutationFn: async (action: "paid" | "cancel") => {
-      const rows = sorted.filter((r) => selected.has(r.id));
+      const rows = action === "paid" ? bulkRows.filter((r) => !wasPaid(r)) : bulkRows;
       let done = 0;
       const failed: string[] = [];
 
@@ -180,10 +243,14 @@ const MarketplaceSubscriptions = () => {
             if (action !== "cancel") { failed.push(customerLabel(row)); continue; }
             await cancelCourtBooking(row.id);
           } else {
-            const patch = action === "paid"
-              ? buildSalePatch(row, { payment_status: "paid" })
-              : buildSalePatch(row, { status: "cancelled" });
-            await updateSaleRow(b.table, row.id, patch, "Marked paid in Orders (bulk)");
+            if (action === "paid") {
+              await approvePayment(row.source_service_key as Exclude<typeof row.source_service_key, "court">, row.id, {
+                adminUserId: userData?.id ?? null,
+                paymentMethod: row.payment_method || "manual",
+              });
+            } else {
+              await updateSaleRow(b.table, row.id, buildSalePatch(row, { status: "cancelled" }), "Cancelled in Orders (bulk)");
+            }
           }
           if (userData?.id) {
             await logAuditEvent(userData.id, "edit", backing(row).table || "bookings", row.id, { bulk: action });
@@ -310,6 +377,8 @@ const MarketplaceSubscriptions = () => {
     return rows.filter((s) => {
       const prov = providerById.get(s.provider_id);
       if (service !== "all" && prov?.archetype_key !== service) return false;
+      if (stage !== "all" && !stageMatches(s, stage)) return false;
+      if (business && s.provider_id !== business) return false;
       if (status   !== "all" && s.status         !== status)     return false;
       if (payment  !== "all" && s.payment_status !== payment)    return false;
       if (kind     !== "all" && s.kind           !== kind)       return false;
@@ -332,7 +401,9 @@ const MarketplaceSubscriptions = () => {
       }
       return true;
     });
-  }, [rows, service, status, payment, kind, origin, search, endingDays, providerById, userById]);
+  }, [rows, service, stage, business, status, payment, kind, origin, search, endingDays, providerById, userById]);
+
+  const stageCount = (k: string) => rows.filter((r) => stageMatches(r, k)).length;
 
   // Every row is already in hand (see the paging note below), so every column
   // sorts here. The choice lives in `?sort=` like the filters; the keys `name`,
@@ -362,6 +433,8 @@ const MarketplaceSubscriptions = () => {
   // there's nothing to re-fetch — it resets to page 1 whenever a filter changes
   // the result count.
   const pager = usePagination(sorted, 25);
+  // Only rows still on screen: a selection never reaches what the filters hide.
+  const bulkRows = sorted.filter((r) => selected.has(r.id));
   const pageAllSelected = pager.paged.length > 0 && pager.paged.every((r) => selected.has(r.id));
 
   /**
@@ -393,6 +466,15 @@ const MarketplaceSubscriptions = () => {
   return (
     <SuperAdminLayout title="Orders" subtitle="Every subscription, booking and booked hour across all services">
       <div className="space-y-5">
+        <TabPills
+          value={stage}
+          onChange={setStage}
+          tabs={STAGE_TABS.map((t) => ({
+            value: t.value,
+            label: t.label,
+            badge: t.value === "pending_payment" ? stageCount("pending_payment") : undefined,
+          }))}
+        />
         <div className="flex flex-wrap items-end gap-3">
           <FilterBlock label="Service">
             <Select value={service} onValueChange={setService}>
@@ -400,31 +482,6 @@ const MarketplaceSubscriptions = () => {
               <SelectContent>
                 <SelectItem value="all">All services</SelectItem>
                 {archetypes.map((a) => <SelectItem key={a.key} value={a.key}>{a.label}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </FilterBlock>
-          <FilterBlock label="Status">
-            <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="paused">Paused</SelectItem>
-                <SelectItem value="cancelled">Cancelled</SelectItem>
-                <SelectItem value="expired">Expired</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-              </SelectContent>
-            </Select>
-          </FilterBlock>
-          <FilterBlock label="Payment">
-            <Select value={payment} onValueChange={setPayment}>
-              <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="paid">Paid</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="failed">Failed</SelectItem>
-                <SelectItem value="refunded">Refunded</SelectItem>
               </SelectContent>
             </Select>
           </FilterBlock>
@@ -457,7 +514,7 @@ const MarketplaceSubscriptions = () => {
         {selected.size > 0 && (
           <div className="flex flex-wrap items-center gap-3 rounded-radius-md bg-card px-4 py-3">
             <span className="text-sm font-semibold text-foreground">
-              {selected.size} selected
+              {bulkRows.length} selected
             </span>
             <Button variant="outline" size="sm" onClick={() => setBulk("paid")}>
               Mark paid
@@ -476,14 +533,24 @@ const MarketplaceSubscriptions = () => {
         )}
 
         <AdminListShell
-          search={search} onSearch={setSearch} searchPlaceholder="Search by provider, plan, user, payment ref…"
+          search={search} onSearch={setSearch} searchPlaceholder="Search by business, plan, customer, payment ref…"
           isLoading={isLoading} isError={isError} error={subsErrObj}
           onRetry={() => { refetchSubs(); }}
           isEmpty={rows.length === 0}
           isNoResults={rows.length > 0 && visible.length === 0} count={visible.length}
           emptyTitle="No sales yet" emptySubtitle="Subscriptions and bookings will appear here."
-          onClearFilters={() => { setSearch(""); setService("all"); setStatus("all"); setPayment("all"); setKind("all"); setOrigin("all"); setEnding(""); }}
+          onClearFilters={() => { setSearch(""); setService("all"); setStage("all"); setBusiness(""); setStatus("all"); setPayment("all"); setKind("all"); setOrigin("all"); setEnding(""); }}
           actions={<>
+            {business && (
+              <Button variant="secondary" size="sm" onClick={() => setBusiness("")} aria-label="Show every business">
+                {providerById.get(business)?.name ?? "One business"} ×
+              </Button>
+            )}
+            {(status !== "all" || payment !== "all") && (
+              <Button variant="secondary" size="sm" onClick={() => { setStatus("all"); setPayment("all"); }} aria-label="Remove the status filter">
+                {[status !== "all" && `Status: ${status}`, payment !== "all" && `Payment: ${payment}`].filter(Boolean).join(" · ")} ×
+              </Button>
+            )}
             {endingDays != null && (
               <Button variant="secondary" size="sm" onClick={() => setEnding("")} aria-label="Remove the ending filter">
                 Ending in {endingDays} day{endingDays === 1 ? "" : "s"} ×
@@ -515,7 +582,7 @@ const MarketplaceSubscriptions = () => {
                   </TableHead>
                   <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("name")}><SortHeader {...sort.headerProps("name")}>Customer</SortHeader></TableHead>
                   <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("plan")}><SortHeader {...sort.headerProps("plan")}>Plan</SortHeader></TableHead>
-                  <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("provider")}><SortHeader {...sort.headerProps("provider")}>Provider</SortHeader></TableHead>
+                  <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("provider")}><SortHeader {...sort.headerProps("provider")}>Business</SortHeader></TableHead>
                   <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("service")}><SortHeader {...sort.headerProps("service")}>Service</SortHeader></TableHead>
                   <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("kind")}><SortHeader {...sort.headerProps("kind")}>Type</SortHeader></TableHead>
                   <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("date")}><SortHeader {...sort.headerProps("date")}>Period</SortHeader></TableHead>
@@ -599,20 +666,20 @@ const MarketplaceSubscriptions = () => {
                         {/* A booked hour is one date and a time, not a range —
                             printing "2026-09-09 → 2026-09-09" says nothing. */}
                         {s.time_label
-                          ? `${s.start_date} · ${s.time_label}`
+                          ? `${shortDay(s.start_date)} · ${s.time_label}`
                           : s.start_date
-                            ? `${s.start_date}${s.end_date ? " → " + s.end_date : ""}`
+                            ? `${shortDay(s.start_date)}${s.end_date ? " → " + shortDay(s.end_date) : ""}`
                             : "—"}
                       </TableCell>
                       <TableCell className="px-4 py-3">
                         <div className="flex flex-wrap items-center gap-1.5">
                           <StatusPill status={stage} />
                           {s.payment_method && (
-                            <Badge variant="outline" className="rounded-full text-[10px] uppercase">{s.payment_method}</Badge>
+                            <PaymentMethodBadge method={s.payment_method} />
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="px-4 py-3 text-right font-black text-foreground whitespace-nowrap">
+                      <TableCell className="px-4 py-3 text-right font-semibold tabular-nums text-foreground whitespace-nowrap">
                         {typeof s.price_cents === "number" ? formatUSD(s.price_cents) : "—"}
                       </TableCell>
                       <TableCell className="px-2 py-3">
@@ -627,9 +694,19 @@ const MarketplaceSubscriptions = () => {
                             </button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
+                            {subscriptionStage(s) === "pending_payment" && !backing(s).apiManaged && (
+                              <DropdownMenuItem onSelect={() => openPay(s)}>
+                                <CheckCircle2 className="mr-2 h-3.5 w-3.5" /> Mark paid…
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem onSelect={() => setEditRow(s)}>
                               <Pencil className="mr-2 h-3.5 w-3.5" /> Edit
                             </DropdownMenuItem>
+                            {!["cancelled", "expired", "refunded"].includes(subscriptionStage(s)) && (
+                              <DropdownMenuItem onSelect={() => setCancelRow(s)}>
+                                <Ban className="mr-2 h-3.5 w-3.5" /> Cancel order…
+                              </DropdownMenuItem>
+                            )}
                             {/* Only what was actually paid can go back. */}
                             {s.payment_status === "paid" && !backing(s).apiManaged && (
                               <DropdownMenuItem onSelect={() => {
@@ -707,26 +784,59 @@ const MarketplaceSubscriptions = () => {
                   <Row k="Plan">{detail.plan_name ?? "—"}</Row>
                   <Row k="Period">
                     {detail.time_label
-                      ? `${detail.start_date} · ${detail.time_label}`
-                      : detail.start_date ? `${detail.start_date}${detail.end_date ? " → " + detail.end_date : ""}` : "—"}
+                      ? `${shortDay(detail.start_date)} · ${detail.time_label}`
+                      : detail.start_date ? `${shortDay(detail.start_date)}${detail.end_date ? " → " + shortDay(detail.end_date) : ""}` : "—"}
                   </Row>
                   <Row k="Payment">{detail.payment_method ? <PaymentMethodBadge method={detail.payment_method} /> : "—"}</Row>
-                  <Row k="Payment status">{detail.payment_status || "—"}</Row>
+                  <Row k="Payment status"><StatusPill status={detail.payment_status || "pending"} /></Row>
                   {detail.payment_reference && (
                     <Row k="Reference"><PaymentReference method={detail.payment_method} reference={detail.payment_reference} /></Row>
                   )}
                   <Row k="Order id"><span className="font-mono text-meta">{detail.id}</span></Row>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button size="sm" variant="secondary" onClick={() => { setEditRow(detail); setOrderId(""); }}>
-                    <Pencil className="h-4 w-4" /> Edit
-                  </Button>
-                  {detail.payment_status === "paid" && !backing(detail).apiManaged && (
-                    <Button size="sm" variant="secondary" onClick={() => { openRefund(detail); setOrderId(""); }}>
-                      <Undo2 className="h-4 w-4" /> Refund…
+                {detailEditing ? (
+                  <div className="rounded-radius-md bg-inset p-4">
+                    <p className="text-body font-semibold text-foreground">Edit order</p>
+                    {backing(detail).apiManaged ? (
+                      <CourtEditForm
+                        key={detail.id}
+                        row={detail}
+                        onCancelBooking={() => setCancelRow(detail)}
+                        saving={updateMutation.isPending}
+                      />
+                    ) : (
+                      <EditForm
+                        key={detail.id}
+                        row={detail}
+                        onSave={(patch) => updateMutation.mutate({ row: detail, patch })}
+                        onCancel={() => setDetailEditing(false)}
+                        saving={updateMutation.isPending}
+                      />
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {/* The next step for this stage goes first. */}
+                    {subscriptionStage(detail) === "pending_payment" && !backing(detail).apiManaged && (
+                      <Button size="sm" onClick={() => openPay(detail)}>
+                        <CheckCircle2 className="h-4 w-4" /> Mark paid…
+                      </Button>
+                    )}
+                    {wasPaid(detail) && detail.payment_status !== "refunded" && !backing(detail).apiManaged && (
+                      <Button size="sm" variant="secondary" onClick={() => openRefund(detail)}>
+                        <Undo2 className="h-4 w-4" /> Refund…
+                      </Button>
+                    )}
+                    <Button size="sm" variant="secondary" onClick={() => setDetailEditing(true)}>
+                      <Pencil className="h-4 w-4" /> Edit
                     </Button>
-                  )}
-                </div>
+                    {!["cancelled", "expired", "refunded"].includes(subscriptionStage(detail)) && (
+                      <Button size="sm" variant="ghost" className="text-destructive" onClick={() => setCancelRow(detail)}>
+                        <Ban className="h-4 w-4" /> Cancel order…
+                      </Button>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })()}
@@ -745,7 +855,7 @@ const MarketplaceSubscriptions = () => {
             <CourtEditForm
               key={editRow.id}
               row={editRow}
-              onCancelBooking={() => updateMutation.mutate({ row: editRow, patch: { status: "cancelled" } })}
+              onCancelBooking={() => setCancelRow(editRow)}
               saving={updateMutation.isPending}
             />
           ) : (
@@ -753,6 +863,7 @@ const MarketplaceSubscriptions = () => {
               key={editRow.id}
               row={editRow}
               onSave={(patch) => updateMutation.mutate({ row: editRow, patch })}
+              onCancel={() => setEditRow(null)}
               saving={updateMutation.isPending}
             />
           ))}
@@ -821,14 +932,36 @@ const MarketplaceSubscriptions = () => {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {bulk === "paid" ? "Mark as paid" : "Cancel"} {selected.size} {selected.size === 1 ? "order" : "orders"}?
+              {bulk === "paid" ? "Mark as paid" : "Cancel"} {bulkRows.length} {bulkRows.length === 1 ? "order" : "orders"}?
             </AlertDialogTitle>
             <AlertDialogDescription>
               {bulk === "paid"
-                ? "Each one counts as money received from that moment: it enters revenue and the business's withdrawable balance. Booked hours cannot be marked paid and will be skipped."
+                ? "Each one counts as money received from that moment: it enters revenue and the business's withdrawable balance. Orders already paid and booked hours are skipped."
                 : "Each one stops. A booked hour is cancelled through the calendar, which gives its slot back; the rest have their status set to cancelled."}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {/* What exactly is about to change — the admin checks names and
+              amounts here, not in a table they have scrolled away from. */}
+          <ul className="max-h-56 divide-y divide-border/50 overflow-y-auto rounded-radius-md bg-inset px-3 text-meta">
+            {bulkRows.map((r) => {
+              const skipped = bulk === "paid" && (wasPaid(r) || backing(r).apiManaged);
+              return (
+                <li key={r.id} className={cn("flex items-center justify-between gap-3 py-2", skipped && "opacity-50")}>
+                  <span className="min-w-0 truncate text-foreground">{customerLabel(r)} · {r.plan_name ?? "—"}</span>
+                  <span className="flex shrink-0 items-center gap-2">
+                    {r.payment_method && <PaymentMethodBadge method={r.payment_method} />}
+                    <span className="tabular-nums">{typeof r.price_cents === "number" ? formatUSD(r.price_cents) : "—"}</span>
+                    {skipped && <span className="text-muted-foreground">skipped</span>}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+          {bulk === "paid" && (
+            <p className="text-meta text-foreground">
+              Total {formatUSD(bulkRows.filter((r) => !wasPaid(r) && !backing(r).apiManaged).reduce((a, r) => a + (r.price_cents ?? 0), 0))}
+            </p>
+          )}
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
@@ -842,15 +975,90 @@ const MarketplaceSubscriptions = () => {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Mark paid — the only way money is recorded as received from here. */}
+      <AlertDialog open={!!payRow} onOpenChange={(o) => !o && setPayRow(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Mark {payRow && typeof payRow.price_cents === "number" ? formatUSD(payRow.price_cents) : "this order"} as paid?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {payRow ? `${customerLabel(payRow)} · ${payRow.plan_name ?? "—"}. ` : ""}
+              It counts as money received from now: it enters revenue and the business's withdrawable balance, and the order starts.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {payRow && (payRow.payment_method === "paypal" || payRow.payment_method === "lightning" || payRow.payment_method === "onchain") && (
+            <p className="rounded-radius-md bg-warning/10 px-3 py-2 text-meta text-foreground">
+              {payRow.payment_method === "paypal" ? "PayPal" : "Bitcoin"} payments are confirmed automatically. Mark it by hand only if you have seen the money arrive.
+            </p>
+          )}
+          <div className="space-y-3">
+            <div>
+              <Label>How was it paid</Label>
+              <Select value={payMethod} onValueChange={setPayMethod} disabled={!!payRow?.payment_method}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {PAYMENT_METHOD_OPTIONS.map((m) => <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>)}
+                  {payRow?.payment_method && !PAYMENT_METHOD_OPTIONS.some((m) => m.value === payRow.payment_method) && (
+                    <SelectItem value={payRow.payment_method}>{payRow.payment_method}</SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="pay-ref">Reference (optional)</Label>
+              <Input id="pay-ref" value={payReference} onChange={(e) => setPayReference(e.target.value)} placeholder="Receipt number, transaction id" />
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Back</AlertDialogCancel>
+            <AlertDialogAction disabled={payMutation.isPending} onClick={(e) => { e.preventDefault(); payRow && payMutation.mutate(payRow); }}>
+              {payMutation.isPending ? "Saving…" : "Mark paid"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Cancel — stops the order; the history stays. */}
+      <AlertDialog open={!!cancelRow} onOpenChange={(o) => !o && setCancelRow(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel this order?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {cancelRow ? `${customerLabel(cancelRow)} · ${cancelRow.plan_name ?? "—"}. ` : ""}
+              {cancelRow && backing(cancelRow).apiManaged
+                ? "The hour goes back to the calendar."
+                : wasPaid(cancelRow ?? {})
+                  ? "Access stops. Money is not returned automatically — refund it separately if needed."
+                  : "Access stops. Nothing was paid, so there is nothing to refund."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Back</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              disabled={updateMutation.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                if (!cancelRow) return;
+                const patch = backing(cancelRow).apiManaged ? { status: "cancelled" } : buildSalePatch(cancelRow, { status: "cancelled" });
+                updateMutation.mutate({ row: cancelRow, patch });
+              }}
+            >
+              {updateMutation.isPending ? "Cancelling…" : "Cancel order"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Delete confirmation — hard-deletes the row. */}
       <AlertDialog open={!!deleteRow} onOpenChange={(o) => !o && setDeleteRow(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete this {deleteRow?.kind ?? "row"}?</AlertDialogTitle>
             <AlertDialogDescription>
-              This permanently removes the row from the database. If you just want to end access,
-              set the status to <strong>cancelled</strong> via Edit instead — it keeps history intact
-              for the audit trail.
+              This permanently removes the order. To end access and keep the history, use
+              <strong> Cancel order</strong> instead.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -923,16 +1131,23 @@ function Field({ label, value }: { label: string; value: string }) {
   );
 }
 
+/**
+ * Dates, lifecycle and — while nothing has been paid — the amount.
+ *
+ * Payment status and method are not here on purpose: money in is "Mark paid",
+ * money out is "Refund", and both are confirmed actions with their own record.
+ * A paid amount is history; changing it would rewrite revenue after the fact.
+ */
 function EditForm({
-  row, onSave, saving,
+  row, onSave, onCancel, saving,
 }: {
   row: SaleRow;
   onSave: (patch: Record<string, any>) => void;
+  onCancel?: () => void;
   saving: boolean;
 }) {
+  const paid = row.payment_status === "paid" || row.payment_status === "refunded";
   const [statusV, setStatusV] = useState(row.status);
-  const [paymentV, setPaymentV] = useState(row.payment_status);
-  const [methodV, setMethodV] = useState(row.payment_method ?? "");
   const [start, setStart] = useState(row.start_date ?? "");
   const [end, setEnd] = useState(row.end_date ?? "");
   const [priceDollars, setPriceDollars] = useState(
@@ -941,33 +1156,35 @@ function EditForm({
 
   useEffect(() => {
     setStatusV(row.status);
-    setPaymentV(row.payment_status);
-    setMethodV(row.payment_method ?? "");
     setStart(row.start_date ?? "");
     setEnd(row.end_date ?? "");
     setPriceDollars(typeof row.price_cents === "number" ? (row.price_cents / 100).toFixed(2) : "");
   }, [row.id]);
 
+  const dateError = start && end && end < start ? "The end date is before the start date." : null;
+  const cents = Math.round(parseFloat(priceDollars || "0") * 100);
+  const priceError = !paid && (Number.isNaN(cents) || cents < 0) ? "Enter an amount of 0 or more." : null;
+  const changed =
+    statusV !== row.status ||
+    start !== (row.start_date ?? "") ||
+    end !== (row.end_date ?? "") ||
+    (!paid && cents !== row.price_cents);
+
   const submit = () => {
+    if (dateError || priceError) return;
     // Generic fields; buildSalePatch maps them onto the row's own column names
     // — cleaning's status lives in `subscription_status`, food's price is the
-    // weekly rate. Writing a plain `status` to a cleaning row changed nothing.
-    const edit: Parameters<typeof buildSalePatch>[1] = {
-      status: statusV,
-      payment_status: paymentV,
-      payment_method: methodV || null,
-    };
-    // Only send a date the admin actually changed. Every service stores these
-    // as plain dates, so there's no timestamp half left to preserve.
+    // weekly rate.
+    const edit: Parameters<typeof buildSalePatch>[1] = {};
+    if (statusV !== row.status) edit.status = statusV;
     if (start !== (row.start_date ?? "")) edit.start_date = start || null;
     if (end   !== (row.end_date   ?? "")) edit.end_date   = end   || null;
-    const cents = Math.round(parseFloat(priceDollars || "0") * 100);
-    if (!Number.isNaN(cents) && cents !== row.price_cents) edit.price_cents = cents;
+    if (!paid && cents !== row.price_cents) edit.price_cents = cents;
     onSave(buildSalePatch(row, edit));
   };
 
   return (
-    <div className="mt-6 space-y-4">
+    <div className="mt-4 space-y-4">
       <div>
         <Label>Status</Label>
         <Select value={statusV} onValueChange={setStatusV}>
@@ -981,33 +1198,6 @@ function EditForm({
           </SelectContent>
         </Select>
       </div>
-      <div>
-        <Label>Payment status</Label>
-        <Select value={paymentV} onValueChange={setPaymentV}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="paid">Paid</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="failed">Failed</SelectItem>
-            <SelectItem value="refunded">Refunded</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      <div>
-        <Label>Payment method</Label>
-        <Select value={methodV || "none"} onValueChange={(v) => setMethodV(v === "none" ? "" : v)}>
-          <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">—</SelectItem>
-            <SelectItem value="lightning">Lightning</SelectItem>
-            <SelectItem value="onchain">On-chain BTC</SelectItem>
-            <SelectItem value="crypto">LIVES</SelectItem>
-            <SelectItem value="paypal">PayPal</SelectItem>
-            <SelectItem value="cash">Cash</SelectItem>
-            <SelectItem value="manual">Manual</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
           <Label>Start</Label>
@@ -1015,9 +1205,10 @@ function EditForm({
         </div>
         <div>
           <Label>End</Label>
-          <Input type="date" value={end} onChange={(e) => setEnd(e.target.value)} />
+          <Input type="date" value={end} min={start || undefined} onChange={(e) => setEnd(e.target.value)} aria-invalid={!!dateError} />
         </div>
       </div>
+      {dateError && <p className="text-meta text-negative">{dateError}</p>}
       <div>
         <Label>Amount ($)</Label>
         <Input
@@ -1025,11 +1216,17 @@ function EditForm({
           step="0.01"
           min="0"
           value={priceDollars}
+          disabled={paid}
           onChange={(e) => setPriceDollars(e.target.value)}
         />
+        <p className="mt-1 text-meta text-muted-foreground">
+          {paid ? "Already paid, so the amount is fixed. Use Refund to give money back." : "Can be changed until the order is paid."}
+        </p>
+        {priceError && <p className="mt-1 text-meta text-negative">{priceError}</p>}
       </div>
-      <SheetFooter className="mt-4">
-        <Button onClick={submit} disabled={saving} loading={saving} loadingText="Saving…">Save</Button>
+      <SheetFooter className="mt-4 gap-2">
+        {onCancel && <Button variant="ghost" onClick={onCancel} disabled={saving}>Back</Button>}
+        <Button onClick={submit} disabled={saving || !changed || !!dateError || !!priceError} loading={saving} loadingText="Saving…">Save changes</Button>
       </SheetFooter>
     </div>
   );

@@ -74,9 +74,9 @@ const CleaningAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
         period={periodFigures(allRows, period)}
         plans={{ rows: rankedByRevenue(groupRevenue(rows, (r) => r.planKey, (k) => names?.plans.get(k))) }}
         group={{
-          title: "Revenue by Provider",
+          title: "Revenue by business",
           rows: rankedByRevenue(groupRevenue(rows, (r) => r.providerKey, (k) => names?.providers.get(k))),
-          emptyMessage: "No provider has earned anything yet.",
+          emptyMessage: "No business has earned anything yet.",
         }}
         details={{
           title: "Cleaning visits",

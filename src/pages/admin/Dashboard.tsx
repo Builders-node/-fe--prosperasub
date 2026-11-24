@@ -3,7 +3,7 @@ import { ArrowUpRight, Car, CheckCircle2, Package } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { toast } from "sonner";
-import { changeLabel, fetchPlatformRollup, periodFigures, type NormRow } from "@/lib/analytics/platformRollup";
+import { changeLabel, fetchPlatformRollup, financeRangeFor, periodFigures, type NormRow } from "@/lib/analytics/platformRollup";
 import { PeriodPicker } from "@/components/admin/analytics/PeriodPicker";
 import {
   getServiceIndex, serviceLabelOf, serviceOfSale, VEHICLES_KEY, type ServiceIndex,
@@ -108,7 +108,7 @@ const AdminDashboard = () => {
   // Revenue and sales follow the period; users, active and awaiting are "now".
   const [period, setPeriod] = useRollupPeriod("7d");
 
-  const { data: stats } = useQuery({
+  const { data: stats, isLoading: statsLoading, isError: statsError, refetch: refetchStats } = useQuery({
     queryKey: ["super-admin-stats-all"],
     queryFn: async () => {
       // Revenue, active and awaiting-payment are counted once, in
@@ -203,19 +203,21 @@ const AdminDashboard = () => {
    * Everything else that is waiting on a person, as counts that open the
    * place to act. Each is hidden at zero, so a quiet day shows nothing here.
    */
-  const { data: needs } = useQuery({
+  const { data: needs, refetch: refetchNeeds } = useQuery({
     queryKey: ["super-admin-needs-you"],
     staleTime: 30_000,
     queryFn: async () => {
       const today = new Date();
       const inTwo = new Date(today.getTime() + 2 * 86400_000);
       const iso = (d: Date) => d.toISOString().slice(0, 10);
-      const count = async (q: PromiseLike<{ count: number | null; error: unknown }>) => {
+      // A failed count is null, not 0: "nothing waiting" and "could not
+      // check" are different answers, and only one of them is safe to ignore.
+      const count = async (q: PromiseLike<{ count: number | null; error: unknown }>): Promise<number | null> => {
         const { count: c, error } = await q;
-        return error ? 0 : c ?? 0;
+        return error ? null : c ?? 0;
       };
       const [applications, payouts, support, expiring, drafts, ready] = await Promise.all([
-        fetchApplications({ status: "pending" }).then((r) => r.length).catch(() => 0),
+        fetchApplications({ status: "pending" }).then((r): number | null => r.length).catch(() => null),
         count(supabaseDb.from("provider_payouts").select("id", { count: "exact", head: true }).in("status", ["requested", "approved"])),
         count(supabaseDb.from("support_messages").select("id", { count: "exact", head: true }).eq("status", "new")),
         count(supabaseDb.from("subscriptions_unified").select("id", { count: "exact", head: true })
@@ -228,14 +230,16 @@ const AdminDashboard = () => {
       return { applications, payouts, support, expiring, drafts, ready };
     },
   });
-  const needItems = [
+  const needAll = [
     { key: "applications", label: "Applications to review", value: needs?.applications ?? 0, href: adminRoutes.superAdminProviderApplications },
     { key: "payouts", label: "Payouts to send", value: needs?.payouts ?? 0, href: `${adminRoutes.superAdminPayments}?tab=payouts` },
     { key: "support", label: "New support messages", value: needs?.support ?? 0, href: adminRoutes.superAdminSupport },
     { key: "expiring", label: "Ending in 2 days", value: needs?.expiring ?? 0, href: "/admin/marketplace/subscriptions?ending=2" },
-    { key: "ready", label: "Ready for review", value: needs?.ready ?? 0, href: `${adminRoutes.superAdminMarketplaceProviders}?status=draft` },
+    { key: "ready", label: "Businesses ready to go live", value: needs?.ready ?? 0, href: `${adminRoutes.superAdminMarketplaceProviders}?status=ready` },
     { key: "drafts", label: "Businesses in draft", value: needs?.drafts ?? 0, href: `${adminRoutes.superAdminMarketplaceProviders}?status=draft` },
-  ].filter((n) => n.value > 0);
+  ];
+  const needItems = needAll.filter((n) => (n.value ?? 0) > 0);
+  const needFailed = needs ? needAll.filter((n) => n.value === null) : [];
 
   // Subscription-level activity — one row per distinct customer sale, not one
   // row per generated booking. The old feed emitted five identical rows for a
@@ -296,6 +300,14 @@ const AdminDashboard = () => {
       */}
 
       {/* What is waiting on a person — first, because it is why you opened this. */}
+      {needFailed.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-radius-md bg-card p-3 text-meta">
+          <span className="text-foreground">
+            Could not check: {needFailed.map((n) => n.label.toLowerCase()).join(", ")}.
+          </span>
+          <Button size="sm" variant="secondary" onClick={() => refetchNeeds()}>Try again</Button>
+        </div>
+      )}
       {needItems.length > 0 && (
         <section className="mb-8">
           <YdSectionHeading title="Needs you" />
@@ -320,16 +332,26 @@ const AdminDashboard = () => {
         <YdSectionHeading title="How it's going" className="mb-0" />
         <PeriodPicker value={period} onChange={setPeriod} className="max-w-full" />
       </div>
+      {statsError && (
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-radius-md bg-card p-3 text-meta">
+          <span className="text-foreground">The figures could not load. What you see below is not real data.</span>
+          <Button size="sm" variant="secondary" onClick={() => refetchStats()}>Try again</Button>
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <MetricTile label="Revenue" value={formatUSD(pf.revenueCents)}
-          href={`/admin/analytics?period=${period}`} accent change={period === "all" ? undefined : changeLabel(pf.revenueCents, pf.prevRevenueCents)} />
-        <MetricTile label="Sales" value={String(pf.sales)}
+        <MetricTile loading={statsLoading} label="Revenue" value={formatUSD(pf.revenueCents)}
+          // A calendar month opens Finance on the same month, so the two
+          // numbers can be checked against each other.
+          href={financeRangeFor(period) ? `/admin/payments?range=${financeRangeFor(period)}` : `/admin/analytics?period=${period}`} change={period === "all" ? undefined : changeLabel(pf.revenueCents, pf.prevRevenueCents)} />
+        <MetricTile loading={statsLoading} label="Sales" value={String(pf.sales)}
           href={`/admin/analytics?period=${period}`} change={period === "all" ? undefined : changeLabel(pf.sales, pf.prevSales)} />
-        <MetricTile label="Users" value={String(stats?.users ?? 0)} href="/admin/users" />
+        <MetricTile loading={statsLoading} label="Users" value={String(stats?.users ?? 0)} href="/admin/users" />
         <MetricTile
+          loading={statsLoading}
           label="Awaiting payment"
           value={String(stats?.pending ?? 0)}
-          href="/admin/marketplace/subscriptions?status=pending"
+          // The stage, not the raw status: a row can be "active" and unpaid.
+          href="/admin/marketplace/subscriptions?stage=pending_payment"
           warning={(stats?.pending ?? 0) > 0}
         />
       </div>
@@ -516,8 +538,9 @@ const AdminDashboard = () => {
 
 
 function MetricTile({
-  label, value, href, accent, warning, className, change,
+  label, value, href, accent, warning, className, change, loading,
 }: {
+  loading?: boolean;
   label: string;
   value: string;
   href: string;
@@ -538,15 +561,20 @@ function MetricTile({
         <span className="truncate text-meta text-muted-foreground">{label}</span>
         <ArrowUpRight className="ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
       </div>
-      <p
-        className={cn(
-          "text-[28px] font-semibold leading-tight tabular-nums tracking-[-0.6px]",
-          accent || warning ? "text-primary" : "text-foreground",
-        )}
-      >
-        {value}
-      </p>
-      {change !== undefined && (
+      {loading ? (
+        // A skeleton, not "$0": zero is a real answer and must not flash.
+        <span className="my-1 block h-7 w-24 animate-pulse rounded-radius-sm bg-muted" aria-label="Loading" />
+      ) : (
+        <p
+          className={cn(
+            "text-[28px] font-semibold leading-tight tabular-nums tracking-[-0.6px]",
+            accent || warning ? "text-primary" : "text-foreground",
+          )}
+        >
+          {value}
+        </p>
+      )}
+      {!loading && change !== undefined && (
         <p className={cn("text-meta", change ? (change.up ? "text-positive" : "text-negative") : "text-muted-foreground")}>
           {change ? `${change.text} vs previous` : "No earlier sales"}
         </p>

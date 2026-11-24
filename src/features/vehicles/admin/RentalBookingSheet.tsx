@@ -15,6 +15,7 @@ import { adminApi } from "@/integrations/supabase/client";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { FLEET_KEY, FUEL_LABELS, type FleetBooking, type FleetVehicle } from "./fleetData";
+import { useConfirm } from "@/components/patterns/ConfirmDialog";
 
 /**
  * One rental, in full, and everything the fleet does with it — in order of
@@ -44,6 +45,7 @@ export function RentalBookingSheet({ booking, vehicle, onClose }: {
   onClose: () => void;
 }) {
   const qc = useQueryClient();
+  const [confirm, confirmDialog] = useConfirm();
   const [dates, setDates] = useState({ start: "", end: "" });
   const [notes, setNotes] = useState("");
   const [form, setForm] = useState<null | "paid" | "handover" | "return">(null);
@@ -89,6 +91,7 @@ export function RentalBookingSheet({ booking, vehicle, onClose }: {
       description={`${day(b.start_date)} → ${day(b.end_date)} · ${b.rental_days} day${b.rental_days === 1 ? "" : "s"}`}
       className="sm:max-w-[640px]"
     >
+      {confirmDialog}
       {/* Who and how much */}
       <DialogBlock>
         <div className="flex items-start gap-3">
@@ -239,7 +242,15 @@ export function RentalBookingSheet({ booking, vehicle, onClose }: {
           </Button>
           {!cancelled && b.status !== "completed" && (
             <Button size="sm" variant="ghost" className="gap-1.5 text-negative" disabled={act.isPending}
-              onClick={() => { if (window.confirm(paid ? "Cancel this PAID booking? You'll need to refund it." : "Cancel this booking? The car is freed for those days.")) act.mutate({ body: { fields: { status: "cancelled" } }, done: "Booking cancelled" }); }}>
+              onClick={async () => {
+                const ok = await confirm({
+                  title: "Cancel this booking?",
+                  description: paid ? "It is paid. Cancelling does not return the money — refund it separately." : "The car is freed for those days.",
+                  confirmLabel: "Cancel booking",
+                  cancelLabel: "Back",
+                });
+                if (ok) act.mutate({ body: { fields: { status: "cancelled" } }, done: "Booking cancelled" });
+              }}>
               <RotateCcw className="h-4 w-4" /> Cancel booking
             </Button>
           )}

@@ -29,6 +29,7 @@ import {
 } from "@/features/vehicles";
 import { useTabParam } from "@/hooks/useTabParam";
 import { VEHICLES_UNIT } from "@/lib/services/vehiclesUnit";
+import { useConfirm } from "@/components/patterns/ConfirmDialog";
 
 /**
  * Car rentals, run from the same admin as everything else.
@@ -84,11 +85,12 @@ export default function CarRentals({ embedded = false, providerId, section }: {
   const fleetQ = useFleet(providerId);
   const fleet = fleetQ.data;
   const [openBookingId, setOpenBookingId] = useState<string | null>(null);
+  const [confirm, confirmDialog] = useConfirm();
   const openBooking = fleet?.bookings.find((b) => b.id === openBookingId) ?? null;
   const [newSeed, setNewSeed] = useState<NewRentalSeed | null>(null);
   const [termsProvider, setTermsProvider] = useState<string>(providerId ?? "");
   const removeBlock = async (id: string, label: string) => {
-    if (!window.confirm(`Unblock ${label}? Customers can book those days again.`)) return;
+    if (!(await confirm({ title: `Unblock ${label}?`, description: "Customers can book those days again.", confirmLabel: "Unblock", destructive: false }))) return;
     const { error } = await adminApi(`/admin/rentals/blocks/${id}`, { method: "DELETE" });
     if (error) { toast.error(error.message); return; }
     toast.success("Unblocked");
@@ -195,6 +197,7 @@ export default function CarRentals({ embedded = false, providerId, section }: {
 
   const body = (
     <div className="space-y-space-4">
+      {confirmDialog}
       {/* Same drill-down shape as a Marketplace service: the unit's own nouns
           (Vehicles, Bookings) beside the shared lists, mounted embedded. */}
       {!section && <TabPills
@@ -429,8 +432,8 @@ export default function CarRentals({ embedded = false, providerId, section }: {
           onRetry={() => companiesQ.refetch()}
           isEmpty={!companiesQ.isLoading && (companiesQ.data ?? []).length === 0}
           count={(companiesQ.data ?? []).length}
-          emptyTitle="No rental providers yet"
-          emptySubtitle="Approve an application, or add one from Marketplace → All providers."
+          emptyTitle="No rental companies yet"
+          emptySubtitle="Approve an application, or add one from Businesses → New business."
         >
           <div className="space-y-space-2">
             {(companiesQ.data ?? []).map((c) => (

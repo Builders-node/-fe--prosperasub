@@ -146,7 +146,7 @@ export default function MarketplaceHub() {
 
                   <dl className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                     <HubStat label="Categories" value={at(counts?.categories, a.key)} />
-                    <HubStat label="Providers" value={at(counts?.providers, a.key)} />
+                    <HubStat label="Businesses" value={at(counts?.providers, a.key)} />
                     <HubStat label="Plans" value={at(counts?.plans, a.key)} />
                   </dl>
 
@@ -192,7 +192,7 @@ export default function MarketplaceHub() {
                 </div>
                 <dl className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                   <HubStat label="Categories" value={orphans.categories} />
-                  <HubStat label="Providers" value={orphans.providers} />
+                  <HubStat label="Businesses" value={orphans.providers} />
                   <HubStat label="Plans" value={orphans.plans} />
                 </dl>
               </Link>

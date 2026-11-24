@@ -124,6 +124,13 @@ const CONTEXT: Record<string, Record<string, { label: string; tone: Tone }>> = {
   application: {
     pending: { label: "Under review", tone: "attention" },
   },
+  // A person, not a sale: has something running, had and lost it, or never.
+  customer: {
+    blocked: { label: "Blocked", tone: "negative" },
+    active: { label: "Active", tone: "positive" },
+    lapsed: { label: "Lapsed", tone: "attention" },
+    idle: { label: "No orders", tone: "neutral" },
+  },
 };
 
 export type StatusContext = keyof typeof CONTEXT;

@@ -73,6 +73,9 @@ function ConfirmMoneyDialog({ open, onOpenChange, title, description, actionLabe
  */
 
 const METHODS = ["lightning", "onchain", "paypal", "bank", "cash", "other"];
+const METHOD_LABEL: Record<string, string> = {
+  lightning: "Lightning", onchain: "On-chain Bitcoin", paypal: "PayPal", bank: "Bank transfer", cash: "Cash", other: "Other",
+};
 
 interface PayoutRow {
   id: string;
@@ -244,7 +247,7 @@ export function ProviderPayoutsPanel() {
               <Select value={method} onValueChange={setMethod}>
                 <SelectTrigger id="payout-method" className="mt-1.5"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {METHODS.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                  {METHODS.map((m) => <SelectItem key={m} value={m}>{METHOD_LABEL[m]}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

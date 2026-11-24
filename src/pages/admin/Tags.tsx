@@ -11,6 +11,10 @@ import { Skeleton } from "@/components/patterns/Skeleton";
 import { adminApi } from "@/integrations/supabase/client";
 import { tagIcon, useTagDictionary, type TagGroup } from "@/lib/tags";
 import { cn } from "@/lib/utils";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 /**
  * Tags — the words a plan can be tagged with, in groups (lib/tags.ts,
@@ -42,7 +46,7 @@ export default function Tags() {
     <SuperAdminLayout title="Tags" subtitle="The words businesses tag their plans with — and customers filter by">
       {!dict.isLoading && !dict.fromDb && (
         <p className="mb-4 rounded-radius-md bg-card p-4 text-body text-muted-foreground">
-          This is the built-in list. Apply the database migration (20261120120000_catalog_tags) to edit it here.
+          This is the built-in list and can't be edited yet. Diagnostics shows what is missing.
         </p>
       )}
 
@@ -83,13 +87,32 @@ function GroupCard({ group, editable, busy, onCall }: {
   onCall: (path: string, method: string, body?: unknown) => void;
 }) {
   const [name, setName] = useState("");
-  const rename = (path: string, current: string) => {
-    const next = window.prompt("New name", current)?.trim();
-    if (next && next !== current) onCall(path, "PATCH", { label: next });
+  // Renamed in our own dialog, not the browser's prompt box.
+  const [renaming, setRenaming] = useState<{ path: string; current: string } | null>(null);
+  const [renameTo, setRenameTo] = useState("");
+  const rename = (path: string, current: string) => { setRenameTo(current); setRenaming({ path, current }); };
+  const saveRename = () => {
+    const next = renameTo.trim();
+    if (renaming && next && next !== renaming.current) onCall(renaming.path, "PATCH", { label: next });
+    setRenaming(null);
   };
 
   return (
     <section className={cn("space-y-3 rounded-radius-lg bg-card p-4", !group.isActive && "opacity-60")}>
+      <AlertDialog open={!!renaming} onOpenChange={(o) => { if (!o) setRenaming(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Rename “{renaming?.current}”</AlertDialogTitle>
+          </AlertDialogHeader>
+          <form onSubmit={(e) => { e.preventDefault(); saveRename(); }}>
+            <Input autoFocus value={renameTo} maxLength={40} onChange={(e) => setRenameTo(e.target.value)} />
+          </form>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Back</AlertDialogCancel>
+            <AlertDialogAction disabled={!renameTo.trim() || renameTo.trim() === renaming?.current} onClick={saveRename}>Rename</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <div className="flex items-center gap-2">
         <h2 className="text-title font-semibold text-foreground">{group.label}</h2>
         {editable && (

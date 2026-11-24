@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Photo, initialsOf } from "@/components/patterns/Photo";
 import { useNavigate, Link } from "react-router-dom";
+import { fetchAllRows } from "@/lib/supabasePaging";
 import { useUrlState } from "@/hooks/useUrlState";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChevronRight, ShieldCheck, Plus } from "lucide-react";
@@ -52,6 +53,9 @@ interface ProviderRow {
 
 const QUERY_KEY = ["marketplace-providers"] as const;
 const AUDIT_ENTITY = "provider";
+/** The owner asked for review and the business is not live yet. */
+const isReady = (p: { status: string; review_requested_at?: string | null }) =>
+  !!p.review_requested_at && p.status !== "active" && p.status !== "approved";
 
 /**
  * Universal admin list for the `providers` table. Table layout matches Plans /
@@ -87,17 +91,14 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
   const { data: providers = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: QUERY_KEY,
     queryFn: async () => {
-      // Hard cap at 200 — pre-cap `.select("*")` returned unbounded, which
-       // rendered every row and pinned the browser on large tenants. Real
-       // pagination is on the roadmap; this is the safety floor until then.
+      // Every business, paged by the server: the old 200-row cap silently hid
+      // the rest, and the counts and search then lied about the platform.
       // select("*") — the completeness score reads description, media, hours
       // and contacts, and they are all on this row already.
-      const { data, error } = await supabaseDb.from("providers").select("*")
+      return fetchAllRows<ProviderRow>((): any => supabaseDb.from("providers").select("*")
         .order("sort_order", { ascending: true })
         .order("name", { ascending: true })
-        .range(0, 199);
-      if (error) throw error;
-      return (data ?? []) as ProviderRow[];
+        .order("id", { ascending: true }), { maxRows: 5000 });
     },
   });
 
@@ -141,7 +142,8 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
     return providers.filter((p) => {
       if (service === "unassigned") { if (p.archetype_key) return false; }
       else if (service !== "all" && p.archetype_key !== service) return false;
-      if (status  !== "all" && p.status        !== status)  return false;
+      if (status === "ready") { if (!isReady(p)) return false; }
+      else if (status !== "all" && p.status !== status) return false;
       if (q && !(
         p.name.toLowerCase().includes(q) ||
         (p.description ?? "").toLowerCase().includes(q) ||
@@ -199,7 +201,7 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
       // Straight into the business, where the setup checklist is.
       if (data?.id) navigate(`/admin/marketplace/providers/${data.id}`);
     },
-    onError: (e: any) => toast.error(e?.message || "Could not create provider"),
+    onError: (e: any) => toast.error(e?.message || "Could not create the business"),
   });
 
 
@@ -217,7 +219,7 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
   // the list then doesn't show.
   const inService = inScope.filter((p) => archetypeKey || service === "all" || p.archetype_key === service);
   const statusCount = (k: string) =>
-    inService.filter((p) => k === "all" || p.status === k || (k === "active" && p.status === "approved")).length;
+    inService.filter((p) => k === "all" || (k === "ready" ? isReady(p) : p.status === k || (k === "active" && p.status === "approved"))).length;
 
   const body = (
     <>
@@ -249,10 +251,12 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
         <div className="-mx-1 overflow-x-auto px-1 [scrollbar-width:none]">
           <TabPills
             className="flex-nowrap whitespace-nowrap"
-            value={status as "all" | "active" | "draft" | "inactive"}
+            value={status as "all" | "ready" | "active" | "draft" | "inactive"}
             onChange={setStatus}
             tabs={[
               { value: "all", label: `All ${statusCount("all")}` },
+              // Owners who pressed "Ready for review" — the queue to put live.
+              { value: "ready", label: "Ready for review", badge: statusCount("ready") },
               { value: "active", label: `Live ${statusCount("active")}` },
               { value: "draft", label: `Draft ${statusCount("draft")}` },
               { value: "inactive", label: `Hidden ${statusCount("inactive")}` },
@@ -337,8 +341,8 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
       <Sheet open={creating} onOpenChange={setCreating}>
         <SheetContent side="right" className="w-full max-w-md overflow-y-auto">
           <SheetHeader>
-            <SheetTitle>New provider</SheetTitle>
-            <SheetDescription>Create a platform-owned business on any archetype.</SheetDescription>
+            <SheetTitle>New business</SheetTitle>
+            <SheetDescription>A draft owned by the platform. Hand it to its owner from its page.</SheetDescription>
           </SheetHeader>
           <CreateProviderForm
             defaultArchetype={archetypeKey && archetypeKey !== "unassigned" ? archetypeKey : undefined}
@@ -362,6 +366,16 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
 };
 
 // ─── Create form ────────────────────────────────────────────────────────────
+/**
+ * Three fields: name, service, category. Everything else — description,
+ * contacts, photos, plans — is filled in from the business's own setup
+ * checklist, where it is shown in context. Capabilities stay available under
+ * "More options" for the rare case the service defaults are wrong.
+ *
+ * Services shown to customers by a built-in page (food, cleaning, the beach
+ * club) are not offered: that page lists its own businesses only, so one
+ * created here would be real, manageable and invisible.
+ */
 function CreateProviderForm({
   archetypes, categories, saving, onCreate, defaultArchetype,
 }: {
@@ -373,35 +387,28 @@ function CreateProviderForm({
   defaultArchetype?: string;
 }) {
   const [name, setName] = useState("");
-  const [archetypeKey, setArchetypeKey] = useState<string>("__none");
-  const [categoryKey, setCategoryKey] = useState<string>("__none");
-  const [description, setDescription] = useState("");
-  const [location, setLocation] = useState("");
-  const [contactEmail, setContactEmail] = useState("");
-  const [contactPhone, setContactPhone] = useState("");
+  const [archetypeKey, setArchetypeKey] = useState<string>("");
+  const [categoryKey, setCategoryKey] = useState<string>("");
   const [caps, setCaps] = useState<Set<string>>(new Set());
+  const [more, setMore] = useState(false);
+  const [tried, setTried] = useState(false);
 
-  const scopedCategories = archetypeKey === "__none"
-    ? []
-    : categories.filter((c) => c.archetype_key === archetypeKey);
+  const scopedCategories = archetypeKey ? categories.filter((c) => c.archetype_key === archetypeKey) : [];
 
-  // When picking an archetype, seed capabilities from its defaults + auto-
-  // pick the first category so the admin doesn't have to make two picks in
-  // a row (they can still override).
+  // Picking a service seeds its default capabilities and its first category,
+  // so the common case is one pick, not two.
   const onArchetypeChange = (key: string) => {
     setArchetypeKey(key);
-    if (key === "__none") { setCaps(new Set()); setCategoryKey("__none"); return; }
     const a = archetypes.find((x) => x.key === key);
     setCaps(new Set(a?.default_capabilities ?? []));
-    const first = categories.find((c) => c.archetype_key === key);
-    setCategoryKey(first?.key ?? "__none");
+    setCategoryKey(categories.find((c) => c.archetype_key === key)?.key ?? "");
   };
 
-  // Seed from the pinned service, but only once the archetype list has loaded —
-  // it arrives async, so seeding on mount would silently select nothing.
+  // Seed from the pinned service once the lists have loaded (they arrive async).
   useEffect(() => {
-    if (!defaultArchetype || archetypeKey !== "__none") return;
-    if (!archetypes.some((a) => a.key === defaultArchetype)) return;
+    if (!defaultArchetype || archetypeKey) return;
+    const a = archetypes.find((x) => x.key === defaultArchetype);
+    if (!a || a.source_service_key) return;
     onArchetypeChange(defaultArchetype);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [defaultArchetype, archetypes, categories]);
@@ -414,141 +421,105 @@ function CreateProviderForm({
     });
   };
 
-  /**
-   * providers.category_key is NOT NULL, so a name alone is not enough. Before
-   * this, picking "— none —" (an offered option) or a service with no categories
-   * submitted null and the admin got a raw Postgres message in a toast:
-   *   null value in column "category_key" violates not-null constraint
-   * The button now says what is missing instead.
-   */
-  /**
-   * An archetype with a `source_service_key` is shown to customers by a
-   * bespoke legacy listing (food, cleaning, the beach club), and those pages
-   * read their own tables — they do not list universal providers. A business
-   * created under one is real, manageable and invisible, which is exactly how
-   * the Massage provider sat on the Lifestyle tile for a week with nobody able
-   * to reach it.
-   */
-  const pickedArchetype = archetypes.find((a) => a.key === archetypeKey);
-  const bespokeListing = pickedArchetype?.source_service_key ?? null;
-
-  const missing =
-    name.trim().length === 0        ? "Name is required"
-    : archetypeKey === "__none"     ? "Pick a service"
-    : scopedCategories.length === 0 ? "This service has no categories yet"
-    : categoryKey === "__none"      ? "Pick a category"
-    : null;
-  const canSubmit = !missing && !saving;
+  const errors = {
+    name: name.trim() ? null : "Give the business a name.",
+    service: archetypeKey ? null : "Pick the service it sells in.",
+    category: !archetypeKey ? null
+      : scopedCategories.length === 0 ? "This service has no categories yet. Add one in Services & categories first."
+      : categoryKey ? null : "Pick a category.",
+  };
+  const valid = !errors.name && !errors.service && !errors.category;
 
   const submit = () => {
-    if (!canSubmit) return;
+    setTried(true);
+    if (!valid || saving) return;
     onCreate({
       name: name.trim(),
-      archetype_key: archetypeKey === "__none" ? null : archetypeKey,
-      category_key: categoryKey === "__none" ? null : categoryKey,
-      description: description.trim() || null,
-      location: location.trim() || null,
-      contact_email: contactEmail.trim() || null,
-      contact_phone: contactPhone.trim() || null,
+      archetype_key: archetypeKey,
+      category_key: categoryKey,
       capabilities: Array.from(caps),
     });
   };
+  const show = (e: string | null) => (tried && e ? <p className="mt-1 text-meta text-negative">{e}</p> : null);
 
   return (
-    <div className="mt-6 space-y-4">
+    <form className="mt-6 space-y-4" onSubmit={(e) => { e.preventDefault(); submit(); }}>
       <div>
-        <Label>Name <span className="text-destructive">*</span></Label>
-        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Sunset Yoga Studio" />
+        <Label htmlFor="new-biz-name">Name</Label>
+        <Input id="new-biz-name" autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Sunset Yoga Studio" aria-invalid={tried && !!errors.name} />
+        {show(errors.name)}
       </div>
       <div>
-        <Label>Service (archetype)</Label>
-        <Select value={archetypeKey} onValueChange={onArchetypeChange}>
-          <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+        <Label>Service</Label>
+        <Select value={archetypeKey || undefined} onValueChange={onArchetypeChange}>
+          <SelectTrigger aria-invalid={tried && !!errors.service}><SelectValue placeholder="Pick a service" /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="__none">— none —</SelectItem>
-            {archetypes.map((a) => <SelectItem key={a.key} value={a.key}>{a.label}</SelectItem>)}
+            {archetypes.map((a) => (
+              <SelectItem key={a.key} value={a.key} disabled={!!a.source_service_key}>
+                {a.label}{a.source_service_key ? " · has its own page, add businesses there" : ""}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
-        {archetypeKey !== "__none" && (
-          <p className="mt-1 text-xs text-muted-foreground">
-            Capabilities were pre-filled from archetype defaults — tweak below.
-          </p>
-        )}
-        {bespokeListing && (
-          <p className="mt-1 text-xs text-attention">
-            Customers see this service through the built-in {bespokeListing} page, which lists
-            its own businesses only. A provider created here is manageable but will not appear
-            on that page.
-          </p>
-        )}
+        {show(errors.service)}
       </div>
-      <div>
-        <Label>Category</Label>
-        <Select value={categoryKey} onValueChange={setCategoryKey} disabled={archetypeKey === "__none" || scopedCategories.length === 0}>
-          <SelectTrigger><SelectValue placeholder={archetypeKey === "__none" ? "Pick a service first" : "—"} /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__none">— none —</SelectItem>
-            {scopedCategories.map((c) => <SelectItem key={c.key} value={c.key}>{c.label}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        {archetypeKey !== "__none" && scopedCategories.length === 0 && (
-          <p className="mt-1 text-xs text-muted-foreground">
-            No categories under this service — add one in Businesses → the service → Categories.
-          </p>
-        )}
-      </div>
-      <div>
-        <Label>Description</Label>
-        <Input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Short one-liner shown on the listing" />
-      </div>
-      <div>
-        <Label>Location</Label>
-        <Input value={location} onChange={(e) => setLocation(e.target.value)} placeholder="e.g. Próspera Village, Main Block" />
-      </div>
-      <div className="grid gap-3 md:grid-cols-2">
+      {archetypeKey && (
         <div>
-          <Label>Contact email</Label>
-          <Input type="email" value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} />
+          <Label>Category</Label>
+          <Select value={categoryKey || undefined} onValueChange={setCategoryKey} disabled={scopedCategories.length === 0}>
+            <SelectTrigger aria-invalid={tried && !!errors.category}><SelectValue placeholder="Pick a category" /></SelectTrigger>
+            <SelectContent>
+              {scopedCategories.map((c) => <SelectItem key={c.key} value={c.key}>{c.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          {scopedCategories.length === 0 ? <p className="mt-1 text-meta text-negative">{errors.category}</p> : show(errors.category)}
         </div>
-        <div>
-          <Label>Contact phone</Label>
-          <Input value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} />
-        </div>
-      </div>
-      <div>
-        <Label>Capabilities</Label>
-        <div className="mt-1.5 flex flex-wrap gap-1.5">
-          {(Object.keys(CAPABILITIES) as CapabilityKey[]).map((cap) => {
-            const on = caps.has(cap);
-            const meta = CAPABILITIES[cap];
-            const I = meta.icon;
-            return (
-              <button
-                key={cap}
-                type="button"
-                onClick={() => toggleCap(cap)}
-                className={cn(
-                  "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition",
-                  on ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground",
-                )}
-                title={meta.description}
-              >
-                <I className="h-3 w-3" /> {meta.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      )}
 
-      <SheetFooter className="mt-4 flex-col items-stretch gap-2 sm:flex-col">
-        {missing && !saving && (
-          <p className="text-xs text-muted-foreground">{missing}</p>
-        )}
-        <Button onClick={submit} disabled={!canSubmit} loading={saving} loadingText="Creating…">
-          Create provider
-        </Button>
+      <p className="text-meta text-muted-foreground">
+        It starts as a draft. Description, contacts, photos and plans are filled in on its page, which opens next.
+      </p>
+
+      {archetypeKey && (
+        <div>
+          <button type="button" className="text-meta font-semibold text-muted-foreground hover:text-foreground" onClick={() => setMore((v) => !v)} aria-expanded={more}>
+            {more ? "Hide options" : "More options"}
+          </button>
+          {more && (
+            <div className="mt-2">
+              <Label>What it can do</Label>
+              <p className="mb-1.5 text-meta text-muted-foreground">Set from the service. Change only if this business works differently.</p>
+              <div className="flex flex-wrap gap-1.5">
+                {(Object.keys(CAPABILITIES) as CapabilityKey[]).map((cap) => {
+                  const on = caps.has(cap);
+                  const meta = CAPABILITIES[cap];
+                  const I = meta.icon;
+                  return (
+                    <button
+                      key={cap}
+                      type="button"
+                      onClick={() => toggleCap(cap)}
+                      aria-pressed={on}
+                      className={cn(
+                        "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-meta transition",
+                        on ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground hover:text-foreground",
+                      )}
+                      title={meta.description}
+                    >
+                      <I className="h-3 w-3" /> {meta.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      <SheetFooter className="mt-4">
+        <Button type="submit" loading={saving} loadingText="Creating…">Create draft</Button>
       </SheetFooter>
-    </div>
+    </form>
   );
 }
 

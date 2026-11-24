@@ -1,8 +1,11 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { ArrowLeft, CarFront, Store, Check, X, Mail, Phone, MapPin, Clock } from "lucide-react";
-import { Link } from "react-router-dom";
+import { CarFront, Store, Check, X, Mail, Phone, MapPin, Clock } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { useUrlState } from "@/hooks/useUrlState";
+import { TabPills } from "@/components/admin/TabPills";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { AdminListShell } from "@/components/admin/AdminListShell";
 import { Button } from "@/components/ui/button";
@@ -62,8 +65,14 @@ export interface ProviderApplicationsProps {
 export default function ProviderApplications({ embedded = false, archetypeKey }: ProviderApplicationsProps = {}) {
   const qc = useQueryClient();
   const { userData } = useAuth();
-  const [filter, setFilter] = useState<Filter>("pending");
-  const [search, setSearch] = useState("");
+  const navigate = useNavigate();
+  // In the URL, so a reload or a shared link keeps the view.
+  const [filter, setFilter] = useUrlState<Filter>(embedded ? "app_status" : "status", "pending");
+  // Embedded, the host page owns `status` and `q` for its own list.
+  const [search, setSearch] = useUrlState<string>(embedded ? "app_q" : "q", "");
+  // Approving creates a business and emails the applicant — it is confirmed
+  // first, like rejecting always was.
+  const [approveTarget, setApproveTarget] = useState<any | null>(null);
   const [rejectTarget, setRejectTarget] = useState<any | null>(null);
   const [rejectNotes, setRejectNotes] = useState("");
   const { archetypes } = useServiceArchetypes(true);
@@ -95,8 +104,23 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
       // transaction and refuse to insert anything if it's already approved.
       const { data: freshRows } = await adminApi(`/admin/provider-applications?id=${encodeURIComponent(app.id)}`);
       const fresh = (Array.isArray(freshRows) ? freshRows[0] : null) as { status?: string; created_provider_id?: string | null } | null;
-      if (fresh?.status === "approved" || fresh?.created_provider_id) {
+      if (fresh?.status === "approved") {
         return { table: null, alreadyApproved: true } as const;
+      }
+      // A run that created the business and then failed used to stop here for
+      // good: the business existed, the application stayed "pending", and every
+      // retry answered "already approved". Finish the remaining steps instead.
+      if (fresh?.created_provider_id) {
+        const pid = String(fresh.created_provider_id);
+        const owner = await resolveOwnerUuid(app.user_id, app.contact_email);
+        let ownerAssigned = false;
+        if (owner) {
+          const { error: oErr } = await accountApi(`/account/providers/${pid}/owner`, { method: "PUT", body: JSON.stringify({ userId: owner }) });
+          ownerAssigned = !oErr;
+        }
+        await patchApplication(app.id, { status: "approved", createdProviderId: pid });
+        await logAuditEvent(userData!.id, "approve", "provider_application", app.id, { resumed: true, createdProviderId: pid });
+        return { table: null, alreadyApproved: false, calendar: null, ownerAssigned, hasApplicant: !!owner, providerId: pid, appId: String(app.id) } as const;
       }
 
       const svc = SERVICE_REGISTRY[app.service as ServiceKey];
@@ -189,7 +213,7 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
       const categoryKey = await resolveCategoryKey();
       if (!categoryKey) {
         throw new Error(
-          `No category exists for this service yet. Add one under ${app.archetype_key ?? app.service} in Marketplace → Categories, then approve again.`,
+          `No category exists for this service yet. Add one under Settings → Services → ${app.archetype_key ?? app.service} → Categories, then approve again.`,
         );
       }
 
@@ -285,7 +309,7 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
         // service without a legacy table.
         toast.success("Approved — a draft business was created. Fill it in, then Go live.", {
           action: r.providerId
-            ? { label: "Open", onClick: () => { window.location.href = `/admin/marketplace/providers/${r.providerId}`; } }
+            ? { label: "Open", onClick: () => navigate(`/admin/marketplace/providers/${r.providerId}`) }
             : undefined,
         });
         // The applicant is told — by email and in the app. Without an account
@@ -294,10 +318,12 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
           ? "The applicant was emailed: their business is waiting in My business."
           : "The applicant was emailed a link to take the business over.");
         if (r.calendar && !r.calendar.calendarId) {
-          toast.warning("No Google calendar was created — provision it from the provider's Overview tab.");
+          toast.warning("No Google calendar was created — provision it from the business's Overview tab.");
         }
       }
       qc.invalidateQueries({ queryKey: ["admin-provider-applications"] });
+      qc.invalidateQueries({ queryKey: ["marketplace-providers"] });
+      setApproveTarget(null);
     },
     onError: (e: any) => toast.error(e?.message || "Could not approve"),
   });
@@ -334,7 +360,7 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
     .filter((a) => !q || [a.business_name, a.contact_email, a.contact_phone, a.residence].some((v) => (v ?? "").toLowerCase().includes(q)));
 
   const FILTERS: { label: string; value: Filter; count: number }[] = [
-    { label: "Pending",  value: "pending",  count: counts.pending  },
+    { label: "To review", value: "pending",  count: counts.pending  },
     { label: "Approved", value: "approved", count: counts.approved },
     { label: "Rejected", value: "rejected", count: counts.rejected },
     { label: "All",      value: "all",      count: counts.all      },
@@ -343,42 +369,18 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
   const body = (
     <>
       <div className="space-y-5">
-        {!embedded && (
-          <Link to="/admin/marketplace/providers" className="inline-flex items-center gap-1.5 text-body text-muted-foreground hover:text-foreground">
-            <ArrowLeft className="h-4 w-4" /> Businesses
-          </Link>
-        )}
-
-        <div className="flex flex-wrap items-center gap-2">
-          {FILTERS.map((f) => (
-            <button
-              key={f.value}
-              type="button"
-              onClick={() => setFilter(f.value)}
-              className={cn(
-                "flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors",
-                filter === f.value
-                  ? "bg-foreground text-background"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
-              )}
-            >
-              {f.label}
-              <span className={cn(
-                "rounded-full px-1.5 text-xs tabular-nums",
-                filter === f.value
-                  ? "bg-primary-foreground/20 text-primary-foreground"
-                  : "bg-muted-foreground/15 text-muted-foreground",
-              )}>{f.count}</span>
-            </button>
-          ))}
-        </div>
+        <TabPills
+          value={filter}
+          onChange={setFilter}
+          tabs={FILTERS.map((f) => ({ value: f.value, label: `${f.label} ${f.count}` }))}
+        />
 
         <AdminListShell
           search={search} onSearch={setSearch} searchPlaceholder="Search applications…"
           isLoading={isLoading} isError={isError} error={error} onRetry={refetch}
           isEmpty={inScope.length === 0}
           isNoResults={inScope.length > 0 && visible.length === 0} count={visible.length}
-          emptyTitle="No applications yet" emptySubtitle="Provider applications will appear here."
+          emptyTitle="No applications yet" emptySubtitle="Businesses that apply to join appear here."
           onClearFilters={() => { setSearch(""); setFilter("all"); }}
         >
           <div className="grid gap-3 md:grid-cols-2">
@@ -459,20 +461,21 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
                     <div className="flex gap-2 pt-1">
                       <Button
                         size="sm"
-                        className="flex-1 gap-1.5 bg-positive text-white hover:bg-positive/90"
-                        onClick={() => approve.mutate(a)}
-                        disabled={approve.isPending}
-                        loading={approve.isPending}
+                        className="flex-1 gap-1.5"
+                        onClick={() => setApproveTarget(a)}
+                        // Only THIS card shows progress; the others stay usable.
+                        disabled={approve.isPending && approve.variables?.id === a.id}
+                        loading={approve.isPending && approve.variables?.id === a.id}
                         loadingText="Approving…"
                       >
                         <Check className="h-3.5 w-3.5" /> Approve
                       </Button>
                       <Button
                         size="sm"
-                        variant="outline"
-                        className="flex-1 gap-1.5 text-negative hover:text-negative"
+                        variant="secondary"
+                        className="flex-1 gap-1.5"
                         onClick={() => { setRejectTarget(a); setRejectNotes(""); }}
-                        disabled={reject.isPending}
+                        disabled={(reject.isPending && reject.variables?.app?.id === a.id) || (approve.isPending && approve.variables?.id === a.id)}
                       >
                         <X className="h-3.5 w-3.5" /> Reject
                       </Button>
@@ -485,13 +488,34 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
         </AdminListShell>
       </div>
 
+      <AlertDialog open={!!approveTarget} onOpenChange={(o) => { if (!o && !approve.isPending) setApproveTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Approve {approveTarget?.business_name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This creates a draft business{approveTarget?.unit === "vehicles" ? " under Vehicles" : ""}, hands it to the applicant and emails them.
+              Nothing is public until it goes live from its page.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={approve.isPending}>Back</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={approve.isPending}
+              onClick={(e) => { e.preventDefault(); if (approveTarget) approve.mutate(approveTarget); }}
+            >
+              {approve.isPending ? "Approving…" : "Approve"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Reject dialog — replaces the old window.prompt */}
       <AlertDialog open={!!rejectTarget} onOpenChange={(o) => { if (!o) { setRejectTarget(null); setRejectNotes(""); } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Reject application?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will mark <strong>{rejectTarget?.business_name}</strong>'s application as rejected. You can leave an optional note explaining why — it's stored on the application for the audit trail.
+              <strong>{rejectTarget?.business_name}</strong> is told by email that the application was not accepted. The note stays on the application for your team.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <Textarea
@@ -501,7 +525,7 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
             rows={3}
           />
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>Back</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => reject.mutate({ app: rejectTarget, notes: rejectNotes })}
               variant="destructive"
@@ -516,7 +540,10 @@ export default function ProviderApplications({ embedded = false, archetypeKey }:
 
   if (embedded) return body;
   return (
-    <SuperAdminLayout title="Provider applications" subtitle="Pending sign-ups from businesses that want to join a service">
+    <SuperAdminLayout
+      title="Applications"
+      subtitle="Businesses that want to join. Approving one creates its draft."
+    >
       {body}
     </SuperAdminLayout>
   );
@@ -533,10 +560,12 @@ function AssignService({ app, onDone }: { app: any; onDone: () => void }) {
   });
   return (
     <div className="flex items-center gap-2 rounded-radius-md bg-attention/10 p-2">
-      <select value={key} onChange={(e) => setKey(e.target.value)} className="h-10 min-w-0 flex-1 rounded-full bg-card px-3 text-body">
-        <option value="">Assign a service…</option>
-        {archetypes.map((x) => <option key={x.key} value={x.key}>{x.label}</option>)}
-      </select>
+      <Select value={key} onValueChange={setKey}>
+        <SelectTrigger className="min-w-0 flex-1"><SelectValue placeholder="Assign a service…" /></SelectTrigger>
+        <SelectContent>
+          {archetypes.map((x) => <SelectItem key={x.key} value={x.key}>{x.label}</SelectItem>)}
+        </SelectContent>
+      </Select>
       <Button size="sm" disabled={!key} loading={save.isPending} onClick={() => save.mutate()}>Assign</Button>
     </div>
   );

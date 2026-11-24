@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { ArrowLeft, Ban, ChevronRight, LifeBuoy, Store, UserCheck } from "lucide-react";
+import { Ban, ChevronRight, LifeBuoy, Store, UserCheck } from "lucide-react";
 import { toast } from "sonner";
 
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
@@ -144,12 +144,12 @@ export default function AdminCustomer() {
 
   if (usersQ.isError) {
     return (
-      <SuperAdminLayout title="Customer">
+      <SuperAdminLayout title="Customer" parent={{ label: "Customers", href: "/admin/users" }}>
         <QueryError title="Couldn't load this customer" error={usersQ.error} onRetry={() => void usersQ.refetch()} />
       </SuperAdminLayout>
     );
   }
-  if (!user) return <SuperAdminLayout title="Customer"><PageLoader /></SuperAdminLayout>;
+  if (!user) return <SuperAdminLayout title="Customer" parent={{ label: "Customers", href: "/admin/users" }}><PageLoader /></SuperAdminLayout>;
 
   const name = user.display_name || user.name || user.email || "Customer";
   const contact = contacts?.get(userId);
@@ -162,12 +162,8 @@ export default function AdminCustomer() {
   const blocked = !!user.isBlocked;
 
   return (
-    <SuperAdminLayout title={name}>
+    <SuperAdminLayout title={name} parent={{ label: "Customers", href: "/admin/users" }}>
       <div className="space-y-1">
-        <Link to="/admin/users" className="mb-3 inline-flex items-center gap-1.5 text-body text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="h-4 w-4" /> Customers
-        </Link>
-
         {/* Who, and how to reach them. */}
         <section className="flex flex-wrap items-center gap-4 rounded-radius-lg bg-card p-4">
           <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-muted text-title font-semibold text-foreground">

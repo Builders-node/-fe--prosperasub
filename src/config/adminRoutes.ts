@@ -9,6 +9,8 @@ export const adminRoutes = {
   superAdminDashboard: "/admin/dashboard",
   superAdminAnalytics: "/admin/analytics",
   superAdminPayments: "/admin/payments",
+  /** Payment methods on/off and their fees — a setting, not a report. */
+  superAdminPaymentSettings: "/admin/settings/payments",
   superAdminServices: "/admin/services",
   /** Drill-down entry point — service cards, each opening its own detail page. */
   superAdminMarketplace: "/admin/marketplace",
@@ -31,8 +33,7 @@ export const adminRoutes = {
   superAdminAds: "/admin/ads",
   superAdminRoles: "/admin/roles",
   superAdminAuditLogs: "/admin/audit-logs",
-  // Not a nav destination — a tab inside Providers. Kept as a constant because
-  // the Providers nav item uses it for `alsoActiveOn` highlighting.
+  // Its own item under Work; the URL stays under Businesses so old links hold.
   superAdminProviderApplications: "/admin/marketplace/providers/applications",
 } as const;
 

@@ -1,6 +1,7 @@
 import { Fragment, useMemo, useState } from "react";
+import { useUrlState } from "@/hooks/useUrlState";
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Building2, ChevronRight, ExternalLink } from "lucide-react";
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { AdminListShell } from "@/components/admin/AdminListShell";
@@ -47,14 +48,18 @@ export interface MarketplacePlansProps {
  */
 const MarketplacePlans = ({ embedded = false, archetypeKey }: MarketplacePlansProps = {}) => {
   const { archetypes } = useServiceArchetypes(false);
+  const navigate = useNavigate();
   // When scoped by the parent route the archetype isn't the admin's to change,
   // so it's derived rather than state — otherwise navigating between two
   // services would keep showing the first one's plans.
-  const [serviceFilter, setServiceFilter] = useState("all");
+  // In the URL so Back and shared links keep the view. Embedded in a service
+  // page the keys are prefixed: that page owns plain `q` and `status`.
+  const k = (name: string) => (embedded ? `plan_${name}` : name);
+  const [serviceFilter, setServiceFilter] = useUrlState<string>(k("service"), "all");
   const service = archetypeKey ?? serviceFilter;
-  const [providerId, setProviderId] = useState("all");
-  const [status, setStatus] = useState("all");
-  const [search, setSearch] = useState("");
+  const [providerId, setProviderId] = useUrlState<string>(k("business"), "all");
+  const [status, setStatus] = useUrlState<string>(k("status"), "all");
+  const [search, setSearch] = useUrlState<string>(k("q"), "");
 
   const { data: providers = [] } = useQuery({
     queryKey: ["marketplace-providers-slim"],
@@ -185,9 +190,9 @@ const MarketplacePlans = ({ embedded = false, archetypeKey }: MarketplacePlansPr
         </Select>
       )}
       <Select value={providerId} onValueChange={setProviderId}>
-        <SelectTrigger inputSize="sm" className="w-44 rounded-full"><SelectValue placeholder="All providers" /></SelectTrigger>
+        <SelectTrigger inputSize="sm" className="w-44 rounded-full"><SelectValue placeholder="All businesses" /></SelectTrigger>
         <SelectContent>
-          <SelectItem value="all">All providers</SelectItem>
+          <SelectItem value="all">All businesses</SelectItem>
           {providersInService.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
         </SelectContent>
       </Select>
@@ -269,9 +274,10 @@ const MarketplacePlans = ({ embedded = false, archetypeKey }: MarketplacePlansPr
       <div className="flex justify-end">
         <Link
           onClick={(e) => e.stopPropagation()}
-          to={`/admin/marketplace/providers/${prov.id}`}
+          to={`/admin/marketplace/providers/${prov.id}?tab=offerings`}
           className="inline-flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          aria-label={`Open ${prov.name}`}
+          aria-label={`Edit in ${prov.name}`}
+          title="Edit in the business's Offerings"
         >
           <ExternalLink className="h-3.5 w-3.5" />
         </Link>
@@ -281,13 +287,19 @@ const MarketplacePlans = ({ embedded = false, archetypeKey }: MarketplacePlansPr
     return (
       <div
         key={p.id}
-        // An offer's whole row opens it; the arrow says so.
-        role={kids ? "button" : undefined}
-        tabIndex={kids ? 0 : undefined}
+        // An offer with options opens its options; any other plan opens where
+        // it is edited — the business's Offerings tab — instead of being a
+        // dead end that took four steps to reach the price.
+        role={kids || prov ? "button" : undefined}
+        tabIndex={kids || prov ? 0 : undefined}
         aria-expanded={kids ? open : undefined}
-        onClick={kids ? () => toggle(p.id) : undefined}
-        onKeyDown={kids ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(p.id); } } : undefined}
-        className={cn("group px-space-5 py-space-3 transition-colors hover:bg-muted/30", kids && "cursor-pointer", child && "bg-inset/40")}
+        onClick={kids ? () => toggle(p.id) : prov ? () => navigate(`/admin/marketplace/providers/${prov.id}?tab=offerings`) : undefined}
+        onKeyDown={kids || prov ? (e) => {
+          if (e.key !== "Enter" && e.key !== " ") return;
+          e.preventDefault();
+          if (kids) toggle(p.id); else if (prov) navigate(`/admin/marketplace/providers/${prov.id}?tab=offerings`);
+        } : undefined}
+        className={cn("group px-space-5 py-space-3 transition-colors hover:bg-muted/30", (kids || prov) && "cursor-pointer", child && "bg-inset/40")}
       >
         {/* Desktop grid row */}
         <div className="hidden grid-cols-[minmax(0,3fr)_minmax(0,2fr)_120px_minmax(0,1fr)_80px_80px] items-center gap-4 md:grid">
@@ -329,19 +341,19 @@ const MarketplacePlans = ({ embedded = false, archetypeKey }: MarketplacePlansPr
 
   const body = (
       <AdminListShell
-        search={search} onSearch={setSearch} searchPlaceholder="Search plans, providers…"
+        search={search} onSearch={setSearch} searchPlaceholder="Search plans, businesses…"
         filters={filters}
         isLoading={isLoading} isError={isError} error={error} onRetry={refetch}
         isEmpty={inScope.length === 0}
         isNoResults={inScope.length > 0 && visible.length === 0} count={visible.length}
-        emptyTitle="No plans yet" emptySubtitle="Providers can create plans in their portal."
+        emptyTitle="No plans yet" emptySubtitle="Businesses create plans in their workspace."
         onClearFilters={() => { setSearch(""); setServiceFilter("all"); setProviderId("all"); setStatus("all"); }}
       >
         <div className="overflow-hidden rounded-radius-md bg-card">
           {/* Desktop header row */}
           <div className="hidden grid-cols-[minmax(0,3fr)_minmax(0,2fr)_120px_minmax(0,1fr)_80px_80px] items-center gap-4 border-b border-border/40 px-space-5 py-space-3 text-meta font-semibold text-muted-foreground md:grid">
             <div aria-sort={sort.ariaSort("plan")}><SortHeader {...sort.headerProps("plan")}>Plan</SortHeader></div>
-            <div aria-sort={sort.ariaSort("provider")}><SortHeader {...sort.headerProps("provider")}>Provider</SortHeader></div>
+            <div aria-sort={sort.ariaSort("provider")}><SortHeader {...sort.headerProps("provider")}>Business</SortHeader></div>
             <div aria-sort={sort.ariaSort("service")}><SortHeader {...sort.headerProps("service")}>Service</SortHeader></div>
             <div className="flex justify-end" aria-sort={sort.ariaSort("price")}><SortHeader {...sort.headerProps("price")} align="right">Price</SortHeader></div>
             <div aria-sort={sort.ariaSort("status")}><SortHeader {...sort.headerProps("status")}>Status</SortHeader></div>
@@ -366,7 +378,7 @@ const MarketplacePlans = ({ embedded = false, archetypeKey }: MarketplacePlansPr
 
   if (embedded) return body;
   return (
-    <SuperAdminLayout title="Plans" subtitle="Every subscription plan offered by every provider">
+    <SuperAdminLayout title="Plans" subtitle="Every plan offered by every business">
       {body}
     </SuperAdminLayout>
   );
