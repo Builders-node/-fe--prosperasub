@@ -16,12 +16,12 @@ export function ProfileCompletenessCard({ provider }: { provider: UniversalProvi
   return (
     <section className="rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <h2 className="text-[20px] font-semibold leading-[26px] text-foreground">
+        <h2 className="text-[20px] font-semibold leading-[26px] text-foreground lg:text-[18px] lg:leading-[24px]">
           Your profile is {percent}% complete
         </h2>
-        <span className="text-[16px] leading-[22px] text-muted-foreground">{done} of {total} done</span>
+        <span className="text-[16px] leading-[22px] text-muted-foreground lg:text-[14px] lg:leading-[20px]">{done} of {total} done</span>
       </div>
-      <p className="mt-1 text-[16px] leading-[22px] text-muted-foreground">
+      <p className="mt-1 text-[16px] leading-[22px] text-muted-foreground lg:text-[14px] lg:leading-[20px]">
         This is what a customer sees before they buy. Fill it in with Edit.
       </p>
 
@@ -29,13 +29,13 @@ export function ProfileCompletenessCard({ provider }: { provider: UniversalProvi
         <div className="h-full rounded-full bg-primary" style={{ width: `${percent}%` }} />
       </div>
 
-      <ul className="mt-4 grid gap-2 sm:grid-cols-2">
+      <ul className="mt-4 grid gap-2 sm:grid-cols-2 2xl:grid-cols-3">
         {missing.map((f) => (
           <li key={f.key} className="flex items-start gap-2.5 rounded-radius-md bg-inset p-3">
             <Circle className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground/50" />
             <span className="min-w-0">
-              <span className="block text-[16px] leading-[22px] text-foreground">{f.label}</span>
-              <span className="block text-[14px] leading-[18px] text-muted-foreground">{f.why}</span>
+              <span className="block text-[16px] leading-[22px] text-foreground lg:text-[14px] lg:leading-[20px] lg:font-medium">{f.label}</span>
+              <span className="block text-[14px] leading-[18px] text-muted-foreground lg:text-[13px]">{f.why}</span>
             </span>
           </li>
         ))}

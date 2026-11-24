@@ -23,7 +23,12 @@ export function PortalTabsView<T>({ tabs, provider, isOwner }: {
 
   return (
     <Tabs value={active} onValueChange={setActive} className="space-y-1">
-      <WorkspaceTabsCard tabs={visible.map((t) => ({ value: t.value, label: t.label }))} />
+      {/* A laptop gets the same tabs as a rail beside the page
+          (WorkspaceSideNav, rendered by ProviderWorkspace); the strip is the
+          phone and tablet control. */}
+      <div className="lg:hidden">
+        <WorkspaceTabsCard tabs={visible.map((t) => ({ value: t.value, label: t.label }))} />
+      </div>
       {visible.map((t) => (
         <TabsContent key={t.value} value={t.value} className="mt-1">
           {t.render(provider, isOwner)}

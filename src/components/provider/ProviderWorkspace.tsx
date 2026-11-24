@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { StatusPill } from "@/components/patterns/StatusPill";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { WorkspaceTabsCard } from "@/components/provider/WorkspaceTabsCard";
+import { WorkspaceSideNav } from "@/components/provider/WorkspaceSideNav";
 import { WorkspaceSection, WorkspaceStat } from "@/components/provider/WorkspaceUI";
 import { useUserUuid } from "@/hooks/useUserUuid";
 import { useAuth } from "@/contexts/AuthContext";
@@ -262,7 +262,11 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
     mobileLabel: INFO_TAB_META.tabMobileLabel,
     icon: INFO_TAB_META.icon,
     render: () => (
-      <div className="space-y-1">
+      // On a wide screen the business's own details take a narrow column on
+      // the right — a list of short facts does not need 900 of width — and
+      // the cards that are about growing it fill the left.
+      <div className="space-y-1 xl:grid xl:grid-cols-[minmax(0,1fr)_340px] xl:items-start xl:gap-1 xl:space-y-0">
+        <div className="min-w-0 space-y-1">
         {custom.overviewTop?.(workspaceCtx)}
         {/* What is still missing from the public profile, first — every
             provider on the platform went live without contacts, and two
@@ -288,6 +292,7 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
           />
         )}
         {custom.infoExtra?.(workspaceCtx)}
+        </div>
         {/* How to reach the business, last on Overview: reference, not the
             first thing an owner opens the workspace for. No Edit of its own —
             the one Edit is in the title bar (phone) or the header card. */}
@@ -408,12 +413,94 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
     teamTab,
   ];
 
+  /**
+   * Opens the business as a customer sees it. A business that is not live yet
+   * opens in draft preview, so an admin sees the page as it will look (every
+   * plan, the draft banner) rather than the half-empty version a customer
+   * would get today. The flag works for an admin and for whoever runs the
+   * business (useDraftPreview); anyone else sees what customers see.
+   */
+  const openPublic = () => {
+    // Its service switched off hides it just as surely as its own status —
+    // the public page answers "No such service" then.
+    const serviceOff = archetypes.find((a) => a.key === provider.archetype_key)?.is_active === false;
+    const draft = (provider.status !== "active" && provider.status !== "approved") || serviceOff;
+    const href = draft
+      ? `${resolvedPublicHref}${resolvedPublicHref.includes("?") ? "&" : "?"}preview=1`
+      : resolvedPublicHref;
+    window.open(href, "_blank");
+  };
+
+  // `?? 0` used to turn a FAILED request into "$0.00" — a business being told
+  // it has no money when the truth is we could not ask. Unknown is "—"; only a
+  // real answer prints a figure.
+  const kpiUnknown = kpis.isPending || kpis.isError;
+  const stats: Array<{ label: string; value: string }> = [
+    ...(isOwner ? [{
+      label: "Balance",
+      value: balanceQ.isPending || balanceQ.isError || balanceQ.data == null
+        ? "—"
+        : formatUSD(balanceQ.data.availableCents),
+    }] : []),
+    { label: "Active customers", value: kpiUnknown ? "—" : String(kpis.active) },
+    { label: "Upcoming 7d", value: kpiUnknown ? "—" : String(kpis.upcoming) },
+    {
+      label: kpis.ratingCount ? `Rating · ${kpis.ratingCount}` : "Rating",
+      value: kpis.rating != null ? kpis.rating.toFixed(1) : "—",
+    },
+  ];
+  const underReview = !!provider.status && !["approved", "active"].includes(provider.status);
+
   return (
     <>
-      {/* No side gutter: in the design the cards ARE the page width and their
-          own 16 of padding is the only inset. A container's padding on top of
-          that put the text 32 from the edge and the cards on a rail. */}
-      <div className="mx-auto w-full max-w-[1280px] space-y-1 pb-8 md:px-space-4">
+      {/* Two layouts from one tree.
+
+          Phone and tablet: the design's stack — banner, who, how it is doing,
+          the tab strip, the tab. No side gutter on a phone: the cards ARE the
+          page width and their own 16 of padding is the only inset.
+
+          Laptop (lg+): a workspace, not a stretched phone. Who this is and
+          where to go live in a sticky left rail, so every tab starts at the
+          top of the screen instead of under a 180-tall banner and a second
+          card of tabs; the figures become one compact strip. The rail is the
+          same 272 the admin's own navigation uses. */}
+      <div className="mx-auto w-full max-w-[1280px] pb-8 md:px-space-4 lg:grid lg:grid-cols-[272px_minmax(0,1fr)] lg:items-start lg:gap-space-4 lg:pt-space-4">
+        <aside className="hidden lg:sticky lg:top-[calc(var(--desktop-header-h,72px)+16px)] lg:flex lg:flex-col lg:gap-1">
+          <section className="overflow-hidden rounded-radius-lg bg-card tracking-[-0.02em]">
+            <div className="relative h-[84px] bg-muted">
+              <Photo src={provider.banner_url} icon={Store} loading="eager" />
+            </div>
+            <div className="px-4 pb-4">
+              <span className="relative z-10 -mt-7 block h-14 w-14 overflow-hidden rounded-full ring-4 ring-card">
+                <Photo src={provider.avatar_url} label={initialsOf(provider.name)} />
+              </span>
+              <h1 className="mt-2 text-[18px] font-semibold leading-[24px] text-foreground">{provider.name}</h1>
+              {provider.description && (
+                <p className="mt-1 line-clamp-2 text-[14px] leading-[20px] text-muted-foreground">{provider.description}</p>
+              )}
+              {underReview && (
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <StatusPill status={provider.status!} />
+                  {archetype && (
+                    <Badge className="rounded-full bg-inset text-xs text-foreground hover:bg-inset">{archetype.label}</Badge>
+                  )}
+                </div>
+              )}
+              <div className="mt-3 flex gap-2">
+                <Button size="sm" variant="secondary" onClick={() => setEditing(true)} className="flex-1 gap-1.5 px-3">
+                  <Edit className="h-4 w-4" /> Edit
+                </Button>
+                <Button size="sm" variant="secondary" onClick={openPublic} className="flex-[1.4] gap-1.5 px-3">
+                  <ExternalLink className="h-4 w-4" /> View public
+                </Button>
+              </div>
+            </div>
+          </section>
+          <WorkspaceSideNav tabs={tabs} />
+        </aside>
+
+        <div className="min-w-0 space-y-1">
+        <div className="space-y-1 lg:hidden">
         {/* The banner IS the header — 280 tall, its own bottom corners rounded,
             with the one control the design leaves off the cards floating on it.
             It sits in the cards' column: edge to edge on a phone (the column
@@ -426,21 +513,7 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
           <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/35 to-transparent" />
           <button
             type="button"
-            // A business that is not live yet opens in draft preview, so an admin
-            // sees the page as it will look (every plan, the draft banner) rather
-            // than the half-empty version a customer would get today. The flag
-            // works for an admin and for whoever runs the business
-            // (useDraftPreview); anyone else sees what customers see.
-            onClick={() => {
-              // Its service switched off hides it just as surely as its own
-              // status — the public page answers "No such service" then.
-              const serviceOff = archetypes.find((a) => a.key === provider.archetype_key)?.is_active === false;
-              const draft = (provider.status !== "active" && provider.status !== "approved") || serviceOff;
-              const href = draft
-                ? `${resolvedPublicHref}${resolvedPublicHref.includes("?") ? "&" : "?"}preview=1`
-                : resolvedPublicHref;
-              window.open(href, "_blank");
-            }}
+            onClick={openPublic}
             className="absolute right-4 top-4 flex items-center gap-1.5 rounded-full bg-black/35 px-3.5 py-2 text-[14px] font-semibold text-white backdrop-blur transition-colors hover:bg-black/50"
           >
             <ExternalLink className="h-4 w-4" /> View public
@@ -489,32 +562,27 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
         {/* How it is doing. The four figures that used to be a strip of
             icon-plated cards under the tabs, in the design's tiles and above
             them — where a business looks before choosing where to go. */}
-        <section className="grid grid-cols-2 content-center gap-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em] md:p-5 lg:grid-cols-4">
-          {isOwner && (
-            <WorkspaceStat
-              label="Balance"
-              // `?? 0` used to turn a FAILED request into "$0.00" — a business
-              // being told it has no money when the truth is we could not ask.
-              // Unknown is "—"; only a real answer prints a figure.
-              value={
-                balanceQ.isPending || balanceQ.isError || balanceQ.data == null
-                  ? "—"
-                  : formatUSD(balanceQ.data.availableCents)
-              }
-            />
-          )}
-          <WorkspaceStat label="Active customers" value={kpis.isPending || kpis.isError ? "—" : String(kpis.active)} />
-          <WorkspaceStat label="Upcoming 7d" value={kpis.isPending || kpis.isError ? "—" : String(kpis.upcoming)} />
-          {/* Three tiles without a Balance would leave a hole in the second
-              row, so the last one takes the width instead. */}
-          <div className={isOwner ? "contents" : "col-span-2 flex"}>
-            <WorkspaceStat
-              label={kpis.ratingCount ? `Rating · ${kpis.ratingCount}` : "Rating"}
-              value={kpis.rating != null ? kpis.rating.toFixed(1) : "—"}
-            />
-          </div>
+        <section className="grid grid-cols-2 content-center gap-3 rounded-radius-lg bg-card p-4 tracking-[-0.02em] md:p-5">
+          {stats.map((st, i) => (
+            // Three tiles without a Balance would leave a hole in the second
+            // row, so the last one takes the width instead.
+            <div key={st.label} className={!isOwner && i === stats.length - 1 ? "col-span-2 flex" : "contents"}>
+              <WorkspaceStat label={st.label} value={st.value} />
+            </div>
+          ))}
         </section>
         </div>
+
+        </div>
+
+        {/* The figures, as one strip across the top of every tab. */}
+        <section
+          className={`hidden gap-2 rounded-radius-lg lg:!mt-0 bg-card p-3 tracking-[-0.02em] lg:grid ${stats.length === 4 ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}
+        >
+          {stats.map((st) => (
+            <WorkspaceStat key={st.label} label={st.label} value={st.value} />
+          ))}
+        </section>
 
         {/* Draft → live, for the platform: the checklist and the switch on the
             business itself, not in a list's row menu. */}
@@ -532,6 +600,7 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
         {isLegacyPortal
           ? <LegacyOwnerPortal sourceKey={sourceKey} legacyId={legacyId} tabs={tabs} isOwner={isOwner} isMember={isMember} />
           : <PortalTabsView tabs={tabs} provider={null} isOwner={isOwner} />}
+        </div>
       </div>
 
       <ProviderProfileEditor provider={provider} open={editing} onOpenChange={setEditing} />
