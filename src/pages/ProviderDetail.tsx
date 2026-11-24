@@ -557,6 +557,14 @@ const ProviderDetail = () => {
     : [];
   const hours = formatWorkingHours(p.working_hours);
 
+  const crumbs = [
+    { label: "Home", href: "/discovery" },
+    ...(serviceLabel?.trim() && serviceLabel.trim().toLowerCase() !== p.name.trim().toLowerCase()
+      ? [{ label: serviceLabel, href: meta.listingRoute }]
+      : []),
+    { label: p.name },
+  ];
+
   return (
     <BrowseLayout className="md:pb-0">
       {preview && <div className="app-container pt-3"><DraftPreviewBanner /></div>}
@@ -610,25 +618,21 @@ const ProviderDetail = () => {
         </div>
       )}
 
-      <main className="app-container space-y-1 pb-8 pt-1 md:py-8">
+      {/* Home › service › this business, as a quiet line of text above the
+          content. A service named exactly like the business ("Beach Club ›
+          Beach Club") is skipped rather than said twice. */}
+      <div className="hidden md:app-container md:block md:pt-space-6">
+        <Breadcrumbs items={crumbs} />
+      </div>
+      <main className="app-container space-y-1 pb-8 pt-1 md:pb-8 md:pt-space-4">
         {/* ─── Who this is ─────────────────────────────────────────────────
             Card radius 24 at 16 of padding, per the design; the trail, the
             name, and the three lines that describe the business. */}
         <section className="rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
-          {/* The trail says where this page SITS, not what it is: service →
-              where. The business's own name is the <h1> immediately below, and
-              printing it here too made the screen read "Vehicles · Vehicles ·
-              Atlantis · Atlantis" from the header down. A crumb that repeats
-              the one before it is dropped as well — the Beach Club is its own
-              service, and "Beach Club › Beach Club" says nothing twice. */}
-          <Breadcrumbs
-            items={[serviceLabel, p.location]
-              .filter((c): c is string => !!c && !!c.trim())
-              .filter((c, i, all) => all.findIndex((o) => o.toLowerCase() === c.toLowerCase()) === i)
-              .map((c, i) => ({ label: c, href: i === 0 ? meta.listingRoute : undefined }))}
-          />
+          {/* Phone: the trail opens the card. A laptop has it above the page. */}
+          <Breadcrumbs items={crumbs} className="mb-3 md:hidden" />
 
-          <div className="mt-3 space-y-2">
+          <div className="space-y-2">
             {/* The business's face beside its name — the logo was uploaded,
                 shown in the admin's card and on its product pages, and missing
                 only here, on its own page. Initials when there is none. */}
@@ -646,10 +650,8 @@ const ProviderDetail = () => {
                 <LinkifiedText text={p.description} />
               </p>
             )}
+            {p.location?.trim() && <p className="text-[16px] leading-[22px] text-muted-foreground">{p.location}</p>}
             {hours && <p className="text-[16px] leading-[22px] text-muted-foreground">{hours}</p>}
-            {/* The location is already the second crumb above the title;
-                printing it again two lines later said "Pristine bay" twice in
-                one card without adding a word. */}
           </div>
 
           {(bookableQ.data ?? 0) > 0 && (
