@@ -1,20 +1,7 @@
 import { useState } from "react";
 import { useSeo } from "@/hooks/useSeo";
-import { useNavigate } from "react-router-dom";
-import {
-  Archive,
-  Bell,
-  CalendarDays,
-  CheckCheck,
-  Clock,
-  CreditCard,
-  Megaphone,
-  Sparkles,
-  Store,
-  Wallet,
-} from "lucide-react";
+import { Bell, CheckCheck } from "lucide-react";
 import { PageLoader } from "@/components/ui/spinner";
-import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
@@ -22,103 +9,8 @@ import { UserLayout } from "@/components/layout/UserLayout";
 import { YdEmptyState } from "@/components/yd/YdPrimitives";
 import { QueryError } from "@/components/patterns/QueryError";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
-import {
-  useNotifications,
-  useMarkAsRead,
-  useMarkAllRead,
-  useArchiveNotification,
-  type UserNotification,
-} from "@/hooks/useNotifications";
-
-// ─── Category config ──────────────────────────────────────────────────────────
-
-const TABS = [
-  { key: "all", label: "All" },
-  { key: "unread", label: "Unread" },
-  { key: "payment", label: "Payments" },
-  { key: "subscription", label: "Subscriptions" },
-  { key: "booking", label: "Bookings" },
-  { key: "reminder", label: "Reminders" },
-  // Orders, cancellations and launch news for people who run a business.
-  { key: "business", label: "Business" },
-] as const;
-
-type TabKey = (typeof TABS)[number]["key"];
-
-function categoryIcon(category: UserNotification["category"]) {
-  switch (category) {
-    case "payment":      return CreditCard;
-    case "subscription": return Sparkles;
-    case "booking":      return CalendarDays;
-    case "reminder":     return Clock;
-    case "plan":         return Sparkles;
-    case "announcement": return Megaphone;
-    case "business":     return Store;
-    case "payout":       return Wallet;
-    default:             return Bell;
-  }
-}
-
-/** Emoji at the start of a title ("🧹 Cleaning Reminder") — the icon tile already says what it is. */
-const stripLeadingEmoji = (t: string) => t.replace(/^[\p{Extended_Pictographic}\uFE0F\u200D\s]+/u, "");
-
-// ─── Notification row ─────────────────────────────────────────────────────────
-
-function NotificationRow({
-  notification,
-  onRead,
-  onArchive,
-}: {
-  notification: UserNotification;
-  onRead: (id: string) => void;
-  onArchive: (id: string) => void;
-}) {
-  const navigate = useNavigate();
-  const Icon = categoryIcon(notification.category);
-  const timeAgo = formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true });
-
-  const handleOpen = () => {
-    if (!notification.isRead) onRead(notification.id);
-    if (notification.actionUrl) {
-      // The platform spans two origins now — a car booking's notification
-      // points at vehicles.everysub.net. Router navigation would treat that as
-      // a path and land on a blank route.
-      if (/^https?:\/\//i.test(notification.actionUrl)) window.location.href = notification.actionUrl;
-      else navigate(notification.actionUrl);
-    }
-  };
-
-  // The account page's row: a 40px neutral tile, 16 semibold title, 12
-  // captions. Colour is not the category's job — the tinted plates were five
-  // accents on one screen. Unread is a dot; the archive action is always
-  // there, because a phone has no hover to reveal it.
-  return (
-    <div className="flex items-start gap-3 rounded-radius-md p-2.5 transition-colors hover:bg-inset">
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] bg-inset text-muted-foreground">
-        <Icon className="h-5 w-5" />
-      </span>
-
-      <div
-        className={cn("min-w-0 flex-1", notification.actionUrl && "cursor-pointer")}
-        onClick={handleOpen}
-        role={notification.actionUrl ? "button" : undefined}
-      >
-        <div className="flex items-center gap-2">
-          <p className="min-w-0 text-title font-semibold text-foreground">{stripLeadingEmoji(notification.title)}</p>
-          {!notification.isRead && <span className="h-2 w-2 shrink-0 rounded-full bg-primary" aria-label="Unread" />}
-        </div>
-        <p className="mt-0.5 text-meta text-muted-foreground">{notification.body}</p>
-        <p className="mt-1 text-meta text-muted-foreground/70">{timeAgo}</p>
-      </div>
-
-      <Button variant="ghost" size="iconSm" aria-label="Archive" title="Archive"
-        onClick={() => onArchive(notification.id)} className="text-muted-foreground">
-        <Archive />
-      </Button>
-    </div>
-  );
-}
+import type { NotificationFilter } from "@/lib/notifications/present";
+import { FilterPills, NotificationList, useNotificationFeed } from "@/components/notifications/NotificationFeed";
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 
@@ -126,13 +18,12 @@ function Skeleton() {
   return (
     <div className="space-y-1 rounded-radius-lg bg-card p-1.5">
       {Array.from({ length: 5 }).map((_, i) => (
-        <div key={i} className="animate-pulse p-2.5">
+        <div key={i} className="animate-pulse px-3 py-3.5">
           <div className="flex items-start gap-3">
-            <div className="h-10 w-10 shrink-0 rounded-[8px] bg-muted" />
+            <div className="h-10 w-10 shrink-0 rounded-full bg-muted" />
             <div className="flex-1 space-y-2">
               <div className="h-3 w-48 rounded bg-muted" />
-              <div className="h-2.5 w-72 rounded bg-muted" />
-              <div className="h-2 w-20 rounded bg-muted" />
+              <div className="h-2.5 w-72 max-w-full rounded bg-muted" />
             </div>
           </div>
         </div>
@@ -141,43 +32,22 @@ function Skeleton() {
   );
 }
 
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 const Notifications = () => {
   useSeo({ title: "Notifications" });
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { openAuthModal } = useAuthModal();
-  const [activeTab, setActiveTab] = useState<TabKey>("all");
-
-  const isUnreadTab = activeTab === "unread";
-  const categoryFilter = isUnreadTab ? undefined : activeTab === "all" ? undefined : activeTab;
-
-  const { data: notifications = [], isLoading, isError, error, refetch, isFetching } = useNotifications({
-    category: categoryFilter,
-    unreadOnly: isUnreadTab,
-  });
-
-  const markAsRead = useMarkAsRead();
-  const markAllRead = useMarkAllRead();
-  const archive = useArchiveNotification();
-
-  const handleRead = (id: string) => {
-    markAsRead.mutate(id);
-  };
-
-  const handleArchive = (id: string) => {
-    archive.mutate(id, {
-      onSuccess: () => toast.success("Notification archived"),
-    });
-  };
+  const [filter, setFilter] = useState<NotificationFilter>("all");
+  const feed = useNotificationFeed(filter);
+  const { groups, unreadCount, isLoading, isError, error, refetch, isFetching, markAllRead } = feed;
 
   const handleMarkAllRead = () => {
     markAllRead.mutate(undefined, {
       onSuccess: () => toast.success("All notifications marked as read"),
     });
   };
-
-  const unreadCount = notifications.filter((n) => !n.isRead).length;
 
   // ── Auth gate ──────────────────────────────────────────────────────────────
 
@@ -232,68 +102,54 @@ const Notifications = () => {
         </button>
       ) : <span className="h-10 w-10" aria-hidden />}
     >
-      <div className="app-container space-y-3 pb-space-8 pt-4">
-        {/* Desktop has no title bar, so the action shows here instead. */}
-        {unreadCount > 0 && (
-          <div className="hidden justify-end md:flex">
-            <Button variant="secondary" size="sm" onClick={handleMarkAllRead} loading={markAllRead.isPending}>
-              <CheckCheck /> Mark all read
-            </Button>
+      {/* A column, not the full 1280px: a notification is a sentence, and a
+          sentence across the whole screen is hard to read. */}
+      <div className="app-container pb-space-8 pt-4 md:pt-8">
+        <div className="mx-auto w-full max-w-[720px] space-y-4">
+          <div className="hidden items-center justify-between gap-4 md:flex">
+            <h1 className="text-[28px] font-bold tracking-tight text-foreground">Notifications</h1>
+            {unreadCount > 0 && (
+              <Button variant="secondary" size="sm" onClick={handleMarkAllRead} loading={markAllRead.isPending}>
+                <CheckCheck /> Mark all read
+              </Button>
+            )}
           </div>
-        )}
 
-        {/* One line that scrolls sideways — it used to cut "Bookings" off at the edge. */}
-        <div className="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {TABS.map((tab) => (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => setActiveTab(tab.key)}
-              className={cn(
-                "flex h-10 shrink-0 items-center gap-1.5 rounded-full px-4 text-body font-semibold transition-colors",
-                activeTab === tab.key
-                  ? "bg-foreground text-background"
-                  : "bg-card text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {tab.label}
-              {tab.key === "unread" && unreadCount > 0 && (
-                <span className="tabular-nums opacity-60">{unreadCount}</span>
-              )}
-            </button>
-          ))}
-        </div>
+          <FilterPills value={filter} onChange={setFilter} unreadCount={unreadCount} hasBusiness={feed.hasBusiness} />
 
-        {/* List */}
-        {isLoading ? (
-          <Skeleton />
-        ) : isError ? (
-          <QueryError
-            title="Couldn't load notifications"
-            error={error instanceof Error ? error.message : undefined}
-            onRetry={() => refetch()}
-            retrying={isFetching}
-          />
-        ) : notifications.length === 0 ? (
-          <YdEmptyState
-            icon={Bell}
-            title="No notifications"
-            subtitle={activeTab === "unread"
-              ? "You're all caught up!"
-              : "Activity on your account will appear here."}
-          />
-        ) : (
-          <div className="space-y-1 rounded-radius-lg bg-card p-1.5">
-            {notifications.map((n) => (
-              <NotificationRow
-                key={n.id}
-                notification={n}
-                onRead={handleRead}
-                onArchive={handleArchive}
+          {isLoading ? (
+            <Skeleton />
+          ) : isError ? (
+            <QueryError
+              title="Couldn't load notifications"
+              error={error instanceof Error ? error.message : undefined}
+              onRetry={() => refetch()}
+              retrying={isFetching}
+            />
+          ) : groups.length === 0 ? (
+            <YdEmptyState
+              icon={Bell}
+              title={filter === "unread" ? "You're all caught up" : "No notifications"}
+              subtitle={filter === "unread"
+                ? "Nothing new since you last looked."
+                : "Activity on your account will appear here."}
+            />
+          ) : (
+            <div className="rounded-radius-lg bg-card p-1.5 md:p-2">
+              <NotificationList
+                groups={groups}
+                filter={filter}
+                onRead={feed.onRead}
+                onArchive={feed.onArchive}
               />
-            ))}
-          </div>
-        )}
+            </div>
+          )}
+          {groups.length > 0 && (
+            <p className="px-1 text-center text-meta text-muted-foreground md:hidden">
+              Swipe a notification left to archive it.
+            </p>
+          )}
+        </div>
       </div>
     </UserLayout>
   );

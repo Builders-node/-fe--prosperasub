@@ -11,6 +11,7 @@ import { FavoriteIcon, NotificationsIcon, ShoppingBagIcon } from "@/components/i
 import {
   HeaderAccountSlot, HeaderIconLink, useHeaderSession, type HeaderSession,
 } from "@/components/layout/HeaderParts";
+import { NotificationsBell } from "@/components/notifications/NotificationsBell";
 import { cn } from "@/lib/utils";
 
 interface DesktopHeaderProps {
@@ -69,6 +70,7 @@ export function DesktopHeader({ breadcrumb }: DesktopHeaderProps) {
         location={<LocationSelector always />}
         search={<HeaderSearch />}
         account={<AccountMenu />}
+        bell={<NotificationsBell count={session.unread} />}
         onLogin={() => openAuthModal("login")}
       />
       {breadcrumb && (
@@ -87,6 +89,8 @@ interface DesktopHeaderViewProps {
   search?: ReactNode;
   /** What a signed-in person sees in the account slot (the menu). */
   account: ReactNode;
+  /** The live bar's bell opens a panel; the states sheet draws the plain link. */
+  bell?: ReactNode;
   onLogin: () => void;
   subRow?: ReactNode;
   sticky?: boolean;
@@ -94,7 +98,7 @@ interface DesktopHeaderViewProps {
 }
 
 export const DesktopHeaderView = forwardRef<HTMLElement, DesktopHeaderViewProps>(function DesktopHeaderView(
-  { session, location, search, account, onLogin, subRow, sticky = true, className },
+  { session, location, search, account, bell, onLogin, subRow, sticky = true, className },
   ref,
 ) {
   return (
@@ -117,7 +121,7 @@ export const DesktopHeaderView = forwardRef<HTMLElement, DesktopHeaderViewProps>
           <HeaderIconLink to="/favorites" label="Favorites" icon={FavoriteIcon} count={session.favorites} />
           <HeaderIconLink to="/cart" label="Cart" icon={ShoppingBagIcon} count={session.cart} />
           {session.status === "signedIn" && (
-            <HeaderIconLink to="/notifications" label="Notifications" icon={NotificationsIcon} count={session.unread} />
+            bell ?? <HeaderIconLink to="/notifications" label="Notifications" icon={NotificationsIcon} count={session.unread} />
           )}
           <div className="ml-2">
             <HeaderAccountSlot session={session} onLogin={onLogin} signedIn={account} />
