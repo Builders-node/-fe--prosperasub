@@ -1,4 +1,5 @@
 import type { ComponentType } from "react";
+import type { LucideIcon } from "lucide-react";
 
 /**
  * The drawn half of the home page's category banners, keyed by
@@ -6,8 +7,11 @@ import type { ComponentType } from "react";
  * and clear of the words on the left. The fixed colours are the point: the card
  * is the same orange in both themes, so a theme token would only drift from it.
  *
- * A category with no drawing here keeps the service's icon, so adding one in
- * the admin needs no code — this file only makes it look better.
+ * These cards are ALWAYS drawn, never photographed. A photo on one card next to
+ * drawings on the others is exactly what must not happen, so there is no photo
+ * path at all: a category with no drawing of its own here gets the generic
+ * drawing below (the service's icon on the same glow, bubbles and sparkles),
+ * so adding a category in the admin still needs no code and still looks drawn.
  */
 
 const INK = "#2a2118";
@@ -18,6 +22,10 @@ const TOMATO = "#e5482d";
 const LEAF = "#2f9e5b";
 const WATER = "#3b9ae1";
 const FOAM = "#d9eefb";
+const BEAN = "#6b3a1e";
+const CREMA = "#a8652e";
+const STONE = "#4a3f36";
+const STONE_LIGHT = "#6d5f52";
 
 function Sparkle({ x, y, r, fill = PAPER }: { x: number; y: number; r: number; fill?: string }) {
   const k = r * 0.22;
@@ -163,6 +171,88 @@ function Diving() {
   );
 }
 
+function Coffee() {
+  return (
+    <>
+      <circle cx="118" cy="74" r="56" fill={GLOW} />
+      {/* Steam, three soft curls rising off the cup. */}
+      <g fill="none" stroke={PAPER} strokeWidth="5" strokeLinecap="round">
+        <path d="M100 44c-8-8 8-14 0-24" />
+        <path d="M118 40c-8-8 8-14 0-26" />
+        <path d="M136 44c-8-8 8-14 0-24" />
+      </g>
+      {/* Saucer under the cup. */}
+      <ellipse cx="118" cy="124" rx="50" ry="9" fill={INK} />
+      <ellipse cx="118" cy="121" rx="38" ry="5" fill={STONE_LIGHT} />
+      {/* Handle, then the cup over it. */}
+      <circle cx="152" cy="84" r="14" fill="none" stroke={PAPER} strokeWidth="8" />
+      <path d="M84 58h68v34c0 16-14 28-30 28h-8c-16 0-30-12-30-28Z" fill={PAPER} />
+      <rect x="84" y="72" width="68" height="10" fill={TOMATO} />
+      <ellipse cx="118" cy="58" rx="34" ry="7" fill={BEAN} />
+      <ellipse cx="118" cy="58" rx="26" ry="4" fill={CREMA} />
+      {/* Two beans to the left, clear of the title on a phone. */}
+      <g transform="rotate(-30 58 108)">
+        <ellipse cx="58" cy="108" rx="10" ry="14" fill={BEAN} />
+        <path d="M58 95c-5 8 5 18 0 26" fill="none" stroke={CREMA} strokeWidth="2.5" strokeLinecap="round" />
+      </g>
+      <g transform="rotate(20 70 128)">
+        <ellipse cx="70" cy="128" rx="8" ry="11" fill={BEAN} />
+        <path d="M70 118c-4 6 4 14 0 20" fill="none" stroke={CREMA} strokeWidth="2" strokeLinecap="round" />
+      </g>
+      <Sparkle x={166} y={28} r={9} />
+      <Sparkle x={70} y={30} r={7} />
+    </>
+  );
+}
+
+function Massage() {
+  return (
+    <>
+      <circle cx="120" cy="70" r="56" fill={GLOW} />
+      {/* A stack of warm stones, the classic spa still life. */}
+      <ellipse cx="120" cy="120" rx="50" ry="14" fill={STONE} />
+      <ellipse cx="120" cy="116" rx="46" ry="10" fill={STONE_LIGHT} />
+      <ellipse cx="118" cy="96" rx="36" ry="12" fill={STONE} />
+      <ellipse cx="118" cy="92" rx="32" ry="8" fill={STONE_LIGHT} />
+      <ellipse cx="122" cy="74" rx="26" ry="10" fill={STONE} />
+      <ellipse cx="122" cy="71" rx="22" ry="6" fill={STONE_LIGHT} />
+      {/* A leaf sprig resting on top. */}
+      <path d="M122 64c-2-18 10-30 28-32-2 18-12 30-28 32Z" fill={LEAF} />
+      <path d="M122 64c-14-6-20-18-16-30 12 6 18 16 16 30Z" fill="#3fb56f" />
+      <path d="M122 64c6-10 14-18 24-24" fill="none" stroke={INK} strokeWidth="2" strokeLinecap="round" />
+      {/* A drop of oil and a candle glow, left of the stack. */}
+      <path d="M64 70c6 9 10 14 10 19a10 10 0 0 1-20 0c0-5 4-10 10-19Z" fill={PAPER} />
+      <rect x="160" y="96" width="14" height="28" rx="3" fill={PAPER} />
+      <path d="M167 80c4 5 6 8 6 11a6 6 0 0 1-12 0c0-3 2-6 6-11Z" fill={TOMATO} />
+      <Sparkle x={58} y={30} r={8} />
+      <Sparkle x={166} y={30} r={10} />
+    </>
+  );
+}
+
+/**
+ * Any category without its own drawing: the service's icon, inked on a paper
+ * disc inside the same glow every drawn card has, with the bubbles and
+ * sparkles that make it read as one of the set rather than a placeholder.
+ */
+function Fallback({ Icon }: { Icon?: LucideIcon }) {
+  return (
+    <>
+      <circle cx="120" cy="72" r="56" fill={GLOW} />
+      <circle cx="120" cy="72" r="36" fill={PAPER} />
+      {Icon && <Icon x={96} y={48} width={48} height={48} color={INK} strokeWidth={2} />}
+      <g fill={PAPER}>
+        <circle cx="62" cy="40" r="8" />
+        <circle cx="48" cy="22" r="5" />
+        <circle cx="70" cy="16" r="3.5" />
+        <circle cx="168" cy="112" r="6" />
+      </g>
+      <Sparkle x={166} y={28} r={10} />
+      <Sparkle x={70} y={112} r={8} />
+    </>
+  );
+}
+
 const ART: Record<string, ComponentType> = {
   diving: Diving,
   meal_subscription: Meal,
@@ -170,18 +260,26 @@ const ART: Record<string, ComponentType> = {
   car_wash: CarWash,
   beach_membership: Membership,
   healthcare: Healthcare,
+  coffee: Coffee,
+  massage: Massage,
 };
 
+/** True when the category has its own drawing (false still draws the fallback). */
 export function hasCategoryBannerArt(key: string): boolean {
   return key in ART;
 }
 
-export function CategoryBannerArt({ categoryKey, className }: { categoryKey: string; className?: string }) {
+/** Always renders a drawing: the category's own, or the illustrated fallback. */
+export function CategoryBannerArt({ categoryKey, icon, className }: {
+  categoryKey: string;
+  /** The service's icon, drawn by the fallback when the category has no art. */
+  icon?: LucideIcon;
+  className?: string;
+}) {
   const Art = ART[categoryKey];
-  if (!Art) return null;
   return (
     <svg viewBox="0 0 180 140" aria-hidden className={className} preserveAspectRatio="xMaxYMid meet">
-      <Art />
+      {Art ? <Art /> : <Fallback Icon={icon} />}
     </svg>
   );
 }

@@ -5,7 +5,7 @@ import { useCategoryHighlights, type CategoryHighlight } from "@/hooks/useCatego
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/patterns/Skeleton";
-import { CategoryBannerArt, hasCategoryBannerArt } from "@/components/discovery/categoryBannerArt";
+import { CategoryBannerArt } from "@/components/discovery/categoryBannerArt";
 
 /**
  * The wide banner above the services grid: one slide per category, each a
@@ -17,88 +17,40 @@ import { CategoryBannerArt, hasCategoryBannerArt } from "@/components/discovery/
  * category on the front page, priced, and links each one straight to its
  * listing already narrowed to it.
  *
- * Each category has its own drawing (categoryBannerArt). A picture an admin
- * sets on the category replaces it; a photo merely borrowed from a provider
- * does not, because that made some cards a stranger's breakfast and others a
- * drawing. A category with neither falls back to a borrowed photo or the icon.
+ * RULE: these cards are always illustrated, never a photo. Not an admin's
+ * picture, not a provider's, not as a fallback. One photo card in a row of
+ * drawings (Coffee showed a roastery shot beside the drawn Club, Cleaning and
+ * Diving) breaks the whole strip. Each category has its own drawing in
+ * categoryBannerArt; one without gets that file's illustrated fallback.
  */
 
 const ROTATE_MS = 3000;
 
 function Slide({ item }: { item: CategoryHighlight }) {
-  /**
-   * The photo has to PROVE it renders before anything is drawn for it. The
-   * scrim used to key off the URL being set, so a broken link produced the
-   * worst of both designs: no picture, but the black gradient still poured
-   * over the orange card and turned its lower half to mud. Now a URL is just a
-   * candidate — the scrim waits for onLoad, and onError falls back to the
-   * imageless card as if no photo was ever set.
-   */
-  const [loaded, setLoaded] = useState(false);
-  const [failed, setFailed] = useState(false);
-  const drawn = hasCategoryBannerArt(item.key);
-  const hasImage = !!item.imageUrl && !failed && (item.imageIsChosen || !drawn);
-  const showPhoto = hasImage && loaded;
-  const Icon = item.archetype?.Icon;
-
+  // 140px tall, 16px radius, always the orange promo card with a drawing on
+  // the right. The service sits above the category in 12px regular and the
+  // category itself is 16px semibold: the small line is context, the big one
+  // is the thing. item.imageUrl is deliberately NOT used here (see the note
+  // at the top of the file); the catalog sidebar still shows it.
   return (
-    // 140px tall, 16px radius, orange when there is no photo — the design's
-    // own promo card. The service sits above the category in 12px regular and
-    // the category itself is 16px semibold: the small line is context, the big
-    // one is the thing.
     <Link
       to={item.href}
       aria-label={item.label}
       className="group relative flex h-[140px] w-full shrink-0 flex-col justify-end overflow-hidden rounded-radius-md bg-primary p-4"
     >
-      {hasImage && (
-        <img
-          src={item.imageUrl!}
-          alt=""
-          loading="lazy"
-          decoding="async"
-          onLoad={() => setLoaded(true)}
-          onError={() => setFailed(true)}
-          className={cn(
-            "absolute inset-0 h-full w-full object-cover transition-[opacity,transform] duration-300 group-hover:scale-105",
-            showPhoto ? "opacity-100" : "opacity-0",
-          )}
-        />
-      )}
-      {showPhoto && (
-        // White text on whatever gets uploaded, so the scrim is not
-        // optional — weighted to the bottom where the words are.
-        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
-      )}
-      {!showPhoto && drawn && (
-        <CategoryBannerArt
-          categoryKey={item.key}
-          className="absolute inset-y-0 right-0 h-full w-[180px] origin-bottom-right transition-transform duration-300 group-hover:scale-105"
-        />
-      )}
-      {!showPhoto && !drawn && Icon && (
-        // The imageless card carries the service's own mark, so it reads as a
-        // designed tile rather than a rectangle waiting for a photo.
-        <Icon aria-hidden className="absolute right-4 top-4 h-14 w-14 text-primary-foreground/25" strokeWidth={1.5} />
-      )}
+      <CategoryBannerArt
+        categoryKey={item.key}
+        icon={item.archetype?.Icon}
+        className="absolute inset-y-0 right-0 h-full w-[180px] origin-bottom-right transition-transform duration-300 group-hover:scale-105"
+      />
 
       <div className="relative flex flex-col gap-0.5">
         {item.archetype && (
-          <p className={cn("text-meta", showPhoto ? "text-white/80" : "text-primary-foreground/70")}>
-            {item.archetype.label}
-          </p>
+          <p className="text-meta text-primary-foreground/70">{item.archetype.label}</p>
         )}
-        <p className={cn(
-          "text-title font-semibold",
-          showPhoto ? "text-white" : "text-primary-foreground",
-        )}>
-          {item.label}
-        </p>
+        <p className="text-title font-semibold text-primary-foreground">{item.label}</p>
         {item.fromCents !== null && (
-          <p className={cn(
-            "text-meta",
-            showPhoto ? "text-white/80" : "text-primary-foreground/70",
-          )}>
+          <p className="text-meta text-primary-foreground/70">
             from {formatUSD(item.fromCents)}{item.unit ? ` ${item.unit}` : ""}
           </p>
         )}
