@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
  *
  * Cards used to take the first photo and drop the rest, so a plan with four
  * pictures looked like it had one. Swipe on a phone (scroll-snap — the browser
- * does the momentum), arrows on hover with a mouse, dots for where you are.
+ * does the momentum), arrows on hover with a mouse, a 1/N counter for where you are.
  *
  * The card around it is itself a link or a button: the arrows and dots stop
  * the click from reaching it, and a swipe never fires a click in the first
@@ -71,11 +71,11 @@ export function PhotoSlider({ photos, className, icon }: {
         <ChevronRight className="h-4 w-4" />
       </button>
 
-      <div className="pointer-events-none absolute inset-x-0 bottom-1.5 flex justify-center gap-1">
-        {shots.map((_, i) => (
-          <span key={i} className={cn("h-1.5 rounded-full transition-all", i === active ? "w-3 bg-white" : "w-1.5 bg-white/60")} />
-        ))}
-      </div>
+      {/* A counter, not a dot row: the design gives carousels no dots, and
+          six dots on a 104px card read as noise. */}
+      <span className="pointer-events-none absolute bottom-1.5 right-1.5 rounded-full bg-black/55 px-1.5 py-0.5 text-2xs font-semibold tabular-nums text-white backdrop-blur">
+        {active + 1}/{shots.length}
+      </span>
     </div>
   );
 }

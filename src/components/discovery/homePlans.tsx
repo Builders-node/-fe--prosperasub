@@ -1,4 +1,5 @@
 import { forwardRef, type ReactNode } from "react";
+import { priceUnit } from "@/lib/checkout/ctaLabel";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabaseDb } from "@/integrations/supabase/client";
@@ -6,6 +7,7 @@ import { formatUSD } from "@/lib/pricing";
 import { periodNoun } from "@/lib/services/planPeriod";
 import { planHref, planSegment } from "@/lib/services/serviceUrls";
 import { PhotoSlider } from "@/components/patterns/PhotoSlider";
+import { FavoriteButton } from "@/components/patterns/FavoriteButton";
 import { Skeleton } from "@/components/patterns/Skeleton";
 import { cn } from "@/lib/utils";
 import { useTagDictionary } from "@/lib/tags";
@@ -112,14 +114,14 @@ export function planPhotos(plan: HomePlan | null | undefined, provider?: { galle
   return [...urls(p?.gallery_urls), p?.banner_url].filter((u): u is string => !!u);
 }
 
-/** "$75.00 / person · month" — the price line every plan card ends on. */
+/** "$75.00 / person / month", "$130.00 one-time" — the price line every plan card ends on. */
 export function PriceLine({ cents, period, perPerson = false }: { cents: number | null; period: string | null; perPerson?: boolean }) {
   if (typeof cents !== "number" || cents <= 0) return null;
-  const noun = periodNoun(period);
+  const unit = priceUnit({ period, perPerson });
   return (
     <p className="text-[14px] font-semibold leading-[20px] text-foreground">
       {formatUSD(cents)}
-      {noun && <span className="font-normal text-muted-foreground">{perPerson ? ` / person · ${noun}` : ` / ${noun}`}</span>}
+      {unit && <span className="font-normal text-muted-foreground"> {unit}</span>}
     </p>
   );
 }
@@ -196,6 +198,8 @@ export function PlanTile({ plan, className }: { plan: HomePlan; className?: stri
       subtitle={provider.name}
       chips={labelsOf(plan.tags, 2)}
       footer={<PriceLine cents={plan.price_cents} period={plan.period} perPerson={plan.pricing_mode === "per_person"} />}
+      // The heart on every card with a photo, as on the listings.
+      corner={<FavoriteButton kind="plan" id={plan.id} name={plan.name} variant="overlay" />}
       className={className}
     />
   );

@@ -94,7 +94,12 @@ export function OrderSize({ termOptions, periods, onPeriods, periodNoun, priceFo
 
 /** The −/+ pill on its own — a cart row puts it on the right, like a shop does. */
 export function QtyStepper({ value, onChange, noun, max = 20 }: { value: number; onChange: (n: number) => void; noun: string; max?: number }) {
+  // Said above the number: a bare "1" between − and + next to a term picker
+  // read as a second count of months.
+  const caption = noun === "person" ? "People" : `${noun.charAt(0).toUpperCase()}${noun.slice(1)}s`;
   return (
+    <div className="flex shrink-0 flex-col items-center gap-1">
+    <span className="text-meta text-muted-foreground">{caption}</span>
     <div className="inline-flex items-center rounded-full bg-inset">
       <button
         type="button" aria-label={value <= 1 ? "Remove" : `Fewer ${noun}s`}
@@ -112,6 +117,7 @@ export function QtyStepper({ value, onChange, noun, max = 20 }: { value: number;
       >
         <Plus className="h-4 w-4" />
       </button>
+    </div>
     </div>
   );
 }

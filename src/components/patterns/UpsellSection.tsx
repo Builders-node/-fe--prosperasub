@@ -1,13 +1,13 @@
 import { useNavigate } from "react-router-dom";
-import { ChevronRight, LayoutGrid, Plus } from "lucide-react";
+import { LayoutGrid, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Photo } from "@/components/patterns/Photo";
 import { useCart } from "@/contexts/CartContext";
 import { trackEvent } from "@/lib/analytics/ga";
 import { formatUSD } from "@/lib/pricing";
-import { normPeriod, periodNoun } from "@/lib/services/planPeriod";
 import { useUpsells, type Upsell } from "@/lib/upsells/useUpsells";
+import { priceUnit } from "@/lib/checkout/ctaLabel";
 import { cn } from "@/lib/utils";
 
 /**
@@ -65,7 +65,6 @@ export function UpsellSection({
       <h2 className="text-heading font-semibold text-foreground">{title}</h2>
       <div className={cn("grid grid-cols-1 gap-2", gridClassName)}>
         {upsells.map((u) => {
-          const noun = normPeriod(u.period) === "one_time" ? "" : periodNoun(u.period);
           return (
             <article
               key={u.id}
@@ -82,22 +81,17 @@ export function UpsellSection({
                 <p className="line-clamp-2 text-body font-semibold leading-tight text-foreground">{u.name}</p>
                 <p className="truncate text-meta text-muted-foreground">{u.providerName}</p>
                 <p className="truncate text-meta tabular-nums text-foreground">
-                  {u.from ? "From " : ""}{formatUSD(u.priceCents)}{noun ? ` / ${noun}` : ""}
+                  {u.from ? "From " : ""}{formatUSD(u.priceCents)} {priceUnit({ period: u.period })}
                 </p>
               </div>
-              {u.quickAdd ? (
-                // Round icon buttons: the worded ones took a third of a phone's
-                // width and cut every name to "Apartme…".
-                <Button size="icon" variant="secondary" className="shrink-0" aria-label={`Add ${u.name} to cart`}
-                  onClick={(e) => { e.stopPropagation(); add(u); }}>
-                  <Plus className="h-5 w-5" />
-                </Button>
-              ) : (
-                <Button size="icon" variant="secondary" className="shrink-0" aria-label={`Choose options for ${u.name}`}
-                  onClick={(e) => { e.stopPropagation(); open(u); }}>
-                  <ChevronRight className="h-5 w-5" />
-                </Button>
-              )}
+              {/* One button, one meaning: "+" adds. A plan that needs options
+                  first (size, people) opens its page for them — the same +,
+                  not a chevron that looked like a different kind of row. */}
+              <Button size="icon" variant="secondary" className="shrink-0"
+                aria-label={u.quickAdd ? `Add ${u.name} to cart` : `Choose options for ${u.name}`}
+                onClick={(e) => { e.stopPropagation(); if (u.quickAdd) add(u); else open(u); }}>
+                <Plus className="h-5 w-5" />
+              </Button>
             </article>
           );
         })}

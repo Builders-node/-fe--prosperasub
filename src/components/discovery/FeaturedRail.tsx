@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { promotionHref, trackPromotion, useActivePromotions, type ActivePromotion, type PromoPlacement } from "@/lib/promotions";
 import { cn } from "@/lib/utils";
+import { FavoriteButton } from "@/components/patterns/FavoriteButton";
 import {
   OfferCard, PriceLine, RAIL_TILE, Rail, ShelfHeader, planIndex, planPhotos, useHomePlans, type HomePlan,
 } from "@/components/discovery/homePlans";
@@ -8,7 +9,7 @@ import {
 /**
  * "Featured" — the paid placements (Edge routes/promotions.ts).
  *
- * Every card says "Featured": a customer is owed knowing which places were
+ * Every card says "Sponsored": a customer is owed knowing which places were
  * bought (and the Terms say so). Renders nothing when nothing is promoted, so
  * a quiet week leaves the page exactly as it was.
  */
@@ -56,7 +57,10 @@ function PromoCard({ p, plan }: { p: ActivePromotion; plan: HomePlan | null }) {
       ref={ref}
       href={promotionHref(p)}
       onClick={() => trackPromotion(p.id, "click")}
-      badge="Featured"
+      // The shelf is called Featured; the card says what that means. Two
+      // "Featured" on one card and its heading said the word twice.
+      badge="Sponsored"
+      corner={p.plan ? <FavoriteButton kind="plan" id={p.plan.id} name={p.plan.name} variant="overlay" /> : undefined}
       photos={photos}
       title={p.plan?.name ?? p.provider.name}
       subtitle={p.plan ? p.provider.name : p.provider.description}

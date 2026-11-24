@@ -1,6 +1,6 @@
-import { SUBSCRIBE } from "@/lib/checkout/ctaLabel";
+import { SUBSCRIBE, priceUnit } from "@/lib/checkout/ctaLabel";
 import { PlanCard, type PlanCardRating } from "@/components/patterns/PlanCard";
-import { includedLabel, periodNoun } from "@/lib/services/planPeriod";
+import { includedLabel } from "@/lib/services/planPeriod";
 
 /**
  * A row from the universal `provider_plans` table as a plan card.
@@ -59,7 +59,6 @@ export function UniversalPlanCard({
   photos?: string[];
 }) {
   const included = includedLabel(plan.included_quantity, plan.included_unit, plan.period);
-  const noun = periodNoun(plan.period);
   const hasPrice = typeof plan.price_cents === "number" && plan.price_cents > 0;
 
   return (
@@ -75,7 +74,7 @@ export function UniversalPlanCard({
       chips={[...(included ? [{ label: included }] : []), ...tags.slice(0, 2).map((label) => ({ label }))]}
       features={featureList(plan.features)}
       // A one-off says nothing rather than inventing a billing cycle.
-      price={{ cents: plan.price_cents, unit: noun ? `/ ${noun}` : undefined }}
+      price={{ cents: plan.price_cents, unit: priceUnit({ period: plan.period, perPerson: (plan as { pricing_mode?: string }).pricing_mode === "per_person" }) || undefined }}
       // Opening is not buying. A plan with no price yet still has a page worth
       // reading — and an offer sold in variants has no price of its own at all,
       // because the prices live on the variants. Tying the card's click to the

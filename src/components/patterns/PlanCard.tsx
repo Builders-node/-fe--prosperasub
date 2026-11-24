@@ -1,3 +1,4 @@
+import { normalizeUnit } from "@/lib/checkout/ctaLabel";
 import type { LucideIcon } from "lucide-react";
 import { FavoriteButton } from "@/components/patterns/FavoriteButton";
 import { Star } from "lucide-react";
@@ -190,7 +191,9 @@ export function PlanCard({
                   {formatUSD(price.cents!)}
                 </span>
                 {price.unit && (
-                  <span className="pb-px text-meta text-muted-foreground">{price.unit}</span>
+                  <span className="pb-px text-meta text-muted-foreground">
+                    {price.unit.trim().startsWith("/") ? normalizeUnit(price.unit) : price.unit}
+                  </span>
                 )}
               </>
             ) : (

@@ -249,7 +249,7 @@ const PlanDetail = () => {
             description: beach.tagline ?? null,
             features: asStringList(beach.amenities),
             priceCents: beach.price_per_person_cents ?? null,
-            priceUnit: "/ person · month",
+            priceUnit: "/ person / month",
             providerId: beach.owner_provider_id ? String(beach.owner_provider_id) : null,
             meta: null,
           };

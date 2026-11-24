@@ -26,20 +26,10 @@ export function Photo({
   label?: string | null;
 }) {
   const [failed, setFailed] = useState(false);
-  useEffect(() => { setFailed(false); }, [src]);
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => { setFailed(false); setLoaded(false); }, [src]);
 
-  if (src && !failed) {
-    return (
-      <img
-        src={src}
-        alt={alt}
-        loading={loading}
-        onError={() => setFailed(true)}
-        className={cn("h-full w-full object-cover", className)}
-      />
-    );
-  }
-  return (
+  const placeholder = (
     <div
       role={alt ? "img" : undefined}
       aria-label={alt || undefined}
@@ -50,6 +40,29 @@ export function Photo({
         : <Icon className={cn("h-1/3 max-h-10 min-h-4 w-1/3 max-w-10 min-w-4 [stroke-width:1.5]", iconClassName)} />}
     </div>
   );
+
+  if (src && !failed) {
+    // The placeholder stays under the picture until it has arrived: a slow
+    // photo (a large PNG from a provider's own site) used to leave an empty
+    // dark slot with a heart floating in it, which read as "no photo".
+    // Only a picture laid over its frame can have the placeholder under it
+    // without moving anything; an inline one just keeps the inset grey.
+    const layered = /\babsolute\b/.test(className ?? "");
+    return (
+      <>
+        {layered && !loaded && placeholder}
+        <img
+          src={src}
+          alt={alt}
+          loading={loading}
+          onLoad={() => setLoaded(true)}
+          onError={() => setFailed(true)}
+          className={cn("h-full w-full object-cover", !loaded && (layered ? "opacity-0" : "bg-inset"), className)}
+        />
+      </>
+    );
+  }
+  return placeholder;
 }
 
 /** Two letters for a business or person without a picture. */

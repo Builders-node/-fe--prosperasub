@@ -72,21 +72,11 @@ export function PhotoCarousel({
       <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/50 to-transparent md:hidden" />
 
       {shots.length > 1 && (
-        <div className="absolute inset-x-0 bottom-4 flex items-center justify-center gap-1.5">
-          {shots.map((_, i) => (
-            <button
-              key={i}
-              type="button"
-              aria-label={`Photo ${i + 1} of ${shots.length}`}
-              aria-current={i === active}
-              onClick={() => goTo(i)}
-              className={cn(
-                "h-1.5 rounded-full transition-all",
-                i === active ? "w-5 bg-white" : "w-1.5 bg-white/50 hover:bg-white/80",
-              )}
-            />
-          ))}
-        </div>
+        // A counter in the corner, as on the desktop gallery — the design
+        // gives the hero no dot row.
+        <span className="pointer-events-none absolute bottom-4 right-4 rounded-full bg-black/55 px-2 py-0.5 text-meta font-semibold tabular-nums text-white backdrop-blur">
+          {active + 1}/{shots.length}
+        </span>
       )}
     </div>
   );

@@ -123,6 +123,7 @@ export default function Cart() {
   const userUuid = useUserUuid();
   const { btcPrice, convertToSats, isLoading: isPriceLoading } = useBtcPrice();
   const { enabled: enabledMethods, addSurchargeCents, surchargePercent } = usePaymentMethods();
+  const maxFeePct = Math.max(0, ...enabledMethods.map((m) => surchargePercent(m)));
   const { data: residences = [] } = useResidences();
   const { residence: globalResidence } = useSelectedResidence();
 
@@ -682,7 +683,7 @@ export default function Cart() {
                                 <p className="mt-0.5 truncate text-meta text-muted-foreground">{item.providerName}</p>
                                 <p className="mt-0.5 text-body text-muted-foreground">
                                   <span className="font-semibold tabular-nums text-foreground">{formatUSD(item.unitPriceCents)}</span>
-                                  {per ? ` / ${per}` : ""}{shape.quantity ? ` per ${shape.quantity.noun}` : ""}
+                                  {shape.quantity ? ` / ${shape.quantity.noun}` : ""}{per ? ` / ${per}` : ""}
                                 </p>
                               </div>
                               {shape.quantity ? (
@@ -714,7 +715,7 @@ export default function Cart() {
 
                   {/* Here and not on the pay step: while the basket is still
                       being decided. Each pick lands in the list above. */}
-                  <UpsellSection title="Add to your order" placement="cart" className="px-4 md:px-0" />
+                  <UpsellSection title="You may also need" placement="cart" className="px-4 md:px-0" />
                   </div>
 
                   {/* The total, held in view on a laptop. */}
@@ -736,13 +737,17 @@ export default function Cart() {
                           <span className="shrink-0 tabular-nums">{formatUSD(vatTotalCents)}</span>
                         </div>
                       )}
-                      <div className="flex justify-between text-muted-foreground">
-                        <span>Payment fee</span>
-                        <span className="shrink-0">depends on method</span>
-                      </div>
+                      {maxFeePct > 0 && (
+                        <div className="flex justify-between text-muted-foreground">
+                          <span>Payment fee</span>
+                          <span className="shrink-0">up to {maxFeePct}%, by method</span>
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-baseline justify-between border-t border-border/60 pt-4">
-                      <span className="text-title font-semibold text-foreground">To pay</span>
+                      {/* Not "To pay" while a fee can still be added on top: the
+                          number would be a promise the next step breaks. */}
+                      <span className="text-title font-semibold text-foreground">{maxFeePct > 0 ? "Subtotal" : "To pay"}</span>
                       <span className="text-3xl font-semibold tabular-nums tracking-tight text-foreground">{formatUSD(payableCents)}</span>
                     </div>
                     <Button size="lg" className="hidden w-full font-semibold md:flex"
