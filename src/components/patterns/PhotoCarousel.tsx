@@ -63,7 +63,7 @@ export function PhotoCarousel({
       >
         {shots.map((src, i) => (
           <div key={i} className="h-full w-full shrink-0 snap-center">
-            <Photo src={src} alt={i === 0 ? alt : ""} loading={i === 0 ? "eager" : "lazy"} />
+            <Photo src={src} alt={i === 0 ? alt : ""} priority={i === 0} />
           </div>
         ))}
       </div>

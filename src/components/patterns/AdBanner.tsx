@@ -13,7 +13,7 @@ const dismissKey = (sig: string) => `ad_dismissed_${sig}`;
  * slider. Dismissal hides the whole banner (remembered per ad-set).
  */
 export function AdBanner({ placement }: { placement: string }) {
-  const { data: ads = [] } = useActiveAds(placement);
+  const { data: ads = [], isLoading } = useActiveAds(placement);
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
 
@@ -42,6 +42,10 @@ export function AdBanner({ placement }: { placement: string }) {
     return () => clearInterval(timer);
   }, [ads.length, paused]);
 
+  // Hold the strip's height while the ads are on their way. It sits at the
+  // very top of the home screen, so appearing late pushed the whole page down
+  // by its height — the biggest single jump on first load.
+  if (isLoading) return <div aria-hidden className="skeleton-shimmer h-[60px] w-full bg-inset sm:h-11" />;
   if (ads.length === 0) return null;
 
   const go = (dir: 1 | -1) => setIndex((i) => (i + dir + ads.length) % ads.length);

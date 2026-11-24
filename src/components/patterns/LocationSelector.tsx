@@ -36,13 +36,15 @@ interface Props {
  */
 export function LocationSelector({ variant = "chip", className, always = false }: Props) {
   const { t } = useI18n();
-  const { data: residences = [] } = useResidences();
+  const { data: residences = [], isLoading: residencesLoading } = useResidences();
   const { residence, residenceMatters, address } = useLocationControl();
   const [open, setOpen] = useState(false);
 
-  // Nothing to choose from yet — hide, unless the header always shows it (an
-  // address on the map needs no list of communities).
-  if (residences.length === 0 && !always) return null;
+  // Nothing to choose from — hide, unless the header always shows it (an
+  // address on the map needs no list of communities). While the list is still
+  // loading the control stays: appearing a moment after first paint pushed the
+  // whole page down by the row's height.
+  if (residences.length === 0 && !residencesLoading && !always) return null;
 
   // Nothing on this page reads the residence, so the control would be a
   // promise the page cannot keep: the beach club is a place you go to, and the

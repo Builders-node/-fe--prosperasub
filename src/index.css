@@ -18,7 +18,7 @@
     --brand-on-accent: 0 0% 0%;
 
     /* ─── Inter font stack ───────────────────────────── */
-    --font-inter: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-inter: 'Inter Variable', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     --font-family-display: var(--font-inter);
     --font-family-body:    var(--font-inter);
     --font-family-mono:    ui-monospace, 'JetBrains Mono', 'Fira Code', monospace;
@@ -942,4 +942,92 @@ html {
    the lock also cancels wheel and touch events. */
 html body[data-scroll-locked] {
   overflow: clip !important;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Motion
+
+   One vocabulary for the whole app (tokens in tailwind.config.ts):
+     duration-instant 100ms · fast 160ms · base 240ms · slow 360ms
+     ease-out-expo (arriving) · ease-in-quick (leaving) · ease-spring (rewards)
+   Only opacity and transform are animated, so nothing re-lays-out and the
+   frame rate holds on a cheap phone. Nothing runs longer than ~400ms and no
+   animation ever blocks the next tap.
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* Loading: a soft light sweeping across the shape of what is coming, instead
+   of the whole block blinking. Used by <Skeleton> and by <Photo> while a
+   picture is on its way. */
+.skeleton-shimmer {
+  background-image: linear-gradient(
+    100deg,
+    transparent 20%,
+    hsl(var(--foreground) / 0.05) 40%,
+    hsl(var(--foreground) / 0.08) 50%,
+    hsl(var(--foreground) / 0.05) 60%,
+    transparent 80%
+  );
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  animation: shimmer-sweep 1.4s ease-in-out infinite;
+}
+@keyframes shimmer-sweep {
+  from { background-position: 150% 0; }
+  to   { background-position: -50% 0; }
+}
+
+/* A new screen settles in. Every page mounts fresh DOM under .route-stage
+   (App.tsx), and a CSS animation runs once when an element is inserted — so
+   each navigation fades the new page's content in, with no JS and no wait.
+
+   Opacity only: a transform here would make this wrapper the containing block
+   for every position:fixed bar inside the page (the tab bar, checkout CTAs)
+   and throw them off-screen for the length of the animation. The page's
+   header and tab bar are skipped — they are the same on both screens and
+   should read as staying put while the content changes under them. */
+@keyframes route-enter {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.route-stage > * > :not(header, nav, .fixed, .sticky, [data-no-enter]) {
+  animation: route-enter 220ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+/* Every tappable card and button answers the finger the same way: a quick
+   press-in, and a slightly springy release. */
+.press {
+  transition:
+    transform 100ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 160ms ease, color 160ms ease, opacity 160ms ease, box-shadow 160ms ease;
+}
+.press:active {
+  transform: scale(0.97);
+  transition-duration: 60ms;
+}
+
+/* Lists arriving: each item rises in a beat after the one before, the first
+   six only (more would make the page feel slow to finish). */
+.stagger > * { animation: stagger-rise 280ms cubic-bezier(0.16, 1, 0.3, 1) backwards; }
+.stagger > :nth-child(2) { animation-delay: 30ms; }
+.stagger > :nth-child(3) { animation-delay: 60ms; }
+.stagger > :nth-child(4) { animation-delay: 90ms; }
+.stagger > :nth-child(5) { animation-delay: 120ms; }
+.stagger > :nth-child(6) { animation-delay: 150ms; }
+@keyframes stagger-rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* People who ask their system for less motion get fades only: no movement,
+   no spring, no sweeping shimmer, nothing longer than a blink. */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+  .skeleton-shimmer { background-image: none; }
 }

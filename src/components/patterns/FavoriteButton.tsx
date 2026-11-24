@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Heart } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -26,6 +27,8 @@ export function FavoriteButton({
 }) {
   const { isSaved, toggle } = useFavorites();
   const navigate = useNavigate();
+  // Only a heart the person just tapped pops — not every saved heart on load.
+  const [tapped, setTapped] = useState(false);
   if (!id) return null;
   const saved = isSaved(kind, id);
   return (
@@ -37,11 +40,12 @@ export function FavoriteButton({
       onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();
+        setTapped(true);
         toggle(kind, id, { name, onView: () => navigate("/favorites") });
       }}
       onKeyDown={(e) => e.stopPropagation()}
       className={cn(
-        "flex shrink-0 items-center justify-center rounded-full transition-colors",
+        "press flex shrink-0 items-center justify-center rounded-full transition-colors",
         variant === "overlay"
           ? "h-8 w-8 bg-black/45 text-white backdrop-blur-sm hover:bg-black/60"
           : "h-10 w-10 hover:bg-muted",
@@ -49,9 +53,13 @@ export function FavoriteButton({
       )}
     >
       <Heart
+        // Remounts on each change so the pop replays on every save.
+        key={saved ? "on" : "off"}
         className={cn(
           variant === "overlay" ? "h-4 w-4" : "h-6 w-6",
+          "transition-colors duration-fast",
           saved && "fill-primary text-primary",
+          saved && tapped && "animate-pop",
         )}
       />
     </button>

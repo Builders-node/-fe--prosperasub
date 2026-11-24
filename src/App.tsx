@@ -4,7 +4,9 @@ import { ConsentBanner } from "@/components/seo/ConsentBanner";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { IconTooltips } from "@/components/patterns/IconTooltips";
-import { QueryClient, QueryClientProvider, QueryCache } from "@tanstack/react-query";
+import { QueryClient, QueryCache } from "@tanstack/react-query";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
+import { keepPublicQueries, persistOptions } from "@/lib/queryPersist";
 import { toast } from "sonner";
 import { errorMessage } from "@/lib/errorMessage";
 import { BrowserRouter, Navigate, Routes, Route, useLocation } from "react-router-dom";
@@ -180,6 +182,8 @@ const queryClient = new QueryClient({
     },
   },
 });
+keepPublicQueries(queryClient);
+const queryPersistOptions = persistOptions();
 
 /**
  * Rewrites the leading `from` segment of the current pathname to `to`,
@@ -195,7 +199,7 @@ function LegacyRewrite({ from, to }: { from: string; to: string }) {
 const App = () => {
   return (
     <ErrorBoundary>
-    <QueryClientProvider client={queryClient}>
+    <PersistQueryClientProvider client={queryClient} persistOptions={queryPersistOptions}>
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
         <LanguageProvider>
           <AuthProvider>
@@ -228,6 +232,8 @@ const App = () => {
                 <VersionWatcher />
                 <ConsentBanner />
                 <Suspense fallback={<PageFallback />}>
+                {/* Each page's content fades in as it mounts — see "Motion" in index.css. */}
+                <div className="route-stage">
                 <Routes>
               {/* Home → Discovery */}
               <Route path="/" element={<Navigate to="/discovery" replace />} />
@@ -529,6 +535,7 @@ const App = () => {
               {/* Catch-all */}
               <Route path="*" element={<NotFound />} />
                 </Routes>
+                </div>
                 </Suspense>
                 <InstallAppModal />
                 </CartProvider>
@@ -539,7 +546,7 @@ const App = () => {
           </AuthProvider>
         </LanguageProvider>
       </ThemeProvider>
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
     </ErrorBoundary>
   );
 };

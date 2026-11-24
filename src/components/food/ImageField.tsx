@@ -1,3 +1,4 @@
+import { IMMUTABLE } from "@/lib/images";
 import { useRef, useState } from "react";
 import { Upload, Link2, X } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
@@ -47,7 +48,7 @@ export function ImageField({
     try {
       const ext = file.name.split(".").pop();
       const path = `${pathPrefix}/${Date.now()}.${ext}`;
-      const { error } = await supabaseDb.storage.from(bucket).upload(path, file, { upsert: true });
+      const { error } = await supabaseDb.storage.from(bucket).upload(path, file, { upsert: true, cacheControl: IMMUTABLE });
       if (error) throw error;
       const { data } = supabaseDb.storage.from(bucket).getPublicUrl(path);
       onChange(data.publicUrl);

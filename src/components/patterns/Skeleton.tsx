@@ -9,5 +9,5 @@ import { cn } from "@/lib/utils";
  * the caller only says how tall the thing it stands in for is.
  */
 export function Skeleton({ className }: { className?: string }) {
-  return <div aria-hidden className={cn("animate-pulse rounded-radius-md bg-muted/40", className)} />;
+  return <div aria-hidden className={cn("skeleton-shimmer rounded-radius-md bg-muted/40", className)} />;
 }
