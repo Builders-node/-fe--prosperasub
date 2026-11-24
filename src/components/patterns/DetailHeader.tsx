@@ -5,10 +5,11 @@ import { cn } from "@/lib/utils";
 /**
  * The top of a detail page that leads with a photograph.
  *
- * On a phone the bar floats on the picture — no background of its own, the
+ * Phone only. The bar floats on the picture — no background of its own, the
  * hero's scrim does that job — and takes one once the photo has scrolled past,
- * because white icons on a white card cannot be seen. On a desktop it is the
- * ordinary title bar instead, since the photo is not under the chrome there.
+ * because white icons on a white card cannot be seen. A desktop has no bar:
+ * the breadcrumb above the content is the way back, and the page puts the
+ * favourite and share buttons beside its own heading.
  *
  * Lifted out of PlanDetail so the car page could have the same header rather
  * than a copy of its measurements. Two pages drawing the same bar from the
@@ -23,7 +24,7 @@ export function DetailHeader({
   /** True when a photograph sits under the bar on a phone. */
   overPhoto,
 }: {
-  /** The desktop title bar's heading. */
+  /** Kept for callers; the phone bar shows `centreLabel`. */
   title: string;
   /** The small centred label on the phone bar — usually the service. */
   centreLabel?: string;
@@ -73,31 +74,6 @@ export function DetailHeader({
         </div>
       </header>
 
-      {/*
-        The desktop bar, drawn here rather than delegated.
-
-        This used to wrap `HomeHeader` in `hidden md:block` — but HomeHeader's
-        own root is `md:hidden`, so the two cancelled out and every detail page
-        had NO title bar at all above 768px: no back button, no title, no
-        share. It looked deliberate because the desktop header sits above it on
-        some pages and not others.
-      */}
-      <div className="sticky top-[var(--desktop-header-h,0px)] z-30 hidden bg-card md:block">
-        <div className="app-container flex h-14 items-center gap-3">
-          <button
-            type="button"
-            aria-label="Back"
-            onClick={onBack}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-foreground transition-colors hover:bg-muted"
-          >
-            <KeyboardArrowLeftIcon className="h-6 w-6" />
-          </button>
-          <p className="min-w-0 flex-1 truncate text-title font-semibold text-foreground">
-            {title}
-          </p>
-          {rightAction}
-        </div>
-      </div>
     </>
   );
 }

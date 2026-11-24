@@ -212,7 +212,13 @@ export default function VehicleDetail() {
           <Breadcrumbs items={breadcrumbs} className="md:hidden" />
 
           <div className="space-y-2">
-            <h1 className="text-3xl font-semibold leading-tight tracking-tight text-foreground">{v.name}</h1>
+            <div className="flex items-start gap-2">
+              <h1 className="min-w-0 flex-1 text-3xl font-semibold leading-tight tracking-tight text-foreground">{v.name}</h1>
+              <div className="-mr-2 -mt-1 hidden shrink-0 items-center md:flex">
+                <FavoriteButton kind="vehicle" id={v.id} name={v.name} className="text-foreground hover:bg-muted" />
+                <ShareButton title={v.name} text={shareText} className="text-foreground hover:bg-muted" />
+              </div>
+            </div>
             {/* Only when the title has not already said it — most cars are
                 named "Brand Model Year", and repeating that directly under the
                 h1 was the page's first line of noise. */}

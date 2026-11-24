@@ -872,7 +872,14 @@ const PlanDetail = () => {
           {breadcrumbs.length > 1 && <Breadcrumbs items={breadcrumbs} className="md:hidden" />}
 
           <div className="space-y-2">
-            <h1 className="text-[24px] font-semibold leading-tight tracking-[-0.48px] text-foreground">{title}</h1>
+            {/* Laptop: favourite and share sit beside the name — there is no title bar above. */}
+            <div className="flex items-start gap-2">
+              <h1 className="min-w-0 flex-1 text-[24px] font-semibold leading-tight tracking-[-0.48px] text-foreground">{title}</h1>
+              <div className="-mr-2 -mt-1 hidden shrink-0 items-center md:flex">
+                <FavoriteButton kind="plan" id={planKey} name={title} className="text-foreground hover:bg-muted" />
+                <ShareButton title={title} text={shareText} className="text-foreground hover:bg-muted" />
+              </div>
+            </div>
             {description && (
               <p className="text-title leading-[22px] text-muted-foreground">
                 <LinkifiedText text={description} />
