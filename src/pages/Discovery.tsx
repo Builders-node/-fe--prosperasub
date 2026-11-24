@@ -31,6 +31,7 @@ import { FeaturedRail } from "@/components/discovery/FeaturedRail";
 import { CollectionsSection } from "@/components/discovery/CollectionsSection";
 import { BusinessesRail } from "@/components/discovery/BusinessesRail";
 import { ForYouSection } from "@/components/discovery/ForYouSection";
+import { DesktopCatalog } from "@/components/discovery/DesktopCatalog";
 import { useHomePlans } from "@/components/discovery/homePlans";
 
 // "My Subs" tile isn't a category, but sits alongside category tiles.
@@ -182,7 +183,13 @@ const Discovery = () => {
         page with the service grid. The panel is what makes the top of the
         screen read as one block instead of three stacked cards.
       */}
-      <section className="bg-card pb-4 shadow-figma rounded-b-radius-lg md:rounded-b-none">
+      {/* Laptop: the catalogue holds the left column while the page scrolls. */}
+      <div className="lg:mx-auto lg:flex lg:max-w-[1280px] lg:gap-6 lg:px-4 lg:pt-space-6">
+      <aside className="hidden w-[240px] shrink-0 lg:block">
+        <DesktopCatalog className="sticky top-24 max-h-[calc(100vh-7rem)] overflow-y-auto pb-6" />
+      </aside>
+      <div className="min-w-0 flex-1">
+      <section className="bg-card pb-4 shadow-figma rounded-b-radius-lg md:rounded-b-none lg:rounded-radius-lg">
         <div className="app-container space-y-4 pt-4">
           {showFamilies && (
             <div className="flex rounded-radius-md bg-inset p-0.5 md:max-w-sm">
@@ -293,6 +300,8 @@ const Discovery = () => {
         {storefront && <AllVehiclesSection />}
 
       </main>
+      </div>
+      </div>
 
     </BrowseLayout>
   );
