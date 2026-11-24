@@ -103,8 +103,17 @@ export default function MarketplaceServiceDetail() {
         .from("service_archetypes").update({ is_active: !archetype.is_active }).eq("key", key);
       if (error) throw error;
       if (userData?.id) await logAuditEvent(userData.id, "edit", "service_archetype", key, { is_active: !archetype.is_active });
+      return !archetype.is_active;
     },
-    onSuccess: invalidateArchetypes,
+    // Hiding a whole service is one click from a menu, so it can be taken back
+    // from the toast rather than asking first every time.
+    onSuccess: (nowActive) => {
+      invalidateArchetypes();
+      toast.success(nowActive ? "Shown on Discovery" : "Hidden from Discovery", {
+        action: { label: "Undo", onClick: () => toggleActive.mutate() },
+        duration: 8000,
+      });
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -235,7 +244,7 @@ export default function MarketplaceServiceDetail() {
               <AlertDialogDescription>
                 {providerCount === 0
                   ? "No providers link to this service — safe to delete."
-                  : `${providerCount} ${providerCount === 1 ? "provider currently links" : "providers currently link"} to this service. They won't be deleted — they'll move to the Unassigned bucket on the Marketplace page.`}
+                  : `${providerCount} ${providerCount === 1 ? "provider currently links" : "providers currently link"} to this service. They won't be deleted — they'll show as Unassigned in Businesses.`}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

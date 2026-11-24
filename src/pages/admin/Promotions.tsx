@@ -12,6 +12,7 @@ import { fieldClass } from "@/components/ui/input";
 import { useHomePlans } from "@/components/discovery/homePlans";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
+import { useConfirm } from "@/components/patterns/ConfirmDialog";
 
 /**
  * Promotions — what businesses bought to be seen (Edge routes/promotions.ts).
@@ -33,6 +34,7 @@ const live = (r: Row) => r.status === "active" && new Date(r.starts_at) <= new D
 
 export default function Promotions() {
   const qc = useQueryClient();
+  const [confirm, confirmDialog] = useConfirm();
   const [search, setSearch] = useState("");
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["admin-promotions"],
@@ -65,6 +67,7 @@ export default function Promotions() {
 
   return (
     <SuperAdminLayout title="Promotions" subtitle="Featured weeks and boosts businesses bought to be seen">
+      {confirmDialog}
       {data && !data.enabled && (
         <p className="mb-4 rounded-radius-md bg-card p-4 text-body text-muted-foreground">
           Promotions need the database migration (20261114120000_provider_promotions) before businesses can buy them.
@@ -118,7 +121,9 @@ export default function Promotions() {
                 </div>
                 {r.status !== "ended" && (
                   <Button size="sm" variant="secondary" loading={end.isPending && end.variables === r.id}
-                    onClick={() => { if (window.confirm(`End this promotion for ${r.providerName}? A featured week is not refunded automatically.`)) end.mutate(r.id); }}>
+                    onClick={async () => {
+                      if (await confirm({ title: `End the promotion for ${r.providerName}?`, description: "A featured week is not refunded automatically.", confirmLabel: "End promotion" })) end.mutate(r.id);
+                    }}>
                     End
                   </Button>
                 )}
