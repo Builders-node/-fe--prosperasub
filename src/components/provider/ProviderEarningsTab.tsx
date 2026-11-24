@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { ResponsiveDialog } from "@/components/patterns/ResponsiveDialog";
 import { toast } from "sonner";
 import { formatDateHN } from "@/lib/timezone";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 /**
  * What this business earned, and what of it has actually been paid.
@@ -170,8 +171,8 @@ function WithdrawPanel({
 
       <ResponsiveDialog open={open} onOpenChange={setOpen} title="Withdraw">
         <div className="space-y-4 pb-2">
-          <div className="space-y-1.5">
-            <label className="text-[16px] leading-[22px] text-muted-foreground">Amount (USD)</label>
+          <div className="space-y-1.5 text-left">
+            <label className="block text-[16px] leading-[22px] text-muted-foreground">Amount (USD)</label>
             <Input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)}
               placeholder={(availableCents / 100).toFixed(2)} />
             {overBalance ? (
@@ -179,41 +180,33 @@ function WithdrawPanel({
                 More than you have — the most is {formatUSD(availableCents)}.
               </p>
             ) : (
-              <button type="button" className="text-xs font-semibold text-primary"
+              <button type="button" className="block text-xs font-semibold text-primary"
                 onClick={() => setAmount((availableCents / 100).toFixed(2))}>
                 Withdraw everything ({formatUSD(availableCents)})
               </button>
             )}
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-[16px] leading-[22px] text-muted-foreground">Send over</label>
+          <div className="space-y-1.5 text-left">
+            <label className="block text-[16px] leading-[22px] text-muted-foreground">Send over</label>
             {/* Two rails, not one field that accepts both. Switching clears the
                 address on purpose: an address for the other network is the one
                 thing that must not be left sitting in the box. */}
-            <div className="inline-flex w-full bg-muted/40 p-0.5 text-sm font-semibold">
-              {(["lightning", "onchain"] as PayoutRail[]).map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  onClick={() => { setRail(option); setDestination(""); }}
-                  className={cn(
-                    "flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-2 transition-colors",
-                    rail === option
-                      ? "bg-foreground text-background"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {option === "lightning" ? <Zap className="h-3.5 w-3.5" /> : <Bitcoin className="h-3.5 w-3.5" />}
-                  {RAIL_LABEL[option]}
-                </button>
-              ))}
-            </div>
-            <p className="text-xs leading-relaxed text-muted-foreground">{RAIL_HINT[rail]}</p>
+            <Tabs value={rail} onValueChange={(v) => { setRail(v as PayoutRail); setDestination(""); }}>
+              <TabsList variant="segment">
+                {(["lightning", "onchain"] as PayoutRail[]).map((option) => (
+                  <TabsTrigger key={option} value={option} variant="segment" className="gap-1.5">
+                    {option === "lightning" ? <Zap className="h-3.5 w-3.5" /> : <Bitcoin className="h-3.5 w-3.5" />}
+                    {RAIL_LABEL[option]}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+            <p className="block text-xs leading-relaxed text-muted-foreground">{RAIL_HINT[rail]}</p>
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-[16px] leading-[22px] text-muted-foreground">
+          <div className="space-y-1.5 text-left">
+            <label className="block text-[16px] leading-[22px] text-muted-foreground">
               {rail === "lightning" ? "Lightning address" : "Bitcoin address"}
             </label>
             <Input
