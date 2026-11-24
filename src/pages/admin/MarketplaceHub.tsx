@@ -315,7 +315,7 @@ export default function MarketplaceHub() {
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
                     {orphans.categories.map((c) => (
                       <button key={c.key} type="button" onClick={() => setCatTarget(c)}
-                        className="inline-flex h-7 items-center rounded-full bg-inset px-2.5 text-[13px] text-foreground hover:bg-muted">
+                        className="inline-flex h-7 items-center rounded-full bg-inset px-2.5 text-meta text-foreground hover:bg-muted">
                         {c.label}
                       </button>
                     ))}
@@ -374,7 +374,7 @@ function ChipRow({ chips, onReorder, onCommit, onOpen, onAdd, addLabel }: {
           data-drag-key={c.key}
           {...drag.chipProps(c.key, () => onOpen(c))}
           className={cn(
-            "inline-flex h-7 max-w-[180px] select-none items-center truncate rounded-full bg-inset px-2.5 text-[13px] text-foreground transition-colors hover:bg-muted",
+            "inline-flex h-7 max-w-[180px] select-none items-center truncate rounded-full bg-inset px-2.5 text-meta text-foreground transition-colors hover:bg-muted",
             !c.is_active && "text-muted-foreground line-through decoration-muted-foreground/50",
             drag.draggingKey === c.key && "ring-1 ring-primary",
           )}
@@ -388,7 +388,7 @@ function ChipRow({ chips, onReorder, onCommit, onOpen, onAdd, addLabel }: {
         onClick={onAdd}
         aria-label={addLabel}
         title="Add a category"
-        className="inline-flex h-7 items-center gap-1 rounded-full border border-dashed border-border px-2 text-[13px] text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground"
+        className="inline-flex h-7 items-center gap-1 rounded-full border border-dashed border-border px-2 text-meta text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground"
       >
         <Plus className="h-3.5 w-3.5" />{chips.length === 0 && "Add category"}
       </button>

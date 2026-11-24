@@ -68,7 +68,7 @@ export function FleetPulse({ vehicles, bookings, blocks, onOpenBooking }: {
         <div className="order-first flex self-start rounded-full bg-inset p-0.5 sm:order-none sm:self-auto" role="group" aria-label="Period">
           {PERIODS.map((d) => (
             <button key={d} type="button" onClick={() => setDays(d)} aria-pressed={days === d}
-              className={cn("h-7 rounded-full px-2.5 text-[12px] font-semibold", days === d ? "bg-segment text-foreground" : "text-muted-foreground")}>
+              className={cn("h-7 rounded-full px-2.5 text-meta font-semibold", days === d ? "bg-segment text-foreground" : "text-muted-foreground")}>
               {d}d
             </button>
           ))}
@@ -107,7 +107,7 @@ function Metric({ label, value, delta, hint }: { label: string; value: string; d
       <span className="flex flex-wrap items-baseline gap-x-1.5">
       <span className="text-body font-semibold tabular-nums text-foreground">{value}</span>
       {delta != null && delta !== 0 && (
-        <span className={cn("text-[12px] font-semibold tabular-nums", delta > 0 ? "text-positive" : "text-negative")}
+        <span className={cn("text-meta font-semibold tabular-nums", delta > 0 ? "text-positive" : "text-negative")}
           title="Against the period before">
           {delta > 0 ? "▲" : "▼"}{Math.abs(delta)}{label === "Utilisation" ? "pt" : "%"}
         </span>
