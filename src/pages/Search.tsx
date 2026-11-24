@@ -85,7 +85,7 @@ const SearchPage = () => {
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search on EverySub"
               aria-label="Search on EverySub"
-              className="min-w-0 flex-1 bg-transparent text-title text-foreground outline-none placeholder:text-muted-foreground"
+              className="min-w-0 flex-1 bg-transparent text-title text-foreground outline-none placeholder:text-muted-foreground [&::-webkit-search-cancel-button]:hidden"
             />
             {query && (
               <button
