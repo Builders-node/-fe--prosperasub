@@ -63,12 +63,12 @@ export default function Fleet() {
    * does not appear as a rail tile leading to nothing.
    */
   const providers = useMemo(() => {
-    const seen = new Map<string, { id: string; name: string; avatarUrl: string | null; count: number }>();
+    const seen = new Map<string, { id: string; name: string; avatarUrl: string | null; slug: string | null; count: number }>();
     vehicles.forEach((v) => {
       if (!v.provider?.id || !v.provider.name) return;
       const hit = seen.get(v.provider.id);
       if (hit) hit.count += 1;
-      else seen.set(v.provider.id, { id: v.provider.id, name: v.provider.name, avatarUrl: v.provider.avatar_url ?? null, count: 1 });
+      else seen.set(v.provider.id, { id: v.provider.id, name: v.provider.name, avatarUrl: v.provider.avatar_url ?? null, slug: v.provider.slug ?? null, count: 1 });
     });
     return [...seen.values()].sort((a, b) => a.name.localeCompare(b.name));
   }, [vehicles]);
@@ -242,7 +242,7 @@ export default function Fleet() {
               // The rail is a DOOR, as on every other listing — it opens the
               // business's own page (fleet shelf, reviews, gallery). Narrowing
               // the grid is the chips' job, not the rail's.
-              onOpen={(id) => navigate(carProviderPath(id))}
+              onOpen={(id) => navigate(carProviderPath(providers.find((p) => p.id === id)?.slug || id))}
             />
           </div>
         )}

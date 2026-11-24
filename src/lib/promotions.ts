@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { accountApi } from "@/integrations/supabase/client";
-import { carProviderPath } from "@/features/vehicles";
-import { planHref, providerHref } from "@/lib/services/serviceUrls";
+import { businessHref, planHref } from "@/lib/services/serviceUrls";
 
 /**
  * Paid placements on the storefront (Edge routes/promotions.ts).
@@ -40,15 +39,20 @@ export function useActivePromotions(placement: PromoPlacement, archetypeKey?: st
   });
 }
 
-/** Where a placement leads: the offer when one is named, else the business. */
-export function promotionHref(p: ActivePromotion): string {
+/**
+ * Where a placement leads: the offer when one is named, else the business.
+ * `addr` (useAddresses) turns the ids the API sends into the words, so the
+ * link is the final address rather than one that redirects.
+ */
+export function promotionHref(
+  p: ActivePromotion,
+  addr?: { businessHref: (id: string) => string; planHref: (id: string) => string },
+): string {
   const prov = p.provider;
-  if (prov.unit === "vehicles" || prov.archetypeKey === "vehicles") return carProviderPath(prov.id);
-  const key = prov.archetypeKey ?? prov.sourceServiceKey ?? "";
-  if (p.plan) {
-    return planHref(key, p.plan.sourcePlanId ?? p.plan.id);
+  if (p.plan && !(prov.unit === "vehicles" || prov.archetypeKey === "vehicles")) {
+    return addr ? addr.planHref(p.plan.id) : planHref(null, p.plan.sourcePlanId ?? p.plan.id);
   }
-  return providerHref(key, prov.id);
+  return addr ? addr.businessHref(prov.id) : businessHref(prov.id);
 }
 
 const SESSION_KEY = "everysub_promo_session";

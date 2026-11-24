@@ -26,11 +26,11 @@ const FoodProviderDetail = () => {
     queryFn: async () => {
       const { data } = await supabaseDb
         .from("providers")
-        .select("id")
+        .select("id, slug")
         .eq("source_service_key", "food")
         .eq("source_provider_id", id!)
         .maybeSingle();
-      return (data?.id as string | undefined) ?? null;
+      return (data?.slug as string | null) || (data?.id as string | undefined) || null;
     },
   });
 

@@ -88,9 +88,9 @@ export default function BookCalendar() {
     enabled: !!providerId,
     queryFn: async () => {
       const { data, error } = await supabaseDb
-        .from("providers").select("id, name, archetype_key").eq("id", providerId).maybeSingle();
+        .from("providers").select("id, name, archetype_key, slug").eq("id", providerId).maybeSingle();
       if (error) throw error;
-      return data as { id: string; name: string; archetype_key: string | null } | null;
+      return data as { id: string; name: string; archetype_key: string | null; slug: string | null } | null;
     },
   });
 
@@ -257,7 +257,7 @@ export default function BookCalendar() {
             </p>
             {provider?.archetype_key && (
               <Button asChild className="mt-4">
-                <Link to={providerHref(provider.archetype_key, provider.id)}>See plans</Link>
+                <Link to={providerHref(provider.archetype_key, provider.slug || provider.id)}>See plans</Link>
               </Button>
             )}
           </section>
