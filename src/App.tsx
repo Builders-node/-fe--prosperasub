@@ -57,6 +57,8 @@ const MySubscriptions = lazy(() => import("./pages/user/MySubscriptions"));
 const Profile = lazy(() => import("./pages/user/Profile"));
 const LeavingFeedback = lazy(() => import("./pages/user/LeavingFeedback"));
 const Favorites = lazy(() => import("./pages/user/Favorites"));
+const CollectionsIndex = lazy(() => import("./pages/Collections"));
+const CollectionPage = lazy(() => import("./pages/CollectionPage"));
 const Notifications = lazy(() => import("./pages/user/Notifications"));
 const History = lazy(() => import("./pages/user/History"));
 const MyBusiness = lazy(() => import("./pages/user/MyBusiness"));
@@ -358,6 +360,8 @@ const App = () => {
               } />
               {/* Open to guests: their hearts live in the browser until sign-in. */}
               <Route path="/favorites" element={<Favorites />} />
+              <Route path="/collections" element={<CollectionsIndex />} />
+              <Route path="/collections/:slug" element={<CollectionPage />} />
               <Route path="/feedback/leaving" element={
                 <ProtectedRoute><LeavingFeedback /></ProtectedRoute>
               } />
