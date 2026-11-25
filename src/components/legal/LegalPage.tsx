@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { useSeo } from "@/hooks/useSeo";
 import { UserLayout } from "@/components/layout/UserLayout";
+import { SUPPORT_EMAIL, SUPPORT_WHATSAPP, SUPPORT_WHATSAPP_HREF } from "@/lib/support";
 
 /**
  * Terms and Privacy share one shape: a title block with the date it took
@@ -14,9 +15,9 @@ export interface LegalSection {
 }
 
 export const LEGAL_CONTACT = {
-  email: "support@prosperasub.com",
-  whatsapp: "+504 9706-7865",
-  whatsappHref: "https://wa.me/50497067865",
+  email: SUPPORT_EMAIL,
+  whatsapp: SUPPORT_WHATSAPP,
+  whatsappHref: SUPPORT_WHATSAPP_HREF,
 };
 
 export function LegalPage({ title, updated, intro, sections, other, path }: {

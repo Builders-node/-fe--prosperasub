@@ -1,16 +1,17 @@
 import { useEffect, useState } from "react";
 import { useSeo } from "@/hooks/useSeo";
-import { useNavigate } from "react-router-dom";
-import { CheckCircle2, LifeBuoy, Mail, MessageCircle, Send } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { CheckCircle2, ChevronRight, Mail, MessageCircle, Receipt, Send } from "lucide-react";
 import { toast } from "sonner";
 import { UserLayout } from "@/components/layout/UserLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Spinner } from "@/components/ui/spinner";
 import { useAuth } from "@/contexts/AuthContext";
 import { apiUrlFor } from "@/integrations/supabase/config";
+import { SUPPORT_EMAIL, SUPPORT_WHATSAPP, SUPPORT_WHATSAPP_HREF } from "@/lib/support";
+import { cn } from "@/lib/utils";
 
 /**
  * Contact support.
@@ -22,19 +23,41 @@ import { apiUrlFor } from "@/integrations/supabase/config";
  *
  * Reachable signed out. Someone whose payment failed or who can't log in is
  * exactly who needs to reach a human.
+ *
+ * Layout follows Notifications: a 720px column, a real page title on desktop,
+ * cards on the page background. A form is read top to bottom; across 1440px
+ * it was a row of empty boxes.
  */
 
+type Topic = { key: string; label: string; example: string };
 
-const SUPPORT_WHATSAPP = "+50488776655";
-// Change alongside the mailbox itself — a support address that bounces is
-// worse than none. Kept on the old domain until everysub.net mail is live.
-const SUPPORT_EMAIL = "support@prosperasub.com";
+// A topic fills the subject (the admin panel sorts by it) and swaps the
+// example under "What happened?" for one that fits.
+const TOPICS: Topic[] = [
+  { key: "order", label: "An order or delivery", example: "Nobody came on Tuesday and the slot still shows as booked." },
+  { key: "payment", label: "A payment", example: "I paid with Bitcoin an hour ago and the order still says unpaid." },
+  { key: "account", label: "My account", example: "I can't sign in — the code never arrives by email." },
+  { key: "business", label: "My business", example: "I'd like to add a second location to my listing." },
+  { key: "other", label: "Something else", example: "Tell us what's going on in a sentence or two." },
+];
+const TOPIC_LABELS = new Set(TOPICS.map((t) => t.label));
+
+const ownedToken = (): Record<string, string> => {
+  try {
+    const raw = localStorage.getItem("prospera_owned_session");
+    const t = raw ? JSON.parse(raw)?.access_token : null;
+    return t ? { Authorization: `Bearer ${t}` } : {};
+  } catch {
+    return {};
+  }
+};
 
 export default function Support() {
   useSeo({ title: "Support", description: "Questions about an order, a payment or a business on EverySub? Write to us.", path: "/support" });
   const navigate = useNavigate();
   const { userData, isAuthenticated } = useAuth();
 
+  const [topic, setTopic] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -42,6 +65,8 @@ export default function Support() {
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
+  // Errors show only after a send attempt — an empty form isn't a mistake.
+  const [tried, setTried] = useState(false);
 
   // Prefill from the account so a signed-in customer types the problem and
   // nothing else.
@@ -50,14 +75,32 @@ export default function Support() {
     setEmail((e) => e || userData?.email || "");
   }, [userData]);
 
-  const valid =
-    name.trim().length >= 2 &&
-    /\S+@\S+\.\S+/.test(email) &&
-    subject.trim().length >= 3 &&
-    message.trim().length >= 10;
+  const errors = {
+    name: name.trim().length < 2 ? "Tell us your name." : null,
+    email: !/\S+@\S+\.\S+/.test(email) ? "We reply here — check the address." : null,
+    subject: subject.trim().length < 3 ? "A few words, or pick a topic above." : null,
+    message: message.trim().length < 10 ? "A sentence or two is enough." : null,
+  };
+  const valid = !Object.values(errors).some(Boolean);
+  const err = (k: keyof typeof errors) => (tried ? errors[k] : null);
+
+  const activeTopic = TOPICS.find((t) => t.key === topic);
+
+  const pickTopic = (t: Topic) => {
+    const next = topic === t.key ? null : t.key;
+    setTopic(next);
+    // Only replace a subject the chips wrote — never one the customer typed.
+    if (!subject.trim() || TOPIC_LABELS.has(subject.trim())) setSubject(next ? t.label : "");
+  };
 
   const submit = async () => {
-    if (!valid || sending) return;
+    if (sending) return;
+    if (!valid) {
+      setTried(true);
+      const first = (Object.keys(errors) as Array<keyof typeof errors>).find((k) => errors[k]);
+      if (first) document.getElementById(`support-${first}`)?.focus();
+      return;
+    }
     setSending(true);
     try {
       const res = await fetch(apiUrlFor("/support/messages"), {
@@ -66,14 +109,7 @@ export default function Support() {
           "Content-Type": "application/json",
           // Attaches the sender's account when we have one; the endpoint
           // accepts the message either way.
-          ...(isAuthenticated && localStorage.getItem("prospera_owned_session")
-            ? (() => {
-                try {
-                  const t = JSON.parse(localStorage.getItem("prospera_owned_session")!)?.access_token;
-                  return t ? { Authorization: `Bearer ${t}` } : {};
-                } catch { return {}; }
-              })()
-            : {}),
+          ...(isAuthenticated ? ownedToken() : {}),
         },
         body: JSON.stringify({
           name: name.trim(),
@@ -101,16 +137,23 @@ export default function Support() {
   if (sent) {
     return (
       <UserLayout title="Support" showBackButton allowGuest>
-        <div className="flex flex-col items-center justify-center py-16 text-center">
-          <CheckCircle2 className="mb-4 h-14 w-14 text-positive" />
-          <h2 className="text-xl font-semibold text-foreground">Message sent</h2>
-          <p className="mt-2 max-w-sm text-sm text-muted-foreground">
-            We&apos;ll reply to <span className="font-semibold text-foreground">{email}</span>. Most
-            messages get an answer the same day.
-          </p>
-          <Button className="mt-6" onClick={() => navigate("/discovery")}>
-            Back to services
-          </Button>
+        <div className="app-container pb-space-8 pt-4 md:pt-8">
+          <div className="mx-auto flex w-full max-w-[720px] flex-col items-center rounded-radius-lg bg-card px-6 py-14 text-center">
+            <span className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-positive/15">
+              <CheckCircle2 className="h-8 w-8 text-positive" />
+            </span>
+            <h2 className="text-xl font-semibold text-foreground">Message sent</h2>
+            <p className="mt-2 max-w-sm text-sm text-muted-foreground">
+              We&apos;ll reply to <span className="font-semibold text-foreground">{email}</span>. Most
+              messages get an answer the same day.
+            </p>
+            <div className="mt-6 flex flex-wrap justify-center gap-2">
+              <Button onClick={() => navigate("/discovery")}>Back to services</Button>
+              {isAuthenticated && (
+                <Button variant="secondary" onClick={() => navigate("/my-subscriptions")}>My orders</Button>
+              )}
+            </div>
+          </div>
         </div>
       </UserLayout>
     );
@@ -118,100 +161,194 @@ export default function Support() {
 
   return (
     <UserLayout title="Support" showBackButton allowGuest>
-      <div className="space-y-6 pb-8">
-        <div className="flex items-start gap-3 rounded-radius-md bg-card p-5">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/15">
-            <LifeBuoy className="h-5 w-5 text-primary" />
-          </span>
-          <div className="min-w-0">
-            <p className="font-semibold text-foreground">How can we help?</p>
-            <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-              Tell us what happened and we&apos;ll get back to you by email. If it&apos;s urgent,
-              WhatsApp is faster.
+      <div className="app-container pb-space-8 pt-4 md:pt-8">
+        <div className="mx-auto w-full max-w-[720px] space-y-5">
+          <div className="space-y-1">
+            <h1 className="hidden text-[28px] font-bold tracking-tight text-foreground md:block">How can we help?</h1>
+            <p className="text-sm leading-relaxed text-muted-foreground md:text-body">
+              Write to us and a person replies by email, usually the same day. Urgent? WhatsApp is faster.
             </p>
           </div>
-        </div>
 
-        {/* Direct channels first — someone who needs an answer now shouldn't
-            have to fill in a form to discover the phone number exists. */}
-        <div className="grid gap-3 sm:grid-cols-2">
-          <a
-            href={`https://wa.me/${SUPPORT_WHATSAPP.replace(/[^0-9]/g, "")}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-3 rounded-radius-md bg-card p-4 transition-colors hover:bg-muted/40"
-          >
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-positive/15">
-              <MessageCircle className="h-5 w-5 text-positive" />
-            </span>
-            <div className="min-w-0">
-              <p className="font-semibold text-foreground">WhatsApp</p>
-              <p className="truncate text-caption text-muted-foreground">{SUPPORT_WHATSAPP}</p>
-            </div>
-          </a>
-          <a
-            href={`mailto:${SUPPORT_EMAIL}`}
-            className="flex items-center gap-3 rounded-radius-md bg-card p-4 transition-colors hover:bg-muted/40"
-          >
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/15">
-              <Mail className="h-5 w-5 text-primary" />
-            </span>
-            <div className="min-w-0">
-              <p className="font-semibold text-foreground">Email</p>
-              <p className="truncate text-caption text-muted-foreground">{SUPPORT_EMAIL}</p>
-            </div>
-          </a>
-        </div>
-
-        <div className="space-y-4 rounded-radius-md bg-card p-5">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <Label htmlFor="support-name">Your name</Label>
-              <Input id="support-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Maria Lopez" />
-            </div>
-            <div>
-              <Label htmlFor="support-email">Email</Label>
-              <Input id="support-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
-            </div>
-          </div>
-
-          <div>
-            <Label htmlFor="support-phone">WhatsApp <span className="text-muted-foreground">(optional)</span></Label>
-            <Input id="support-phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+504 …" />
-          </div>
-
-          <div>
-            <Label htmlFor="support-subject">Subject</Label>
-            <Input id="support-subject" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Cleaning didn't arrive" />
-          </div>
-
-          <div>
-            <Label htmlFor="support-message">What happened?</Label>
-            <Textarea
-              id="support-message"
-              rows={6}
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder="Nobody came on Tuesday and the slot still shows as booked."
+          {/* Direct channels first — someone who needs an answer now shouldn't
+              have to fill in a form to discover the phone number exists. */}
+          <div className="grid gap-2 sm:grid-cols-2">
+            <ContactCard
+              href={SUPPORT_WHATSAPP_HREF}
+              external
+              icon={<MessageCircle className="h-5 w-5 text-positive" />}
+              iconClass="bg-positive/15"
+              title="WhatsApp"
+              detail={SUPPORT_WHATSAPP}
+              badge="Fastest"
             />
-            <p className="mt-1 text-caption text-muted-foreground">
-              {message.trim().length < 10
-                ? "A sentence or two is enough — the more detail, the faster we can fix it."
-                : `${message.trim().length} characters`}
-            </p>
+            <ContactCard
+              href={`mailto:${SUPPORT_EMAIL}`}
+              icon={<Mail className="h-5 w-5 text-primary" />}
+              iconClass="bg-primary/15"
+              title="Email"
+              detail={SUPPORT_EMAIL}
+            />
           </div>
 
-          <Button size="lg" className="w-full rounded-radius-md" disabled={!valid || sending} onClick={submit}>
-            {sending ? <Spinner size="sm" className="mr-2" /> : <Send className="mr-2 h-4 w-4" />}
-            {sending ? "Sending…" : "Send message"}
-          </Button>
-          {!valid && (
-            <p className="text-center text-caption text-muted-foreground">
-              Fill in your name, email, a subject and a short description.
-            </p>
+          {/* Most "where is my order" questions are answered by the order
+              itself; one tap there beats a day's wait for a reply. */}
+          {isAuthenticated && (
+            <Link
+              to="/my-subscriptions"
+              className="flex items-center gap-3 rounded-radius-lg bg-card p-4 transition-colors hover:bg-muted/40"
+            >
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted">
+                <Receipt className="h-5 w-5 text-foreground" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold text-foreground">Check your orders first</p>
+                <p className="text-caption text-muted-foreground">
+                  Status, next delivery and receipts for everything you&apos;ve booked.
+                </p>
+              </div>
+              <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
+            </Link>
           )}
+
+          <form
+            noValidate
+            onSubmit={(e) => { e.preventDefault(); void submit(); }}
+            className="space-y-5 rounded-radius-lg bg-card p-4 md:p-6"
+          >
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">Send us a message</h2>
+              <p className="mt-0.5 text-caption text-muted-foreground">What&apos;s it about?</p>
+              <div role="radiogroup" aria-label="Topic" className="mt-3 flex flex-wrap gap-1.5">
+                {TOPICS.map((t) => (
+                  <button
+                    key={t.key}
+                    type="button"
+                    role="radio"
+                    aria-checked={topic === t.key}
+                    onClick={() => pickTopic(t)}
+                    className={cn(
+                      "h-9 shrink-0 rounded-full px-4 text-sm font-semibold transition-colors",
+                      topic === t.key ? "bg-foreground text-background" : "bg-inset text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+              {topic === "business" && (
+                <p className="mt-2 text-caption text-muted-foreground">
+                  Not listed yet?{" "}
+                  <Link to="/for-business" className="font-semibold text-primary hover:underline">See how selling on EverySub works</Link>.
+                </p>
+              )}
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Input
+                id="support-name"
+                label="Your name"
+                autoComplete="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                errorText={err("name")}
+              />
+              <Input
+                id="support-email"
+                label="Email"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                errorText={err("email")}
+              />
+            </div>
+
+            <Input
+              id="support-phone"
+              label={<>WhatsApp <span className="font-normal text-muted-foreground">· optional</span></>}
+              type="tel"
+              autoComplete="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              helperText="Add it if you'd rather we reply there."
+            />
+
+            <Input
+              id="support-subject"
+              label="Subject"
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              errorText={err("subject")}
+            />
+
+            <div>
+              <div className="mb-2 flex items-baseline justify-between gap-2">
+                <Label htmlFor="support-message">What happened?</Label>
+                {message.trim().length > 0 && (
+                  <span className="text-caption tabular-nums text-muted-foreground">{message.trim().length}</span>
+                )}
+              </div>
+              <Textarea
+                id="support-message"
+                rows={6}
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                state={err("message") ? "error" : "default"}
+                aria-invalid={!!err("message")}
+                aria-describedby="support-message-hint"
+              />
+              <p
+                id="support-message-hint"
+                className={cn("mt-1.5 text-caption", err("message") ? "text-destructive" : "text-muted-foreground")}
+              >
+                {err("message") ?? `For example: “${(activeTopic ?? TOPICS[0]).example}”`}
+              </p>
+            </div>
+
+            <div className="flex flex-col-reverse gap-3 border-t border-border/50 pt-5 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-caption text-muted-foreground">
+                We reply to the email above. Your account is attached if you&apos;re signed in.
+              </p>
+              <Button type="submit" size="lg" className="w-full shrink-0 sm:w-auto" loading={sending} loadingText="Sending…">
+                <Send /> Send message
+              </Button>
+            </div>
+          </form>
         </div>
       </div>
     </UserLayout>
+  );
+}
+
+function ContactCard({ href, external, icon, iconClass, title, detail, badge }: {
+  href: string;
+  external?: boolean;
+  icon: React.ReactNode;
+  iconClass: string;
+  title: string;
+  detail: string;
+  badge?: string;
+}) {
+  return (
+    <a
+      href={href}
+      {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+      className="group flex items-center gap-3 rounded-radius-lg bg-card p-4 transition-colors hover:bg-muted/40"
+    >
+      <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-full", iconClass)}>{icon}</span>
+      <div className="min-w-0 flex-1">
+        <p className="flex items-center gap-2 font-semibold text-foreground">
+          {title}
+          {badge && (
+            <span className="rounded-full bg-positive/15 px-2 py-0.5 text-meta font-semibold uppercase tracking-wide text-positive">
+              {badge}
+            </span>
+          )}
+        </p>
+        <p className="truncate text-caption text-muted-foreground">{detail}</p>
+      </div>
+      <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+    </a>
   );
 }

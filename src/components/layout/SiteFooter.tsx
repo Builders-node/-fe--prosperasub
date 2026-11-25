@@ -4,6 +4,7 @@ import { MessageCircle } from "lucide-react";
 import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
 import { useCategoryHighlights } from "@/hooks/useCategoryHighlights";
 import { serviceListingHref } from "@/lib/services/serviceUrls";
+import { SUPPORT_WHATSAPP, SUPPORT_WHATSAPP_HREF } from "@/lib/support";
 
 /**
  * The desktop footer: the site map a laptop visitor scrolls down to look for.
@@ -18,8 +19,8 @@ import { serviceListingHref } from "@/lib/services/serviceUrls";
  * columns — the columns and the space carry the structure.
  */
 
-const WHATSAPP_NUMBER = "+504 9706-7865";
-const WHATSAPP_HREF = "https://wa.me/50497067865";
+const WHATSAPP_NUMBER = SUPPORT_WHATSAPP;
+const WHATSAPP_HREF = SUPPORT_WHATSAPP_HREF;
 
 type FooterLink = { label: string; to: string; external?: boolean };
 
