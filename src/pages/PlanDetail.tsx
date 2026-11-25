@@ -1,3 +1,4 @@
+import { HowItWorksSection } from "@/components/howItWorks/HowItWorksSection";
 import { describeEntitlement, readEntitlements } from "@/lib/plans/entitlements";
 import { useTrackFunnel } from "@/lib/funnel";
 import { UpsellSection } from "@/components/patterns/UpsellSection";
@@ -1008,6 +1009,10 @@ const PlanDetail = () => {
           </section>
         )}
 
+
+        {/* The business's own steps — this plan's if it has them, else the
+            business's, else the platform's. */}
+        {plan.providerId && <HowItWorksSection providerId={plan.providerId} planId={plan.id} />}
 
         {plan.providerId && reviewService && (
           // The block is a bare <section>, so the card padding belongs here —

@@ -168,6 +168,15 @@ const en = {
   "referral.claimAcceptedPlain": "Code applied \u2014 thanks, we know who sent you.",
   "profile.inviteFriendValuePlain": "Share EverySub with a neighbour",
   "referral.statsUnavailable": "Your code works now. Who used it and what it earned will show up here shortly.",
+  "howItWorks.title": "How it works",
+  "howItWorks.default.1.title": "Choose what fits",
+  "howItWorks.default.1.text": "Pick the plan and options you want — the price updates as you choose.",
+  "howItWorks.default.2.title": "Pay up front",
+  "howItWorks.default.2.text": "Lightning, Bitcoin, card or PayPal. No cash, no invoices.",
+  "howItWorks.default.3.title": "The business gets it",
+  "howItWorks.default.3.text": "Your order goes straight to the business, and everything lives in your account.",
+  "howItWorks.default.4.title": "It just happens",
+  "howItWorks.default.4.text": "Deliveries, visits and bookings arrive on schedule. We remind you before a plan ends.",
 } as const;
 
 export type TranslationKey = keyof typeof en;
@@ -336,6 +345,15 @@ const es: Record<TranslationKey, string> = {
   "referral.claimAcceptedPlain": "C\u00f3digo aplicado: gracias, ya sabemos qui\u00e9n te envi\u00f3.",
   "profile.inviteFriendValuePlain": "Comparte EverySub con un vecino",
   "referral.statsUnavailable": "Tu c\u00f3digo ya funciona. Qui\u00e9n lo us\u00f3 y qu\u00e9 gener\u00f3 aparecer\u00e1 aqu\u00ed pronto.",
+  "howItWorks.title": "Cómo funciona",
+  "howItWorks.default.1.title": "Elige lo que te conviene",
+  "howItWorks.default.1.text": "Escoge el plan y las opciones que quieras — el precio se actualiza al elegir.",
+  "howItWorks.default.2.title": "Paga por adelantado",
+  "howItWorks.default.2.text": "Lightning, Bitcoin, tarjeta o PayPal. Sin efectivo ni facturas.",
+  "howItWorks.default.3.title": "El negocio lo recibe",
+  "howItWorks.default.3.text": "Tu pedido llega directo al negocio, y todo queda en tu cuenta.",
+  "howItWorks.default.4.title": "Y sucede solo",
+  "howItWorks.default.4.text": "Entregas, visitas y reservas llegan a tiempo. Te avisamos antes de que termine un plan.",
 };
 
 const dictionaries: Record<LanguageCode, Record<TranslationKey, string>> = { en, es };

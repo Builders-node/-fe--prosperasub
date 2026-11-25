@@ -1,3 +1,4 @@
+import { HowItWorksCard } from "@/components/provider/HowItWorksCard";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Photo, initialsOf } from "@/components/patterns/Photo";
 import { CalendarClock, CarFront, Edit, ExternalLink, Megaphone, Package, Store, Truck, Users, Wallet } from "lucide-react";
@@ -291,6 +292,8 @@ export function ProviderWorkspace({ providerId, publicHref, backHref = "/my-busi
             showTill={!!provider.archetype_key}
           />
         )}
+        {/* The steps customers read on the business's page and plan pages. */}
+        {provider.archetype_key && <HowItWorksCard providerId={provider.id} />}
         {custom.infoExtra?.(workspaceCtx)}
         </div>
         {/* How to reach the business, last on Overview: reference, not the
