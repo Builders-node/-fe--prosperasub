@@ -1,6 +1,7 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { Link, useParams } from "react-router-dom";
-import { ArrowRight, BookOpen, Car, Check, Clock, LayoutList, Tag } from "lucide-react";
+import { ArrowRight, BookOpen, Car, Check, ChevronRight, Clock, LayoutList, Link as LinkIcon, MessageCircle, Tag } from "lucide-react";
 import {
   ArrowCta, Faq, Glass, GlassRow, H3, MarketingPage, RenderPanel, TwoTone, faqLd,
 } from "@/components/marketing/Marketing";
@@ -10,6 +11,7 @@ import { GUIDES, GUIDES_INDEX, guideBySlug, guideExtras, type Guide } from "@/li
 import { serviceSeo } from "@/lib/seo/serviceSeo";
 import { inSpanishUrl } from "@/lib/seo/lang";
 import { useSeo } from "@/hooks/useSeo";
+import { cn } from "@/lib/utils";
 
 /**
  * `/guides` and `/guides/:slug` — practical answers to what people search
@@ -36,7 +38,7 @@ const UI = {
     ctaTitle: "find something for your week.", ctaBullets: ["Paid up front, no surprises", "Lightning, Bitcoin, card or PayPal", "Cancel from your account"],
     open: "Open", allAccent: "guides", allPlain: "to life on Roatán", allNote: "Short and practical — each one ends in plans you can sign up for.",
     panel: "what people ask before they move to, or stay a while on, Roatán.", updated: "Updated",
-    inShort: "In short", by: "By the EverySub team", faqAccent: "answered", faqPlain: "questions,",
+    inShort: "In short", by: "By the EverySub team", faqAccent: "answered", faqPlain: "questions,", faqNav: "Questions", inlineCta: "Live prices from businesses on the island", copy: "Copy link", copied: "Link copied", home: "Home", guides: "Guides",
   },
   es: {
     label: "guías", browse: "Explorar", read: "Leer la guía", seePlans: "Ver los planes", inGuide: "En esta guía",
@@ -45,7 +47,7 @@ const UI = {
     ctaTitle: "encuentra algo para tu semana.", ctaBullets: ["Pago por adelantado, sin sorpresas", "Lightning, Bitcoin, tarjeta o PayPal", "Cancela desde tu cuenta"],
     open: "Abrir", allAccent: "guías", allPlain: "para vivir en Roatán", allNote: "Cortas y prácticas — cada una termina con planes que puedes contratar.",
     panel: "lo que la gente pregunta antes de mudarse o pasar una temporada en Roatán.", updated: "Actualizado",
-    inShort: "En resumen", by: "Por el equipo de EverySub", faqAccent: "respondidas", faqPlain: "preguntas,",
+    inShort: "En resumen", by: "Por el equipo de EverySub", faqAccent: "respondidas", faqPlain: "preguntas,", faqNav: "Preguntas", inlineCta: "Precios actuales de negocios de la isla", copy: "Copiar enlace", copied: "Enlace copiado", home: "Inicio", guides: "Guías",
   },
 };
 
@@ -198,6 +200,13 @@ export function GuidePage() {
       image: `${SITE}${IMG}/hero.jpg`,
       author: { "@type": "Organization", name: "EverySub", url: SITE },
       publisher: { "@type": "Organization", name: "EverySub", logo: `${SITE}/icon-512.png` },
+      }, {
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          { "@type": "ListItem", position: 1, name: "EverySub", item: `${SITE}${lang === "es" ? "/es" : ""}/discovery` },
+          { "@type": "ListItem", position: 2, name: ui.guides, item: `${SITE}${lang === "es" ? "/es" : ""}/guides` },
+          { "@type": "ListItem", position: 3, name: t.h1, item: self },
+        ],
       }, ...(ex ? [faqLd(ex.faq)] : [])],
     } : null,
   });
@@ -208,6 +217,28 @@ export function GuidePage() {
     [g, plans],
   );
   const cheapest = useMemo(() => items.map((p) => p.price_cents ?? 0).filter((c) => c > 0).sort((a, b) => a - b)[0] ?? null, [items]);
+
+  // Which section is being read (the contents list marks it) and how far
+  // through the guide the reader is (the bar under the header).
+  const [active, setActive] = useState(0);
+  const [progress, setProgress] = useState(0);
+  useEffect(() => {
+    const onScroll = () => {
+      const read = document.getElementById("read");
+      if (read) {
+        const r = read.getBoundingClientRect();
+        setProgress(Math.min(1, Math.max(0, -r.top / Math.max(1, r.height - window.innerHeight * 0.6))));
+      }
+      let cur = 0;
+      document.querySelectorAll<HTMLElement>("[data-sec]").forEach((el) => {
+        if (el.getBoundingClientRect().top < window.innerHeight * 0.35) cur = Number(el.dataset.sec);
+      });
+      setActive(cur);
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [g?.slug]);
 
   if (!g || !t) {
     return (
@@ -230,13 +261,19 @@ export function GuidePage() {
       links={[{ href: "#read", label: ui.read }, { href: "#plans", label: ui.seePlans }, { href: "/guides", label: idx.all }]}
       cta={{ to: ctaTo, label: ui.browse }}
     >
+      <div aria-hidden className="fixed inset-x-0 top-16 z-30 h-0.5">
+        <div className="h-full origin-left bg-primary transition-transform duration-150" style={{ transform: `scaleX(${progress})` }} />
+      </div>
+
       {/* ─── Hero ─── */}
-      <section className="app-container pb-6 pt-10 text-center md:pb-10 md:pt-20">
-        <p className="text-meta font-semibold uppercase tracking-wide text-muted-foreground">
-          <Link to="/guides" className="hover:text-foreground">{lang === "es" ? "Guías" : "Guides"}</Link>
-          <span aria-hidden> · </span>
-          {ui.minutes(minutesOf(g, lang))}
-        </p>
+      <section className="app-container pb-6 pt-10 text-center md:pb-10 md:pt-16">
+        <nav aria-label="Breadcrumb" className="flex flex-wrap items-center justify-center gap-1 text-meta text-muted-foreground">
+          <Link to="/discovery" className="hover:text-foreground">{ui.home}</Link>
+          <ChevronRight className="h-3.5 w-3.5" />
+          <Link to="/guides" className="hover:text-foreground">{ui.guides}</Link>
+          <ChevronRight className="h-3.5 w-3.5" />
+          <span>{ui.minutes(minutesOf(g, lang))}</span>
+        </nav>
         <TwoTone as="h1" style={GUIDE_H1} accent={accent} plain={plain} center />
         <p className="mx-auto mt-5 max-w-[680px] text-body text-muted-foreground md:text-lg">{t.intro}</p>
         <p className="mt-4 text-meta text-muted-foreground">{ui.by} · {ui.updated} <time dateTime={g.updated}>{g.updated}</time></p>
@@ -276,37 +313,99 @@ export function GuidePage() {
         </div>
       </RenderPanel>
 
-      {/* ─── The guide ─── */}
+      {/* ─── The guide: one readable column, a sticky contents list beside it ─── */}
       <section id="read" className="app-container scroll-mt-20 py-16 md:py-24">
-        {ex && (
-          <aside className="mb-12 rounded-radius-xl bg-card p-6 md:mb-16 md:p-10">
-            <p className="font-semibold" style={{ fontSize: "clamp(1.375rem, 2vw, 1.75rem)", letterSpacing: "-0.02em" }}>{ui.inShort}</p>
-            <ul className="mt-5 grid gap-3 md:grid-cols-2">
-              {ex.takeaways.map((k) => (
-                <li key={k} className="flex items-start gap-3 text-body md:text-lg">
-                  <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[hsl(var(--brand-accent-active))] dark:text-primary"><Check className="h-3.5 w-3.5" /></span>
-                  {k}
-                </li>
-              ))}
-            </ul>
-          </aside>
-        )}
-        <div className="divide-y divide-border">
-          {t.sections.map((s, i) => (
-            <article key={s.h} id={`s${i + 1}`} className="grid scroll-mt-20 gap-4 py-8 first:pt-0 md:grid-cols-[0.9fr_1.4fr] md:gap-12 md:py-12">
-              <div className="flex items-start gap-4">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-foreground text-body font-semibold text-background">{i + 1}</span>
-                <h2 className="font-semibold" style={{ fontSize: "clamp(1.5rem, 2.4vw, 2rem)", lineHeight: 1.12, letterSpacing: "-0.02em" }}>
-                  {s.h.replace(/^\d+\.\s*/, "")}
-                </h2>
-              </div>
-              <div className="space-y-4">
-                {s.p.map((para) => (
-                  <p key={para.slice(0, 40)} className="text-body leading-relaxed text-muted-foreground md:text-lg">{para}</p>
+        <div className="mx-auto grid max-w-[1040px] gap-12 lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-16">
+          <nav aria-label={ui.inGuide} className="hidden lg:block">
+            <div className="sticky top-24">
+              <p className="text-meta font-semibold uppercase tracking-wide text-muted-foreground">{ui.inGuide}</p>
+              <ol className="mt-4 space-y-1 border-l border-border">
+                {t.sections.map((s, i) => (
+                  <li key={s.h}>
+                    <a
+                      href={`#s${i + 1}`}
+                      className={cn(
+                        "-ml-px block border-l-2 py-1.5 pl-4 text-body transition-colors",
+                        active === i ? "border-primary font-semibold text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {s.h.replace(/^\d+\.\s*/, "")}
+                    </a>
+                  </li>
                 ))}
+                {ex && (
+                  <li><a href="#faq" className="-ml-px block border-l-2 border-transparent py-1.5 pl-4 text-body text-muted-foreground hover:text-foreground">{ui.faqNav}</a></li>
+                )}
+              </ol>
+              <a href="#plans" className="mt-6 inline-flex items-center gap-2 text-body font-semibold text-[hsl(var(--brand-accent-active))] dark:text-primary">
+                {ui.seePlans} <ArrowRight className="h-4 w-4" />
+              </a>
+            </div>
+          </nav>
+
+          <article className="min-w-0 max-w-[680px]">
+            {ex && (
+              <aside className="mb-12 rounded-radius-xl bg-card p-6 md:p-8">
+                <p className="font-semibold" style={{ fontSize: "1.375rem", letterSpacing: "-0.02em" }}>{ui.inShort}</p>
+                <ul className="mt-4 space-y-3">
+                  {ex.takeaways.map((k) => (
+                    <li key={k} className="flex items-start gap-3 text-body md:text-lg">
+                      <span className="mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[hsl(var(--brand-accent-active))] dark:text-primary"><Check className="h-3 w-3" /></span>
+                      {k}
+                    </li>
+                  ))}
+                </ul>
+              </aside>
+            )}
+
+            {t.sections.map((s, i) => (
+              <div key={s.h}>
+                <section id={`s${i + 1}`} data-sec={i} className="scroll-mt-24 pb-10">
+                  <h2 className="font-semibold" style={{ fontSize: "clamp(1.5rem, 2.4vw, 1.875rem)", lineHeight: 1.2, letterSpacing: "-0.02em" }}>
+                    <span className="mr-2 text-[hsl(var(--brand-accent-active))] dark:text-primary">{i + 1}.</span>
+                    {s.h.replace(/^\d+\.\s*/, "")}
+                  </h2>
+                  <div className="mt-4 space-y-5">
+                    {s.p.map((para) => (
+                      <p key={para.slice(0, 40)} className="text-[1.0625rem] leading-[1.75] text-foreground/80 md:text-lg">{para}</p>
+                    ))}
+                  </div>
+                </section>
+                {/* Halfway down, the plans the guide is about — where a reader is ready to act. */}
+                {i === Math.floor((t.sections.length - 1) / 2) && items.length > 0 && (
+                  <a href="#plans" className="group mb-10 flex items-center gap-4 rounded-radius-xl bg-foreground p-5 text-background transition-opacity hover:opacity-90">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"><LayoutList className="h-5 w-5" /></span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-body font-semibold">{ui.plansNow(items.length)}{cheapest ? ` · ${ui.from} $${Math.round(cheapest / 100)}` : ""}</span>
+                      <span className="block text-meta opacity-70">{ui.inlineCta}</span>
+                    </span>
+                    <ArrowRight className="h-5 w-5 shrink-0 transition-transform group-hover:translate-x-0.5" />
+                  </a>
+                )}
               </div>
-            </article>
-          ))}
+            ))}
+
+            {/* Byline again at the end, and a way to pass it on. */}
+            <footer className="flex flex-wrap items-center justify-between gap-4 border-t border-border pt-6">
+              <p className="text-meta text-muted-foreground">{ui.by} · {ui.updated} <time dateTime={g.updated}>{g.updated}</time></p>
+              <div className="flex gap-2">
+                <a
+                  href={`https://wa.me/?text=${encodeURIComponent(`${t.title} ${self}`)}`}
+                  target="_blank" rel="noreferrer"
+                  className="inline-flex h-10 items-center gap-2 rounded-full bg-card px-4 text-body font-semibold hover:bg-muted/70"
+                >
+                  <MessageCircle className="h-4 w-4" /> WhatsApp
+                </a>
+                <button
+                  type="button"
+                  onClick={() => { void navigator.clipboard?.writeText(self ?? "").then(() => toast.success(ui.copied)); }}
+                  className="inline-flex h-10 items-center gap-2 rounded-full bg-card px-4 text-body font-semibold hover:bg-muted/70"
+                >
+                  <LinkIcon className="h-4 w-4" /> {ui.copy}
+                </button>
+              </div>
+            </footer>
+          </article>
         </div>
       </section>
 
