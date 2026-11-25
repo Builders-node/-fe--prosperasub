@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useCategoryHighlights, type CategoryHighlight } from "@/hooks/useCategoryHighlights";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/patterns/Skeleton";
 import { CategoryBannerArt } from "@/components/discovery/categoryBannerArt";
-import { CATEGORY_INK, categoryTone } from "@/components/discovery/categoryTones";
+import { categoryTone } from "@/components/discovery/categoryTones";
 import { categoryDealBadge, useActiveDiscounts } from "@/lib/discounts";
 
 /**
@@ -52,105 +52,96 @@ function useBadges(items: CategoryHighlight[]): Map<string, CardBadge> {
   }, [items, discounts]);
 }
 
+/** A word above the name, in colour — not a sticker. */
 function Badge({ badge }: { badge?: CardBadge }) {
   if (!badge) return null;
   return (
-    <span
-      className={cn(
-        "inline-flex w-fit max-w-full truncate rounded-full px-2 py-0.5 text-2xs font-bold uppercase leading-4 tracking-wide",
-        badge.deal ? "bg-[#e5482d] text-white" : "bg-[#1f1a14] text-white",
-      )}
-    >
+    <span className={cn("truncate text-meta font-semibold", badge.deal ? "text-destructive" : "text-primary")}>
       {badge.text}
     </span>
   );
 }
 
-function Price({ item, big = false }: { item: CategoryHighlight; big?: boolean }) {
+function Price({ item }: { item: CategoryHighlight }) {
   if (item.fromCents === null) return null;
   return (
-    <p className={cn("leading-tight", big ? "text-base" : "text-meta")} style={{ color: `${CATEGORY_INK}b3` }}>
-      from{" "}
-      <span className={cn("font-bold tabular-nums", big ? "text-2xl" : "text-base")} style={{ color: CATEGORY_INK }}>
-        {formatUSD(item.fromCents)}
-      </span>
+    <p className="text-meta text-muted-foreground">
+      from <span className="font-semibold tabular-nums text-foreground">{formatUSD(item.fromCents)}</span>
       {item.unit ? ` ${item.unit}` : ""}
     </p>
   );
 }
 
 /**
- * One category card. The words get the left of the card and the drawing the
- * right, as two columns — never stacked on each other. Laid over the drawing,
- * "Apartment Cleaning" ran under the spray bottle and "/ month" under the
- * coffee beans. item.imageUrl is deliberately NOT used here (see the note at
- * the top of the file); the catalog sidebar still shows it.
+ * The drawing on its own tinted tile. The card itself is the app's plain
+ * surface, so the colour is a small accent per category rather than a whole
+ * wall of it — and the words, in the theme's own ink, sit beside the tile,
+ * never on top of the drawing.
+ */
+function ArtTile({ item, className }: { item: CategoryHighlight; className?: string }) {
+  const tone = categoryTone(item.key);
+  return (
+    <span
+      className={cn("relative block shrink-0 overflow-hidden rounded-radius-md", className)}
+      style={{ backgroundColor: tone.bg }}
+    >
+      <CategoryBannerArt
+        categoryKey={item.key}
+        icon={item.archetype?.Icon}
+        glow={tone.glow}
+        className="absolute inset-0 h-full w-full transition-transform duration-300 group-hover:scale-[1.04]"
+      />
+    </span>
+  );
+}
+
+/**
+ * One category card: words on the left, the drawing's tile on the right.
+ * item.imageUrl is deliberately NOT used here (see the note at the top of
+ * the file); the catalog sidebar still shows it.
  */
 function Slide({ item, badge, className }: { item: CategoryHighlight; badge?: CardBadge; className?: string }) {
-  const tone = categoryTone(item.key);
   return (
     <Link
       to={item.href}
       aria-label={item.label}
       className={cn(
-        "group relative flex h-[140px] w-full shrink-0 overflow-hidden rounded-radius-md transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-figma",
+        "group flex h-[140px] w-full shrink-0 gap-3 overflow-hidden rounded-radius-md bg-background p-2 transition-colors hover:bg-muted",
         className,
       )}
-      style={{ backgroundColor: tone.bg }}
     >
-      <div className="relative z-10 flex min-w-0 flex-1 flex-col justify-end gap-0.5 py-4 pl-4 pr-1">
+      <div className="flex min-w-0 flex-1 flex-col justify-end gap-0.5 py-2 pl-2">
         <span className="mb-auto"><Badge badge={badge} /></span>
-        {item.archetype && (
-          <p className="truncate text-meta" style={{ color: `${CATEGORY_INK}b3` }}>{item.archetype.label}</p>
-        )}
-        <p className="line-clamp-2 text-title font-semibold leading-tight" style={{ color: CATEGORY_INK }}>{item.label}</p>
+        {item.archetype && <p className="truncate text-meta text-muted-foreground">{item.archetype.label}</p>}
+        <p className="line-clamp-2 text-title font-semibold leading-tight text-foreground">{item.label}</p>
         <Price item={item} />
       </div>
-      <CategoryBannerArt
-        categoryKey={item.key}
-        icon={item.archetype?.Icon}
-        glow={tone.glow}
-        className="h-full w-[44%] max-w-[180px] shrink-0 origin-bottom-right transition-transform duration-300 group-hover:scale-105"
-      />
+      <ArtTile item={item} className="h-full w-[45%] max-w-[180px]" />
     </Link>
   );
 }
 
 /**
  * The big card of the desktop block: the one category with a reason to look
- * today (a deal, else something new), drawn twice the size, with a button.
+ * today (a deal, else something new). Same card as the others, just larger —
+ * no button, the whole card is the link.
  */
 function FeatureCard({ item, badge }: { item: CategoryHighlight; badge?: CardBadge }) {
-  const tone = categoryTone(item.key);
   return (
     <Link
       to={item.href}
       aria-label={item.label}
-      className="group relative flex h-full min-h-0 overflow-hidden rounded-radius-lg transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-figma"
-      style={{ backgroundColor: tone.bg }}
+      className="group flex h-full min-h-0 flex-col gap-3 overflow-hidden rounded-radius-md bg-background p-2 transition-colors hover:bg-muted"
     >
-      <div className="relative z-10 flex min-w-0 flex-1 flex-col gap-1 p-6 pr-2">
+      <ArtTile item={item} className="min-h-0 w-full flex-1" />
+      <div className="flex items-end justify-between gap-3 px-2 pb-2">
+        <div className="min-w-0">
+          {item.archetype && <p className="truncate text-meta text-muted-foreground">{item.archetype.label}</p>}
+          <p className="truncate text-heading font-semibold text-foreground">{item.label}</p>
+          <Price item={item} />
+        </div>
         <Badge badge={badge} />
-        {item.archetype && (
-          <p className="mt-auto truncate text-base" style={{ color: `${CATEGORY_INK}b3` }}>{item.archetype.label}</p>
-        )}
-        <p className={cn("line-clamp-2 text-4xl font-bold leading-[1.1] tracking-tight", !item.archetype && "mt-auto")} style={{ color: CATEGORY_INK }}>
-          {item.label}
-        </p>
-        <Price item={item} big />
-        <span
-          className="mt-3 inline-flex w-fit items-center gap-1 rounded-full px-4 py-2 text-sm font-semibold text-white transition-colors"
-          style={{ backgroundColor: CATEGORY_INK }}
-        >
-          Explore <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-        </span>
       </div>
-      <CategoryBannerArt
-        categoryKey={item.key}
-        icon={item.archetype?.Icon}
-        glow={tone.glow}
-        className="h-full w-[46%] max-w-[300px] shrink-0 origin-bottom-right transition-transform duration-300 group-hover:scale-105"
-      />
     </Link>
   );
 }
@@ -293,7 +284,7 @@ function DesktopBento({ items, badges }: { items: CategoryHighlight[]; badges: M
   return (
     <section
       aria-label="Browse by category"
-      className="hidden h-[288px] grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2 md:grid lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]"
+      className="hidden h-[288px] grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-2 md:grid lg:grid-cols-[minmax(0,4fr)_minmax(0,8fr)]"
     >
       <FeatureCard item={feature} badge={badges.get(feature.key)} />
       <div className="relative min-w-0">

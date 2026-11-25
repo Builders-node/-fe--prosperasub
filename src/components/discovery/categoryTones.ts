@@ -3,31 +3,30 @@
  *
  * Every card used to be the same orange, so four of them in a row read as one
  * long orange strip and nothing told Coffee from Cleaning at a glance. Each
- * category now has its own tone: the card colour, a lighter halo for the
- * drawing behind it (see categoryBannerArt), and dark ink for the words. Fixed
- * colours, the same in both themes, like the drawings they carry.
+ * category now has its own soft tone: the tile behind its drawing, with a
+ * lighter halo inside it (see categoryBannerArt). The card around the tile
+ * stays the app's plain surface, so the colour is an accent, not the card.
+ * Fixed colours, the same in both themes, like the drawings they carry.
  *
  * A category not listed here gets a tone from the rotation by its key, so a
  * new one added in the admin is still coloured without a code change, and
  * always the same colour.
  */
 export interface CategoryTone {
-  /** Card background. */
+  /** The tile behind the drawing. */
   bg: string;
   /** The halo behind the drawing: a lighter shade of bg. */
   glow: string;
 }
 
-export const CATEGORY_INK = "#1f1a14";
-
-const SUN: CategoryTone = { bg: "#f5ad42", glow: "#ffcf7a" };
-const CORAL: CategoryTone = { bg: "#ff9a7a", glow: "#ffc2ad" };
-const MINT: CategoryTone = { bg: "#7fd6b4", glow: "#b4ebd5" };
-const LILAC: CategoryTone = { bg: "#b9a8ff", glow: "#dbd1ff" };
-const LIME: CategoryTone = { bg: "#b5dd74", glow: "#d6f0a8" };
-const LEMON: CategoryTone = { bg: "#ffd65c", glow: "#ffe89e" };
-const ROSE: CategoryTone = { bg: "#ffaec0", glow: "#ffd3dd" };
-const SAGE: CategoryTone = { bg: "#a8d3c4", glow: "#cfe8df" };
+const SUN: CategoryTone = { bg: "#f6d29a", glow: "#fbe6c4" };
+const CORAL: CategoryTone = { bg: "#f5c4b0", glow: "#fadcd0" };
+const MINT: CategoryTone = { bg: "#bfe3d3", glow: "#dcf0e7" };
+const LILAC: CategoryTone = { bg: "#d3cdf0", glow: "#e8e4f8" };
+const LIME: CategoryTone = { bg: "#d5e6b5", glow: "#e8f2d6" };
+const LEMON: CategoryTone = { bg: "#f4e2a1", glow: "#faefc9" };
+const ROSE: CategoryTone = { bg: "#f3c9d1", glow: "#f9e1e6" };
+const SAGE: CategoryTone = { bg: "#c9ddd5", glow: "#e1ece8" };
 
 const BY_KEY: Record<string, CategoryTone> = {
   beach_membership: CORAL,
