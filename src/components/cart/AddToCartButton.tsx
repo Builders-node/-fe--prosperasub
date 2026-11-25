@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useCart } from "@/contexts/CartContext";
 import type { CartItem } from "@/lib/cart/cartItem";
 import { cn } from "@/lib/utils";
+import { tr } from "@/lib/tr";
 
 /**
  * "Add to cart", on every service that has a cart line.
@@ -46,13 +47,13 @@ export function AddToCartButton({
         addItem(line, qty);
         setJustAdded(true);
         setTimeout(() => setJustAdded(false), 2000);
-        toast.success("Added to cart", {
-          action: { label: "View cart", onClick: () => navigate("/cart") },
+        toast.success(tr("Added to cart"), {
+          action: { label: tr("View cart"), onClick: () => navigate("/cart") },
         });
       }}
     >
       {justAdded || inCart ? (
-        <><Check className="mr-2 h-4 w-4" /> {inCart ? "In your cart" : "Added"}</>
+        <><Check className="mr-2 h-4 w-4" /> {inCart ? tr("In your cart") : tr("Added")}</>
       ) : (
         <><ShoppingCart className="mr-2 h-4 w-4" /> {label}</>
       )}

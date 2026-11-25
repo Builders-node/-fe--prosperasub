@@ -19,6 +19,7 @@ import { useUserUuid } from "@/hooks/useUserUuid";
 import { supabaseDb, accountApi } from "@/integrations/supabase/client";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
+import { tr, dfLocale } from "@/lib/tr";
 
 // ─── Unified entry shape ────────────────────────────────────────────────────
 type ServiceKey = "cleaning" | "food" | "entertainment" | "court" | "plan" | "cars";
@@ -40,12 +41,12 @@ const SERVICE_META: Record<ServiceKey, {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
 }> = {
-  cleaning:      { label: "Cleaning",      icon: SparklesIcon },
-  food:          { label: "Food",          icon: UtensilsCrossed },
-  entertainment: { label: "Entertainment", icon: Waves },
-  court:         { label: "Court booking", icon: LandPlot },
-  plan:          { label: "Purchase",      icon: Store },
-  cars:          { label: "Car rental",    icon: CarFront },
+  cleaning:      { label: tr("Cleaning"),      icon: SparklesIcon },
+  food:          { label: tr("Food"),          icon: UtensilsCrossed },
+  entertainment: { label: tr("Entertainment"), icon: Waves },
+  court:         { label: tr("Court booking"), icon: LandPlot },
+  plan:          { label: tr("Purchase"),      icon: Store },
+  cars:          { label: tr("Car rental"),    icon: CarFront },
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -126,7 +127,7 @@ function useUserHistory() {
           kind: "purchase",
           service: "court",
           serviceLabel: SERVICE_META.court.label,
-          subtitle: r.resource_name ?? "Booking",
+          subtitle: r.resource_name ?? tr("Booking"),
           amountCents: null,        // bookings are included with the plan
           paymentMethod: null,
           paymentStatus: null,
@@ -139,8 +140,8 @@ function useUserHistory() {
             createdAt: r.created_at,
             kind: "renewal",
             service: svc,
-            serviceLabel: `${SERVICE_META[svc].label} · Renewed`,
-            subtitle: `Extended through ${r.new_end}`,
+            serviceLabel: tr("{label} · Renewed", { label: SERVICE_META[svc].label }),
+            subtitle: tr("Extended through {new_end}", { new_end: r.new_end }),
             amountCents: r.amount_cents ?? null,
             paymentMethod: r.payment_method,
             paymentStatus: "paid", // renewal is only recorded after verify()
@@ -159,7 +160,7 @@ function useUserHistory() {
 // Page
 // ═══════════════════════════════════════════════════════════════════════════
 const History = () => {
-  useSeo({ title: "History" });
+  useSeo({ title: tr("History") });
   const navigate = useNavigate();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { openAuthModal } = useAuthModal();
@@ -180,18 +181,18 @@ const History = () => {
 
   // ── Auth gate ────────────────────────────────────────────────────────────
   if (authLoading) {
-    return <UserLayout title="History"><PageLoader /></UserLayout>;
+    return <UserLayout title={tr("History")}><PageLoader /></UserLayout>;
   }
 
   if (!isAuthenticated) {
     return (
-      <UserLayout title="History">
+      <UserLayout title={tr("History")}>
         <div className="app-container pt-5">
           <YdEmptyState
             icon={Receipt}
-            title="Log in to see your history"
-            subtitle="Your subscriptions, bookings and payments will appear here."
-            action={<Button onClick={() => openAuthModal("login", "/history")}>Log in</Button>}
+            title={tr("Log in to see your history")}
+            subtitle={tr("Your subscriptions, bookings and payments will appear here.")}
+            action={<Button onClick={() => openAuthModal("login", "/history")}>{tr("Log in")}</Button>}
           />
         </div>
       </UserLayout>
@@ -199,14 +200,14 @@ const History = () => {
   }
 
   return (
-    <UserLayout title="History">
+    <UserLayout title={tr("History")}>
       <div className="app-container pt-5">
         {/* Page title lives in the mobile header — no inline H1 needed. */}
         {isLoading ? (
           <HistorySkeleton />
         ) : isError ? (
           <QueryError
-            title="Couldn't load history"
+            title={tr("Couldn't load history")}
             error={error instanceof Error ? error.message : undefined}
             onRetry={() => refetch()}
             retrying={isFetching}
@@ -214,9 +215,9 @@ const History = () => {
         ) : grouped.length === 0 ? (
           <YdEmptyState
             icon={Receipt}
-            title="No transactions yet"
-            subtitle="Everything you buy on the platform will show up here."
-            action={<Button onClick={() => navigate("/discovery")}>Browse services</Button>}
+            title={tr("No transactions yet")}
+            subtitle={tr("Everything you buy on the platform will show up here.")}
+            action={<Button onClick={() => navigate("/discovery")}>{tr("Browse services")}</Button>}
           />
         ) : (
           <div className="space-y-6">
@@ -249,7 +250,7 @@ function formatDayHeader(iso: string) {
 
   if (isSameDay(d, today)) return "Today";
   if (isSameDay(d, yesterday)) return "Yesterday";
-  return format(d, d.getFullYear() === today.getFullYear() ? "MMMM d" : "MMMM d, yyyy");
+  return format(d, d.getFullYear() === today.getFullYear() ? "MMMM d" : "MMMM d, yyyy", { locale: dfLocale });
 }
 
 // ─── Row ────────────────────────────────────────────────────────────────────
@@ -281,7 +282,7 @@ function HistoryRow({ entry }: { entry: HistoryEntry }) {
             {isRefunded ? "+" : "−"}{formatUSD(entry.amountCents)}
           </p>
         ) : (
-          <span className="text-meta text-muted-foreground">Included</span>
+          <span className="text-meta text-muted-foreground">{tr("Included")}</span>
         )}
         {entry.paymentMethod && (
           <PaymentMethodBadge method={entry.paymentMethod} />

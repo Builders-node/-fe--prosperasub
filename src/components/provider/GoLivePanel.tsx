@@ -15,6 +15,7 @@ import { profileCompleteness } from "@/lib/providerProfile";
 import type { UniversalProviderRow } from "@/components/provider/UniversalInfoTab";
 import { OwnerInviteButton } from "@/components/provider/OwnerInviteButton";
 import { ProviderSetupButton } from "@/components/provider/ProviderSetupButton";
+import { tr, trx } from "@/lib/tr";
 
 /**
  * The admin's way from "draft" to "live", on the business itself.
@@ -62,14 +63,14 @@ export function GoLivePanel({ provider, previewHref, ownerView = false }: {
       return next;
     },
     onSuccess: (next) => {
-      toast.success(next === "active" ? `${provider.name} is live` : `${provider.name} is hidden`);
+      toast.success(next === "active" ? tr("{name} is live", { name: provider.name }) : tr("{name} is hidden", { name: provider.name }));
       // The owner and team hear it — they used to find out by noticing.
       if (next === "active") void adminApi(`/admin/providers/${provider.id}/went-live`, { method: "POST" });
       qc.invalidateQueries({ queryKey: ["universal-provider", provider.id] });
       qc.invalidateQueries({ queryKey: ["admin-marketplace-providers"] });
       qc.invalidateQueries({ queryKey: ["marketplace-providers"] });
     },
-    onError: (e: Error) => toast.error(e.message || "Could not change the status"),
+    onError: (e: Error) => toast.error(e.message || tr("Could not change the status")),
   });
 
   const requestedAt = (provider as { review_requested_at?: string | null }).review_requested_at ?? null;
@@ -81,18 +82,18 @@ export function GoLivePanel({ provider, previewHref, ownerView = false }: {
     },
     onSuccess: () => {
       setRequested(true);
-      toast.success("Sent — EverySub will check it and put it live");
+      toast.success(tr("Sent — EverySub will check it and put it live"));
       qc.invalidateQueries({ queryKey: ["universal-provider", provider.id] });
     },
-    onError: (e: Error) => toast.error(e.message || "Could not send"),
+    onError: (e: Error) => toast.error(e.message || tr("Could not send")),
   });
 
   const profile = profileCompleteness(provider);
   const checks = [
-    { label: "Profile filled in", done: profile.missing.length === 0, hint: profile.missing.map((m) => m.label).join(", ") },
-    { label: "Photos", done: !!provider.banner_url || (provider.gallery_urls?.length ?? 0) > 0, hint: "A banner or a gallery photo" },
-    { label: "At least one plan on sale", done: (plansQ.data ?? 0) > 0, hint: "Offerings → publish a plan" },
-    { label: "Owner set", done: !!provider.admin_user_id, hint: "Send the owner an invite link (or keep it platform-owned)", owner: true },
+    { label: tr("Profile filled in"), done: profile.missing.length === 0, hint: profile.missing.map((m) => m.label).join(", ") },
+    { label: tr("Photos"), done: !!provider.banner_url || (provider.gallery_urls?.length ?? 0) > 0, hint: tr("A banner or a gallery photo") },
+    { label: tr("At least one plan on sale"), done: (plansQ.data ?? 0) > 0, hint: tr("Offerings → publish a plan") },
+    { label: tr("Owner set"), done: !!provider.admin_user_id, hint: tr("Send the owner an invite link (or keep it platform-owned)"), owner: true },
   ];
   const ready = checks.every((c) => c.done);
   const missing = checks.filter((c) => !c.done);
@@ -101,22 +102,22 @@ export function GoLivePanel({ provider, previewHref, ownerView = false }: {
     <AlertDialog open={!!confirm} onOpenChange={(o) => !o && setConfirm(null)}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>{confirm === "active" ? `Put ${provider.name} live?` : `Hide ${provider.name}?`}</AlertDialogTitle>
+          <AlertDialogTitle>{confirm === "active" ? tr("Put {name} live?", { name: provider.name }) : tr("Hide {name}?", { name: provider.name })}</AlertDialogTitle>
           <AlertDialogDescription>
             {confirm === "active"
               ? (missing.length
-                  ? `Still missing: ${missing.map((c) => c.label.toLowerCase()).join(", ")}. Customers will see it as it is.`
-                  : "Customers will be able to find it and buy its plans.")
-              : "Customers stop seeing it and can't buy. Existing subscriptions keep running."}
+                  ? tr("Still missing: {join}. Customers will see it as it is.", { join: missing.map((c) => c.label.toLowerCase()).join(", ") })
+                  : tr("Customers will be able to find it and buy its plans."))
+              : tr("Customers stop seeing it and can't buy. Existing subscriptions keep running.")}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel>{tr("Cancel")}</AlertDialogCancel>
           <AlertDialogAction
             variant={confirm === "inactive" ? "destructive" : "primary"}
             onClick={() => { if (confirm) setStatus.mutate(confirm); setConfirm(null); }}
           >
-            {confirm === "active" ? "Go live" : "Hide"}
+            {confirm === "active" ? tr("Go live") : tr("Hide")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -130,12 +131,12 @@ export function GoLivePanel({ provider, previewHref, ownerView = false }: {
       <section className="space-y-4 rounded-radius-lg bg-card p-4">
         <div>
           <p className="text-title font-semibold text-foreground">
-            {waiting ? "Waiting for review" : "Not live yet — customers can't see it"}
+            {waiting ? tr("Waiting for review") : tr("Not live yet — customers can't see it")}
           </p>
           <p className="text-meta text-muted-foreground">
             {waiting
-              ? "EverySub is checking your business and will put it live. You can keep editing meanwhile."
-              : "Finish what is below, check how your page looks, then tell us you're ready."}
+              ? tr("EverySub is checking your business and will put it live. You can keep editing meanwhile.")
+              : tr("Finish what is below, check how your page looks, then tell us you're ready.")}
           </p>
         </div>
         <ul className="space-y-2">
@@ -153,12 +154,10 @@ export function GoLivePanel({ provider, previewHref, ownerView = false }: {
         </ul>
         <div className="flex flex-wrap gap-2">
           <Button size="sm" variant="secondary" className="gap-2" onClick={() => window.open(previewHref, "_blank")}>
-            <Eye /> See my page
-          </Button>
+            <Eye />{" "}{tr("See my page")}</Button>
           {!waiting && (
             <Button size="sm" className="gap-2" loading={requestReview.isPending} onClick={() => requestReview.mutate()}>
-              <Rocket /> Ready for review
-            </Button>
+              <Rocket />{" "}{tr("Ready for review")}</Button>
           )}
         </div>
       </section>
@@ -174,21 +173,16 @@ export function GoLivePanel({ provider, previewHref, ownerView = false }: {
               read "Customers can find and buy", which was untrue. */}
           {service && !service.is_active ? (
             <>
-              <p className="text-title font-semibold text-foreground">Live, but its service is off</p>
-              <p className="text-meta text-attention">
-                {service.label} is switched off, so customers can't see this business yet.{" "}
-                {isSuperAdmin && (
-                  <a href={`/admin/marketplace?service=${service.key}`} className="font-semibold underline underline-offset-2">
-                    Turn the service on
-                  </a>
+              <p className="text-title font-semibold text-foreground">{tr("Live, but its service is off")}</p>
+              <p className="text-meta text-attention">{trx("{label} is switched off, so customers can't see this business yet.", { label: service.label })}{" "}{isSuperAdmin && (
+                  <a href={`/admin/marketplace?service=${service.key}`} className="font-semibold underline underline-offset-2">{tr("Turn the service on")}</a>
                 )}
               </p>
             </>
           ) : (
             <>
-              <p className="text-title font-semibold text-foreground">Live</p>
-              <p className="text-meta text-muted-foreground">
-                Customers can find and buy from this business.{!provider.admin_user_id && " No owner yet — it's platform-owned."}
+              <p className="text-title font-semibold text-foreground">{tr("Live")}</p>
+              <p className="text-meta text-muted-foreground">{tr("Customers can find and buy from this business.")}{!provider.admin_user_id && tr(" No owner yet — it's platform-owned.")}
               </p>
             </>
           )}
@@ -197,9 +191,7 @@ export function GoLivePanel({ provider, previewHref, ownerView = false }: {
           <ProviderSetupButton provider={provider} />
           {!provider.admin_user_id && <OwnerInviteButton provider={provider} />}
           <Button size="sm" variant="secondary" disabled={setStatus.isPending}
-            onClick={() => setConfirm("inactive")}>
-            Hide
-          </Button>
+            onClick={() => setConfirm("inactive")}>{tr("Hide")}</Button>
         </div>
         {dialog}
       </section>
@@ -210,9 +202,8 @@ export function GoLivePanel({ provider, previewHref, ownerView = false }: {
     <section className="space-y-4 rounded-radius-lg bg-card p-4">
       <div>
         <p className="text-title font-semibold text-foreground">
-          {provider.status === "inactive" ? "Hidden" : "Draft"} — customers can't see it
-        </p>
-        <p className="text-meta text-muted-foreground">Fill it in, check the preview, then put it live.</p>
+          {provider.status === "inactive" ? tr("Hidden") : tr("Draft")}{" "}{tr("— customers can't see it")}</p>
+        <p className="text-meta text-muted-foreground">{tr("Fill it in, check the preview, then put it live.")}</p>
       </div>
       <ul className="space-y-2">
         {checks.map((c) => (
@@ -231,12 +222,10 @@ export function GoLivePanel({ provider, previewHref, ownerView = false }: {
       <div className="flex flex-wrap gap-2">
         <ProviderSetupButton provider={provider} />
         <Button size="sm" variant="secondary" className="gap-2" onClick={() => window.open(previewHref, "_blank")}>
-          <Eye /> Preview
-        </Button>
+          <Eye />{" "}{tr("Preview")}</Button>
         <Button size="sm" className="gap-2" disabled={setStatus.isPending}
           onClick={() => (ready ? setStatus.mutate("active") : setConfirm("active"))}>
-          <Rocket /> Go live
-        </Button>
+          <Rocket />{" "}{tr("Go live")}</Button>
       </div>
       {dialog}
     </section>

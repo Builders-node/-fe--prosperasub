@@ -26,6 +26,7 @@ import { CAPABILITIES, type CapabilityKey } from "@/components/provider/capabili
 import { profileCompleteness } from "@/lib/providerProfile";
 import { cn } from "@/lib/utils";
 import { fetchApplications } from "@/lib/admin/providerApplications";
+import { tr, trx } from "@/lib/tr";
 
 interface ProviderRow {
   id: string;
@@ -213,13 +214,13 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
       return data;
     },
     onSuccess: (data) => {
-      toast.success("Draft created — fill it in, then Go live");
+      toast.success(tr("Draft created — fill it in, then Go live"));
       setCreating(false);
       qc.invalidateQueries({ queryKey: QUERY_KEY });
       // Straight into the business, where the setup checklist is.
       if (data?.id) navigate(`/admin/marketplace/providers/${data.id}`);
     },
-    onError: (e: any) => toast.error(e?.message || "Could not create the business"),
+    onError: (e: any) => toast.error(e?.message || tr("Could not create the business")),
   });
 
 
@@ -227,10 +228,10 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
   const ownerNote = (p: ProviderRow): string | null => {
     if (p.admin_user_id) return null;
     const inv = inviteOf.get(p.id);
-    if (!inv || inv.state === "revoked") return "No owner";
+    if (!inv || inv.state === "revoked") return tr("No owner");
     if (inv.state === "claimed") return null;
-    if (inv.state === "expired") return "Invite expired";
-    return inv.openedAt ? "Invite opened" : `Invited${inv.invitedEmail ? ` ${inv.invitedEmail}` : ""}`;
+    if (inv.state === "expired") return tr("Invite expired");
+    return inv.openedAt ? tr("Invite opened") : tr("Invited{value}", { value: inv.invitedEmail ? ` ${inv.invitedEmail}` : "" });
   };
 
   // Counts follow the service already chosen, so a tab never promises rows
@@ -257,9 +258,9 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
             </span>
             <span className="min-w-0 flex-1">
               <span className="block text-title font-semibold text-foreground">
-                {pendingApps === 1 ? "1 application is waiting" : `${pendingApps} applications are waiting`}
+                {pendingApps === 1 ? tr("1 application is waiting") : tr("{pendingApps} applications are waiting", { pendingApps })}
               </span>
-              <span className="block text-meta text-muted-foreground">Approve one and it lands here as a draft.</span>
+              <span className="block text-meta text-muted-foreground">{tr("Approve one and it lands here as a draft.")}</span>
             </span>
             <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
           </Link>
@@ -274,30 +275,30 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
             value={status as "all" | "ready" | "active" | "draft" | "inactive"}
             onChange={setStatus}
             tabs={[
-              { value: "all", label: `All ${statusCount("all")}` },
+              { value: "all", label: tr("All {statusCount}", { statusCount: statusCount("all") }) },
               // Owners who pressed "Ready for review" — the queue to put live.
-              { value: "ready", label: "Ready for review", badge: statusCount("ready") },
-              { value: "active", label: `Live ${statusCount("active")}` },
-              { value: "draft", label: `Draft ${statusCount("draft")}` },
-              { value: "inactive", label: `Hidden ${statusCount("inactive")}` },
+              { value: "ready", label: tr("Ready for review"), badge: statusCount("ready") },
+              { value: "active", label: tr("Live {statusCount}", { statusCount: statusCount("active") }) },
+              { value: "draft", label: tr("Draft {statusCount}", { statusCount: statusCount("draft") }) },
+              { value: "inactive", label: tr("Hidden {statusCount}", { statusCount: statusCount("inactive") }) },
             ]}
           />
         </div>
 
         <AdminListShell
-          search={search} onSearch={setSearch} searchPlaceholder="Search businesses…"
+          search={search} onSearch={setSearch} searchPlaceholder={tr("Search businesses…")}
           filters={!archetypeKey ? (
             <>
               <Select value={service} onValueChange={(v) => { setServiceFilter(v); setCategoryFilter("all"); }}>
                 <SelectTrigger inputSize="sm" className="w-44"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All services · {counts.total}</SelectItem>
+                  <SelectItem value="all">{trx("All services · {total}", { total: counts.total })}</SelectItem>
                   {archetypes.filter((a) => (counts.perArchetype[a.key] ?? 0) > 0).map((a) => (
                     <SelectItem key={a.key} value={a.key}>{a.label} · {counts.perArchetype[a.key]}</SelectItem>
                   ))}
                   {/* A deleted service leaves its businesses here. */}
                   {(counts.unassigned > 0 || service === "unassigned") && (
-                    <SelectItem value="unassigned">No service · {counts.unassigned}</SelectItem>
+                    <SelectItem value="unassigned">{trx("No service · {unassigned}", { unassigned: counts.unassigned })}</SelectItem>
                   )}
                 </SelectContent>
               </Select>
@@ -305,7 +306,7 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
                 <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                   <SelectTrigger inputSize="sm" className="w-44"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All categories</SelectItem>
+                    <SelectItem value="all">{tr("All categories")}</SelectItem>
                     {serviceCategories.map((c) => (
                       <SelectItem key={c.key} value={c.key}>{c.label} · {perCategory[c.key] ?? 0}</SelectItem>
                     ))}
@@ -319,14 +320,13 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
           ) : undefined}
           actions={
             <Button size="sm" onClick={() => setCreating(true)}>
-              <Plus className="mr-1 h-4 w-4" /> New business
-            </Button>
+              <Plus className="mr-1 h-4 w-4" />{" "}{tr("New business")}</Button>
           }
           isLoading={isLoading} isError={isError} error={error} onRetry={refetch}
           isEmpty={inScope.length === 0}
           isNoResults={inScope.length > 0 && visible.length === 0} count={visible.length}
-          emptyTitle="No businesses yet"
-          emptySubtitle="Businesses appear here after they apply and are approved."
+          emptyTitle={tr("No businesses yet")}
+          emptySubtitle={tr("Businesses appear here after they apply and are approved.")}
           onClearFilters={() => { setSearch(""); setServiceFilter("all"); setStatus("all"); setCategoryFilter("all"); }}
         >
           {/* One row shape at every width: who, where it is filed, how finished
@@ -351,21 +351,21 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
                     <span className="flex items-center gap-1.5">
                       <span className="truncate text-title font-semibold text-foreground">{p.name}</span>
                       {p.is_platform_owned && (
-                        <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-primary" aria-label="Platform-owned" />
+                        <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-primary" aria-label={tr("Platform-owned")} />
                       )}
                     </span>
                     <span className="block truncate text-meta text-muted-foreground">
                       {[arche?.label ?? "No service", cat && cat.label !== arche?.label ? cat.label : null].filter(Boolean).join(" · ")}
-                      {profile.missing.length > 0 && <span className="text-attention"> · Profile {profile.percent}%</span>}
+                      {profile.missing.length > 0 && <span className="text-attention">{" "}{trx("· Profile {percent}%", { percent: profile.percent })}</span>}
                       {ownerNote(p) && <span> · {ownerNote(p)}</span>}
                     </span>
                   </span>
                   {p.review_requested_at && p.status !== "active" && p.status !== "approved" && (
-                    <span className="shrink-0 rounded-full bg-primary/15 px-2.5 py-0.5 text-meta font-semibold text-primary">Ready</span>
+                    <span className="shrink-0 rounded-full bg-primary/15 px-2.5 py-0.5 text-meta font-semibold text-primary">{tr("Ready")}</span>
                   )}
                   <StatusPill
                     status={p.status}
-                    label={p.status === "active" || p.status === "approved" ? "Live" : p.status === "inactive" ? "Hidden" : "Draft"}
+                    label={p.status === "active" || p.status === "approved" ? tr("Live") : p.status === "inactive" ? tr("Hidden") : tr("Draft")}
                     className="shrink-0"
                   />
                   <ChevronRight className="hidden h-4 w-4 shrink-0 text-muted-foreground sm:block" />
@@ -381,8 +381,8 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
       <Sheet open={creating} onOpenChange={setCreating}>
         <SheetContent side="right" className="w-full max-w-md overflow-y-auto">
           <SheetHeader>
-            <SheetTitle>New business</SheetTitle>
-            <SheetDescription>A draft owned by the platform. Hand it to its owner from its page.</SheetDescription>
+            <SheetTitle>{tr("New business")}</SheetTitle>
+            <SheetDescription>{tr("A draft owned by the platform. Hand it to its owner from its page.")}</SheetDescription>
           </SheetHeader>
           <CreateProviderForm
             defaultArchetype={archetypeKey && archetypeKey !== "unassigned" ? archetypeKey : undefined}
@@ -399,7 +399,7 @@ const MarketplaceProviders = ({ embedded = false, archetypeKey }: MarketplacePro
 
   if (embedded) return body;
   return (
-    <SuperAdminLayout title="Businesses" subtitle="Every business on the platform — drafts, live and hidden">
+    <SuperAdminLayout title={tr("Businesses")} subtitle={tr("Every business on the platform — drafts, live and hidden")}>
       {body}
     </SuperAdminLayout>
   );
@@ -462,11 +462,11 @@ function CreateProviderForm({
   };
 
   const errors = {
-    name: name.trim() ? null : "Give the business a name.",
-    service: archetypeKey ? null : "Pick the service it sells in.",
+    name: name.trim() ? null : tr("Give the business a name."),
+    service: archetypeKey ? null : tr("Pick the service it sells in."),
     category: !archetypeKey ? null
-      : scopedCategories.length === 0 ? "This service has no categories yet. Add one in Services & categories first."
-      : categoryKey ? null : "Pick a category.",
+      : scopedCategories.length === 0 ? tr("This service has no categories yet. Add one in Services & categories first.")
+      : categoryKey ? null : tr("Pick a category."),
   };
   const valid = !errors.name && !errors.service && !errors.category;
 
@@ -485,18 +485,18 @@ function CreateProviderForm({
   return (
     <form className="mt-6 space-y-4" onSubmit={(e) => { e.preventDefault(); submit(); }}>
       <div>
-        <Label htmlFor="new-biz-name">Name</Label>
-        <Input id="new-biz-name" autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Sunset Yoga Studio" aria-invalid={tried && !!errors.name} />
+        <Label htmlFor="new-biz-name">{tr("Name")}</Label>
+        <Input id="new-biz-name" autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder={tr("e.g. Sunset Yoga Studio")} aria-invalid={tried && !!errors.name} />
         {show(errors.name)}
       </div>
       <div>
-        <Label>Service</Label>
+        <Label>{tr("Service")}</Label>
         <Select value={archetypeKey || undefined} onValueChange={onArchetypeChange}>
-          <SelectTrigger aria-invalid={tried && !!errors.service}><SelectValue placeholder="Pick a service" /></SelectTrigger>
+          <SelectTrigger aria-invalid={tried && !!errors.service}><SelectValue placeholder={tr("Pick a service")} /></SelectTrigger>
           <SelectContent>
             {archetypes.map((a) => (
               <SelectItem key={a.key} value={a.key} disabled={!!a.source_service_key}>
-                {a.label}{a.source_service_key ? " · has its own page, add businesses there" : ""}
+                {a.label}{a.source_service_key ? tr(" · has its own page, add businesses there") : ""}
               </SelectItem>
             ))}
           </SelectContent>
@@ -505,9 +505,9 @@ function CreateProviderForm({
       </div>
       {archetypeKey && (
         <div>
-          <Label>Category</Label>
+          <Label>{tr("Category")}</Label>
           <Select value={categoryKey || undefined} onValueChange={setCategoryKey} disabled={scopedCategories.length === 0}>
-            <SelectTrigger aria-invalid={tried && !!errors.category}><SelectValue placeholder="Pick a category" /></SelectTrigger>
+            <SelectTrigger aria-invalid={tried && !!errors.category}><SelectValue placeholder={tr("Pick a category")} /></SelectTrigger>
             <SelectContent>
               {scopedCategories.map((c) => <SelectItem key={c.key} value={c.key}>{c.label}</SelectItem>)}
             </SelectContent>
@@ -516,19 +516,17 @@ function CreateProviderForm({
         </div>
       )}
 
-      <p className="text-meta text-muted-foreground">
-        It starts as a draft. Description, contacts, photos and plans are filled in on its page, which opens next.
-      </p>
+      <p className="text-meta text-muted-foreground">{tr("It starts as a draft. Description, contacts, photos and plans are filled in on its page, which opens next.")}</p>
 
       {archetypeKey && (
         <div>
           <button type="button" className="text-meta font-semibold text-muted-foreground hover:text-foreground" onClick={() => setMore((v) => !v)} aria-expanded={more}>
-            {more ? "Hide options" : "More options"}
+            {more ? tr("Hide options") : tr("More options")}
           </button>
           {more && (
             <div className="mt-2">
-              <Label>What it can do</Label>
-              <p className="mb-1.5 text-meta text-muted-foreground">Set from the service. Change only if this business works differently.</p>
+              <Label>{tr("What it can do")}</Label>
+              <p className="mb-1.5 text-meta text-muted-foreground">{tr("Set from the service. Change only if this business works differently.")}</p>
               <div className="flex flex-wrap gap-1.5">
                 {(Object.keys(CAPABILITIES) as CapabilityKey[]).map((cap) => {
                   const on = caps.has(cap);
@@ -557,7 +555,7 @@ function CreateProviderForm({
       )}
 
       <SheetFooter className="mt-4">
-        <Button type="submit" loading={saving} loadingText="Creating…">Create draft</Button>
+        <Button type="submit" loading={saving} loadingText={tr("Creating…")}>{tr("Create draft")}</Button>
       </SheetFooter>
     </form>
   );

@@ -22,6 +22,7 @@ import { formatUSD } from "@/lib/pricing";
 import { formatDateHN } from "@/lib/timezone";
 import { useTableSort } from "@/lib/table/useTableSort";
 import { SortHeader } from "@/components/ui/sort-header";
+import { tr, trx } from "@/lib/tr";
 
 /**
  * Promo codes.
@@ -91,11 +92,11 @@ function BonusSettings() {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Saved");
+      toast.success(tr("Saved"));
       setDraft(null);
       void qc.invalidateQueries({ queryKey: ["admin-bonus-settings"] });
     },
-    onError: (e) => toast.error(adminApiMessage(e, "Could not save")),
+    onError: (e) => toast.error(adminApiMessage(e, tr("Could not save"))),
   });
 
   if (isError) return null;
@@ -107,28 +108,21 @@ function BonusSettings() {
 
   return (
     <section className="mb-5 rounded-radius-md bg-card p-5">
-      <h2 className="text-title font-semibold text-foreground">
-        Bonus
-      </h2>
-      <p className="mt-1 text-[13px] text-muted-foreground">
-        Customers earn this share of what they actually pay — after any promo —
-        and spend it on a later order. Zero switches it off.
-      </p>
+      <h2 className="text-title font-semibold text-foreground">{tr("Bonus")}</h2>
+      <p className="mt-1 text-[13px] text-muted-foreground">{tr("Customers earn this share of what they actually pay — after any promo — and spend it on a later order. Zero switches it off.")}</p>
       <div className="mt-3 flex flex-wrap items-end gap-3">
         <div className="w-[160px]">
-          <Label htmlFor="b-cashback">Give back (%)</Label>
+          <Label htmlFor="b-cashback">{tr("Give back (%)")}</Label>
           <Input id="b-cashback" type="number" min="0" max="100" value={cashback}
                  onChange={(e) => edit({ cashback: e.target.value })} />
         </div>
         <div className="w-[200px]">
-          <Label htmlFor="b-share">Max of one order (%)</Label>
+          <Label htmlFor="b-share">{tr("Max of one order (%)")}</Label>
           <Input id="b-share" type="number" min="0" max="100" value={share}
                  onChange={(e) => edit({ share: e.target.value })} />
         </div>
         <Button variant="secondary" disabled={!draft || save.isPending}
-                onClick={() => save.mutate()} loading={save.isPending}>
-          Save
-        </Button>
+                onClick={() => save.mutate()} loading={save.isPending}>{tr("Save")}</Button>
       </div>
     </section>
   );
@@ -167,8 +161,8 @@ const PromoCodes = () => {
       });
       if (e) throw e;
     },
-    onSuccess: () => { toast.success("Saved"); void qc.invalidateQueries({ queryKey: KEY }); },
-    onError: (e) => toast.error(adminApiMessage(e, "Could not save")),
+    onSuccess: () => { toast.success(tr("Saved")); void qc.invalidateQueries({ queryKey: KEY }); },
+    onError: (e) => toast.error(adminApiMessage(e, tr("Could not save"))),
   });
 
   const remove = useMutation({
@@ -176,8 +170,8 @@ const PromoCodes = () => {
       const { error: e } = await adminApi(`/admin/promo-codes/${row.id}`, { method: "DELETE" });
       if (e) throw e;
     },
-    onSuccess: () => { toast.success("Deleted"); void qc.invalidateQueries({ queryKey: KEY }); },
-    onError: (e) => toast.error(adminApiMessage(e, "Could not delete")),
+    onSuccess: () => { toast.success(tr("Deleted")); void qc.invalidateQueries({ queryKey: KEY }); },
+    onError: (e) => toast.error(adminApiMessage(e, tr("Could not delete"))),
   });
 
   const filtered = useMemo(() => {
@@ -201,40 +195,39 @@ const PromoCodes = () => {
   });
 
   return (
-    <SuperAdminLayout title="Promo codes" subtitle="Discounts the platform pays for, not the business">
+    <SuperAdminLayout title={tr("Promo codes")} subtitle={tr("Discounts the platform pays for, not the business")}>
       <BonusSettings />
       <AdminListShell
         search={search}
         onSearch={setSearch}
-        searchPlaceholder="Search the code or what it is for"
+        searchPlaceholder={tr("Search the code or what it is for")}
         isLoading={isLoading}
         isError={isError}
         error={isError && isNotDeployed(error)
-          ? new Error("Promo codes need the server updating before they can be listed or created.")
+          ? new Error(tr("Promo codes need the server updating before they can be listed or created."))
           : error}
         onRetry={() => void refetch()}
         isEmpty={rows.length === 0}
         isNoResults={rows.length > 0 && filtered.length === 0}
         onClearFilters={search ? () => setSearch("") : undefined}
         count={filtered.length}
-        emptyTitle="No promo codes"
-        emptySubtitle="A code takes money off the platform's side, never the business's."
+        emptyTitle={tr("No promo codes")}
+        emptySubtitle={tr("A code takes money off the platform's side, never the business's.")}
         actions={
           <Button size="sm" onClick={() => setCreating(true)}>
-            <Plus className="mr-1.5 h-3.5 w-3.5" /> New code
-          </Button>
+            <Plus className="mr-1.5 h-3.5 w-3.5" />{" "}{tr("New code")}</Button>
         }
       >
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("code")}><SortHeader {...sort.headerProps("code")}>Code</SortHeader></TableHead>
-              <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("off")}><SortHeader {...sort.headerProps("off")}>Takes off</SortHeader></TableHead>
-              <TableHead className="hidden px-4 py-3 md:table-cell" aria-sort={sort.ariaSort("where")}><SortHeader {...sort.headerProps("where")}>Where</SortHeader></TableHead>
-              <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("used")}><SortHeader {...sort.headerProps("used")}>Used</SortHeader></TableHead>
-              <TableHead className="hidden px-4 py-3 text-right md:table-cell" aria-sort={sort.ariaSort("given")}><SortHeader {...sort.headerProps("given")} align="right">Given away</SortHeader></TableHead>
-              <TableHead className="hidden px-4 py-3 md:table-cell" aria-sort={sort.ariaSort("until")}><SortHeader {...sort.headerProps("until")}>Until</SortHeader></TableHead>
-              <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("status")}><SortHeader {...sort.headerProps("status")}>Status</SortHeader></TableHead>
+              <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("code")}><SortHeader {...sort.headerProps("code")}>{tr("Code")}</SortHeader></TableHead>
+              <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("off")}><SortHeader {...sort.headerProps("off")}>{tr("Takes off")}</SortHeader></TableHead>
+              <TableHead className="hidden px-4 py-3 md:table-cell" aria-sort={sort.ariaSort("where")}><SortHeader {...sort.headerProps("where")}>{tr("Where")}</SortHeader></TableHead>
+              <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("used")}><SortHeader {...sort.headerProps("used")}>{tr("Used")}</SortHeader></TableHead>
+              <TableHead className="hidden px-4 py-3 text-right md:table-cell" aria-sort={sort.ariaSort("given")}><SortHeader {...sort.headerProps("given")} align="right">{tr("Given away")}</SortHeader></TableHead>
+              <TableHead className="hidden px-4 py-3 md:table-cell" aria-sort={sort.ariaSort("until")}><SortHeader {...sort.headerProps("until")}>{tr("Until")}</SortHeader></TableHead>
+              <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("status")}><SortHeader {...sort.headerProps("status")}>{tr("Status")}</SortHeader></TableHead>
               <TableHead className="w-10" />
             </TableRow>
           </TableHeader>
@@ -248,11 +241,11 @@ const PromoCodes = () => {
                 <TableCell className="px-4 py-3">
                   {valueOf(p)}
                   {p.min_order_cents > 0 && (
-                    <p className="text-xs text-muted-foreground">from {formatUSD(p.min_order_cents)}</p>
+                    <p className="text-xs text-muted-foreground">{trx("from {min_order_cents}", { min_order_cents: formatUSD(p.min_order_cents) })}</p>
                   )}
                 </TableCell>
                 <TableCell className="hidden px-4 py-3 text-muted-foreground md:table-cell">
-                  {p.provider_id ? providerName.get(p.provider_id) ?? "—" : "Anywhere"}
+                  {p.provider_id ? providerName.get(p.provider_id) ?? "—" : tr("Anywhere")}
                 </TableCell>
                 <TableCell className="px-4 py-3 tabular-nums">
                   {p.redemptions}{p.max_redemptions ? ` / ${p.max_redemptions}` : ""}
@@ -270,7 +263,7 @@ const PromoCodes = () => {
                       <button
                         type="button"
                         className="flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
-                        aria-label="Row actions"
+                        aria-label={tr("Row actions")}
                       >
                         <MoreVertical className="h-4 w-4" />
                       </button>
@@ -280,7 +273,7 @@ const PromoCodes = () => {
                         onSelect={() => setStatus.mutate({ row: p, status: p.status === "active" ? "inactive" : "active" })}
                       >
                         <Power className="mr-2 h-3.5 w-3.5" />
-                        {p.status === "active" ? "Switch off" : "Switch on"}
+                        {p.status === "active" ? tr("Switch off") : tr("Switch on")}
                       </DropdownMenuItem>
                       {/* A used code explains why an order cost what it cost;
                           only an unused one can be removed. */}
@@ -289,8 +282,7 @@ const PromoCodes = () => {
                           onSelect={() => remove.mutate(p)}
                           className="text-destructive focus:text-destructive"
                         >
-                          <Trash2 className="mr-2 h-3.5 w-3.5" /> Delete
-                        </DropdownMenuItem>
+                          <Trash2 className="mr-2 h-3.5 w-3.5" />{" "}{tr("Delete")}</DropdownMenuItem>
                       )}
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -352,66 +344,61 @@ function NewCodeSheet({ open, providers, onClose, onCreated }: {
       setMaxRedemptions(""); setEndsAt("");
       onCreated();
     },
-    onError: (e) => toast.error(adminApiMessage(e, "Could not create the code")),
+    onError: (e) => toast.error(adminApiMessage(e, tr("Could not create the code"))),
   });
 
   return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
       <SheetContent side="right" className="w-full max-w-md overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>New promo code</SheetTitle>
-          <SheetDescription>
-            The platform pays for this out of its commission — the business is
-            still paid the full price.
-          </SheetDescription>
+          <SheetTitle>{tr("New promo code")}</SheetTitle>
+          <SheetDescription>{tr("The platform pays for this out of its commission — the business is still paid the full price.")}</SheetDescription>
         </SheetHeader>
 
         <div className="mt-6 space-y-4">
           <div>
-            <Label htmlFor="p-code">Code</Label>
+            <Label htmlFor="p-code">{tr("Code")}</Label>
             <Input
               id="p-code"
               value={code}
               onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))}
-              placeholder="VILLAGE20"
+              placeholder={tr("VILLAGE20")}
               className="font-mono tracking-[0.12em]"
               maxLength={24}
             />
-            <p className="mt-1 text-[12px] text-muted-foreground">
-              Letters and digits only — it gets read aloud and typed by hand.
-            </p>
+            <p className="mt-1 text-[12px] text-muted-foreground">{tr("Letters and digits only — it gets read aloud and typed by hand.")}</p>
           </div>
 
           <div>
-            <Label htmlFor="p-desc">What it is for</Label>
+            <Label htmlFor="p-desc">{tr("What it is for")}</Label>
             <Input id="p-desc" value={description} onChange={(e) => setDescription(e.target.value)}
-                   placeholder="Opening week" />
+                   placeholder={tr("Opening week")} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label>Kind</Label>
+              <Label>{tr("Kind")}</Label>
               <Select value={kind} onValueChange={(v) => setKind(v as typeof kind)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="percent">Percentage</SelectItem>
-                  <SelectItem value="fixed">Fixed amount</SelectItem>
+                  <SelectItem value="percent">{tr("Percentage")}</SelectItem>
+                  <SelectItem value="fixed">{tr("Fixed amount")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label htmlFor="p-value">{kind === "percent" ? "Percent off" : "Dollars off"}</Label>
+              <Label htmlFor="p-value">{kind === "percent" ? tr("Percent off") : tr("Dollars off")}</Label>
               <Input id="p-value" type="number" min="1" value={value}
                      onChange={(e) => setValue(e.target.value)} />
             </div>
           </div>
 
           <div>
-            <Label>Where it works</Label>
+            <Label>{tr("Where it works")}</Label>
             <Select value={providerId} onValueChange={setProviderId}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="any">Any business</SelectItem>
+                <SelectItem value="any">{tr("Any business")}</SelectItem>
                 {providers.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
               </SelectContent>
             </Select>
@@ -419,12 +406,12 @@ function NewCodeSheet({ open, providers, onClose, onCreated }: {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label htmlFor="p-min">Minimum order ($)</Label>
+              <Label htmlFor="p-min">{tr("Minimum order ($)")}</Label>
               <Input id="p-min" type="number" step="0.01" value={minOrder}
                      onChange={(e) => setMinOrder(e.target.value)} placeholder="0" />
             </div>
             <div>
-              <Label htmlFor="p-max">Total uses</Label>
+              <Label htmlFor="p-max">{tr("Total uses")}</Label>
               <Input id="p-max" type="number" min="1" value={maxRedemptions}
                      onChange={(e) => setMaxRedemptions(e.target.value)} placeholder="unlimited" />
             </div>
@@ -432,20 +419,17 @@ function NewCodeSheet({ open, providers, onClose, onCreated }: {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label htmlFor="p-per">Per customer</Label>
+              <Label htmlFor="p-per">{tr("Per customer")}</Label>
               <Input id="p-per" type="number" min="0" value={perCustomer}
                      onChange={(e) => setPerCustomer(e.target.value)} />
             </div>
             <div>
-              <Label htmlFor="p-ends">Last day</Label>
+              <Label htmlFor="p-ends">{tr("Last day")}</Label>
               <Input id="p-ends" type="date" value={endsAt} onChange={(e) => setEndsAt(e.target.value)} />
             </div>
           </div>
 
-          <p className="rounded-radius-md bg-inset p-3 text-[12px] text-muted-foreground">
-            The value and where it works cannot be changed later — somebody may
-            already have been given the code. To stop one, switch it off.
-          </p>
+          <p className="rounded-radius-md bg-inset p-3 text-[12px] text-muted-foreground">{tr("The value and where it works cannot be changed later — somebody may already have been given the code. To stop one, switch it off.")}</p>
         </div>
 
         <SheetFooter className="mt-6">
@@ -454,10 +438,8 @@ function NewCodeSheet({ open, providers, onClose, onCreated }: {
             onClick={() => create.mutate()}
             disabled={create.isPending || code.length < 3 || !(Number(value) > 0)}
             loading={create.isPending}
-            loadingText="Creating…"
-          >
-            Create
-          </Button>
+            loadingText={tr("Creating…")}
+          >{tr("Create")}</Button>
         </SheetFooter>
       </SheetContent>
     </Sheet>

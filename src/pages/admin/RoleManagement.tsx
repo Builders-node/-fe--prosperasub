@@ -22,6 +22,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { QueryError } from "@/components/patterns/QueryError";
 import { useTableSort } from "@/lib/table/useTableSort";
 import { SortHeader } from "@/components/ui/sort-header";
+import { tr, trx } from "@/lib/tr";
 
 type Role = {
   id: string;
@@ -95,7 +96,7 @@ export default function RoleManagement() {
       return result.data;
     },
     onSuccess: () => {
-      toast.success("Role saved");
+      toast.success(tr("Role saved"));
       queryClient.invalidateQueries({ queryKey: ["admin-rbac-roles"] });
       setEditingRole(null);
       setCreating(false);
@@ -109,7 +110,7 @@ export default function RoleManagement() {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Role archived");
+      toast.success(tr("Role archived"));
       queryClient.invalidateQueries({ queryKey: ["admin-rbac-roles"] });
       setArchiveTarget(null);
     },
@@ -127,7 +128,7 @@ export default function RoleManagement() {
   });
 
   return (
-    <SuperAdminLayout title="Team" subtitle="Admin roles and what each one may open">
+    <SuperAdminLayout title={tr("Team")} subtitle={tr("Admin roles and what each one may open")}>
       {/* One scaffold: the primary action, the count and the three states come
           from the shell, as they do on every other admin list. The button used
           to hang on its own above the grid (PAGE_TYPES section 10). */}
@@ -138,18 +139,18 @@ export default function RoleManagement() {
         onRetry={() => void refetch()}
         isEmpty={!isLoading && roles.length === 0}
         count={roles.length}
-        emptyTitle="No roles yet"
-        emptySubtitle="Create a role to grant admin access."
-        actions={<Button onClick={() => setCreating(true)}><Plus className="h-4 w-4" />New role</Button>}
+        emptyTitle={tr("No roles yet")}
+        emptySubtitle={tr("Create a role to grant admin access.")}
+        actions={<Button onClick={() => setCreating(true)}><Plus className="h-4 w-4" />{tr("New role")}</Button>}
       >
       <div className="grid gap-space-3 xl:grid-cols-[minmax(0,1fr)_360px]">
         <section className="rounded-radius-md bg-card">
           <div className="flex flex-col gap-space-2 p-space-6">
-            <h3 className="text-panel-title">Roles</h3>
+            <h3 className="text-panel-title">{tr("Roles")}</h3>
             <div className="flex flex-wrap items-center gap-space-4 text-xs text-muted-foreground">
-              <span aria-sort={sort.ariaSort("name")}><SortHeader {...sort.headerProps("name")}>Name</SortHeader></span>
-              <span aria-sort={sort.ariaSort("status")}><SortHeader {...sort.headerProps("status")}>Status</SortHeader></span>
-              <span aria-sort={sort.ariaSort("permissions")}><SortHeader {...sort.headerProps("permissions")}>Permissions</SortHeader></span>
+              <span aria-sort={sort.ariaSort("name")}><SortHeader {...sort.headerProps("name")}>{tr("Name")}</SortHeader></span>
+              <span aria-sort={sort.ariaSort("status")}><SortHeader {...sort.headerProps("status")}>{tr("Status")}</SortHeader></span>
+              <span aria-sort={sort.ariaSort("permissions")}><SortHeader {...sort.headerProps("permissions")}>{tr("Permissions")}</SortHeader></span>
             </div>
           </div>
           <div className="p-space-6 pt-0 space-y-space-2">
@@ -160,18 +161,17 @@ export default function RoleManagement() {
                     <div className="flex flex-wrap items-center gap-space-2">
                       <p className="font-bold">{role.name}</p>
                       <StatusPill status={role.status} />
-                      {role.isAdminRole && <span className="text-meta text-muted-foreground">Admin access</span>}
-                      {role.isSystem && <span className="text-meta text-muted-foreground">Built in</span>}
+                      {role.isAdminRole && <span className="text-meta text-muted-foreground">{tr("Admin access")}</span>}
+                      {role.isSystem && <span className="text-meta text-muted-foreground">{tr("Built in")}</span>}
                     </div>
-                    <p className="mt-1 text-sm text-muted-foreground">{role.description || "No description"}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">{role.permissions.length} permissions</p>
+                    <p className="mt-1 text-sm text-muted-foreground">{role.description || tr("No description")}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{trx("{length} permissions", { length: role.permissions.length })}</p>
                   </div>
                   <div className="flex gap-space-2">
-                    <Button variant="secondary" size="sm" onClick={() => setEditingRole(role)}>Edit</Button>
+                    <Button variant="secondary" size="sm" onClick={() => setEditingRole(role)}>{tr("Edit")}</Button>
                     {!role.isSystem && (
                       <Button variant="ghost" size="sm" onClick={() => setArchiveTarget(role)}>
-                        <Archive className="h-4 w-4" /> Archive
-                      </Button>
+                        <Archive className="h-4 w-4" />{" "}{tr("Archive")}</Button>
                     )}
                   </div>
                 </div>
@@ -182,14 +182,14 @@ export default function RoleManagement() {
 
         <section className="rounded-radius-md bg-card">
           <div className="flex flex-col gap-space-2 p-space-6">
-            <h3 className="text-panel-title">Permissions</h3>
+            <h3 className="text-panel-title">{tr("Permissions")}</h3>
           </div>
           <div className="p-space-6 pt-0 space-y-space-3">
             {/* An empty catalogue and an unreachable one look identical
                 otherwise — this panel rendered as blank space. */}
             {permissionsError && (
               <QueryError
-                title="Couldn't load permissions"
+                title={tr("Couldn't load permissions")}
                 error={permissionsErrorObj as Error}
                 onRetry={() => void refetchPermissions()}
               />
@@ -224,19 +224,17 @@ export default function RoleManagement() {
       <AlertDialog open={Boolean(archiveTarget)} onOpenChange={(open) => !open && setArchiveTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Archive {archiveTarget?.name || "this role"}?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Everyone who has this role loses the access it gives.
-            </AlertDialogDescription>
+            <AlertDialogTitle>{trx("Archive {value}?", { value: archiveTarget?.name || tr("this role") })}</AlertDialogTitle>
+            <AlertDialogDescription>{tr("Everyone who has this role loses the access it gives.")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Back</AlertDialogCancel>
+            <AlertDialogCancel>{tr("Back")}</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               disabled={archiveRole.isPending}
               onClick={(e) => { e.preventDefault(); if (archiveTarget) archiveRole.mutate(archiveTarget.id); }}
             >
-              {archiveRole.isPending ? "Archiving…" : "Archive role"}
+              {archiveRole.isPending ? tr("Archiving…") : tr("Archive role")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -273,37 +271,37 @@ function RoleSheet({
     <Sheet open={open} onOpenChange={(next) => !next && onClose()}>
       <SheetContent side="right" className="w-full max-w-xl overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>{form.id ? "Edit role" : "New role"}</SheetTitle>
-          <SheetDescription>Roles and permissions are stored in the database and enforced by the backend.</SheetDescription>
+          <SheetTitle>{form.id ? tr("Edit role") : tr("New role")}</SheetTitle>
+          <SheetDescription>{tr("Roles and permissions are stored in the database and enforced by the backend.")}</SheetDescription>
         </SheetHeader>
 
         <div className="mt-space-5 space-y-space-4">
           <div>
-            <Label>Role name</Label>
+            <Label>{tr("Role name")}</Label>
             <Input value={form.name || ""} onChange={(event) => setForm((value) => ({ ...value, name: event.target.value }))} />
           </div>
           <div>
-            <Label>Description</Label>
+            <Label>{tr("Description")}</Label>
             <Textarea value={form.description || ""} onChange={(event) => setForm((value) => ({ ...value, description: event.target.value }))} />
           </div>
           <div className="grid grid-cols-2 gap-space-3">
             <div>
-              <Label>Status</Label>
+              <Label>{tr("Status")}</Label>
               <Select value={form.status || "active"} onValueChange={(status) => setForm((value) => ({ ...value, status: status as Role["status"] }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
+                  <SelectItem value="active">{tr("Active")}</SelectItem>
+                  <SelectItem value="inactive">{tr("Inactive")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label>Access level</Label>
+              <Label>{tr("Access level")}</Label>
               <Select value={form.isAdminRole ? "admin" : "standard"} onValueChange={(value) => setForm((current) => ({ ...current, isAdminRole: value === "admin" }))}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="standard">Standard</SelectItem>
-                  <SelectItem value="admin">Admin-level</SelectItem>
+                  <SelectItem value="standard">{tr("Standard")}</SelectItem>
+                  <SelectItem value="admin">{tr("Admin-level")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -342,10 +340,9 @@ function RoleSheet({
             disabled={!form.name?.trim() || (form.permissions?.length ?? 0) === 0}
             loading={saving}
           >
-            <Save className="h-4 w-4" />Save Role
-          </Button>
+            <Save className="h-4 w-4" />{tr("Save Role")}</Button>
           {(form.permissions?.length ?? 0) === 0 && (
-            <p className="text-xs text-attention">Select at least one permission — otherwise anyone assigned this role will have no access.</p>
+            <p className="text-xs text-attention">{tr("Select at least one permission — otherwise anyone assigned this role will have no access.")}</p>
           )}
         </div>
       </SheetContent>

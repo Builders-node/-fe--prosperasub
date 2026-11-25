@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { tr, trx } from "@/lib/tr";
 
 /**
  * Client-side pagination helper. Pass the already-filtered/sorted array and get
@@ -48,14 +49,14 @@ export function TablePagination({
   if (total === 0) return null;
   return (
     <div className={cn("flex items-center justify-between gap-3 border-t border-border/60 px-1 pt-4 mt-2 text-sm text-muted-foreground", className)}>
-      <span className="tabular-nums">{from}–{to} of {total}</span>
+      <span className="tabular-nums">{trx("{from}–{to} of {total}", { from, to, total })}</span>
       {totalPages > 1 && (
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="iconSm" disabled={page === 0} onClick={() => onPage(Math.max(0, page - 1))} aria-label="Previous page">
+          <Button variant="ghost" size="iconSm" disabled={page === 0} onClick={() => onPage(Math.max(0, page - 1))} aria-label={tr("Previous page")}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <span className="tabular-nums">Page {page + 1} / {totalPages}</span>
-          <Button variant="ghost" size="iconSm" disabled={page >= totalPages - 1} onClick={() => onPage(Math.min(totalPages - 1, page + 1))} aria-label="Next page">
+          <span className="tabular-nums">{trx("Page {value} / {totalPages}", { value: page + 1, totalPages })}</span>
+          <Button variant="ghost" size="iconSm" disabled={page >= totalPages - 1} onClick={() => onPage(Math.min(totalPages - 1, page + 1))} aria-label={tr("Next page")}>
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>

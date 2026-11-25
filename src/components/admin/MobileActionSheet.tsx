@@ -2,6 +2,7 @@ import { type ReactNode, useState } from "react";
 import { MoreVertical } from "lucide-react";
 import { ResponsiveDialog } from "@/components/patterns/ResponsiveDialog";
 import { cn } from "@/lib/utils";
+import { tr } from "@/lib/tr";
 
 export interface MobileAction {
   label: string;
@@ -32,7 +33,7 @@ export function MobileActionSheet({ title, actions, className }: MobileActionShe
           "inline-flex h-9 w-9 items-center justify-center rounded-radius-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           className,
         )}
-        aria-label="More actions"
+        aria-label={tr("More actions")}
       >
         <MoreVertical className="h-5 w-5" />
       </button>
@@ -43,7 +44,7 @@ export function MobileActionSheet({ title, actions, className }: MobileActionShe
       <ResponsiveDialog
         open={open}
         onOpenChange={setOpen}
-        title={title ?? "Actions"}
+        title={title ?? tr("Actions")}
         bodyClassName="p-2"
       >
         <div className="flex flex-col gap-1">

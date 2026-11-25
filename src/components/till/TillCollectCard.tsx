@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { apiUrlFor } from "@/integrations/supabase/config";
 import { cn } from "@/lib/utils";
+import { tr, trx, DATE_LOCALE } from "@/lib/tr";
 
 /**
  * At the till, on the staff's phone — no sign-in.
@@ -28,12 +29,12 @@ interface Lookup {
 interface Done { label: string; planName: string; at: string; customer: string }
 
 const timeHN = (iso: string) =>
-  new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Tegucigalpa" });
+  new Date(iso).toLocaleTimeString(DATE_LOCALE, { hour: "numeric", minute: "2-digit", timeZone: "America/Tegucigalpa" });
 
 async function post<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(apiUrlFor(path), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error((data as { message?: string })?.message || "Something went wrong");
+  if (!res.ok) throw new Error((data as { message?: string })?.message || tr("Something went wrong"));
   return data as T;
 }
 
@@ -59,7 +60,7 @@ export function TillCollectCard({ token }: { token: string }) {
       setDone(r); setPicked(null); setPin("");
       void load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not record it");
+      setError(e instanceof Error ? e.message : tr("Could not record it"));
     } finally {
       setBusy(false);
     }
@@ -71,8 +72,8 @@ export function TillCollectCard({ token }: { token: string }) {
         <CheckCircle2 className="mx-auto h-14 w-14 text-positive" />
         <p className="text-[24px] font-semibold leading-[30px] text-foreground">{done.label}</p>
         <p className="text-body text-muted-foreground">{done.customer} · {done.planName}</p>
-        <p className="text-title font-semibold tabular-nums text-foreground">Recorded at {timeHN(done.at)}</p>
-        <Button variant="secondary" className="w-full" onClick={() => setDone(null)}>Done</Button>
+        <p className="text-title font-semibold tabular-nums text-foreground">{trx("Recorded at {timeHN}", { timeHN: timeHN(done.at) })}</p>
+        <Button variant="secondary" className="w-full" onClick={() => setDone(null)}>{tr("Done")}</Button>
       </section>
     );
   }
@@ -80,8 +81,8 @@ export function TillCollectCard({ token }: { token: string }) {
   return (
     <section className="space-y-3 rounded-radius-lg bg-card p-4">
       <div>
-        <p className="text-title font-semibold text-foreground">Collect at {info.business.name}</p>
-        <p className="text-meta text-muted-foreground">{sub.planName} · today</p>
+        <p className="text-title font-semibold text-foreground">{trx("Collect at {name}", { name: info.business.name })}</p>
+        <p className="text-meta text-muted-foreground">{trx("{planName} · today", { planName: sub.planName })}</p>
       </div>
       <ul className="space-y-2">
         {sub.items.map((i) => (
@@ -90,16 +91,14 @@ export function TillCollectCard({ token }: { token: string }) {
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-body font-semibold text-foreground">{i.label}</span>
                 <span className="block text-meta text-muted-foreground">
-                  {i.note ?? (i.remaining != null && i.total != null && i.total > 1 ? `${i.remaining} of ${i.total} left` : "Ready to collect")}
+                  {i.note ?? (i.remaining != null && i.total != null && i.total > 1 ? `${i.remaining} of ${i.total} left` : tr("Ready to collect"))}
                 </span>
               </span>
               {i.key === "none" ? null : !i.available && i.note === "Collected" ? (
-                <CheckCircle2 className="h-6 w-6 shrink-0 text-positive" aria-label="Collected" />
+                <CheckCircle2 className="h-6 w-6 shrink-0 text-positive" aria-label={tr("Collected")} />
               ) : (
                 <Button className="shrink-0" disabled={!i.available || busy}
-                  onClick={() => { setPicked(i); setPin(""); setError(null); }}>
-                  Get
-                </Button>
+                  onClick={() => { setPicked(i); setPin(""); setError(null); }}>{tr("Get")}</Button>
               )}
             </div>
             {picked?.key === i.key && (
@@ -107,8 +106,7 @@ export function TillCollectCard({ token }: { token: string }) {
                 {info.hasPin ? (
                   <>
                     <label htmlFor="till-pin" className="flex items-center gap-1.5 text-meta text-muted-foreground">
-                      <Lock className="h-3.5 w-3.5" /> Business PIN
-                    </label>
+                      <Lock className="h-3.5 w-3.5" />{" "}{tr("Business PIN")}</label>
                     <div className="flex gap-2">
                       <Input
                         id="till-pin"
@@ -123,15 +121,11 @@ export function TillCollectCard({ token }: { token: string }) {
                         onKeyDown={(e) => { if (e.key === "Enter" && pin.length >= 4) void confirm(); }}
                         className="tracking-[0.4em]"
                       />
-                      <Button disabled={pin.length < 4 || busy} loading={busy} onClick={() => void confirm()}>
-                        Confirm
-                      </Button>
+                      <Button disabled={pin.length < 4 || busy} loading={busy} onClick={() => void confirm()}>{tr("Confirm")}</Button>
                     </div>
                   </>
                 ) : (
-                  <p className="text-meta text-muted-foreground">
-                    This business hasn't set a till PIN yet — the owner sets it in the workspace under QR codes → At the till.
-                  </p>
+                  <p className="text-meta text-muted-foreground">{tr("This business hasn't set a till PIN yet — the owner sets it in the workspace under QR codes → At the till.")}</p>
                 )}
                 {error && <p className="text-meta font-semibold text-destructive">{error}</p>}
               </div>

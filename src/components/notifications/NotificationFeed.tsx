@@ -8,6 +8,7 @@ import {
 } from "@/lib/notifications/present";
 import { cn } from "@/lib/utils";
 import { NotificationCard } from "./NotificationCard";
+import { tr } from "@/lib/tr";
 
 /**
  * Everything the page and the bell's panel share: one query (the newest 100,
@@ -34,8 +35,8 @@ export function useNotificationFeed(filter: NotificationFilter) {
     onRead: (ids: string[]) => markAsRead.mutate(ids),
     onArchive: (ids: string[]) =>
       archive.mutate(ids, {
-        onSuccess: () => toast("Notification archived", {
-          action: { label: "Undo", onClick: () => unarchive.mutate(ids) },
+        onSuccess: () => toast(tr("Notification archived"), {
+          action: { label: tr("Undo"), onClick: () => unarchive.mutate(ids) },
         }),
       }),
   };
@@ -49,11 +50,11 @@ export function FilterPills({ value, onChange, unreadCount, hasBusiness, size = 
   size?: "sm" | "md";
 }) {
   const tabs: Array<{ key: NotificationFilter; label: string; count?: number }> = [
-    { key: "all", label: "All" },
-    { key: "unread", label: "Unread", count: unreadCount },
+    { key: "all", label: tr("All") },
+    { key: "unread", label: tr("Unread"), count: unreadCount },
     // Only for someone who runs a business — everyone else would see an
     // empty tab.
-    ...(hasBusiness ? [{ key: "business" as const, label: "Business" }] : []),
+    ...(hasBusiness ? [{ key: "business" as const, label: tr("Business") }] : []),
   ];
   return (
     <div role="tablist" className="flex gap-1.5">

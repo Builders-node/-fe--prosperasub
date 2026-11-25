@@ -5,6 +5,7 @@ import { accountApi } from "@/integrations/supabase/client";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 import { publicSiteUrl } from "@/integrations/supabase/config";
+import { tr } from "@/lib/tr";
 
 /**
  * The access QR of one subscription. The token is short-lived and signed by the
@@ -57,22 +58,18 @@ export function AccessQrCode({ subscriptionId, className }: { subscriptionId: st
         {loading ? (
           <Spinner />
         ) : error ? (
-          <p className="px-4 text-center text-[12px] text-muted-foreground">
-            Could not load your access code
-          </p>
+          <p className="px-4 text-center text-[12px] text-muted-foreground">{tr("Could not load your access code")}</p>
         ) : (
           url && (
             // The same page a scan opens, for whoever is holding the phone.
-            <a href={url} target="_blank" rel="noopener noreferrer" aria-label="Open access page">
+            <a href={url} target="_blank" rel="noopener noreferrer" aria-label={tr("Open access page")}>
               <QRCodeSVG value={url} size={154} level="M" />
             </a>
           )
         )}
       </div>
       <p className="flex items-center gap-1.5 text-[12px] font-semibold text-muted-foreground">
-        <ShieldCheck className="h-3.5 w-3.5" />
-        Show this to staff for access
-      </p>
+        <ShieldCheck className="h-3.5 w-3.5" />{tr("Show this to staff for access")}</p>
     </div>
   );
 }

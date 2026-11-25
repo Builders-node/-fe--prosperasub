@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ChevronLeft, ChevronRight, ImageIcon } from "lucide-react";
 import { Photo } from "@/components/patterns/Photo";
 import { cn } from "@/lib/utils";
+import { tr } from "@/lib/tr";
 
 /**
  * The desktop product gallery: one big photo with arrows, every photo as a
@@ -24,11 +25,11 @@ export function ProductGallery({ photos, alt = "", className }: { photos: string
         )}
         {shots.length > 1 && (
           <>
-            <button type="button" aria-label="Previous photo" onClick={() => go(i - 1)}
+            <button type="button" aria-label={tr("Previous photo")} onClick={() => go(i - 1)}
               className="absolute left-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white opacity-0 backdrop-blur transition-opacity hover:bg-black/60 focus-visible:opacity-100 group-hover:opacity-100">
               <ChevronLeft className="h-5 w-5" />
             </button>
-            <button type="button" aria-label="Next photo" onClick={() => go(i + 1)}
+            <button type="button" aria-label={tr("Next photo")} onClick={() => go(i + 1)}
               className="absolute right-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/45 text-white opacity-0 backdrop-blur transition-opacity hover:bg-black/60 focus-visible:opacity-100 group-hover:opacity-100">
               <ChevronRight className="h-5 w-5" />
             </button>
@@ -45,7 +46,7 @@ export function ProductGallery({ photos, alt = "", className }: { photos: string
             <button
               key={n}
               type="button"
-              aria-label={`Photo ${n + 1} of ${shots.length}`}
+              aria-label={tr("Photo {value} of {length}", { value: n + 1, length: shots.length })}
               aria-current={n === i}
               onClick={() => setActive(n)}
               className={cn(

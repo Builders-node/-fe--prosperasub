@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { tr } from "@/lib/tr";
 
 export interface Crumb {
   label: string;
@@ -22,7 +23,7 @@ export interface Crumb {
 export function Breadcrumbs({ items, className }: { items: Crumb[]; className?: string }) {
   if (!items.length) return null;
   return (
-    <nav aria-label="Breadcrumb" className={cn("min-w-0", className)}>
+    <nav aria-label={tr("Breadcrumb")} className={cn("min-w-0", className)}>
       <ol className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[13px] leading-5">
         {items.map((c, i) => {
           const last = i === items.length - 1;

@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { adminApi } from "@/integrations/supabase/client";
 import { formatTimestampHN } from "@/lib/timezone";
 import { cn } from "@/lib/utils";
+import { tr, trx } from "@/lib/tr";
 
 /**
  * Support inbox.
@@ -52,7 +53,7 @@ export default function AdminSupport() {
       // key this list would come back empty and read as "no messages" rather
       // than "no access".
       const { data, error } = await adminApi("/admin/support/messages");
-      if (error) throw new Error(error.message || "Could not load support messages");
+      if (error) throw new Error(error.message || tr("Could not load support messages"));
       return (data ?? []) as SupportMessage[];
     },
   });
@@ -74,7 +75,7 @@ export default function AdminSupport() {
         method: "PATCH",
         body: JSON.stringify({ handled }),
       });
-      if (error) throw new Error(error.message || "Could not update the message");
+      if (error) throw new Error(error.message || tr("Could not update the message"));
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: QUERY_KEY });
@@ -87,9 +88,9 @@ export default function AdminSupport() {
   const filters = (
     <TabPills<"new" | "handled" | "all">
       tabs={[
-        { value: "new", label: "New", badge: newCount },
-        { value: "handled", label: "Handled" },
-        { value: "all", label: "All" },
+        { value: "new", label: tr("New"), badge: newCount },
+        { value: "handled", label: tr("Handled") },
+        { value: "all", label: tr("All") },
       ] as const}
       value={status}
       onChange={setStatus}
@@ -98,24 +99,24 @@ export default function AdminSupport() {
 
   return (
     <SuperAdminLayout
-      title="Support"
-      subtitle="Messages from customers — reply by email or WhatsApp, then mark as handled"
+      title={tr("Support")}
+      subtitle={tr("Messages from customers — reply by email or WhatsApp, then mark as handled")}
     >
       {!isLoading && !isError && (
         <p className="mb-3 text-sm text-muted-foreground" aria-live="polite">
           {newCount === 0
-            ? "Nothing waiting — every message has been handled."
-            : <><span className="font-semibold tabular-nums text-foreground">{newCount} new</span> {newCount === 1 ? "message is" : "messages are"} waiting for a reply.</>}
+            ? tr("Nothing waiting — every message has been handled.")
+            : <>{newCount === 1 ? trx("{n} new message is waiting for a reply.", { n: <span className="font-semibold tabular-nums text-foreground">{newCount}</span> }) : trx("{n} new messages are waiting for a reply.", { n: <span className="font-semibold tabular-nums text-foreground">{newCount}</span> })}</>}
         </p>
       )}
       <AdminListShell
-        search={search} onSearch={setSearch} searchPlaceholder="Search by name, email or text…"
+        search={search} onSearch={setSearch} searchPlaceholder={tr("Search by name, email or text…")}
         filters={filters}
         isLoading={isLoading} isError={isError} error={error} onRetry={refetch}
         isEmpty={rows.length === 0}
         isNoResults={rows.length > 0 && visible.length === 0} count={visible.length}
-        emptyTitle="No messages yet"
-        emptySubtitle="Customer messages from the Support page land here."
+        emptyTitle={tr("No messages yet")}
+        emptySubtitle={tr("Customer messages from the Support page land here.")}
         onClearFilters={() => { setSearch(""); setStatus("new"); }}
       >
         <div className="space-y-2">
@@ -135,11 +136,11 @@ export default function AdminSupport() {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="truncate font-bold text-foreground">{m.subject}</p>
-                      <StatusPill status={handled ? "completed" : "pending"} label={handled ? "Handled" : "New"} />
+                      <StatusPill status={handled ? "completed" : "pending"} label={handled ? tr("Handled") : tr("New")} />
                     </div>
                     <p className="mt-0.5 truncate text-sm text-muted-foreground">
                       {m.name} · {m.email}
-                      {m.user_id ? "" : " · not signed in"}
+                      {m.user_id ? "" : tr(" · not signed in")}
                     </p>
                     {!open && (
                       <p className="mt-1 line-clamp-1 text-sm text-muted-foreground/80">{m.message}</p>
@@ -157,8 +158,7 @@ export default function AdminSupport() {
                     <div className="flex flex-wrap items-center gap-2">
                       <Button asChild size="sm" variant="secondary">
                         <a href={`mailto:${m.email}?subject=${encodeURIComponent(`Re: ${m.subject}`)}`}>
-                          <Mail className="mr-1.5 h-3.5 w-3.5" /> Reply by email
-                        </a>
+                          <Mail className="mr-1.5 h-3.5 w-3.5" />{" "}{tr("Reply by email")}</a>
                       </Button>
                       {m.phone && (
                         <Button asChild size="sm" variant="secondary">
@@ -167,22 +167,19 @@ export default function AdminSupport() {
                             target="_blank"
                             rel="noopener noreferrer"
                           >
-                            <MessageCircle className="mr-1.5 h-3.5 w-3.5" /> WhatsApp
-                          </a>
+                            <MessageCircle className="mr-1.5 h-3.5 w-3.5" />{" "}{tr("WhatsApp")}</a>
                         </Button>
                       )}
                       {m.user_id && (
                         <Button asChild size="sm" variant="secondary">
                           <Link to={`/admin/customers/${encodeURIComponent(m.user_id)}`}>
-                            <UserRound className="mr-1.5 h-3.5 w-3.5" /> Open customer
-                          </Link>
+                            <UserRound className="mr-1.5 h-3.5 w-3.5" />{" "}{tr("Open customer")}</Link>
                         </Button>
                       )}
                       {m.page_url && (
                         <Button asChild size="sm" variant="ghost">
                           <a href={m.page_url} target="_blank" rel="noopener noreferrer">
-                            <ExternalLink className="mr-1.5 h-3.5 w-3.5" /> Where they were
-                          </a>
+                            <ExternalLink className="mr-1.5 h-3.5 w-3.5" />{" "}{tr("Where they were")}</a>
                         </Button>
                       )}
                       <Button
@@ -195,14 +192,12 @@ export default function AdminSupport() {
                         onClick={() => setHandled.mutate({ id: m.id, handled: !handled })}
                       >
                         <Check className="mr-1.5 h-3.5 w-3.5" />
-                        {handled ? "Mark as new" : "Mark as handled"}
+                        {handled ? tr("Mark as new") : tr("Mark as handled")}
                       </Button>
                     </div>
 
                     {handled && m.handled_at && (
-                      <p className="text-caption text-muted-foreground">
-                        Handled {formatTimestampHN(m.handled_at)}
-                      </p>
+                      <p className="text-caption text-muted-foreground">{trx("Handled {handled_at}", { handled_at: formatTimestampHN(m.handled_at) })}</p>
                     )}
                   </div>
                 )}

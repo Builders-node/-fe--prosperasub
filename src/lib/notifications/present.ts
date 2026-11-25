@@ -17,6 +17,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { UserNotification } from "@/hooks/useNotifications";
+import { tr, DATE_LOCALE } from "@/lib/tr";
 
 /**
  * How a notification looks: the presentation layer between the raw
@@ -79,49 +80,49 @@ export function isBusinessNotification(n: UserNotification): boolean {
 
 function look(n: UserNotification): { icon: LucideIcon; tone: Tone; action?: Omit<NotificationAction, "url"> } {
   const st = stage(n);
-  if (st?.startsWith("winback")) return { icon: RotateCcw, tone: "brand", action: { label: "Subscribe again", primary: true } };
+  if (st?.startsWith("winback")) return { icon: RotateCcw, tone: "brand", action: { label: tr("Subscribe again"), primary: true } };
   if (st?.startsWith("unscheduled")) {
     return isBusinessNotification(n)
-      ? { icon: CalendarDays, tone: "attention", action: { label: "Open customer" } }
-      : { icon: CalendarDays, tone: "attention", action: { label: "Choose a time", primary: true } };
+      ? { icon: CalendarDays, tone: "attention", action: { label: tr("Open customer") } }
+      : { icon: CalendarDays, tone: "attention", action: { label: tr("Choose a time"), primary: true } };
   }
 
   switch (n.type) {
     case "subscription_expiring_soon":
     case "subscription_expiring_tomorrow":
-      return { icon: RefreshCw, tone: "attention", action: { label: "Renew", primary: true } };
+      return { icon: RefreshCw, tone: "attention", action: { label: tr("Renew"), primary: true } };
     case "subscription_expired":
-      return { icon: RefreshCw, tone: "neutral", action: { label: "Renew", primary: true } };
+      return { icon: RefreshCw, tone: "neutral", action: { label: tr("Renew"), primary: true } };
     case "subscription_created":
-      return { icon: Sparkles, tone: "positive", action: { label: "View plan" } };
+      return { icon: Sparkles, tone: "positive", action: { label: tr("View plan") } };
     case "plan_cancelled":
       return { icon: CircleX, tone: "neutral" };
     case "payment_received":
       return { icon: CreditCard, tone: "positive" };
     case "payment_pending":
-      return { icon: CreditCard, tone: "attention", action: { label: "Pay now", primary: true } };
+      return { icon: CreditCard, tone: "attention", action: { label: tr("Pay now"), primary: true } };
     case "reminder_occurrence":
       return { icon: UtensilsCrossed, tone: "schedule" };
     case "provider_new_order":
-      return { icon: ShoppingBag, tone: "positive", action: { label: "Open order" } };
+      return { icon: ShoppingBag, tone: "positive", action: { label: tr("Open order") } };
     case "provider_cancellation":
-      return { icon: Store, tone: "attention", action: { label: "View" } };
+      return { icon: Store, tone: "attention", action: { label: tr("View") } };
     case "refund_requested":
-      return { icon: TriangleAlert, tone: "attention", action: { label: "Review" } };
+      return { icon: TriangleAlert, tone: "attention", action: { label: tr("Review") } };
     case "payout_paid":
     case "payout_approved":
       return { icon: Wallet, tone: "positive" };
     case "payout_failed":
     case "payout_rejected":
-      return { icon: Wallet, tone: "negative", action: { label: "Check payout" } };
+      return { icon: Wallet, tone: "negative", action: { label: tr("Check payout") } };
     case "wallet_short":
-      return { icon: Wallet, tone: "attention", action: { label: "Top up", primary: true } };
+      return { icon: Wallet, tone: "attention", action: { label: tr("Top up"), primary: true } };
     case "wallet_renewed":
       return { icon: Wallet, tone: "positive" };
     case "review_reply":
-      return { icon: MessageCircle, tone: "schedule", action: { label: "View reply" } };
+      return { icon: MessageCircle, tone: "schedule", action: { label: tr("View reply") } };
     case "provider_application_new":
-      return { icon: Store, tone: "news", action: { label: "Review" } };
+      return { icon: Store, tone: "news", action: { label: tr("Review") } };
   }
 
   switch (n.category) {
@@ -205,7 +206,7 @@ export function shortTime(iso: string, now = new Date()): string {
     return `${Math.floor(mins / 60)}h`;
   }
   if (group === "Yesterday") {
-    return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    return d.toLocaleTimeString(DATE_LOCALE, { hour: "numeric", minute: "2-digit" });
   }
   return shortDate(d, now);
 }
@@ -230,11 +231,11 @@ export function chainKey(n: UserNotification): string | null {
 /** A short name for a step in a chain, for the folded history line. */
 export function stepLabel(n: UserNotification): string {
   const st = stage(n);
-  if (st === "expired" || n.type === "subscription_expired") return "Ended";
-  if (st === "1_day" || n.type === "subscription_expiring_tomorrow") return "Ends tomorrow";
+  if (st === "expired" || n.type === "subscription_expired") return tr("Ended");
+  if (st === "1_day" || n.type === "subscription_expiring_tomorrow") return tr("Ends tomorrow");
   const days = st?.match(/^(\d+)_day$/);
-  if (days) return `Ends in ${days[1]} days`;
-  if (st?.startsWith("winback")) return /%/.test(n.title) ? "Discount offer" : "Want it back?";
+  if (days) return tr("Ends in {value} days", { value: days[1] });
+  if (st?.startsWith("winback")) return /%/.test(n.title) ? tr("Discount offer") : tr("Want it back?");
   return stripLeadingEmoji(n.title);
 }
 

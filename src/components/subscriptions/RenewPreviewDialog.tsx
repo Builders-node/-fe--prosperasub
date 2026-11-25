@@ -5,6 +5,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { formatUSD } from "@/lib/pricing";
 import { formatDateHN } from "@/lib/timezone";
+import { tr, trx } from "@/lib/tr";
 
 interface Props {
   open: boolean;
@@ -52,7 +53,7 @@ export function RenewPreviewDialog({
             <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/15 text-primary">
               <RefreshCw className="h-4 w-4" />
             </span>
-            <DialogTitle className="text-lg font-semibold leading-tight">Renew subscription</DialogTitle>
+            <DialogTitle className="text-lg font-semibold leading-tight">{tr("Renew subscription")}</DialogTitle>
           </div>
           <DialogDescription className="text-sm text-muted-foreground">{title}</DialogDescription>
         </DialogHeader>
@@ -62,7 +63,7 @@ export function RenewPreviewDialog({
             <div className="flex items-center gap-3 rounded-radius-md bg-muted/40 p-3 text-sm">
               <CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground" />
               <div className="min-w-0 flex-1">
-                <p className="text-xs uppercase tracking-wider text-muted-foreground">Current period ends</p>
+                <p className="text-xs uppercase tracking-wider text-muted-foreground">{tr("Current period ends")}</p>
                 <p className="mt-0.5 font-bold text-foreground">{fmt(currentEndDate)}</p>
               </div>
             </div>
@@ -71,36 +72,32 @@ export function RenewPreviewDialog({
           <div className="flex items-center gap-3 rounded-radius-md bg-primary/10 p-3 text-sm">
             <RefreshCw className="h-4 w-4 shrink-0 text-primary" />
             <div className="min-w-0 flex-1">
-              <p className="text-xs uppercase tracking-wider text-primary/80">New period</p>
+              <p className="text-xs uppercase tracking-wider text-primary/80">{tr("New period")}</p>
               <p className="mt-0.5 flex flex-wrap items-center gap-1.5 font-bold text-foreground">
                 {fmt(newStartDate)} <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" /> {fmt(newEndDate)}
-                <span className="text-xs font-normal text-muted-foreground">({days} day{days === 1 ? "" : "s"})</span>
+                <span className="text-xs font-normal text-muted-foreground">{days === 1 ? trx("({days} day", { days }) : trx("({days} days", { days })})</span>
               </p>
             </div>
           </div>
 
           <div className="flex items-end justify-between rounded-radius-md bg-inset p-3">
             <div>
-              <p className="text-xs uppercase tracking-wider text-muted-foreground">Amount</p>
+              <p className="text-xs uppercase tracking-wider text-muted-foreground">{tr("Amount")}</p>
               <p className="mt-0.5 text-2xl font-semibold tabular-nums text-foreground">
                 {formatUSD(amountCents)}
               </p>
             </div>
-            <p className="mb-1 text-xs text-muted-foreground">Paid at checkout</p>
+            <p className="mb-1 text-xs text-muted-foreground">{tr("Paid at checkout")}</p>
           </div>
         </div>
 
         <DialogFooter className="mt-4 gap-2 sm:gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>{tr("Cancel")}</Button>
           <Button
             className="gap-1.5"
             onClick={() => { onOpenChange(false); onConfirm(); }}
           >
-            <RefreshCw className="h-4 w-4" />
-            Renew and pay
-          </Button>
+            <RefreshCw className="h-4 w-4" />{tr("Renew and pay")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

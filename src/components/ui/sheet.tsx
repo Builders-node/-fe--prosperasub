@@ -6,6 +6,7 @@ import * as React from "react";
 
 import { cn } from "@/lib/utils";
 import { groupIntoBlocks, preventTouchAutoFocus } from "@/components/ui/dialog-blocks";
+import { tr } from "@/lib/tr";
 
 const Sheet = SheetPrimitive.Root;
 
@@ -82,7 +83,7 @@ const SheetContent = React.forwardRef<React.ElementRef<typeof SheetPrimitive.Con
         {(blocks ?? (side === "right" || side === "bottom")) ? groupIntoBlocks(children, sheetChrome()) : children}
         <SheetPrimitive.Close className="absolute right-4 top-[17px] z-20 flex h-8 w-8 sm:top-[9px] items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:pointer-events-none">
           <X className="h-4 w-4" />
-          <span className="sr-only">Close</span>
+          <span className="sr-only">{tr("Close")}</span>
         </SheetPrimitive.Close>
       </SheetPrimitive.Content>
     </SheetPortal></ControlSize>

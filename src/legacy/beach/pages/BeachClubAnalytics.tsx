@@ -10,6 +10,7 @@ import { fetchPlatformRollup, groupRevenue, periodFigures, rowsInPeriod } from "
 import { useRollupPeriod } from "@/hooks/useRollupPeriod";
 import { formatUSD } from "@/lib/pricing";
 import { nowHN } from "@/lib/timezone";
+import { tr, dfLocale } from "@/lib/tr";
 
 /**
  * The beach club, in the platform's one analytics layout (`AnalyticsView`).
@@ -57,7 +58,7 @@ export default function BeachClubAnalytics({ embedded = false }: { embedded?: bo
 
   if (isLoading || !rollup || !rollup.byKey["entertainment"]) {
     return (
-      <AnalyticsShell embedded={embedded} title="Beach Club — Analytics">
+      <AnalyticsShell embedded={embedded} title={tr("Beach Club — Analytics")}>
         <PageLoader />
       </AnalyticsShell>
     );
@@ -68,26 +69,26 @@ export default function BeachClubAnalytics({ embedded = false }: { embedded?: bo
   const rows = rowsInPeriod(allRows, period);
 
   return (
-    <AnalyticsShell embedded={embedded} title="Beach Club — Analytics">
+    <AnalyticsShell embedded={embedded} title={tr("Beach Club — Analytics")}>
       <AnalyticsView
-        monthLabel={format(nowHN(), "MMMM")}
+        monthLabel={format(nowHN(), "MMMM", { locale: dfLocale })}
         months={rollup.months}
-        series={[{ key: "entertainment", label: figures?.label ?? "Lifestyle", values: figures.monthly, barClass: "bg-primary" }]}
+        series={[{ key: "entertainment", label: figures?.label ?? tr("Lifestyle"), values: figures.monthly, barClass: "bg-primary" }]}
         figures={figures}
         period={periodFigures(allRows, period)}
         plans={{ rows: rankedByRevenue(groupRevenue(rows, (r) => r.planKey, (k) => names?.plans.get(k))) }}
         group={{
-          title: "Revenue by Provider",
+          title: tr("Revenue by Provider"),
           rows: rankedByRevenue(groupRevenue(rows, (r) => r.providerKey, (k) => names?.providers.get(k))),
-          emptyMessage: "No provider has earned anything yet.",
+          emptyMessage: tr("No provider has earned anything yet."),
         }}
         details={{
-          title: "Beach club memberships",
+          title: tr("Beach club memberships"),
           children: (
             <dl className="grid gap-4 sm:grid-cols-3">
-              <StatItem label="People covered" value={String(extras?.people ?? 0)} />
-              <StatItem label="Avg order" value={formatUSD(extras?.avgOrderCents ?? 0)} />
-              <StatItem label="Courts" value={String(extras?.courts ?? 0)} />
+              <StatItem label={tr("People covered")} value={String(extras?.people ?? 0)} />
+              <StatItem label={tr("Avg order")} value={formatUSD(extras?.avgOrderCents ?? 0)} />
+              <StatItem label={tr("Courts")} value={String(extras?.courts ?? 0)} />
             </dl>
           ),
         }}

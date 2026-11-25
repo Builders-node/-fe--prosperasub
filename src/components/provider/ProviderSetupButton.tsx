@@ -18,6 +18,7 @@ import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
 import { accountApi, adminApi, supabaseDb } from "@/integrations/supabase/client";
 import { logAuditEvent } from "@/lib/auditLog";
 import { cn } from "@/lib/utils";
+import { tr } from "@/lib/tr";
 
 /**
  * The admin's setup of a business — what it is filed under, who owns it, which
@@ -33,8 +34,7 @@ export function ProviderSetupButton({ provider }: { provider: UniversalProviderR
   return (
     <>
       <Button size="sm" variant="secondary" className="gap-2" onClick={() => setOpen(true)}>
-        <Settings2 /> Setup
-      </Button>
+        <Settings2 />{" "}{tr("Setup")}</Button>
       {open && <SetupDialog provider={provider} open={open} onOpenChange={setOpen} />}
     </>
   );
@@ -90,8 +90,8 @@ function SetupDialog({ provider, open, onOpenChange }: {
       }
       if (userData?.id) await logAuditEvent(userData.id, "edit", "provider", provider.id, { ...patch, owner: ownerUserId });
     },
-    onSuccess: () => { toast.success("Saved"); refresh(); onOpenChange(false); },
-    onError: (e: Error) => toast.error(e.message || "Could not save"),
+    onSuccess: () => { toast.success(tr("Saved")); refresh(); onOpenChange(false); },
+    onError: (e: Error) => toast.error(e.message || tr("Could not save")),
   });
 
   const provision = useMutation({
@@ -102,51 +102,51 @@ function SetupDialog({ provider, open, onOpenChange }: {
     },
     onSuccess: (r) => {
       refresh();
-      if (r?.calendarId) toast.success("Calendar provisioned");
-      else toast.warning(r?.skipped || "No calendar was created — check the Google credentials.");
+      if (r?.calendarId) toast.success(tr("Calendar provisioned"));
+      else toast.warning(r?.skipped || tr("No calendar was created — check the Google credentials."));
     },
-    onError: (e: Error) => toast.error(e.message || "Could not provision a calendar"),
+    onError: (e: Error) => toast.error(e.message || tr("Could not provision a calendar")),
   });
 
   return (
     <ResponsiveDialog
       open={open}
       onOpenChange={onOpenChange}
-      title="Setup"
-      description={`${provider.name} — where it's filed, who owns it, where its bookings go.`}
+      title={tr("Setup")}
+      description={tr("{name} — where it's filed, who owns it, where its bookings go.", { name: provider.name })}
       footer={
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <Button variant="secondary" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button loading={save.isPending} onClick={() => save.mutate()}>Save</Button>
+          <Button variant="secondary" onClick={() => onOpenChange(false)}>{tr("Cancel")}</Button>
+          <Button loading={save.isPending} onClick={() => save.mutate()}>{tr("Save")}</Button>
         </div>
       }
     >
-      <DialogBlock title="Filed under">
+      <DialogBlock title={tr("Filed under")}>
         <div className="space-y-1.5">
-          <Label>Service</Label>
+          <Label>{tr("Service")}</Label>
           <Select value={archetypeKey} onValueChange={setArchetypeKey}>
             <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="__none">— none —</SelectItem>
+              <SelectItem value="__none">{tr("— none —")}</SelectItem>
               {archetypes.map((a) => <SelectItem key={a.key} value={a.key}>{a.label}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
         <div className="space-y-1.5">
-          <Label>Category</Label>
+          <Label>{tr("Category")}</Label>
           <Select value={categoryValue} onValueChange={setCategoryKey} disabled={scoped.length === 0}>
-            <SelectTrigger><SelectValue placeholder={archetypeKey === "__none" ? "Pick a service first" : "—"} /></SelectTrigger>
+            <SelectTrigger><SelectValue placeholder={archetypeKey === "__none" ? tr("Pick a service first") : "—"} /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="__none">— none —</SelectItem>
+              <SelectItem value="__none">{tr("— none —")}</SelectItem>
               {scoped.map((c) => <SelectItem key={c.key} value={c.key}>{c.label}</SelectItem>)}
             </SelectContent>
           </Select>
           {archetypeKey !== "__none" && scoped.length === 0 && (
-            <p className="text-meta text-muted-foreground">No categories under this service yet — add one in Settings → Services.</p>
+            <p className="text-meta text-muted-foreground">{tr("No categories under this service yet — add one in Settings → Services.")}</p>
           )}
         </div>
         <div className="space-y-1.5">
-          <Label>Extras</Label>
+          <Label>{tr("Extras")}</Label>
           <div className="flex flex-wrap gap-2">
             {(Object.keys(CAPABILITIES) as CapabilityKey[]).map((cap) => {
               const on = caps.has(cap);
@@ -162,34 +162,30 @@ function SetupDialog({ provider, open, onOpenChange }: {
               );
             })}
           </div>
-          <p className="text-meta text-muted-foreground">Delivery adds the delivery details block to its public page.</p>
+          <p className="text-meta text-muted-foreground">{tr("Delivery adds the delivery details block to its public page.")}</p>
         </div>
       </DialogBlock>
 
-      <DialogBlock title="Owner">
+      <DialogBlock title={tr("Owner")}>
         <UserPicker
           value={ownerUserId ?? ""}
           onSelect={(u) => setOwnerUserId(u?.id ?? null)}
-          placeholder="Nobody — platform-run"
+          placeholder={tr("Nobody — platform-run")}
           allowClear
-          clearLabel="Nobody — platform-run"
+          clearLabel={tr("Nobody — platform-run")}
         />
-        <p className="text-meta text-muted-foreground">
-          Pick someone who already has an account, or send a link and let them accept it.
-        </p>
+        <p className="text-meta text-muted-foreground">{tr("Pick someone who already has an account, or send a link and let them accept it.")}</p>
         <OwnerInviteButton provider={provider} />
       </DialogBlock>
 
-      <DialogBlock title="Google Calendar">
+      <DialogBlock title={tr("Google Calendar")}>
         <div className="flex items-center gap-2">
-          <Input value={calendarId} readOnly placeholder="Not provisioned yet" className="font-mono" inputSize="sm" />
+          <Input value={calendarId} readOnly placeholder={tr("Not provisioned yet")} className="font-mono" inputSize="sm" />
           <Button size="sm" variant="secondary" className="shrink-0" loading={provision.isPending} onClick={() => provision.mutate()}>
-            {calendarId ? "Repair" : "Provision"}
+            {calendarId ? tr("Repair") : tr("Provision")}
           </Button>
         </div>
-        <p className="text-meta text-muted-foreground">
-          The platform creates the calendar and shares it with the contact email. The button is safe to press again — it is also the repair.
-        </p>
+        <p className="text-meta text-muted-foreground">{tr("The platform creates the calendar and shares it with the contact email. The button is safe to press again — it is also the repair.")}</p>
       </DialogBlock>
     </ResponsiveDialog>
   );

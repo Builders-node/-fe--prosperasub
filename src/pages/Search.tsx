@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { SEARCH_GROUPS, useGlobalSearch, type SearchHit } from "@/hooks/useGlobalSearch";
 import { KeyboardArrowLeftIcon, KeyboardArrowRightIcon, SearchIcon } from "@/components/icons/FigmaIcons";
 import { useCategoryHighlights } from "@/hooks/useCategoryHighlights";
+import { tr, trx } from "@/lib/tr";
 
 /**
  * "Search on Everysub".
@@ -25,7 +26,7 @@ import { useCategoryHighlights } from "@/hooks/useCategoryHighlights";
  * of.
  */
 const SearchPage = () => {
-  useSeo({ title: "Search", description: "Search plans, services and businesses on EverySub, Roatán.", path: "/search" });
+  useSeo({ title: tr("Search"), description: tr("Search plans, services and businesses on EverySub, Roatán."), path: "/search" });
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const query = params.get("q") ?? "";
@@ -69,7 +70,7 @@ const SearchPage = () => {
         <div className="flex h-16 items-center gap-2 px-2">
           <button
             type="button"
-            aria-label="Back"
+            aria-label={tr("Back")}
             onClick={() => navigate(-1)}
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-foreground transition-colors hover:bg-muted"
           >
@@ -83,15 +84,15 @@ const SearchPage = () => {
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search on EverySub"
-              aria-label="Search on EverySub"
+              placeholder={tr("Search on EverySub")}
+              aria-label={tr("Search on EverySub")}
               className="min-w-0 flex-1 bg-transparent text-title text-foreground outline-none placeholder:text-muted-foreground [&::-webkit-search-cancel-button]:hidden"
             />
             {query && (
               <button
                 type="button"
                 onClick={() => setQuery("")}
-                aria-label="Clear search"
+                aria-label={tr("Clear search")}
                 className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-muted-foreground"
               >
                 <X className="h-4 w-4" />
@@ -109,17 +110,15 @@ const SearchPage = () => {
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search on EverySub"
-            aria-label="Search on EverySub"
+            placeholder={tr("Search on EverySub")}
+            aria-label={tr("Search on EverySub")}
             className="min-w-0 flex-1 bg-transparent py-1 text-title text-foreground outline-none placeholder:text-muted-foreground"
           />
         </div>
 
         {!query.trim() ? (
           <section className="space-y-3">
-            <h2 className="text-heading font-semibold text-foreground">
-              Browse categories
-            </h2>
+            <h2 className="text-heading font-semibold text-foreground">{tr("Browse categories")}</h2>
             <div className="overflow-hidden rounded-radius-md bg-card">
               {highlights.map((h, i) => (
                 <Link
@@ -141,9 +140,7 @@ const SearchPage = () => {
                     )}
                   </span>
                   {h.fromCents !== null && (
-                    <span className="shrink-0 text-[12px] tabular-nums text-muted-foreground">
-                      from {formatUSD(h.fromCents)}
-                    </span>
+                    <span className="shrink-0 text-[12px] tabular-nums text-muted-foreground">{trx("from {fromCents}", { fromCents: formatUSD(h.fromCents) })}</span>
                   )}
                   <KeyboardArrowRightIcon className="h-6 w-6 shrink-0 text-muted-foreground" />
                 </Link>
@@ -154,13 +151,13 @@ const SearchPage = () => {
           <div className="flex justify-center py-16"><Spinner /></div>
         ) : isError ? (
           // Not "nothing matches" — we never got the catalogue to search.
-          <QueryError title="Couldn't search right now" error={error} onRetry={() => void refetch()} />
+          <QueryError title={tr("Couldn't search right now")} error={error} onRetry={() => void refetch()} />
         ) : grouped.length === 0 ? (
           <div className="space-y-4">
             <YdEmptyState
               icon={SearchIcon}
-              title={`Nothing matches "${query.trim()}"`}
-              subtitle="Try a shorter word, or one of these."
+              title={tr("Nothing matches \"{trim}\"", { trim: query.trim() })}
+              subtitle={tr("Try a shorter word, or one of these.")}
             />
             {/* A dead end with a way out: what is actually on sale. */}
             <div className="flex flex-wrap justify-center gap-2">

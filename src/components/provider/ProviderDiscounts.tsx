@@ -15,6 +15,7 @@ import { formatUSD } from "@/lib/pricing";
 import { periodNoun } from "@/lib/services/planPeriod";
 import { addDaysISO, formatDateHN, todayHN } from "@/lib/timezone";
 import { cn } from "@/lib/utils";
+import { tr, trx } from "@/lib/tr";
 
 /**
  * A business's own discounts (Edge routes/discounts.ts): a sale with an end
@@ -52,19 +53,19 @@ interface Payload {
 }
 
 const KIND_META: Record<DiscountKind, { label: string; blurb: string; icon: typeof BadgePercent }> = {
-  sale: { label: "Sale", blurb: "A lower price for everyone, for a few days. Shown crossed out on your cards.", icon: BadgePercent },
-  intro: { label: "New customers", blurb: "A first-period price for people who never bought from you.", icon: UserPlus },
-  prepay: { label: "Pay ahead", blurb: "Less per period when someone buys 3, 6 or 12 at once.", icon: Wallet },
+  sale: { label: tr("Sale"), blurb: tr("A lower price for everyone, for a few days. Shown crossed out on your cards."), icon: BadgePercent },
+  intro: { label: tr("New customers"), blurb: tr("A first-period price for people who never bought from you."), icon: UserPlus },
+  prepay: { label: tr("Pay ahead"), blurb: tr("Less per period when someone buys 3, 6 or 12 at once."), icon: Wallet },
 };
 
 const STATE_LABEL: Record<Discount["state"], string> = {
-  live: "Live", scheduled: "Scheduled", paused: "Paused", ended: "Ended", hidden: "Hidden by Prospera",
+  live: tr("Live"), scheduled: tr("Scheduled"), paused: tr("Paused"), ended: tr("Ended"), hidden: tr("Hidden by Prospera"),
 };
 
 function valueText(d: Pick<Discount, "kind" | "value_type" | "percent_off" | "amount_off_cents" | "tiers" | "intro_periods">): string {
   if (d.kind === "prepay") return (d.tiers ?? []).map((t) => `${t.periods}+ → ${t.percent_off}%`).join(" · ");
-  const v = d.value_type === "percent" ? `${d.percent_off}% off` : `${formatUSD(d.amount_off_cents ?? 0)} off`;
-  return d.kind === "intro" ? `${v} the first ${d.intro_periods > 1 ? `${d.intro_periods} periods` : "period"}` : v;
+  const v = d.value_type === "percent" ? tr("{pct}% off", { pct: d.percent_off }) : tr("{amount} off", { amount: formatUSD(d.amount_off_cents ?? 0) });
+  return d.kind === "intro" ? (d.intro_periods > 1 ? tr("{v} the first {n} periods", { v, n: d.intro_periods }) : tr("{v} the first period", { v })) : v;
 }
 
 export function ProviderDiscounts({ providerId }: { providerId: string }) {
@@ -89,7 +90,7 @@ export function ProviderDiscounts({ providerId }: { providerId: string }) {
       if (error) throw error;
     },
     onSuccess: () => { void qc.invalidateQueries({ queryKey: KEY }); void qc.invalidateQueries({ queryKey: ["active-discounts"] }); },
-    onError: (e: Error) => toast.error(e.message || "Could not update the discount"),
+    onError: (e: Error) => toast.error(e.message || tr("Could not update the discount")),
   });
 
   // A manager (403) or a database without the feature yet: the section is not theirs.
@@ -105,12 +106,11 @@ export function ProviderDiscounts({ providerId }: { providerId: string }) {
   return (
     <div className="space-y-1">
       <WorkspaceSection
-        title="Discounts"
-        subtitle="Applied automatically — customers don't need a code. The discount comes off what you earn."
+        title={tr("Discounts")}
+        subtitle={tr("Applied automatically — customers don't need a code. The discount comes off what you earn.")}
         action={
           <Button size="sm" className="gap-2" disabled={atLimit} onClick={() => setWizard({})}>
-            <Plus /> New discount
-          </Button>
+            <Plus />{" "}{tr("New discount")}</Button>
         }
       />
 
@@ -137,14 +137,14 @@ export function ProviderDiscounts({ providerId }: { providerId: string }) {
       ) : (
         <div className="rounded-radius-lg bg-card p-1.5">
           <div className="flex gap-1 p-1.5">
-            {([["current", `Live & scheduled · ${current.length}`], ["ended", `Ended · ${ended.length}`]] as const).map(([v, label]) => (
+            {([["current", tr("Live & scheduled · {length}", { length: current.length })], ["ended", `Ended · ${ended.length}`]] as const).map(([v, label]) => (
               <button key={v} type="button" onClick={() => setView(v)}
                 className={cn("h-8 rounded-full px-3 text-meta font-semibold", view === v ? "bg-foreground text-background" : "bg-inset text-muted-foreground")}>
                 {label}
               </button>
             ))}
           </div>
-          {shown.length === 0 && <p className="p-3 text-meta text-muted-foreground">Nothing here.</p>}
+          {shown.length === 0 && <p className="p-3 text-meta text-muted-foreground">{tr("Nothing here.")}</p>}
           {shown.map((d) => (
             <DiscountRow
               key={d.id}
@@ -160,9 +160,7 @@ export function ProviderDiscounts({ providerId }: { providerId: string }) {
         </div>
       )}
       {atLimit && (
-        <p className="px-1 text-meta text-muted-foreground">
-          Up to {data.settings.maxLive} discounts at a time. End one to start another.
-        </p>
+        <p className="px-1 text-meta text-muted-foreground">{trx("Up to {maxLive} discounts at a time. End one to start another.", { maxLive: data.settings.maxLive })}</p>
       )}
 
       {wizard && (
@@ -180,7 +178,7 @@ export function ProviderDiscounts({ providerId }: { providerId: string }) {
 }
 
 function targetsText(ids: string[] | null, c: Pick<Payload, "plans" | "vehicles">): string {
-  if (!ids?.length) return "All offers";
+  if (!ids?.length) return tr("All offers");
   const names = ids.map((id) => c.plans.find((p) => p.id === id)?.name ?? c.vehicles.find((v) => v.id === id)?.name).filter(Boolean) as string[];
   if (!names.length) return `${ids.length} offers`;
   return names.length <= 2 ? names.join(", ") : `${names.slice(0, 2).join(", ")} +${names.length - 2}`;
@@ -208,40 +206,38 @@ function DiscountRow({ d, catalog, busy, onPause, onEnd, onDuplicate, canDuplica
               live ? "bg-positive/15 text-positive" : d.state === "hidden" ? "bg-destructive/10 text-destructive" : "bg-inset text-muted-foreground",
             )}>{STATE_LABEL[d.state]}</span>
             {d.platform_share_pct > 0 && (
-              <span className="rounded-full bg-inset px-2 py-0.5 text-meta font-semibold text-muted-foreground">
-                Prospera pays {d.platform_share_pct}%
-              </span>
+              <span className="rounded-full bg-inset px-2 py-0.5 text-meta font-semibold text-muted-foreground">{trx("Prospera pays {platform_share_pct}%", { platform_share_pct: d.platform_share_pct })}</span>
             )}
           </div>
           <p className="mt-0.5 text-meta text-muted-foreground">
             {valueText(d)} · {targetsText(d.target_ids, catalog)} · {dates}
-            {d.max_redemptions ? ` · up to ${d.max_redemptions} orders` : ""}
-            {d.min_order_cents ? ` · orders from ${formatUSD(d.min_order_cents)}` : ""}
+            {d.max_redemptions ? tr(" · up to {max_redemptions} orders", { max_redemptions: d.max_redemptions }) : ""}
+            {d.min_order_cents ? tr(" · orders from {min_order_cents}", { min_order_cents: formatUSD(d.min_order_cents) }) : ""}
           </p>
           {d.state === "hidden" && d.admin_note && <p className="mt-1 text-meta text-destructive">{d.admin_note}</p>}
           {/* What it did — the reason to run another. */}
           <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <Stat label="Orders" value={String(d.stats.orders)} />
-            <Stat label="Sales" value={formatUSD(d.stats.revenueCents)} />
-            <Stat label="Given off" value={formatUSD(d.stats.discountCents)} />
-            <Stat label="New customers" value={String(d.stats.newCustomers)} />
+            <Stat label={tr("Orders")} value={String(d.stats.orders)} />
+            <Stat label={tr("Sales")} value={formatUSD(d.stats.revenueCents)} />
+            <Stat label={tr("Given off")} value={formatUSD(d.stats.discountCents)} />
+            <Stat label={tr("New customers")} value={String(d.stats.newCustomers)} />
           </div>
         </div>
       </div>
       <div className="mt-2 flex flex-wrap justify-end gap-2">
         {canDuplicate && (
-          <Button size="sm" variant="ghost" className="gap-1.5" onClick={onDuplicate}><Copy className="h-4 w-4" /> Duplicate</Button>
+          <Button size="sm" variant="ghost" className="gap-1.5" onClick={onDuplicate}><Copy className="h-4 w-4" />{" "}{tr("Duplicate")}</Button>
         )}
         {d.state !== "ended" && d.state !== "hidden" && (
           <Button size="sm" variant="secondary" className="gap-1.5" disabled={busy} onClick={onPause}>
-            {d.status === "paused" ? <><Play className="h-4 w-4" /> Resume</> : <><Pause className="h-4 w-4" /> Pause</>}
+            {d.status === "paused" ? <><Play className="h-4 w-4" />{" "}{tr("Resume")}</> : <><Pause className="h-4 w-4" />{" "}{tr("Pause")}</>}
           </Button>
         )}
         {d.state !== "ended" && (
           confirmEnd ? (
-            <Button size="sm" variant="destructive" disabled={busy} onClick={onEnd}>End it now</Button>
+            <Button size="sm" variant="destructive" disabled={busy} onClick={onEnd}>{tr("End it now")}</Button>
           ) : (
-            <Button size="sm" variant="secondary" className="gap-1.5" onClick={() => setConfirmEnd(true)}><Square className="h-4 w-4" /> End</Button>
+            <Button size="sm" variant="secondary" className="gap-1.5" onClick={() => setConfirmEnd(true)}><Square className="h-4 w-4" />{" "}{tr("End")}</Button>
           )
         )}
       </div>
@@ -267,8 +263,8 @@ function CampaignCard({ campaign: k, providerId, maxPct, onJoined }: { campaign:
       });
       if (error) throw error;
     },
-    onSuccess: () => { toast.success(`You're in ${k.title}`); onJoined(); },
-    onError: (e: Error) => toast.error(e.message || "Could not join"),
+    onSuccess: () => { toast.success(tr("You're in {title}", { title: k.title })); onJoined(); },
+    onError: (e: Error) => toast.error(e.message || tr("Could not join")),
   });
   const n = Number(pct);
   const valid = n >= k.min_percent_off && n <= maxPct;
@@ -280,18 +276,15 @@ function CampaignCard({ campaign: k, providerId, maxPct, onJoined }: { campaign:
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-title font-semibold text-foreground">{k.title}</p>
-          <p className="mt-0.5 text-meta text-muted-foreground">
-            {formatDateHN(k.starts_at, { month: "short", day: "numeric" })} – {formatDateHN(k.ends_at, { month: "short", day: "numeric" })}
-            {" · "}at least {k.min_percent_off}% off
-            {k.platform_share_pct > 0 ? ` · Prospera pays ${k.platform_share_pct}% of every discount` : ""}
+          <p className="mt-0.5 text-meta text-muted-foreground">{trx("{starts_at} – {ends_at} · at least {min_percent_off}% off", { starts_at: formatDateHN(k.starts_at, { month: "short", day: "numeric" }), ends_at: formatDateHN(k.ends_at, { month: "short", day: "numeric" }), min_percent_off: k.min_percent_off })}{k.platform_share_pct > 0 ? tr(" · Prospera pays {platform_share_pct}% of every discount", { platform_share_pct: k.platform_share_pct }) : ""}
           </p>
           {k.description && <p className="mt-1 text-body text-foreground">{k.description}</p>}
         </div>
       </div>
       <div className="mt-3 flex items-end gap-2">
-        <Input label="Your discount, %" type="number" inputSize="sm" min={k.min_percent_off} max={maxPct} value={pct}
+        <Input label={tr("Your discount, %")} type="number" inputSize="sm" min={k.min_percent_off} max={maxPct} value={pct}
           onChange={(e) => setPct(e.target.value)} wrapperClassName="w-40" />
-        <Button size="sm" loading={join.isPending} disabled={!valid} onClick={() => join.mutate()}>Join the sale</Button>
+        <Button size="sm" loading={join.isPending} disabled={!valid} onClick={() => join.mutate()}>{tr("Join the sale")}</Button>
       </div>
     </div>
   );
@@ -376,10 +369,10 @@ function DiscountWizard({ providerId, data, initialKind, from, onClose, onCreate
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success(startsOn > today ? `Scheduled for ${formatDateHN(startsOn)}` : "Your discount is live");
+      toast.success(startsOn > today ? tr("Scheduled for {startsOn}", { startsOn: formatDateHN(startsOn) }) : tr("Your discount is live"));
       onCreated(); onClose();
     },
-    onError: (e: Error) => toast.error(e.message || "Could not save the discount"),
+    onError: (e: Error) => toast.error(e.message || tr("Could not save the discount")),
   });
 
   const steps = ["Type", "Amount", "Dates"];
@@ -389,17 +382,17 @@ function DiscountWizard({ providerId, data, initialKind, from, onClose, onCreate
     <ResponsiveDialog
       open
       onOpenChange={(o) => !o && onClose()}
-      title={from ? "Duplicate discount" : "New discount"}
-      description={`Step ${step + 1} of 3 · ${steps[step]}`}
+      title={from ? tr("Duplicate discount") : tr("New discount")}
+      description={tr("Step {value} of 3 · {value2}", { value: step + 1, value2: steps[step] })}
       className="sm:max-w-2xl"
       footer={
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <Button variant="secondary" onClick={() => (step === 0 ? onClose() : setStep(step - 1))}>{step === 0 ? "Cancel" : "Back"}</Button>
+          <Button variant="secondary" onClick={() => (step === 0 ? onClose() : setStep(step - 1))}>{step === 0 ? tr("Cancel") : tr("Back")}</Button>
           {step < 2 ? (
-            <Button disabled={!canNext} onClick={() => setStep(step + 1)}>Next</Button>
+            <Button disabled={!canNext} onClick={() => setStep(step + 1)}>{tr("Next")}</Button>
           ) : (
             <Button loading={create.isPending} disabled={!valueOk || !datesOk} onClick={() => create.mutate()}>
-              {startsOn > today ? "Schedule" : "Start now"}
+              {startsOn > today ? tr("Schedule") : tr("Start now")}
             </Button>
           )}
         </div>
@@ -434,27 +427,25 @@ function DiscountWizard({ providerId, data, initialKind, from, onClose, onCreate
         <div className="space-y-4">
           {kind === "prepay" ? (
             <div className="space-y-2">
-              <p className="text-body font-medium text-foreground">Buy this many {noun}s at once → this much off</p>
+              <p className="text-body font-medium text-foreground">{trx("Buy this many {noun}s at once → this much off", { noun })}</p>
               {tiers.map((t, i) => (
                 <div key={i} className="flex items-end gap-2">
                   <Input label={i === 0 ? `${noun[0].toUpperCase()}${noun.slice(1)}s` : undefined} type="number" inputSize="sm" min={2} max={24} value={String(t.periods)}
                     onChange={(e) => setTiers(tiers.map((x, j) => (j === i ? { ...x, periods: Number(e.target.value) } : x)))} wrapperClassName="w-28" />
-                  <Input label={i === 0 ? "% off" : undefined} type="number" inputSize="sm" min={1} max={maxPct} value={String(t.percentOff)}
+                  <Input label={i === 0 ? tr("% off") : undefined} type="number" inputSize="sm" min={1} max={maxPct} value={String(t.percentOff)}
                     onChange={(e) => setTiers(tiers.map((x, j) => (j === i ? { ...x, percentOff: Number(e.target.value) } : x)))} wrapperClassName="w-28" />
                   {tiers.length > 1 && (
-                    <Button size="sm" variant="ghost" onClick={() => setTiers(tiers.filter((_, j) => j !== i))}>Remove</Button>
+                    <Button size="sm" variant="ghost" onClick={() => setTiers(tiers.filter((_, j) => j !== i))}>{tr("Remove")}</Button>
                   )}
                 </div>
               ))}
               {tiers.length < 4 && (
-                <Button size="sm" variant="secondary" onClick={() => setTiers([...tiers, { periods: (tiers.at(-1)?.periods ?? 2) + 3, percentOff: (tiers.at(-1)?.percentOff ?? 5) + 5 }])}>
-                  Add a step
-                </Button>
+                <Button size="sm" variant="secondary" onClick={() => setTiers([...tiers, { periods: (tiers.at(-1)?.periods ?? 2) + 3, percentOff: (tiers.at(-1)?.percentOff ?? 5) + 5 }])}>{tr("Add a step")}</Button>
               )}
             </div>
           ) : (
             <div className="space-y-2">
-              <p className="text-body font-medium text-foreground">How much off</p>
+              <p className="text-body font-medium text-foreground">{tr("How much off")}</p>
               <div className="flex flex-wrap items-end gap-2">
                 <div className="flex shrink-0 rounded-full bg-inset p-1">
                   {(["percent", "fixed"] as const).map((v) => (
@@ -473,20 +464,19 @@ function DiscountWizard({ providerId, data, initialKind, from, onClose, onCreate
                 <Input type="number" inputMode="decimal" inputSize="sm" min={1} max={valueType === "percent" ? maxPct : undefined}
                   value={valueType === "percent" ? pct : amount}
                   onChange={(e) => (valueType === "percent" ? setPct(e.target.value) : setAmount(e.target.value))}
-                  wrapperClassName="w-24" aria-label={valueType === "percent" ? "Percent off" : "Dollars off"} />
+                  wrapperClassName="w-24" aria-label={valueType === "percent" ? tr("Percent off") : tr("Dollars off")} />
               </div>
-              {valueType === "percent" && pctN > maxPct && <p className="text-meta text-destructive">At most {maxPct}%.</p>}
-              {valueType === "fixed" && kind === "sale" && <p className="text-meta text-muted-foreground">Taken off each {noun} of the order.</p>}
+              {valueType === "percent" && pctN > maxPct && <p className="text-meta text-destructive">{trx("At most {maxPct}%.", { maxPct })}</p>}
+              {valueType === "fixed" && kind === "sale" && <p className="text-meta text-muted-foreground">{trx("Taken off each {noun} of the order.", { noun })}</p>}
             </div>
           )}
           {kind === "intro" && (
             <div className="space-y-1.5">
-              <p className="text-body font-medium text-foreground">For how long</p>
+              <p className="text-body font-medium text-foreground">{tr("For how long")}</p>
               <div className="flex flex-wrap gap-2">
                 {[1, 2, 3].map((n) => (
                   <button key={n} type="button" onClick={() => setIntroPeriods(String(n))}
-                    className={cn("h-10 rounded-full px-4 text-body font-semibold", Number(introPeriods) === n ? "bg-foreground text-background" : "bg-inset text-foreground")}>
-                    First {n > 1 ? `${n} ${noun}s` : noun}
+                    className={cn("h-10 rounded-full px-4 text-body font-semibold", Number(introPeriods) === n ? "bg-foreground text-background" : "bg-inset text-foreground")}>{tr("First")}{" "}{n > 1 ? `${n} ${noun}s` : noun}
                   </button>
                 ))}
               </div>
@@ -494,12 +484,10 @@ function DiscountWizard({ providerId, data, initialKind, from, onClose, onCreate
           )}
 
           <div className="space-y-1.5">
-            <p className="text-body font-medium text-foreground">On which offers</p>
+            <p className="text-body font-medium text-foreground">{tr("On which offers")}</p>
             <div className="flex flex-wrap gap-2">
               <button type="button" onClick={() => setTargets([])}
-                className={cn("h-9 rounded-full px-3 text-meta font-semibold", targets.length === 0 ? "bg-foreground text-background" : "bg-inset text-foreground")}>
-                Everything
-              </button>
+                className={cn("h-9 rounded-full px-3 text-meta font-semibold", targets.length === 0 ? "bg-foreground text-background" : "bg-inset text-foreground")}>{tr("Everything")}</button>
               {offers.map((o) => {
                 const on = targets.includes(o.id);
                 return (
@@ -519,48 +507,44 @@ function DiscountWizard({ providerId, data, initialKind, from, onClose, onCreate
       {step === 2 && (
         <div className="space-y-4">
           <div className="space-y-1.5">
-            <p className="flex items-center gap-1.5 text-body font-medium text-foreground"><CalendarRange className="h-4 w-4" /> When</p>
+            <p className="flex items-center gap-1.5 text-body font-medium text-foreground"><CalendarRange className="h-4 w-4" />{" "}{tr("When")}</p>
             {kind === "sale" && (
               <div className="flex flex-wrap gap-2">
                 {[3, 7, 14].map((n) => (
                   <button key={n} type="button" onClick={() => { setStartsOn(today); setEndsOn(addDaysISO(today, n - 1)); }}
                     className={cn("h-9 rounded-full px-3 text-meta font-semibold",
-                      startsOn === today && endsOn === addDaysISO(today, n - 1) ? "bg-foreground text-background" : "bg-inset text-foreground")}>
-                    {n} days from today
-                  </button>
+                      startsOn === today && endsOn === addDaysISO(today, n - 1) ? "bg-foreground text-background" : "bg-inset text-foreground")}>{trx("{n} days from today", { n })}</button>
                 ))}
               </div>
             )}
             <div className="grid grid-cols-2 gap-3">
-              <Input label="Starts" type="date" inputSize="sm" min={today} value={startsOn} onChange={(e) => setStartsOn(e.target.value || today)} />
-              <Input label={kind === "sale" ? "Ends" : "Ends (optional)"} type="date" inputSize="sm" min={startsOn} value={endsOn} onChange={(e) => setEndsOn(e.target.value)} />
+              <Input label={tr("Starts")} type="date" inputSize="sm" min={today} value={startsOn} onChange={(e) => setStartsOn(e.target.value || today)} />
+              <Input label={kind === "sale" ? tr("Ends") : tr("Ends (optional)")} type="date" inputSize="sm" min={startsOn} value={endsOn} onChange={(e) => setEndsOn(e.target.value)} />
             </div>
-            {kind === "sale" && !endsOn && <p className="text-meta text-destructive">A sale needs an end date. For a permanent change, edit the price.</p>}
+            {kind === "sale" && !endsOn && <p className="text-meta text-destructive">{tr("A sale needs an end date. For a permanent change, edit the price.")}</p>}
           </div>
-          <Input label="Name (optional)" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={kind === "sale" ? "Summer sale" : kind === "intro" ? "Welcome offer" : "Pay ahead and save"} maxLength={80} />
+          <Input label={tr("Name (optional)")} value={title} onChange={(e) => setTitle(e.target.value)} placeholder={kind === "sale" ? tr("Summer sale") : kind === "intro" ? tr("Welcome offer") : tr("Pay ahead and save")} maxLength={80} />
           <label className="flex items-center justify-between gap-3 rounded-radius-md bg-inset p-3">
             <span>
-              <span className="block text-body font-medium text-foreground">Tell my customers</span>
-              <span className="block text-meta text-muted-foreground">A notification to people who saved your business or bought before. At most once a week.</span>
+              <span className="block text-body font-medium text-foreground">{tr("Tell my customers")}</span>
+              <span className="block text-meta text-muted-foreground">{tr("A notification to people who saved your business or bought before. At most once a week.")}</span>
             </span>
             <Switch checked={notify} onCheckedChange={setNotify} />
           </label>
           <button type="button" className="text-meta font-semibold text-muted-foreground underline" onClick={() => setAdvanced(!advanced)}>
-            {advanced ? "Hide limits" : "Limits (optional)"}
+            {advanced ? tr("Hide limits") : tr("Limits (optional)")}
           </button>
           {advanced && (
             <div className="grid grid-cols-2 gap-3">
-              <Input label="Orders from, $" type="number" inputSize="sm" min={0} value={minOrder} onChange={(e) => setMinOrder(e.target.value)} />
-              <Input label="Max orders" type="number" inputSize="sm" min={1} value={maxUses} onChange={(e) => setMaxUses(e.target.value)} />
+              <Input label={tr("Orders from, $")} type="number" inputSize="sm" min={0} value={minOrder} onChange={(e) => setMinOrder(e.target.value)} />
+              <Input label={tr("Max orders")} type="number" inputSize="sm" min={1} value={maxUses} onChange={(e) => setMaxUses(e.target.value)} />
             </div>
           )}
           <p className="rounded-radius-md bg-inset p-3 text-meta text-muted-foreground">
             {valueText({ kind, value_type: valueType, percent_off: pctN, amount_off_cents: amountCents, tiers: tiers.map((t) => ({ periods: t.periods, percent_off: t.percentOff })), intro_periods: Number(introPeriods) || 1 })}
-            {" · "}{targets.length ? `${targets.length} offer${targets.length > 1 ? "s" : ""}` : "all offers"}
-            {" · "}{startsOn === today ? "from today" : `from ${formatDateHN(startsOn)}`}
-            {endsOn ? ` until ${formatDateHN(endsOn)}` : ""}.
-            {" "}Promo codes don't add on top — the customer gets whichever is bigger. Renewals are at the full price.
-          </p>
+            {" · "}{targets.length ? (targets.length > 1 ? tr("{length} offers", { length: targets.length }) : tr("{length} offer", { length: targets.length })) : tr("all offers")}
+            {" · "}{startsOn === today ? tr("from today") : `from ${formatDateHN(startsOn)}`}
+            {endsOn ? ` until ${formatDateHN(endsOn)}` : ""}{tr(". Promo codes don't add on top — the customer gets whichever is bigger. Renewals are at the full price.")}</p>
         </div>
       )}
     </ResponsiveDialog>
@@ -578,7 +562,7 @@ function Preview({ sample, deal, kind, offCents, keep, commissionPct }: {
   return (
     <div className="grid gap-2 sm:grid-cols-2">
       <div className="rounded-radius-md bg-inset p-3">
-        <p className="text-meta font-semibold text-muted-foreground">Customers see</p>
+        <p className="text-meta font-semibold text-muted-foreground">{tr("Customers see")}</p>
         <div className="relative mt-2 h-16 rounded-radius-md bg-muted">
           <DealPill deal={deal} className="absolute left-2 top-2" />
         </div>
@@ -587,12 +571,10 @@ function Preview({ sample, deal, kind, offCents, keep, commissionPct }: {
         <div><DealNote deal={deal} /></div>
       </div>
       <div className="rounded-radius-md bg-inset p-3">
-        <p className="text-meta font-semibold text-muted-foreground">You get, per {kind === "prepay" ? `${sample.unit} at the deepest step` : sample.unit || "order"}</p>
+        <p className="text-meta font-semibold text-muted-foreground">{tr("You get, per")}{" "}{kind === "prepay" ? tr("{unit} at the deepest step", { unit: sample.unit }) : sample.unit || "order"}</p>
         <p className="mt-2 text-heading font-bold tabular-nums text-foreground">{formatUSD(keep(after))}</p>
-        <p className="text-meta text-muted-foreground">
-          instead of {formatUSD(keep(sample.cents))} · after Prospera's {commissionPct}% fee
-        </p>
-        {kind === "intro" && <p className="mt-1 text-meta text-muted-foreground">Only on a new customer's first order — then full price.</p>}
+        <p className="text-meta text-muted-foreground">{trx("instead of {formatUSD} · after Prospera's {commissionPct}% fee", { formatUSD: formatUSD(keep(sample.cents)), commissionPct })}</p>
+        {kind === "intro" && <p className="mt-1 text-meta text-muted-foreground">{tr("Only on a new customer's first order — then full price.")}</p>}
       </div>
     </div>
   );

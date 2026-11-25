@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import {
   TONE_CLASS, openNotificationUrl, present, shortTime, stepLabel, type NotificationGroup,
 } from "@/lib/notifications/present";
+import { tr, trx } from "@/lib/tr";
 
 /** How far a finger drags a card left before letting go archives it. */
 const SWIPE_ARCHIVE_PX = 96;
@@ -139,7 +140,7 @@ export function NotificationCard({
 
         <div className="relative min-w-0 flex-1">
           {showBusinessTag && p.isBusiness && (
-            <p className="mb-0.5 text-meta font-semibold uppercase text-muted-foreground">Your business</p>
+            <p className="mb-0.5 text-meta font-semibold uppercase text-muted-foreground">{tr("Your business")}</p>
           )}
           <div className="flex items-start gap-3">
             <p className={cn("min-w-0 flex-1 text-title text-foreground", isRead ? "font-medium" : "font-semibold")}>
@@ -147,14 +148,14 @@ export function NotificationCard({
             </p>
             {/* Time, swapped for Archive on hover with a mouse. */}
             <span className="relative mt-0.5 flex shrink-0 items-center gap-1.5">
-              {!isRead && <span className="h-2 w-2 rounded-full bg-primary" aria-label="Unread" />}
+              {!isRead && <span className="h-2 w-2 rounded-full bg-primary" aria-label={tr("Unread")} />}
               <span className="text-meta tabular-nums text-muted-foreground md:group-focus-within:opacity-0 md:group-hover:opacity-0">
                 {shortTime(lead.createdAt, now)}
               </span>
               <button
                 type="button"
-                aria-label="Archive"
-                title="Archive"
+                aria-label={tr("Archive")}
+                title={tr("Archive")}
                 onClick={(e) => { e.stopPropagation(); onArchive(ids); }}
                 className={cn(
                   "absolute -right-1.5 -top-1.5 hidden h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-opacity hover:bg-muted hover:text-foreground md:flex",
@@ -192,8 +193,7 @@ export function NotificationCard({
                   aria-expanded={open}
                   onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
                   className="inline-flex h-8 items-center gap-1 rounded-full px-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-                >
-                  {earlier.length} earlier {earlier.length === 1 ? "update" : "updates"}
+                >{trx("{length} earlier", { length: earlier.length })}{" "}{earlier.length === 1 ? "update" : "updates"}
                   <ChevronDown className={cn("h-4 w-4 transition-transform", open && "rotate-180")} />
                 </button>
               )}

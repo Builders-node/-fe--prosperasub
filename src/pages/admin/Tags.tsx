@@ -15,6 +15,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { tr, trx } from "@/lib/tr";
 
 /**
  * Tags — the words a plan can be tagged with, in groups (lib/tags.ts,
@@ -38,16 +39,14 @@ export default function Tags() {
   const run = useMutation({
     mutationFn: ({ path, method, body }: { path: string; method: string; body?: unknown }) => call(path, method, body),
     onSuccess: refresh,
-    onError: (e: Error) => toast.error(e.message || "Could not save"),
+    onError: (e: Error) => toast.error(e.message || tr("Could not save")),
   });
   const [groupName, setGroupName] = useState("");
 
   return (
-    <SuperAdminLayout title="Tags" subtitle="The words businesses tag their plans with — and customers filter by">
+    <SuperAdminLayout title={tr("Tags")} subtitle={tr("The words businesses tag their plans with — and customers filter by")}>
       {!dict.isLoading && !dict.fromDb && (
-        <p className="mb-4 rounded-radius-md bg-card p-4 text-body text-muted-foreground">
-          This is the built-in list and can't be edited yet. Diagnostics shows what is missing.
-        </p>
+        <p className="mb-4 rounded-radius-md bg-card p-4 text-body text-muted-foreground">{tr("This is the built-in list and can't be edited yet. Diagnostics shows what is missing.")}</p>
       )}
 
       {dict.isLoading ? (
@@ -72,10 +71,10 @@ export default function Tags() {
           }}
         >
           <div className="min-w-0 flex-1">
-            <Input inputSize="sm" label="New group" placeholder="e.g. Duration, Equipment" value={groupName}
+            <Input inputSize="sm" label={tr("New group")} placeholder={tr("e.g. Duration, Equipment")} value={groupName}
               maxLength={40} onChange={(e) => setGroupName(e.target.value)} />
           </div>
-          <Button size="sm" type="submit" disabled={!groupName.trim()}><Plus className="h-4 w-4" /> Add group</Button>
+          <Button size="sm" type="submit" disabled={!groupName.trim()}><Plus className="h-4 w-4" />{" "}{tr("Add group")}</Button>
         </form>
       )}
     </SuperAdminLayout>
@@ -102,21 +101,21 @@ function GroupCard({ group, editable, busy, onCall }: {
       <AlertDialog open={!!renaming} onOpenChange={(o) => { if (!o) setRenaming(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Rename “{renaming?.current}”</AlertDialogTitle>
+            <AlertDialogTitle>{trx("Rename “{current}”", { current: renaming?.current })}</AlertDialogTitle>
           </AlertDialogHeader>
           <form onSubmit={(e) => { e.preventDefault(); saveRename(); }}>
             <Input autoFocus value={renameTo} maxLength={40} onChange={(e) => setRenameTo(e.target.value)} />
           </form>
           <AlertDialogFooter>
-            <AlertDialogCancel>Back</AlertDialogCancel>
-            <AlertDialogAction disabled={!renameTo.trim() || renameTo.trim() === renaming?.current} onClick={saveRename}>Rename</AlertDialogAction>
+            <AlertDialogCancel>{tr("Back")}</AlertDialogCancel>
+            <AlertDialogAction disabled={!renameTo.trim() || renameTo.trim() === renaming?.current} onClick={saveRename}>{tr("Rename")}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
       <div className="flex items-center gap-2">
         <h2 className="text-title font-semibold text-foreground">{group.label}</h2>
         {editable && (
-          <button type="button" aria-label={`Rename ${group.label}`} onClick={() => rename(`/admin/tags/groups/${group.key}`, group.label)}
+          <button type="button" aria-label={tr("Rename {label}", { label: group.label })} onClick={() => rename(`/admin/tags/groups/${group.key}`, group.label)}
             className="grid h-8 w-8 place-items-center rounded-full text-muted-foreground hover:bg-muted">
             <Pencil className="h-4 w-4" />
           </button>
@@ -124,7 +123,7 @@ function GroupCard({ group, editable, busy, onCall }: {
         <span className="flex-1" />
         {editable && (
           <label className="flex items-center gap-2 text-meta text-muted-foreground">
-            {group.isActive ? "Shown" : "Hidden"}
+            {group.isActive ? tr("Shown") : tr("Hidden")}
             <Switch checked={group.isActive} disabled={busy}
               onCheckedChange={(v) => onCall(`/admin/tags/groups/${group.key}`, "PATCH", { isActive: v })} />
           </label>
@@ -143,18 +142,18 @@ function GroupCard({ group, editable, busy, onCall }: {
               {t.label}
               {editable ? (
                 <>
-                  <button type="button" aria-label={`Rename ${t.label}`} onClick={() => rename(`/admin/tags/${t.key}`, t.label)}
+                  <button type="button" aria-label={tr("Rename {label}", { label: t.label })} onClick={() => rename(`/admin/tags/${t.key}`, t.label)}
                     className="grid h-7 w-7 place-items-center rounded-full text-muted-foreground hover:bg-background">
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
-                  <Switch className="mr-1 scale-75" checked={t.isActive} disabled={busy} aria-label={`${t.label} on or off`}
+                  <Switch className="mr-1 scale-75" checked={t.isActive} disabled={busy} aria-label={tr("{label} on or off", { label: t.label })}
                     onCheckedChange={(v) => onCall(`/admin/tags/${t.key}`, "PATCH", { isActive: v })} />
                 </>
               ) : <span className="w-2" />}
             </span>
           );
         })}
-        {group.tags.length === 0 && <p className="text-meta text-muted-foreground">No tags in this group yet.</p>}
+        {group.tags.length === 0 && <p className="text-meta text-muted-foreground">{tr("No tags in this group yet.")}</p>}
       </div>
 
       {editable && (
@@ -167,9 +166,9 @@ function GroupCard({ group, editable, busy, onCall }: {
             setName("");
           }}
         >
-          <Input inputSize="sm" placeholder={`Add to ${group.label}`} value={name} maxLength={40}
-            onChange={(e) => setName(e.target.value)} aria-label={`New tag in ${group.label}`} />
-          <Button size="sm" variant="secondary" type="submit" disabled={!name.trim()}>Add</Button>
+          <Input inputSize="sm" placeholder={tr("Add to {label}", { label: group.label })} value={name} maxLength={40}
+            onChange={(e) => setName(e.target.value)} aria-label={tr("New tag in {label}", { label: group.label })} />
+          <Button size="sm" variant="secondary" type="submit" disabled={!name.trim()}>{tr("Add")}</Button>
         </form>
       )}
     </section>

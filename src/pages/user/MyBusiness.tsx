@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useMyBusinesses, type MyBusiness as Business } from "@/hooks/useMyBusinesses";
 import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
+import { tr } from "@/lib/tr";
 
 /**
  * One list, one destination.
@@ -51,16 +52,14 @@ export default function MyBusiness() {
   const { archetypes } = useServiceArchetypes(false);
 
   return (
-    <UserLayout title="My business">
+    <UserLayout title={tr("My business")}>
       <div className="app-container space-y-1 py-6 md:space-y-0">
         {/* On a laptop the heading sits on the page, as on the admin's pages —
             a full-width card holding one line of text was most of the screen. */}
         <section className="rounded-radius-lg bg-card p-4 tracking-[-0.02em] md:bg-transparent md:px-0 md:pb-5 md:pt-2">
           {/* The phone's title bar already says it; a laptop has no title bar. */}
-          <h1 className="mb-1 hidden text-[28px] font-semibold leading-[34px] tracking-[-0.6px] text-foreground md:block">My business</h1>
-          <p className="text-[16px] leading-[22px] text-muted-foreground md:text-[14px] md:leading-[20px]">
-            The businesses you own or help run.
-          </p>
+          <h1 className="mb-1 hidden text-[28px] font-semibold leading-[34px] tracking-[-0.6px] text-foreground md:block">{tr("My business")}</h1>
+          <p className="text-[16px] leading-[22px] text-muted-foreground md:text-[14px] md:leading-[20px]">{tr("The businesses you own or help run.")}</p>
         </section>
 
         {isLoading ? (
@@ -71,14 +70,9 @@ export default function MyBusiness() {
         ) : !hasAny ? (
           <div className="flex flex-col items-center justify-center rounded-radius-lg bg-card px-4 py-16 text-center">
             <Store className="mb-3 h-12 w-12 text-muted-foreground/40" />
-            <p className="text-[16px] font-semibold text-foreground">No businesses yet</p>
-            <p className="mt-1 max-w-sm text-[14px] leading-[18px] text-muted-foreground">
-              Want to offer your service on EverySub? Apply to become a provider — once approved,
-              your business appears here to manage.
-            </p>
-            <Button className="mt-4" onClick={() => navigate("/become-a-provider")}>
-              Become a provider
-            </Button>
+            <p className="text-[16px] font-semibold text-foreground">{tr("No businesses yet")}</p>
+            <p className="mt-1 max-w-sm text-[14px] leading-[18px] text-muted-foreground">{tr("Want to offer your service on EverySub? Apply to become a provider — once approved, your business appears here to manage.")}</p>
+            <Button className="mt-4" onClick={() => navigate("/become-a-provider")}>{tr("Become a provider")}</Button>
           </div>
         ) : (
           // A list on a phone; cards on a laptop, where one 1,250-wide row per

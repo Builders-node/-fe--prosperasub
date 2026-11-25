@@ -10,6 +10,7 @@ import { fetchPlatformRollup, groupRevenue, periodFigures, rowsInPeriod } from "
 import { useRollupPeriod } from "@/hooks/useRollupPeriod";
 import { formatUSD } from "@/lib/pricing";
 import { nowHN } from "@/lib/timezone";
+import { tr, dfLocale } from "@/lib/tr";
 
 /**
  * Cleaning, in the platform's one analytics layout (`AnalyticsView`).
@@ -54,7 +55,7 @@ const CleaningAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
 
   if (isLoading || !rollup || !rollup.byKey["cleaning"]) {
     return (
-      <AnalyticsShell embedded={embedded} title="Cleaning — Analytics">
+      <AnalyticsShell embedded={embedded} title={tr("Cleaning — Analytics")}>
         <PageLoader />
       </AnalyticsShell>
     );
@@ -65,29 +66,29 @@ const CleaningAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
   const rows = rowsInPeriod(allRows, period);
 
   return (
-    <AnalyticsShell embedded={embedded} title="Cleaning — Analytics">
+    <AnalyticsShell embedded={embedded} title={tr("Cleaning — Analytics")}>
       <AnalyticsView
-        monthLabel={format(nowHN(), "MMMM")}
+        monthLabel={format(nowHN(), "MMMM", { locale: dfLocale })}
         months={rollup.months}
-        series={[{ key: "cleaning", label: figures?.label ?? "Cleaning", values: figures.monthly, barClass: "bg-primary" }]}
+        series={[{ key: "cleaning", label: figures?.label ?? tr("Cleaning"), values: figures.monthly, barClass: "bg-primary" }]}
         figures={figures}
         period={periodFigures(allRows, period)}
         plans={{ rows: rankedByRevenue(groupRevenue(rows, (r) => r.planKey, (k) => names?.plans.get(k))) }}
         group={{
-          title: "Revenue by business",
+          title: tr("Revenue by business"),
           rows: rankedByRevenue(groupRevenue(rows, (r) => r.providerKey, (k) => names?.providers.get(k))),
-          emptyMessage: "No business has earned anything yet.",
+          emptyMessage: tr("No business has earned anything yet."),
         }}
         details={{
-          title: "Cleaning visits",
+          title: tr("Cleaning visits"),
           children: (
             <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <StatItem label="Completed cleanings" value={String(extras?.completions ?? 0)} />
-              <StatItem label="Total bookings" value={String(extras?.bookings ?? 0)} />
-              <StatItem label="Upcoming" value={String(extras?.upcoming ?? 0)} />
-              <StatItem label="Completed" value={String(extras?.completed ?? 0)} />
-              <StatItem label="Cancelled bookings" value={String(extras?.cancelled ?? 0)} />
-              <StatItem label="Tips collected" value={formatUSD(extras?.tipsCents ?? 0)} />
+              <StatItem label={tr("Completed cleanings")} value={String(extras?.completions ?? 0)} />
+              <StatItem label={tr("Total bookings")} value={String(extras?.bookings ?? 0)} />
+              <StatItem label={tr("Upcoming")} value={String(extras?.upcoming ?? 0)} />
+              <StatItem label={tr("Completed")} value={String(extras?.completed ?? 0)} />
+              <StatItem label={tr("Cancelled bookings")} value={String(extras?.cancelled ?? 0)} />
+              <StatItem label={tr("Tips collected")} value={formatUSD(extras?.tipsCents ?? 0)} />
             </dl>
           ),
         }}

@@ -1,3 +1,4 @@
+import { tr } from "@/lib/tr";
 /**
  * VAT — set once per business (`providers.vat_pct`), added on top at checkout.
  *
@@ -17,4 +18,4 @@ export function vatCentsFor(goodsAfterPromoCents: number, vatPct: number | null 
 }
 
 /** "15%", "7.5%" — for the line under the price. */
-export const vatLabel = (vatPct: number) => `VAT ${Number(vatPct.toFixed(2))}%`;
+export const vatLabel = (vatPct: number) => tr("VAT {Number}%", { Number: Number(vatPct.toFixed(2)) });

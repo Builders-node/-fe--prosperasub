@@ -20,6 +20,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { formatUSD, centsToDollars } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { carPath } from "../lib/routes";
+import { tr, trx, dfLocale } from "@/lib/tr";
 
 /**
  * One rental, in full — and the two things a customer could not do before.
@@ -31,7 +32,7 @@ import { carPath } from "../lib/routes";
  * what the rental actually costs.
  */
 
-const dayText = (iso?: string | null) => (iso ? format(new Date(`${iso}T00:00:00`), "EEE, MMM d") : "—");
+const dayText = (iso?: string | null) => (iso ? format(new Date(`${iso}T00:00:00`), "EEE, MMM d", { locale: dfLocale }) : "—");
 
 export default function BookingDetail() {
   const { id } = useParams<{ id: string }>();
@@ -79,10 +80,10 @@ export default function BookingDetail() {
     await qc.invalidateQueries({ queryKey: ["rental-booking", id] });
     await qc.invalidateQueries({ queryKey: ["my-rental-bookings"] });
     if (error) {
-      toast.error("We couldn't confirm the payment yet — it will update by itself once it lands.");
+      toast.error(tr("We couldn't confirm the payment yet — it will update by itself once it lands."));
       return;
     }
-    toast.success("Payment confirmed — your booking is set.");
+    toast.success(tr("Payment confirmed — your booking is set."));
   };
 
   const inv = useInvoicePayment({
@@ -112,7 +113,7 @@ export default function BookingDetail() {
           client_name: booking.customer_name || userData?.name || undefined,
           client_email: userData?.email || undefined,
           client_phone: booking.customer_whatsapp || undefined,
-          duration: `${booking.rental_days} day${booking.rental_days > 1 ? "s" : ""}`,
+          duration: (booking.rental_days > 1 ? tr("{rental_days} days", { rental_days: booking.rental_days }) : tr("{rental_days} day", { rental_days: booking.rental_days })),
           selected_date_time: `${booking.start_date} → ${booking.end_date}`,
           booking_id: booking.id,
         },
@@ -130,9 +131,9 @@ export default function BookingDetail() {
       await qc.invalidateQueries({ queryKey: ["my-rental-bookings"] });
       // Releasing the dates is the point — the picker reads the same rows.
       await qc.invalidateQueries({ queryKey: ["vehicle-booked-ranges"] });
-      toast.success("Booking cancelled. The car is free for those dates again.");
+      toast.success(tr("Booking cancelled. The car is free for those dates again."));
     } catch (e) {
-      toast.error((e as Error).message || "Could not cancel the booking");
+      toast.error((e as Error).message || tr("Could not cancel the booking"));
     } finally {
       setCancelling(false);
     }
@@ -141,8 +142,8 @@ export default function BookingDetail() {
   if (isLoading) return <AppContainer className="flex justify-center py-24"><Spinner /></AppContainer>;
   if (!booking) return (
     <AppContainer className="py-24 text-center">
-      <p className="text-title font-semibold text-foreground">Booking not found.</p>
-      <Button variant="secondary" className="mt-3" onClick={() => navigate(carPath("my-bookings"))}>My bookings</Button>
+      <p className="text-title font-semibold text-foreground">{tr("Booking not found.")}</p>
+      <Button variant="secondary" className="mt-3" onClick={() => navigate(carPath("my-bookings"))}>{tr("My bookings")}</Button>
     </AppContainer>
   );
 
@@ -160,15 +161,14 @@ export default function BookingDetail() {
             </div>
             <div className="p-5">
               <StatusLine status={booking.status} paid={isPaid} />
-              <h1 className="mt-2 text-heading font-semibold text-foreground">{v?.name ?? "Car rental"}</h1>
-              <p className="mt-1 text-meta text-muted-foreground">
-                {dayText(booking.start_date)} → {dayText(booking.end_date)} · {booking.rental_days} day{booking.rental_days > 1 ? "s" : ""}
+              <h1 className="mt-2 text-heading font-semibold text-foreground">{v?.name ?? tr("Car rental")}</h1>
+              <p className="mt-1 text-meta text-muted-foreground">{booking.rental_days > 1 ? trx("{dayText} → {dayText2} · {rental_days} days", { dayText: dayText(booking.start_date), dayText2: dayText(booking.end_date), rental_days: booking.rental_days }) : trx("{dayText} → {dayText2} · {rental_days} day", { dayText: dayText(booking.start_date), dayText2: dayText(booking.end_date), rental_days: booking.rental_days })}
               </p>
               {booking.delivery_address && (
-                <p className="mt-2 text-sm text-muted-foreground">Delivery: {booking.delivery_address}</p>
+                <p className="mt-2 text-sm text-muted-foreground">{trx("Delivery: {delivery_address}", { delivery_address: booking.delivery_address })}</p>
               )}
               {booking.delivery_notes && (
-                <p className="mt-1 text-sm text-muted-foreground">Notes: {booking.delivery_notes}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{trx("Notes: {delivery_notes}", { delivery_notes: booking.delivery_notes })}</p>
               )}
             </div>
           </div>
@@ -177,15 +177,13 @@ export default function BookingDetail() {
           {!isPaid && !isCancelled && (
             <div className="space-y-3 rounded-radius-md bg-card p-5 shadow-figma">
               <h2 className="text-title font-semibold text-foreground">
-                {paying ? "Complete your payment" : "This booking isn't paid yet"}
+                {paying ? tr("Complete your payment") : tr("This booking isn't paid yet")}
               </h2>
               {!paying ? (
                 <>
-                  <p className="text-meta text-muted-foreground">
-                    We're holding the car for these dates. Pay now to confirm it.
-                  </p>
+                  <p className="text-meta text-muted-foreground">{tr("We're holding the car for these dates. Pay now to confirm it.")}</p>
                   <PaymentMethodTiles value={method} onChange={setMethod} available={methods} />
-                  <Button className="w-full" onClick={startPayment}>Pay {formatUSD(effectiveTotal)}</Button>
+                  <Button className="w-full" onClick={startPayment}>{trx("Pay {effectiveTotal}", { effectiveTotal: formatUSD(effectiveTotal) })}</Button>
                 </>
               ) : method === "paypal" ? (
                 <PayPalPanel
@@ -203,7 +201,7 @@ export default function BookingDetail() {
                   invoice={inv.state.invoice} address={inv.state.address} uri={inv.state.uri}
                   sats={inv.state.sats ?? 0} totalCents={effectiveTotal}
                   isPaid={inv.state.isPaid} isExpired={inv.state.isExpired}
-                  onRetry={() => inv.reset()} successLabel="Confirming your booking…"
+                  onRetry={() => inv.reset()} successLabel={tr("Confirming your booking…")}
                 />
               )}
             </div>
@@ -213,10 +211,8 @@ export default function BookingDetail() {
             <div className="flex items-start gap-3 rounded-radius-md bg-card p-5 shadow-figma">
               <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-positive" />
               <div>
-                <p className="text-title font-semibold text-foreground">Paid and confirmed</p>
-                <p className="mt-1 text-meta text-muted-foreground">
-                  We'll have the car ready for {dayText(booking.start_date)}. To change or cancel it, message us on WhatsApp.
-                </p>
+                <p className="text-title font-semibold text-foreground">{tr("Paid and confirmed")}</p>
+                <p className="mt-1 text-meta text-muted-foreground">{trx("We'll have the car ready for {dayText}. To change or cancel it, message us on WhatsApp.", { dayText: dayText(booking.start_date) })}</p>
               </div>
             </div>
           )}
@@ -226,9 +222,7 @@ export default function BookingDetail() {
           {!isPaid && !isCancelled && (
             <div className="rounded-radius-md bg-card p-5 shadow-figma">
               <Button variant="ghost" className="text-negative" disabled={cancelling} onClick={cancelBooking}>
-                {cancelling && <Spinner size="sm" className="mr-2" />}
-                Cancel this booking
-              </Button>
+                {cancelling && <Spinner size="sm" className="mr-2" />}{tr("Cancel this booking")}</Button>
             </div>
           )}
         </div>
@@ -236,27 +230,27 @@ export default function BookingDetail() {
         {/* What it costs */}
         <div className="space-y-4 lg:sticky lg:top-20 lg:self-start">
           <div className="rounded-radius-md bg-card p-4 shadow-figma">
-            <h2 className="mb-3 text-title font-semibold text-foreground">Price</h2>
+            <h2 className="mb-3 text-title font-semibold text-foreground">{tr("Price")}</h2>
             <div className="space-y-1.5 text-sm">
-              <Line label={`Car · ${booking.rental_days}d`} value={formatUSD(booking.subtotal_cents ?? 0)} />
+              <Line label={tr("Car · {rental_days}d", { rental_days: booking.rental_days })} value={formatUSD(booking.subtotal_cents ?? 0)} />
               {Number(booking.discount_cents) > 0 && (
-                <Line label="Multi-day discount" value={`−${formatUSD(booking.discount_cents)}`} accent />
+                <Line label={tr("Multi-day discount")} value={`−${formatUSD(booking.discount_cents)}`} accent />
               )}
-              {Number(booking.insurance_cents) > 0 && <Line label="Insurance" value={formatUSD(booking.insurance_cents)} />}
-              {extras.map((e, i) => <Line key={i} label={e.name ?? "Extra"} value={formatUSD(Number(e.cents) || 0)} />)}
-              {Number(booking.delivery_fee_cents) > 0 && <Line label="Delivery" value={formatUSD(booking.delivery_fee_cents)} />}
+              {Number(booking.insurance_cents) > 0 && <Line label={tr("Insurance")} value={formatUSD(booking.insurance_cents)} />}
+              {extras.map((e, i) => <Line key={i} label={e.name ?? tr("Extra")} value={formatUSD(Number(e.cents) || 0)} />)}
+              {Number(booking.delivery_fee_cents) > 0 && <Line label={tr("Delivery")} value={formatUSD(booking.delivery_fee_cents)} />}
               {Number(booking.surcharge_cents) > 0 && isPaid && (
-                <Line label="Payment fee" value={formatUSD(booking.surcharge_cents)} />
+                <Line label={tr("Payment fee")} value={formatUSD(booking.surcharge_cents)} />
               )}
               <div className="flex justify-between border-t border-border/60 pt-2 text-title font-semibold text-foreground">
-                <span>{isPaid ? "Paid" : "Total"}</span>
+                <span>{isPaid ? tr("Paid") : tr("Total")}</span>
                 <span className="tabular-nums">
                   {formatUSD(isPaid ? baseTotal + (Number(booking.surcharge_cents) || 0) : effectiveTotal)}
                 </span>
               </div>
             </div>
           </div>
-          <Link to={carPath()} className="block text-center text-sm font-semibold text-primary">Browse vehicles</Link>
+          <Link to={carPath()} className="block text-center text-sm font-semibold text-primary">{tr("Browse vehicles")}</Link>
         </div>
       </div>
     </AppContainer>
@@ -274,10 +268,10 @@ function Line({ label, value, accent }: { label: string; value: string; accent?:
 
 function StatusLine({ status, paid }: { status: string; paid: boolean }) {
   if (status === "cancelled") {
-    return <span className="inline-flex items-center gap-1.5 text-meta font-semibold text-negative"><XCircle className="h-4 w-4" /> Cancelled</span>;
+    return <span className="inline-flex items-center gap-1.5 text-meta font-semibold text-negative"><XCircle className="h-4 w-4" />{" "}{tr("Cancelled")}</span>;
   }
   if (paid) {
-    return <span className="inline-flex items-center gap-1.5 text-meta font-semibold text-positive"><CheckCircle2 className="h-4 w-4" /> Confirmed</span>;
+    return <span className="inline-flex items-center gap-1.5 text-meta font-semibold text-positive"><CheckCircle2 className="h-4 w-4" />{" "}{tr("Confirmed")}</span>;
   }
-  return <span className="inline-flex items-center gap-1.5 text-meta font-semibold text-attention"><Clock className="h-4 w-4" /> Awaiting payment</span>;
+  return <span className="inline-flex items-center gap-1.5 text-meta font-semibold text-attention"><Clock className="h-4 w-4" />{" "}{tr("Awaiting payment")}</span>;
 }

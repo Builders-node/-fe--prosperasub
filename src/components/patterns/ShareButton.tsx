@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Check, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { tr } from "@/lib/tr";
 
 /**
  * Send this page to someone.
@@ -38,7 +39,7 @@ export function ShareButton({
 
   const flashCopied = () => {
     setCopied(true);
-    toast.success("Link copied");
+    toast.success(tr("Link copied"));
     window.setTimeout(() => setCopied(false), 2000);
   };
 
@@ -98,7 +99,7 @@ export function ShareButton({
 
     // Everything refused. Show the link rather than only the failure — the
     // person can still select it and send it themselves.
-    toast.error("Couldn't copy automatically", {
+    toast.error(tr("Couldn't copy automatically"), {
       description: link,
       duration: 12000,
     });
@@ -108,7 +109,7 @@ export function ShareButton({
     <button
       type="button"
       data-tooltip="Share"
-      aria-label={`Share ${title}`}
+      aria-label={tr("Share {title}", { title })}
       onClick={share}
       className={cn(
         // No colour of its own: over a hero photo it must stay white, over a

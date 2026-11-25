@@ -46,6 +46,7 @@ import { fetchUsersByIds } from "@/lib/admin/customerNames";
 import { formatUSD } from "@/lib/pricing";
 import { PaymentMethodBadge, PaymentReference } from "@/components/admin/PaymentMethodBadge";
 import { approvePayment, PAYMENT_METHOD_OPTIONS } from "@/lib/subscriptionApprove";
+import { tr, trx, DATE_LOCALE } from "@/lib/tr";
 
 interface Provider { id: string; name: string; archetype_key: string | null; }
 interface UserRow { id: string; name: string | null; display_name: string | null; email: string | null; }
@@ -73,16 +74,16 @@ function shortDay(d: string | null | undefined): string {
   const dt = new Date(`${d.slice(0, 10)}T00:00:00`);
   if (Number.isNaN(dt.getTime())) return d;
   const sameYear = dt.getFullYear() === new Date().getFullYear();
-  return dt.toLocaleDateString("en-US", sameYear ? { month: "short", day: "numeric" } : { month: "short", day: "numeric", year: "numeric" });
+  return dt.toLocaleDateString(DATE_LOCALE, sameYear ? { month: "short", day: "numeric" } : { month: "short", day: "numeric", year: "numeric" });
 }
 
 const STAGE_TABS = [
-  { value: "all", label: "All" },
-  { value: "pending_payment", label: "Awaiting payment" },
-  { value: "active", label: "Active" },
-  { value: "paused", label: "Paused" },
-  { value: "ended", label: "Ended" },
-  { value: "refunded", label: "Refunded" },
+  { value: "all", label: tr("All") },
+  { value: "pending_payment", label: tr("Awaiting payment") },
+  { value: "active", label: tr("Active") },
+  { value: "paused", label: tr("Paused") },
+  { value: "ended", label: tr("Ended") },
+  { value: "refunded", label: tr("Refunded") },
 ] as const;
 
 function stageMatches(s: SaleRow, k: string): boolean {
@@ -173,17 +174,17 @@ const MarketplaceSubscriptions = () => {
       // that also frees the slot and lets the waitlist move.
       if (b.apiManaged) {
         if (patch.status !== "cancelled") {
-          throw new Error("A booked hour can only be cancelled from here — change its time on the business's calendar.");
+          throw new Error(tr("A booked hour can only be cancelled from here — change its time on the business's calendar."));
         }
         await cancelCourtBooking(row.id);
         if (userData?.id) await logAuditEvent(userData.id, "edit", "bookings", row.id, { status: "cancelled" });
         return;
       }
-      await updateSaleRow(b.table, row.id, patch, "Edited in Orders");
+      await updateSaleRow(b.table, row.id, patch, tr("Edited in Orders"));
       if (userData?.id) await logAuditEvent(userData.id, "edit", backing(row).table, row.id, patch);
     },
-    onSuccess: () => { toast.success("Saved"); invalidate(); setEditRow(null); setDetailEditing(false); setCancelRow(null); },
-    onError: (e: any) => toast.error(e?.message || "Could not save"),
+    onSuccess: () => { toast.success(tr("Saved")); invalidate(); setEditRow(null); setDetailEditing(false); setCancelRow(null); },
+    onError: (e: any) => toast.error(e?.message || tr("Could not save")),
   });
 
   const openPay = (row: SaleRow) => {
@@ -195,27 +196,27 @@ const MarketplaceSubscriptions = () => {
   /** One order marked as paid — the same write Today's "Mark paid" makes. */
   const payMutation = useMutation({
     mutationFn: async (row: SaleRow) => {
-      if (backing(row).apiManaged) throw new Error("A booked hour is settled at the desk, not marked paid here.");
+      if (backing(row).apiManaged) throw new Error(tr("A booked hour is settled at the desk, not marked paid here."));
       await approvePayment(row.source_service_key as Exclude<typeof row.source_service_key, "court">, row.id, {
         adminUserId: userData?.id ?? null,
         paymentMethod: payMethod,
         paymentReference: payReference.trim() || null,
       });
     },
-    onSuccess: () => { toast.success("Marked as paid"); invalidate(); setPayRow(null); },
-    onError: (e: any) => toast.error(e?.message || "Could not mark as paid"),
+    onSuccess: () => { toast.success(tr("Marked as paid")); invalidate(); setPayRow(null); },
+    onError: (e: any) => toast.error(e?.message || tr("Could not mark as paid")),
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (row: SaleRow) => {
       const b = backing(row);
-      if (b.apiManaged) throw new Error("Cancel a booked hour rather than deleting it — the slot has to be given back.");
-      if (wasPaid(row)) throw new Error("A paid sale is history — cancel or refund it instead of deleting it.");
+      if (b.apiManaged) throw new Error(tr("Cancel a booked hour rather than deleting it — the slot has to be given back."));
+      if (wasPaid(row)) throw new Error(tr("A paid sale is history — cancel or refund it instead of deleting it."));
       await deleteSaleRow(b.table, row.id);
       if (userData?.id) await logAuditEvent(userData.id, "delete", backing(row).table, row.id, {});
     },
-    onSuccess: () => { toast.success("Deleted"); invalidate(); setDeleteRow(null); },
-    onError: (e: any) => toast.error(e?.message || "Could not delete"),
+    onSuccess: () => { toast.success(tr("Deleted")); invalidate(); setDeleteRow(null); },
+    onError: (e: any) => toast.error(e?.message || tr("Could not delete")),
   });
 
   /**
@@ -249,7 +250,7 @@ const MarketplaceSubscriptions = () => {
                 paymentMethod: row.payment_method || "manual",
               });
             } else {
-              await updateSaleRow(b.table, row.id, buildSalePatch(row, { status: "cancelled" }), "Cancelled in Orders (bulk)");
+              await updateSaleRow(b.table, row.id, buildSalePatch(row, { status: "cancelled" }), tr("Cancelled in Orders (bulk)"));
             }
           }
           if (userData?.id) {
@@ -269,7 +270,7 @@ const MarketplaceSubscriptions = () => {
       setBulk(null);
       invalidate();
     },
-    onError: (e: any) => { toast.error(e?.message || "Could not apply"); setBulk(null); },
+    onError: (e: any) => { toast.error(e?.message || tr("Could not apply")); setBulk(null); },
   });
 
   /**
@@ -295,14 +296,14 @@ const MarketplaceSubscriptions = () => {
     onSuccess: (res) => {
       toast.success(
         res.manual
-          ? `Recorded — ${res.note}`
-          : `Refunded ${formatUSD(res.amountCents)}`,
+          ? tr("Recorded — {note}", { note: res.note })
+          : tr("Refunded {amountCents}", { amountCents: formatUSD(res.amountCents) }),
         { duration: res.manual ? 10000 : 4000 },
       );
       invalidate();
       setRefundRow(null);
     },
-    onError: (e) => toast.error(adminApiMessage(e, "Could not refund")),
+    onError: (e) => toast.error(adminApiMessage(e, tr("Could not refund"))),
   });
 
   const { data: providers = [] } = useQuery({
@@ -445,26 +446,26 @@ const MarketplaceSubscriptions = () => {
    */
   const exportRows = () => {
     downloadCsv(datedFilename("orders"), sorted, [
-      { header: "Service", value: (s) => s.source_service_key },
-      { header: "Kind", value: (s) => s.kind },
-      { header: "Customer", value: (s) => customerLabel(s) },
-      { header: "Business", value: (s) => providerById.get(s.provider_id)?.name ?? "" },
-      { header: "What", value: (s) => s.plan_name ?? "" },
-      { header: "Starts", value: (s) => s.start_date ?? "" },
-      { header: "Ends", value: (s) => s.end_date ?? "" },
-      { header: "Time", value: (s) => s.time_label ?? "" },
-      { header: "Status", value: (s) => s.status },
-      { header: "Payment", value: (s) => s.payment_status },
-      { header: "Method", value: (s) => s.payment_method ?? "" },
-      { header: "Amount USD", value: (s) => (s.price_cents ?? 0) / 100 },
-      { header: "Reference", value: (s) => s.payment_reference ?? "" },
-      { header: "Created", value: (s) => s.created_at },
-      { header: "Id", value: (s) => s.id },
+      { header: tr("Service"), value: (s) => s.source_service_key },
+      { header: tr("Kind"), value: (s) => s.kind },
+      { header: tr("Customer"), value: (s) => customerLabel(s) },
+      { header: tr("Business"), value: (s) => providerById.get(s.provider_id)?.name ?? "" },
+      { header: tr("What"), value: (s) => s.plan_name ?? "" },
+      { header: tr("Starts"), value: (s) => s.start_date ?? "" },
+      { header: tr("Ends"), value: (s) => s.end_date ?? "" },
+      { header: tr("Time"), value: (s) => s.time_label ?? "" },
+      { header: tr("Status"), value: (s) => s.status },
+      { header: tr("Payment"), value: (s) => s.payment_status },
+      { header: tr("Method"), value: (s) => s.payment_method ?? "" },
+      { header: tr("Amount USD"), value: (s) => (s.price_cents ?? 0) / 100 },
+      { header: tr("Reference"), value: (s) => s.payment_reference ?? "" },
+      { header: tr("Created"), value: (s) => s.created_at },
+      { header: tr("Id"), value: (s) => s.id },
     ]);
   };
 
   return (
-    <SuperAdminLayout title="Orders" subtitle="Every subscription, booking and booked hour across all services">
+    <SuperAdminLayout title={tr("Orders")} subtitle={tr("Every subscription, booking and booked hour across all services")}>
       <div className="space-y-5">
         <TabPills
           value={stage}
@@ -476,34 +477,34 @@ const MarketplaceSubscriptions = () => {
           }))}
         />
         <div className="flex flex-wrap items-end gap-3">
-          <FilterBlock label="Service">
+          <FilterBlock label={tr("Service")}>
             <Select value={service} onValueChange={setService}>
               <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All services</SelectItem>
+                <SelectItem value="all">{tr("All services")}</SelectItem>
                 {archetypes.map((a) => <SelectItem key={a.key} value={a.key}>{a.label}</SelectItem>)}
               </SelectContent>
             </Select>
           </FilterBlock>
-          <FilterBlock label="Type">
+          <FilterBlock label={tr("Type")}>
             <Select value={kind} onValueChange={(v) => setKind(v as typeof kind)}>
               <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="subscription">Subscription</SelectItem>
-                <SelectItem value="booking">Booking</SelectItem>
+                <SelectItem value="all">{tr("All")}</SelectItem>
+                <SelectItem value="subscription">{tr("Subscription")}</SelectItem>
+                <SelectItem value="booking">{tr("Booking")}</SelectItem>
               </SelectContent>
             </Select>
           </FilterBlock>
           {/* Sold by us, or provisioned through the partner. Reconciling what
               Builders Node says they sold used to mean reading payment refs. */}
-          <FilterBlock label="Origin">
+          <FilterBlock label={tr("Origin")}>
             <Select value={origin} onValueChange={(v) => setOrigin(v as typeof origin)}>
               <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="platform">EverySub</SelectItem>
-                <SelectItem value="builders_node">Builders Node</SelectItem>
+                <SelectItem value="all">{tr("All")}</SelectItem>
+                <SelectItem value="platform">{tr("EverySub")}</SelectItem>
+                <SelectItem value="builders_node">{tr("Builders Node")}</SelectItem>
               </SelectContent>
             </Select>
           </FilterBlock>
@@ -513,53 +514,42 @@ const MarketplaceSubscriptions = () => {
             destructive verbs is an invitation. */}
         {selected.size > 0 && (
           <div className="flex flex-wrap items-center gap-3 rounded-radius-md bg-card px-4 py-3">
-            <span className="text-sm font-semibold text-foreground">
-              {bulkRows.length} selected
-            </span>
-            <Button variant="outline" size="sm" onClick={() => setBulk("paid")}>
-              Mark paid
-            </Button>
-            <Button variant="outline" size="sm" className="text-destructive" onClick={() => setBulk("cancel")}>
-              Cancel
-            </Button>
+            <span className="text-sm font-semibold text-foreground">{trx("{length} selected", { length: bulkRows.length })}</span>
+            <Button variant="outline" size="sm" onClick={() => setBulk("paid")}>{tr("Mark paid")}</Button>
+            <Button variant="outline" size="sm" className="text-destructive" onClick={() => setBulk("cancel")}>{tr("Cancel")}</Button>
             <button
               type="button"
               className="ml-auto text-sm text-muted-foreground hover:text-foreground"
               onClick={() => setSelected(new Set())}
-            >
-              Clear
-            </button>
+            >{tr("Clear")}</button>
           </div>
         )}
 
         <AdminListShell
-          search={search} onSearch={setSearch} searchPlaceholder="Search by business, plan, customer, payment ref…"
+          search={search} onSearch={setSearch} searchPlaceholder={tr("Search by business, plan, customer, payment ref…")}
           isLoading={isLoading} isError={isError} error={subsErrObj}
           onRetry={() => { refetchSubs(); }}
           isEmpty={rows.length === 0}
           isNoResults={rows.length > 0 && visible.length === 0} count={visible.length}
-          emptyTitle="No sales yet" emptySubtitle="Subscriptions and bookings will appear here."
+          emptyTitle={tr("No sales yet")} emptySubtitle={tr("Subscriptions and bookings will appear here.")}
           onClearFilters={() => { setSearch(""); setService("all"); setStage("all"); setBusiness(""); setStatus("all"); setPayment("all"); setKind("all"); setOrigin("all"); setEnding(""); }}
           actions={<>
             {business && (
-              <Button variant="secondary" size="sm" onClick={() => setBusiness("")} aria-label="Show every business">
-                {providerById.get(business)?.name ?? "One business"} ×
+              <Button variant="secondary" size="sm" onClick={() => setBusiness("")} aria-label={tr("Show every business")}>
+                {providerById.get(business)?.name ?? tr("One business")} ×
               </Button>
             )}
             {(status !== "all" || payment !== "all") && (
-              <Button variant="secondary" size="sm" onClick={() => { setStatus("all"); setPayment("all"); }} aria-label="Remove the status filter">
+              <Button variant="secondary" size="sm" onClick={() => { setStatus("all"); setPayment("all"); }} aria-label={tr("Remove the status filter")}>
                 {[status !== "all" && `Status: ${status}`, payment !== "all" && `Payment: ${payment}`].filter(Boolean).join(" · ")} ×
               </Button>
             )}
             {endingDays != null && (
-              <Button variant="secondary" size="sm" onClick={() => setEnding("")} aria-label="Remove the ending filter">
-                Ending in {endingDays} day{endingDays === 1 ? "" : "s"} ×
+              <Button variant="secondary" size="sm" onClick={() => setEnding("")} aria-label={tr("Remove the ending filter")}>{endingDays === 1 ? trx("Ending in {endingDays} day", { endingDays }) : trx("Ending in {endingDays} days", { endingDays })} ×
               </Button>
             )}
             <Button variant="outline" size="sm" onClick={exportRows} disabled={sorted.length === 0}>
-              <Download className="mr-1.5 h-3.5 w-3.5" />
-              Export {sorted.length}
-            </Button>
+              <Download className="mr-1.5 h-3.5 w-3.5" />{trx("Export {length}", { length: sorted.length })}</Button>
           </>}
         >
           <div>
@@ -568,7 +558,7 @@ const MarketplaceSubscriptions = () => {
                 <TableRow>
                   <TableHead className="w-10 px-2 py-3">
                     <Checkbox
-                      aria-label="Select every row on this page"
+                      aria-label={tr("Select every row on this page")}
                       checked={pageAllSelected}
                       onCheckedChange={(v) => setSelected((prev) => {
                         const next = new Set(prev);
@@ -580,15 +570,15 @@ const MarketplaceSubscriptions = () => {
                       })}
                     />
                   </TableHead>
-                  <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("name")}><SortHeader {...sort.headerProps("name")}>Customer</SortHeader></TableHead>
-                  <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("plan")}><SortHeader {...sort.headerProps("plan")}>Plan</SortHeader></TableHead>
-                  <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("provider")}><SortHeader {...sort.headerProps("provider")}>Business</SortHeader></TableHead>
-                  <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("service")}><SortHeader {...sort.headerProps("service")}>Service</SortHeader></TableHead>
-                  <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("kind")}><SortHeader {...sort.headerProps("kind")}>Type</SortHeader></TableHead>
-                  <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("date")}><SortHeader {...sort.headerProps("date")}>Period</SortHeader></TableHead>
-                  <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("stage")}><SortHeader {...sort.headerProps("stage")}>Stage</SortHeader></TableHead>
-                  <TableHead className="px-4 py-3 text-right" aria-sort={sort.ariaSort("amount")}><SortHeader {...sort.headerProps("amount")} align="right">Amount</SortHeader></TableHead>
-                  <TableHead className="w-10 px-2 py-3" aria-label="Actions" />
+                  <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("name")}><SortHeader {...sort.headerProps("name")}>{tr("Customer")}</SortHeader></TableHead>
+                  <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("plan")}><SortHeader {...sort.headerProps("plan")}>{tr("Plan")}</SortHeader></TableHead>
+                  <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("provider")}><SortHeader {...sort.headerProps("provider")}>{tr("Business")}</SortHeader></TableHead>
+                  <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("service")}><SortHeader {...sort.headerProps("service")}>{tr("Service")}</SortHeader></TableHead>
+                  <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("kind")}><SortHeader {...sort.headerProps("kind")}>{tr("Type")}</SortHeader></TableHead>
+                  <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("date")}><SortHeader {...sort.headerProps("date")}>{tr("Period")}</SortHeader></TableHead>
+                  <TableHead className="px-4 py-3" aria-sort={sort.ariaSort("stage")}><SortHeader {...sort.headerProps("stage")}>{tr("Stage")}</SortHeader></TableHead>
+                  <TableHead className="px-4 py-3 text-right" aria-sort={sort.ariaSort("amount")}><SortHeader {...sort.headerProps("amount")} align="right">{tr("Amount")}</SortHeader></TableHead>
+                  <TableHead className="w-10 px-2 py-3" aria-label={tr("Actions")} />
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -609,7 +599,7 @@ const MarketplaceSubscriptions = () => {
                     >
                       <TableCell className="px-2 py-3">
                         <Checkbox
-                          aria-label={`Select ${customerLabel(s)}`}
+                          aria-label={tr("Select {customerLabel}", { customerLabel: customerLabel(s) })}
                           checked={selected.has(s.id)}
                           onCheckedChange={(v) => setSelected((prev) => {
                             const next = new Set(prev);
@@ -634,7 +624,7 @@ const MarketplaceSubscriptions = () => {
                         </span>
                       </TableCell>
                       <TableCell className="px-4 py-3">
-                        {s.plan_name ?? <em className="italic text-muted-foreground/70">no plan</em>}
+                        {s.plan_name ?? <em className="italic text-muted-foreground/70">{tr("no plan")}</em>}
                       </TableCell>
                       <TableCell className="px-4 py-3 text-muted-foreground">
                         {prov ? (
@@ -660,7 +650,7 @@ const MarketplaceSubscriptions = () => {
                         <span className={cn(
                           "inline-flex items-center rounded-full px-2 py-0.5 text-meta",
                           s.kind === "booking" ? "bg-muted text-muted-foreground" : "bg-primary/15 text-primary",
-                        )}>{s.kind === "booking" ? "Booking" : "Sub"}</span>
+                        )}>{s.kind === "booking" ? tr("Booking") : tr("Sub")}</span>
                       </TableCell>
                       <TableCell className="px-4 py-3 whitespace-nowrap text-xs text-muted-foreground">
                         {/* A booked hour is one date and a time, not a range —
@@ -688,7 +678,7 @@ const MarketplaceSubscriptions = () => {
                             <button
                               type="button"
                               className="flex h-8 w-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                              aria-label="Row actions"
+                              aria-label={tr("Row actions")}
                             >
                               <MoreVertical className="h-4 w-4" />
                             </button>
@@ -696,16 +686,13 @@ const MarketplaceSubscriptions = () => {
                           <DropdownMenuContent align="end">
                             {subscriptionStage(s) === "pending_payment" && !backing(s).apiManaged && (
                               <DropdownMenuItem onSelect={() => openPay(s)}>
-                                <CheckCircle2 className="mr-2 h-3.5 w-3.5" /> Mark paid…
-                              </DropdownMenuItem>
+                                <CheckCircle2 className="mr-2 h-3.5 w-3.5" />{" "}{tr("Mark paid…")}</DropdownMenuItem>
                             )}
                             <DropdownMenuItem onSelect={() => setEditRow(s)}>
-                              <Pencil className="mr-2 h-3.5 w-3.5" /> Edit
-                            </DropdownMenuItem>
+                              <Pencil className="mr-2 h-3.5 w-3.5" />{" "}{tr("Edit")}</DropdownMenuItem>
                             {!["cancelled", "expired", "refunded"].includes(subscriptionStage(s)) && (
                               <DropdownMenuItem onSelect={() => setCancelRow(s)}>
-                                <Ban className="mr-2 h-3.5 w-3.5" /> Cancel order…
-                              </DropdownMenuItem>
+                                <Ban className="mr-2 h-3.5 w-3.5" />{" "}{tr("Cancel order…")}</DropdownMenuItem>
                             )}
                             {/* Only what was actually paid can go back. */}
                             {s.payment_status === "paid" && !backing(s).apiManaged && (
@@ -714,8 +701,7 @@ const MarketplaceSubscriptions = () => {
                                 setRefundAmount(((s.price_cents ?? 0) / 100).toFixed(2));
                                 setRefundReason("");
                               }}>
-                                <Undo2 className="mr-2 h-3.5 w-3.5" /> Refund…
-                              </DropdownMenuItem>
+                                <Undo2 className="mr-2 h-3.5 w-3.5" />{" "}{tr("Refund…")}</DropdownMenuItem>
                             )}
                             {/* A booked hour is cancelled, never deleted: the
                                 slot has to go back to the calendar. */}
@@ -723,8 +709,7 @@ const MarketplaceSubscriptions = () => {
                                 payouts were counted from it. Cancel or refund. */}
                             {!backing(s).apiManaged && !wasPaid(s) && (
                               <DropdownMenuItem onSelect={() => setDeleteRow(s)} className="text-negative focus:text-negative">
-                                <Trash2 className="mr-2 h-3.5 w-3.5" /> Delete
-                              </DropdownMenuItem>
+                                <Trash2 className="mr-2 h-3.5 w-3.5" />{" "}{tr("Delete")}</DropdownMenuItem>
                             )}
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -744,11 +729,11 @@ const MarketplaceSubscriptions = () => {
       <Sheet open={!!orderId} onOpenChange={(o) => !o && setOrderId("")}>
         <SheetContent side="right" className="w-full max-w-md overflow-y-auto">
           <SheetHeader>
-            <SheetTitle>{detail ? (detail.plan_name ?? "Order") : isLoading ? "Loading…" : "Order not found"}</SheetTitle>
+            <SheetTitle>{detail ? (detail.plan_name ?? tr("Order")) : isLoading ? tr("Loading…") : tr("Order not found")}</SheetTitle>
             <SheetDescription>
               {detail
                 ? `${detail.kind === "booking" ? "Booking" : "Subscription"} · ${new Date(detail.created_at).toLocaleString()}`
-                : !isLoading && "It may have been deleted, or the link is old."}
+                : !isLoading && tr("It may have been deleted, or the link is old.")}
             </SheetDescription>
           </SheetHeader>
           {detail && (() => {
@@ -763,7 +748,7 @@ const MarketplaceSubscriptions = () => {
             return (
               <div className="mt-4 space-y-4">
                 <div className="rounded-radius-md bg-muted/40 p-4">
-                  <p className="text-meta text-muted-foreground">Amount</p>
+                  <p className="text-meta text-muted-foreground">{tr("Amount")}</p>
                   <p className="text-[28px] font-semibold tabular-nums text-foreground">
                     {typeof detail.price_cents === "number" ? formatUSD(detail.price_cents) : "—"}
                   </p>
@@ -788,15 +773,15 @@ const MarketplaceSubscriptions = () => {
                       : detail.start_date ? `${shortDay(detail.start_date)}${detail.end_date ? " → " + shortDay(detail.end_date) : ""}` : "—"}
                   </Row>
                   <Row k="Payment">{detail.payment_method ? <PaymentMethodBadge method={detail.payment_method} /> : "—"}</Row>
-                  <Row k="Payment status"><StatusPill status={detail.payment_status || "pending"} /></Row>
+                  <Row k={tr("Payment status")}><StatusPill status={detail.payment_status || "pending"} /></Row>
                   {detail.payment_reference && (
                     <Row k="Reference"><PaymentReference method={detail.payment_method} reference={detail.payment_reference} /></Row>
                   )}
-                  <Row k="Order id"><span className="font-mono text-meta">{detail.id}</span></Row>
+                  <Row k={tr("Order id")}><span className="font-mono text-meta">{detail.id}</span></Row>
                 </div>
                 {detailEditing ? (
                   <div className="rounded-radius-md bg-inset p-4">
-                    <p className="text-body font-semibold text-foreground">Edit order</p>
+                    <p className="text-body font-semibold text-foreground">{tr("Edit order")}</p>
                     {backing(detail).apiManaged ? (
                       <CourtEditForm
                         key={detail.id}
@@ -819,21 +804,17 @@ const MarketplaceSubscriptions = () => {
                     {/* The next step for this stage goes first. */}
                     {subscriptionStage(detail) === "pending_payment" && !backing(detail).apiManaged && (
                       <Button size="sm" onClick={() => openPay(detail)}>
-                        <CheckCircle2 className="h-4 w-4" /> Mark paid…
-                      </Button>
+                        <CheckCircle2 className="h-4 w-4" />{" "}{tr("Mark paid…")}</Button>
                     )}
                     {wasPaid(detail) && detail.payment_status !== "refunded" && !backing(detail).apiManaged && (
                       <Button size="sm" variant="secondary" onClick={() => openRefund(detail)}>
-                        <Undo2 className="h-4 w-4" /> Refund…
-                      </Button>
+                        <Undo2 className="h-4 w-4" />{" "}{tr("Refund…")}</Button>
                     )}
                     <Button size="sm" variant="secondary" onClick={() => setDetailEditing(true)}>
-                      <Pencil className="h-4 w-4" /> Edit
-                    </Button>
+                      <Pencil className="h-4 w-4" />{" "}{tr("Edit")}</Button>
                     {!["cancelled", "expired", "refunded"].includes(subscriptionStage(detail)) && (
                       <Button size="sm" variant="ghost" className="text-destructive" onClick={() => setCancelRow(detail)}>
-                        <Ban className="h-4 w-4" /> Cancel order…
-                      </Button>
+                        <Ban className="h-4 w-4" />{" "}{tr("Cancel order…")}</Button>
                     )}
                   </div>
                 )}
@@ -846,7 +827,7 @@ const MarketplaceSubscriptions = () => {
       <Sheet open={!!editRow} onOpenChange={(o) => !o && setEditRow(null)}>
         <SheetContent side="right" className="w-full max-w-md overflow-y-auto">
           <SheetHeader>
-            <SheetTitle>{editRow?.kind === "booking" ? "Edit booking" : "Edit subscription"}</SheetTitle>
+            <SheetTitle>{editRow?.kind === "booking" ? tr("Edit booking") : tr("Edit subscription")}</SheetTitle>
             <SheetDescription>
               {editRow ? `${customerLabel(editRow)} · ${providerById.get(editRow.provider_id)?.name ?? "—"}` : ""}
             </SheetDescription>
@@ -875,18 +856,18 @@ const MarketplaceSubscriptions = () => {
       <AlertDialog open={!!refundRow} onOpenChange={(o) => !o && setRefundRow(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Refund {refundRow ? customerLabel(refundRow) : ""}</AlertDialogTitle>
+            <AlertDialogTitle>{tr("Refund")}{" "}{refundRow ? customerLabel(refundRow) : ""}</AlertDialogTitle>
             <AlertDialogDescription>
               {refundRow?.payment_method === "paypal"
-                ? "This sends the capture back through PayPal."
+                ? tr("This sends the capture back through PayPal.")
                 : refundRow?.payment_method === "lightning" || refundRow?.payment_method === "onchain"
-                  ? "Bitcoin cannot be sent back automatically. This records the refund and takes the order out of revenue and out of the business's balance — you still have to pay the customer yourself."
-                  : "This was paid off platform, so it goes back off platform. The record is kept here."}
+                  ? tr("Bitcoin cannot be sent back automatically. This records the refund and takes the order out of revenue and out of the business's balance — you still have to pay the customer yourself.")
+                  : tr("This was paid off platform, so it goes back off platform. The record is kept here.")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="space-y-3">
             <div>
-              <Label htmlFor="refund-amount">Amount ($)</Label>
+              <Label htmlFor="refund-amount">{tr("Amount ($)")}</Label>
               <Input
                 id="refund-amount"
                 type="number"
@@ -896,22 +877,20 @@ const MarketplaceSubscriptions = () => {
                 value={refundAmount}
                 onChange={(e) => setRefundAmount(e.target.value)}
               />
-              <p className="mt-1 text-[12px] text-muted-foreground">
-                Paid {formatUSD(refundRow?.price_cents ?? 0)}. A partial refund leaves the order running.
-              </p>
+              <p className="mt-1 text-[12px] text-muted-foreground">{trx("Paid {formatUSD}. A partial refund leaves the order running.", { formatUSD: formatUSD(refundRow?.price_cents ?? 0) })}</p>
             </div>
             <div>
-              <Label htmlFor="refund-reason">Why</Label>
+              <Label htmlFor="refund-reason">{tr("Why")}</Label>
               <Input
                 id="refund-reason"
                 value={refundReason}
                 onChange={(e) => setRefundReason(e.target.value)}
-                placeholder="Delivery never arrived"
+                placeholder={tr("Delivery never arrived")}
               />
             </div>
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{tr("Cancel")}</AlertDialogCancel>
             <AlertDialogAction
               disabled={refundMutation.isPending || !(Number(refundAmount) > 0)}
               onClick={() => refundRow && refundMutation.mutate({
@@ -920,7 +899,7 @@ const MarketplaceSubscriptions = () => {
                 reason: refundReason,
               })}
             >
-              {refundMutation.isPending ? "Refunding…" : `Refund $${refundAmount || "0.00"}`}
+              {refundMutation.isPending ? tr("Refunding…") : tr("Refund ${value}", { value: refundAmount || "0.00" })}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -932,12 +911,12 @@ const MarketplaceSubscriptions = () => {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {bulk === "paid" ? "Mark as paid" : "Cancel"} {bulkRows.length} {bulkRows.length === 1 ? "order" : "orders"}?
+              {bulk === "paid" ? tr("Mark as paid") : tr("Cancel")} {bulkRows.length} {bulkRows.length === 1 ? "order" : "orders"}?
             </AlertDialogTitle>
             <AlertDialogDescription>
               {bulk === "paid"
-                ? "Each one counts as money received from that moment: it enters revenue and the business's withdrawable balance. Orders already paid and booked hours are skipped."
-                : "Each one stops. A booked hour is cancelled through the calendar, which gives its slot back; the rest have their status set to cancelled."}
+                ? tr("Each one counts as money received from that moment: it enters revenue and the business's withdrawable balance. Orders already paid and booked hours are skipped.")
+                : tr("Each one stops. A booked hour is cancelled through the calendar, which gives its slot back; the rest have their status set to cancelled.")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           {/* What exactly is about to change — the admin checks names and
@@ -951,25 +930,23 @@ const MarketplaceSubscriptions = () => {
                   <span className="flex shrink-0 items-center gap-2">
                     {r.payment_method && <PaymentMethodBadge method={r.payment_method} />}
                     <span className="tabular-nums">{typeof r.price_cents === "number" ? formatUSD(r.price_cents) : "—"}</span>
-                    {skipped && <span className="text-muted-foreground">skipped</span>}
+                    {skipped && <span className="text-muted-foreground">{tr("skipped")}</span>}
                   </span>
                 </li>
               );
             })}
           </ul>
           {bulk === "paid" && (
-            <p className="text-meta text-foreground">
-              Total {formatUSD(bulkRows.filter((r) => !wasPaid(r) && !backing(r).apiManaged).reduce((a, r) => a + (r.price_cents ?? 0), 0))}
-            </p>
+            <p className="text-meta text-foreground">{trx("Total {formatUSD}", { formatUSD: formatUSD(bulkRows.filter((r) => !wasPaid(r) && !backing(r).apiManaged).reduce((a, r) => a + (r.price_cents ?? 0), 0)) })}</p>
           )}
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{tr("Cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => bulk && bulkMutation.mutate(bulk)}
               disabled={bulkMutation.isPending}
               variant={bulk === "cancel" ? "destructive" : undefined}
             >
-              {bulkMutation.isPending ? "Applying…" : bulk === "paid" ? "Mark paid" : "Cancel them"}
+              {bulkMutation.isPending ? tr("Applying…") : bulk === "paid" ? tr("Mark paid") : tr("Cancel them")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -979,22 +956,17 @@ const MarketplaceSubscriptions = () => {
       <AlertDialog open={!!payRow} onOpenChange={(o) => !o && setPayRow(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              Mark {payRow && typeof payRow.price_cents === "number" ? formatUSD(payRow.price_cents) : "this order"} as paid?
-            </AlertDialogTitle>
+            <AlertDialogTitle>{tr("Mark")}{" "}{payRow && typeof payRow.price_cents === "number" ? formatUSD(payRow.price_cents) : tr("this order")}{" "}{tr("as paid?")}</AlertDialogTitle>
             <AlertDialogDescription>
-              {payRow ? `${customerLabel(payRow)} · ${payRow.plan_name ?? "—"}. ` : ""}
-              It counts as money received from now: it enters revenue and the business's withdrawable balance, and the order starts.
-            </AlertDialogDescription>
+              {payRow ? `${customerLabel(payRow)} · ${payRow.plan_name ?? "—"}. ` : ""}{tr("It counts as money received from now: it enters revenue and the business's withdrawable balance, and the order starts.")}</AlertDialogDescription>
           </AlertDialogHeader>
           {payRow && (payRow.payment_method === "paypal" || payRow.payment_method === "lightning" || payRow.payment_method === "onchain") && (
             <p className="rounded-radius-md bg-warning/10 px-3 py-2 text-meta text-foreground">
-              {payRow.payment_method === "paypal" ? "PayPal" : "Bitcoin"} payments are confirmed automatically. Mark it by hand only if you have seen the money arrive.
-            </p>
+              {payRow.payment_method === "paypal" ? tr("PayPal") : tr("Bitcoin")}{" "}{tr("payments are confirmed automatically. Mark it by hand only if you have seen the money arrive.")}</p>
           )}
           <div className="space-y-3">
             <div>
-              <Label>How was it paid</Label>
+              <Label>{tr("How was it paid")}</Label>
               <Select value={payMethod} onValueChange={setPayMethod} disabled={!!payRow?.payment_method}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -1006,14 +978,14 @@ const MarketplaceSubscriptions = () => {
               </Select>
             </div>
             <div>
-              <Label htmlFor="pay-ref">Reference (optional)</Label>
-              <Input id="pay-ref" value={payReference} onChange={(e) => setPayReference(e.target.value)} placeholder="Receipt number, transaction id" />
+              <Label htmlFor="pay-ref">{tr("Reference (optional)")}</Label>
+              <Input id="pay-ref" value={payReference} onChange={(e) => setPayReference(e.target.value)} placeholder={tr("Receipt number, transaction id")} />
             </div>
           </div>
           <AlertDialogFooter>
-            <AlertDialogCancel>Back</AlertDialogCancel>
+            <AlertDialogCancel>{tr("Back")}</AlertDialogCancel>
             <AlertDialogAction disabled={payMutation.isPending} onClick={(e) => { e.preventDefault(); payRow && payMutation.mutate(payRow); }}>
-              {payMutation.isPending ? "Saving…" : "Mark paid"}
+              {payMutation.isPending ? tr("Saving…") : tr("Mark paid")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1023,18 +995,18 @@ const MarketplaceSubscriptions = () => {
       <AlertDialog open={!!cancelRow} onOpenChange={(o) => !o && setCancelRow(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Cancel this order?</AlertDialogTitle>
+            <AlertDialogTitle>{tr("Cancel this order?")}</AlertDialogTitle>
             <AlertDialogDescription>
               {cancelRow ? `${customerLabel(cancelRow)} · ${cancelRow.plan_name ?? "—"}. ` : ""}
               {cancelRow && backing(cancelRow).apiManaged
-                ? "The hour goes back to the calendar."
+                ? tr("The hour goes back to the calendar.")
                 : wasPaid(cancelRow ?? {})
-                  ? "Access stops. Money is not returned automatically — refund it separately if needed."
-                  : "Access stops. Nothing was paid, so there is nothing to refund."}
+                  ? tr("Access stops. Money is not returned automatically — refund it separately if needed.")
+                  : tr("Access stops. Nothing was paid, so there is nothing to refund.")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Back</AlertDialogCancel>
+            <AlertDialogCancel>{tr("Back")}</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               disabled={updateMutation.isPending}
@@ -1045,7 +1017,7 @@ const MarketplaceSubscriptions = () => {
                 updateMutation.mutate({ row: cancelRow, patch });
               }}
             >
-              {updateMutation.isPending ? "Cancelling…" : "Cancel order"}
+              {updateMutation.isPending ? tr("Cancelling…") : tr("Cancel order")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1055,20 +1027,15 @@ const MarketplaceSubscriptions = () => {
       <AlertDialog open={!!deleteRow} onOpenChange={(o) => !o && setDeleteRow(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete this {deleteRow?.kind ?? "row"}?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This permanently removes the order. To end access and keep the history, use
-              <strong> Cancel order</strong> instead.
-            </AlertDialogDescription>
+            <AlertDialogTitle>{trx("Delete this {value}?", { value: deleteRow?.kind ?? "row" })}</AlertDialogTitle>
+            <AlertDialogDescription>{tr("This permanently removes the order. To end access and keep the history, use")}<strong>{" "}{tr("Cancel order")}</strong>{" "}{tr("instead.")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{tr("Cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deleteRow && deleteMutation.mutate(deleteRow)}
               variant="destructive"
-            >
-              Delete
-            </AlertDialogAction>
+            >{tr("Delete")}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -1098,24 +1065,21 @@ function CourtEditForm({
   return (
     <div className="mt-6 space-y-4">
       <dl className="rounded-radius-md bg-inset p-4 text-[14px]">
-        <Field label="Calendar" value={row.plan_name ?? "—"} />
-        <Field label="Date" value={row.start_date ?? "—"} />
-        <Field label="Time" value={row.time_label ?? "—"} />
-        <Field label="Status" value={row.status} />
+        <Field label={tr("Calendar")} value={row.plan_name ?? "—"} />
+        <Field label={tr("Date")} value={row.start_date ?? "—"} />
+        <Field label={tr("Time")} value={row.time_label ?? "—"} />
+        <Field label={tr("Status")} value={row.status} />
       </dl>
-      <p className="text-[13px] text-muted-foreground">
-        To move this booking to another time, use the provider's calendar — it
-        checks the new slot against everything else booked on it.
-      </p>
+      <p className="text-[13px] text-muted-foreground">{tr("To move this booking to another time, use the provider's calendar — it checks the new slot against everything else booked on it.")}</p>
       <SheetFooter className="mt-4">
         <Button
           variant="destructive"
           onClick={onCancelBooking}
           disabled={saving || cancelled}
           loading={saving}
-          loadingText="Cancelling…"
+          loadingText={tr("Cancelling…")}
         >
-          {cancelled ? "Already cancelled" : "Cancel booking"}
+          {cancelled ? tr("Already cancelled") : tr("Cancel booking")}
         </Button>
       </SheetFooter>
     </div>
@@ -1161,9 +1125,9 @@ function EditForm({
     setPriceDollars(typeof row.price_cents === "number" ? (row.price_cents / 100).toFixed(2) : "");
   }, [row.id]);
 
-  const dateError = start && end && end < start ? "The end date is before the start date." : null;
+  const dateError = start && end && end < start ? tr("The end date is before the start date.") : null;
   const cents = Math.round(parseFloat(priceDollars || "0") * 100);
-  const priceError = !paid && (Number.isNaN(cents) || cents < 0) ? "Enter an amount of 0 or more." : null;
+  const priceError = !paid && (Number.isNaN(cents) || cents < 0) ? tr("Enter an amount of 0 or more.") : null;
   const changed =
     statusV !== row.status ||
     start !== (row.start_date ?? "") ||
@@ -1186,31 +1150,31 @@ function EditForm({
   return (
     <div className="mt-4 space-y-4">
       <div>
-        <Label>Status</Label>
+        <Label>{tr("Status")}</Label>
         <Select value={statusV} onValueChange={setStatusV}>
           <SelectTrigger><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
-            <SelectItem value="paused">Paused</SelectItem>
-            <SelectItem value="cancelled">Cancelled</SelectItem>
-            <SelectItem value="expired">Expired</SelectItem>
+            <SelectItem value="active">{tr("Active")}</SelectItem>
+            <SelectItem value="pending">{tr("Pending")}</SelectItem>
+            <SelectItem value="paused">{tr("Paused")}</SelectItem>
+            <SelectItem value="cancelled">{tr("Cancelled")}</SelectItem>
+            <SelectItem value="expired">{tr("Expired")}</SelectItem>
           </SelectContent>
         </Select>
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <Label>Start</Label>
+          <Label>{tr("Start")}</Label>
           <Input type="date" value={start} onChange={(e) => setStart(e.target.value)} />
         </div>
         <div>
-          <Label>End</Label>
+          <Label>{tr("End")}</Label>
           <Input type="date" value={end} min={start || undefined} onChange={(e) => setEnd(e.target.value)} aria-invalid={!!dateError} />
         </div>
       </div>
       {dateError && <p className="text-meta text-negative">{dateError}</p>}
       <div>
-        <Label>Amount ($)</Label>
+        <Label>{tr("Amount ($)")}</Label>
         <Input
           type="number"
           step="0.01"
@@ -1220,13 +1184,13 @@ function EditForm({
           onChange={(e) => setPriceDollars(e.target.value)}
         />
         <p className="mt-1 text-meta text-muted-foreground">
-          {paid ? "Already paid, so the amount is fixed. Use Refund to give money back." : "Can be changed until the order is paid."}
+          {paid ? tr("Already paid, so the amount is fixed. Use Refund to give money back.") : tr("Can be changed until the order is paid.")}
         </p>
         {priceError && <p className="mt-1 text-meta text-negative">{priceError}</p>}
       </div>
       <SheetFooter className="mt-4 gap-2">
-        {onCancel && <Button variant="ghost" onClick={onCancel} disabled={saving}>Back</Button>}
-        <Button onClick={submit} disabled={saving || !changed || !!dateError || !!priceError} loading={saving} loadingText="Saving…">Save changes</Button>
+        {onCancel && <Button variant="ghost" onClick={onCancel} disabled={saving}>{tr("Back")}</Button>}
+        <Button onClick={submit} disabled={saving || !changed || !!dateError || !!priceError} loading={saving} loadingText={tr("Saving…")}>{tr("Save changes")}</Button>
       </SheetFooter>
     </div>
   );

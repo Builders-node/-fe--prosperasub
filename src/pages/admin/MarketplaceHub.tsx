@@ -16,6 +16,7 @@ import { logAuditEvent } from "@/lib/auditLog";
 import { cn } from "@/lib/utils";
 import { DragHandle, useDragOrder } from "@/hooks/useDragOrder";
 import { fetchApplications } from "@/lib/admin/providerApplications";
+import { tr, trx } from "@/lib/tr";
 
 /** Sentinel bucket for rows whose `archetype_key` is null. */
 const UNASSIGNED = "__unassigned";
@@ -149,7 +150,7 @@ export default function MarketplaceHub() {
       const n = await writeOrder("service_archetypes", keys, new Map(archetypes.map((a) => [a.key, a.sort_order])));
       if (userData?.id && n) await logAuditEvent(userData.id, "edit", "service_archetype", "order", { order: keys });
     },
-    onSuccess: () => { toast.success("Order saved. The site shows services in this order."); invalidateServices(); },
+    onSuccess: () => { toast.success(tr("Order saved. The site shows services in this order.")); invalidateServices(); },
     onError: (e: Error) => { toast.error(e.message); setOrder(archetypes.map((a) => a.key)); },
   });
 
@@ -170,7 +171,7 @@ export default function MarketplaceHub() {
       if (userData?.id && n) await logAuditEvent(userData.id, "edit", "service_category", `order:${serviceKey}`, { order: keys });
     },
     onSuccess: () => {
-      toast.success("Category order saved");
+      toast.success(tr("Category order saved"));
       void qc.invalidateQueries({ queryKey: COUNTS_KEY });
       void qc.invalidateQueries({ predicate: (q) => String(q.queryKey[0] ?? "").includes("categor") });
     },
@@ -186,10 +187,10 @@ export default function MarketplaceHub() {
     },
     onSuccess: ({ key, next }) => {
       invalidateServices();
-      const label = byKey.get(key)?.label ?? "Service";
-      if (next) toast.success(`${label} is on the site`);
-      else toast(`${label} is hidden from the site`, {
-        action: { label: "Undo", onClick: () => setActive.mutate({ key, next: true }) },
+      const label = byKey.get(key)?.label ?? tr("Service");
+      if (next) toast.success(tr("{label} is on the site", { label }));
+      else toast(tr("{label} is hidden from the site", { label }), {
+        action: { label: tr("Undo"), onClick: () => setActive.mutate({ key, next: true }) },
       });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -204,12 +205,11 @@ export default function MarketplaceHub() {
 
   return (
     <SuperAdminLayout
-      title="Services"
-      subtitle="What the platform sells. Drag to set the order on the site."
+      title={tr("Services")}
+      subtitle={tr("What the platform sells. Drag to set the order on the site.")}
       actions={
         <Button className="gap-2" onClick={() => setServiceTarget("new")}>
-          <Plus className="h-4 w-4" /> New service
-        </Button>
+          <Plus className="h-4 w-4" />{" "}{tr("New service")}</Button>
       }
     >
       {loading ? (
@@ -233,7 +233,7 @@ export default function MarketplaceHub() {
                 >
                   <DragHandle label={a.label} {...drag.handleProps(a.key)} className="mt-2.5 sm:mt-0" />
 
-                  <button type="button" onClick={() => setServiceTarget(a)} aria-label={`Edit ${a.label}`}
+                  <button type="button" onClick={() => setServiceTarget(a)} aria-label={tr("Edit {label}", { label: a.label })}
                     className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-radius-md bg-inset hover:bg-muted", !a.is_active && "opacity-50")}>
                     <a.Icon className="h-5 w-5 text-foreground" />
                   </button>
@@ -246,7 +246,7 @@ export default function MarketplaceHub() {
                           {plural(at(counts?.businesses, a.key), "business", "businesses")}
                         </StatLink>
                         {at(counts?.businesses, a.key) > 0 && (
-                          <>, <StatLink to={`/admin/marketplace/providers?service=${a.key}&status=active`}>{at(counts?.live, a.key)} live</StatLink></>
+                          <>, <StatLink to={`/admin/marketplace/providers?service=${a.key}&status=active`}>{trx("{at} live", { at: at(counts?.live, a.key) })}</StatLink></>
                         )}
                         {" · "}
                         <StatLink to={`/admin/marketplace/plans?service=${a.key}`}>{plural(at(counts?.plans, a.key), "plan", "plans")}</StatLink>
@@ -264,7 +264,7 @@ export default function MarketplaceHub() {
                       onCommit={(keys) => saveChipOrder.mutate({ serviceKey: a.key, keys })}
                       onOpen={setCatTarget}
                       onAdd={() => setCatTarget({ newIn: a.key })}
-                      addLabel={`Add a category to ${a.label}`}
+                      addLabel={tr("Add a category to {label}", { label: a.label })}
                     />
                   </div>
 
@@ -273,10 +273,10 @@ export default function MarketplaceHub() {
                       checked={a.is_active}
                       disabled={setActive.isPending}
                       onCheckedChange={(next) => setActive.mutate({ key: a.key, next })}
-                      aria-label={a.is_active ? `${a.label} is on the site. Switch off` : `${a.label} is hidden. Switch on`}
-                      title={a.is_active ? "On the site" : "Hidden from the site"}
+                      aria-label={a.is_active ? tr("{label} is on the site. Switch off", { label: a.label }) : tr("{label} is hidden. Switch on", { label: a.label })}
+                      title={a.is_active ? tr("On the site") : tr("Hidden from the site")}
                     />
-                    <button type="button" onClick={() => setServiceTarget(a)} aria-label={`Edit ${a.label}`}
+                    <button type="button" onClick={() => setServiceTarget(a)} aria-label={tr("Edit {label}", { label: a.label })}
                       className="hidden h-8 w-8 items-center justify-center rounded-full text-muted-foreground hover:bg-inset hover:text-foreground sm:flex">
                       <ChevronRight className="h-4 w-4" />
                     </button>
@@ -285,7 +285,7 @@ export default function MarketplaceHub() {
               );
             })}
             {rows.length === 0 && (
-              <li className="p-6 text-center text-body text-muted-foreground">No services yet. Add the first one.</li>
+              <li className="p-6 text-center text-body text-muted-foreground">{tr("No services yet. Add the first one.")}</li>
             )}
           </ul>
 
@@ -295,15 +295,13 @@ export default function MarketplaceHub() {
                 <AlertTriangle className="h-5 w-5 text-attention" />
               </span>
               <div className="min-w-0 flex-1">
-                <p className="text-body font-semibold text-foreground">Not in any service</p>
+                <p className="text-body font-semibold text-foreground">{tr("Not in any service")}</p>
                 <p className="text-meta text-muted-foreground">
                   {orphans.businesses > 0 && (
                     <StatLink to="/admin/marketplace/providers?service=unassigned">{plural(orphans.businesses, "business", "businesses")}</StatLink>
                   )}
                   {orphans.businesses > 0 && orphans.plans > 0 && " · "}
-                  {orphans.plans > 0 && plural(orphans.plans, "plan", "plans")}
-                  {" "}— give them a service or remove them.
-                </p>
+                  {orphans.plans > 0 && plural(orphans.plans, "plan", "plans")}{" "}{tr("— give them a service or remove them.")}</p>
                 {orphans.categories.length > 0 && (
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
                     {orphans.categories.map((c) => (
@@ -371,7 +369,7 @@ function ChipRow({ chips, onReorder, onCommit, onOpen, onAdd, addLabel }: {
             !c.is_active && "text-muted-foreground line-through decoration-muted-foreground/50",
             drag.draggingKey === c.key && "outline outline-1 -outline-offset-1 outline-primary",
           )}
-          title={c.is_active ? `Edit ${c.label}. Drag to reorder.` : `${c.label} (hidden)`}
+          title={c.is_active ? tr("Edit {label}. Drag to reorder.", { label: c.label }) : tr("{label} (hidden)", { label: c.label })}
         >
           {c.label}
         </button>
@@ -380,10 +378,10 @@ function ChipRow({ chips, onReorder, onCommit, onOpen, onAdd, addLabel }: {
         type="button"
         onClick={onAdd}
         aria-label={addLabel}
-        title="Add a category"
+        title={tr("Add a category")}
         className="inline-flex h-7 items-center gap-1 rounded-full border border-dashed border-border px-2 text-meta text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground"
       >
-        <Plus className="h-3.5 w-3.5" />{chips.length === 0 && "Add category"}
+        <Plus className="h-3.5 w-3.5" />{chips.length === 0 && tr("Add category")}
       </button>
     </div>
   );

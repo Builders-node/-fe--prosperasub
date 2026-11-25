@@ -5,6 +5,7 @@ import { formatUSD } from "@/lib/pricing";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import { tr, trx } from "@/lib/tr";
 
 interface Summary { totals: Array<{ type: string; total: number }>; grandTotal: number }
 interface Revenue { totalCents: number; byMethod: Array<{ method: string; cents: number }> }
@@ -38,18 +39,16 @@ export function DomainEventBusPanel() {
     <section className="mt-8 rounded-radius-md border border-border bg-card p-5">
       <div className="flex flex-wrap items-center gap-2">
         <Activity className="h-5 w-5 text-primary" />
-        <h3 className="font-bold text-foreground">Domain event bus</h3>
-        <span className="ml-auto text-xs text-muted-foreground">event-sourced · DDD backbone</span>
+        <h3 className="font-bold text-foreground">{tr("Domain event bus")}</h3>
+        <span className="ml-auto text-xs text-muted-foreground">{tr("event-sourced · DDD backbone")}</span>
       </div>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Live counts from the platform's domain events (Billing, Membership, Booking, Order, …).
-      </p>
+      <p className="mt-1 text-sm text-muted-foreground">{tr("Live counts from the platform's domain events (Billing, Membership, Booking, Order, …).")}</p>
 
       <div className="mt-4 grid gap-4 md:grid-cols-2">
         <div>
           <div className="mb-2 flex items-baseline justify-between">
-            <span className="text-meta font-semibold text-muted-foreground">Events by type</span>
-            <span className="text-sm tabular-nums text-muted-foreground">{summary?.grandTotal ?? 0} total</span>
+            <span className="text-meta font-semibold text-muted-foreground">{tr("Events by type")}</span>
+            <span className="text-sm tabular-nums text-muted-foreground">{trx("{value} total", { value: summary?.grandTotal ?? 0 })}</span>
           </div>
           <div>
             <Table>
@@ -61,7 +60,7 @@ export function DomainEventBusPanel() {
                   </TableRow>
                 ))}
                 {(!summary || summary.totals.length === 0) && (
-                  <TableRow><TableCell className="px-3 py-3 text-sm text-muted-foreground">No events yet — they appear as payments/bookings happen.</TableCell></TableRow>
+                  <TableRow><TableCell className="px-3 py-3 text-sm text-muted-foreground">{tr("No events yet — they appear as payments/bookings happen.")}</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>
@@ -70,7 +69,7 @@ export function DomainEventBusPanel() {
 
         <div>
           <div className="mb-2 flex items-baseline justify-between">
-            <span className="text-meta font-semibold text-muted-foreground">Revenue by method (projection)</span>
+            <span className="text-meta font-semibold text-muted-foreground">{tr("Revenue by method (projection)")}</span>
             <span className="text-sm font-bold tabular-nums text-primary">{formatUSD(revenue?.totalCents ?? 0)}</span>
           </div>
           <div>
@@ -83,7 +82,7 @@ export function DomainEventBusPanel() {
                   </TableRow>
                 ))}
                 {(!revenue || revenue.byMethod.length === 0) && (
-                  <TableRow><TableCell className="px-3 py-3 text-sm text-muted-foreground">No captured revenue in the projection yet.</TableCell></TableRow>
+                  <TableRow><TableCell className="px-3 py-3 text-sm text-muted-foreground">{tr("No captured revenue in the projection yet.")}</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>

@@ -15,6 +15,7 @@ import {
   getValidStoredSession, refreshStoredSession, api, adminApi, accountApi,
   type StoredSession, type AuthStateChangeCallback,
 } from "@/integrations/supabase/session";
+import { tr } from "@/lib/tr";
 
 // The session layer moved to its own file; these stay exported from here so
 // no call site had to change.
@@ -391,7 +392,7 @@ export async function ensureCleaningSlot(
   if (raced) return raced;
 
   throw new Error(
-    `Could not open a ${normalizedStart.slice(0, 5)} slot on ${date}: ${error?.message ?? "unknown error"}`,
+    tr("Could not open a {slice} slot on {date}: {value}", { slice: normalizedStart.slice(0, 5), date, value: error?.message ?? tr("unknown error") }),
   );
 }
 
@@ -524,7 +525,7 @@ class OwnedQueryBuilder {
     // ── USER_PROFILES ──
     if (this.table === "user_profiles") {
       const user = ownedUserFromSession();
-      if (!user) return { data: null, error: new Error("Not authenticated") };
+      if (!user) return { data: null, error: new Error(tr("Not authenticated")) };
 
       if (action === "insert" || action === "upsert") {
         const input = Array.isArray(values) ? values[0] : values;
@@ -748,7 +749,7 @@ class OwnedQueryBuilder {
       if (this.singleMode && Array.isArray(result.data)) {
         const row = result.data[0] ?? null;
         if (!row && this.singleMode === "single") {
-          return { data: null, error: new Error("No rows found") };
+          return { data: null, error: new Error(tr("No rows found")) };
         }
         return { data: row, error: result.error };
       }
@@ -775,7 +776,7 @@ class OwnedQueryBuilder {
     if (this.singleMode) {
       const row = rows[0] ?? null;
       if (!row && this.singleMode === "single") {
-        return { data: null, error: new Error("No rows found"), count };
+        return { data: null, error: new Error(tr("No rows found")), count };
       }
       return { data: row, error: null, count };
     }
@@ -994,7 +995,7 @@ export const supabase = {
     },
     async signInWithOAuth({ provider, options }: { provider: string; options?: { redirectTo?: string } }) {
       if (provider !== "google") {
-        return { data: null, error: new Error("Only Google OAuth is supported") };
+        return { data: null, error: new Error(tr("Only Google OAuth is supported")) };
       }
       const redirectUrl = options?.redirectTo || `${window.location.origin}/auth`;
       const state =
@@ -1024,12 +1025,12 @@ export const supabase = {
       redirectTo?: string;
     }) {
       if (provider !== "google") {
-        return { data: null, error: new Error("Only Google OAuth is supported") };
+        return { data: null, error: new Error(tr("Only Google OAuth is supported")) };
       }
       const expectedState = localStorage.getItem(GOOGLE_OAUTH_STATE_KEY);
       localStorage.removeItem(GOOGLE_OAUTH_STATE_KEY);
       if (!state || !expectedState || state !== expectedState) {
-        return { data: null, error: new Error("Google login state could not be verified") };
+        return { data: null, error: new Error(tr("Google login state could not be verified")) };
       }
       const result = await api("/auth/google/callback", {
         method: "POST",
@@ -1124,10 +1125,10 @@ export const supabase = {
         const notes = typeof params?.p_notes === "string" ? params.p_notes.trim() : "";
 
         if (!subscriptionId || Number.isNaN(dayOfWeek) || dayOfWeek < 1 || dayOfWeek > 6 || !startTime) {
-          return { data: null, error: new Error("Choose a weekday and time slot") };
+          return { data: null, error: new Error(tr("Choose a weekday and time slot")) };
         }
         if (!notes) {
-          return { data: null, error: new Error("Apartment / access notes are required") };
+          return { data: null, error: new Error(tr("Apartment / access notes are required")) };
         }
 
         const { data: subData, error: subError } = await db
@@ -1137,19 +1138,19 @@ export const supabase = {
           .single();
 
         if (subError || !subData) {
-          return { data: null, error: new Error("Subscription not found") };
+          return { data: null, error: new Error(tr("Subscription not found")) };
         }
         if (subData.payment_status !== "paid") {
-          return { data: null, error: new Error("Payment must be completed before scheduling") };
+          return { data: null, error: new Error(tr("Payment must be completed before scheduling")) };
         }
         if (!["pending_schedule", "active"].includes(subData.subscription_status)) {
-          return { data: null, error: new Error("This cleaning subscription cannot be scheduled") };
+          return { data: null, error: new Error(tr("This cleaning subscription cannot be scheduled")) };
         }
 
         const periodStart = toDateOnly(subData.service_start_date || subData.start_date || formatDate(new Date()));
         const periodEnd   = toDateOnly(subData.paid_until || subData.service_end_date || subData.end_date);
         if (!periodStart || !periodEnd || periodEnd < periodStart) {
-          return { data: null, error: new Error("Cleaning service period is invalid") };
+          return { data: null, error: new Error(tr("Cleaning service period is invalid")) };
         }
 
         const today = toDateOnly(formatDate(new Date()));
@@ -1159,7 +1160,7 @@ export const supabase = {
         });
 
         if (recurringDates.length === 0) {
-          return { data: null, error: new Error("No future cleanings match this schedule") };
+          return { data: null, error: new Error(tr("No future cleanings match this schedule")) };
         }
 
         await ensureSlotsSeeded();
@@ -1225,7 +1226,7 @@ export const supabase = {
         if (unavailableDate) {
           return {
             data: null,
-            error: new Error(`The selected time is not available for every week. First conflict: ${unavailableDate}`),
+            error: new Error(tr("The selected time is not available for every week. First conflict: {unavailableDate}", { unavailableDate })),
           };
         }
 
@@ -1338,18 +1339,18 @@ export const supabase = {
         ]);
 
         if (!subData || !subData.is_active || subData.cleanings_remaining <= 0) {
-          return { data: null, error: new Error("No active cleaning subscription available") };
+          return { data: null, error: new Error(tr("No active cleaning subscription available")) };
         }
         if (!slotData || !slotData.is_active) {
-          return { data: null, error: new Error("This cleaning slot is no longer available") };
+          return { data: null, error: new Error(tr("This cleaning slot is no longer available")) };
         }
         if (slotData.current_bookings >= slotData.max_bookings) {
-          return { data: null, error: new Error("This cleaning slot is full") };
+          return { data: null, error: new Error(tr("This cleaning slot is full")) };
         }
 
         const slotDate = new Date(`${slotData.date}T00:00:00`);
         if (slotDate.getDay() === 0) {
-          return { data: null, error: new Error("Cleaning is available Monday through Saturday") };
+          return { data: null, error: new Error(tr("Cleaning is available Monday through Saturday")) };
         }
 
         // Check daily booking limit (max 3 per day across all users)
@@ -1365,7 +1366,7 @@ export const supabase = {
         const slotIdsForDay = new Set((allSlotsForDay || []).map((s: any) => s.id));
         const dayBookingCount = (dayBookings || []).filter((b: any) => slotIdsForDay.has(b.slot_id)).length;
         if (dayBookingCount >= 3) {
-          return { data: null, error: new Error("This day is fully booked") };
+          return { data: null, error: new Error(tr("This day is fully booked")) };
         }
 
         // Check weekly booking for this subscription
@@ -1391,7 +1392,7 @@ export const supabase = {
 
         const hasWeeklyBooking = (weekBookings || []).some((b: any) => weekSlotIds.has(b.slot_id));
         if (hasWeeklyBooking) {
-          return { data: null, error: new Error("You already have a cleaning booked for this week") };
+          return { data: null, error: new Error(tr("You already have a cleaning booked for this week")) };
         }
 
         const now = new Date().toISOString();
@@ -1444,12 +1445,12 @@ export const supabase = {
             return {
               data: null,
               error: new Error(
-                skipped.length ? "This booking is already cancelled or completed" : "Booking not found",
+                skipped.length ? tr("This booking is already cancelled or completed") : tr("Booking not found"),
               ),
             };
           }
         } catch (err) {
-          return { data: null, error: err instanceof Error ? err : new Error("Could not cancel booking") };
+          return { data: null, error: err instanceof Error ? err : new Error(tr("Could not cancel booking")) };
         }
 
         // Auto-sync cancellation to Google Calendar
@@ -1469,7 +1470,7 @@ export const supabase = {
           .single();
 
         if (findError || !booking) {
-          return { data: null, error: new Error("Cleaning booking not found") };
+          return { data: null, error: new Error(tr("Cleaning booking not found")) };
         }
 
         const now = new Date().toISOString();
@@ -1510,7 +1511,7 @@ export const supabase = {
     // so a caller's error branch actually runs.
     return Promise.resolve({
       data: null,
-      error: new Error(`RPC "${name}" is not available through this client. Use supabaseDb for direct Postgres functions.`),
+      error: new Error(tr("RPC \"{name}\" is not available through this client. Use supabaseDb for direct Postgres functions.", { name })),
     });
   },
 
@@ -1547,7 +1548,7 @@ export const supabase = {
           body: JSON.stringify(options?.body || {}),
         });
       }
-      return { data: null, error: new Error(`Function ${name} is not implemented`) };
+      return { data: null, error: new Error(tr("Function {name} is not implemented", { name })) };
     },
   },
 
@@ -1599,7 +1600,7 @@ export const supabase = {
   storage: {
     from() {
       return {
-        upload: async () => ({ data: null, error: new Error("Storage is not connected yet.") }),
+        upload: async () => ({ data: null, error: new Error(tr("Storage is not connected yet.")) }),
         getPublicUrl: () => ({ data: { publicUrl: "" } }),
       };
     },

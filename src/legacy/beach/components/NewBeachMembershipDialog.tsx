@@ -20,6 +20,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { logAuditEvent } from "@/lib/auditLog";
 import { todayHN } from "@/lib/timezone";
 import { formatUSD, centsToInput } from "@/lib/pricing";
+import { tr, trx } from "@/lib/tr";
 
 /**
  * Admin "issue a Beach Club membership to a customer" dialog — mounted on the
@@ -96,10 +97,10 @@ export function NewBeachMembershipDialog({ providerUniversalId, trigger }: Props
 
   const create = useMutation({
     mutationFn: async () => {
-      if (!userId) throw new Error("Pick a customer");
-      if (!planId || !selectedPlan) throw new Error("Pick a membership plan");
-      if (!startDate) throw new Error("Pick a start date");
-      if (unitCents <= 0) throw new Error("Price must be greater than 0");
+      if (!userId) throw new Error(tr("Pick a customer"));
+      if (!planId || !selectedPlan) throw new Error(tr("Pick a membership plan"));
+      if (!startDate) throw new Error(tr("Pick a start date"));
+      if (unitCents <= 0) throw new Error(tr("Price must be greater than 0"));
 
       const payload = {
         provider_id: providerUniversalId,
@@ -141,13 +142,13 @@ export function NewBeachMembershipDialog({ providerUniversalId, trigger }: Props
       return data?.id;
     },
     onSuccess: () => {
-      toast.success("Membership issued");
+      toast.success(tr("Membership issued"));
       qc.invalidateQueries({ queryKey: ["provider-subscribers"] });
       qc.invalidateQueries({ queryKey: ["provider-analytics"] });
       qc.invalidateQueries({ queryKey: ["unified-bookings"] });
       resetAndClose();
     },
-    onError: (e: Error) => toast.error(e.message || "Could not issue membership"),
+    onError: (e: Error) => toast.error(e.message || tr("Could not issue membership")),
   });
 
   const resetAndClose = () => {
@@ -159,8 +160,7 @@ export function NewBeachMembershipDialog({ providerUniversalId, trigger }: Props
 
   const defaultTrigger = (
     <Button variant="secondary" onClick={() => setOpen(true)} className="gap-2">
-      <Plus className="h-4 w-4" /> New membership
-    </Button>
+      <Plus className="h-4 w-4" />{" "}{tr("New membership")}</Button>
   );
 
   return (
@@ -171,13 +171,12 @@ export function NewBeachMembershipDialog({ providerUniversalId, trigger }: Props
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Waves className="h-5 w-5 text-primary" /> New membership
-            </DialogTitle>
+              <Waves className="h-5 w-5 text-primary" />{" "}{tr("New membership")}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
             <div>
-              <Label>Customer *</Label>
+              <Label>{tr("Customer *")}</Label>
               <UserPicker
                 providerId={providerUniversalId ?? null}
                 value={userId}
@@ -188,20 +187,20 @@ export function NewBeachMembershipDialog({ providerUniversalId, trigger }: Props
                     setCustomerEmail(u.email || "");
                   }
                 }}
-                placeholder="Pick a platform user…"
+                placeholder={tr("Pick a platform user…")}
               />
             </div>
 
             <div>
-              <Label>Membership plan *</Label>
+              <Label>{tr("Membership plan *")}</Label>
               <Select value={planId} onValueChange={setPlanId}>
                 <SelectTrigger>
-                  <SelectValue placeholder={plansLoading ? "Loading…" : "Pick a plan"} />
+                  <SelectValue placeholder={plansLoading ? tr("Loading…") : tr("Pick a plan")} />
                 </SelectTrigger>
                 <SelectContent>
                   {plans.length === 0 && (
                     <div className="px-3 py-2 text-xs text-muted-foreground">
-                      {plansLoading ? "Loading plans…" : "This club has no plans yet."}
+                      {plansLoading ? tr("Loading plans…") : tr("This club has no plans yet.")}
                     </div>
                   )}
                   {plans.map((p) => (
@@ -215,7 +214,7 @@ export function NewBeachMembershipDialog({ providerUniversalId, trigger }: Props
 
             <div className="grid grid-cols-3 gap-3">
               <div>
-                <Label>{perPerson ? "Price / person ($)" : "Price ($)"}</Label>
+                <Label>{perPerson ? tr("Price / person ($)") : "Price ($)"}</Label>
                 <Input
                   type="number" min={0} step={0.01}
                   value={centsToInput(unitCents)}
@@ -223,7 +222,7 @@ export function NewBeachMembershipDialog({ providerUniversalId, trigger }: Props
                 />
               </div>
               <div>
-                <Label>People</Label>
+                <Label>{tr("People")}</Label>
                 <Input
                   type="number" min={1}
                   value={people}
@@ -232,7 +231,7 @@ export function NewBeachMembershipDialog({ providerUniversalId, trigger }: Props
                 />
               </div>
               <div>
-                <Label>Months *</Label>
+                <Label>{tr("Months *")}</Label>
                 <Input
                   type="number" min={1}
                   value={months}
@@ -242,15 +241,14 @@ export function NewBeachMembershipDialog({ providerUniversalId, trigger }: Props
             </div>
 
             <div>
-              <Label>Start date *</Label>
+              <Label>{tr("Start date *")}</Label>
               <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-              <p className="mt-1 text-xs text-muted-foreground">
-                Ends {endDate} · Total <b>{formatUSD(totalCents)}</b>
+              <p className="mt-1 text-xs text-muted-foreground">{trx("Ends {endDate} · Total", { endDate })}{" "}<b>{formatUSD(totalCents)}</b>
               </p>
             </div>
 
             <div>
-              <Label>WhatsApp (optional)</Label>
+              <Label>{tr("WhatsApp (optional)")}</Label>
               <Input
                 type="tel" value={customerWhatsapp}
                 onChange={(e) => setCustomerWhatsapp(e.target.value)}
@@ -259,20 +257,18 @@ export function NewBeachMembershipDialog({ providerUniversalId, trigger }: Props
             </div>
 
             <div>
-              <Label>Notes (optional)</Label>
+              <Label>{tr("Notes (optional)")}</Label>
               <Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="ghost" onClick={resetAndClose}>Cancel</Button>
+            <Button variant="ghost" onClick={resetAndClose}>{tr("Cancel")}</Button>
             <Button
               onClick={() => create.mutate()}
               disabled={!userId || !planId || unitCents <= 0 || create.isPending}
             >
-              {create.isPending && <Spinner size="sm" className="mr-2" />}
-              Issue membership
-            </Button>
+              {create.isPending && <Spinner size="sm" className="mr-2" />}{tr("Issue membership")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

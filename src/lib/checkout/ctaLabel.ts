@@ -1,5 +1,6 @@
 import { formatUSD } from "@/lib/pricing";
 import { periodNoun } from "@/lib/services/planPeriod";
+import { tr } from "@/lib/tr";
 
 /**
  * What a primary button is allowed to say.
@@ -31,7 +32,7 @@ import { periodNoun } from "@/lib/services/planPeriod";
 
 export const SUBSCRIBE = "Subscribe";
 export const BUY = "Buy";
-export const ADD_TO_CART = "Add to cart";
+export const ADD_TO_CART = tr("Add to cart");
 
 /** "" · "/ person" · "/ month" · "/ person / month" */
 export function unitSuffix(opts?: { perPerson?: boolean; period?: string | null }): string {
@@ -52,7 +53,7 @@ export function unitSuffix(opts?: { perPerson?: boolean; period?: string | null 
  */
 export function priceUnit(opts?: { perPerson?: boolean; period?: string | null }): string {
   const suffix = unitSuffix(opts);
-  if (opts?.period && !periodNoun(opts.period)) return opts.perPerson ? "/ person · one-time" : "one-time";
+  if (opts?.period && !periodNoun(opts.period)) return opts.perPerson ? tr("/ person · one-time") : tr("one-time");
   return suffix;
 }
 
@@ -82,14 +83,14 @@ export function normalizeUnit(raw?: string | null): string {
  * "/ person / month" beside it would misstate the charge.
  */
 export function payLabel(cents?: number | null, suffix = ""): string {
-  if (typeof cents !== "number" || cents <= 0) return "Pay";
-  return `Pay ${formatUSD(cents)}${suffix ? ` ${suffix}` : ""}`;
+  if (typeof cents !== "number" || cents <= 0) return tr("Pay");
+  return tr("Pay {cents}{value}", { cents: formatUSD(cents), value: suffix ? ` ${suffix}` : "" });
 }
 
 /** "From $79.00 / month" — a range, shown beside a button, never inside one. */
 export function fromLabel(cents?: number | null, suffix = ""): string | null {
   if (typeof cents !== "number" || cents <= 0) return null;
-  return `From ${formatUSD(cents)}${suffix ? ` ${suffix}` : ""}`;
+  return tr("From {cents}{value}", { cents: formatUSD(cents), value: suffix ? ` ${suffix}` : "" });
 }
 
 /**

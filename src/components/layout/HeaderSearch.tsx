@@ -6,9 +6,10 @@ import { Spinner } from "@/components/ui/spinner";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { SEARCH_GROUPS, useGlobalSearch, type SearchHit } from "@/hooks/useGlobalSearch";
+import { tr, trx } from "@/lib/tr";
 
 const MAX_HITS = 8;
-const KIND_LABEL: Record<SearchHit["kind"], string> = { category: "Category", service: "Service", provider: "Business", plan: "Plan", vehicle: "Vehicle" };
+const KIND_LABEL: Record<SearchHit["kind"], string> = { category: tr("Category"), service: tr("Service"), provider: tr("Business"), plan: tr("Plan"), vehicle: tr("Vehicle") };
 
 /**
  * Search on EverySub, in the desktop header.
@@ -90,14 +91,14 @@ export function HeaderSearch({ initialQuery = "" }: {
           onChange={(e) => { setQuery(e.target.value); setOpen(true); setActive(0); }}
           onFocus={() => setOpen(true)}
           onKeyDown={onKeyDown}
-          placeholder="Search on EverySub"
-          aria-label="Search on EverySub"
+          placeholder={tr("Search on EverySub")}
+          aria-label={tr("Search on EverySub")}
           className="min-w-0 flex-1 bg-transparent text-[16px] text-foreground outline-none placeholder:text-muted-foreground [&::-webkit-search-cancel-button]:hidden"
         />
         {query ? (
           <button
             type="button"
-            aria-label="Clear search"
+            aria-label={tr("Clear search")}
             onClick={() => { setQuery(""); inputRef.current?.focus(); }}
             className="grid h-6 w-6 shrink-0 place-items-center rounded-full text-muted-foreground hover:text-foreground"
           >
@@ -145,9 +146,9 @@ function SearchDropdown({
       {isLoading ? (
         <div className="flex justify-center py-6"><Spinner /></div>
       ) : isError ? (
-        <p className="px-4 py-4 text-meta text-muted-foreground">Couldn't search right now.</p>
+        <p className="px-4 py-4 text-meta text-muted-foreground">{tr("Couldn't search right now.")}</p>
       ) : hits.length === 0 ? (
-        <p className="px-4 py-4 text-meta text-muted-foreground">Nothing matches “{query}”.</p>
+        <p className="px-4 py-4 text-meta text-muted-foreground">{trx("Nothing matches “{query}”.", { query })}</p>
       ) : (
         hits.map((hit, i) => (
           <Link
@@ -179,8 +180,7 @@ function SearchDropdown({
             active === hits.length && hits.length > 0 && "bg-muted",
           )}
         >
-          <SearchIcon className="h-4 w-4" /> See all results for “{query}”
-        </button>
+          <SearchIcon className="h-4 w-4" />{" "}{trx("See all results for “{query}”", { query })}</button>
       )}
     </div>
   );

@@ -26,6 +26,7 @@ import { EditUserForm } from "./Users";
 import { Photo, initialsOf } from "@/components/patterns/Photo";
 import { useCustomerBusinesses } from "@/lib/admin/useCustomerBusinesses";
 import { useServiceArchetypes } from "@/hooks/useServiceArchetypes";
+import { tr, trx, dfLocale } from "@/lib/tr";
 
 /**
  * One customer, on one page (`/admin/customers/:userId`).
@@ -87,7 +88,7 @@ export default function AdminCustomer() {
   // Businesses they own or help run — a customer here may also be a seller.
   const businessesQ = useCustomerBusinesses(userId, user?.email);
   const { archetypes } = useServiceArchetypes(false);
-  const serviceLabel = (key: string | null) => archetypes.find((a) => a.key === key)?.label ?? "No service";
+  const serviceLabel = (key: string | null) => archetypes.find((a) => a.key === key)?.label ?? tr("No service");
 
   // Support messages are service-role only; the admin endpoint returns the
   // latest 200 and this keeps the ones from this person (by account, or by
@@ -110,7 +111,7 @@ export default function AdminCustomer() {
   // A link to someone who is not there (deleted, mistyped) says so.
   useEffect(() => {
     if (usersQ.isLoading || usersQ.isError || user) return;
-    toast.error("That customer isn't in the list — they may have been deleted.");
+    toast.error(tr("That customer isn't in the list — they may have been deleted."));
     navigate("/admin/users", { replace: true });
   }, [usersQ.isLoading, usersQ.isError, user, navigate]);
 
@@ -121,7 +122,7 @@ export default function AdminCustomer() {
       const { error } = await adminApi(`/admin/users/${userId}`, { method: "PATCH", body: JSON.stringify(fields) });
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Customer updated"); invalidate(); },
+    onSuccess: () => { toast.success(tr("Customer updated")); invalidate(); },
     onError: (e: Error) => toast.error(e.message),
   });
   const block = useMutation({
@@ -130,7 +131,7 @@ export default function AdminCustomer() {
       if (error) throw error;
       return next;
     },
-    onSuccess: (next) => { toast.success(next ? "Blocked" : "Unblocked"); invalidate(); },
+    onSuccess: (next) => { toast.success(next ? tr("Blocked") : tr("Unblocked")); invalidate(); },
     onError: (e: Error) => toast.error(e.message),
   });
   const softDelete = useMutation({
@@ -138,18 +139,18 @@ export default function AdminCustomer() {
       const { error } = await adminApi(`/admin/users/${userId}`, { method: "DELETE" });
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Customer deleted"); invalidate(); navigate("/admin/users", { replace: true }); },
+    onSuccess: () => { toast.success(tr("Customer deleted")); invalidate(); navigate("/admin/users", { replace: true }); },
     onError: (e: Error) => toast.error(e.message),
   });
 
   if (usersQ.isError) {
     return (
-      <SuperAdminLayout title="Customer" parent={{ label: "Customers", href: "/admin/users" }}>
-        <QueryError title="Couldn't load this customer" error={usersQ.error} onRetry={() => void usersQ.refetch()} />
+      <SuperAdminLayout title={tr("Customer")} parent={{ label: tr("Customers"), href: "/admin/users" }}>
+        <QueryError title={tr("Couldn't load this customer")} error={usersQ.error} onRetry={() => void usersQ.refetch()} />
       </SuperAdminLayout>
     );
   }
-  if (!user) return <SuperAdminLayout title="Customer" parent={{ label: "Customers", href: "/admin/users" }}><PageLoader /></SuperAdminLayout>;
+  if (!user) return <SuperAdminLayout title={tr("Customer")} parent={{ label: tr("Customers"), href: "/admin/users" }}><PageLoader /></SuperAdminLayout>;
 
   const name = user.display_name || user.name || user.email || "Customer";
   const contact = contacts?.get(userId);
@@ -162,7 +163,7 @@ export default function AdminCustomer() {
   const blocked = !!user.isBlocked;
 
   return (
-    <SuperAdminLayout title={name} parent={{ label: "Customers", href: "/admin/users" }}>
+    <SuperAdminLayout title={name} parent={{ label: tr("Customers"), href: "/admin/users" }}>
       <div className="space-y-1">
         {/* Who, and how to reach them. */}
         <section className="flex flex-wrap items-center gap-4 rounded-radius-lg bg-card p-4">
@@ -173,46 +174,41 @@ export default function AdminCustomer() {
             <div className="flex flex-wrap items-center gap-2">
               <p className="truncate text-title font-semibold text-foreground">{name}</p>
               {blocked
-                ? <StatusPill status="blocked" label="Blocked" />
+                ? <StatusPill status="blocked" label={tr("Blocked")} />
                 : <StatusPill status={active.length ? "active" : sales.length ? "expired" : "pending"}
-                    label={active.length ? "Customer" : sales.length ? "Lapsed" : "No purchases"} />}
+                    label={active.length ? tr("Customer") : sales.length ? tr("Lapsed") : tr("No purchases")} />}
             </div>
             <p className="truncate text-meta text-muted-foreground">
               {[user.email, phone, contact?.addressLine].filter(Boolean).join(" · ")}
             </p>
-            <p className="text-meta text-muted-foreground">
-              Joined {user.created_at ? format(new Date(user.created_at), "MMM d, yyyy") : "—"}
-              {" · "}Last seen {user.last_login_at ? format(new Date(user.last_login_at), "MMM d, yyyy") : "never"}
+            <p className="text-meta text-muted-foreground">{tr("Joined")}{" "}{user.created_at ? format(new Date(user.created_at), "MMM d, yyyy", { locale: dfLocale }) : "—"}{" "}{tr("· Last seen")}{" "}{user.last_login_at ? format(new Date(user.last_login_at), "MMM d, yyyy", { locale: dfLocale }) : "never"}
             </p>
           </div>
           <div className="flex items-center gap-2">
             <ContactActions name={name} phone={phone} whatsapp={whatsapp} email={user.email} />
             {blocked ? (
               <Button size="sm" variant="secondary" className="gap-2" loading={block.isPending} onClick={() => block.mutate(false)}>
-                <UserCheck /> Unblock
-              </Button>
+                <UserCheck />{" "}{tr("Unblock")}</Button>
             ) : (
               <Button size="sm" variant="secondary" className="gap-2" onClick={() => setConfirmBlock(true)}>
-                <Ban /> Block
-              </Button>
+                <Ban />{" "}{tr("Block")}</Button>
             )}
           </div>
         </section>
 
         {/* Money, at a glance. */}
         <section className="grid grid-cols-2 gap-1 md:grid-cols-4">
-          <Figure label="Active now" value={String(active.length)} />
-          <Figure label="Paid, all time" value={formatUSD(paidCents)} />
-          <Figure label="Awaiting payment" value={owed.length ? formatUSD(owedCents) : "—"} warn={owed.length > 0} />
-          <Figure label="Purchases" value={String(sales.length)} />
+          <Figure label={tr("Active now")} value={String(active.length)} />
+          <Figure label={tr("Paid, all time")} value={formatUSD(paidCents)} />
+          <Figure label={tr("Awaiting payment")} value={owed.length ? formatUSD(owedCents) : "—"} warn={owed.length > 0} />
+          <Figure label={tr("Purchases")} value={String(sales.length)} />
         </section>
 
         {/* What they run, if anything — owner or manager. */}
         {(businessesQ.data?.length ?? 0) > 0 && (
           <section className="rounded-radius-lg bg-card p-4">
             <h2 className="mb-3 flex items-center gap-2 text-title font-semibold text-foreground">
-              <Store className="h-4 w-4 text-muted-foreground" /> Businesses
-            </h2>
+              <Store className="h-4 w-4 text-muted-foreground" />{" "}{tr("Businesses")}</h2>
             <div className="space-y-1">
               {businessesQ.data!.map((b) => (
                 <Link
@@ -226,7 +222,7 @@ export default function AdminCustomer() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-body font-semibold text-foreground">{b.name}</p>
                     <p className="truncate text-meta text-muted-foreground">
-                      {b.role === "owner" ? "Owner" : "Manager"} · {serviceLabel(b.archetypeKey)}
+                      {b.role === "owner" ? tr("Owner") : tr("Manager")} · {serviceLabel(b.archetypeKey)}
                     </p>
                   </div>
                   {b.status && <StatusPill status={b.status} className="shrink-0" />}
@@ -239,11 +235,11 @@ export default function AdminCustomer() {
 
         {/* Everything they bought, live first. */}
         <section className="rounded-radius-lg bg-card p-4">
-          <h2 className="mb-3 text-title font-semibold text-foreground">Purchases</h2>
+          <h2 className="mb-3 text-title font-semibold text-foreground">{tr("Purchases")}</h2>
           {salesLoading ? (
-            <p className="text-body text-muted-foreground">Loading…</p>
+            <p className="text-body text-muted-foreground">{tr("Loading…")}</p>
           ) : sales.length === 0 ? (
-            <p className="text-body text-muted-foreground">Nothing bought yet.</p>
+            <p className="text-body text-muted-foreground">{tr("Nothing bought yet.")}</p>
           ) : (
             <div className="space-y-1">
               {[...active, ...sales.filter((s) => !s.active)].map((s) => (
@@ -257,7 +253,7 @@ export default function AdminCustomer() {
                     <p className="truncate text-meta text-muted-foreground">
                       {serviceMeta(s.service).label}
                       {s.paymentStatus && <> · {statusLabel(s.paymentStatus)}</>}
-                      {s.createdAt && <> · {format(new Date(s.createdAt), "MMM d, yyyy")}</>}
+                      {s.createdAt && <> · {format(new Date(s.createdAt), "MMM d, yyyy", { locale: dfLocale })}</>}
                     </p>
                   </div>
                   {s.amountCents != null && (
@@ -275,22 +271,21 @@ export default function AdminCustomer() {
         {/* What they wrote to us. */}
         <section className="rounded-radius-lg bg-card p-4">
           <h2 className="mb-3 flex items-center gap-2 text-title font-semibold text-foreground">
-            <LifeBuoy className="h-4 w-4 text-muted-foreground" /> Support
-          </h2>
+            <LifeBuoy className="h-4 w-4 text-muted-foreground" />{" "}{tr("Support")}</h2>
           {supportQ.isError ? (
-            <p className="text-body text-muted-foreground">Couldn't load support messages.</p>
+            <p className="text-body text-muted-foreground">{tr("Couldn't load support messages.")}</p>
           ) : messages.length === 0 ? (
-            <p className="text-body text-muted-foreground">{supportQ.isLoading ? "Loading…" : "No messages from them."}</p>
+            <p className="text-body text-muted-foreground">{supportQ.isLoading ? tr("Loading…") : tr("No messages from them.")}</p>
           ) : (
             <div className="space-y-1">
               {messages.slice(0, 10).map((m) => (
                 <Link key={m.id} to="/admin/support" className="block rounded-radius-md bg-inset p-3 transition-colors hover:bg-muted">
                   <div className="flex items-center justify-between gap-2">
                     <p className="truncate text-body font-semibold text-foreground">{m.subject}</p>
-                    <StatusPill status={m.status === "new" ? "pending" : "completed"} label={m.status === "new" ? "New" : "Handled"} className="shrink-0" />
+                    <StatusPill status={m.status === "new" ? "pending" : "completed"} label={m.status === "new" ? tr("New") : tr("Handled")} className="shrink-0" />
                   </div>
                   <p className="line-clamp-2 text-meta text-muted-foreground">{m.message}</p>
-                  <p className="mt-1 text-meta text-muted-foreground">{m.created_at ? format(new Date(m.created_at), "MMM d, yyyy · h:mm a") : ""}</p>
+                  <p className="mt-1 text-meta text-muted-foreground">{m.created_at ? format(new Date(m.created_at), "MMM d, yyyy · h:mm a", { locale: dfLocale }) : ""}</p>
                 </Link>
               ))}
             </div>
@@ -299,7 +294,7 @@ export default function AdminCustomer() {
 
         {/* Editing — profile, address, credit, history, roles. */}
         <section className="rounded-radius-lg bg-card p-4">
-          <h2 className="text-title font-semibold text-foreground">Profile &amp; settings</h2>
+          <h2 className="text-title font-semibold text-foreground">{tr("Profile & settings")}</h2>
           <EditUserForm
             key={user.id}
             user={user}
@@ -316,17 +311,12 @@ export default function AdminCustomer() {
       <AlertDialog open={confirmBlock} onOpenChange={setConfirmBlock}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Block {name}?</AlertDialogTitle>
-            <AlertDialogDescription>
-              They lose access to the platform immediately and can't sign in. Active subscriptions keep
-              running and are not refunded. You can unblock them at any time.
-            </AlertDialogDescription>
+            <AlertDialogTitle>{trx("Block {name}?", { name })}</AlertDialogTitle>
+            <AlertDialogDescription>{tr("They lose access to the platform immediately and can't sign in. Active subscriptions keep running and are not refunded. You can unblock them at any time.")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={() => { block.mutate(true); setConfirmBlock(false); }}>
-              Block
-            </AlertDialogAction>
+            <AlertDialogCancel>{tr("Cancel")}</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={() => { block.mutate(true); setConfirmBlock(false); }}>{tr("Block")}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

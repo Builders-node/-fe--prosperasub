@@ -1,5 +1,6 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { tr } from "@/lib/tr";
 
 /**
  * The pieces every "pick a time" screen needs, in one place.
@@ -20,12 +21,12 @@ import { cn } from "@/lib/utils";
 
 /** Monday-first, matching every calendar on the platform. */
 export const WEEKDAYS = [
-  { value: 1, label: "Monday",    short: "Mon" },
-  { value: 2, label: "Tuesday",   short: "Tue" },
-  { value: 3, label: "Wednesday", short: "Wed" },
-  { value: 4, label: "Thursday",  short: "Thu" },
-  { value: 5, label: "Friday",    short: "Fri" },
-  { value: 6, label: "Saturday",  short: "Sat" },
+  { value: 1, label: tr("Monday"),    short: tr("Mon") },
+  { value: 2, label: tr("Tuesday"),   short: tr("Tue") },
+  { value: 3, label: tr("Wednesday"), short: tr("Wed") },
+  { value: 4, label: tr("Thursday"),  short: tr("Thu") },
+  { value: 5, label: tr("Friday"),    short: tr("Fri") },
+  { value: 6, label: tr("Saturday"),  short: tr("Sat") },
 ] as const;
 
 export type Weekday = (typeof WEEKDAYS)[number];
@@ -35,9 +36,9 @@ export type Weekday = (typeof WEEKDAYS)[number];
  * something scannable rather than a wall of forty chips.
  */
 export const TIME_PERIODS = [
-  { id: "morning",   label: "Morning",   emoji: "🌅", from: "00:00:00", to: "12:00:00" },
-  { id: "afternoon", label: "Afternoon", emoji: "☀️", from: "12:00:00", to: "17:00:00" },
-  { id: "evening",   label: "Evening",   emoji: "🌙", from: "17:00:00", to: "24:00:00" },
+  { id: "morning",   label: tr("Morning"),   emoji: "🌅", from: "00:00:00", to: "12:00:00" },
+  { id: "afternoon", label: tr("Afternoon"), emoji: "☀️", from: "12:00:00", to: "17:00:00" },
+  { id: "evening",   label: tr("Evening"),   emoji: "🌙", from: "17:00:00", to: "24:00:00" },
 ] as const;
 
 export type TimePeriod = (typeof TIME_PERIODS)[number];
@@ -138,7 +139,7 @@ export function DayStrip({
               </>
             )}
             <span className={cn("text-[11px] font-semibold", isSelected ? "text-background/60" : "text-muted-foreground")}>
-              {info ? (info.caption ?? `${info.count} wk${info.count !== 1 ? "s" : ""}`) : "–"}
+              {info ? (info.caption ?? (info.count !== 1 ? tr("{count} wks", { count: info.count }) : tr("{count} wk", { count: info.count }))) : "–"}
             </span>
           </button>
         );

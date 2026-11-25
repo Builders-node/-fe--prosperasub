@@ -31,6 +31,7 @@ import {
 } from "@/config/adminNav";
 import { publicRoutes } from "@/config/adminRoutes";
 import { cn } from "@/lib/utils";
+import { tr } from "@/lib/tr";
 
 interface SuperAdminLayoutProps {
   children: ReactNode;
@@ -153,7 +154,7 @@ function SidebarNav({
   return (
     <nav
       className="flex-1 space-y-space-5 overflow-y-auto px-space-3 py-space-4"
-      aria-label="Admin navigation"
+      aria-label={tr("Admin navigation")}
     >
       {visibleSections.map((section) => (
         <NavSectionBlock key={section.title} section={section} activePath={activePath} wrap={wrap} badges={badges} />
@@ -208,17 +209,13 @@ const SuperAdminLayout = ({ children, title, subtitle, hideHeading, parent, acti
         to={publicRoutes.userSite}
         className={cn(linkBase, "w-full text-sm text-muted-foreground hover:bg-muted hover:text-foreground")}
       >
-        <Store className="h-4 w-4 shrink-0" aria-hidden />
-        Go to the site
-      </Link>
+        <Store className="h-4 w-4 shrink-0" aria-hidden />{tr("Go to the site")}</Link>
       <button
         type="button"
         onClick={() => void handleLogout()}
         className={cn(linkBase, "w-full text-sm text-destructive hover:bg-destructive/10")}
       >
-        <LogOut className="h-4 w-4 shrink-0" aria-hidden />
-        Log out
-      </button>
+        <LogOut className="h-4 w-4 shrink-0" aria-hidden />{tr("Log out")}</button>
     </div>
   );
 
@@ -236,8 +233,8 @@ const SuperAdminLayout = ({ children, title, subtitle, hideHeading, parent, acti
               <BadgeDollarSign className="h-5 w-5" aria-hidden />
             </div>
             <div className="min-w-0">
-              <p className="type-card-title truncate">Admin Panel</p>
-              <p className="text-caption text-muted-foreground">EverySub</p>
+              <p className="type-card-title truncate">{tr("Admin Panel")}</p>
+              <p className="text-caption text-muted-foreground">{tr("EverySub")}</p>
             </div>
           </Link>
         </div>
@@ -260,7 +257,7 @@ const SuperAdminLayout = ({ children, title, subtitle, hideHeading, parent, acti
                     type="button"
                     variant="ghost"
                     size="icon"
-                    aria-label="Open admin menu"
+                    aria-label={tr("Open admin menu")}
                   >
                     <Menu className="h-5 w-5" aria-hidden />
                   </Button>
@@ -270,10 +267,8 @@ const SuperAdminLayout = ({ children, title, subtitle, hideHeading, parent, acti
                     <SheetTitle className="flex items-center gap-space-3">
                       <span className="flex h-9 w-9 items-center justify-center rounded-radius-md bg-primary text-black">
                         <BadgeDollarSign className="h-4 w-4" aria-hidden />
-                      </span>
-                      Admin Panel
-                    </SheetTitle>
-                    <SheetDescription>EverySub operations</SheetDescription>
+                      </span>{tr("Admin Panel")}</SheetTitle>
+                    <SheetDescription>{tr("EverySub operations")}</SheetDescription>
                   </SheetHeader>
 
                   {/* On mobile, flat leaf links close the drawer; group headers do not */}
@@ -288,7 +283,7 @@ const SuperAdminLayout = ({ children, title, subtitle, hideHeading, parent, acti
 
             {/* Breadcrumb */}
             <div className="flex min-w-0 flex-1 px-space-5">
-              <Breadcrumbs items={[{ label: "Admin", href: "/admin/dashboard" }, ...(parent ? [parent] : []), ...(title ? [{ label: title }] : [])]} />
+              <Breadcrumbs items={[{ label: tr("Admin"), href: "/admin/dashboard" }, ...(parent ? [parent] : []), ...(title ? [{ label: title }] : [])]} />
             </div>
 
             {/* Actions */}

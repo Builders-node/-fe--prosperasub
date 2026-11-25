@@ -1,4 +1,5 @@
 import { Car, ChefHat, SparklesIcon, Waves } from "lucide-react";
+import { tr } from "@/lib/tr";
 
 /**
  * The one place that knows how a service is spelled in a URL.
@@ -154,10 +155,10 @@ export interface ServiceMeta {
 }
 
 export const SERVICE_META: Record<ArchetypeKey, ServiceMeta> = {
-  cleaning:      { offeringsHeading: "Plans",    collection: "plans",    icon: SparklesIcon, listingRoute: "/services/cleaning" },
-  food:          { offeringsHeading: "Plans",    collection: "plans",    icon: ChefHat,      listingRoute: "/services/food" },
-  rental:        { offeringsHeading: "Vehicles", collection: "vehicles", icon: Car,          listingRoute: "/vehicles" },
-  entertainment: { offeringsHeading: "Plans",    collection: "plans",    icon: Waves,        listingRoute: "/services/entertainment" },
+  cleaning:      { offeringsHeading: tr("Plans"),    collection: "plans",    icon: SparklesIcon, listingRoute: "/services/cleaning" },
+  food:          { offeringsHeading: tr("Plans"),    collection: "plans",    icon: ChefHat,      listingRoute: "/services/food" },
+  rental:        { offeringsHeading: tr("Vehicles"), collection: "vehicles", icon: Car,          listingRoute: "/vehicles" },
+  entertainment: { offeringsHeading: tr("Plans"),    collection: "plans",    icon: Waves,        listingRoute: "/services/entertainment" },
 };
 
 /** Metadata for a URL segment, or null when the segment names no known service. */

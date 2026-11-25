@@ -1,6 +1,7 @@
 import { usePaymentMethods } from "@/hooks/usePaymentMethods";
 import type { PaymentMethod } from "@/components/payment/PaymentMethodSelector";
 import { formatUSD } from "@/lib/pricing";
+import { tr } from "@/lib/tr";
 
 /**
  * What the customer will actually pay, on the plan page — before checkout.
@@ -20,10 +21,10 @@ import { formatUSD } from "@/lib/pricing";
 const PLAN_CHECKOUT_METHODS: PaymentMethod[] = ["lightning", "onchain", "crypto_gateway", "paypal"];
 
 const LABELS: Record<PaymentMethod, string> = {
-  lightning: "Bitcoin",
-  onchain: "Bitcoin",
-  crypto_gateway: "USDT, USDC & other crypto",
-  paypal: "Card or PayPal",
+  lightning: tr("Bitcoin"),
+  onchain: tr("Bitcoin"),
+  crypto_gateway: tr("USDT, USDC & other crypto"),
+  paypal: tr("Card or PayPal"),
 };
 
 interface Props {
@@ -51,15 +52,13 @@ export function PaymentTermsNote({ priceCents, oneTime, pausable, className }: P
     const feeCents = Math.round(priceCents * pct / 100);
     return {
       label,
-      text: feeCents > 0 ? `+${formatUSD(feeCents)} fee (${pct}%)` : "no fee",
+      text: feeCents > 0 ? tr("+{feeCents} fee ({pct}%)", { feeCents: formatUSD(feeCents), pct }) : tr("no fee"),
     };
   });
 
   return (
     <div className={className}>
-      <p className="text-meta leading-4 text-muted-foreground">
-        Pay with{" "}
-        {parts.map((p, i) => (
+      <p className="text-meta leading-4 text-muted-foreground">{tr("Pay with")}{" "}{parts.map((p, i) => (
           <span key={p.label}>
             {i > 0 && (i === parts.length - 1 ? " or " : ", ")}
             <span className="text-foreground">{p.label}</span> · {p.text}
@@ -69,8 +68,7 @@ export function PaymentTermsNote({ priceCents, oneTime, pausable, className }: P
       </p>
       {!oneTime && (
         <p className="mt-1 text-meta leading-4 text-muted-foreground">
-          {pausable ? "Cancel or pause any time" : "Cancel any time"} from My subscriptions.
-        </p>
+          {pausable ? tr("Cancel or pause any time") : tr("Cancel any time")}{" "}{tr("from My subscriptions.")}</p>
       )}
     </div>
   );

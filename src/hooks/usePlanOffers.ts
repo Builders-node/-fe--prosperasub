@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabaseDb } from "@/integrations/supabase/client";
 import { periodAdjective, periodNoun } from "@/lib/services/planPeriod";
+import { tr } from "@/lib/tr";
 
 /**
  * Offers and their variants.
@@ -218,7 +219,7 @@ export function usePlanOffers(
         const periodGroup: PlanOptionGroup[] = periods.length > 1
           ? [{
               key: BILLING_PERIOD_GROUP,
-              label: "Billing period",
+              label: tr("Billing period"),
               options: periods.map((p) => ({ key: p, label: periodLabel(p) })),
             }]
           : [];

@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n";
+import { tr } from "@/lib/tr";
 
 type AppDropdownContentProps = React.ComponentPropsWithoutRef<typeof DropdownMenuContent>;
 
@@ -198,7 +199,7 @@ function AppDropdownThemeItem() {
       )}
 
       <span className="min-w-0 flex-1 block text-[0.95rem] font-bold leading-tight text-foreground">
-        {isDark ? "Light mode" : "Dark mode"}
+        {isDark ? tr("Light mode") : tr("Dark mode")}
       </span>
 
       {/* Toggle pill indicator */}

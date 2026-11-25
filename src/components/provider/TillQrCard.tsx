@@ -4,6 +4,7 @@ import { Copy, Printer } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { TillPinForm } from "@/components/till/TillPinForm";
+import { tr } from "@/lib/tr";
 
 /**
  * The till QR: customers scan it in the app, see what their subscription here
@@ -23,8 +24,8 @@ export function TillQrCard({ providerId, name, embedded = false }: { providerId:
   const holder = useRef<HTMLDivElement>(null);
 
   const copy = async () => {
-    try { await navigator.clipboard.writeText(url); toast.success("Link copied"); }
-    catch { toast.error("Could not copy the link"); }
+    try { await navigator.clipboard.writeText(url); toast.success(tr("Link copied")); }
+    catch { toast.error(tr("Could not copy the link")); }
   };
 
   const print = () => {
@@ -59,14 +60,11 @@ export function TillQrCard({ providerId, name, embedded = false }: { providerId:
           <QRCodeSVG value={url} size={120} level="M" />
         </div>
         <div className="min-w-0">
-          {!embedded && <h2 className="text-heading font-semibold text-foreground">Till QR</h2>}
-          <p className={embedded ? "text-body text-muted-foreground" : "mt-1 text-body text-muted-foreground"}>
-            Put it at the till. A subscriber scans it and presses Get to collect today's visit — it shows up at
-            once in Bookings → Today. Or staff take the customer's PIN below.
-          </p>
+          {!embedded && <h2 className="text-heading font-semibold text-foreground">{tr("Till QR")}</h2>}
+          <p className={embedded ? "text-body text-muted-foreground" : "mt-1 text-body text-muted-foreground"}>{tr("Put it at the till. A subscriber scans it and presses Get to collect today's visit — it shows up at once in Bookings → Today. Or staff take the customer's PIN below.")}</p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <Button size="sm" className="gap-1.5" onClick={print}><Printer className="h-4 w-4" /> Print</Button>
-            <Button size="sm" variant="secondary" className="gap-1.5" onClick={copy}><Copy className="h-4 w-4" /> Copy link</Button>
+            <Button size="sm" className="gap-1.5" onClick={print}><Printer className="h-4 w-4" />{" "}{tr("Print")}</Button>
+            <Button size="sm" variant="secondary" className="gap-1.5" onClick={copy}><Copy className="h-4 w-4" />{" "}{tr("Copy link")}</Button>
           </div>
         </div>
       </div>

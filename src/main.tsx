@@ -1,11 +1,11 @@
 import { tryAutoRecover } from "@/lib/staleChunk";
 import React from "react";
 import { createRoot } from "react-dom/client";
-import App from "./App.tsx";
 import "@fontsource-variable/inter/opsz.css";
 import "./index.css";
 import { captureAttribution } from "./lib/attribution";
 import { installTranslatedDomGuard } from "./lib/translatedDomGuard";
+import { tr, loadSpanish } from "@/lib/tr";
 
 // Before React touches the DOM: a machine-translated page rewrites the text
 // nodes React is holding, and the first re-render after that throws
@@ -34,9 +34,7 @@ class RootErrorBoundary extends React.Component<
           background: "#141414", color: "#fff",
           fontFamily: "Inter, system-ui, sans-serif",
         }}>
-          <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 12 }}>
-            App failed to load
-          </h1>
+          <h1 style={{ fontSize: 22, fontWeight: 800, marginBottom: 12 }}>{tr("App failed to load")}</h1>
           <p style={{ opacity: 0.7, marginBottom: 16 }}>
             {String(this.state.error?.message ?? this.state.error)}
           </p>
@@ -74,9 +72,7 @@ class RootErrorBoundary extends React.Component<
               background: "#F8A31A", color: "#000", border: 0, fontWeight: 700,
               cursor: "pointer",
             }}
-          >
-            Clear cache and reload
-          </button>
+          >{tr("Clear cache and reload")}</button>
         </div>
       );
     }
@@ -113,7 +109,10 @@ window.addEventListener("unhandledrejection", (e) => {
 // Before the router can redirect to sign-in and lose the query string.
 captureAttribution();
 
-try {
+async function boot() {
+  // Spanish words first: the app's modules call tr() as they load.
+  await loadSpanish();
+  const { default: App } = await import("./App.tsx");
   createRoot(document.getElementById("root")!).render(
     <React.StrictMode>
       <RootErrorBoundary>
@@ -121,7 +120,9 @@ try {
       </RootErrorBoundary>
     </React.StrictMode>
   );
-} catch (err) {
+}
+
+boot().catch((err) => {
   // Last-resort: if React itself can't mount, show the error directly
   const root = document.getElementById("root");
   if (root) {
@@ -134,7 +135,7 @@ try {
       </div>
     `;
   }
-}
+});
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {

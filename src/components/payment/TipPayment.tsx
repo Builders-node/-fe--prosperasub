@@ -12,6 +12,7 @@ import { useBtcPrice } from "@/hooks/useBtcPrice";
 import { formatUSD, centsToDollars } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { tr, trx } from "@/lib/tr";
 
 interface RecordArgs {
   amountCents: number;
@@ -43,7 +44,7 @@ interface Props {
 
 export function TipPayment({
   serviceName, context, externalIdPrefix, adminUrl, customerName,
-  tippedCents = 0, onRecord, onDone, heading = "Leave a tip", presets = [200, 500, 1000],
+  tippedCents = 0, onRecord, onDone, heading = tr("Leave a tip"), presets = [200, 500, 1000],
 }: Props) {
   const { enabled: enabledMethods } = usePaymentMethods();
   const { btcPrice, convertToSats, isLoading: priceLoading } = useBtcPrice();
@@ -74,13 +75,13 @@ export function TipPayment({
       });
     } catch (e: any) {
       createdRef.current = false;
-      toast.error(e?.message || "Could not record tip");
+      toast.error(e?.message || tr("Could not record tip"));
       return;
     }
     if (pollingRef.current) clearInterval(pollingRef.current);
     setDone(true); setPayOpen(false);
     onDone?.();
-    toast.success("Thank you for the tip! 💛");
+    toast.success(tr("Thank you for the tip! 💛"));
   };
 
   const start = async () => {
@@ -88,9 +89,9 @@ export function TipPayment({
     createdRef.current = false;
     const desc = `${serviceName} — ${formatUSD(tipCents)}`;
     if (paymentMethod === "paypal") { setPayOpen(true); return; }
-    if (!btcPrice) { toast.error("BTC price not loaded yet."); return; }
+    if (!btcPrice) { toast.error(tr("BTC price not loaded yet.")); return; }
     const sats = convertToSats(centsToDollars(tipCents));
-    if (sats <= 0) { toast.error("Tip amount too small."); return; }
+    if (sats <= 0) { toast.error(tr("Tip amount too small.")); return; }
     setGenerating(true); setLockedSats(sats);
     try {
       if (paymentMethod === "onchain") {
@@ -118,7 +119,7 @@ export function TipPayment({
           if (v?.paid) finish(data.payment_hash);
         }, 3000);
       }
-    } catch (e: any) { toast.error(e?.message || "Could not start tip payment"); setLockedSats(null); }
+    } catch (e: any) { toast.error(e?.message || tr("Could not start tip payment")); setLockedSats(null); }
     finally { setGenerating(false); }
   };
 
@@ -132,7 +133,7 @@ export function TipPayment({
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <p className="flex items-center gap-1.5 text-sm font-semibold text-foreground"><Heart className="h-4 w-4 text-rose-400" /> {heading}</p>
-        {tippedCents > 0 && <span className="rounded-full bg-positive/15 px-2 py-0.5 text-xs font-bold text-positive">Tipped {formatUSD(tippedCents)}</span>}
+        {tippedCents > 0 && <span className="rounded-full bg-positive/15 px-2 py-0.5 text-xs font-bold text-positive">{trx("Tipped {tippedCents}", { tippedCents: formatUSD(tippedCents) })}</span>}
       </div>
 
       {!payOpen && !done && (
@@ -150,17 +151,17 @@ export function TipPayment({
             <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
             <Input type="number" min={1} step={1} value={customTip}
               onChange={(e) => { setCustomTip(e.target.value); setTipCents(Math.round(parseFloat(e.target.value || "0") * 100)); }}
-              placeholder="Custom amount" className="h-11 rounded-radius-md pl-7" />
+              placeholder={tr("Custom amount")} className="h-11 rounded-radius-md pl-7" />
           </div>
           {tipCents > 0 && (
             <>
               <PaymentMethodSelector value={paymentMethod} onChange={setPaymentMethod} available={enabledMethods} />
               <Button className="w-full rounded-radius-md font-bold" onClick={start}
                 disabled={generating || ((paymentMethod === "lightning" || paymentMethod === "onchain") && (priceLoading || !btcPrice))}>
-                {generating ? <><Spinner size="sm" className="mr-2" /> Starting…</>
-                  : paymentMethod === "paypal" ? <>Tip {formatUSD(tipCents)} with PayPal</>
-                  : paymentMethod === "onchain" ? <><Bitcoin className="mr-2 h-5 w-5" /> Tip {estSats.toLocaleString()} sats</>
-                  : <><Zap className="mr-2 h-5 w-5" /> Tip {estSats.toLocaleString()} sats</>}
+                {generating ? <><Spinner size="sm" className="mr-2" />{" "}{tr("Starting…")}</>
+                  : paymentMethod === "paypal" ? <>{trx("Tip {tipCents} with PayPal", { tipCents: formatUSD(tipCents) })}</>
+                  : paymentMethod === "onchain" ? <><Bitcoin className="mr-2 h-5 w-5" />{" "}{trx("Tip {toLocaleString} sats", { toLocaleString: estSats.toLocaleString() })}</>
+                  : <><Zap className="mr-2 h-5 w-5" />{" "}{trx("Tip {toLocaleString} sats", { toLocaleString: estSats.toLocaleString() })}</>}
               </Button>
             </>
           )}
@@ -181,21 +182,21 @@ export function TipPayment({
       )}
       {payOpen && paymentMethod === "lightning" && invoice && (
         <div className="flex flex-col items-center rounded-radius-md border border-border p-4 text-center">
-          <p className="mb-2 font-bold">Scan to tip {formatUSD(tipCents)}</p>
+          <p className="mb-2 font-bold">{trx("Scan to tip {tipCents}", { tipCents: formatUSD(tipCents) })}</p>
           <div className="rounded-xl bg-white p-3"><QRCodeSVG value={invoice} size={180} level="M" /></div>
-          <p className="mt-2 text-xs text-muted-foreground">{(lockedSats ?? estSats).toLocaleString()} sats · waiting…</p>
-          <Button variant="ghost" size="sm" className="mt-1 gap-1.5" onClick={() => { navigator.clipboard.writeText(invoice); toast.success("Copied"); }}><Copy className="h-3.5 w-3.5" /> Copy</Button>
+          <p className="mt-2 text-xs text-muted-foreground">{trx("{toLocaleString} sats · waiting…", { toLocaleString: (lockedSats ?? estSats).toLocaleString() })}</p>
+          <Button variant="ghost" size="sm" className="mt-1 gap-1.5" onClick={() => { navigator.clipboard.writeText(invoice); toast.success(tr("Copied")); }}><Copy className="h-3.5 w-3.5" />{" "}{tr("Copy")}</Button>
         </div>
       )}
       {payOpen && paymentMethod === "onchain" && onchainAddress && (
         <div className="flex flex-col items-center rounded-radius-md border border-border p-4 text-center">
-          <p className="mb-2 font-bold">Send Bitcoin tip — {formatUSD(tipCents)}</p>
+          <p className="mb-2 font-bold">{trx("Send Bitcoin tip — {tipCents}", { tipCents: formatUSD(tipCents) })}</p>
           <div className="rounded-xl bg-white p-3"><QRCodeSVG value={onchainUri ?? `bitcoin:${onchainAddress}`} size={180} level="M" /></div>
-          <p className="mt-2 text-xs text-muted-foreground">{(lockedSats ?? estSats).toLocaleString()} sats · waiting…</p>
+          <p className="mt-2 text-xs text-muted-foreground">{trx("{toLocaleString} sats · waiting…", { toLocaleString: (lockedSats ?? estSats).toLocaleString() })}</p>
         </div>
       )}
-      {payOpen && <Button variant="ghost" className="w-full" onClick={cancel}>Cancel</Button>}
-      {done && <div className="flex items-center justify-center gap-2 rounded-radius-md bg-positive/10 py-2.5 text-sm font-semibold text-positive"><CheckCircle2 className="h-5 w-5" /> Tip sent — thank you!</div>}
+      {payOpen && <Button variant="ghost" className="w-full" onClick={cancel}>{tr("Cancel")}</Button>}
+      {done && <div className="flex items-center justify-center gap-2 rounded-radius-md bg-positive/10 py-2.5 text-sm font-semibold text-positive"><CheckCircle2 className="h-5 w-5" />{" "}{tr("Tip sent — thank you!")}</div>}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
+import { tr } from "@/lib/tr";
 
 /**
  * Search and sort for a service listing.
@@ -17,10 +18,10 @@ import { useSearchParams } from "react-router-dom";
 export type SortKey = "recommended" | "price_asc" | "price_desc" | "rating" | "name";
 
 export const SORT_LABELS: Record<SortKey, string> = {
-  recommended: "Recommended",
-  price_asc: "Price: low to high",
-  price_desc: "Price: high to low",
-  rating: "Top rated",
+  recommended: tr("Recommended"),
+  price_asc: tr("Price: low to high"),
+  price_desc: tr("Price: high to low"),
+  rating: tr("Top rated"),
   name: "Name (A–Z)",
 };
 

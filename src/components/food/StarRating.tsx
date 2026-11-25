@@ -1,5 +1,6 @@
 import { Star } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { tr } from "@/lib/tr";
 
 interface Props {
   value: number;
@@ -28,7 +29,7 @@ export function StarRating({ value, onChange, size = 16, className }: Props) {
             type="button"
             onClick={() => onChange!(star)}
             className="transition-transform hover:scale-110"
-            aria-label={`${star} star${star > 1 ? "s" : ""}`}
+            aria-label={(star > 1 ? tr("{star} stars", { star }) : tr("{star} star", { star }))}
           >
             {StarEl}
           </button>

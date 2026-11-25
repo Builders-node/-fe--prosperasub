@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useRecentlyViewed } from "@/lib/recentlyViewed";
 import { PlanRail, ShelfHeader, planIndex, useHomePlans, type HomePlan } from "@/components/discovery/homePlans";
+import { tr } from "@/lib/tr";
 
 /**
  * "Recently viewed" — this browser's last plans, on the way back in.
@@ -28,8 +29,8 @@ export function ForYouSection() {
   if (viewed.length === 0) return null;
 
   return (
-    <section className="space-y-3" aria-label="Recently viewed">
-      <ShelfHeader title="Recently viewed" />
+    <section className="space-y-3" aria-label={tr("Recently viewed")}>
+      <ShelfHeader title={tr("Recently viewed")} />
       <PlanRail plans={viewed.slice(0, 8)} />
     </section>
   );

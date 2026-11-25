@@ -18,6 +18,7 @@ import {
   howItWorksProblems, pickHowItWorks, type HowItWorksStep,
 } from "@/lib/howItWorks";
 import { cn } from "@/lib/utils";
+import { tr } from "@/lib/tr";
 
 /**
  * Overview → "How it works": the steps a customer sees once they have bought —
@@ -64,16 +65,16 @@ export function HowItWorksCard({ providerId }: { providerId: string }) {
 
   return (
     <WorkspaceSection
-      title="How it works"
-      subtitle="What customers see right after they buy, and under How it works in their subscriptions."
-      action={<Button size="sm" variant="secondary" onClick={() => edit(BUSINESS)}>Edit</Button>}
+      title={tr("How it works")}
+      subtitle={tr("What customers see right after they buy, and under How it works in their subscriptions.")}
+      action={<Button size="sm" variant="secondary" onClick={() => edit(BUSINESS)}>{tr("Edit")}</Button>}
     >
       <div className="space-y-3">
         <span className={cn(
           "inline-flex rounded-full px-2.5 py-1 text-meta font-semibold",
           business ? "bg-primary/15 text-primary" : "bg-inset text-muted-foreground",
         )}>
-          {business ? "Your own steps" : "EverySub's default steps"}
+          {business ? tr("Your own steps") : tr("EverySub's default steps")}
         </span>
         <ol className="space-y-1.5">
           {steps.map((s, i) => (
@@ -85,7 +86,7 @@ export function HowItWorksCard({ providerId }: { providerId: string }) {
         </ol>
         {ownPlans.length > 0 && (
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-meta text-muted-foreground">Own steps on:</span>
+            <span className="text-meta text-muted-foreground">{tr("Own steps on:")}</span>
             {ownPlans.map((r) => (
               <button key={r.id} type="button" onClick={() => edit(r.plan_id!)}
                 className="rounded-full bg-inset px-2.5 py-1 text-meta font-semibold text-foreground hover:bg-primary/15 hover:text-primary">
@@ -128,9 +129,9 @@ export function HowItWorksEditor({ providerId, open, onOpenChange, initialScope,
   const inherited = useMemo(() => {
     if (planId) {
       const biz = pickHowItWorks(rows.data, null);
-      if (biz) return { steps: biz.steps, label: "your business's steps" };
+      if (biz) return { steps: biz.steps, label: tr("your business's steps") };
     }
-    return { steps: defaultHowItWorks(t), label: "EverySub's default steps" };
+    return { steps: defaultHowItWorks(t), label: tr("EverySub's default steps") };
   }, [planId, rows.data, t]);
 
   // Every opening, and every change of scope, starts from what that page shows now.
@@ -161,12 +162,12 @@ export function HowItWorksEditor({ providerId, open, onOpenChange, initialScope,
       if (error) throw error;
     },
     onSuccess: async () => {
-      toast.success("Saved — customers see the new steps now");
+      toast.success(tr("Saved — customers see the new steps now"));
       await invalidate();
       setDirty(false);
       onOpenChange(false);
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not save the steps"),
+    onError: (e) => toast.error(e instanceof Error ? e.message : tr("Could not save the steps")),
   });
   const reset = useMutation({
     mutationFn: async () => {
@@ -175,12 +176,12 @@ export function HowItWorksEditor({ providerId, open, onOpenChange, initialScope,
       if (error) throw error;
     },
     onSuccess: async () => {
-      toast.success(planId ? "This plan uses your business's steps again" : "Back to EverySub's default steps");
+      toast.success(planId ? tr("This plan uses your business's steps again") : tr("Back to EverySub's default steps"));
       await invalidate();
       setDraft(inherited.steps.map((x) => ({ ...x })));
       setDirty(false);
     },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not reset the steps"),
+    onError: (e) => toast.error(e instanceof Error ? e.message : tr("Could not reset the steps")),
   });
 
   const update = (next: HowItWorksStep[]) => { setDraft(next); setDirty(true); };
@@ -221,24 +222,22 @@ export function HowItWorksEditor({ providerId, open, onOpenChange, initialScope,
     <ResponsiveDialog
       open={open}
       onOpenChange={(o) => {
-        if (!o && dirty && !window.confirm("Discard your changes?")) return;
+        if (!o && dirty && !window.confirm(tr("Discard your changes?"))) return;
         onOpenChange(o);
       }}
-      title="How it works"
-      description="Tell customers what happens after they buy, in your own words."
+      title={tr("How it works")}
+      description={tr("Tell customers what happens after they buy, in your own words.")}
       className="sm:max-w-[960px]"
       footer={
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center">
           {own && (
             <Button variant="ghost" className="sm:mr-auto" onClick={() => reset.mutate()} loading={reset.isPending} disabled={save.isPending}>
               <RotateCcw className="mr-1.5 h-4 w-4" />
-              {planId ? "Use the business's steps" : "Back to default"}
+              {planId ? tr("Use the business's steps") : tr("Back to default")}
             </Button>
           )}
-          <Button variant="secondary" className="sm:ml-auto" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={() => save.mutate()} loading={save.isPending} disabled={blocked || reset.isPending || (!dirty && !!own)}>
-            Save
-          </Button>
+          <Button variant="secondary" className="sm:ml-auto" onClick={() => onOpenChange(false)}>{tr("Cancel")}</Button>
+          <Button onClick={() => save.mutate()} loading={save.isPending} disabled={blocked || reset.isPending || (!dirty && !!own)}>{tr("Save")}</Button>
         </div>
       }
     >
@@ -247,27 +246,27 @@ export function HowItWorksEditor({ providerId, open, onOpenChange, initialScope,
       <div className="grid min-w-0 gap-1 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
       <DialogBlock>
         <div className="space-y-1.5">
-          <p className="text-body text-muted-foreground">Where</p>
+          <p className="text-body text-muted-foreground">{tr("Where")}</p>
           <Select
             value={scope}
             onValueChange={(v) => {
-              if (dirty && !window.confirm("Discard your changes to these steps?")) return;
+              if (dirty && !window.confirm(tr("Discard your changes to these steps?"))) return;
               setScope(v); load(v);
             }}
           >
-            <SelectTrigger aria-label="Where these steps show"><SelectValue /></SelectTrigger>
+            <SelectTrigger aria-label={tr("Where these steps show")}><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value={BUSINESS}>Whole business — every plan</SelectItem>
+              <SelectItem value={BUSINESS}>{tr("Whole business — every plan")}</SelectItem>
               {plans.map((p) => {
                 const has = (rows.data ?? []).some((r) => r.plan_id === p.id);
-                return <SelectItem key={p.id} value={p.id}>{p.name}{has ? " · own steps" : ""}</SelectItem>;
+                return <SelectItem key={p.id} value={p.id}>{p.name}{has ? tr(" · own steps") : ""}</SelectItem>;
               })}
             </SelectContent>
           </Select>
           <p className="text-xs text-muted-foreground">
             {own
-              ? planId ? "This plan has its own steps." : "Your own steps are live."
-              : `Not written yet — customers see ${inherited.label}. Edit them below and save to make them yours.`}
+              ? planId ? tr("This plan has its own steps.") : tr("Your own steps are live.")
+              : tr("Not written yet — customers see {label}. Edit them below and save to make them yours.", { label: inherited.label })}
           </p>
         </div>
 
@@ -291,7 +290,7 @@ export function HowItWorksEditor({ providerId, open, onOpenChange, initialScope,
                     <span
                       role="button"
                       tabIndex={-1}
-                      aria-label={`Drag step ${i + 1}`}
+                      aria-label={tr("Drag step {value}", { value: i + 1 })}
                       {...grip(i)}
                       className="cursor-grab touch-none select-none text-muted-foreground hover:text-foreground active:cursor-grabbing"
                     >
@@ -308,8 +307,8 @@ export function HowItWorksEditor({ providerId, open, onOpenChange, initialScope,
                         value={s.title}
                         maxLength={L.title + 20}
                         onChange={(e) => patch(i, { title: e.target.value })}
-                        placeholder="Step title, e.g. Pick your days"
-                        aria-label={`Step ${i + 1} title`}
+                        placeholder={tr("Step title, e.g. Pick your days")}
+                        aria-label={tr("Step {value} title", { value: i + 1 })}
                         className={cn("pr-14", err && !s.title.trim() && "border-destructive")}
                       />
                       <Counter value={s.title.trim().length} max={L.title} className="absolute right-3 top-1/2 -translate-y-1/2" />
@@ -320,8 +319,8 @@ export function HowItWorksEditor({ providerId, open, onOpenChange, initialScope,
                         maxLength={L.text + 40}
                         rows={2}
                         onChange={(e) => patch(i, { text: e.target.value })}
-                        placeholder="A short line on what happens (optional)"
-                        aria-label={`Step ${i + 1} text`}
+                        placeholder={tr("A short line on what happens (optional)")}
+                        aria-label={tr("Step {value} text", { value: i + 1 })}
                         className="min-h-[64px] pb-6"
                       />
                       <Counter value={(s.text ?? "").trim().length} max={L.text} className="absolute bottom-2 right-3" />
@@ -330,13 +329,13 @@ export function HowItWorksEditor({ providerId, open, onOpenChange, initialScope,
                   </div>
 
                   <div className="col-start-3 row-start-1 flex flex-row justify-self-end gap-1 sm:col-start-4 sm:flex-col">
-                    <Button size="icon" variant="ghost" className="h-8 w-8" aria-label="Move up" disabled={i === 0} onClick={() => move(i, i - 1)}>
+                    <Button size="icon" variant="ghost" className="h-8 w-8" aria-label={tr("Move up")} disabled={i === 0} onClick={() => move(i, i - 1)}>
                       <ArrowUp className="h-4 w-4" />
                     </Button>
-                    <Button size="icon" variant="ghost" className="h-8 w-8" aria-label="Move down" disabled={i === draft.length - 1} onClick={() => move(i, i + 1)}>
+                    <Button size="icon" variant="ghost" className="h-8 w-8" aria-label={tr("Move down")} disabled={i === draft.length - 1} onClick={() => move(i, i + 1)}>
                       <ArrowDown className="h-4 w-4" />
                     </Button>
-                    <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-destructive" aria-label="Remove step"
+                    <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-destructive" aria-label={tr("Remove step")}
                       disabled={draft.length <= L.minSteps} onClick={() => update(draft.filter((_, j) => j !== i))}>
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -349,20 +348,19 @@ export function HowItWorksEditor({ providerId, open, onOpenChange, initialScope,
 
         <div className="flex flex-wrap items-center justify-between gap-2">
           <Button variant="secondary" size="sm" disabled={draft.length >= L.maxSteps} onClick={() => update([...draft, blank()])}>
-            <Plus className="mr-1 h-4 w-4" /> Add a step
-          </Button>
+            <Plus className="mr-1 h-4 w-4" />{" "}{tr("Add a step")}</Button>
           <span className="text-xs text-muted-foreground">
-            {problems.list ?? `${draft.length} of ${L.maxSteps} steps · drag or use the arrows to reorder`}
+            {problems.list ?? tr("{n} of {max} steps · drag or use the arrows to reorder", { n: draft.length, max: L.maxSteps })}
           </span>
         </div>
       </DialogBlock>
 
       {/* Live: exactly the block a customer sees after buying. */}
       <div className="space-y-2 lg:sticky lg:top-0">
-        <p className="px-1 text-meta font-semibold text-muted-foreground">Preview</p>
+        <p className="px-1 text-meta font-semibold text-muted-foreground">{tr("Preview")}</p>
         {previewSteps.length
           ? <HowItWorksSteps steps={previewSteps} title={t("howItWorks.title")} compact className="shadow-none" />
-          : <p className="rounded-radius-lg bg-card p-4 text-body text-muted-foreground">Give a step a title to see it here.</p>}
+          : <p className="rounded-radius-lg bg-card p-4 text-body text-muted-foreground">{tr("Give a step a title to see it here.")}</p>}
       </div>
       </div>
     </ResponsiveDialog>
@@ -388,7 +386,7 @@ function IconPicker({ value, onChange, fallback: Current }: {
       <PopoverTrigger asChild>
         <button
           type="button"
-          aria-label={value ? `Icon: ${HOW_IT_WORKS_ICONS[value]?.label}` : "Choose an icon"}
+          aria-label={value ? tr("Icon: {label}", { label: HOW_IT_WORKS_ICONS[value]?.label }) : tr("Choose an icon")}
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary ring-offset-background hover:ring-2 hover:ring-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
           {Current ? <Current className="h-5 w-5" /> : <Plus className="h-4 w-4" />}
@@ -413,9 +411,7 @@ function IconPicker({ value, onChange, fallback: Current }: {
           ))}
         </div>
         <button type="button" onClick={() => { onChange(null); setOpen(false); }}
-          className="mt-1 w-full rounded-radius-md px-2 py-1.5 text-left text-meta text-muted-foreground hover:bg-inset">
-          No icon — show the step's number
-        </button>
+          className="mt-1 w-full rounded-radius-md px-2 py-1.5 text-left text-meta text-muted-foreground hover:bg-inset">{tr("No icon — show the step's number")}</button>
       </PopoverContent>
     </Popover>
   );

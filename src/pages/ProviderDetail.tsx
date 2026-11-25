@@ -52,6 +52,7 @@ import { useTabParam } from "@/hooks/useTabParam";
 import { useSeo, businessJsonLd } from "@/hooks/useSeo";
 import { useDraftPreview } from "@/hooks/useDraftPreview";
 import { DraftPreviewBanner } from "@/components/patterns/DraftPreviewBanner";
+import { tr, trx } from "@/lib/tr";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 interface Provider {
@@ -90,7 +91,7 @@ type ArchetypeMeta = {
 // URL vocabulary, so a service can't be spelled one way in a link and another
 // way in the lookup.
 const FALLBACK_META: ArchetypeMeta = {
-  offeringsHeading: "Offerings",
+  offeringsHeading: tr("Offerings"),
   icon:             SparklesIcon,
   listingRoute:     "/discovery",
 };
@@ -211,9 +212,9 @@ function InfoRow({
 // ═══════════════════════════════════════════════════════════════════════════
 /** The three faces of a provider, in the design's order. */
 const TABS = [
-  { key: "plans", label: "Plans" },
-  { key: "reviews", label: "Reviews" },
-  { key: "gallery", label: "Gallery" },
+  { key: "plans", label: tr("Plans") },
+  { key: "reviews", label: tr("Reviews") },
+  { key: "gallery", label: tr("Gallery") },
 ] as const;
 type TabKey = (typeof TABS)[number]["key"];
 
@@ -445,7 +446,7 @@ const ProviderDetail = () => {
   if (serviceSegment && !archetypeKey && !dbArchetype && archetypesLoading) {
     return (
       <BrowseLayout className="md:pb-0">
-        <HomeHeader title="Provider" showBackButton onBack={goBack} />
+        <HomeHeader title={tr("Provider")} showBackButton onBack={goBack} />
         <main className="app-container py-space-6 space-y-4">
           <Skeleton className="h-48" />
           <Skeleton className="h-24" />
@@ -459,15 +460,13 @@ const ProviderDetail = () => {
   if (serviceSegment && !archetypeKey && (!dbArchetype || draftService)) {
     return (
       <BrowseLayout className="md:pb-0">
-        <HomeHeader title="Not found" showBackButton onBack={goBack} />
+        <HomeHeader title={tr("Not found")} showBackButton onBack={goBack} />
         <main className="app-container flex flex-col items-center justify-center py-16 text-center">
           <SparklesIcon className="mb-4 h-12 w-12 text-muted-foreground/40" />
-          <p className="font-semibold text-foreground">No such service</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            "{serviceSegment}" isn't a service on the platform.
-          </p>
+          <p className="font-semibold text-foreground">{tr("No such service")}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{trx("\"{serviceSegment}\" isn't a service on the platform.", { serviceSegment })}</p>
           <Button asChild variant="outline" className="mt-4">
-            <Link to="/discovery">Browse services</Link>
+            <Link to="/discovery">{tr("Browse services")}</Link>
           </Button>
         </main>
       </BrowseLayout>
@@ -479,7 +478,7 @@ const ProviderDetail = () => {
   if (providerQ.isLoading) {
     return (
       <BrowseLayout className="md:pb-0">
-        <HomeHeader title="Provider" showBackButton onBack={goBack} />
+        <HomeHeader title={tr("Provider")} showBackButton onBack={goBack} />
         <main className="app-container py-space-6 space-y-4">
           <Skeleton className="h-48" />
           <Skeleton className="h-24" />
@@ -496,10 +495,10 @@ const ProviderDetail = () => {
   if (providerQ.isError || !providerQ.data || hiddenProvider) {
     return (
       <BrowseLayout className="md:pb-0">
-        <HomeHeader title="Provider" showBackButton onBack={goBack} />
+        <HomeHeader title={tr("Provider")} showBackButton onBack={goBack} />
         <main className="app-container flex flex-col items-center justify-center py-16">
           <Icon className="mb-4 h-12 w-12 text-muted-foreground/40" />
-          <p className="font-semibold text-foreground">Provider not found</p>
+          <p className="font-semibold text-foreground">{tr("Provider not found")}</p>
         </main>
       </BrowseLayout>
     );
@@ -536,11 +535,11 @@ const ProviderDetail = () => {
   // A range where the plans disagree, because one provider's plans can include
   // 4 cleanings and 26. Picking the first would print whichever happened to
   // sort first and call it the answer.
-  const middleStatLabel = isVehicles ? "Cars"
+  const middleStatLabel = isVehicles ? tr("Cars")
     : quantities.length && includedUnit
     ? `${includedUnit[0].toUpperCase()}${includedUnit.slice(1)}s`
-    : "Plans";
-  const middleStatSub = quantities.length ? "Per period" : "Offered";
+    : tr("Plans");
+  const middleStatSub = quantities.length ? tr("Per period") : "Offered";
   const middleStatValue = quantities.length === 0 ? offeringsCount
     : quantities.length === 1 ? quantities[0]
     : `${quantities[0]}–${quantities[quantities.length - 1]}`;
@@ -569,7 +568,7 @@ const ProviderDetail = () => {
   const hours = formatWorkingHours(p.working_hours);
 
   const crumbs = [
-    { label: "Home", href: "/discovery" },
+    { label: tr("Home"), href: "/discovery" },
     ...(serviceLabel?.trim() && serviceLabel.trim().toLowerCase() !== p.name.trim().toLowerCase()
       ? [{ label: serviceLabel, href: meta.listingRoute }]
       : []),
@@ -685,7 +684,7 @@ const ProviderDetail = () => {
                       type="button"
                       onClick={() => setTab("reviews")}
                       className="inline-flex items-center gap-1 font-semibold text-foreground hover:underline"
-                      aria-label={`Rated ${rating.avg.toFixed(1)} from ${rating.count} reviews`}
+                      aria-label={tr("Rated {toFixed} from {count} reviews", { toFixed: rating.avg.toFixed(1), count: rating.count })}
                     >
                       <Star className="h-4 w-4 fill-primary text-primary" />
                       {rating.avg.toFixed(1)}
@@ -728,7 +727,7 @@ const ProviderDetail = () => {
                       {status ? (
                         <>
                           <span className={cn("font-semibold", status.open ? "text-success" : "text-destructive")}>
-                            {status.open ? "Open" : "Closed"}
+                            {status.open ? tr("Open") : tr("Closed")}
                           </span>
                           <span className="text-muted-foreground">
                             {status.open
@@ -806,9 +805,9 @@ const ProviderDetail = () => {
               {[1, 2, 3].map((i) => <Skeleton key={i} className="h-[120px]" />)}
             </div>
           ) : vehiclesQ.isError ? (
-            <QueryError title="Couldn't load vehicles" onRetry={() => vehiclesQ.refetch()} retrying={vehiclesQ.isFetching} />
+            <QueryError title={tr("Couldn't load vehicles")} onRetry={() => vehiclesQ.refetch()} retrying={vehiclesQ.isFetching} />
           ) : (vehiclesQ.data ?? []).length === 0 ? (
-            <TabEmptyState icon={Icon} title="No vehicles yet" subtitle="We're setting things up. Check back soon." />
+            <TabEmptyState icon={Icon} title={tr("No vehicles yet")} subtitle={tr("We're setting things up. Check back soon.")} />
           ) : (() => {
             // Grouped by the vehicle's own type when the fleet is mixed; a
             // one-type fleet keeps the plain grid with no headings.
@@ -835,7 +834,7 @@ const ProviderDetail = () => {
               <div className="space-y-5">
                 {keys.map((k) => (
                   <div key={k || "other"}>
-                    <YdSectionHeading title={labelOf.get(k) ?? "Other"} count={grouped.get(k)!.length} />
+                    <YdSectionHeading title={labelOf.get(k) ?? tr("Other")} count={grouped.get(k)!.length} />
                     <div className="grid grid-cols-2 gap-x-2 gap-y-5 sm:grid-cols-3 lg:grid-cols-4">
                       {grouped.get(k)!.map((v) => <VehicleCard key={v.id} v={v} />)}
                     </div>
@@ -852,9 +851,9 @@ const ProviderDetail = () => {
               {[1, 2, 3].map((i) => <Skeleton key={i} className="h-[120px]" />)}
             </div>
           ) : plansQ.isError ? (
-            <QueryError title="Couldn't load plans" onRetry={() => plansQ.refetch()} retrying={plansQ.isFetching} />
+            <QueryError title={tr("Couldn't load plans")} onRetry={() => plansQ.refetch()} retrying={plansQ.isFetching} />
           ) : (plansQ.data ?? []).length === 0 ? (
-            <TabEmptyState icon={Icon} title="No plans yet" subtitle="We're setting things up. Check back soon." />
+            <TabEmptyState icon={Icon} title={tr("No plans yet")} subtitle={tr("We're setting things up. Check back soon.")} />
           ) : (
             // Cards, like every other shelf of plans on the site — a photo
             // you can see, the price under it. Three across on a laptop; a
@@ -874,7 +873,7 @@ const ProviderDetail = () => {
                   price={
                     typeof plan.price_cents === "number" && plan.price_cents > 0
                       ? <PriceLine cents={plan.price_cents} period={plan.period ?? null} perPerson={(plan as any).pricing_mode === "per_person"} />
-                      : <p className="text-[14px] text-muted-foreground">Price on request</p>
+                      : <p className="text-[14px] text-muted-foreground">{tr("Price on request")}</p>
                   }
                 />
               );
@@ -897,7 +896,7 @@ const ProviderDetail = () => {
                     footer={
                       typeof plan.price_cents === "number" && plan.price_cents > 0
                         ? <PriceLine cents={plan.price_cents} period={plan.period ?? null} perPerson={(plan as any).pricing_mode === "per_person"} />
-                        : <p className="text-[14px] text-muted-foreground">Price on request</p>
+                        : <p className="text-[14px] text-muted-foreground">{tr("Price on request")}</p>
                     }
                   />
                 );
@@ -919,7 +918,7 @@ const ProviderDetail = () => {
 
         {tab === "gallery" && (
           gallery.length === 0 ? (
-            <TabEmptyState icon={Icon} title="No photos yet" subtitle="The provider hasn't added pictures." />
+            <TabEmptyState icon={Icon} title={tr("No photos yet")} subtitle={tr("The provider hasn't added pictures.")} />
           ) : (
             <section className="rounded-radius-lg bg-card p-4">
               {/* Two across on a phone; on a laptop two columns made each photo
@@ -940,7 +939,7 @@ const ProviderDetail = () => {
             one of its three faces. */}
         {(p.contact_phone || p.contact_email) && (
           <section className="rounded-radius-lg bg-card p-4 tracking-[-0.02em]">
-            <h2 className="text-[20px] font-semibold text-foreground">Contact</h2>
+            <h2 className="text-[20px] font-semibold text-foreground">{tr("Contact")}</h2>
             <div className="mt-3 space-y-2">
               {p.contact_phone && (
                 <a href={`tel:${p.contact_phone.replace(/[^+\d]/g, "")}`} className="flex w-fit items-center gap-2 text-[16px] leading-[22px] text-muted-foreground hover:text-foreground">
@@ -983,15 +982,14 @@ function BookButton({ calendars, onPick }: { calendars: Array<{ id: string; name
       className="w-full shrink-0 md:w-auto md:min-w-[200px]"
       onClick={calendars.length === 1 ? () => onPick(calendars[0].id) : undefined}
     >
-      <CalendarDays /> Book a time
-    </Button>
+      <CalendarDays />{" "}{tr("Book a time")}</Button>
   );
   if (calendars.length === 1) return button;
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{button}</PopoverTrigger>
       <PopoverContent align="end" sideOffset={8} className="w-auto min-w-[var(--radix-popover-trigger-width)] max-w-[min(360px,calc(100vw-32px))] p-2">
-        <p className="px-3 pb-1 pt-2 text-[13px] font-semibold uppercase tracking-wider text-muted-foreground">What to book</p>
+        <p className="px-3 pb-1 pt-2 text-[13px] font-semibold uppercase tracking-wider text-muted-foreground">{tr("What to book")}</p>
         <ul>
           {calendars.map((c) => (
             <li key={c.id}>
@@ -1037,8 +1035,7 @@ function WideOfferCard({ href, photos, title, description, chips, corner, price 
         {description && <p className="line-clamp-4 text-[15px] leading-[22px] text-muted-foreground">{description}</p>}
         <div className="mt-auto flex items-end justify-between gap-3 pt-2">
           {price}
-          <span className="inline-flex h-10 items-center gap-1 rounded-full bg-inset px-4 text-[15px] font-semibold text-foreground transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
-            View plan <ChevronRight className="h-4 w-4" />
+          <span className="inline-flex h-10 items-center gap-1 rounded-full bg-inset px-4 text-[15px] font-semibold text-foreground transition-colors group-hover:bg-primary group-hover:text-primary-foreground">{tr("View plan")}{" "}<ChevronRight className="h-4 w-4" />
           </span>
         </div>
       </div>

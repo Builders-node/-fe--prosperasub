@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuthModal } from "@/contexts/AuthModalContext";
 import { toast } from "sonner";
+import { tr } from "@/lib/tr";
 
 const ResetPassword = () => {
   const [searchParams] = useSearchParams();
@@ -25,7 +26,7 @@ const ResetPassword = () => {
   const [isComplete, setIsComplete] = useState(false);
 
   const title = useMemo(
-    () => (isConfirmMode ? "Create new password" : "Reset password"),
+    () => (isConfirmMode ? tr("Create new password") : tr("Reset password")),
     [isConfirmMode]
   );
 
@@ -49,14 +50,14 @@ const ResetPassword = () => {
     }
 
     setIsResetEmailSent(true);
-    toast.success("Password reset email sent.");
+    toast.success(tr("Password reset email sent."));
   };
 
   const handleConfirm = async (event: FormEvent) => {
     event.preventDefault();
 
     if (password !== confirmPassword) {
-      toast.error("Passwords do not match.");
+      toast.error(tr("Passwords do not match."));
       return;
     }
 
@@ -70,7 +71,7 @@ const ResetPassword = () => {
     }
 
     setIsComplete(true);
-    toast.success("Password changed.");
+    toast.success(tr("Password changed."));
   };
 
   return (
@@ -81,40 +82,34 @@ const ResetPassword = () => {
           onClick={() => openAuthModal("login")}
           className="mb-space-8 inline-flex items-center gap-space-2 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
         >
-          <ArrowLeft className="h-4 w-4" />
-          Back to login
-        </button>
+          <ArrowLeft className="h-4 w-4" />{tr("Back to login")}</button>
 
         <section className="rounded-radius-lg bg-card p-space-6 text-card-foreground md:p-space-8">
           <div className="mb-space-8">
             <div className="mb-space-4 flex h-12 w-12 items-center justify-center rounded-radius-lg bg-primary text-primary-foreground">
               @
             </div>
-            <h1 className="text-3xl font-extrabold">{isComplete ? "Password changed" : title}</h1>
+            <h1 className="text-3xl font-extrabold">{isComplete ? tr("Password changed") : title}</h1>
             <p className="mt-space-3 text-sm font-medium leading-6 text-muted-foreground">
               {isComplete
-                ? "Your password is updated. You can sign in with the new password now."
+                ? tr("Your password is updated. You can sign in with the new password now.")
                 : isConfirmMode
-                  ? "Enter a new password for your EverySub account."
-                  : "Enter your email and we will generate a secure reset link for this account."}
+                  ? tr("Enter a new password for your EverySub account.")
+                  : tr("Enter your email and we will generate a secure reset link for this account.")}
             </p>
           </div>
 
           {isComplete ? (
             <div className="space-y-space-6">
               <div className="flex items-center gap-space-3 rounded-radius-lg bg-primary/10 p-space-4 text-sm font-semibold text-foreground">
-                <CheckCircle2 className="h-5 w-5 text-primary" />
-                Password reset completed.
-              </div>
-              <Button className="w-full" size="lg" onClick={() => openAuthModal("login")}>
-                Go to login
-              </Button>
+                <CheckCircle2 className="h-5 w-5 text-primary" />{tr("Password reset completed.")}</div>
+              <Button className="w-full" size="lg" onClick={() => openAuthModal("login")}>{tr("Go to login")}</Button>
             </div>
           ) : isConfirmMode ? (
             <form onSubmit={handleConfirm} className="space-y-space-5">
               <Input
                 id="password"
-                label="New password"
+                label={tr("New password")}
                 type="password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
@@ -126,7 +121,7 @@ const ResetPassword = () => {
 
               <Input
                 id="confirmPassword"
-                label="Confirm password"
+                label={tr("Confirm password")}
                 type="password"
                 value={confirmPassword}
                 onChange={(event) => setConfirmPassword(event.target.value)}
@@ -136,15 +131,13 @@ const ResetPassword = () => {
                 passwordToggle
               />
 
-              <Button type="submit" loading={isLoading} className="w-full" size="lg">
-                Change password
-              </Button>
+              <Button type="submit" loading={isLoading} className="w-full" size="lg">{tr("Change password")}</Button>
             </form>
           ) : (
             <form onSubmit={handleRequest} className="space-y-space-5">
               <Input
                 id="email"
-                label="Email"
+                label={tr("Email")}
                 type="email"
                 placeholder="you@example.com"
                 value={email}
@@ -153,15 +146,11 @@ const ResetPassword = () => {
                 inputSize="md"
               />
 
-              <Button type="submit" loading={isLoading} className="w-full" size="lg">
-                Create reset link
-              </Button>
+              <Button type="submit" loading={isLoading} className="w-full" size="lg">{tr("Create reset link")}</Button>
 
               {isResetEmailSent && (
                 <div className="flex items-center gap-space-3 rounded-radius-lg bg-primary/10 p-space-4 text-sm font-semibold text-foreground">
-                  <CheckCircle2 className="h-5 w-5 text-primary" />
-                  Check your email for the password reset link.
-                </div>
+                  <CheckCircle2 className="h-5 w-5 text-primary" />{tr("Check your email for the password reset link.")}</div>
               )}
             </form>
           )}

@@ -8,6 +8,7 @@ import {
 import { Photo } from "@/components/patterns/Photo";
 import { cn } from "@/lib/utils";
 import { addDaysISO, holds, todayHN, type FleetBlock, type FleetBooking, type FleetVehicle } from "./fleetData";
+import { tr, trx, dfLocale } from "@/lib/tr";
 
 /**
  * The fleet's schedule — a car per row, a day per column, every booking and
@@ -37,12 +38,12 @@ const TONE: Record<string, string> = {
 export type CarState = "available" | "booked" | "out" | "late" | "blocked" | "hidden";
 
 const STATE_STYLE: Record<CarState, { label: string; dot: string; text: string }> = {
-  available: { label: "Available", dot: "bg-positive", text: "text-positive" },
-  booked: { label: "Booked today", dot: "bg-attention", text: "text-foreground" },
-  out: { label: "Rented", dot: "bg-primary", text: "text-foreground" },
-  late: { label: "Late", dot: "bg-negative", text: "text-negative" },
-  blocked: { label: "Blocked", dot: "bg-muted-foreground", text: "text-muted-foreground" },
-  hidden: { label: "Hidden", dot: "bg-muted-foreground/50", text: "text-muted-foreground" },
+  available: { label: tr("Available"), dot: "bg-positive", text: "text-positive" },
+  booked: { label: tr("Booked today"), dot: "bg-attention", text: "text-foreground" },
+  out: { label: tr("Rented"), dot: "bg-primary", text: "text-foreground" },
+  late: { label: tr("Late"), dot: "bg-negative", text: "text-negative" },
+  blocked: { label: tr("Blocked"), dot: "bg-muted-foreground", text: "text-muted-foreground" },
+  hidden: { label: tr("Hidden"), dot: "bg-muted-foreground/50", text: "text-muted-foreground" },
 };
 
 export function carState(v: FleetVehicle, bookings: FleetBooking[], blocks: FleetBlock[], today: string): { state: CarState; note?: string } {
@@ -60,7 +61,7 @@ export function carState(v: FleetVehicle, bookings: FleetBooking[], blocks: Flee
   return { state: "available" };
 }
 
-const short = (iso: string) => format(new Date(`${iso}T00:00:00`), "MMM d");
+const short = (iso: string) => format(new Date(`${iso}T00:00:00`), "MMM d", { locale: dfLocale });
 
 export interface FleetCalendarActions {
   onOpenBooking: (b: FleetBooking) => void;
@@ -134,22 +135,22 @@ export function FleetCalendar({ vehicles, bookings, blocks, onOpenBooking, onOpe
     <section className="space-y-3 rounded-radius-lg bg-card p-3 md:p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-1">
-          <Button size="icon" variant="ghost" aria-label="Two weeks back" onClick={() => setFrom(addDaysISO(from, -14))}><ChevronLeft className="h-5 w-5" /></Button>
-          <Button size="sm" variant="secondary" onClick={() => setFrom(addDaysISO(today, -3))}>Today</Button>
-          <Button size="icon" variant="ghost" aria-label="Two weeks ahead" onClick={() => setFrom(addDaysISO(from, 14))}><ChevronRight className="h-5 w-5" /></Button>
+          <Button size="icon" variant="ghost" aria-label={tr("Two weeks back")} onClick={() => setFrom(addDaysISO(from, -14))}><ChevronLeft className="h-5 w-5" /></Button>
+          <Button size="sm" variant="secondary" onClick={() => setFrom(addDaysISO(today, -3))}>{tr("Today")}</Button>
+          <Button size="icon" variant="ghost" aria-label={tr("Two weeks ahead")} onClick={() => setFrom(addDaysISO(from, 14))}><ChevronRight className="h-5 w-5" /></Button>
           <span className="ml-2 text-title font-semibold text-foreground">
-            {format(new Date(`${from}T00:00:00`), "MMM d")} – {format(new Date(`${to}T00:00:00`), "MMM d, yyyy")}
+            {format(new Date(`${from}T00:00:00`), "MMM d", { locale: dfLocale })} – {format(new Date(`${to}T00:00:00`), "MMM d, yyyy", { locale: dfLocale })}
           </span>
         </div>
         <div className="flex flex-wrap items-center gap-3 text-meta text-muted-foreground">
-          <Legend tone={TONE.pending} label="Unpaid" />
-          <Legend tone={TONE.confirmed} label="Booked" />
-          <Legend tone={TONE.active} label="Out now" />
-          <Legend tone={TONE.completed} label="Done" />
-          <Legend tone={TONE.block} label="Blocked" />
+          <Legend tone={TONE.pending} label={tr("Unpaid")} />
+          <Legend tone={TONE.confirmed} label={tr("Booked")} />
+          <Legend tone={TONE.active} label={tr("Out now")} />
+          <Legend tone={TONE.completed} label={tr("Done")} />
+          <Legend tone={TONE.block} label={tr("Blocked")} />
         </div>
       </div>
-      <p className="hidden text-meta text-muted-foreground md:block">Click a free day or drag across several to book or block them.</p>
+      <p className="hidden text-meta text-muted-foreground md:block">{tr("Click a free day or drag across several to book or block them.")}</p>
 
       <div className="-mx-3 overflow-x-auto md:-mx-4">
         <div className="px-3 md:px-4" style={{ width: "max-content" }}>
@@ -162,14 +163,14 @@ export function FleetCalendar({ vehicles, bookings, blocks, onOpenBooking, onOpe
               return (
                 <div key={d} style={{ width: COL }}
                   className={cn("shrink-0 pb-1 text-center text-[11px] leading-4", d === today ? "font-semibold text-primary" : weekend ? "text-muted-foreground/70" : "text-muted-foreground")}>
-                  <div>{format(dt, "EEEEE")}</div>
+                  <div>{format(dt, "EEEEE", { locale: dfLocale })}</div>
                   <div className="text-[13px]">{format(dt, "d")}</div>
                 </div>
               );
             })}
           </div>
 
-          {rows.length === 0 && <p className="p-4 text-body text-muted-foreground">No vehicles yet.</p>}
+          {rows.length === 0 && <p className="p-4 text-body text-muted-foreground">{tr("No vehicles yet.")}</p>}
 
           {rows.map(({ v, bookings: bs, blocks: ks, now }) => {
             const st = STATE_STYLE[now.state];
@@ -190,20 +191,20 @@ export function FleetCalendar({ vehicles, bookings, blocks, onOpenBooking, onOpe
                   </span>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" aria-label={`Actions for ${v.name}`}>
+                      <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0" aria-label={tr("Actions for {name}", { name: v.name })}>
                         <MoreVertical className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start">
-                      <DropdownMenuItem onSelect={() => onNew(v.id, today, undefined, "booking")}><Plus className="mr-2 h-3.5 w-3.5" /> New booking</DropdownMenuItem>
-                      <DropdownMenuItem onSelect={() => onNew(v.id, today, undefined, "block")}><Ban className="mr-2 h-3.5 w-3.5" /> Block days</DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => onNew(v.id, today, undefined, "booking")}><Plus className="mr-2 h-3.5 w-3.5" />{" "}{tr("New booking")}</DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => onNew(v.id, today, undefined, "block")}><Ban className="mr-2 h-3.5 w-3.5" />{" "}{tr("Block days")}</DropdownMenuItem>
                       {(onEditVehicle || onToggleVehicle) && <DropdownMenuSeparator />}
-                      {onEditVehicle && <DropdownMenuItem onSelect={() => onEditVehicle(v.id)}><Pencil className="mr-2 h-3.5 w-3.5" /> Edit vehicle</DropdownMenuItem>}
+                      {onEditVehicle && <DropdownMenuItem onSelect={() => onEditVehicle(v.id)}><Pencil className="mr-2 h-3.5 w-3.5" />{" "}{tr("Edit vehicle")}</DropdownMenuItem>}
                       {onToggleVehicle && (
                         <DropdownMenuItem onSelect={() => onToggleVehicle(v.id)}>
                           {v.status === "public"
-                            ? <><EyeOff className="mr-2 h-3.5 w-3.5" /> Hide from the storefront</>
-                            : <><Eye className="mr-2 h-3.5 w-3.5" /> Show in the storefront</>}
+                            ? <><EyeOff className="mr-2 h-3.5 w-3.5" />{" "}{tr("Hide from the storefront")}</>
+                            : <><Eye className="mr-2 h-3.5 w-3.5" />{" "}{tr("Show in the storefront")}</>}
                         </DropdownMenuItem>
                       )}
                     </DropdownMenuContent>
@@ -213,7 +214,7 @@ export function FleetCalendar({ vehicles, bookings, blocks, onOpenBooking, onOpe
                 <div className="relative h-12 select-none" style={{ width: SPAN * COL }} {...laneHandlers(v.id)}>
                   {/* Free days: a click starts a booking there. */}
                   {days.map((d, i) => (
-                    <button key={d} type="button" aria-label={`New booking for ${v.name} on ${d}`}
+                    <button key={d} type="button" aria-label={tr("New booking for {name} on {d}", { name: v.name, d })}
                       onClick={(e) => { if (e.detail === 0) onNew(v.id, d); }}
                       onPointerUp={(e) => { if (e.pointerType !== "mouse") onNew(v.id, d); }}
                       style={{ left: i * COL, width: COL }}
@@ -224,8 +225,7 @@ export function FleetCalendar({ vehicles, bookings, blocks, onOpenBooking, onOpe
                   {range && (
                     <div aria-hidden className="pointer-events-none absolute inset-y-1 rounded-[8px] bg-primary/20 outline outline-1 -outline-offset-1 outline-primary"
                       style={{ left: range.lo * COL + 2, width: (range.hi - range.lo + 1) * COL - 4 }}>
-                      <span className="block truncate px-2 pt-2.5 text-[12px] font-semibold text-foreground">
-                        {range.hi - range.lo + 1} day{range.hi === range.lo ? "" : "s"}
+                      <span className="block truncate px-2 pt-2.5 text-[12px] font-semibold text-foreground">{range.hi === range.lo ? trx("{value} day", { value: range.hi - range.lo + 1 }) : trx("{value} days", { value: range.hi - range.lo + 1 })}
                       </span>
                     </div>
                   )}
@@ -233,7 +233,7 @@ export function FleetCalendar({ vehicles, bookings, blocks, onOpenBooking, onOpe
                     const p = place(k.start_date, k.end_date);
                     if (!p) return null;
                     return (
-                      <button key={k.id} data-bar type="button" onClick={() => onOpenBlock(k)} title={k.reason ?? "Blocked"}
+                      <button key={k.id} data-bar type="button" onClick={() => onOpenBlock(k)} title={k.reason ?? tr("Blocked")}
                         style={{ left: p.left, width: p.width }}
                         className={cn("absolute inset-y-1.5 truncate rounded-[8px] px-2 text-left text-[12px] font-semibold", TONE.block)}>
                         {k.reason || "Blocked"}

@@ -1,6 +1,7 @@
 import { canAutoRecover, looksLikeStaleChunk, tryAutoRecover } from "@/lib/staleChunk";
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { AlertTriangle, RefreshCw } from "lucide-react";
+import { tr } from "@/lib/tr";
 
 interface Props {
   children: ReactNode;
@@ -51,9 +52,7 @@ export class ErrorBoundary extends Component<Props, State> {
     if (!error) return this.props.children;
     if (looksLikeStaleChunk(String(error.message ?? "")) && (this.state.recovering || canAutoRecover())) {
       return (
-        <div className="flex min-h-[50vh] items-center justify-center text-body text-muted-foreground">
-          Updating to the latest version…
-        </div>
+        <div className="flex min-h-[50vh] items-center justify-center text-body text-muted-foreground">{tr("Updating to the latest version…")}</div>
       );
     }
 
@@ -65,10 +64,8 @@ export class ErrorBoundary extends Component<Props, State> {
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-negative/10">
             <AlertTriangle className="h-6 w-6 text-negative" />
           </div>
-          <h1 className="mt-4 text-xl font-black tracking-tight text-foreground">Something broke</h1>
-          <p className="mt-1.5 text-sm text-muted-foreground">
-            The page hit an unexpected error. You can try again — or reload if the problem sticks around.
-          </p>
+          <h1 className="mt-4 text-xl font-black tracking-tight text-foreground">{tr("Something broke")}</h1>
+          <p className="mt-1.5 text-sm text-muted-foreground">{tr("The page hit an unexpected error. You can try again — or reload if the problem sticks around.")}</p>
           <p className="mt-3 rounded-xl bg-muted/40 p-3 text-left font-mono text-[11px] text-muted-foreground break-words">
             {error.message || String(error)}
           </p>
@@ -78,15 +75,12 @@ export class ErrorBoundary extends Component<Props, State> {
               onClick={this.reset}
               className="inline-flex items-center justify-center gap-1.5 rounded-full bg-foreground px-5 py-2.5 text-sm font-bold text-background transition-opacity hover:opacity-90"
             >
-              <RefreshCw className="h-4 w-4" /> Try again
-            </button>
+              <RefreshCw className="h-4 w-4" />{" "}{tr("Try again")}</button>
             <button
               type="button"
               onClick={() => window.location.reload()}
               className="inline-flex items-center justify-center gap-1.5 rounded-full border border-border px-5 py-2.5 text-sm font-bold text-foreground transition-colors hover:bg-muted"
-            >
-              Reload page
-            </button>
+            >{tr("Reload page")}</button>
           </div>
         </div>
       </div>

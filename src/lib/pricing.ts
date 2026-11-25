@@ -1,3 +1,4 @@
+import { tr } from "@/lib/tr";
 // Bitcoin/USD pricing utilities using Coinbase API
 
 const SATS_PER_BTC = 100_000_000;
@@ -23,7 +24,7 @@ export async function fetchBtcPrice(): Promise<number> {
   try {
     const response = await fetch('https://api.coinbase.com/v2/prices/BTC-USD/spot');
     if (!response.ok) {
-      throw new Error('Failed to fetch BTC price');
+      throw new Error(tr("Failed to fetch BTC price"));
     }
     
     const data = await response.json();

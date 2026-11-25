@@ -1,5 +1,6 @@
 // The same terms the checkout offers — one list, so the two screens agree.
 import { termOptionsFor } from "@/lib/services/planPeriod";
+import { tr, countNoun } from "@/lib/tr";
 /**
  * What a cart line is, now that it isn't only food.
  *
@@ -56,14 +57,14 @@ export interface ServiceShape {
 
 export const CART_SERVICES: Record<CartService, ServiceShape> = {
   food: {
-    label: "Meals",
+    label: tr("Meals"),
     periodNoun: "week",
     unitNoun: "portion",
     periodOptions: termOptionsFor("weekly"),
     allowsQuantity: true,
   },
   cleaning: {
-    label: "Cleaning",
+    label: tr("Cleaning"),
     periodNoun: "month",
     unitNoun: null,
     periodOptions: termOptionsFor("monthly"),
@@ -72,14 +73,14 @@ export const CART_SERVICES: Record<CartService, ServiceShape> = {
     allowsQuantity: false,
   },
   beach: {
-    label: "Beach Club",
+    label: tr("Beach Club"),
     periodNoun: "month",
     unitNoun: "person",
     periodOptions: termOptionsFor("monthly"),
     allowsQuantity: true,
   },
   plan: {
-    label: "Subscriptions",
+    label: tr("Subscriptions"),
     periodNoun: "month",
     unitNoun: null,
     periodOptions: termOptionsFor("monthly"),
@@ -96,14 +97,14 @@ export const cartItemKey = (item: Pick<CartItem, "service" | "planId" | "periods
 /** "4 weeks", "1 month" — said the way the service actually bills. */
 export function periodLabel(item: Pick<CartItem, "service" | "periods">): string {
   const noun = CART_SERVICES[item.service]?.periodNoun ?? "week";
-  return `${item.periods} ${noun}${item.periods === 1 ? "" : "s"}`;
+  return countNoun(item.periods, noun);
 }
 
 /** "2 portions", "3 people" — empty when quantity means nothing for the service. */
 export function quantityLabel(item: CartItem): string {
   const noun = CART_SERVICES[item.service]?.unitNoun;
   if (!noun) return "";
-  return `${item.qty} ${noun}${item.qty === 1 ? "" : "s"}`;
+  return countNoun(item.qty, noun);
 }
 
 /**

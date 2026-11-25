@@ -11,6 +11,7 @@
  * Everything is re-exported from client.ts, so no call site moved.
  */
 import { API_URL, apiUrlFor } from "@/integrations/supabase/config";
+import { tr } from "@/lib/tr";
 
 export type AuthStateChangeCallback = (event: "SIGNED_IN" | "SIGNED_OUT", session: any) => void;
 
@@ -253,7 +254,7 @@ export async function api(path: string, init?: RequestInit, retryOnUnauthorized 
     window.clearTimeout(timeout);
     return {
       data: null,
-      error: new Error(error instanceof DOMException && error.name === "AbortError" ? "API request timed out" : "API request failed"),
+      error: new Error(error instanceof DOMException && error.name === "AbortError" ? tr("API request timed out") : tr("API request failed")),
     };
   } finally {
     window.clearTimeout(timeout);
@@ -294,11 +295,11 @@ export async function api(path: string, init?: RequestInit, retryOnUnauthorized 
   // a browser that ignores no-store — say what it is instead of the blank
   // "API request failed" that took a week to trace.
   if (response.status === 304) {
-    return { data: null, error: new Error("The server said nothing changed but sent no data. Reload the page.") };
+    return { data: null, error: new Error(tr("The server said nothing changed but sent no data. Reload the page.")) };
   }
 
   if (!response.ok) {
-    return { data: null, error: new Error(data?.message || "API request failed") };
+    return { data: null, error: new Error(data?.message || tr("API request failed")) };
   }
 
   return { data, error: null };

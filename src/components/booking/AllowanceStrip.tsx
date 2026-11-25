@@ -1,4 +1,5 @@
 import { formatDateHN } from "@/lib/timezone";
+import { tr, trx } from "@/lib/tr";
 
 /** What this customer's plan still allows on a calendar. */
 export interface Allowance {
@@ -11,10 +12,10 @@ export interface Allowance {
 }
 
 const PERIOD_LABEL: Record<Allowance["period"], string> = {
-  weekly: "this week",
-  monthly: "this month",
-  quarterly: "this quarter",
-  yearly: "this year",
+  weekly: tr("this week"),
+  monthly: tr("this month"),
+  quarterly: tr("this quarter"),
+  yearly: tr("this year"),
 };
 
 /** "1.5" but "2" — an allowance reads as a number, not as 2.00. */
@@ -37,12 +38,10 @@ export function AllowanceStrip({ allowance }: { allowance: Allowance }) {
       <div className="flex items-baseline justify-between gap-3">
         <p className="text-[16px] leading-[22px] text-foreground">
           {none
-            ? `You've used all ${formatHours(allowance.limit)} hours your plan includes ${PERIOD_LABEL[allowance.period]}`
-            : `${formatHours(allowance.remaining)} of ${formatHours(allowance.limit)} hours left ${PERIOD_LABEL[allowance.period]}`}
+            ? tr("You've used all {limit} hours your plan includes {value}", { limit: formatHours(allowance.limit), value: PERIOD_LABEL[allowance.period] })
+            : tr("{remaining} of {limit} hours left {value}", { remaining: formatHours(allowance.remaining), limit: formatHours(allowance.limit), value: PERIOD_LABEL[allowance.period] })}
         </p>
-        <span className="shrink-0 text-[12px] leading-[16px] text-muted-foreground">
-          resets {formatDateHN(allowance.resetsOn, { month: "short", day: "numeric" })}
-        </span>
+        <span className="shrink-0 text-[12px] leading-[16px] text-muted-foreground">{trx("resets {resetsOn}", { resetsOn: formatDateHN(allowance.resetsOn, { month: "short", day: "numeric" }) })}</span>
       </div>
       <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
         <div

@@ -1,6 +1,9 @@
 import { Minus, Plus } from "lucide-react";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
+import { tr, countNoun, nounPlural } from "@/lib/tr";
+
+const cap = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 
 /**
  * How long and how many — the one control for both, on the checkout AND in the
@@ -28,8 +31,8 @@ export function OrderSize({ termOptions, periods, onPeriods, periodNoun, priceFo
   quantity?: { value: number; onChange: (n: number) => void; noun: string; max?: number } | null;
   className?: string;
 }) {
-  const plural = (n: number, noun: string) => `${n} ${noun}${n === 1 ? "" : "s"}`;
-  const people = (n: number, noun: string) => (noun === "person" ? (n === 1 ? "1 person" : `${n} people`) : plural(n, noun));
+  const plural = countNoun;
+  const people = countNoun;
   const showTerms = termOptions.length > 1 && !!periodNoun;
 
   if (!showTerms && !quantity) return null;
@@ -37,7 +40,7 @@ export function OrderSize({ termOptions, periods, onPeriods, periodNoun, priceFo
     <div className={cn("space-y-4", className)}>
       {showTerms && (
         <div>
-          <p className="text-meta font-semibold text-muted-foreground">How long</p>
+          <p className="text-meta font-semibold text-muted-foreground">{tr("How long")}</p>
           <div className="mt-1.5 grid grid-cols-3 gap-1.5 sm:grid-cols-5">
             {termOptions.map((n) => {
               const on = n === periods;
@@ -70,11 +73,11 @@ export function OrderSize({ termOptions, periods, onPeriods, periodNoun, priceFo
 
       {quantity && (
         <div>
-          <p className="text-meta font-semibold text-muted-foreground">How many</p>
+          <p className="text-meta font-semibold text-muted-foreground">{tr("How many")}</p>
           <div className="mt-1.5 flex items-center gap-3">
             <div className="inline-flex items-center rounded-full bg-inset">
               <button
-                type="button" aria-label={`Fewer ${quantity.noun}s`}
+                type="button" aria-label={tr("Fewer {noun}", { noun: nounPlural(quantity.noun) })}
                 disabled={quantity.value <= 1}
                 onClick={() => quantity.onChange(Math.max(1, quantity.value - 1))}
                 className="flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground disabled:opacity-30"
@@ -83,7 +86,7 @@ export function OrderSize({ termOptions, periods, onPeriods, periodNoun, priceFo
               </button>
               <span className="w-8 text-center text-title font-semibold tabular-nums text-foreground">{quantity.value}</span>
               <button
-                type="button" aria-label={`More ${quantity.noun}s`}
+                type="button" aria-label={tr("More {noun}", { noun: nounPlural(quantity.noun) })}
                 disabled={quantity.value >= (quantity.max ?? 20)}
                 onClick={() => quantity.onChange(Math.min(quantity.max ?? 20, quantity.value + 1))}
                 className="flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground disabled:opacity-30"
@@ -103,13 +106,13 @@ export function OrderSize({ termOptions, periods, onPeriods, periodNoun, priceFo
 export function QtyStepper({ value, onChange, noun, max = 20 }: { value: number; onChange: (n: number) => void; noun: string; max?: number }) {
   // Said above the number: a bare "1" between − and + next to a term picker
   // read as a second count of months.
-  const caption = noun === "person" ? "People" : `${noun.charAt(0).toUpperCase()}${noun.slice(1)}s`;
+  const caption = noun === "person" ? tr("People") : cap(nounPlural(noun));
   return (
     <div className="flex shrink-0 flex-col items-center gap-1">
     <span className="text-meta text-muted-foreground">{caption}</span>
     <div className="inline-flex items-center rounded-full bg-inset">
       <button
-        type="button" aria-label={value <= 1 ? "Remove" : `Fewer ${noun}s`}
+        type="button" aria-label={value <= 1 ? tr("Remove") : tr("Fewer {noun}", { noun: nounPlural(noun) })}
         onClick={() => onChange(value - 1)}
         className="flex h-9 w-9 items-center justify-center rounded-full text-foreground transition-colors hover:bg-muted"
       >
@@ -117,7 +120,7 @@ export function QtyStepper({ value, onChange, noun, max = 20 }: { value: number;
       </button>
       <span className="w-7 text-center text-body font-semibold tabular-nums text-foreground">{value}</span>
       <button
-        type="button" aria-label={`More ${noun}s`}
+        type="button" aria-label={tr("More {noun}", { noun: nounPlural(noun) })}
         disabled={value >= max}
         onClick={() => onChange(Math.min(max, value + 1))}
         className="flex h-9 w-9 items-center justify-center rounded-full text-foreground transition-colors hover:bg-muted disabled:opacity-30"
@@ -137,15 +140,15 @@ export function TermPills({ options, value, onChange, noun }: { options: number[
   // the numbers, not inside every pill.
   return (
     <div className="flex w-full items-center gap-2">
-      <span className="shrink-0 text-meta text-muted-foreground">{noun ? `${noun[0].toUpperCase()}${noun.slice(1)}s` : "Term"}</span>
-      <div role="radiogroup" aria-label={noun ? `Number of ${noun}s` : "Term"} className="flex min-w-0 flex-1 rounded-full bg-inset p-0.5">
+      <span className="shrink-0 text-meta text-muted-foreground">{noun ? cap(nounPlural(noun)) : tr("Term")}</span>
+      <div role="radiogroup" aria-label={noun ? tr("Number of {noun}", { noun: nounPlural(noun) }) : tr("Term")} className="flex min-w-0 flex-1 rounded-full bg-inset p-0.5">
         {options.map((n) => (
           <button
             key={n}
             type="button"
             role="radio"
             aria-checked={n === value}
-            aria-label={`${n} ${noun}${n === 1 ? "" : "s"}`}
+            aria-label={countNoun(n, noun)}
             onClick={() => onChange(n)}
             className={cn(
               "h-8 min-w-0 flex-1 rounded-full text-meta font-semibold tabular-nums transition-colors",

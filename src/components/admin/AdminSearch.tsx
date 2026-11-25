@@ -13,6 +13,7 @@ import { useAdminPermissions } from "@/hooks/useAdminPermissions";
 import { adminApi, supabaseDb } from "@/integrations/supabase/client";
 import { formatUSD } from "@/lib/pricing";
 import { cn } from "@/lib/utils";
+import { tr } from "@/lib/tr";
 
 /**
  * One search box for the whole admin — ⌘K / Ctrl+K, or the button in the top
@@ -58,9 +59,9 @@ export function AdminSearchButton() {
   return (
     <>
       <Button variant="secondary" size="sm" className="gap-2 px-3 md:min-w-[200px] md:justify-start"
-        onClick={() => setOpen(true)} aria-label="Search the admin">
+        onClick={() => setOpen(true)} aria-label={tr("Search the admin")}>
         <Search className="h-4 w-4" />
-        <span className="hidden text-muted-foreground md:inline">Search</span>
+        <span className="hidden text-muted-foreground md:inline">{tr("Search")}</span>
         <kbd className="ml-auto hidden rounded-[6px] bg-background px-1.5 text-meta text-muted-foreground md:inline">⌘K</kbd>
       </Button>
       {open && <AdminSearchDialog open={open} onOpenChange={setOpen} />}
@@ -143,7 +144,7 @@ function AdminSearchDialog({ open, onOpenChange }: { open: boolean; onOpenChange
       for (const u of people.slice(0, 6)) {
         out.push({
           key: `user-${u.id}`, group: "Customers", icon: User,
-          title: u.display_name || u.name || u.email || "Customer",
+          title: u.display_name || u.name || u.email || tr("Customer"),
           detail: [u.email, u.phone].filter(Boolean).join(" · "),
           href: `/admin/customers/${encodeURIComponent(u.id)}`,
         });
@@ -198,15 +199,15 @@ function AdminSearchDialog({ open, onOpenChange }: { open: boolean; onOpenChange
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[560px]" blocks={false}>
         <DialogHeader>
-          <DialogTitle>Search</DialogTitle>
+          <DialogTitle>{tr("Search")}</DialogTitle>
         </DialogHeader>
         <DialogBlock>
           <Input
             autoFocus
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Customer, business, payment reference…"
-            aria-label="Search"
+            placeholder={tr("Customer, business, payment reference…")}
+            aria-label={tr("Search")}
             onKeyDown={(e) => {
               if (e.key === "ArrowDown") { e.preventDefault(); setActive((a) => Math.min(a + 1, hits.length - 1)); }
               if (e.key === "ArrowUp") { e.preventDefault(); setActive((a) => Math.max(a - 1, 0)); }
@@ -250,8 +251,8 @@ function AdminSearchDialog({ open, onOpenChange }: { open: boolean; onOpenChange
             <DialogBlock>
               <p className="text-body text-muted-foreground">
                 {searchingSales || usersQ.isLoading || providersQ.isLoading
-                  ? "Searching…"
-                  : term.length < 3 ? "Keep typing — sales are searched from 3 characters." : `Nothing matches “${q.trim()}”.`}
+                  ? tr("Searching…")
+                  : term.length < 3 ? tr("Keep typing — sales are searched from 3 characters.") : tr("Nothing matches “{trim}”.", { trim: q.trim() })}
               </p>
             </DialogBlock>
           )}

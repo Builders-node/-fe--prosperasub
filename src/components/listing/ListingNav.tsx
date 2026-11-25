@@ -1,6 +1,7 @@
 import { ChevronRight, type LucideIcon } from "lucide-react";
 import { Photo, initialsOf } from "@/components/patterns/Photo";
 import { cn } from "@/lib/utils";
+import { tr } from "@/lib/tr";
 
 /**
  * The shared top of every service listing page.
@@ -143,7 +144,7 @@ export function CategoryChips({
   return (
     <div
       role="tablist"
-      aria-label="Categories"
+      aria-label={tr("Categories")}
       className="-mx-space-4 flex gap-2 overflow-x-auto px-space-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
     >
       {options.map((c) => {

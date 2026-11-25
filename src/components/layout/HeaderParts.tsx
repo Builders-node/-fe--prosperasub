@@ -10,6 +10,7 @@ import { Gift } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { HeaderBadge } from "@/components/layout/HeaderBadge";
 import { HEADER_ACTION_CLASS, HEADER_ACTION_ICON_CLASS } from "@/components/layout/headerAction";
+import { tr } from "@/lib/tr";
 
 /**
  * The pieces every bar in the app is built from — desktop header, the phone's
@@ -85,7 +86,7 @@ export function HeaderIconLink({ to, label, icon: Icon, count = 0, tone, onClick
  * (a bell that opened the login instead). Same height as the avatar it stands
  * in for, so signing in does not move the row.
  */
-export function HeaderLoginButton({ onClick, label = "Log in" }: { onClick: () => void; label?: string }) {
+export function HeaderLoginButton({ onClick, label = tr("Log in") }: { onClick: () => void; label?: string }) {
   return (
     <button
       type="button"
@@ -108,7 +109,7 @@ export function HeaderBonusChip({ cents, compact = false }: { cents: number; com
   return (
     <Link
       to="/account?section=referrals"
-      aria-label={`Bonus balance ${amount}`}
+      aria-label={tr("Bonus balance {amount}", { amount })}
       className={cn(
         "inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full bg-primary/10 font-semibold tabular-nums text-primary transition-colors hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         compact ? "px-2.5 text-meta" : "px-3 text-body",

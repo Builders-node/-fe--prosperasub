@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
+import { tr } from "@/lib/tr";
 
 /**
  * The one place a status becomes a label and a colour.
@@ -57,55 +58,55 @@ const TONE_TEXT: Record<Tone, string> = {
  */
 const STATUS: Record<string, { label: string; tone: Tone }> = {
   // ── running ──────────────────────────────────────────────────────────────
-  active:          { label: "Active",           tone: "positive" },
-  confirmed:       { label: "Confirmed",        tone: "positive" },
-  booked:          { label: "Booked",           tone: "positive" },
-  paid:            { label: "Paid",             tone: "positive" },
-  completed:       { label: "Completed",        tone: "positive" },
-  approved:        { label: "Approved",         tone: "positive" },
-  in_progress:     { label: "In progress",      tone: "positive" },
+  active:          { label: tr("Active"),           tone: "positive" },
+  confirmed:       { label: tr("Confirmed"),        tone: "positive" },
+  booked:          { label: tr("Booked"),           tone: "positive" },
+  paid:            { label: tr("Paid"),             tone: "positive" },
+  completed:       { label: tr("Completed"),        tone: "positive" },
+  approved:        { label: tr("Approved"),         tone: "positive" },
+  in_progress:     { label: tr("In progress"),      tone: "positive" },
   // Google Calendar sync. Shown on every cleaning booking row, so it needs a
   // tone rather than falling through to neutral like an unknown word.
-  synced:          { label: "Synced",           tone: "positive" },
+  synced:          { label: tr("Synced"),           tone: "positive" },
 
   // ── needs the customer or an admin to do something ───────────────────────
   // One phrasing, everywhere. "Payment pending" and "Pending payment" are gone.
-  pending:         { label: "Awaiting payment", tone: "attention" },
-  pending_payment: { label: "Awaiting payment", tone: "attention" },
+  pending:         { label: tr("Awaiting payment"), tone: "attention" },
+  pending_payment: { label: tr("Awaiting payment"), tone: "attention" },
   // Paid for, waiting for the customer to pick a day. It was the one live
   // value missing from this table, so it fell through to the humaniser and
   // showed as a grey "Pending schedule" — the same colour as Archived, on a
   // subscription somebody had already paid for and was waiting to use.
-  pending_schedule: { label: "Awaiting schedule", tone: "attention" },
+  pending_schedule: { label: tr("Awaiting schedule"), tone: "attention" },
   // A booking that exists but has no money against it yet (car rentals list).
-  unpaid:          { label: "Unpaid",           tone: "attention" },
-  held:            { label: "On hold",          tone: "attention" },
-  paused:          { label: "Paused",           tone: "attention" },
-  expiring_soon:   { label: "Expiring soon",    tone: "attention" },
-  trial:           { label: "Trial",            tone: "attention" },
-  under_review:    { label: "Under review",     tone: "attention" },
+  unpaid:          { label: tr("Unpaid"),           tone: "attention" },
+  held:            { label: tr("On hold"),          tone: "attention" },
+  paused:          { label: tr("Paused"),           tone: "attention" },
+  expiring_soon:   { label: tr("Expiring soon"),    tone: "attention" },
+  trial:           { label: tr("Trial"),            tone: "attention" },
+  under_review:    { label: tr("Under review"),     tone: "attention" },
 
   // ── stopped ──────────────────────────────────────────────────────────────
   // A visit whose day has passed and nobody marked done (or cancelled).
-  not_marked_done: { label: "Not marked done",  tone: "attention" },
-  expired:         { label: "Expired",          tone: "negative" },
-  cancelled:       { label: "Cancelled",        tone: "negative" },
-  canceled:        { label: "Cancelled",        tone: "negative" },
-  rejected:        { label: "Not approved",     tone: "negative" },
-  failed:          { label: "Failed",           tone: "negative" },
+  not_marked_done: { label: tr("Not marked done"),  tone: "attention" },
+  expired:         { label: tr("Expired"),          tone: "negative" },
+  cancelled:       { label: tr("Cancelled"),        tone: "negative" },
+  canceled:        { label: tr("Cancelled"),        tone: "negative" },
+  rejected:        { label: tr("Not approved"),     tone: "negative" },
+  failed:          { label: tr("Failed"),           tone: "negative" },
 
   // ── listing visibility (vehicles, plans) ─────────────────────────────────
-  public:          { label: "Public",           tone: "positive" },
-  private:         { label: "Private",          tone: "attention" },
-  archived:        { label: "Archived",         tone: "neutral" },
+  public:          { label: tr("Public"),           tone: "positive" },
+  private:         { label: tr("Private"),          tone: "attention" },
+  archived:        { label: tr("Archived"),         tone: "neutral" },
   // Promoted to the top of a listing (beach plans). A flag, not a lifecycle
   // state, but it sits in the same row of pills so it needs a tone.
-  featured:        { label: "Featured",         tone: "positive" },
+  featured:        { label: tr("Featured"),         tone: "positive" },
 
   // ── settled, no action ───────────────────────────────────────────────────
-  refunded:        { label: "Refunded",         tone: "neutral" },
-  inactive:        { label: "Inactive",         tone: "neutral" },
-  draft:           { label: "Draft",            tone: "neutral" },
+  refunded:        { label: tr("Refunded"),         tone: "neutral" },
+  inactive:        { label: tr("Inactive"),         tone: "neutral" },
+  draft:           { label: tr("Draft"),            tone: "neutral" },
 };
 
 /**
@@ -122,14 +123,14 @@ const STATUS: Record<string, { label: string; tone: Tone }> = {
  */
 const CONTEXT: Record<string, Record<string, { label: string; tone: Tone }>> = {
   application: {
-    pending: { label: "Under review", tone: "attention" },
+    pending: { label: tr("Under review"), tone: "attention" },
   },
   // A person, not a sale: has something running, had and lost it, or never.
   customer: {
-    blocked: { label: "Blocked", tone: "negative" },
-    active: { label: "Active", tone: "positive" },
-    lapsed: { label: "Lapsed", tone: "attention" },
-    idle: { label: "No orders", tone: "neutral" },
+    blocked: { label: tr("Blocked"), tone: "negative" },
+    active: { label: tr("Active"), tone: "positive" },
+    lapsed: { label: tr("Lapsed"), tone: "attention" },
+    idle: { label: tr("No orders"), tone: "neutral" },
   },
 };
 
@@ -162,7 +163,7 @@ export function statusMeta(
     hit?.label ??
     (key
       ? key.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase())
-      : "Unknown");
+      : tr("Unknown"));
   return {
     label,
     tone,

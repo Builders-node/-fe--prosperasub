@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { carPath } from "../lib/routes";
 import { QueryError } from "@/components/patterns/QueryError";
 import { StatusPill } from "@/components/patterns/StatusPill";
+import { tr, trx, dfLocale } from "@/lib/tr";
 
 
 export default function MyBookings() {
@@ -38,13 +39,13 @@ export default function MyBookings() {
       ) : isError ? (
         /* Telling someone they have no bookings when we simply could not ask
            is worse than saying nothing. */
-        <QueryError title="Couldn't load your bookings" error={error as Error} onRetry={() => void refetch()} />
+        <QueryError title={tr("Couldn't load your bookings")} error={error as Error} onRetry={() => void refetch()} />
       ) : bookings.length === 0 ? (
         <div className="flex flex-col items-center py-20 text-center">
           <Car className="mb-3 h-12 w-12 text-muted-foreground/40" />
-          <p className="font-semibold text-foreground">No bookings yet</p>
-          <p className="mt-1 text-body text-muted-foreground">Rent a car, a bike or a boat — your bookings will show up here.</p>
-          <Button asChild className="mt-4"><Link to={carPath()}>Browse vehicles</Link></Button>
+          <p className="font-semibold text-foreground">{tr("No bookings yet")}</p>
+          <p className="mt-1 text-body text-muted-foreground">{tr("Rent a car, a bike or a boat — your bookings will show up here.")}</p>
+          <Button asChild className="mt-4"><Link to={carPath()}>{tr("Browse vehicles")}</Link></Button>
         </div>
       ) : (
         <div className="space-y-3">
@@ -58,8 +59,7 @@ export default function MyBookings() {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-body font-bold text-foreground">{b.rental_vehicles?.name ?? "Vehicle"}</p>
-                <p className="text-xs text-muted-foreground">
-                  {format(new Date(b.start_date + "T00:00:00"), "MMM d")} → {format(new Date(b.end_date + "T00:00:00"), "MMM d")} · {b.rental_days} day{b.rental_days > 1 ? "s" : ""}
+                <p className="text-xs text-muted-foreground">{b.rental_days > 1 ? trx("{format} → {format2} · {rental_days} days", { format: format(new Date(b.start_date + "T00:00:00"), "MMM d", { locale: dfLocale }), format2: format(new Date(b.end_date + "T00:00:00"), "MMM d", { locale: dfLocale }), rental_days: b.rental_days }) : trx("{format} → {format2} · {rental_days} day", { format: format(new Date(b.start_date + "T00:00:00"), "MMM d", { locale: dfLocale }), format2: format(new Date(b.end_date + "T00:00:00"), "MMM d", { locale: dfLocale }), rental_days: b.rental_days })}
                 </p>
                 <StatusPill status={b.status} className="mt-1" />
               </div>
@@ -69,7 +69,7 @@ export default function MyBookings() {
                   {/* The one row that needs an instruction rather than a label:
                       an unpaid booking is holding a car and can still be paid. */}
                   {b.payment_status !== "paid" && b.status !== "cancelled" && (
-                    <Button size="sm" className="mt-1">Complete payment</Button>
+                    <Button size="sm" className="mt-1">{tr("Complete payment")}</Button>
                   )}
                 </div>
                 <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />

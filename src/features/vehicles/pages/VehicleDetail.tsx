@@ -30,6 +30,7 @@ import { carPath, carProviderPath, vehiclePath } from "../lib/routes";
 import { addDays } from "date-fns";
 import { useSeo, offerJsonLd, breadcrumbJsonLd } from "@/hooks/useSeo";
 import { SiteFooter } from "@/components/layout/SiteFooter";
+import { tr, trx } from "@/lib/tr";
 
 export default function VehicleDetail() {
   const { id } = useParams<{ id: string }>();
@@ -78,8 +79,8 @@ export default function VehicleDetail() {
             }),
             // Top down, the way search results print the trail.
             breadcrumbJsonLd([
-              { label: "EverySub", href: "/discovery" },
-              { label: "Car rental", href: carPath() },
+              { label: tr("EverySub"), href: "/discovery" },
+              { label: tr("Car rental"), href: carPath() },
               ...(v.provider?.name && v.provider.id
                 ? [{ label: v.provider.name, href: carProviderPath(v.provider.slug || v.provider.id) }]
                 : []),
@@ -99,8 +100,8 @@ export default function VehicleDetail() {
   if (isLoading) return <AppContainer className="flex justify-center py-24"><Spinner /></AppContainer>;
   if (!v) return (
     <AppContainer className="py-24 text-center">
-      <p className="font-semibold text-foreground">Car not found</p>
-      <Link to={carPath()} className="mt-3 inline-block text-sm font-semibold text-primary">Back to vehicles</Link>
+      <p className="font-semibold text-foreground">{tr("Car not found")}</p>
+      <Link to={carPath()} className="mt-3 inline-block text-sm font-semibold text-primary">{tr("Back to vehicles")}</Link>
     </AppContainer>
   );
 
@@ -124,10 +125,10 @@ export default function VehicleDetail() {
 
   const specs = [
     { icon: Users, label: `${v.seats} seats` },
-    { icon: Gauge, label: v.transmission === "automatic" ? "Automatic" : "Manual" },
+    { icon: Gauge, label: v.transmission === "automatic" ? tr("Automatic") : tr("Manual") },
     { icon: Fuel, label: FUEL_LABEL[v.fuel_type] },
     { icon: Briefcase, label: `${v.luggage_capacity} bags` },
-    ...(v.air_conditioning ? [{ icon: Snowflake, label: "Air conditioning" }] : []),
+    ...(v.air_conditioning ? [{ icon: Snowflake, label: tr("Air conditioning") }] : []),
   ];
 
   // Every picture of this car, cover first — one band instead of a big photo
@@ -146,8 +147,8 @@ export default function VehicleDetail() {
 
   // Wider first: the section, then the company that rents this car.
   const breadcrumbs = [
-    { label: "Home", href: "/discovery" },
-    { label: "Vehicles", href: carPath() },
+    { label: tr("Home"), href: "/discovery" },
+    { label: tr("Vehicles"), href: carPath() },
     ...(v.provider?.name && v.provider.id
       ? [{ label: v.provider.name, href: carProviderPath(v.provider.slug || v.provider.id) }]
       : []),
@@ -155,7 +156,7 @@ export default function VehicleDetail() {
 
   const bookButton = (
     <Button size="lg" variant={pricing ? "primary" : "secondary"} className="w-full font-semibold" onClick={goBook}>
-      {pricing ? `Book · ${formatUSD(pricing.totalCents)}` : "Pick your dates"}
+      {pricing ? tr("Book · {totalCents}", { totalCents: formatUSD(pricing.totalCents) }) : tr("Pick your dates")}
     </Button>
   );
 
@@ -179,7 +180,7 @@ export default function VehicleDetail() {
           the bell belongs on pages about your own account. */}
       <DetailHeader
         title={v.name}
-        centreLabel="Vehicles"
+        centreLabel={tr("Vehicles")}
         onBack={goBack}
         overPhoto={shots.length > 0}
         rightAction={
@@ -251,7 +252,7 @@ export default function VehicleDetail() {
         </section>
 
         <section className="space-y-3 rounded-radius-lg bg-card p-4 shadow-figma">
-          <h2 className="text-heading font-semibold text-foreground">Choose your dates</h2>
+          <h2 className="text-heading font-semibold text-foreground">{tr("Choose your dates")}</h2>
           <DealPanel subject={{ providerId: v.provider_id, id: v.id, priceCents: v.daily_price_cents }} unit="/ day" />
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
             {deal ? (
@@ -259,7 +260,7 @@ export default function VehicleDetail() {
             ) : (
               <span className="text-3xl font-semibold tabular-nums tracking-tight text-foreground">
                 {formatUSD(v.daily_price_cents)}
-                <span className="text-meta font-normal text-muted-foreground"> / day</span>
+                <span className="text-meta font-normal text-muted-foreground">{" "}{tr("/ day")}</span>
               </span>
             )}
             {(v.weekly_price_cents > 0 || v.monthly_price_cents > 0) && (
@@ -296,17 +297,17 @@ export default function VehicleDetail() {
           {pricing && (
             <div className="space-y-1.5 rounded-radius-md bg-inset p-3">
               <div className="flex justify-between text-meta text-muted-foreground">
-                <span>{formatUSD(pricing.effectiveDailyRate)} × {pricing.rentalDays} days</span>
+                <span>{trx("{effectiveDailyRate} × {rentalDays} days", { effectiveDailyRate: formatUSD(pricing.effectiveDailyRate), rentalDays: pricing.rentalDays })}</span>
                 <span className="tabular-nums">{formatUSD(pricing.subtotalCents)}</span>
               </div>
               {pricing.discountCents > 0 && (
                 <div className="flex justify-between text-meta text-muted-foreground">
-                  <span>Longer-rental discount</span>
+                  <span>{tr("Longer-rental discount")}</span>
                   <span className="tabular-nums text-primary">−{formatUSD(pricing.discountCents)}</span>
                 </div>
               )}
               <div className="flex justify-between text-title font-semibold text-foreground">
-                <span>Total</span>
+                <span>{tr("Total")}</span>
                 <span className="tabular-nums">{formatUSD(pricing.totalCents)}</span>
               </div>
             </div>
@@ -319,7 +320,7 @@ export default function VehicleDetail() {
       </main>
 
       <UpsellSection
-        title="You may also need"
+        title={tr("You may also need")}
         placement="vehicle"
         className="app-container mt-1 py-3 md:mt-4"
         gridClassName="md:grid-cols-2 lg:grid-cols-3"

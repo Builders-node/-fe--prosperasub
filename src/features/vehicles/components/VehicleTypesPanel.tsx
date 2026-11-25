@@ -24,6 +24,7 @@ import { logAuditEvent } from "@/lib/auditLog";
 import { CATEGORY_ICONS, CATEGORY_ICON_KEYS, resolveCategoryIcon } from "@/lib/services/categoryIcons";
 import { cn } from "@/lib/utils";
 import { VEHICLE_TYPES_KEY, useVehicleTypes, type VehicleType } from "../hooks/useVehicleTypes";
+import { tr, trx } from "@/lib/tr";
 
 /**
  * Vehicle types, edited on transport's own terms.
@@ -94,10 +95,10 @@ export function VehicleTypesPanel() {
   const save = useMutation({
     mutationFn: async () => {
       const label = form.label.trim();
-      if (!label) throw new Error("The type needs a name.");
+      if (!label) throw new Error(tr("The type needs a name."));
       const isNew = editing === "new";
       const key = isNew ? slug(label) : form.key;
-      if (!key) throw new Error("The name must contain a letter or a number.");
+      if (!key) throw new Error(tr("The name must contain a letter or a number."));
       const row = { label, icon: form.icon, sort_order: form.sort_order, is_active: form.is_active };
       const res = isNew
         ? await fleetWrite("rental_categories", "insert", { row: { key, ...row } })
@@ -105,7 +106,7 @@ export function VehicleTypesPanel() {
       if (res.error) throw res.error;
       if (userData?.id) await logAuditEvent(userData.id, isNew ? "create" : "edit", "rental_category", key, row);
     },
-    onSuccess: () => { toast.success("Saved"); setEditing(null); refresh(); },
+    onSuccess: () => { toast.success(tr("Saved")); setEditing(null); refresh(); },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -124,7 +125,7 @@ export function VehicleTypesPanel() {
       if (err) throw err;
       if (userData?.id) await logAuditEvent(userData.id, "delete", "rental_category", t.key, {});
     },
-    onSuccess: () => { toast.success("Type deleted"); setDeleteTarget(null); refresh(); },
+    onSuccess: () => { toast.success(tr("Type deleted")); setDeleteTarget(null); refresh(); },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -140,16 +141,16 @@ export function VehicleTypesPanel() {
   return (
     <>
       <AdminListShell
-        search={search} onSearch={setSearch} searchPlaceholder="Search types…"
+        search={search} onSearch={setSearch} searchPlaceholder={tr("Search types…")}
         isLoading={isLoading} isError={isError} error={error} onRetry={() => void refetch()}
         isEmpty={types.length === 0}
         isNoResults={types.length > 0 && filtered.length === 0}
         count={filtered.length}
-        emptyTitle="No vehicle types yet"
-        emptySubtitle="A type is what the product IS — Cars, Motorbikes, Boats. Every vehicle picks one, and the storefront filters by it."
+        emptyTitle={tr("No vehicle types yet")}
+        emptySubtitle={tr("A type is what the product IS — Cars, Motorbikes, Boats. Every vehicle picks one, and the storefront filters by it.")}
         onClearFilters={() => setSearch("")}
         actions={
-          <Button onClick={openNew} className="gap-1.5"><Plus className="h-4 w-4" /> New type</Button>
+          <Button onClick={openNew} className="gap-1.5"><Plus className="h-4 w-4" />{" "}{tr("New type")}</Button>
         }
       >
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -170,7 +171,7 @@ export function VehicleTypesPanel() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-bold text-foreground">{t.label}</p>
                   <p className="mt-0.5 text-meta text-muted-foreground">
-                    {t.is_active ? "Active" : "Hidden"}
+                    {t.is_active ? tr("Active") : tr("Hidden")}
                     {" · "}
                     <span className="tabular-nums">{n}</span> {n === 1 ? "vehicle" : "vehicles"}
                   </p>
@@ -183,20 +184,18 @@ export function VehicleTypesPanel() {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-52">
                     <DropdownMenuItem onSelect={() => openEdit(t)}>
-                      <Pencil className="h-4 w-4" /> Edit
-                    </DropdownMenuItem>
+                      <Pencil className="h-4 w-4" />{" "}{tr("Edit")}</DropdownMenuItem>
                     <DropdownMenuItem onSelect={() => toggleActive.mutate(t)}>
                       {t.is_active
-                        ? <><EyeOff className="h-4 w-4" /> Hide from the storefront</>
-                        : <><Eye className="h-4 w-4" /> Show on the storefront</>}
+                        ? <><EyeOff className="h-4 w-4" />{" "}{tr("Hide from the storefront")}</>
+                        : <><Eye className="h-4 w-4" />{" "}{tr("Show on the storefront")}</>}
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       onSelect={() => setDeleteTarget(t)}
                       className="text-destructive focus:bg-destructive/10 focus:text-destructive"
                     >
-                      <Trash2 className="h-4 w-4" /> Delete
-                    </DropdownMenuItem>
+                      <Trash2 className="h-4 w-4" />{" "}{tr("Delete")}</DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
@@ -208,28 +207,28 @@ export function VehicleTypesPanel() {
       <Dialog open={editing !== null} onOpenChange={(v) => !v && setEditing(null)}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>{editing === "new" ? "New vehicle type" : "Edit vehicle type"}</DialogTitle>
+            <DialogTitle>{editing === "new" ? tr("New vehicle type") : tr("Edit vehicle type")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Name *</Label>
+              <Label>{tr("Name *")}</Label>
               <Input
                 className="mt-1"
                 value={form.label}
                 onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))}
-                placeholder="Motorbikes"
+                placeholder={tr("Motorbikes")}
               />
               <p className="mt-1 text-2xs text-muted-foreground">
                 {editing === "new"
                   // The key is what every vehicle row stores, so it is fixed
                   // once created — renaming it would orphan the fleet.
-                  ? <>Saved as <code className="text-foreground">{slug(form.label) || "…"}</code>, which vehicles store. The name can change later; that key cannot.</>
-                  : <>Stored as <code className="text-foreground">{form.key}</code> — fixed, because every vehicle of this type points at it.</>}
+                  ? <>{tr("Saved as")}{" "}<code className="text-foreground">{slug(form.label) || "…"}</code>{tr(", which vehicles store. The name can change later; that key cannot.")}</>
+                  : <>{tr("Stored as")}{" "}<code className="text-foreground">{form.key}</code>{" "}{tr("— fixed, because every vehicle of this type points at it.")}</>}
               </p>
             </div>
 
             <div>
-              <Label>Icon</Label>
+              <Label>{tr("Icon")}</Label>
               <div className="mt-1.5 grid grid-cols-6 gap-1.5 sm:grid-cols-8">
                 {CATEGORY_ICON_KEYS.map((k) => {
                   const I = CATEGORY_ICONS[k];
@@ -254,17 +253,17 @@ export function VehicleTypesPanel() {
 
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
-                <Label>Sort order</Label>
+                <Label>{tr("Sort order")}</Label>
                 <Input
                   className="mt-1"
                   type="number"
                   value={form.sort_order}
                   onChange={(e) => setForm((f) => ({ ...f, sort_order: Number(e.target.value) || 0 }))}
                 />
-                <p className="mt-1 text-2xs text-muted-foreground">Lower shows first in the storefront's filter.</p>
+                <p className="mt-1 text-2xs text-muted-foreground">{tr("Lower shows first in the storefront's filter.")}</p>
               </div>
               <div>
-                <Label>On the storefront</Label>
+                <Label>{tr("On the storefront")}</Label>
                 <label className="mt-2 flex items-center gap-2 text-sm text-foreground">
                   <input
                     type="checkbox"
@@ -272,16 +271,15 @@ export function VehicleTypesPanel() {
                     checked={form.is_active}
                     onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.checked }))}
                   />
-                  {form.is_active ? "Customers can filter by it" : "Hidden"}
+                  {form.is_active ? tr("Customers can filter by it") : tr("Hidden")}
                 </label>
               </div>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setEditing(null)}>Cancel</Button>
+            <Button variant="ghost" onClick={() => setEditing(null)}>{tr("Cancel")}</Button>
             <Button onClick={() => save.mutate()} disabled={save.isPending}>
-              {save.isPending && <Spinner size="sm" className="mr-1" />} Save
-            </Button>
+              {save.isPending && <Spinner size="sm" className="mr-1" />}{" "}{tr("Save")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -289,23 +287,21 @@ export function VehicleTypesPanel() {
       <AlertDialog open={!!deleteTarget} onOpenChange={(v) => !v && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete "{deleteTarget?.label}"?</AlertDialogTitle>
+            <AlertDialogTitle>{trx("Delete \"{label}\"?", { label: deleteTarget?.label })}</AlertDialogTitle>
             <AlertDialogDescription>
               {(() => {
                 const n = deleteTarget ? counts[deleteTarget.key] ?? 0 : 0;
-                if (n === 0) return "No vehicles are of this type — safe to delete.";
-                return `${n} ${n === 1 ? "vehicle is" : "vehicles are"} of this type. They stay listed but lose their type until you give them another one.`;
+                if (n === 0) return tr("No vehicles are of this type — safe to delete.");
+                return (n === 1 ? tr("{n} vehicle is of this type. They stay listed but lose their type until you give them another one.", { n }) : tr("{n} vehicles are of this type. They stay listed but lose their type until you give them another one.", { n }));
               })()}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{tr("Cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deleteTarget && remove.mutate(deleteTarget)}
               className="bg-negative text-white hover:bg-negative/90"
-            >
-              Delete
-            </AlertDialogAction>
+            >{tr("Delete")}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

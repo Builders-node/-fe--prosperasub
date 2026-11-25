@@ -22,6 +22,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { tr, trx, dfLocale } from "@/lib/tr";
 
 
 /**
@@ -47,10 +48,10 @@ async function call<T = unknown>(path: string, method = "GET", body?: unknown): 
 export default function Delivery() {
   const [tab, setTab] = useTabParam(["zones", "deliveries", "couriers"] as const);
   return (
-    <SuperAdminLayout title="Delivery" subtitle="Where we deliver, for how much, and who brings it">
+    <SuperAdminLayout title={tr("Delivery")} subtitle={tr("Where we deliver, for how much, and who brings it")}>
       <TabPills
         className="mb-4"
-        tabs={[{ value: "zones", label: "Zones" }, { value: "deliveries", label: "Deliveries" }, { value: "couriers", label: "Couriers" }]}
+        tabs={[{ value: "zones", label: tr("Zones") }, { value: "deliveries", label: tr("Deliveries") }, { value: "couriers", label: tr("Couriers") }]}
         value={tab}
         onChange={setTab}
       />
@@ -68,7 +69,7 @@ function ZonesTab() {
 // ── Deliveries ───────────────────────────────────────────────────────────────
 
 const STATUS_LABEL: Record<string, string> = {
-  pending: "New", assigned: "Assigned", on_the_way: "On the way", delivered: "Delivered", failed: "Failed",
+  pending: tr("New"), assigned: tr("Assigned"), on_the_way: tr("On the way"), delivered: tr("Delivered"), failed: tr("Failed"),
 };
 
 interface DeliveryRow {
@@ -110,17 +111,17 @@ function DeliveriesTab() {
 
   const update = useMutation({
     mutationFn: ({ id, ...b }: { id: string; status?: string; courierId?: string | null }) => call(`/admin/deliveries/${id}`, "PATCH", b),
-    onSuccess: () => { void qc.invalidateQueries({ queryKey: ["admin-deliveries"] }); toast.success("Updated"); },
-    onError: (e: Error) => toast.error(e.message || "Could not update"),
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: ["admin-deliveries"] }); toast.success(tr("Updated")); },
+    onError: (e: Error) => toast.error(e.message || tr("Could not update")),
   });
 
   if (q.isLoading) return <Skeleton className="h-64" />;
-  if (q.isError) return <QueryError title="Couldn't load deliveries" error={q.error as Error} onRetry={() => void q.refetch()} />;
+  if (q.isError) return <QueryError title={tr("Couldn't load deliveries")} error={q.error as Error} onRetry={() => void q.refetch()} />;
 
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
-        {[["open", "To deliver"], ["delivered", "Delivered"], ["failed", "Failed"], ["all", "All"]].map(([v, l]) => (
+        {[["open", tr("To deliver")], ["delivered", "Delivered"], ["failed", "Failed"], ["all", "All"]].map(([v, l]) => (
           <button key={v} type="button" onClick={() => setStatus(v)}
             className={cn("h-9 rounded-full px-4 text-[14px] font-semibold transition-colors",
               status === v ? "bg-foreground text-background" : "bg-card text-muted-foreground hover:text-foreground")}>{l}</button>
@@ -128,7 +129,7 @@ function DeliveriesTab() {
       </div>
       {rows.length === 0 ? (
         <p className="rounded-radius-lg bg-card p-4 text-body text-muted-foreground">
-          {status === "open" ? "Nothing to deliver right now." : "No deliveries here."}
+          {status === "open" ? tr("Nothing to deliver right now.") : tr("No deliveries here.")}
         </p>
       ) : rows.map((r) => {
         const p = r.delivery_point;
@@ -138,7 +139,7 @@ function DeliveriesTab() {
               <div className="min-w-0">
                 <p className="text-body font-semibold text-foreground">{r.metadata?.plan_name ?? "Order"} · {r.providers?.name ?? "—"}</p>
                 <p className="text-meta text-muted-foreground">
-                  {[r.metadata?.customer_name, r.customer_whatsapp, format(new Date(r.created_at), "MMM d, HH:mm")].filter(Boolean).join(" · ")}
+                  {[r.metadata?.customer_name, r.customer_whatsapp, format(new Date(r.created_at), "MMM d, HH:mm", { locale: dfLocale })].filter(Boolean).join(" · ")}
                 </p>
               </div>
               <p className="text-meta tabular-nums text-muted-foreground">
@@ -147,13 +148,13 @@ function DeliveriesTab() {
             </div>
             {p && (
               <div className="rounded-radius-md bg-inset p-3 text-body">
-                <p className="text-foreground">{p.line ?? "Pinned location"}</p>
+                <p className="text-foreground">{p.line ?? tr("Pinned location")}</p>
                 {p.details && <p className="text-meta text-muted-foreground">{p.details}</p>}
                 <a className="text-meta font-semibold text-primary" target="_blank" rel="noreferrer"
-                  href={`https://www.google.com/maps/search/?api=1&query=${p.lat},${p.lng}`}>Open in Maps</a>
+                  href={`https://www.google.com/maps/search/?api=1&query=${p.lat},${p.lng}`}>{tr("Open in Maps")}</a>
               </div>
             )}
-            {r.notes && <p className="text-meta text-muted-foreground">Note: {r.notes}</p>}
+            {r.notes && <p className="text-meta text-muted-foreground">{trx("Note: {notes}", { notes: r.notes })}</p>}
             <div className="flex flex-wrap gap-2">
               <Select value={r.delivery_status ?? "pending"} onValueChange={(v) => update.mutate({ id: r.id, status: v })}>
                 <SelectTrigger inputSize="sm" className="w-[150px]"><SelectValue /></SelectTrigger>
@@ -162,9 +163,9 @@ function DeliveriesTab() {
                 </SelectContent>
               </Select>
               <Select value={r.courier_id ?? "none"} onValueChange={(v) => update.mutate({ id: r.id, courierId: v === "none" ? null : v })}>
-                <SelectTrigger inputSize="sm" className="w-[180px]"><SelectValue placeholder="Courier" /></SelectTrigger>
+                <SelectTrigger inputSize="sm" className="w-[180px]"><SelectValue placeholder={tr("Courier")} /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">No courier</SelectItem>
+                  <SelectItem value="none">{tr("No courier")}</SelectItem>
                   {couriers.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                 </SelectContent>
               </Select>
@@ -191,8 +192,8 @@ function CouriersTab() {
   const [linkEmail, setLinkEmail] = useState("");
   const add = useMutation({
     mutationFn: () => call("/admin/couriers", "POST", { name, phone, email: email.trim() || undefined }),
-    onSuccess: () => { setName(""); setPhone(""); setEmail(""); refresh(); toast.success("Courier added"); },
-    onError: (e: Error) => toast.error(e.message || "Could not add"),
+    onSuccess: () => { setName(""); setPhone(""); setEmail(""); refresh(); toast.success(tr("Courier added")); },
+    onError: (e: Error) => toast.error(e.message || tr("Could not add")),
   });
   const toggle = useMutation({
     mutationFn: (c: Courier) => call(`/admin/couriers/${c.id}`, "PATCH", { isActive: !c.is_active }),
@@ -201,8 +202,8 @@ function CouriersTab() {
   /** Linking an account is what opens /courier for that person. */
   const link = useMutation({
     mutationFn: ({ id, email: e }: { id: string; email: string | null }) => call(`/admin/couriers/${id}`, "PATCH", { email: e }),
-    onSuccess: (_d, v) => { refresh(); setLinkFor(null); toast.success(v.email ? "Account linked — they can open everysub.net/courier" : "Account unlinked"); },
-    onError: (e: Error) => toast.error(e.message || "Could not link it"),
+    onSuccess: (_d, v) => { refresh(); setLinkFor(null); toast.success(v.email ? tr("Account linked — they can open everysub.net/courier") : tr("Account unlinked")); },
+    onError: (e: Error) => toast.error(e.message || tr("Could not link it")),
   });
   if (q.isLoading) return <Skeleton className="h-40" />;
   return (
@@ -211,30 +212,27 @@ function CouriersTab() {
       <AlertDialog open={!!linkFor} onOpenChange={(o) => { if (!o) setLinkFor(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Link {linkFor?.name}'s account</AlertDialogTitle>
-            <AlertDialogDescription>The email they sign in to EverySub with. Linking opens everysub.net/courier for them.</AlertDialogDescription>
+            <AlertDialogTitle>{trx("Link {name}'s account", { name: linkFor?.name })}</AlertDialogTitle>
+            <AlertDialogDescription>{tr("The email they sign in to EverySub with. Linking opens everysub.net/courier for them.")}</AlertDialogDescription>
           </AlertDialogHeader>
           <Input type="email" autoFocus value={linkEmail} onChange={(e) => setLinkEmail(e.target.value)} placeholder="name@example.com" />
           <AlertDialogFooter>
-            <AlertDialogCancel>Back</AlertDialogCancel>
+            <AlertDialogCancel>{tr("Back")}</AlertDialogCancel>
             <AlertDialogAction
               disabled={!linkEmail.trim() || link.isPending}
               onClick={(e) => { e.preventDefault(); if (linkFor) link.mutate({ id: linkFor.id, email: linkEmail.trim() }); }}
             >
-              {link.isPending ? "Linking…" : "Link account"}
+              {link.isPending ? tr("Linking…") : tr("Link account")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      <p className="text-body text-muted-foreground">
-        A courier with a linked account opens <span className="font-semibold text-foreground">everysub.net/courier</span> on their phone:
-        their deliveries, directions, and the buttons that tell the customer it is on the way and delivered.
-      </p>
+      <p className="text-body text-muted-foreground">{tr("A courier with a linked account opens")}{" "}<span className="font-semibold text-foreground">{tr("everysub.net/courier")}</span>{" "}{tr("on their phone: their deliveries, directions, and the buttons that tell the customer it is on the way and delivered.")}</p>
       <div className="flex flex-wrap gap-2 rounded-radius-lg bg-card p-4">
-        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Name" className="min-w-[160px] flex-1" />
-        <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="WhatsApp" className="min-w-[160px] flex-1" />
-        <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Their EverySub account email" className="min-w-[220px] flex-[2]" />
-        <Button disabled={!name.trim() || add.isPending} onClick={() => add.mutate()}><Plus className="mr-1.5 h-4 w-4" /> Add</Button>
+        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={tr("Name")} className="min-w-[160px] flex-1" />
+        <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={tr("WhatsApp")} className="min-w-[160px] flex-1" />
+        <Input value={email} onChange={(e) => setEmail(e.target.value)} placeholder={tr("Their EverySub account email")} className="min-w-[220px] flex-[2]" />
+        <Button disabled={!name.trim() || add.isPending} onClick={() => add.mutate()}><Plus className="mr-1.5 h-4 w-4" />{" "}{tr("Add")}</Button>
       </div>
       {(q.data?.couriers ?? []).map((c) => (
         <div key={c.id} className="flex items-center gap-3 rounded-radius-md bg-card p-3">
@@ -247,14 +245,14 @@ function CouriersTab() {
           <Button size="sm" variant="secondary" disabled={link.isPending}
             onClick={async () => {
               if (c.user_id) {
-                if (await confirm({ title: `Unlink ${c.name}'s account?`, description: "They lose access to the courier screen until linked again.", confirmLabel: "Unlink" })) link.mutate({ id: c.id, email: null });
+                if (await confirm({ title: tr("Unlink {name}'s account?", { name: c.name }), description: tr("They lose access to the courier screen until linked again."), confirmLabel: tr("Unlink") })) link.mutate({ id: c.id, email: null });
                 return;
               }
               setLinkEmail(""); setLinkFor(c);
             }}>
-            {c.user_id ? "Unlink" : "Link account"}
+            {c.user_id ? tr("Unlink") : tr("Link account")}
           </Button>
-          <Switch checked={c.is_active} onCheckedChange={() => toggle.mutate(c)} aria-label={`${c.name} is working`} />
+          <Switch checked={c.is_active} onCheckedChange={() => toggle.mutate(c)} aria-label={tr("{name} is working", { name: c.name })} />
         </div>
       ))}
     </div>

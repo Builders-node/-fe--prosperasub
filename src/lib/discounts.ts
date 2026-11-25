@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabaseDb } from "@/integrations/supabase/client";
+import { tr, DATE_LOCALE } from "@/lib/tr";
 
 /**
  * A business's own automatic discounts, as the storefront sees them.
@@ -65,7 +66,7 @@ export function appliesTo(d: ActiveDiscount, s: DiscountSubject): boolean {
 
 /** "−20%", "$10 off". */
 export function valueLabel(d: Pick<ActiveDiscount, "value_type" | "percent_off" | "amount_off_cents">): string {
-  return d.value_type === "percent" ? `−${d.percent_off}%` : `$${Math.round((d.amount_off_cents ?? 0) / 100)} off`;
+  return d.value_type === "percent" ? `−${d.percent_off}%` : tr("${round} off", { round: Math.round((d.amount_off_cents ?? 0) / 100) });
 }
 
 /** The deepest step of a prepay discount, in %. */
@@ -77,9 +78,9 @@ export function endsLabel(endsAt: string | null, now = Date.now()): string | nul
   const ms = Date.parse(endsAt) - now;
   if (ms <= 0) return null;
   const hours = ms / 3_600_000;
-  if (hours < 24) return "Ends today";
-  if (hours < 72) return `${Math.ceil(hours / 24)} days left`;
-  return `Until ${new Date(endsAt).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/Tegucigalpa" })}`;
+  if (hours < 24) return tr("Ends today");
+  if (hours < 72) return tr("{ceil} days left", { ceil: Math.ceil(hours / 24) });
+  return tr("Until {toLocaleDateString}", { toLocaleDateString: new Date(endsAt).toLocaleDateString(DATE_LOCALE, { month: "short", day: "numeric", timeZone: "America/Tegucigalpa" }) });
 }
 
 export interface DisplayDiscount {
@@ -115,7 +116,7 @@ export function displayDiscount(list: ActiveDiscount[] | undefined, s: DiscountS
     const pct = Math.round(((ref - nowCents) / ref) * 100);
     const cand: DisplayDiscount = {
       wasCents: pct >= 1 ? ref : null, nowCents,
-      badge: pct >= 1 ? `−${pct}%` : "Sale", note: endsLabel(d.ends_at, now), kind: "sale", discount: d,
+      badge: pct >= 1 ? `−${pct}%` : tr("Sale"), note: endsLabel(d.ends_at, now), kind: "sale", discount: d,
     };
     if (!best || cand.nowCents < best.nowCents) best = cand;
   }
@@ -126,14 +127,14 @@ export function displayDiscount(list: ActiveDiscount[] | undefined, s: DiscountS
     const first = intro.intro_periods > 1 ? `first ${intro.intro_periods}` : "first";
     return {
       wasCents: null, nowCents: price, kind: "intro", discount: intro,
-      badge: `New customers ${valueLabel(intro)}`, note: `${first} ${intro.intro_periods > 1 ? "periods" : "period"}${intro.ends_at ? ` · ${endsLabel(intro.ends_at, now)?.toLowerCase()}` : ""}`,
+      badge: tr("New customers {valueLabel}", { valueLabel: valueLabel(intro) }), note: `${first} ${intro.intro_periods > 1 ? "periods" : "period"}${intro.ends_at ? ` · ${endsLabel(intro.ends_at, now)?.toLowerCase()}` : ""}`,
     };
   }
   const prepay = mine.find((d) => d.kind === "prepay");
   if (prepay) {
     return {
       wasCents: null, nowCents: price, kind: "prepay", discount: prepay,
-      badge: `Save up to ${prepayMax(prepay)}%`, note: "when you pay ahead",
+      badge: tr("Save up to {prepayMax}%", { prepayMax: prepayMax(prepay) }), note: tr("when you pay ahead"),
     };
   }
   return null;
@@ -175,7 +176,7 @@ export interface DiscountQuote {
 
 /** "Sale", "New customer discount", "Prepay discount" — the checkout's line label. */
 export function quoteLabel(q: DiscountQuote): string {
-  const base = q.kind === "intro" ? "New customer discount" : q.kind === "prepay" ? "Pay-ahead discount" : "Sale";
+  const base = q.kind === "intro" ? tr("New customer discount") : q.kind === "prepay" ? tr("Pay-ahead discount") : "Sale";
   return q.title ? `${base} · ${q.title}` : base;
 }
 

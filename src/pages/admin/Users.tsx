@@ -38,6 +38,7 @@ import { SortHeader } from "@/components/ui/sort-header";
 import { useResidences } from "@/hooks/useResidences";
 import { addressFromProfile, addressPayload, EMPTY_ADDRESS } from "@/lib/address";
 import { fetchProfiles } from "@/lib/account/profiles";
+import { tr, trx, dfLocale } from "@/lib/tr";
 
 type Filter = "all" | "user" | "admin" | "blocked";
 const formatRole = (role: string) => role.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
@@ -136,7 +137,7 @@ const AdminUsers = () => {
       });
       if (error) throw error;
     },
-    onSuccess: (_, { block }) => { toast.success(block ? "User blocked" : "User unblocked"); invalidate(); },
+    onSuccess: (_, { block }) => { toast.success(block ? tr("User blocked") : tr("User unblocked")); invalidate(); },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -150,7 +151,7 @@ const AdminUsers = () => {
       const services = new Set<CustomerService>(act?.active ?? []);
       return {
         id,
-        name: u.display_name || u.name || u.email || "User",
+        name: u.display_name || u.name || u.email || tr("User"),
         email: u.email ?? null,
         phone: pickPhone(u.phone, contact?.phone),
         whatsapp: pickPhone(contact?.whatsapp, u.phone),
@@ -206,23 +207,23 @@ const AdminUsers = () => {
   const paged = pager.paged;
 
   const FILTERS: { label: string; value: Filter; count?: number }[] = [
-    { label: "All",     value: "all",     count: stats.total },
-    { label: "Users",   value: "user",    count: stats.total - stats.admins },
-    { label: "Admins",  value: "admin",   count: stats.admins },
-    { label: "Blocked", value: "blocked", count: stats.blocked },
+    { label: tr("All"),     value: "all",     count: stats.total },
+    { label: tr("Users"),   value: "user",    count: stats.total - stats.admins },
+    { label: tr("Admins"),  value: "admin",   count: stats.admins },
+    { label: tr("Blocked"), value: "blocked", count: stats.blocked },
   ];
 
   const ROW_GRID = "grid-cols-[minmax(0,3fr)_minmax(0,2fr)_minmax(0,1.5fr)_104px_96px_auto]";
 
   return (
-    <SuperAdminLayout title="Customers" subtitle="Everyone with an account — tap a person to see everything about them">
+    <SuperAdminLayout title={tr("Customers")} subtitle={tr("Everyone with an account — tap a person to see everything about them")}>
       <>
       {/* The one list scaffold every admin list uses — People had grown its
           own toolbar, its own counter and its own three inline states. */}
       <AdminListShell
         search={search}
         onSearch={setSearch}
-        searchPlaceholder="Search name, email, phone, apartment…"
+        searchPlaceholder={tr("Search name, email, phone, apartment…")}
         count={filteredPeople.length}
         isLoading={isLoading}
         isError={isError}
@@ -230,8 +231,8 @@ const AdminUsers = () => {
         onRetry={() => void refetch()}
         isEmpty={!isLoading && people.length === 0}
         isNoResults={people.length > 0 && filteredPeople.length === 0}
-        emptyTitle="No people yet"
-        emptySubtitle="Everyone who signs up appears here."
+        emptyTitle={tr("No people yet")}
+        emptySubtitle={tr("Everyone who signs up appears here.")}
 
         onClearFilters={() => { setSearch(""); setFilter("all"); setServiceFilter("all"); }}
         filters={
@@ -242,9 +243,9 @@ const AdminUsers = () => {
               tabs={FILTERS.map((f) => ({ value: f.value, label: typeof f.count === "number" ? `${f.label} ${f.count}` : f.label }))}
             />
             <Select value={serviceFilter} onValueChange={(v) => setServiceFilter(v as any)}>
-              <SelectTrigger className="w-40 rounded-full" inputSize="sm"><SelectValue placeholder="All services" /></SelectTrigger>
+              <SelectTrigger className="w-40 rounded-full" inputSize="sm"><SelectValue placeholder={tr("All services")} /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All services</SelectItem>
+                <SelectItem value="all">{tr("All services")}</SelectItem>
                 {SERVICE_ORDER.filter((k) => people.some((p) => p.services.has(k))).map((k) => <SelectItem key={k} value={k}>{serviceMeta(k).label}</SelectItem>)}
               </SelectContent>
             </Select>
@@ -254,12 +255,12 @@ const AdminUsers = () => {
       <div className="overflow-hidden rounded-radius-md bg-card">
               {/* Header row (desktop) */}
               <div className={cn("hidden items-center gap-4 border-b border-border/40 px-space-5 py-space-3 text-meta font-semibold text-muted-foreground md:grid", ROW_GRID)}>
-                <div aria-sort={sort.ariaSort("person")}><SortHeader {...sort.headerProps("person")}>Person</SortHeader></div>
-                <div aria-sort={sort.ariaSort("services")}><SortHeader {...sort.headerProps("services")}>Services</SortHeader></div>
-                <div aria-sort={sort.ariaSort("roles")}><SortHeader {...sort.headerProps("roles")}>Roles</SortHeader></div>
-                <div aria-sort={sort.ariaSort("joined")}><SortHeader {...sort.headerProps("joined")}>Joined</SortHeader></div>
-                <div aria-sort={sort.ariaSort("status")}><SortHeader {...sort.headerProps("status")}>Status</SortHeader></div>
-                <div className="text-right">Actions</div>
+                <div aria-sort={sort.ariaSort("person")}><SortHeader {...sort.headerProps("person")}>{tr("Person")}</SortHeader></div>
+                <div aria-sort={sort.ariaSort("services")}><SortHeader {...sort.headerProps("services")}>{tr("Services")}</SortHeader></div>
+                <div aria-sort={sort.ariaSort("roles")}><SortHeader {...sort.headerProps("roles")}>{tr("Roles")}</SortHeader></div>
+                <div aria-sort={sort.ariaSort("joined")}><SortHeader {...sort.headerProps("joined")}>{tr("Joined")}</SortHeader></div>
+                <div aria-sort={sort.ariaSort("status")}><SortHeader {...sort.headerProps("status")}>{tr("Status")}</SortHeader></div>
+                <div className="text-right">{tr("Actions")}</div>
               </div>
 
               <div className="divide-y divide-border/40">
@@ -305,7 +306,7 @@ const AdminUsers = () => {
 
                   const roleChips = (
                     <div className="flex flex-wrap gap-1">
-                      {isAdmin && <Badge variant="default" className="text-meta">Admin</Badge>}
+                      {isAdmin && <Badge variant="default" className="text-meta">{tr("Admin")}</Badge>}
                       {rbac.map((slug: string) => (
                         <Badge key={slug} variant="outline" className="text-meta capitalize">{slug}</Badge>
                       ))}
@@ -334,10 +335,10 @@ const AdminUsers = () => {
                       title={p.name}
                       className="h-10 w-10"
                       actions={[
-                        { label: "Open profile", icon: <UserRound className="h-4 w-4" />, onClick: () => openUser(p.id) },
+                        { label: tr("Open profile"), icon: <UserRound className="h-4 w-4" />, onClick: () => openUser(p.id) },
                         p.isBlocked
-                          ? { label: "Unblock", icon: <UserCheck className="h-4 w-4" />, onClick: () => blockMutation.mutate({ userId: p.id, block: false }) }
-                          : { label: "Block…", icon: <Ban className="h-4 w-4" />, danger: true, onClick: () => setBlockTarget({ id: p.id, name: p.name }) },
+                          ? { label: tr("Unblock"), icon: <UserCheck className="h-4 w-4" />, onClick: () => blockMutation.mutate({ userId: p.id, block: false }) }
+                          : { label: tr("Block…"), icon: <Ban className="h-4 w-4" />, danger: true, onClick: () => setBlockTarget({ id: p.id, name: p.name }) },
                       ]}
                     />
                   );
@@ -350,7 +351,7 @@ const AdminUsers = () => {
                         {svcChips}
                         {roleChips}
                         <div className="text-xs text-muted-foreground">
-                          {p.createdAt ? format(new Date(p.createdAt), "MMM d, yyyy") : "—"}
+                          {p.createdAt ? format(new Date(p.createdAt), "MMM d, yyyy", { locale: dfLocale }) : "—"}
                         </div>
                         <div>{statusChip}</div>
                         <div className="flex items-center justify-end gap-1">
@@ -374,7 +375,7 @@ const AdminUsers = () => {
                         )}
                         <div className="flex items-center justify-between gap-2">
                           <span className="text-xs text-muted-foreground">
-                            {p.createdAt ? format(new Date(p.createdAt), "MMM d, yyyy") : "—"}
+                            {p.createdAt ? format(new Date(p.createdAt), "MMM d, yyyy", { locale: dfLocale }) : "—"}
                           </span>
                           <div className="flex items-center gap-1">
                             {contact}
@@ -396,24 +397,18 @@ const AdminUsers = () => {
       <AlertDialog open={!!blockTarget} onOpenChange={(o) => !o && setBlockTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Block {blockTarget?.name}?</AlertDialogTitle>
-            <AlertDialogDescription>
-              They lose access to the platform immediately and can't sign in.
-              Active subscriptions keep running and are not refunded. You can
-              unblock them again at any time.
-            </AlertDialogDescription>
+            <AlertDialogTitle>{trx("Block {name}?", { name: blockTarget?.name })}</AlertDialogTitle>
+            <AlertDialogDescription>{tr("They lose access to the platform immediately and can't sign in. Active subscriptions keep running and are not refunded. You can unblock them again at any time.")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{tr("Cancel")}</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               onClick={() => {
                 if (blockTarget) blockMutation.mutate({ userId: blockTarget.id, block: true });
                 setBlockTarget(null);
               }}
-            >
-              Block
-            </AlertDialogAction>
+            >{tr("Block")}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -474,10 +469,10 @@ export function EditUserForm({ user, auditLogs, onSave, onSoftDelete, saving, de
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Location updated");
+      toast.success(tr("Location updated"));
       queryClient.invalidateQueries({ queryKey: ["admin-user-profile", user.id] });
     },
-    onError: (e: Error) => toast.error(e.message || "Failed to update location"),
+    onError: (e: Error) => toast.error(e.message || tr("Failed to update location")),
   });
 
   const { data: roles = [] } = useQuery({
@@ -544,7 +539,7 @@ export function EditUserForm({ user, auditLogs, onSave, onSoftDelete, saving, de
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("User roles updated");
+      toast.success(tr("User roles updated"));
       queryClient.invalidateQueries({ queryKey: ["admin-user-rbac-roles", user.id] });
       queryClient.invalidateQueries({ queryKey: ["admin-user-role-history", user.id] });
     },
@@ -562,40 +557,40 @@ export function EditUserForm({ user, auditLogs, onSave, onSoftDelete, saving, de
   return (
     <Tabs defaultValue="overview" className="mt-5">
       <TabsList className="grid w-full grid-cols-3">
-        <TabsTrigger value="overview">Overview</TabsTrigger>
-        <TabsTrigger value="plans">Plans &amp; History</TabsTrigger>
-        <TabsTrigger value="settings">Settings</TabsTrigger>
+        <TabsTrigger value="overview">{tr("Overview")}</TabsTrigger>
+        <TabsTrigger value="plans">{tr("Plans & History")}</TabsTrigger>
+        <TabsTrigger value="settings">{tr("Settings")}</TabsTrigger>
       </TabsList>
 
       {/* ── OVERVIEW ─────────────────────────────────────────────── */}
       <TabsContent value="overview" className="mt-4 space-y-5">
         <div>
-          <Label>Name</Label>
+          <Label>{tr("Name")}</Label>
           <Input value={name} onChange={(e) => setName(e.target.value)} />
         </div>
         <div>
-          <Label>Display name</Label>
+          <Label>{tr("Display name")}</Label>
           <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
         </div>
         <div>
-          <Label>Email</Label>
+          <Label>{tr("Email")}</Label>
           <Input value={user.email || ""} disabled className="opacity-60" />
-          <p className="mt-1 text-xs text-muted-foreground">Email cannot be changed from admin panel</p>
+          <p className="mt-1 text-xs text-muted-foreground">{tr("Email cannot be changed from admin panel")}</p>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <Label>Sign-in method</Label>
+            <Label>{tr("Sign-in method")}</Label>
             <Input value={user.auth_provider || "email"} disabled className="opacity-60" />
           </div>
           <div>
-            <Label>Active subs</Label>
+            <Label>{tr("Active subs")}</Label>
             <Input value={`${activeSubsCount} active`} disabled className="opacity-60" />
           </div>
         </div>
         <div>
-          <Label>Last login</Label>
+          <Label>{tr("Last login")}</Label>
           <Input
-            value={user.last_login_at ? format(new Date(user.last_login_at), "MMM d, yyyy · h:mm a") : "Never"}
+            value={user.last_login_at ? format(new Date(user.last_login_at), "MMM d, yyyy · h:mm a", { locale: dfLocale }) : "Never"}
             disabled
             className="opacity-60"
           />
@@ -603,43 +598,43 @@ export function EditUserForm({ user, auditLogs, onSave, onSoftDelete, saving, de
 
         {/* Location / Residence */}
         <div className="space-y-3 rounded-radius-md bg-muted/20 p-3">
-          <Label>Location / Residence</Label>
+          <Label>{tr("Location / Residence")}</Label>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <Label className="text-xs text-muted-foreground">Residence</Label>
+              <Label className="text-xs text-muted-foreground">{tr("Residence")}</Label>
               <Select value={residence || "__none"} onValueChange={(v) => setResidence(v === "__none" ? "" : v)}>
-                <SelectTrigger><SelectValue placeholder="No residence" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder={tr("No residence")} /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__none">No residence</SelectItem>
+                  <SelectItem value="__none">{tr("No residence")}</SelectItem>
                   {residences.map((r) => (
                     <SelectItem key={r.id} value={r.name}>{r.name}</SelectItem>
                   ))}
                   {residence && !residences.find((r) => r.name === residence) && (
-                    <SelectItem value={residence}>{residence} (custom)</SelectItem>
+                    <SelectItem value={residence}>{trx("{residence} (custom)", { residence })}</SelectItem>
                   )}
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label className="text-xs text-muted-foreground">Apartment / Unit</Label>
+              <Label className="text-xs text-muted-foreground">{tr("Apartment / Unit")}</Label>
               <Input
                 value={address.apartment}
                 onChange={(e) => setAddress((a) => ({ ...a, apartment: e.target.value }))}
-                placeholder="Apt 407"
+                placeholder={tr("Apt 407")}
               />
             </div>
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <Label className="text-xs text-muted-foreground">Street</Label>
+              <Label className="text-xs text-muted-foreground">{tr("Street")}</Label>
               <Input
                 value={address.street}
                 onChange={(e) => setAddress((a) => ({ ...a, street: e.target.value }))}
-                placeholder="Main St"
+                placeholder={tr("Main St")}
               />
             </div>
             <div>
-              <Label className="text-xs text-muted-foreground">House</Label>
+              <Label className="text-xs text-muted-foreground">{tr("House")}</Label>
               <Input
                 value={address.house}
                 onChange={(e) => setAddress((a) => ({ ...a, house: e.target.value }))}
@@ -648,11 +643,11 @@ export function EditUserForm({ user, auditLogs, onSave, onSoftDelete, saving, de
             </div>
           </div>
           <div>
-            <Label className="text-xs text-muted-foreground">Access notes (optional)</Label>
+            <Label className="text-xs text-muted-foreground">{tr("Access notes (optional)")}</Label>
             <Input
               value={address.notes}
               onChange={(e) => setAddress((a) => ({ ...a, notes: e.target.value }))}
-              placeholder="Doorman, gate code, floor…"
+              placeholder={tr("Doorman, gate code, floor…")}
             />
           </div>
           <Button
@@ -661,7 +656,7 @@ export function EditUserForm({ user, auditLogs, onSave, onSoftDelete, saving, de
             onClick={() => saveLocationMutation.mutate()}
             disabled={saveLocationMutation.isPending}
           >
-            {saveLocationMutation.isPending ? "Saving…" : "Save location"}
+            {saveLocationMutation.isPending ? tr("Saving…") : tr("Save location")}
           </Button>
         </div>
 
@@ -670,7 +665,7 @@ export function EditUserForm({ user, auditLogs, onSave, onSoftDelete, saving, de
 
         {/* Linked Client Profiles */}
         <div>
-          <Label>Linked client profiles</Label>
+          <Label>{tr("Linked client profiles")}</Label>
           {userLinkedClients(user).length > 0 ? (
             <div className="mt-2 space-y-2">
               {userLinkedClients(user).map((c: any) => (
@@ -684,22 +679,20 @@ export function EditUserForm({ user, auditLogs, onSave, onSoftDelete, saving, de
               ))}
             </div>
           ) : (
-            <p className="mt-2 text-sm text-muted-foreground">No linked client profile</p>
+            <p className="mt-2 text-sm text-muted-foreground">{tr("No linked client profile")}</p>
           )}
         </div>
 
-        <Button className="w-full" size="lg" onClick={() => onSave({ name, display_name: displayName })} loading={saving}>
-          Save Changes
-        </Button>
+        <Button className="w-full" size="lg" onClick={() => onSave({ name, display_name: displayName })} loading={saving}>{tr("Save Changes")}</Button>
       </TabsContent>
 
       {/* ── PLANS & HISTORY ──────────────────────────────────────── */}
       <TabsContent value="plans" className="mt-4 space-y-5">
         {!hidePurchases && (
         <div>
-          <Label>Everything they've bought</Label>
+          <Label>{tr("Everything they've bought")}</Label>
           {subsLoading ? (
-            <p className="mt-2 text-sm text-muted-foreground">Loading purchases…</p>
+            <p className="mt-2 text-sm text-muted-foreground">{tr("Loading purchases…")}</p>
           ) : allSubscriptions.length > 0 ? (
             <div className="mt-2 space-y-2">
               {allSubscriptions.map((s) => (
@@ -713,23 +706,23 @@ export function EditUserForm({ user, auditLogs, onSave, onSoftDelete, saving, de
                       {statusLabel(s.status)}
                       {s.paymentStatus && <> · {statusLabel(s.paymentStatus)}</>}
                       {s.amountCents != null && <> · {formatUSD(s.amountCents)}</>}
-                      {s.createdAt && <> · {format(new Date(s.createdAt), "MMM d, yyyy")}</>}
+                      {s.createdAt && <> · {format(new Date(s.createdAt), "MMM d, yyyy", { locale: dfLocale })}</>}
                     </p>
                   </div>
                   <Badge variant={s.active ? "default" : "secondary"} className="text-xs shrink-0">
-                    {s.active ? "Active" : "Inactive"}
+                    {s.active ? tr("Active") : tr("Inactive")}
                   </Badge>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="mt-2 text-sm text-muted-foreground">Nothing bought yet</p>
+            <p className="mt-2 text-sm text-muted-foreground">{tr("Nothing bought yet")}</p>
           )}
         </div>
         )}
 
         <div>
-          <Label>Subscription period history</Label>
+          <Label>{tr("Subscription period history")}</Label>
           {(periodHistory as any[]).length > 0 ? (
             <div className="mt-2 max-h-64 overflow-y-auto space-y-1">
               {(periodHistory as any[]).map((p) => (
@@ -751,12 +744,12 @@ export function EditUserForm({ user, auditLogs, onSave, onSoftDelete, saving, de
               ))}
             </div>
           ) : (
-            <p className="mt-2 text-sm text-muted-foreground">No period history yet</p>
+            <p className="mt-2 text-sm text-muted-foreground">{tr("No period history yet")}</p>
           )}
         </div>
 
         <div>
-          <Label>Role history</Label>
+          <Label>{tr("Role history")}</Label>
           {(roleHistory as any[]).length > 0 ? (
             <div className="mt-2 max-h-40 overflow-y-auto space-y-1">
               {(roleHistory as any[]).map((entry: any) => (
@@ -764,34 +757,34 @@ export function EditUserForm({ user, auditLogs, onSave, onSoftDelete, saving, de
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-semibold">{entry.action}</span>
                     <span className="text-muted-foreground">
-                      {entry.createdAt ? format(new Date(entry.createdAt), "MMM d, h:mm a") : ""}
+                      {entry.createdAt ? format(new Date(entry.createdAt), "MMM d, h:mm a", { locale: dfLocale }) : ""}
                     </span>
                   </div>
-                  <p className="text-muted-foreground">{entry.roleName || "Role"} · by {entry.actorEmail || entry.actorUserId || "system"}</p>
+                  <p className="text-muted-foreground">{trx("{value} · by {value2}", { value: entry.roleName || tr("Role"), value2: entry.actorEmail || entry.actorUserId || "system" })}</p>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="mt-2 text-sm text-muted-foreground">No role changes recorded</p>
+            <p className="mt-2 text-sm text-muted-foreground">{tr("No role changes recorded")}</p>
           )}
         </div>
 
         {/* Activity Log */}
         <div>
-          <Label>Recent admin activity</Label>
+          <Label>{tr("Recent admin activity")}</Label>
           {auditLogs.length > 0 ? (
             <div className="mt-2 max-h-32 overflow-y-auto space-y-1">
               {auditLogs.map((log: any) => (
                 <div key={log.id} className="flex items-center justify-between rounded bg-muted px-3 py-2 text-xs">
                   <span className="font-medium">{log.action}</span>
                   <span className="text-muted-foreground">
-                    {log.created_at ? format(new Date(log.created_at), "MMM d, h:mm a") : ""}
+                    {log.created_at ? format(new Date(log.created_at), "MMM d, h:mm a", { locale: dfLocale }) : ""}
                   </span>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="mt-2 text-sm text-muted-foreground">No recent admin activity</p>
+            <p className="mt-2 text-sm text-muted-foreground">{tr("No recent admin activity")}</p>
           )}
         </div>
       </TabsContent>
@@ -799,7 +792,7 @@ export function EditUserForm({ user, auditLogs, onSave, onSoftDelete, saving, de
       {/* ── SETTINGS ─────────────────────────────────────────────── */}
       <TabsContent value="settings" className="mt-4 space-y-5">
         <div>
-          <Label>Database roles</Label>
+          <Label>{tr("Database roles")}</Label>
           <div className="mt-2 grid gap-2">
             {(roles as any[]).map((role: any) => {
               const selected = selectedRoleIds.includes(role.id);
@@ -822,30 +815,22 @@ export function EditUserForm({ user, auditLogs, onSave, onSoftDelete, saving, de
               );
             })}
           </div>
-          <Button className="mt-3 w-full" variant="secondary" onClick={() => saveRoles.mutate()} loading={saveRoles.isPending}>
-            Save Roles
-          </Button>
+          <Button className="mt-3 w-full" variant="secondary" onClick={() => saveRoles.mutate()} loading={saveRoles.isPending}>{tr("Save Roles")}</Button>
         </div>
 
         {/* Danger zone — Soft Delete */}
         <div className="border-t border-border pt-4">
-          <Label className="text-destructive">Danger Zone</Label>
+          <Label className="text-destructive">{tr("Danger Zone")}</Label>
           <div className="mt-2">
             {!confirmDelete ? (
               <Button variant="destructive" className="w-full" size="lg" onClick={() => setConfirmDelete(true)}>
-                <Trash2 className="h-4 w-4" />
-                Soft-Delete User
-              </Button>
+                <Trash2 className="h-4 w-4" />{tr("Soft-Delete User")}</Button>
             ) : (
               <div className="space-y-2">
-                <p className="text-sm text-destructive font-semibold text-center">
-                  Are you sure? This will hide the user from all lists.
-                </p>
+                <p className="text-sm text-destructive font-semibold text-center">{tr("Are you sure? This will hide the user from all lists.")}</p>
                 <div className="flex gap-2">
-                  <Button variant="secondary" className="flex-1" onClick={() => setConfirmDelete(false)}>Cancel</Button>
-                  <Button variant="destructive" className="flex-1" onClick={onSoftDelete} loading={deleting}>
-                    Confirm Delete
-                  </Button>
+                  <Button variant="secondary" className="flex-1" onClick={() => setConfirmDelete(false)}>{tr("Cancel")}</Button>
+                  <Button variant="destructive" className="flex-1" onClick={onSoftDelete} loading={deleting}>{tr("Confirm Delete")}</Button>
                 </div>
               </div>
             )}
@@ -895,21 +880,21 @@ function CustomerCredit({ userId }: { userId: string }) {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Credit updated");
+      toast.success(tr("Credit updated"));
       setAmount(""); setNote("");
       void qc.invalidateQueries({ queryKey: KEY });
     },
-    onError: (e) => toast.error(adminApiMessage(e, "Could not change the balance")),
+    onError: (e) => toast.error(adminApiMessage(e, tr("Could not change the balance"))),
   });
 
   return (
     <div>
-      <Label>Platform credit</Label>
+      <Label>{tr("Platform credit")}</Label>
       {isError ? (
         <p className="mt-1 text-xs text-muted-foreground">
           {isNotDeployed(creditError)
-            ? "Credit needs the server updating before it can be read or given."
-            : "Not available right now."}
+            ? tr("Credit needs the server updating before it can be read or given.")
+            : tr("Not available right now.")}
         </p>
       ) : (
         <>
@@ -924,24 +909,20 @@ function CustomerCredit({ userId }: { userId: string }) {
               onChange={(e) => setAmount(e.target.value)}
               placeholder="10.00"
               className="w-28"
-              aria-label="Amount in dollars; negative takes it back"
+              aria-label={tr("Amount in dollars; negative takes it back")}
             />
             <Input
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              placeholder="Why — this is the record"
+              placeholder={tr("Why — this is the record")}
             />
             <Button
               variant="secondary"
               onClick={() => adjust.mutate()}
               disabled={adjust.isPending || !Number(amount) || !note.trim()}
-            >
-              Apply
-            </Button>
+            >{tr("Apply")}</Button>
           </div>
-          <p className="mt-1 text-xs text-muted-foreground">
-            A negative amount takes credit back. The balance can never go below zero.
-          </p>
+          <p className="mt-1 text-xs text-muted-foreground">{tr("A negative amount takes credit back. The balance can never go below zero.")}</p>
           {!!data?.entries?.length && (
             <ul className="mt-2 divide-y divide-border/60 text-xs">
               {data.entries.slice(0, 5).map((e, i) => (

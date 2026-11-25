@@ -16,6 +16,7 @@ import { supabaseDb } from "@/integrations/supabase/client";
 import { DEFAULT_COMMISSION_KEY } from "@/lib/finance/platformTake";
 import { serviceListingHref } from "@/lib/services/serviceUrls";
 import { cn } from "@/lib/utils";
+import { tr } from "@/lib/tr";
 
 /**
  * /for-business — the page you send a business you want on the platform, and
@@ -51,12 +52,12 @@ function useDefaultCommission() {
 function BalanceMock() {
   return (
     <Glass className="w-full max-w-[400px] p-5">
-      <p className="text-center text-meta text-white/80">Available to withdraw</p>
+      <p className="text-center text-meta text-white/80">{tr("Available to withdraw")}</p>
       <p className="mt-1 text-center font-semibold tabular-nums" style={{ fontSize: "clamp(2.25rem, 4vw, 3.25rem)", letterSpacing: "-0.03em" }}>
         $1,284.50
       </p>
       <div className="mt-2 flex justify-center">
-        <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-3 py-1 text-meta">This week <ArrowUpRight className="h-3 w-3" /></span>
+        <span className="inline-flex items-center gap-1 rounded-full bg-white/15 px-3 py-1 text-meta">{tr("This week")}{" "}<ArrowUpRight className="h-3 w-3" /></span>
       </div>
       <div className="mt-5 grid grid-cols-4 gap-2 text-center">
         {([[Wallet, "Withdraw"], [CalendarDays, "Schedule"], [Users, "Customers"], [Megaphone, "Promote"]] as const).map(([Icon, label]) => (
@@ -67,9 +68,9 @@ function BalanceMock() {
         ))}
       </div>
       <div className="mt-5 space-y-2">
-        <GlassRow icon={Utensils} title="Weekly meal plan" meta="New subscriber" value="+$120.00" />
-        <GlassRow icon={Sparkles} title="Deep clean" meta="2 visits" value="+$85.00" />
-        <GlassRow icon={CarFront} title="Jeep · 3 days" meta="Paid by Lightning" value="+$210.00" />
+        <GlassRow icon={Utensils} title={tr("Weekly meal plan")} meta={tr("New subscriber")} value="+$120.00" />
+        <GlassRow icon={Sparkles} title={tr("Deep clean")} meta="2 visits" value="+$85.00" />
+        <GlassRow icon={CarFront} title={tr("Jeep · 3 days")} meta={tr("Paid by Lightning")} value="+$210.00" />
       </div>
     </Glass>
   );
@@ -78,19 +79,19 @@ function BalanceMock() {
 const FEATURES: Array<{ key: string; title: string; lead: string; points: string[]; mock: () => ReactNode }> = [
   {
     key: "page",
-    title: "your page",
-    lead: "A storefront that sells while you work — one link for Instagram, WhatsApp and the QR code on your counter.",
-    points: ["Photos, hours, location and reviews", "Every plan and offer with its price", "Your own QR code — 0% on those customers", "Found by people browsing EverySub"],
+    title: tr("your page"),
+    lead: tr("A storefront that sells while you work — one link for Instagram, WhatsApp and the QR code on your counter."),
+    points: [tr("Photos, hours, location and reviews"), tr("Every plan and offer with its price"), tr("Your own QR code — 0% on those customers"), tr("Found by people browsing EverySub")],
     mock: () => (
       <Glass className="w-full max-w-[340px] overflow-hidden p-0">
         <div className="h-24 bg-white/20" />
         <div className="-mt-7 px-5 pb-5">
           <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-neutral-900 ring-4 ring-white/30"><Utensils className="h-6 w-6" /></span>
-          <p className="mt-2 text-title font-semibold">Casa Verde Kitchen</p>
-          <p className="flex items-center gap-1 text-meta text-white/80"><Star className="h-3.5 w-3.5 fill-white" /> 4.9 · Delivers to West End</p>
+          <p className="mt-2 text-title font-semibold">{tr("Casa Verde Kitchen")}</p>
+          <p className="flex items-center gap-1 text-meta text-white/80"><Star className="h-3.5 w-3.5 fill-white" />{" "}{tr("4.9 · Delivers to West End")}</p>
           <div className="mt-3 space-y-2">
-            <GlassRow icon={Utensils} title="Lunch & dinner" meta="5 days a week" value="$120" />
-            <GlassRow icon={Utensils} title="Breakfast club" meta="Weekly" value="$45" />
+            <GlassRow icon={Utensils} title={tr("Lunch & dinner")} meta="5 days a week" value="$120" />
+            <GlassRow icon={Utensils} title={tr("Breakfast club")} meta="Weekly" value="$45" />
           </div>
         </div>
       </Glass>
@@ -99,11 +100,11 @@ const FEATURES: Array<{ key: string; title: string; lead: string; points: string
   {
     key: "checkout",
     title: "checkout",
-    lead: "Customers pay before you lift a finger. No invoices to chase, no cash to count.",
-    points: ["Lightning, Bitcoin and PayPal", "Subscriptions, one-off sales and bookings", "Paid up front, every time", "Receipts and reminders sent for you"],
+    lead: tr("Customers pay before you lift a finger. No invoices to chase, no cash to count."),
+    points: [tr("Lightning, Bitcoin and PayPal"), tr("Subscriptions, one-off sales and bookings"), tr("Paid up front, every time"), tr("Receipts and reminders sent for you")],
     mock: () => (
       <Glass className="w-full max-w-[340px] p-5">
-        <p className="text-meta text-white/80">Lunch & dinner · 4 weeks</p>
+        <p className="text-meta text-white/80">{tr("Lunch & dinner · 4 weeks")}</p>
         <p className="mt-1 font-semibold tabular-nums" style={{ fontSize: "2.5rem", letterSpacing: "-0.03em" }}>$480.00</p>
         <div className="mt-4 grid grid-cols-3 gap-2">
           {([[Zap, "Lightning"], [Bitcoin, "Bitcoin"], [CreditCard, "PayPal"]] as const).map(([Icon, l], i) => (
@@ -113,23 +114,22 @@ const FEATURES: Array<{ key: string; title: string; lead: string; points: string
           ))}
         </div>
         <div className="mt-4 flex items-center justify-center gap-2 rounded-full bg-white/15 py-3 text-body font-semibold">
-          <Check className="h-4 w-4" /> Paid
-        </div>
+          <Check className="h-4 w-4" />{" "}{tr("Paid")}</div>
       </Glass>
     ),
   },
   {
     key: "schedule",
     title: "schedule",
-    lead: "Every visit, delivery and booking lands in one day view — and in your own Google Calendar.",
-    points: ["A calendar made for your business", "Booking hours and slot length you set", "A 7am digest of tomorrow", "Addresses and notes, only for your team"],
+    lead: tr("Every visit, delivery and booking lands in one day view — and in your own Google Calendar."),
+    points: [tr("A calendar made for your business"), tr("Booking hours and slot length you set"), tr("A 7am digest of tomorrow"), tr("Addresses and notes, only for your team")],
     mock: () => (
       <Glass className="w-full max-w-[340px] p-5">
-        <p className="text-title font-semibold">Tomorrow</p>
+        <p className="text-title font-semibold">{tr("Tomorrow")}</p>
         <div className="mt-3 space-y-2">
-          <GlassRow icon={Utensils} title="07:30 · Breakfast" meta="12 deliveries" />
-          <GlassRow icon={Sparkles} title="10:00 · Deep clean" meta="Sandy Bay" />
-          <GlassRow icon={CalendarDays} title="15:00 · Court 1" meta="4 people" />
+          <GlassRow icon={Utensils} title={tr("07:30 · Breakfast")} meta="12 deliveries" />
+          <GlassRow icon={Sparkles} title={tr("10:00 · Deep clean")} meta={tr("Sandy Bay")} />
+          <GlassRow icon={CalendarDays} title={tr("15:00 · Court 1")} meta="4 people" />
         </div>
       </Glass>
     ),
@@ -137,19 +137,19 @@ const FEATURES: Array<{ key: string; title: string; lead: string; points: string
   {
     key: "payouts",
     title: "payouts",
-    lead: "What you've earned is yours. Withdraw whenever you like — no waiting for the end of the month.",
-    points: ["See exactly what you earned and what's available", "Withdraw to a Lightning or Bitcoin address", "Sent in seconds", "Every payout on record"],
+    lead: tr("What you've earned is yours. Withdraw whenever you like — no waiting for the end of the month."),
+    points: [tr("See exactly what you earned and what's available"), tr("Withdraw to a Lightning or Bitcoin address"), tr("Sent in seconds"), tr("Every payout on record")],
     mock: () => (
       <Glass className="w-full max-w-[340px] p-5">
-        <p className="text-meta text-white/80">Available</p>
+        <p className="text-meta text-white/80">{tr("Available")}</p>
         <p className="mt-1 font-semibold tabular-nums" style={{ fontSize: "2.5rem", letterSpacing: "-0.03em" }}>$1,284.50</p>
         <div className="mt-4 rounded-radius-md bg-white px-4 py-3 text-neutral-900">
-          <p className="text-meta text-neutral-500">To</p>
-          <p className="truncate text-body font-semibold">you@blink.sv</p>
+          <p className="text-meta text-neutral-500">{tr("To")}</p>
+          <p className="truncate text-body font-semibold">{tr("you@blink.sv")}</p>
         </div>
         <div className="mt-3 flex items-center justify-between rounded-radius-md bg-white/10 px-4 py-3 ring-1 ring-white/20">
-          <span className="flex items-center gap-2 text-body font-semibold"><Check className="h-4 w-4" /> Sent</span>
-          <span className="text-meta text-white/80">3 seconds</span>
+          <span className="flex items-center gap-2 text-body font-semibold"><Check className="h-4 w-4" />{" "}{tr("Sent")}</span>
+          <span className="text-meta text-white/80">{tr("3 seconds")}</span>
         </div>
       </Glass>
     ),
@@ -157,17 +157,17 @@ const FEATURES: Array<{ key: string; title: string; lead: string; points: string
   {
     key: "team",
     title: "team",
-    lead: "Bring your people in. They run the day; only you move the money.",
-    points: ["Invite managers by email", "They see the schedule, customers and numbers", "Only the owner withdraws", "Remove anyone in one tap"],
+    lead: tr("Bring your people in. They run the day; only you move the money."),
+    points: [tr("Invite managers by email"), tr("They see the schedule, customers and numbers"), tr("Only the owner withdraws"), tr("Remove anyone in one tap")],
     mock: () => (
       <Glass className="w-full max-w-[340px] p-5">
-        <p className="text-title font-semibold">Team</p>
+        <p className="text-title font-semibold">{tr("Team")}</p>
         <div className="mt-3 space-y-2">
-          <GlassRow icon={Users} title="You" meta="Owner" />
-          <GlassRow icon={Users} title="Maria" meta="Manager" />
-          <GlassRow icon={Users} title="Daniel" meta="Manager" />
+          <GlassRow icon={Users} title={tr("You")} meta="Owner" />
+          <GlassRow icon={Users} title={tr("Maria")} meta="Manager" />
+          <GlassRow icon={Users} title={tr("Daniel")} meta="Manager" />
         </div>
-        <div className="mt-3 rounded-full bg-white py-3 text-center text-body font-semibold text-neutral-900">Invite by email</div>
+        <div className="mt-3 rounded-full bg-white py-3 text-center text-body font-semibold text-neutral-900">{tr("Invite by email")}</div>
       </Glass>
     ),
   },
@@ -175,41 +175,41 @@ const FEATURES: Array<{ key: string; title: string; lead: string; points: string
 
 const TOOLS: Array<{ title: string; text: string; pos: string; mock: ReactNode }> = [
   {
-    title: "new-order alerts", text: "Email and in-app, the moment someone buys.", pos: "20% 30%",
+    title: "new-order alerts", text: tr("Email and in-app, the moment someone buys."), pos: "20% 30%",
     mock: (
       <Glass className="w-[86%] p-3">
         <div className="flex items-start gap-3">
           <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-radius-md bg-white text-neutral-900"><Bell className="h-5 w-5" /></span>
-          <span className="min-w-0"><span className="block text-body font-semibold">New order · $120</span><span className="block text-meta text-white/80">Lunch & dinner, 4 weeks</span></span>
+          <span className="min-w-0"><span className="block text-body font-semibold">{tr("New order · $120")}</span><span className="block text-meta text-white/80">{tr("Lunch & dinner, 4 weeks")}</span></span>
         </div>
       </Glass>
     ),
   },
   {
-    title: "promo codes", text: "Discounts on your own offers, on your terms.", pos: "70% 40%",
+    title: "promo codes", text: tr("Discounts on your own offers, on your terms."), pos: "70% 40%",
     mock: (
       <Glass className="flex w-[86%] items-center justify-between p-4">
-        <span><span className="block font-mono text-title font-semibold">ISLAND10</span><span className="block text-meta text-white/80">10% off · 50 uses</span></span>
+        <span><span className="block font-mono text-title font-semibold">{tr("ISLAND10")}</span><span className="block text-meta text-white/80">{tr("10% off · 50 uses")}</span></span>
         <TicketPercent className="h-7 w-7" />
       </Glass>
     ),
   },
   {
-    title: "message subscribers", text: "One note to everyone on an active plan.", pos: "40% 70%",
+    title: tr("message subscribers"), text: tr("One note to everyone on an active plan."), pos: "40% 70%",
     mock: (
       <Glass className="w-[86%] p-4">
-        <p className="text-meta text-white/80">To 38 subscribers</p>
-        <p className="mt-1 text-body font-semibold">Closed Friday for the holiday — Saturday's delivery comes with dessert 🍰</p>
+        <p className="text-meta text-white/80">{tr("To 38 subscribers")}</p>
+        <p className="mt-1 text-body font-semibold">{tr("Closed Friday for the holiday — Saturday's delivery comes with dessert 🍰")}</p>
       </Glass>
     ),
   },
   {
-    title: "get featured", text: "Pay per order a placement brings — or book a featured week.", pos: "60% 20%",
+    title: tr("get featured"), text: tr("Pay per order a placement brings — or book a featured week."), pos: "60% 20%",
     mock: (
       <Glass className="w-[86%] p-3">
         <div className="flex items-center gap-3">
-          <span className="rounded-full bg-black/40 px-2 py-0.5 text-meta font-semibold">Featured</span>
-          <span className="truncate text-body font-semibold">Featured on the home screen</span>
+          <span className="rounded-full bg-black/40 px-2 py-0.5 text-meta font-semibold">{tr("Featured")}</span>
+          <span className="truncate text-body font-semibold">{tr("Featured on the home screen")}</span>
         </div>
         <div className="mt-3 grid grid-cols-3 gap-2 text-center">
           {[["1.2k", "views"], ["84", "taps"], ["9", "orders"]].map(([v, l]) => (
@@ -220,12 +220,12 @@ const TOOLS: Array<{ title: string; text: string; pos: string; mock: ReactNode }
     ),
   },
   {
-    title: "reviews, answered", text: "Reply in public, right under the review.", pos: "30% 50%",
+    title: tr("reviews, answered"), text: tr("Reply in public, right under the review."), pos: "30% 50%",
     mock: (
       <Glass className="w-[86%] p-4">
         <p className="flex gap-0.5">{[0, 1, 2, 3, 4].map((i) => <Star key={i} className="h-4 w-4 fill-white" />)}</p>
-        <p className="mt-1 text-body font-semibold">"Best ceviche on the island."</p>
-        <p className="mt-2 rounded-radius-sm bg-white/10 px-3 py-2 text-meta">Owner: Thank you, see you Friday!</p>
+        <p className="mt-1 text-body font-semibold">{tr("\"Best ceviche on the island.\"")}</p>
+        <p className="mt-2 rounded-radius-sm bg-white/10 px-3 py-2 text-meta">{tr("Owner: Thank you, see you Friday!")}</p>
       </Glass>
     ),
   },
@@ -233,12 +233,12 @@ const TOOLS: Array<{ title: string; text: string; pos: string; mock: ReactNode }
 
 function faqs(pct: number) {
   return [
-    { q: "What does it cost?", a: `Nothing to join and no monthly fee. EverySub keeps ${pct}% of each sale; you keep the rest. Customers you bring yourself — through your own QR code or link — cost you 0%.` },
-    { q: "How do I get paid?", a: "Customers pay when they buy, so your balance grows as you deliver. Withdraw it any time to a Lightning address or a Bitcoin address. Prefer something else? Talk to us." },
-    { q: "Do my customers need Bitcoin?", a: "No. They can pay with PayPal, as well as with Lightning or Bitcoin." },
-    { q: "What can I sell?", a: "Anything that's a subscription, a package, a one-time purchase or a booking: meal plans, cleaning, memberships, classes, courts, tours, vehicle rentals and more." },
-    { q: "Can my staff use it?", a: "Yes. Add managers by email; they see the schedule, the customers and the numbers. Only the owner can withdraw money." },
-    { q: "Who handles refunds and support?", a: "EverySub runs checkout and customer support with you. If you cancel a customer's plan you can request a refund for them in one tap." },
+    { q: tr("What does it cost?"), a: tr("Nothing to join and no monthly fee. EverySub keeps {pct}% of each sale; you keep the rest. Customers you bring yourself — through your own QR code or link — cost you 0%.", { pct }) },
+    { q: tr("How do I get paid?"), a: tr("Customers pay when they buy, so your balance grows as you deliver. Withdraw it any time to a Lightning address or a Bitcoin address. Prefer something else? Talk to us.") },
+    { q: tr("Do my customers need Bitcoin?"), a: tr("No. They can pay with PayPal, as well as with Lightning or Bitcoin.") },
+    { q: tr("What can I sell?"), a: tr("Anything that's a subscription, a package, a one-time purchase or a booking: meal plans, cleaning, memberships, classes, courts, tours, vehicle rentals and more.") },
+    { q: tr("Can my staff use it?"), a: tr("Yes. Add managers by email; they see the schedule, the customers and the numbers. Only the owner can withdraw money.") },
+    { q: tr("Who handles refunds and support?"), a: tr("EverySub runs checkout and customer support with you. If you cancel a customer's plan you can request a refund for them in one tap.") },
   ];
 }
 
@@ -250,16 +250,16 @@ export default function ForBusiness() {
   const list = faqs(pct);
 
   useSeo({
-    title: "Sell subscriptions and bookings in Roatán",
-    description: `Put your business on EverySub: your own page, subscriptions and bookings, payment up front by Lightning, Bitcoin or PayPal, and withdrawals whenever you want. No monthly fee — ${pct}% per sale, 0% on customers you bring.`,
+    title: tr("Sell subscriptions and bookings in Roatán"),
+    description: tr("Put your business on EverySub: your own page, subscriptions and bookings, payment up front by Lightning, Bitcoin or PayPal, and withdrawals whenever you want. No monthly fee — {pct}% per sale, 0% on customers you bring.", { pct }),
     path: PATH,
     image: `https://everysub.net${IMG}/hero.jpg`,
     jsonLd: {
       "@context": "https://schema.org",
       "@graph": [
         {
-          "@type": "WebPage", name: "EverySub for business", url: `https://everysub.net${PATH}`,
-          about: { "@type": "Service", name: "EverySub marketplace for local businesses", areaServed: "Roatán, Honduras" },
+          "@type": "WebPage", name: tr("EverySub for business"), url: `https://everysub.net${PATH}`,
+          about: { "@type": "Service", name: tr("EverySub marketplace for local businesses"), areaServed: "Roatán, Honduras" },
         },
         { "@type": "FAQPage", mainEntity: list.map((f) => ({ "@type": "Question", name: f.q, acceptedAnswer: { "@type": "Answer", text: f.a } })) },
       ],
@@ -273,10 +273,8 @@ export default function ForBusiness() {
       <main>
         {/* ─── Hero ──────────────────────────────────────────────── */}
         <section className="app-container pb-6 pt-10 text-center md:pb-10 md:pt-20">
-          <TwoTone as="h1" style={H1} accent="subscriptions & bookings," plain="sold for you, paid up front" center />
-          <p className="mx-auto mt-5 max-w-[640px] text-body text-muted-foreground md:text-lg">
-            EverySub gives a Roatán business its own page, a checkout that takes Lightning, Bitcoin and PayPal, a schedule that fills itself — and its money whenever it wants it.
-          </p>
+          <TwoTone as="h1" style={H1} accent={tr("subscriptions & bookings,")} plain={tr("sold for you, paid up front")} center />
+          <p className="mx-auto mt-5 max-w-[640px] text-body text-muted-foreground md:text-lg">{tr("EverySub gives a Roatán business its own page, a checkout that takes Lightning, Bitcoin and PayPal, a schedule that fills itself — and its money whenever it wants it.")}</p>
         </section>
 
         <section className="px-2 md:px-4">
@@ -285,14 +283,12 @@ export default function ForBusiness() {
             <div className="absolute inset-0 bg-black/15" />
             <div className="relative grid gap-8 p-6 md:grid-cols-[1fr_auto_1fr] md:items-stretch md:p-12">
               <div className="flex flex-col justify-start gap-6 text-white">
-                <p className="font-semibold" style={H3}>from a weekly meal plan to a three-day jeep.</p>
-                <div><ArrowCta to={APPLY}>Apply now</ArrowCta></div>
+                <p className="font-semibold" style={H3}>{tr("from a weekly meal plan to a three-day jeep.")}</p>
+                <div><ArrowCta to={APPLY}>{tr("Apply now")}</ArrowCta></div>
               </div>
               <div className="flex justify-center"><BalanceMock /></div>
               <div className="flex items-end text-white">
-                <p className="rounded-radius-md bg-black/30 p-4 text-body backdrop-blur-md md:text-lg">
-                  Food, cleaning, memberships, courts, tours and rentals already sell on EverySub. Bring yours — we set it up with you.
-                </p>
+                <p className="rounded-radius-md bg-black/30 p-4 text-body backdrop-blur-md md:text-lg">{tr("Food, cleaning, memberships, courts, tours and rentals already sell on EverySub. Bring yours — we set it up with you.")}</p>
               </div>
             </div>
           </div>
@@ -301,9 +297,9 @@ export default function ForBusiness() {
         {/* ─── Rails ─────────────────────────────────────────────── */}
         <section className="app-container py-10 md:py-14">
           <div className="flex flex-col gap-6 md:flex-row md:items-center">
-            <p className="shrink-0 text-body text-muted-foreground md:w-56">payments and tools your customers already trust</p>
+            <p className="shrink-0 text-body text-muted-foreground md:w-56">{tr("payments and tools your customers already trust")}</p>
             <div className="flex flex-1 flex-wrap items-center gap-x-10 gap-y-4 text-foreground/70">
-              {([[Zap, "Lightning"], [Bitcoin, "Bitcoin"], [CreditCard, "PayPal"], [CalendarDays, "Google Calendar"], [MessageCircle, "WhatsApp"]] as const).map(([Icon, l]) => (
+              {([[Zap, "Lightning"], [Bitcoin, "Bitcoin"], [CreditCard, "PayPal"], [CalendarDays, tr("Google Calendar")], [MessageCircle, "WhatsApp"]] as const).map(([Icon, l]) => (
                 <span key={l} className="flex items-center gap-2 text-xl font-semibold tracking-tight"><Icon className="h-6 w-6" />{l}</span>
               ))}
             </div>
@@ -315,12 +311,12 @@ export default function ForBusiness() {
 
         {/* ─── Pricing ───────────────────────────────────────────── */}
         <section id="pricing" className="app-container scroll-mt-20 py-16 md:py-24">
-          <TwoTone accent="no surprises" plain="simple pricing," accentFirst={false} center />
+          <TwoTone accent={tr("no surprises")} plain={tr("simple pricing,")} accentFirst={false} center />
           <div className="mt-10 grid gap-3 md:grid-cols-3">
             {[
-              { icon: BadgePercent, big: `${pct}%`, title: "per sale", text: "of each sale on EverySub. You keep the rest. No sale, no fee." },
-              { icon: QrCode, big: "0%", title: "on your own customers", text: "Bring them with your QR code or link and the sale is all yours." },
-              { icon: Zap, big: "$0", title: "to join", text: "No setup fee and no monthly fee. Promotion is optional." },
+              { icon: BadgePercent, big: `${pct}%`, title: "per sale", text: tr("of each sale on EverySub. You keep the rest. No sale, no fee.") },
+              { icon: QrCode, big: "0%", title: tr("on your own customers"), text: tr("Bring them with your QR code or link and the sale is all yours.") },
+              { icon: Zap, big: "$0", title: tr("to join"), text: tr("No setup fee and no monthly fee. Promotion is optional.") },
             ].map(({ icon: Icon, big, title, text }) => (
               <div key={title} className="rounded-radius-xl bg-card p-6 md:p-8">
                 <span className="flex h-12 w-12 items-center justify-center rounded-radius-md bg-primary/15 text-[hsl(var(--brand-accent-active))] dark:text-primary"><Icon className="h-6 w-6" /></span>
@@ -330,23 +326,23 @@ export default function ForBusiness() {
               </div>
             ))}
           </div>
-          <div className="mt-8 flex justify-center"><ArrowCta tone="dark" to={APPLY}>Apply — about 5 minutes</ArrowCta></div>
+          <div className="mt-8 flex justify-center"><ArrowCta tone="dark" to={APPLY}>{tr("Apply — about 5 minutes")}</ArrowCta></div>
         </section>
 
         {/* ─── People ────────────────────────────────────────────── */}
         <section className="px-2 md:px-4">
           <div className="relative mx-auto grid max-w-[1400px] gap-8 overflow-hidden rounded-radius-xl bg-card p-6 md:grid-cols-2 md:p-14">
             <div className="relative z-10">
-              <TwoTone accent="people who pick up" plain="software that runs itself," accentFirst={false} />
+              <TwoTone accent={tr("people who pick up")} plain={tr("software that runs itself,")} accentFirst={false} />
             </div>
             <img src={`${IMG}/spiral.jpg`} alt="" className="pointer-events-none absolute -bottom-10 -left-10 hidden w-[52%] max-w-[560px] mix-blend-multiply md:block dark:hidden" loading="lazy" />
             {/* The spiral is drawn on white; on the dark theme the same corner gets the amber glass instead. */}
             <img src={`${IMG}/panel.jpg`} alt="" className="pointer-events-none absolute bottom-6 left-6 hidden h-[44%] w-[44%] rounded-radius-lg object-cover dark:md:block" loading="lazy" />
             <div className="relative z-10 space-y-3 md:row-span-2">
               {[
-                { icon: Sparkles, title: "we set you up", text: "Your page, plans and schedule — we build them with you, so you go live looking right." },
-                { icon: Headphones, title: "someone answers", text: `A real person on WhatsApp (${LEGAL_CONTACT.whatsapp}), for you and for your customers.` },
-                { icon: Wallet, title: "your money, your call", text: "Everything you earn is shown as it lands. Withdraw when you choose — nobody approves it." },
+                { icon: Sparkles, title: tr("we set you up"), text: tr("Your page, plans and schedule — we build them with you, so you go live looking right.") },
+                { icon: Headphones, title: tr("someone answers"), text: tr("A real person on WhatsApp ({whatsapp}), for you and for your customers.", { whatsapp: LEGAL_CONTACT.whatsapp }) },
+                { icon: Wallet, title: tr("your money, your call"), text: tr("Everything you earn is shown as it lands. Withdraw when you choose — nobody approves it.") },
               ].map(({ icon: Icon, title, text }) => (
                 <div key={title} className="flex gap-5 rounded-radius-lg bg-background/70 p-5 md:p-6">
                   <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-radius-md bg-primary/15 text-[hsl(var(--brand-accent-active))] dark:text-primary"><Icon className="h-6 w-6" /></span>
@@ -367,14 +363,14 @@ export default function ForBusiness() {
         {/* ─── Who's on it ───────────────────────────────────────── */}
         {archetypes.length > 0 && (
           <section className="app-container pb-6">
-            <p className="text-body text-muted-foreground">selling on EverySub today</p>
+            <p className="text-body text-muted-foreground">{tr("selling on EverySub today")}</p>
             <div className="mt-3 flex flex-wrap gap-2">
               {archetypes.map(({ key, label, Icon }) => (
                 <Link key={key} to={serviceListingHref(key)} className="flex h-11 items-center gap-2 rounded-full bg-card px-5 text-body font-semibold hover:bg-muted">
                   <Icon className="h-4 w-4" /> {label}
                 </Link>
               ))}
-              <Link to={APPLY} className="flex h-11 items-center rounded-full bg-card px-5 text-body font-semibold text-muted-foreground hover:bg-muted">Something else?</Link>
+              <Link to={APPLY} className="flex h-11 items-center rounded-full bg-card px-5 text-body font-semibold text-muted-foreground hover:bg-muted">{tr("Something else?")}</Link>
             </div>
           </section>
         )}
@@ -382,7 +378,7 @@ export default function ForBusiness() {
         {/* ─── FAQ ───────────────────────────────────────────────── */}
         <section id="faq" className="app-container scroll-mt-20 py-16 md:py-24">
           <div className="grid gap-8 md:grid-cols-[1fr_1.4fr]">
-            <TwoTone accent="answered" plain="questions," accentFirst={false} />
+            <TwoTone accent={tr("answered")} plain={tr("questions,")} accentFirst={false} />
             <div className="divide-y divide-border">
               {list.map((f) => (
                 <details key={f.q} className="group py-5">
@@ -405,11 +401,11 @@ export default function ForBusiness() {
             <div className="relative grid min-h-[420px] md:grid-cols-2">
               <div className="hidden md:block" />
               <div className="flex flex-col justify-center gap-5 p-6 text-white md:p-14">
-                <h2 className="font-semibold" style={H2}>ready to sell on EverySub?</h2>
-                <p className="max-w-[460px] text-body text-white/85 md:text-lg">Apply in about five minutes, or ask us anything first. We'll get you live.</p>
+                <h2 className="font-semibold" style={H2}>{tr("ready to sell on EverySub?")}</h2>
+                <p className="max-w-[460px] text-body text-white/85 md:text-lg">{tr("Apply in about five minutes, or ask us anything first. We'll get you live.")}</p>
                 <div className="flex flex-wrap gap-3">
-                  <ArrowCta to={APPLY}>Apply now</ArrowCta>
-                  <ArrowCta tone="glass" href={LEGAL_CONTACT.whatsappHref}><MessageCircle className="h-4 w-4" /> Talk to us</ArrowCta>
+                  <ArrowCta to={APPLY}>{tr("Apply now")}</ArrowCta>
+                  <ArrowCta tone="glass" href={LEGAL_CONTACT.whatsappHref}><MessageCircle className="h-4 w-4" />{" "}{tr("Talk to us")}</ArrowCta>
                 </div>
               </div>
             </div>
@@ -427,17 +423,15 @@ function TopBar() {
     <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-lg">
       <div className="app-container flex h-16 items-center gap-6">
         <Link to="/" className="flex items-baseline gap-1.5">
-          <span className="text-xl font-bold tracking-tight">EverySub</span>
-          <span className="text-body text-muted-foreground">for business</span>
+          <span className="text-xl font-bold tracking-tight">{tr("EverySub")}</span>
+          <span className="text-body text-muted-foreground">{tr("for business")}</span>
         </Link>
         <nav className="ml-auto hidden items-center gap-6 text-body text-muted-foreground md:flex">
-          <a href="#features" className="hover:text-foreground">Features</a>
-          <a href="#pricing" className="hover:text-foreground">Pricing</a>
-          <a href="#faq" className="hover:text-foreground">Questions</a>
+          <a href="#features" className="hover:text-foreground">{tr("Features")}</a>
+          <a href="#pricing" className="hover:text-foreground">{tr("Pricing")}</a>
+          <a href="#faq" className="hover:text-foreground">{tr("Questions")}</a>
         </nav>
-        <Link to={APPLY} className="ml-auto inline-flex h-10 items-center rounded-full bg-foreground px-5 text-body font-semibold text-background md:ml-0">
-          Apply
-        </Link>
+        <Link to={APPLY} className="ml-auto inline-flex h-10 items-center rounded-full bg-foreground px-5 text-body font-semibold text-background md:ml-0">{tr("Apply")}</Link>
       </div>
     </header>
   );
@@ -459,7 +453,7 @@ function FeatureSwitcher() {
   const f = FEATURES[active];
   return (
     <section id="features" className="app-container scroll-mt-20 py-10 md:py-16">
-      <TwoTone accent="for a local business" plain="everything you need," accentFirst={false} />
+      <TwoTone accent={tr("for a local business")} plain={tr("everything you need,")} accentFirst={false} />
       <div className="mt-10 grid gap-8 md:grid-cols-2 md:gap-14">
         <div className="relative aspect-square overflow-hidden rounded-radius-xl bg-[#4A2606]">
           <img src={`${IMG}/panel.jpg`} alt="" className="absolute inset-0 h-full w-full object-cover" loading="lazy" />
@@ -495,8 +489,8 @@ function FeatureSwitcher() {
                       ))}
                     </ul>
                     <div className="mt-5 flex flex-wrap gap-3">
-                      <ArrowCta tone="dark" to={APPLY}>Apply</ArrowCta>
-                      <a href="#pricing" className="inline-flex h-12 items-center rounded-full px-5 text-body font-semibold ring-1 ring-border hover:bg-muted">See pricing</a>
+                      <ArrowCta tone="dark" to={APPLY}>{tr("Apply")}</ArrowCta>
+                      <a href="#pricing" className="inline-flex h-12 items-center rounded-full px-5 text-body font-semibold ring-1 ring-border hover:bg-muted">{tr("See pricing")}</a>
                     </div>
                   </div>
                 )}
@@ -516,10 +510,10 @@ function ToolsCarousel() {
   return (
     <section className="py-16 md:py-24">
       <div className="app-container flex items-end justify-between gap-6">
-        <TwoTone accent="tools to grow" plain="built in, not bolted on" />
+        <TwoTone accent={tr("tools to grow")} plain={tr("built in, not bolted on")} />
         <div className="hidden shrink-0 gap-2 md:flex">
-          <button type="button" aria-label="Previous" onClick={() => scroll(-1)} className="flex h-12 w-12 items-center justify-center rounded-full bg-foreground text-background hover:opacity-90"><ArrowLeft className="h-5 w-5" /></button>
-          <button type="button" aria-label="Next" onClick={() => scroll(1)} className="flex h-12 w-12 items-center justify-center rounded-full bg-foreground text-background hover:opacity-90"><ArrowRight className="h-5 w-5" /></button>
+          <button type="button" aria-label={tr("Previous")} onClick={() => scroll(-1)} className="flex h-12 w-12 items-center justify-center rounded-full bg-foreground text-background hover:opacity-90"><ArrowLeft className="h-5 w-5" /></button>
+          <button type="button" aria-label={tr("Next")} onClick={() => scroll(1)} className="flex h-12 w-12 items-center justify-center rounded-full bg-foreground text-background hover:opacity-90"><ArrowRight className="h-5 w-5" /></button>
         </div>
       </div>
       <div

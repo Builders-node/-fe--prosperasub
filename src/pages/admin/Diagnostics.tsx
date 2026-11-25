@@ -18,6 +18,7 @@ import { useTabParam } from "@/hooks/useTabParam";
 import { QueryError } from "@/components/patterns/QueryError";
 import { useTableSort } from "@/lib/table/useTableSort";
 import { SortHeader } from "@/components/ui/sort-header";
+import { tr, trx, DATE_LOCALE } from "@/lib/tr";
 
 /**
  * The developer's corner of the admin.
@@ -84,7 +85,7 @@ const formatNotificationAmount = (notification: AdminPaymentNotification) => {
 };
 
 const formatNotificationDate = (value: string) =>
-  new Intl.DateTimeFormat("en-US", {
+  new Intl.DateTimeFormat(DATE_LOCALE, {
     timeZone: "America/Tegucigalpa",
     dateStyle: "medium",
     timeStyle: "short",
@@ -109,8 +110,8 @@ type Rail = (typeof RAILS)[number];
 const Diagnostics = () => {
   return (
     <SuperAdminLayout
-      title="Diagnostics"
-      subtitle="Check the payment rails and the event bus — $1 test payments, the admin notification log and the domain event outbox"
+      title={tr("Diagnostics")}
+      subtitle={tr("Check the payment rails and the event bus — $1 test payments, the admin notification log and the domain event outbox")}
     >
       <div className="space-y-space-4 md:space-y-space-5">
         <TestPayments />
@@ -155,14 +156,14 @@ function TestPayments() {
     },
     onSuccess: (invoice) => {
       setTestInvoice(invoice);
-      toast.success("Test Lightning invoice generated");
+      toast.success(tr("Test Lightning invoice generated"));
     },
-    onError: (error: Error) => toast.error(error.message || "Failed to generate test invoice"),
+    onError: (error: Error) => toast.error(error.message || tr("Failed to generate test invoice")),
   });
 
   const testPaymentStatusMutation = useMutation({
     mutationFn: async () => {
-      if (!testInvoice?.payment_hash) throw new Error("Generate a test invoice first.");
+      if (!testInvoice?.payment_hash) throw new Error(tr("Generate a test invoice first."));
       const { data, error } = await supabase.functions.invoke("verify-payment", {
         body: {
           payment_hash: testInvoice.payment_hash,
@@ -190,13 +191,13 @@ function TestPayments() {
           : current,
       );
       if (status.paid) {
-        toast.success("Test payment confirmed. Admin notifications updated.");
+        toast.success(tr("Test payment confirmed. Admin notifications updated."));
         queryClient.invalidateQueries({ queryKey: ["admin-payment-notifications"] });
       } else {
-        toast.info("Test payment is still pending");
+        toast.info(tr("Test payment is still pending"));
       }
     },
-    onError: (error: Error) => toast.error(error.message || "Failed to check test payment"),
+    onError: (error: Error) => toast.error(error.message || tr("Failed to check test payment")),
   });
 
   // Same $1 as Lightning; `create-onchain-charge` returns address + amount_sats
@@ -218,14 +219,14 @@ function TestPayments() {
     },
     onSuccess: (data) => {
       setTestOnchain(data);
-      toast.success("Test on-chain address generated");
+      toast.success(tr("Test on-chain address generated"));
     },
-    onError: (e: Error) => toast.error(e.message || "Failed to generate on-chain address"),
+    onError: (e: Error) => toast.error(e.message || tr("Failed to generate on-chain address")),
   });
 
   const testOnchainStatusMutation = useMutation({
     mutationFn: async () => {
-      if (!testOnchain?.address) throw new Error("Generate an on-chain address first.");
+      if (!testOnchain?.address) throw new Error(tr("Generate an on-chain address first."));
       const { data, error } = await supabase.functions.invoke("verify-onchain-payment", {
         body: { address: testOnchain.address, amount_sats: testOnchain.amount_sats },
       });
@@ -234,10 +235,10 @@ function TestPayments() {
     },
     onSuccess: (status) => {
       setTestOnchain((cur) => cur ? { ...cur, ...status, paid: status.paid ?? cur.paid } : cur);
-      if (status.paid) toast.success("On-chain payment confirmed");
-      else toast.info("On-chain payment still pending — wait for confirmations");
+      if (status.paid) toast.success(tr("On-chain payment confirmed"));
+      else toast.info(tr("On-chain payment still pending — wait for confirmations"));
     },
-    onError: (e: Error) => toast.error(e.message || "Failed to check on-chain payment"),
+    onError: (e: Error) => toast.error(e.message || tr("Failed to check on-chain payment")),
   });
 
   const copyValue = async (value: string, label: string) => {
@@ -249,23 +250,17 @@ function TestPayments() {
     <section className="rounded-radius-md bg-card">
       <div className="flex flex-col gap-space-2 p-space-6">
         <h3 className="text-panel-title flex items-center gap-space-2">
-          <CreditCard className="h-5 w-5 text-primary" />
-          Test payments
-        </h3>
-        <p className="type-body text-muted-foreground">
-          Generate a $1.00 test payment on each rail — Lightning, on-chain BTC or PayPal — to confirm
-          the wallet and the notification pipeline are healthy. Test payments are not sales and never
-          reach revenue.
-        </p>
+          <CreditCard className="h-5 w-5 text-primary" />{tr("Test payments")}</h3>
+        <p className="type-body text-muted-foreground">{tr("Generate a $1.00 test payment on each rail — Lightning, on-chain BTC or PayPal — to confirm the wallet and the notification pipeline are healthy. Test payments are not sales and never reach revenue.")}</p>
       </div>
       <div className="space-y-space-5 p-space-6 pt-0">
         <TabPills
           value={rail}
           onChange={setRail}
           tabs={[
-            { value: "lightning", label: "Lightning" },
-            { value: "onchain", label: "On-chain" },
-            { value: "paypal", label: "PayPal" },
+            { value: "lightning", label: tr("Lightning") },
+            { value: "onchain", label: tr("On-chain") },
+            { value: "paypal", label: tr("PayPal") },
           ] satisfies Array<{ value: Rail; label: string }>}
         />
 
@@ -275,11 +270,9 @@ function TestPayments() {
               className="w-full"
               onClick={() => testInvoiceMutation.mutate()}
               loading={testInvoiceMutation.isPending}
-              loadingText="Generating..."
+              loadingText={tr("Generating...")}
             >
-              <Zap className="h-4 w-4" />
-              Generate $1 Lightning QR
-            </Button>
+              <Zap className="h-4 w-4" />{tr("Generate $1 Lightning QR")}</Button>
 
             {testInvoice ? (
               <div className="space-y-space-4">
@@ -288,11 +281,11 @@ function TestPayments() {
                 </div>
 
                 <div className="rounded-radius-lg bg-[hsl(var(--app-control))] p-space-4">
-                  <p className="text-label text-muted-foreground">Amount</p>
+                  <p className="text-label text-muted-foreground">{tr("Amount")}</p>
                   <p className="text-section-title text-primary">
                     {testInvoice.amount_sats ? `${testInvoice.amount_sats.toLocaleString()} sats` : "$1.00"}
                   </p>
-                  <p className="text-sm text-muted-foreground">Status: {testInvoice.status}</p>
+                  <p className="text-sm text-muted-foreground">{trx("Status: {status}", { status: testInvoice.status })}</p>
                 </div>
 
                 <div className="space-y-space-2">
@@ -302,41 +295,37 @@ function TestPayments() {
                     className="w-full"
                     onClick={() => testPaymentStatusMutation.mutate()}
                     loading={testPaymentStatusMutation.isPending}
-                    loadingText="Checking..."
+                    loadingText={tr("Checking...")}
                     disabled={testInvoice.paid || testInvoice.status === "paid"}
                   >
-                    <RefreshCw className="h-4 w-4" />
-                    Check payment and notify Telegram
-                  </Button>
-                  <p className="text-xs text-muted-foreground">
-                    Pay the QR first, then check status. Telegram sends only after Blink confirms payment.
-                  </p>
+                    <RefreshCw className="h-4 w-4" />{tr("Check payment and notify Telegram")}</Button>
+                  <p className="text-xs text-muted-foreground">{tr("Pay the QR first, then check status. Telegram sends only after Blink confirms payment.")}</p>
                 </div>
 
                 <div className="space-y-space-2">
-                  <Label>Lightning invoice</Label>
+                  <Label>{tr("Lightning invoice")}</Label>
                   <div className="flex gap-space-2">
                     <code className="max-h-24 flex-1 overflow-y-auto break-all rounded-radius-lg bg-[hsl(var(--app-control))] p-space-3 text-xs">
                       {testInvoice.payment_request}
                     </code>
-                    <Button type="button" variant="secondary" size="icon" onClick={() => copyValue(testInvoice.payment_request, "Invoice")} aria-label="Copy test invoice">
+                    <Button type="button" variant="secondary" size="icon" onClick={() => copyValue(testInvoice.payment_request, "Invoice")} aria-label={tr("Copy test invoice")}>
                       <Copy className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
 
                 <div className="space-y-space-2">
-                  <Label>Payment hash</Label>
+                  <Label>{tr("Payment hash")}</Label>
                   <div className="flex gap-space-2">
                     <code className="flex-1 break-all rounded-radius-lg bg-[hsl(var(--app-control))] p-space-3 text-xs">{testInvoice.payment_hash}</code>
-                    <Button type="button" variant="secondary" size="icon" onClick={() => copyValue(testInvoice.payment_hash, "Payment hash")} aria-label="Copy payment hash">
+                    <Button type="button" variant="secondary" size="icon" onClick={() => copyValue(testInvoice.payment_hash, tr("Payment hash"))} aria-label={tr("Copy payment hash")}>
                       <Copy className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
               </div>
             ) : (
-              <TestPaymentPlaceholder>Generate a Lightning invoice to preview the QR here.</TestPaymentPlaceholder>
+              <TestPaymentPlaceholder>{tr("Generate a Lightning invoice to preview the QR here.")}</TestPaymentPlaceholder>
             )}
           </div>
         )}
@@ -347,11 +336,9 @@ function TestPayments() {
               className="w-full"
               onClick={() => testOnchainMutation.mutate()}
               loading={testOnchainMutation.isPending}
-              loadingText="Generating..."
+              loadingText={tr("Generating...")}
             >
-              <Bitcoin className="h-4 w-4" />
-              Generate $1 On-chain address
-            </Button>
+              <Bitcoin className="h-4 w-4" />{tr("Generate $1 On-chain address")}</Button>
 
             {testOnchain ? (
               <div className="space-y-space-4">
@@ -365,12 +352,9 @@ function TestPayments() {
                 </div>
 
                 <div className="rounded-radius-lg bg-[hsl(var(--app-control))] p-space-4">
-                  <p className="text-label text-muted-foreground">Amount</p>
-                  <p className="text-section-title text-primary">
-                    {testOnchain.amount_sats.toLocaleString()} sats
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {formatUSD(testOnchain.amount_cents)} · Status: {testOnchain.paid ? "paid" : (testOnchain.status || "pending")}
+                  <p className="text-label text-muted-foreground">{tr("Amount")}</p>
+                  <p className="text-section-title text-primary">{trx("{toLocaleString} sats", { toLocaleString: testOnchain.amount_sats.toLocaleString() })}</p>
+                  <p className="text-sm text-muted-foreground">{trx("{amount_cents} · Status:", { amount_cents: formatUSD(testOnchain.amount_cents) })}{" "}{testOnchain.paid ? "paid" : (testOnchain.status || "pending")}
                   </p>
                 </div>
 
@@ -380,28 +364,24 @@ function TestPayments() {
                   className="w-full"
                   onClick={() => testOnchainStatusMutation.mutate()}
                   loading={testOnchainStatusMutation.isPending}
-                  loadingText="Checking..."
+                  loadingText={tr("Checking...")}
                   disabled={testOnchain.paid}
                 >
-                  <RefreshCw className="h-4 w-4" />
-                  Check on-chain confirmation
-                </Button>
-                <p className="text-xs text-muted-foreground">
-                  Send BTC to the address, then check. Requires at least 1 confirmation.
-                </p>
+                  <RefreshCw className="h-4 w-4" />{tr("Check on-chain confirmation")}</Button>
+                <p className="text-xs text-muted-foreground">{tr("Send BTC to the address, then check. Requires at least 1 confirmation.")}</p>
 
                 <div className="space-y-space-2">
-                  <Label>Bitcoin address</Label>
+                  <Label>{tr("Bitcoin address")}</Label>
                   <div className="flex gap-space-2">
                     <code className="flex-1 break-all rounded-radius-lg bg-[hsl(var(--app-control))] p-space-3 text-xs">{testOnchain.address}</code>
-                    <Button type="button" variant="secondary" size="icon" onClick={() => copyValue(testOnchain.address, "Address")} aria-label="Copy address">
+                    <Button type="button" variant="secondary" size="icon" onClick={() => copyValue(testOnchain.address, "Address")} aria-label={tr("Copy address")}>
                       <Copy className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
               </div>
             ) : (
-              <TestPaymentPlaceholder>Generate an on-chain address to preview the QR here.</TestPaymentPlaceholder>
+              <TestPaymentPlaceholder>{tr("Generate an on-chain address to preview the QR here.")}</TestPaymentPlaceholder>
             )}
           </div>
         )}
@@ -409,25 +389,21 @@ function TestPayments() {
         {rail === "paypal" && (
           <div className="space-y-space-5">
             <div className="rounded-radius-lg bg-[hsl(var(--app-control))] p-space-4">
-              <p className="text-label text-muted-foreground">Amount</p>
+              <p className="text-label text-muted-foreground">{tr("Amount")}</p>
               <p className="text-section-title text-primary">$1.00</p>
-              <p className="text-sm text-muted-foreground">
-                Uses the same PayPal panel as real checkouts. In {import.meta.env.PROD ? "production" : "sandbox"} mode.
-              </p>
+              <p className="text-sm text-muted-foreground">{tr("Uses the same PayPal panel as real checkouts. In")}{" "}{import.meta.env.PROD ? "production" : "sandbox"}{" "}{tr("mode.")}</p>
             </div>
 
             {testPayPalPaid ? (
               <div className="rounded-radius-lg border border-positive/40 bg-positive/10 p-space-4 text-sm">
-                <p className="font-semibold text-positive dark:text-positive">Test payment captured ✓</p>
-                <p className="mt-1 break-all text-xs text-muted-foreground">Capture id: {testPayPalPaid}</p>
+                <p className="font-semibold text-positive dark:text-positive">{tr("Test payment captured ✓")}</p>
+                <p className="mt-1 break-all text-xs text-muted-foreground">{trx("Capture id: {testPayPalPaid}", { testPayPalPaid })}</p>
                 <Button
                   className="mt-space-3"
                   variant="secondary"
                   size="sm"
                   onClick={() => setTestPayPalPaid(null)}
-                >
-                  Run another test
-                </Button>
+                >{tr("Run another test")}</Button>
               </div>
             ) : (
               <div className="rounded-radius-lg border border-[hsl(var(--app-divider))] p-space-4">
@@ -435,11 +411,11 @@ function TestPayments() {
                   totalCents={100}
                   onPaid={(captureId) => {
                     setTestPayPalPaid(captureId);
-                    toast.success("PayPal test payment captured");
+                    toast.success(tr("PayPal test payment captured"));
                   }}
                   orderMeta={{
-                    description: "EverySub admin PayPal test - $1.00",
-                    service_name: "Admin PayPal test",
+                    description: tr("EverySub admin PayPal test - $1.00"),
+                    service_name: tr("Admin PayPal test"),
                     context: "admin_test_payment",
                   }}
                 />
@@ -485,26 +461,24 @@ function NotificationLog() {
       return data;
     },
     onSuccess: () => {
-      toast.success("Admin notification resent");
+      toast.success(tr("Admin notification resent"));
       queryClient.invalidateQueries({ queryKey: ["admin-payment-notifications"] });
     },
-    onError: (error: Error) => toast.error(error.message || "Failed to resend notification"),
+    onError: (error: Error) => toast.error(error.message || tr("Failed to resend notification")),
   });
 
   return (
     <section className="rounded-radius-md bg-card">
       <div className="flex flex-col gap-space-2 p-space-6">
         <h3 className="text-panel-title flex items-center gap-space-2">
-          <Mail className="h-5 w-5 text-primary" />
-          Admin notification log
-        </h3>
-        <p className="type-body text-muted-foreground">Email and Telegram delivery history for confirmed payments.</p>
+          <Mail className="h-5 w-5 text-primary" />{tr("Admin notification log")}</h3>
+        <p className="type-body text-muted-foreground">{tr("Email and Telegram delivery history for confirmed payments.")}</p>
       </div>
       <div className="p-space-6 pt-0">
         {isError ? (
           <QueryError
             compact
-            title="Couldn't load the notification log"
+            title={tr("Couldn't load the notification log")}
             error={error as Error}
             onRetry={() => void refetch()}
           />
@@ -517,7 +491,7 @@ function NotificationLog() {
                   <div className="flex items-start justify-between gap-space-3">
                     <div className="min-w-0">
                       <p className="font-bold truncate">{notification.serviceName}</p>
-                      <p className="text-sm text-muted-foreground truncate">{notification.clientName || notification.clientEmail || "Client not provided"}</p>
+                      <p className="text-sm text-muted-foreground truncate">{notification.clientName || notification.clientEmail || tr("Client not provided")}</p>
                     </div>
                     <span className="shrink-0 font-bold text-primary">{formatNotificationAmount(notification)}</span>
                   </div>
@@ -532,7 +506,7 @@ function NotificationLog() {
                   <div className="flex gap-space-2 pt-space-1">
                     {notification.adminUrl ? (
                       <Button asChild variant="ghost" size="sm" className="flex-1">
-                        <a href={notification.adminUrl}>Open record</a>
+                        <a href={notification.adminUrl}>{tr("Open record")}</a>
                       </Button>
                     ) : null}
                     <Button
@@ -543,9 +517,7 @@ function NotificationLog() {
                       onClick={() => resendNotificationMutation.mutate(notification.id)}
                       disabled={resendNotificationMutation.isPending}
                     >
-                      <RefreshCw className="h-4 w-4" />
-                      Resend
-                    </Button>
+                      <RefreshCw className="h-4 w-4" />{tr("Resend")}</Button>
                   </div>
                 </div>
               ))}
@@ -555,12 +527,12 @@ function NotificationLog() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead aria-sort={notifSort.ariaSort("payment")}><SortHeader {...notifSort.headerProps("payment")}>Payment</SortHeader></TableHead>
-                    <TableHead aria-sort={notifSort.ariaSort("amount")}><SortHeader {...notifSort.headerProps("amount")}>Amount</SortHeader></TableHead>
-                    <TableHead aria-sort={notifSort.ariaSort("email")}><SortHeader {...notifSort.headerProps("email")}>Email</SortHeader></TableHead>
-                    <TableHead aria-sort={notifSort.ariaSort("telegram")}><SortHeader {...notifSort.headerProps("telegram")}>Telegram</SortHeader></TableHead>
-                    <TableHead aria-sort={notifSort.ariaSort("paid")}><SortHeader {...notifSort.headerProps("paid")}>Paid at</SortHeader></TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead aria-sort={notifSort.ariaSort("payment")}><SortHeader {...notifSort.headerProps("payment")}>{tr("Payment")}</SortHeader></TableHead>
+                    <TableHead aria-sort={notifSort.ariaSort("amount")}><SortHeader {...notifSort.headerProps("amount")}>{tr("Amount")}</SortHeader></TableHead>
+                    <TableHead aria-sort={notifSort.ariaSort("email")}><SortHeader {...notifSort.headerProps("email")}>{tr("Email")}</SortHeader></TableHead>
+                    <TableHead aria-sort={notifSort.ariaSort("telegram")}><SortHeader {...notifSort.headerProps("telegram")}>{tr("Telegram")}</SortHeader></TableHead>
+                    <TableHead aria-sort={notifSort.ariaSort("paid")}><SortHeader {...notifSort.headerProps("paid")}>{tr("Paid at")}</SortHeader></TableHead>
+                    <TableHead className="text-right">{tr("Actions")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -569,10 +541,10 @@ function NotificationLog() {
                       <TableCell>
                         <div className="font-bold">{notification.serviceName}</div>
                         <div className="text-sm text-muted-foreground">
-                          {notification.clientName || notification.clientEmail || "Client not provided"}
+                          {notification.clientName || notification.clientEmail || tr("Client not provided")}
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          {notification.planName || "No plan"}{notification.duration ? ` · ${notification.duration}` : ""}
+                          {notification.planName || tr("No plan")}{notification.duration ? ` · ${notification.duration}` : ""}
                         </div>
                       </TableCell>
                       <TableCell className="font-bold">{formatNotificationAmount(notification)}</TableCell>
@@ -592,7 +564,7 @@ function NotificationLog() {
                         <div className="flex justify-end gap-space-2">
                           {notification.adminUrl ? (
                             <Button asChild variant="ghost" size="sm">
-                              <a href={notification.adminUrl}>Open record</a>
+                              <a href={notification.adminUrl}>{tr("Open record")}</a>
                             </Button>
                           ) : null}
                           <Button
@@ -602,9 +574,7 @@ function NotificationLog() {
                             onClick={() => resendNotificationMutation.mutate(notification.id)}
                             disabled={resendNotificationMutation.isPending}
                           >
-                            <RefreshCw className="h-4 w-4" />
-                            Resend
-                          </Button>
+                            <RefreshCw className="h-4 w-4" />{tr("Resend")}</Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -615,9 +585,7 @@ function NotificationLog() {
             <TablePagination {...notifPager} onPage={notifPager.setPage} />
           </>
         ) : (
-          <div className="rounded-radius-lg bg-[hsl(var(--app-control))] p-space-8 text-center text-muted-foreground">
-            Confirmed payment notifications will appear here after the first successful payment.
-          </div>
+          <div className="rounded-radius-lg bg-[hsl(var(--app-control))] p-space-8 text-center text-muted-foreground">{tr("Confirmed payment notifications will appear here after the first successful payment.")}</div>
         )}
       </div>
     </section>

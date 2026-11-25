@@ -7,6 +7,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { accountApi } from "@/integrations/supabase/client";
 import { FEEDBACK_SERVICES, LEAVE_REASONS, isLeaveReason, type LeaveReason } from "@/lib/subscriptions/leaveReasons";
 import { cn } from "@/lib/utils";
+import { tr } from "@/lib/tr";
 
 /**
  * `/feedback/leaving?service=&sub=&reason=` — where the "Not coming back? One
@@ -47,12 +48,12 @@ export default function LeavingFeedback() {
   }, [valid, fromLink]);
 
   return (
-    <UserLayout title="Your feedback" showBackButton backTo="/my-subscriptions" showBottomNav={false}>
+    <UserLayout title={tr("Your feedback")} showBackButton backTo="/my-subscriptions" showBottomNav={false}>
       <div className="mx-auto max-w-xl space-y-4 py-space-6">
         {!valid ? (
           <section className="rounded-radius-lg bg-card p-6 text-center">
-            <p className="text-title font-semibold text-foreground">This link isn't complete</p>
-            <p className="mt-1 text-body text-muted-foreground">Open it again from the email, or tell us from My subscriptions.</p>
+            <p className="text-title font-semibold text-foreground">{tr("This link isn't complete")}</p>
+            <p className="mt-1 text-body text-muted-foreground">{tr("Open it again from the email, or tell us from My subscriptions.")}</p>
           </section>
         ) : state === "done" ? (
           <section className="space-y-4 rounded-radius-lg bg-card p-6 text-center">
@@ -60,30 +61,28 @@ export default function LeavingFeedback() {
               <Check className="h-6 w-6" />
             </span>
             <div>
-              <h1 className="text-heading font-semibold text-foreground">Thank you — that helps</h1>
+              <h1 className="text-heading font-semibold text-foreground">{tr("Thank you — that helps")}</h1>
               <p className="mt-1 text-body text-muted-foreground">
                 {picked === "forgot"
-                  ? "Renewing takes a minute, and your details are already filled in."
-                  : "We read every answer. If anything changes, everything is one tap away."}
+                  ? tr("Renewing takes a minute, and your details are already filled in.")
+                  : tr("We read every answer. If anything changes, everything is one tap away.")}
               </p>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:justify-center">
               <Button onClick={() => navigate("/my-subscriptions")}>
-                {picked === "forgot" ? "Renew now" : "My subscriptions"}
+                {picked === "forgot" ? tr("Renew now") : tr("My subscriptions")}
               </Button>
-              <Button variant="secondary" onClick={() => navigate("/discovery")}>Browse services</Button>
+              <Button variant="secondary" onClick={() => navigate("/discovery")}>{tr("Browse services")}</Button>
             </div>
           </section>
         ) : (
           <section className="space-y-4 rounded-radius-lg bg-card p-6">
             <div>
-              <h1 className="text-heading font-semibold text-foreground">Why did you stop?</h1>
-              <p className="mt-1 text-body text-muted-foreground">One tap. It tells the business what to fix.</p>
+              <h1 className="text-heading font-semibold text-foreground">{tr("Why did you stop?")}</h1>
+              <p className="mt-1 text-body text-muted-foreground">{tr("One tap. It tells the business what to fix.")}</p>
             </div>
             {state === "error" && (
-              <p className="rounded-radius-md bg-destructive/10 px-3 py-2 text-body text-destructive">
-                We couldn't save that just now. Try again?
-              </p>
+              <p className="rounded-radius-md bg-destructive/10 px-3 py-2 text-body text-destructive">{tr("We couldn't save that just now. Try again?")}</p>
             )}
             <div className="grid gap-2">
               {LEAVE_REASONS.map((r) => (

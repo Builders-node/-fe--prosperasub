@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/table";
 import { useTableSort } from "@/lib/table/useTableSort";
 import { SortHeader } from "@/components/ui/sort-header";
+import { tr, dfLocale } from "@/lib/tr";
 
 /**
  * The platform, as one set of figures — in the same layout, in the same order,
@@ -60,7 +61,7 @@ export function PlatformAnalytics() {
 
   const { totals, months } = data;
   const rows = rowsInPeriod(data.rows, period);
-  const monthLabel = format(nowHN(), "MMMM");
+  const monthLabel = format(nowHN(), "MMMM", { locale: dfLocale });
   const serviceLabels = new Map(services.map((s) => [s.key as string, s.label]));
 
   return (
@@ -76,27 +77,27 @@ export function PlatformAnalytics() {
         // Plan ids are unique across services, so the platform's plan ranking
         // is every service's plans in one list — which is the point.
         rows: rankedByRevenue(groupRevenue(rows, (r) => r.planKey, (k) => names?.plans.get(k))).slice(0, 8),
-        emptyMessage: "No plan has earned anything yet.",
+        emptyMessage: tr("No plan has earned anything yet."),
       }}
       group={{
-        title: "Revenue by Service",
+        title: tr("Revenue by Service"),
         rows: rankedByRevenue(groupRevenue(rows, (r) => r.service, (k) => serviceLabels.get(k))),
-        emptyMessage: "No service has earned anything yet.",
+        emptyMessage: tr("No service has earned anything yet."),
       }}
       details={{
-        title: "By service",
+        title: tr("By service"),
         children: (
           <div>
             <Table className="min-w-[560px]">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="px-3 py-2" aria-sort={sort.ariaSort("service")}><SortHeader {...sort.headerProps("service")}>Service</SortHeader></TableHead>
-                  <TableHead className="px-3 py-2 text-right" aria-sort={sort.ariaSort("revenue")}><SortHeader {...sort.headerProps("revenue")} align="right">Revenue</SortHeader></TableHead>
+                  <TableHead className="px-3 py-2" aria-sort={sort.ariaSort("service")}><SortHeader {...sort.headerProps("service")}>{tr("Service")}</SortHeader></TableHead>
+                  <TableHead className="px-3 py-2 text-right" aria-sort={sort.ariaSort("revenue")}><SortHeader {...sort.headerProps("revenue")} align="right">{tr("Revenue")}</SortHeader></TableHead>
                   <TableHead className="px-3 py-2 text-right" aria-sort={sort.ariaSort("month")}><SortHeader {...sort.headerProps("month")} align="right">{monthLabel}</SortHeader></TableHead>
-                  <TableHead className="px-3 py-2 text-right" aria-sort={sort.ariaSort("active")}><SortHeader {...sort.headerProps("active")} align="right">Active</SortHeader></TableHead>
-                  <TableHead className="px-3 py-2 text-right" aria-sort={sort.ariaSort("subs")}><SortHeader {...sort.headerProps("subs")} align="right">Subs</SortHeader></TableHead>
-                  <TableHead className="px-3 py-2 text-right" aria-sort={sort.ariaSort("customers")}><SortHeader {...sort.headerProps("customers")} align="right">Customers</SortHeader></TableHead>
-                  <TableHead className="px-3 py-2 text-right" aria-sort={sort.ariaSort("awaiting")}><SortHeader {...sort.headerProps("awaiting")} align="right">Awaiting</SortHeader></TableHead>
+                  <TableHead className="px-3 py-2 text-right" aria-sort={sort.ariaSort("active")}><SortHeader {...sort.headerProps("active")} align="right">{tr("Active")}</SortHeader></TableHead>
+                  <TableHead className="px-3 py-2 text-right" aria-sort={sort.ariaSort("subs")}><SortHeader {...sort.headerProps("subs")} align="right">{tr("Subs")}</SortHeader></TableHead>
+                  <TableHead className="px-3 py-2 text-right" aria-sort={sort.ariaSort("customers")}><SortHeader {...sort.headerProps("customers")} align="right">{tr("Customers")}</SortHeader></TableHead>
+                  <TableHead className="px-3 py-2 text-right" aria-sort={sort.ariaSort("awaiting")}><SortHeader {...sort.headerProps("awaiting")} align="right">{tr("Awaiting")}</SortHeader></TableHead>
                   <TableHead className="w-10 px-3 py-2" />
                 </TableRow>
               </TableHeader>
@@ -117,7 +118,7 @@ export function PlatformAnalytics() {
                       {s.awaitingPayment}
                     </TableCell>
                     <TableCell className="px-3 py-3">
-                      <Link to={`/admin/analytics?service=${s.key}`} aria-label={`Open ${s.label} analytics`}>
+                      <Link to={`/admin/analytics?service=${s.key}`} aria-label={tr("Open {label} analytics", { label: s.label })}>
                         <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
                       </Link>
                     </TableCell>

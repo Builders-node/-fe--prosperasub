@@ -1,6 +1,7 @@
 import { Bitcoin, Check, Coins, CreditCard, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PaymentMethod } from "./PaymentMethodSelector";
+import { tr } from "@/lib/tr";
 
 /**
  * Payment methods as tiles.
@@ -29,9 +30,9 @@ const BTC: PaymentMethod[] = ["lightning", "onchain"];
 type Tile = "card" | "bitcoin" | "crypto";
 
 const TILES: Record<Tile, { label: string; sub: string; tile: string; Icon: LucideIcon }> = {
-  card:    { label: "Card or PayPal", sub: "Visa · Mastercard · PayPal", tile: "bg-[#5b6ee1]", Icon: CreditCard },
-  bitcoin: { label: "Bitcoin",        sub: "Lightning or on-chain",       tile: "bg-[#f7931a]", Icon: Bitcoin },
-  crypto:  { label: "Other crypto",   sub: "USDT · ETH…",                 tile: "bg-[#26a17b]", Icon: Coins },
+  card:    { label: tr("Card or PayPal"), sub: tr("Visa · Mastercard · PayPal"), tile: "bg-[#5b6ee1]", Icon: CreditCard },
+  bitcoin: { label: tr("Bitcoin"),        sub: tr("Lightning or on-chain"),       tile: "bg-[#f7931a]", Icon: Bitcoin },
+  crypto:  { label: tr("Other crypto"),   sub: tr("USDT · ETH…"),                 tile: "bg-[#26a17b]", Icon: Coins },
 };
 
 const tileOf = (m: PaymentMethod): Tile =>
@@ -43,9 +44,7 @@ export function PaymentMethodTiles({ value, onChange, disabled, available }: Pro
 
   if (methods.length === 0) {
     return (
-      <p className="rounded-radius-md bg-inset p-3 text-sm text-muted-foreground">
-        No payment methods are currently available. Please try again later.
-      </p>
+      <p className="rounded-radius-md bg-inset p-3 text-sm text-muted-foreground">{tr("No payment methods are currently available. Please try again later.")}</p>
     );
   }
 
@@ -107,7 +106,7 @@ export function PaymentMethodTiles({ value, onChange, disabled, available }: Pro
 
       {/* The network, only once Bitcoin is the choice and both are offered. */}
       {activeTile === "bitcoin" && rails.length > 1 && (
-        <div className="flex rounded-radius-md bg-inset p-0.5" role="radiogroup" aria-label="Bitcoin network">
+        <div className="flex rounded-radius-md bg-inset p-0.5" role="radiogroup" aria-label={tr("Bitcoin network")}>
           {rails.map((m) => (
             <button
               key={m}
@@ -121,7 +120,7 @@ export function PaymentMethodTiles({ value, onChange, disabled, available }: Pro
                 value === m ? "bg-segment text-foreground" : "text-foreground/70 hover:text-foreground",
               )}
             >
-              {m === "lightning" ? "Lightning · instant" : "On-chain"}
+              {m === "lightning" ? tr("Lightning · instant") : tr("On-chain")}
             </button>
           ))}
         </div>

@@ -1,4 +1,5 @@
 import { addDays, addMonths, addYears } from "date-fns";
+import { tr } from "@/lib/tr";
 
 /**
  * The vocabulary of `provider_plans.period`, in one place.
@@ -41,44 +42,44 @@ export function termLabelFor(period: string | null | undefined, periods: number)
   const n = Math.max(1, Math.round(periods));
   if (n === 1) return termLabel(period);
   switch (normPeriod(period)) {
-    case "weekly":    return `${n} weeks`;
-    case "quarterly": return `${n * 3} months`;
-    case "yearly":    return `${n} years`;
-    case "one_time":  return "One-time";
-    default:          return `${n} months`;
+    case "weekly":    return tr("{n} weeks", { n });
+    case "quarterly": return tr("{n} months", { n: n * 3 });
+    case "yearly":    return tr("{n} years", { n });
+    case "one_time":  return tr("One-time");
+    default:          return tr("{n} months", { n });
   }
 }
 
 /** How long one purchase lasts, for the checkout summary. */
 export function termLabel(period: string | null | undefined): string {
   switch (normPeriod(period)) {
-    case "weekly":    return "1 week";
-    case "quarterly": return "3 months";
-    case "yearly":    return "1 year";
-    case "one_time":  return "One-time";
-    default:          return "1 month";
+    case "weekly":    return tr("1 week");
+    case "quarterly": return tr("3 months");
+    case "yearly":    return tr("1 year");
+    case "one_time":  return tr("One-time");
+    default:          return tr("1 month");
   }
 }
 
 /** "Weekly" · "Monthly" · "One-time" — the period as a chip or option label. */
 export function periodAdjective(period: string | null | undefined): string {
   switch (normPeriod(period)) {
-    case "weekly":    return "Weekly";
-    case "quarterly": return "Quarterly";
-    case "yearly":    return "Yearly";
-    case "one_time":  return "One-time";
-    default:          return "Monthly";
+    case "weekly":    return tr("Weekly");
+    case "quarterly": return tr("Quarterly");
+    case "yearly":    return tr("Yearly");
+    case "one_time":  return tr("One-time");
+    default:          return tr("Monthly");
   }
 }
 
 /** The noun a quantity is measured against: "4 massages / month". */
 export function periodNoun(period: string | null | undefined): string {
   switch (normPeriod(period)) {
-    case "weekly":    return "week";
-    case "quarterly": return "quarter";
-    case "yearly":    return "year";
+    case "weekly":    return tr("week");
+    case "quarterly": return tr("quarter");
+    case "yearly":    return tr("year");
     case "one_time":  return "";
-    default:          return "month";
+    default:          return tr("month");
   }
 }
 
@@ -102,7 +103,7 @@ export function includedLabel(
     ? `${quantity} ${quantity === 1 ? noun : pluralise(noun)}`
     : String(quantity);
   const per = periodNoun(period);
-  return per ? `${counted} a ${per}` : counted;
+  return per ? tr("{counted} a {per}", { counted, per }) : counted;
 }
 
 function pluralise(noun: string): string {

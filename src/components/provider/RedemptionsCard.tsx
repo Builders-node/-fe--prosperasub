@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { WorkspaceCard } from "@/components/provider/WorkspaceUI";
 import { todayHN } from "@/lib/timezone";
 import { cn } from "@/lib/utils";
+import { tr, DATE_LOCALE } from "@/lib/tr";
 
 interface Redemption {
   id: string; customer: string; plan: string | null; item: string;
@@ -13,7 +14,7 @@ interface Redemption {
 }
 
 const timeHN = (iso: string) =>
-  new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/Tegucigalpa" });
+  new Date(iso).toLocaleTimeString(DATE_LOCALE, { hour: "numeric", minute: "2-digit", timeZone: "America/Tegucigalpa" });
 
 /**
  * "Collected at the till" for one day — what customers took with the till QR
@@ -38,8 +39,8 @@ export function RedemptionsCard({ providerId, day }: { providerId: string; day: 
       const { error } = await accountApi(`/account/providers/${providerId}/redemptions/${id}/void`, { method: "POST" });
       if (error) throw error;
     },
-    onSuccess: () => { toast.success("Undone — it can be collected again"); qc.invalidateQueries({ queryKey: key }); },
-    onError: (e) => toast.error(e instanceof Error ? e.message : "Could not undo it"),
+    onSuccess: () => { toast.success(tr("Undone — it can be collected again")); qc.invalidateQueries({ queryKey: key }); },
+    onError: (e) => toast.error(e instanceof Error ? e.message : tr("Could not undo it")),
   });
 
   const rows = data ?? [];
@@ -47,21 +48,17 @@ export function RedemptionsCard({ providerId, day }: { providerId: string; day: 
   return (
     <WorkspaceCard className="space-y-3">
       <div>
-        <h2 className="text-heading font-semibold text-foreground">
-          Collected at the till{live > 0 ? ` · ${live}` : ""}
+        <h2 className="text-heading font-semibold text-foreground">{tr("Collected at the till")}{live > 0 ? ` · ${live}` : ""}
         </h2>
-        <p className="mt-1 text-body text-muted-foreground">
-          Customers who scanned your till QR and pressed Get{isToday ? " today" : ""}.
+        <p className="mt-1 text-body text-muted-foreground">{tr("Customers who scanned your till QR and pressed Get")}{isToday ? " today" : ""}.
         </p>
       </div>
       {isLoading ? (
         <div className="h-12 animate-pulse rounded-radius-md bg-inset" />
       ) : error ? (
-        <p className="text-body text-muted-foreground">{error instanceof Error ? error.message : "Could not load the list."}</p>
+        <p className="text-body text-muted-foreground">{error instanceof Error ? error.message : tr("Could not load the list.")}</p>
       ) : rows.length === 0 ? (
-        <p className="text-body text-muted-foreground">
-          Nothing yet. Print the till QR from Overview and put it at the counter.
-        </p>
+        <p className="text-body text-muted-foreground">{tr("Nothing yet. Print the till QR from Overview and put it at the counter.")}</p>
       ) : (
         <ul className="space-y-2">
           {rows.map((r) => (
@@ -72,14 +69,13 @@ export function RedemptionsCard({ providerId, day }: { providerId: string; day: 
                   {r.customer} · {r.item}
                 </span>
                 <span className="block truncate text-meta text-muted-foreground">
-                  {r.plan ?? "Subscription"}{r.voided ? " · undone" : ""}
+                  {r.plan ?? "Subscription"}{r.voided ? tr(" · undone") : ""}
                 </span>
               </span>
               {!r.voided && (
                 <Button size="sm" variant="ghost" className="shrink-0 gap-1 text-muted-foreground"
-                  disabled={undo.isPending} onClick={() => undo.mutate(r.id)} aria-label={`Undo ${r.item} for ${r.customer}`}>
-                  <Undo2 className="h-4 w-4" /> Undo
-                </Button>
+                  disabled={undo.isPending} onClick={() => undo.mutate(r.id)} aria-label={tr("Undo {item} for {customer}", { item: r.item, customer: r.customer })}>
+                  <Undo2 className="h-4 w-4" />{" "}{tr("Undo")}</Button>
               )}
             </li>
           ))}

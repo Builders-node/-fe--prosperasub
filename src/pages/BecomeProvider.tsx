@@ -15,6 +15,7 @@ import { accountApi } from "@/integrations/supabase/client";
 import { trackEvent } from "@/lib/analytics/ga";
 import { resolveCategoryIcon } from "@/lib/services/categoryIcons";
 import { cn } from "@/lib/utils";
+import { tr } from "@/lib/tr";
 
 /**
  * /become-a-provider — the application form (Edge routes/provider-applications.ts).
@@ -45,8 +46,8 @@ function readDraft(): Draft {
 
 export default function BecomeProvider() {
   useSeo({
-    title: "Apply to sell on EverySub",
-    description: "Apply to put your Roatán business on EverySub — subscriptions, bookings and rentals, paid up front by Lightning, Bitcoin or PayPal. No setup or monthly fee.",
+    title: tr("Apply to sell on EverySub"),
+    description: tr("Apply to put your Roatán business on EverySub — subscriptions, bookings and rentals, paid up front by Lightning, Bitcoin or PayPal. No setup or monthly fee."),
     path: "/become-a-provider",
   });
   const { userData } = useAuth();
@@ -109,12 +110,12 @@ export default function BecomeProvider() {
       window.scrollTo({ top: 0, behavior: "smooth" });
       void qc.invalidateQueries({ queryKey: ["my-provider-applications", userData?.id] });
     },
-    onError: (e: Error) => toast.error(e.message || "Could not send the application"),
+    onError: (e: Error) => toast.error(e.message || tr("Could not send the application")),
   });
 
   const onSubmit = () => {
     if (!userData) {
-      toast.info("Create an account or sign in — your answers are kept.");
+      toast.info(tr("Create an account or sign in — your answers are kept."));
       openAuthModal("signup", "/become-a-provider");
       return;
     }
@@ -122,40 +123,38 @@ export default function BecomeProvider() {
   };
 
   return (
-    <UserLayout title="Apply to sell" showBackButton allowGuest showBottomNav={false}>
+    <UserLayout title={tr("Apply to sell")} showBackButton allowGuest showBottomNav={false}>
       <div className="mx-auto w-full max-w-[640px] space-y-1 py-4">
         <section className="rounded-radius-lg bg-card p-4 md:p-6">
-          <h1 className="text-heading font-semibold text-foreground">Sell on EverySub</h1>
-          <p className="mt-1 text-body text-muted-foreground">
-            Tell us about your business. We reply within a day on WhatsApp or email.{" "}
-            <Link to="/for-business" className="font-semibold text-foreground underline-offset-4 hover:underline">How it works</Link>
+          <h1 className="text-heading font-semibold text-foreground">{tr("Sell on EverySub")}</h1>
+          <p className="mt-1 text-body text-muted-foreground">{tr("Tell us about your business. We reply within a day on WhatsApp or email.")}{" "}<Link to="/for-business" className="font-semibold text-foreground underline-offset-4 hover:underline">{tr("How it works")}</Link>
           </p>
         </section>
 
         {userData && appsLoading ? null : pending ? (
           <StatusCard
-            icon={Clock} tone="attention" title="Your application is under review"
-            text={`${pending.business_name} — we'll message you at ${pending.contact_phone ?? pending.contact_email ?? "your contact"} within a day. Nothing else to do for now.`}
+            icon={Clock} tone="attention" title={tr("Your application is under review")}
+            text={tr("{business_name} — we'll message you at {value} within a day. Nothing else to do for now.", { business_name: pending.business_name, value: pending.contact_phone ?? pending.contact_email ?? tr("your contact") })}
           />
         ) : approved ? (
           <StatusCard
-            icon={CheckCircle2} tone="positive" title={`${approved.business_name} is approved`}
-            text="Your business is waiting as a draft. Add photos and your first offer, then go live."
-            action={<Button asChild className="w-full sm:w-auto"><Link to="/my-business">Open my business</Link></Button>}
+            icon={CheckCircle2} tone="positive" title={tr("{business_name} is approved", { business_name: approved.business_name })}
+            text={tr("Your business is waiting as a draft. Add photos and your first offer, then go live.")}
+            action={<Button asChild className="w-full sm:w-auto"><Link to="/my-business">{tr("Open my business")}</Link></Button>}
           />
         ) : (
           <>
             {rejected && (
               <StatusCard
-                icon={XCircle} tone="negative" title={`About ${rejected.business_name}`}
-                text={rejected.review_notes ? `We couldn't approve it: ${rejected.review_notes} You're welcome to apply again below.` : "We couldn't approve the last application. You're welcome to apply again below."}
+                icon={XCircle} tone="negative" title={tr("About {business_name}", { business_name: rejected.business_name })}
+                text={rejected.review_notes ? tr("We couldn't approve it: {review_notes} You're welcome to apply again below.", { review_notes: rejected.review_notes }) : tr("We couldn't approve the last application. You're welcome to apply again below.")}
               />
             )}
 
             {/* ─── What it sells ─── */}
             <section className="rounded-radius-lg bg-card p-4 md:p-6">
-              <h2 className="text-title font-semibold text-foreground">What do you sell?</h2>
-              <div role="radiogroup" aria-label="What do you sell?" className="mt-3 grid grid-cols-2 gap-2">
+              <h2 className="text-title font-semibold text-foreground">{tr("What do you sell?")}</h2>
+              <div role="radiogroup" aria-label={tr("What do you sell?")} className="mt-3 grid grid-cols-2 gap-2">
                 {options.map((a) => (
                   <KindTile
                     key={a.key}
@@ -167,12 +166,12 @@ export default function BecomeProvider() {
                   />
                 ))}
                 <KindTile
-                  icon={CarFront} label="Vehicle rentals" hint="Cars, scooters, boats"
+                  icon={CarFront} label={tr("Vehicle rentals")} hint={tr("Cars, scooters, boats")}
                   selected={draft.kind === "vehicles"}
                   onSelect={() => setDraft((d) => ({ ...d, kind: "vehicles", archetypeKey: "" }))}
                 />
                 <KindTile
-                  icon={HelpCircle} label="Something else" hint="Tours, classes, anything — we'll find it a home"
+                  icon={HelpCircle} label={tr("Something else")} hint={tr("Tours, classes, anything — we'll find it a home")}
                   selected={draft.kind === "other"}
                   onSelect={() => setDraft((d) => ({ ...d, kind: "other", archetypeKey: "" }))}
                 />
@@ -181,22 +180,22 @@ export default function BecomeProvider() {
 
             {/* ─── The business ─── */}
             <section className="space-y-4 rounded-radius-lg bg-card p-4 md:p-6">
-              <h2 className="text-title font-semibold text-foreground">About your business</h2>
-              <Input label="Business name" value={draft.businessName} onChange={(e) => set("businessName", e.target.value)} placeholder="e.g. Casa Verde Kitchen" maxLength={80} leftIcon={<Store className="h-4 w-4" />} />
-              <Input label="WhatsApp" type="tel" inputMode="tel" value={draft.contactPhone} onChange={(e) => set("contactPhone", e.target.value)} placeholder="+504 …" leftIcon={<MessageCircle className="h-4 w-4" />} />
-              <Input label="Email" type="email" value={draft.contactEmail} onChange={(e) => set("contactEmail", e.target.value)} placeholder="you@business.com" leftIcon={<Mail className="h-4 w-4" />} />
-              <Input label="Where are you? (optional)" value={draft.residence} onChange={(e) => set("residence", e.target.value)} placeholder="West Bay, Próspera, French Harbour…" leftIcon={<MapPin className="h-4 w-4" />} />
-              <Textarea label="Tell us about it (optional)" rows={4} value={draft.description} onChange={(e) => set("description", e.target.value)} placeholder="What you offer, your prices, how long you've been running" maxLength={1500} />
+              <h2 className="text-title font-semibold text-foreground">{tr("About your business")}</h2>
+              <Input label={tr("Business name")} value={draft.businessName} onChange={(e) => set("businessName", e.target.value)} placeholder={tr("e.g. Casa Verde Kitchen")} maxLength={80} leftIcon={<Store className="h-4 w-4" />} />
+              <Input label={tr("WhatsApp")} type="tel" inputMode="tel" value={draft.contactPhone} onChange={(e) => set("contactPhone", e.target.value)} placeholder="+504 …" leftIcon={<MessageCircle className="h-4 w-4" />} />
+              <Input label={tr("Email")} type="email" value={draft.contactEmail} onChange={(e) => set("contactEmail", e.target.value)} placeholder="you@business.com" leftIcon={<Mail className="h-4 w-4" />} />
+              <Input label={tr("Where are you? (optional)")} value={draft.residence} onChange={(e) => set("residence", e.target.value)} placeholder={tr("West Bay, Próspera, French Harbour…")} leftIcon={<MapPin className="h-4 w-4" />} />
+              <Textarea label={tr("Tell us about it (optional)")} rows={4} value={draft.description} onChange={(e) => set("description", e.target.value)} placeholder={tr("What you offer, your prices, how long you've been running")} maxLength={1500} />
             </section>
 
             {/* ─── What happens next ─── */}
             <section className="rounded-radius-lg bg-card p-4 md:p-6">
-              <h2 className="text-title font-semibold text-foreground">What happens next</h2>
+              <h2 className="text-title font-semibold text-foreground">{tr("What happens next")}</h2>
               <ol className="mt-3 space-y-3">
                 {[
-                  ["We review it", "Usually within a day. We'll reach you on WhatsApp."],
-                  ["We set you up together", "Your page, photos, offers and schedule."],
-                  ["You go live", "Customers pay up front; you withdraw when you like."],
+                  [tr("We review it"), tr("Usually within a day. We'll reach you on WhatsApp.")],
+                  [tr("We set you up together"), tr("Your page, photos, offers and schedule.")],
+                  [tr("You go live"), tr("Customers pay up front; you withdraw when you like.")],
                 ].map(([t, d], i) => (
                   <li key={t} className="flex gap-3">
                     <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-foreground text-meta font-semibold text-background">{i + 1}</span>
@@ -208,12 +207,10 @@ export default function BecomeProvider() {
 
             <div className="space-y-2 px-4 pt-3 md:px-0">
               <Button className="w-full" size="lg" disabled={!valid} loading={submit.isPending} onClick={onSubmit}>
-                {userData ? "Send application" : "Log in and send"}
+                {userData ? tr("Send application") : tr("Log in and send")}
               </Button>
               {!valid && (
-                <p className="text-center text-meta text-muted-foreground">
-                  Pick what you sell, and add a name and a WhatsApp number.
-                </p>
+                <p className="text-center text-meta text-muted-foreground">{tr("Pick what you sell, and add a name and a WhatsApp number.")}</p>
               )}
             </div>
           </>

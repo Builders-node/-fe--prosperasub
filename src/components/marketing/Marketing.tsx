@@ -4,6 +4,7 @@ import { ArrowRight, type LucideIcon } from "lucide-react";
 
 import { SiteFooter } from "@/components/layout/SiteFooter";
 import { cn } from "@/lib/utils";
+import { tr } from "@/lib/tr";
 
 /**
  * The marketing-page kit — the /for-business look, shared.
@@ -157,7 +158,7 @@ export function MarketingPage({ label, links = [], cta, children }: {
       <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-lg">
         <div className="app-container flex h-16 items-center gap-6">
           <Link to="/discovery" className="flex items-baseline gap-1.5">
-            <span className="text-xl font-bold tracking-tight">EverySub</span>
+            <span className="text-xl font-bold tracking-tight">{tr("EverySub")}</span>
             {label && <span className="text-body text-muted-foreground">{label}</span>}
           </Link>
           {links.length > 0 && (

@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import { useAddons } from "../hooks/useAddons";
 import { formatUSD , centsToInput } from "@/lib/pricing";
+import { tr } from "@/lib/tr";
 
 /**
  * What a rental business sells besides the car itself: coverage, extras and
@@ -78,7 +79,7 @@ export function RentalTermsTab({ providerId, canManage }: {
   const refresh = () => void qc.invalidateQueries({ queryKey: ["rental-addons"] });
 
   const save = async () => {
-    if (!draft?.name.trim()) { toast.error("Name is required."); return; }
+    if (!draft?.name.trim()) { toast.error(tr("Name is required.")); return; }
     setSaving(true);
     try {
       const row: Record<string, unknown> = {
@@ -105,7 +106,7 @@ export function RentalTermsTab({ providerId, canManage }: {
         ? await fleetWrite(table as FleetTable, "update", { id: draft.id, row })
         : await fleetWrite(table as FleetTable, "insert", { row });
       if (res.error) throw res.error;
-      toast.success(draft.id ? "Saved" : "Added");
+      toast.success(draft.id ? tr("Saved") : tr("Added"));
       refresh();
       setDraft(null);
     } catch (e) {
@@ -118,7 +119,7 @@ export function RentalTermsTab({ providerId, canManage }: {
   const toggleActive = async (kind: Kind, id: string, next: boolean) => {
     const { error } = await fleetWrite(TABLE[kind] as FleetTable, "update", { id, row: { is_active: next } });
     if (error) { toast.error(error.message); return; }
-    toast.success(next ? "Shown at checkout" : "Hidden from checkout");
+    toast.success(next ? tr("Shown at checkout") : tr("Hidden from checkout"));
     refresh();
   };
 
@@ -126,7 +127,7 @@ export function RentalTermsTab({ providerId, canManage }: {
   if (addonsQ.isError) {
     return (
       <QueryError
-        title="Couldn't load the rental terms"
+        title={tr("Couldn't load the rental terms")}
         error={addonsQ.error}
         onRetry={() => void addonsQ.refetch()}
       />
@@ -139,8 +140,8 @@ export function RentalTermsTab({ providerId, canManage }: {
     <div className="space-y-5">
       <Section
         icon={ShieldCheck}
-        title="Coverage"
-        blurb="Charged per day. The first tier is preselected at checkout, so put the one most people should take first."
+        title={tr("Coverage")}
+        blurb={tr("Charged per day. The first tier is preselected at checkout, so put the one most people should take first.")}
         canManage={canManage}
         onAdd={() => setDraft(EMPTY("insurance"))}
         rows={insurance.map((t) => ({
@@ -159,8 +160,8 @@ export function RentalTermsTab({ providerId, canManage }: {
 
       <Section
         icon={PackagePlus}
-        title="Extras"
-        blurb="A child seat, a second driver, a GPS. Priced per day or once per rental."
+        title={tr("Extras")}
+        blurb={tr("A child seat, a second driver, a GPS. Priced per day or once per rental.")}
         canManage={canManage}
         onAdd={() => setDraft(EMPTY("extra"))}
         rows={extras.map((e) => ({
@@ -179,15 +180,15 @@ export function RentalTermsTab({ providerId, canManage }: {
 
       <Section
         icon={MapPin}
-        title="Delivery"
-        blurb="Where you will bring the car, and what that costs. A zone with no fee reads as free delivery."
+        title={tr("Delivery")}
+        blurb={tr("Where you will bring the car, and what that costs. A zone with no fee reads as free delivery.")}
         canManage={canManage}
         onAdd={() => setDraft(EMPTY("zone"))}
         rows={zones.map((z) => ({
           id: z.id,
           isActive: z.is_active !== false,
           title: z.name,
-          detail: z.fee_cents > 0 ? formatUSD(z.fee_cents) : "Free",
+          detail: z.fee_cents > 0 ? formatUSD(z.fee_cents) : tr("Free"),
           onEdit: () => setDraft({
             kind: "zone", id: z.id, name: z.name, description: "",
             cents: z.fee_cents, priceType: "flat", lines: z.areas ?? "",
@@ -201,22 +202,22 @@ export function RentalTermsTab({ providerId, canManage }: {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>
-              {draft?.id ? "Edit" : "Add"}{" "}
-              {draft?.kind === "insurance" ? "coverage" : draft?.kind === "extra" ? "extra" : "delivery zone"}
+              {draft?.id ? tr("Edit") : tr("Add")}{" "}
+              {draft?.kind === "insurance" ? "coverage" : draft?.kind === "extra" ? "extra" : tr("delivery zone")}
             </DialogTitle>
           </DialogHeader>
           {draft && (
             <div className="space-y-3">
               <div>
-                <Label>Name *</Label>
+                <Label>{tr("Name *")}</Label>
                 <Input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label>
-                    {draft.kind === "insurance" ? "Per day $"
-                      : draft.kind === "zone" ? "Delivery fee $" : "Price $"}
+                    {draft.kind === "insurance" ? tr("Per day $")
+                      : draft.kind === "zone" ? tr("Delivery fee $") : tr("Price $")}
                   </Label>
                   <Input
                     type="number"
@@ -227,22 +228,22 @@ export function RentalTermsTab({ providerId, canManage }: {
                 </div>
                 {draft.kind === "extra" && (
                   <div>
-                    <Label>Charged</Label>
+                    <Label>{tr("Charged")}</Label>
                     <Select
                       value={draft.priceType}
                       onValueChange={(v) => setDraft({ ...draft, priceType: v as Draft["priceType"] })}
                     >
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="per_day">Per day</SelectItem>
-                        <SelectItem value="flat">Once per rental</SelectItem>
+                        <SelectItem value="per_day">{tr("Per day")}</SelectItem>
+                        <SelectItem value="flat">{tr("Once per rental")}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                 )}
                 {draft.kind !== "extra" && (
                   <div>
-                    <Label>Order</Label>
+                    <Label>{tr("Order")}</Label>
                     <Input
                       type="number"
                       value={draft.sortOrder}
@@ -254,7 +255,7 @@ export function RentalTermsTab({ providerId, canManage }: {
 
               {draft.kind !== "zone" && (
                 <div>
-                  <Label>Description</Label>
+                  <Label>{tr("Description")}</Label>
                   <Textarea
                     rows={2}
                     value={draft.description}
@@ -265,24 +266,24 @@ export function RentalTermsTab({ providerId, canManage }: {
 
               {draft.kind === "insurance" && (
                 <div>
-                  <Label>What it covers (one per line)</Label>
+                  <Label>{tr("What it covers (one per line)")}</Label>
                   <Textarea
                     rows={4}
                     value={draft.lines}
                     onChange={(e) => setDraft({ ...draft, lines: e.target.value })}
-                    placeholder={"Collision damage\nTheft\n$500 excess"}
+                    placeholder={tr("Collision damage\nTheft\n$500 excess")}
                   />
                 </div>
               )}
 
               {draft.kind === "zone" && (
                 <div>
-                  <Label>Areas covered</Label>
+                  <Label>{tr("Areas covered")}</Label>
                   <Textarea
                     rows={2}
                     value={draft.lines}
                     onChange={(e) => setDraft({ ...draft, lines: e.target.value })}
-                    placeholder="Duna, Pristine Bay, Roatán airport"
+                    placeholder={tr("Duna, Pristine Bay, Roatán airport")}
                   />
                 </div>
               )}
@@ -292,16 +293,13 @@ export function RentalTermsTab({ providerId, canManage }: {
                   type="checkbox"
                   checked={draft.isActive}
                   onChange={(e) => setDraft({ ...draft, isActive: e.target.checked })}
-                />
-                Offer this at checkout
-              </label>
+                />{tr("Offer this at checkout")}</label>
             </div>
           )}
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setDraft(null)}>Cancel</Button>
+            <Button variant="ghost" onClick={() => setDraft(null)}>{tr("Cancel")}</Button>
             <Button onClick={save} disabled={saving}>
-              {saving && <Spinner size="sm" className="mr-2" />}Save
-            </Button>
+              {saving && <Spinner size="sm" className="mr-2" />}{tr("Save")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -337,14 +335,13 @@ function Section({ icon: Icon, title, blurb, rows, canManage, onAdd }: {
         </div>
         {canManage && (
           <Button size="sm" variant="secondary" className="shrink-0 gap-1.5" onClick={onAdd}>
-            <Plus className="h-3.5 w-3.5" /> Add
-          </Button>
+            <Plus className="h-3.5 w-3.5" />{" "}{tr("Add")}</Button>
         )}
       </div>
 
       {rows.length === 0 ? (
         <p className="mt-3 text-sm text-muted-foreground">
-          {canManage ? "Nothing set up yet — customers will not be offered this." : "Nothing set up yet."}
+          {canManage ? tr("Nothing set up yet — customers will not be offered this.") : tr("Nothing set up yet.")}
         </p>
       ) : (
         <ul className="mt-3 divide-y divide-border/60">
@@ -364,11 +361,10 @@ function Section({ icon: Icon, title, blurb, rows, canManage, onAdd }: {
                     className="shrink-0"
                     onClick={() => r.onToggle(!r.isActive)}
                   >
-                    {r.isActive ? "Offered" : "Hidden"}
+                    {r.isActive ? tr("Offered") : tr("Hidden")}
                   </Button>
                   <Button size="sm" variant="secondary" className="shrink-0 gap-1.5" onClick={r.onEdit}>
-                    <Pencil className="h-3.5 w-3.5" /> Edit
-                  </Button>
+                    <Pencil className="h-3.5 w-3.5" />{" "}{tr("Edit")}</Button>
                 </>
               )}
             </li>

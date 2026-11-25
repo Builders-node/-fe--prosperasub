@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ProviderQrCard } from "@/components/provider/ProviderQrCard";
 import { TillQrCard } from "@/components/provider/TillQrCard";
+import { tr } from "@/lib/tr";
 
 /**
  * A business's two QR codes in one card, one at a time.
@@ -29,12 +30,12 @@ export function QrCodesCard({ name, providerId, publicHref, isPublic, clientCode
   return (
     <section className="space-y-4 rounded-radius-lg bg-card p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-heading font-semibold text-foreground">QR codes</h2>
+        <h2 className="text-heading font-semibold text-foreground">{tr("QR codes")}</h2>
         {showTill && (
           <Tabs value={tab} onValueChange={(v) => setTab(v as "sell" | "till")}>
             <TabsList variant="segment">
-              <TabsTrigger value="sell" variant="segment">New customers</TabsTrigger>
-              <TabsTrigger value="till" variant="segment">At the till</TabsTrigger>
+              <TabsTrigger value="sell" variant="segment">{tr("New customers")}</TabsTrigger>
+              <TabsTrigger value="till" variant="segment">{tr("At the till")}</TabsTrigger>
             </TabsList>
           </Tabs>
         )}

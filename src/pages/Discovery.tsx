@@ -34,11 +34,12 @@ import { BusinessesRail } from "@/components/discovery/BusinessesRail";
 import { ForYouSection } from "@/components/discovery/ForYouSection";
 import { DesktopCatalog } from "@/components/discovery/DesktopCatalog";
 import { useHomePlans } from "@/components/discovery/homePlans";
+import { tr } from "@/lib/tr";
 
 // "My Subs" tile isn't a category, but sits alongside category tiles.
 const MY_SUBS_TILE = {
   to: "/my-subscriptions",
-  title: "My Subs",
+  title: tr("My Subs"),
   icon: Users,
 };
 
@@ -48,8 +49,8 @@ const ARCHETYPE_TILE_BG = "bg-card";
 
 /** The words on the family tabs. Anything unnamed falls back to its key. */
 const FAMILY_LABELS: Record<string, string> = {
-  experiences: "Experiences",
-  vehicles: "Vehicles",
+  experiences: tr("Experiences"),
+  vehicles: tr("Vehicles"),
 };
 
 const Discovery = () => {

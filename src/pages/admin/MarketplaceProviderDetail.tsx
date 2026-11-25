@@ -4,6 +4,7 @@ import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { ProviderWorkspace } from "@/components/provider/ProviderWorkspace";
 import { AdminBusinessStrip } from "@/components/admin/AdminBusinessStrip";
 import { supabaseDb } from "@/integrations/supabase/client";
+import { tr } from "@/lib/tr";
 
 /**
  * Unified admin provider detail. Same view as the owner portal
@@ -29,8 +30,8 @@ export default function MarketplaceProviderDetail() {
 
   return (
     <SuperAdminLayout
-      title={provider?.name || "Business"}
-      parent={{ label: "Businesses", href: "/admin/marketplace/providers" }}
+      title={provider?.name || tr("Business")}
+      parent={{ label: tr("Businesses"), href: "/admin/marketplace/providers" }}
       // The profile card right below opens with this name and description.
       hideHeading
     >

@@ -12,6 +12,7 @@ import {
   type DeliveryAddress, type GeoPoint, type PlaceHit,
 } from "@/lib/geo/places";
 import { cn } from "@/lib/utils";
+import { tr } from "@/lib/tr";
 
 const AddressMap = lazy(() => import("./AddressMap"));
 
@@ -33,7 +34,7 @@ const AddressMap = lazy(() => import("./AddressMap"));
 export interface CoverageAnswer { ok: boolean; text: string }
 
 export function AddressMapDialog({
-  open, onOpenChange, title = "Your address", description, coverage, onConfirm,
+  open, onOpenChange, title = tr("Your address"), description, coverage, onConfirm,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -116,17 +117,17 @@ export function AddressMapDialog({
   };
 
   const locate = () => {
-    if (!("geolocation" in navigator)) { toast.error("This browser can't tell us where you are."); return; }
+    if (!("geolocation" in navigator)) { toast.error(tr("This browser can't tell us where you are.")); return; }
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setLocating(false);
         const pt = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        if (!inRoatan(pt)) { toast("You seem to be off the island — move the map to where you'll be."); return; }
+        if (!inRoatan(pt)) { toast(tr("You seem to be off the island — move the map to where you'll be.")); return; }
         setTyping(false);
         flyTo(pt, 18);
       },
-      () => { setLocating(false); toast.error("Couldn't get your location. Allow it in the browser, or move the map."); },
+      () => { setLocating(false); toast.error(tr("Couldn't get your location. Allow it in the browser, or move the map.")); },
       { enableHighAccuracy: true, timeout: 10_000 },
     );
   };
@@ -134,14 +135,14 @@ export function AddressMapDialog({
   const offIsland = !inRoatan(point);
   const answer = !offIsland && coverage ? coverage(point) : null;
   const bubble = moving ? null
-    : offIsland ? { text: "We only deliver on Roatán", tone: "negative" as const }
+    : offIsland ? { text: tr("We only deliver on Roatán"), tone: "negative" as const }
     : answer ? { text: answer.text, tone: answer.ok ? "positive" as const : "negative" as const }
-    : { text: "Deliver here", tone: "neutral" as const };
+    : { text: tr("Deliver here"), tone: "neutral" as const };
 
   const confirm = () => {
     if (offIsland) return;
     // Never a pair of coordinates in the header: a person reads a place.
-    const line = (name ?? query.trim()) || "Pinned location";
+    const line = (name ?? query.trim()) || tr("Pinned location");
     const next: DeliveryAddress = { lat: point.lat, lng: point.lng, line, details: address?.details };
     if (onConfirm) onConfirm(next); else setAddress(next);
     onOpenChange(false);
@@ -152,7 +153,7 @@ export function AddressMapDialog({
       open={open}
       onOpenChange={onOpenChange}
       title={title}
-      description={description ?? "Businesses deliver to their own areas, so where you are decides what can be brought to you."}
+      description={description ?? tr("Businesses deliver to their own areas, so where you are decides what can be brought to you.")}
       className="sm:max-w-[1040px]"
       bodyClassName="grid-rows-[auto_minmax(0,1fr)]"
     >
@@ -165,14 +166,14 @@ export function AddressMapDialog({
               value={query}
               onChange={(e) => { setTyping(true); setQuery(e.target.value); }}
               onKeyDown={(e) => { if (e.key === "Enter" && hits[0]) { e.preventDefault(); pickHit(hits[0]); } }}
-              placeholder="Search a place, a community, a hotel…"
-              aria-label="Search an address"
+              placeholder={tr("Search a place, a community, a hotel…")}
+              aria-label={tr("Search an address")}
               className="h-12 w-full rounded-radius-md bg-inset pl-12 pr-11 text-[16px] text-foreground outline-none placeholder:text-muted-foreground"
             />
             {query && (
               <button
                 type="button"
-                aria-label="Clear"
+                aria-label={tr("Clear")}
                 onClick={() => { setQuery(""); setHits([]); setTyping(true); }}
                 className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground hover:bg-muted"
               >
@@ -183,9 +184,9 @@ export function AddressMapDialog({
             {typing && query.trim().length >= 2 && (
               <div className="absolute inset-x-0 top-full z-[1000] mt-2 overflow-hidden rounded-radius-md bg-card outline outline-1 outline-foreground/10">
                 {searching && hits.length === 0 ? (
-                  <div className="flex items-center gap-2 p-4 text-body text-muted-foreground"><Spinner size="sm" /> Searching…</div>
+                  <div className="flex items-center gap-2 p-4 text-body text-muted-foreground"><Spinner size="sm" />{" "}{tr("Searching…")}</div>
                 ) : hits.length === 0 ? (
-                  <p className="p-4 text-body text-muted-foreground">Nothing found on Roatán — move the map to your place instead.</p>
+                  <p className="p-4 text-body text-muted-foreground">{tr("Nothing found on Roatán — move the map to your place instead.")}</p>
                 ) : hits.map((h) => (
                   <button
                     key={h.id}
@@ -203,9 +204,7 @@ export function AddressMapDialog({
               </div>
             )}
           </div>
-          <Button size="lg" className="w-24 shrink-0 sm:w-[200px]" disabled={offIsland || moving} onClick={confirm}>
-            OK
-          </Button>
+          <Button size="lg" className="w-24 shrink-0 sm:w-[200px]" disabled={offIsland || moving} onClick={confirm}>{tr("OK")}</Button>
         </div>
 
         {/* The communities — still how listings know what is sold where. */}

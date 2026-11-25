@@ -2,6 +2,7 @@ import { useDisplayDiscount } from "@/lib/discounts";
 import { SUBSCRIBE, priceUnit } from "@/lib/checkout/ctaLabel";
 import { PlanCard, type PlanCardRating } from "@/components/patterns/PlanCard";
 import { includedLabel } from "@/lib/services/planPeriod";
+import { tr } from "@/lib/tr";
 
 /**
  * A row from the universal `provider_plans` table as a plan card.
@@ -91,7 +92,7 @@ export function UniversalPlanCard({
         label: SUBSCRIBE,
         onClick: () => onSubscribe(plan.id),
         disabled: !hasPrice,
-        disabledLabel: "Not bookable yet",
+        disabledLabel: tr("Not bookable yet"),
       }}
       favorite={{ kind: "plan", id: plan.id }}
       deal={deal}

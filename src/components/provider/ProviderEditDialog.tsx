@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Spinner } from "@/components/ui/spinner";
 import { ImageField } from "@/components/food/ImageField";
 import { GalleryField } from "@/components/patterns/GalleryField";
+import { tr } from "@/lib/tr";
 
 /**
  * Shared edit-provider modal — one visual grammar for cleaning / food / cars /
@@ -60,7 +61,7 @@ interface Props {
 }
 
 export function ProviderEditDialog({
-  open, onOpenChange, title = "Edit provider",
+  open, onOpenChange, title = tr("Edit provider"),
   values, onChange, onSave, saving, extras, showAdminFields = true,
 }: Props) {
   const patch = (partial: Partial<ProviderEditFields>) => onChange({ ...values, ...partial });
@@ -76,45 +77,45 @@ export function ProviderEditDialog({
         <>
           {/* Basic info */}
           <DialogBlock>
-            <SectionTitle>Basic info</SectionTitle>
+            <SectionTitle>{tr("Basic info")}</SectionTitle>
             <div>
-              <Label>Name *</Label>
+              <Label>{tr("Name *")}</Label>
               <Input
                 value={values.name}
                 onChange={(e) => patch({ name: e.target.value })}
-                placeholder="Business name"
+                placeholder={tr("Business name")}
               />
             </div>
             <div>
-              <Label>Description</Label>
+              <Label>{tr("Description")}</Label>
               <Textarea
                 rows={3}
                 value={values.description ?? ""}
                 onChange={(e) => patch({ description: e.target.value })}
-                placeholder="What customers see on the public page."
+                placeholder={tr("What customers see on the public page.")}
               />
             </div>
           </DialogBlock>
 
           {/* Images — upload from file (Supabase Storage) or paste URL */}
           <DialogBlock>
-            <SectionTitle>Images</SectionTitle>
+            <SectionTitle>{tr("Images")}</SectionTitle>
             <ImageField
-              label="Avatar"
+              label={tr("Avatar")}
               value={values.avatar_url ?? ""}
               onChange={(url) => patch({ avatar_url: url })}
               pathPrefix="providers/avatar"
               variant="square"
             />
             <ImageField
-              label="Banner"
+              label={tr("Banner")}
               value={values.banner_url ?? ""}
               onChange={(url) => patch({ banner_url: url })}
               pathPrefix="providers/banner"
               variant="banner"
             />
             <GalleryField
-              label="Gallery"
+              label={tr("Gallery")}
               value={values.gallery_urls ?? []}
               onChange={(urls) => patch({ gallery_urls: urls })}
               pathPrefix="providers/gallery"
@@ -123,23 +124,23 @@ export function ProviderEditDialog({
 
           {/* Location & hours */}
           <DialogBlock>
-            <SectionTitle>Location &amp; hours</SectionTitle>
+            <SectionTitle>{tr("Location & hours")}</SectionTitle>
             <div>
-              <Label>Location</Label>
+              <Label>{tr("Location")}</Label>
               <Input
                 value={values.location ?? ""}
                 onChange={(e) => patch({ location: e.target.value })}
-                placeholder="West End, Roatán…"
+                placeholder={tr("West End, Roatán…")}
               />
             </div>
           </DialogBlock>
 
           {/* Contact */}
           <DialogBlock>
-            <SectionTitle>Contact</SectionTitle>
+            <SectionTitle>{tr("Contact")}</SectionTitle>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
-                <Label>Phone</Label>
+                <Label>{tr("Phone")}</Label>
                 <Input
                   type="tel"
                   value={values.contact_phone ?? ""}
@@ -148,7 +149,7 @@ export function ProviderEditDialog({
                 />
               </div>
               <div>
-                <Label>Email</Label>
+                <Label>{tr("Email")}</Label>
                 <Input
                   type="email"
                   value={values.contact_email ?? ""}
@@ -165,12 +166,12 @@ export function ProviderEditDialog({
           {/* Admin — hidden for owner-facing views. */}
           {showAdminFields && (
             <DialogBlock>
-              <SectionTitle>Admin</SectionTitle>
+              <SectionTitle>{tr("Admin")}</SectionTitle>
               {/* Status is not edited here: Go live / Hide sit at the top of the
                   business with the checklist, so nothing goes live unseen. */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label>Sort order</Label>
+                  <Label>{tr("Sort order")}</Label>
                   <Input
                     type="number"
                     value={values.sort_order ?? 0}
@@ -183,10 +184,9 @@ export function ProviderEditDialog({
         </>
 
         <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button variant="ghost" onClick={() => onOpenChange(false)}>{tr("Cancel")}</Button>
           <Button onClick={onSave} disabled={!nameValid || !!saving}>
-            {saving && <Spinner size="sm" className="mr-2" />} Save
-          </Button>
+            {saving && <Spinner size="sm" className="mr-2" />}{" "}{tr("Save")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

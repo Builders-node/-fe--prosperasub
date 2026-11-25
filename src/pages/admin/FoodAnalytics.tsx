@@ -11,6 +11,7 @@ import { useRollupPeriod } from "@/hooks/useRollupPeriod";
 import { formatUSD } from "@/lib/pricing";
 import { effectiveFoodStatus } from "@/lib/subscriptionLifecycle";
 import { nowHN, todayHN } from "@/lib/timezone";
+import { tr, dfLocale } from "@/lib/tr";
 
 /**
  * Food, in the platform's one analytics layout (`AnalyticsView`).
@@ -60,7 +61,7 @@ const FoodAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
 
   if (isLoading || !rollup || !rollup.byKey["food"]) {
     return (
-      <AnalyticsShell embedded={embedded} title="Food — Analytics">
+      <AnalyticsShell embedded={embedded} title={tr("Food — Analytics")}>
         <PageLoader />
       </AnalyticsShell>
     );
@@ -71,38 +72,38 @@ const FoodAnalytics = ({ embedded = false }: { embedded?: boolean }) => {
   const rows = rowsInPeriod(allRows, period);
 
   return (
-    <AnalyticsShell embedded={embedded} title="Food — Analytics">
+    <AnalyticsShell embedded={embedded} title={tr("Food — Analytics")}>
       <AnalyticsView
-        monthLabel={format(nowHN(), "MMMM")}
+        monthLabel={format(nowHN(), "MMMM", { locale: dfLocale })}
         months={rollup.months}
-        series={[{ key: "food", label: figures?.label ?? "Food", values: figures.monthly, barClass: "bg-primary" }]}
+        series={[{ key: "food", label: figures?.label ?? tr("Food"), values: figures.monthly, barClass: "bg-primary" }]}
         figures={figures}
         period={periodFigures(allRows, period)}
         plans={{ rows: rankedByRevenue(groupRevenue(rows, (r) => r.planKey, (k) => names?.plans.get(k))) }}
         group={{
-          title: "Revenue by Restaurant",
+          title: tr("Revenue by Restaurant"),
           rows: rankedByRevenue(groupRevenue(rows, (r) => r.providerKey, (k) => names?.providers.get(k))),
-          emptyMessage: "No restaurant has earned anything yet.",
+          emptyMessage: tr("No restaurant has earned anything yet."),
         }}
         details={{
-          title: "Food deliveries",
+          title: tr("Food deliveries"),
           children: (
             <div className="space-y-6">
               <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <StatItem label="MRR (active subs)" value={formatUSD(extras?.mrrCents ?? 0)} />
-                <StatItem label="Avg weekly price" value={formatUSD(extras?.avgWeeklyCents ?? 0)} />
-                <StatItem label="Deliveries logged" value={String(extras?.deliveries ?? 0)} />
-                <StatItem label="Tips collected" value={formatUSD(extras?.tipsCents ?? 0)} />
+                <StatItem label={tr("MRR (active subs)")} value={formatUSD(extras?.mrrCents ?? 0)} />
+                <StatItem label={tr("Avg weekly price")} value={formatUSD(extras?.avgWeeklyCents ?? 0)} />
+                <StatItem label={tr("Deliveries logged")} value={String(extras?.deliveries ?? 0)} />
+                <StatItem label={tr("Tips collected")} value={formatUSD(extras?.tipsCents ?? 0)} />
               </dl>
               {/* Where the food goes. No other service records a delivery
                   address on the subscription, so this stays in food's own
                   section rather than becoming a slot the others leave empty. */}
               <div className="space-y-3">
-                <h3 className="text-[16px] leading-[22px] text-muted-foreground">Revenue by location</h3>
+                <h3 className="text-[16px] leading-[22px] text-muted-foreground">{tr("Revenue by location")}</h3>
                 <RankedBarList
-                  rows={rankedByRevenue(groupRevenue(rows, (r) => r.locationKey, (k) => k, "No location"))}
+                  rows={rankedByRevenue(groupRevenue(rows, (r) => r.locationKey, (k) => k, tr("No location")))}
                   formatValue={formatUSD}
-                  emptyMessage="No revenue by location yet."
+                  emptyMessage={tr("No revenue by location yet.")}
                 />
               </div>
             </div>
