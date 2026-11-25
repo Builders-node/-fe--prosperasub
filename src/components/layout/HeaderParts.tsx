@@ -4,6 +4,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCart } from "@/contexts/CartContext";
 import { useFavorites } from "@/lib/favorites/useFavorites";
 import { useUnreadCount } from "@/hooks/useNotifications";
+import { useBonusBalance } from "@/hooks/useBonusBalance";
+import { formatUSD } from "@/lib/pricing";
+import { Gift } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { HeaderBadge } from "@/components/layout/HeaderBadge";
 import { HEADER_ACTION_CLASS, HEADER_ACTION_ICON_CLASS } from "@/components/layout/headerAction";
@@ -24,6 +27,8 @@ export interface HeaderSession {
   favorites: number;
   cart: number;
   unread: number;
+  /** Bonus balance in cents — shown beside the account when there is some. */
+  bonusCents: number;
   /** The avatar's letter. */
   initial: string;
 }
@@ -33,12 +38,14 @@ export function useHeaderSession(): HeaderSession {
   const { count: cart } = useCart();
   const { count: favorites } = useFavorites();
   const { data: unread = 0 } = useUnreadCount();
+  const { balanceCents } = useBonusBalance();
   const name = userData?.name || userData?.display_name || "";
   return {
     status: isLoading ? "loading" : isAuthenticated ? "signedIn" : "signedOut",
     favorites,
     cart,
     unread: isAuthenticated ? unread : 0,
+    bonusCents: isAuthenticated ? balanceCents : 0,
     initial: (name.trim()[0] ?? "U").toUpperCase(),
   };
 }
@@ -87,6 +94,29 @@ export function HeaderLoginButton({ onClick, label = "Log in" }: { onClick: () =
     >
       {label}
     </button>
+  );
+}
+
+/**
+ * The bonus balance, as a pill beside the account — the "points next to the
+ * avatar" pattern. Only when there is some: an empty pill would advertise a
+ * reward nobody has been told how to earn. Opens the account's bonus section.
+ */
+export function HeaderBonusChip({ cents, compact = false }: { cents: number; compact?: boolean }) {
+  if (cents <= 0) return null;
+  const amount = formatUSD(cents);
+  return (
+    <Link
+      to="/account?section=referrals"
+      aria-label={`Bonus balance ${amount}`}
+      className={cn(
+        "inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full bg-primary/10 font-semibold tabular-nums text-primary transition-colors hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        compact ? "px-2.5 text-meta" : "px-3 text-body",
+      )}
+    >
+      <Gift className="h-4 w-4 shrink-0" />
+      {amount}
+    </Link>
   );
 }
 

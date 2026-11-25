@@ -8,6 +8,7 @@ import { QueryError } from "@/components/patterns/QueryError";
 import { YdEmptyState } from "@/components/yd/YdPrimitives";
 import { useReferrals, useClaimReferral, referralLinkFor } from "@/hooks/useReferrals";
 import { useI18n, type TranslationKey } from "@/i18n";
+import { useBonusRules } from "@/hooks/useBonusRules";
 
 /**
  * "Bring a neighbour" — the account screen for it.
@@ -41,6 +42,7 @@ export function ReferralPanel() {
   const claim = useClaimReferral();
   const [copied, setCopied] = useState(false);
   const [enteredCode, setEnteredCode] = useState("");
+  const bonusRules = useBonusRules();
 
   if (isLoading) {
     return <div className="flex justify-center py-12"><Spinner /></div>;
@@ -121,6 +123,22 @@ export function ReferralPanel() {
 
   return (
     <div className="space-y-2">
+      {/* Cashback — the other way the balance grows. Only once it is on. */}
+      {bonusRules.cashbackPct > 0 && (
+        <section className="flex items-start gap-3 rounded-radius-md bg-card p-4 shadow-figma">
+          <Gift className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+          <div className="min-w-0">
+            <p className="text-title font-semibold text-foreground">
+              {bonusRules.cashbackPct}% back on every paid order
+            </p>
+            <p className="mt-0.5 text-meta text-muted-foreground">
+              It lands in your bonus balance and pays for {bonusRules.maxSharePct < 100 ? `up to ${bonusRules.maxSharePct}% of ` : ""}your next order or renewal at checkout.
+              {hasCredit ? ` You have ${usd(data.balanceCents)}.` : ""}
+            </p>
+          </div>
+        </section>
+      )}
+
       {/* The offer, said once, in money. */}
       <section className="rounded-radius-md bg-card p-5 text-center shadow-figma">
         <span className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-radius-md bg-inset">

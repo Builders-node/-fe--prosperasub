@@ -164,6 +164,10 @@ export function buildSubscriptionWrite(
         is_active: false,
         subscription_status: "pending_payment",
         apartment_note: a.address || null,
+        // `cleaning_subscriptions` has no `notes`: its "Access notes" column
+        // (gate code, keys, dog) is what the business reads, so the
+        // customer's comment goes there. It used to be dropped.
+        admin_notes: a.notes || null,
         customer_whatsapp: a.phone || null,
         ...promo,
         ...credit,

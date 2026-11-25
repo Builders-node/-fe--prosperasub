@@ -98,7 +98,9 @@ export async function fetchRenewalSubject(
       status: str(r.subscription_status),
       periods: Math.max(1, Number(r.billing_period_months) || 1),
       phone: str(r.customer_whatsapp),
-      notes: "",
+      // A cleaning keeps the customer's comment in admin_notes — the field
+      // the business edits as "Access notes" (see subscriptionWriter).
+      notes: str(r.admin_notes),
       address: str(r.apartment_note),
     };
   }
