@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ArrowDown, ArrowUp, ChevronDown, ExternalLink, LayoutGrid, Plus, Search, Trash2, X } from "lucide-react";
+import { ChevronDown, ExternalLink, LayoutGrid, Plus, Search, Trash2, X } from "lucide-react";
 
 import SuperAdminLayout from "@/components/admin/SuperAdminLayout";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,7 @@ import { planIndex, planPhotos, useHomePlans, type HomePlan } from "@/components
 import { collectionHref, offersLabel } from "@/lib/collections";
 import { useTagDictionary } from "@/lib/tags";
 import { useConfirm } from "@/components/patterns/ConfirmDialog";
+import { DragHandle, useDragOrder } from "@/hooks/useDragOrder";
 
 /**
  * Collections — "Popular", "Date night", "For families". Each is a shelf on
@@ -28,7 +29,8 @@ import { useConfirm } from "@/components/patterns/ConfirmDialog";
  * own, /collections/<address>, with a cover, a few sentences and every offer
  * (Edge routes/collections.ts, tables home_collections + _plans).
  *
- * One row per collection, in the order they show on the home page; a row opens
+ * One row per collection, in the order they show on the home page (drag the
+ * handle, as on Services; arrow keys on a focused handle); a row opens
  * into its editor. Only live, public offers can be picked — the same list the
  * site draws from — so a collection can never point at something a customer
  * cannot buy.
@@ -65,7 +67,7 @@ export default function Collections() {
   });
   const { data: plans = [] } = useHomePlans();
   const index = useMemo(() => planIndex(plans), [plans]);
-  const rows = data?.rows ?? [];
+  const rows = useMemo(() => data?.rows ?? [], [data]);
   const [open, setOpen] = useState<string | null>(null);
   const refresh = () => {
     void qc.invalidateQueries({ queryKey: KEY });
@@ -79,21 +81,24 @@ export default function Collections() {
     onError: (e: Error) => toast.error(e.message || "Could not create it"),
   });
 
-  const move = useMutation({
-    mutationFn: async ({ from, to }: { from: number; to: number }) => {
-      const order = [...rows];
-      const [it] = order.splice(from, 1);
-      order.splice(to, 0, it);
-      await Promise.all(order.map((r, i) => r.sortOrder === i ? null : call(`/admin/collections/${r.id}`, "PATCH", { sortOrder: i })));
+  // Order: local while dragging, written once on drop — the Services pattern.
+  const [order, setOrder] = useState<string[]>([]);
+  useEffect(() => { setOrder(rows.map((r) => r.id)); }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
+  const byId = useMemo(() => new Map(rows.map((r) => [r.id, r])), [rows]);
+  const ordered = order.map((id) => byId.get(id)).filter((r): r is Shelf => !!r);
+  const saveOrder = useMutation({
+    mutationFn: async (ids: string[]) => {
+      await Promise.all(ids.map((id, i) => byId.get(id)?.sortOrder === i ? null : call(`/admin/collections/${id}`, "PATCH", { sortOrder: i })));
     },
     onSuccess: refresh,
-    onError: (e: Error) => toast.error(e.message || "Could not reorder"),
+    onError: (e: Error) => { toast.error(e.message || "Could not reorder"); refresh(); },
   });
+  const drag = useDragOrder(order, setOrder, (ids) => saveOrder.mutate(ids), "rows");
 
   return (
     <SuperAdminLayout
       title="Collections"
-      subtitle="Hand-picked offers. Each is a shelf on the home page and a page of its own."
+      subtitle="Hand-picked offers. Each is a shelf on the home page and a page of its own. Drag to set the order."
       actions={<Button size="sm" variant="secondary" asChild><Link to="/collections" target="_blank"><ExternalLink className="h-4 w-4" /> View on site</Link></Button>}
     >
       {data && !data.enabled && (
@@ -135,18 +140,17 @@ export default function Collections() {
           </div>
         )
       ) : (
-        <div className="space-y-2">
-          {rows.map((r, i) => (
+        <div ref={drag.listRef as React.RefObject<HTMLDivElement>} className="space-y-2">
+          {ordered.map((r) => (
             <ShelfRow
               key={r.id}
+              dragging={drag.draggingKey === r.id}
+              handle={<DragHandle label={r.title} {...drag.handleProps(r.id)} />}
               shelf={r}
               plans={plans}
               index={index}
               open={open === r.id}
               onToggle={() => setOpen(open === r.id ? null : r.id)}
-              onMove={(dir) => move.mutate({ from: i, to: i + dir })}
-              canUp={i > 0}
-              canDown={i < rows.length - 1}
               onChanged={refresh}
               tagsReady={!!data?.tagsReady}
               pagesReady={!!data?.pagesReady}
@@ -159,10 +163,10 @@ export default function Collections() {
 }
 
 function ShelfRow({
-  shelf, plans, index, open, onToggle, onMove, canUp, canDown, onChanged, tagsReady, pagesReady,
+  shelf, plans, index, open, onToggle, handle, dragging, onChanged, tagsReady, pagesReady,
 }: {
   shelf: Shelf; plans: HomePlan[]; index: Map<string, HomePlan>; open: boolean; onToggle: () => void;
-  onMove: (dir: -1 | 1) => void; canUp: boolean; canDown: boolean; onChanged: () => void;
+  handle: React.ReactNode; dragging: boolean; onChanged: () => void;
   tagsReady: boolean; pagesReady: boolean;
 }) {
   const [confirm, confirmDialog] = useConfirm();
@@ -180,10 +184,11 @@ function ShelfRow({
   });
 
   return (
-    <section className={cn("overflow-hidden rounded-radius-lg bg-card", open && "ring-1 ring-border")}>
+    <section data-drag-key={shelf.id} className={cn("overflow-hidden rounded-radius-lg bg-card transition-shadow", open && "ring-1 ring-border", dragging && "relative z-10 outline outline-1 -outline-offset-1 outline-primary/40 shadow-figma")}>
       {confirmDialog}
-      {/* The row: cover, name, what is on it, on/off, order. */}
-      <div className="flex items-center gap-3 p-3">
+      {/* The row: grip, cover, name, what is on it, on/off. */}
+      <div className="flex items-center gap-2 p-3 pl-1.5 sm:gap-3">
+        {handle}
         <button type="button" onClick={onToggle} className="flex min-w-0 flex-1 items-center gap-3 text-left" aria-expanded={open}>
           <CollectionCover coverUrl={shelf.coverUrl} plans={all} className="h-14 w-20 shrink-0 rounded-radius-md" />
           <span className="min-w-0 flex-1">
@@ -200,10 +205,6 @@ function ShelfRow({
           <Switch checked={shelf.isActive} onCheckedChange={(v) => patch.mutate({ isActive: v })} aria-label="On site" />
           <span className="hidden w-12 sm:inline">{shelf.isActive ? "On site" : "Hidden"}</span>
         </label>
-        <div className="hidden shrink-0 items-center sm:flex">
-          <IconBtn label="Move up" disabled={!canUp} onClick={() => onMove(-1)}><ArrowUp className="h-4 w-4" /></IconBtn>
-          <IconBtn label="Move down" disabled={!canDown} onClick={() => onMove(1)}><ArrowDown className="h-4 w-4" /></IconBtn>
-        </div>
       </div>
 
       {open && (
@@ -223,10 +224,6 @@ function ShelfRow({
               <span className="text-meta text-muted-foreground">Hidden: not on the home page and its page does not open. Switch it on when it is ready.</span>
             )}
             <span className="flex-1" />
-            <span className="flex items-center sm:hidden">
-              <IconBtn label="Move up" disabled={!canUp} onClick={() => onMove(-1)}><ArrowUp className="h-4 w-4" /></IconBtn>
-              <IconBtn label="Move down" disabled={!canDown} onClick={() => onMove(1)}><ArrowDown className="h-4 w-4" /></IconBtn>
-            </span>
             <Button size="sm" variant="secondary" loading={remove.isPending}
               onClick={async () => {
                 if (await confirm({ title: `Delete “${shelf.title}”?`, description: "The offers stay; only this collection and its page go.", confirmLabel: "Delete collection" })) remove.mutate();
@@ -332,18 +329,16 @@ function TagFill({ shelf, plans, onPick }: { shelf: Shelf; plans: HomePlan[]; on
 function Offers({ shelf, plans, index, onChanged }: {
   shelf: Shelf; plans: HomePlan[]; index: Map<string, HomePlan>; onChanged: () => void;
 }) {
-  const ids = shelf.planIds;
+  // Local while dragging, saved once on drop.
+  const [ids, setIds] = useState<string[]>(shelf.planIds);
+  useEffect(() => setIds(shelf.planIds), [shelf.planIds]);
   const [q, setQ] = useState("");
   const setPlans = useMutation({
     mutationFn: (planIds: string[]) => call(`/admin/collections/${shelf.id}/plans`, "PUT", { planIds }),
     onSuccess: onChanged,
     onError: (e: Error) => toast.error(e.message || "Could not save the offers"),
   });
-  const swap = (i: number, j: number) => {
-    const next = [...ids];
-    [next[i], next[j]] = [next[j], next[i]];
-    setPlans.mutate(next);
-  };
+  const drag = useDragOrder(ids, setIds, (next) => setPlans.mutate(next), "rows");
   const needle = q.trim().toLowerCase();
   const available = plans
     .filter((p) => !ids.includes(p.id))
@@ -353,8 +348,8 @@ function Offers({ shelf, plans, index, onChanged }: {
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       <div className="space-y-2">
-        <p className="text-label text-foreground">In this collection <span className="text-muted-foreground">· {ids.length} of {MAX_PLANS} · first 8 show on the home page</span></p>
-        <div className="max-h-[420px] space-y-0.5 overflow-y-auto rounded-radius-md bg-background p-1">
+        <p className="text-label text-foreground">In this collection <span className="text-muted-foreground">· {ids.length} of {MAX_PLANS} · drag to reorder · first 8 show on the home page</span></p>
+        <div ref={drag.listRef as React.RefObject<HTMLDivElement>} className="max-h-[420px] space-y-0.5 overflow-y-auto rounded-radius-md bg-background p-1">
           {ids.length === 0 && (
             <p className="p-3 text-meta text-muted-foreground">
               {shelf.tagKey ? "No hand-picked offers — the tag fills it." : "Nothing yet. Pick offers on the right — a collection with none is not shown."}
@@ -363,7 +358,12 @@ function Offers({ shelf, plans, index, onChanged }: {
           {ids.map((id, i) => {
             const p = index.get(id);
             return (
-              <div key={id} className={cn("flex items-center gap-2 rounded-radius-sm px-2 py-1.5", i === 7 && ids.length > 8 && "border-b border-dashed border-border pb-2")}>
+              <div key={id} data-drag-key={id} className={cn(
+                "flex items-center gap-2 rounded-radius-sm py-1.5 pl-0.5 pr-2",
+                i === 7 && ids.length > 8 && "border-b border-dashed border-border pb-2",
+                drag.draggingKey === id && "relative z-10 bg-inset outline outline-1 -outline-offset-1 outline-primary/40",
+              )}>
+                <DragHandle label={p?.name ?? "offer"} {...drag.handleProps(id)} />
                 <span className="w-5 shrink-0 text-meta tabular-nums text-muted-foreground">{i + 1}</span>
                 <Photo src={p ? planPhotos(p)[0] : null} className="h-9 w-9 shrink-0 rounded-radius-sm object-cover" />
                 <span className="min-w-0 flex-1">
@@ -372,8 +372,6 @@ function Offers({ shelf, plans, index, onChanged }: {
                     {p ? [p.provider?.name, p.price_cents ? formatUSD(p.price_cents) : null].filter(Boolean).join(" · ") : "Hidden from the site until it is live again"}
                   </span>
                 </span>
-                <IconBtn label="Up" disabled={i === 0} onClick={() => swap(i, i - 1)}><ArrowUp className="h-4 w-4" /></IconBtn>
-                <IconBtn label="Down" disabled={i === ids.length - 1} onClick={() => swap(i, i + 1)}><ArrowDown className="h-4 w-4" /></IconBtn>
                 <IconBtn label="Remove" onClick={() => setPlans.mutate(ids.filter((x) => x !== id))}><X className="h-4 w-4" /></IconBtn>
               </div>
             );
